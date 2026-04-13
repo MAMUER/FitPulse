@@ -195,8 +195,8 @@ def main():
 
     # 4. Post-logout
     section("4. POST-LOGOUT")
-    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
-    t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=404)
+    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=401)
+    t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=401)
 
     # Re-login
     lr = t.test("Re-login", "POST", "/api/v1/login",
