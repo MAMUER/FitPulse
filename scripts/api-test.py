@@ -19,7 +19,7 @@ from datetime import datetime
 
 # === Configuration ===
 DEFAULT_BASE_URL = "https://localhost:8443"
-TEST_PASSWORD = os.getenv("TEST_PASSWORD", "")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD", "TestPass123!")
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
