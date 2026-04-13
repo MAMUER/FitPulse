@@ -61,12 +61,12 @@
 └──┬───┬───┬───┘
    │   │   │
    ▼   ▼   ▼
-┌─────┐ ┌──────┐ ┌────────┐ ┌────────┐
-│User │ │Bio   │ │Training│ │Doctor  │  gRPC services
-│Svc  │ │Svc   │ │Svc     │ │Svc     │
-└──┬──┘ └──┬───┘ └───┬────┘ └───┬────┘
-   │       │         │          │
-   ▼       ▼         ▼          ▼
+┌─────┐ ┌──────┐ ┌────────┐
+│User │ │Bio   │ │Training│    gRPC services
+│Svc  │ │Svc   │ │Svc     │
+└──┬──┘ └──┬───┘ └───┬────┘
+   │       │         │
+   ▼       ▼         ▼
 ┌──────────────────────────────────────┐
 │           PostgreSQL 15              │
 └──────────────────────────────────────┘
@@ -91,7 +91,6 @@
 | User Service | Go, gRPC | 50051 | Регистрация, авторизация, профили, email-верификация, invite-коды |
 | Biometric Service | Go, gRPC | 50052 | Сбор и хранение биометрических данных |
 | Training Service | Go, gRPC | 50053 | Управление тренировочными планами |
-| Doctor Service | Go, gRPC | 50054 | Чат, назначения, модификация тренировок, подписки |
 | Device Connector | Go, HTTP | 8082 | Подключение внешних устройств |
 | Device Emulator | Go | — | Эмуляция носимых устройств |
 | ML Classifier | Python, FastAPI | 8001 | Классификация состояния (6 классов) |
@@ -186,7 +185,7 @@ go run ./cmd/device-emulator \
 ### 6. Входные и выходные данные
 
 **Входные данные:**
-- Данные пользователя: email, пароль, ФИО, роль (client, doctor, admin)
+- Данные пользователя: email, пароль, ФИО, роль (client, admin)
 - Invite-код для регистрации врача/админа
 - Биометрические данные: тип метрики (heart_rate, spo2, temperature, ecg, blood_pressure, sleep, steps, hrv), значение, timestamp, устройство
 - Параметры профиля: возраст, пол, рост, вес, уровень подготовки, цели, противопоказания, питание, сон
@@ -270,7 +269,7 @@ go run ./cmd/device-emulator \
 - чат между врачом и пациентом;
 - создание назначений врачом;
 - редактирование тренировочного плана врачом;
-- разграничение ролей (client, doctor, admin);
+- разграничение ролей (client, admin);
 - логирование всех операций (zap, уровень info/warn/error);
 - HMAC-SHA256 подпись критических ответов;
 - принудительную инвалидацию сессии при logout;
@@ -291,7 +290,6 @@ go run ./cmd/device-emulator \
 | User Service | Регистрация, логин, профили, email-верификация, invite-коды |
 | Biometric Service | Приём и хранение биометрических данных |
 | Training Service | CRUD тренировочных планов, история, достижения |
-| Doctor Service | Чат, назначения, модификация тренировок, подписки, консультации |
 | Device Connector | Подключение и приём данных с носимых устройств |
 | Device Emulator | Эмуляция Apple Watch, Samsung, Huawei, Amazfit |
 | ML Classifier | Классификация состояния (6 классов, Keras, TensorFlow) |
@@ -345,7 +343,7 @@ go run ./cmd/device-emulator \
 - пароль: min 8 символов
 - invite-код: формат `ROLE-YYYY-<hash>`, max 50 символов
 - биометрия: heart_rate (30–220), spo2 (70–100), temperature (35.5–38.5), blood_pressure (80–200 / 50–130)
-- роль: client, doctor, admin
+- роль: client, admin
 - устройство: apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3
 
 **4.5.2.** Выходные данные: JSON (UTF-8), Protobuf (binary).
@@ -379,7 +377,7 @@ go run ./cmd/device-emulator \
 |--------|-----------|------|
 | Техническое задание | Настоящий документ | — |
 | Эскизный проект | Архитектура, Protobuf-контракты | — |
-| Технический проект | Реализация микросервисов, ML-моделей, Doctor Service, Device Emulator | — |
+| Технический проект | Реализация микросервисов, ML-моделей, Device Emulator | — |
 | Внедрение | Docker Compose, Kubernetes манифесты, CI/CD Pipeline | — |
 | Опытная эксплуатация | Тестирование, нагрузочные тесты (k6), security-сканирование | — |
 
@@ -443,14 +441,11 @@ go run ./cmd/device-emulator \
 
 ## Система invite-кодов
 
-Вместо открытой регистрации врачи и администраторы регистрируются через **уникальные коды приглашения**:
+Вместо открытой регистрации администраторы регистрируются через **уникальные коды приглашения**:
 
-| Код | Роль | Специальность | Лимит |
-|-----|------|--------------|-------|
-| `DOCTOR-2026-SPORT-MED-001` | doctor | sports_medicine | 1 |
-| `DOCTOR-2026-REHAB-002` | doctor | rehabilitation | 1 |
-| `DOCTOR-2026-GENERAL-003` | doctor | general_practice | 5 |
-| `ADMIN-2026-SETUP-ROOT-001` | admin | — | 1 |
+| Код | Роль | Лимит |
+|-----|------|-------|
+| `ADMIN-2026-SETUP-ROOT-001` | admin | 1 |
 
 API для валидации: `POST /api/v1/invite/validate`
 Регистрация: `POST /api/v1/register/invite`
@@ -538,17 +533,6 @@ API для валидации: `POST /api/v1/invite/validate`
 | POST | `/ml/classify` | Классификация состояния |
 | POST | `/ml/generate-plan` | Генерация плана (GAN) |
 
-### Врач (JWT + подписка)
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/api/v1/doctors` | Список врачей |
-| POST | `/api/v1/doctor/subscribe` | Подписка на врача |
-| POST | `/api/v1/doctor/message` | Отправить сообщение |
-| GET | `/api/v1/doctor/messages` | История чата |
-| GET | `/api/v1/doctor/prescriptions` | Получить назначения |
-| POST | `/api/v1/doctor/training/modify` | Изменить тренировку |
-
 ### Админ (JWT + role=admin)
 
 | Метод | Путь | Описание |
@@ -565,7 +549,6 @@ API для валидации: `POST /api/v1/invite/validate`
 │   ├── user-service/       # User Service (gRPC)
 │   ├── biometric-service/  # Biometric Service (gRPC)
 │   ├── training-service/   # Training Service (gRPC)
-│   ├── doctor-service/     # Doctor Consultant Service (gRPC)
 │   ├── device-connector/   # Device Connector (HTTP)
 │   ├── device-emulator/    # Wearable Device Emulator
 │   ├── data-processor/     # RabbitMQ Consumer
@@ -590,10 +573,10 @@ API для валидации: `POST /api/v1/invite/validate`
 ├── web/                    # Фронтенд (мобильное веб-приложение)
 │   ├── index.html          # SPA (6 вкладок)
 │   ├── static/css/         # main.css, modules.css
-│   └── static/js/          # api.js, app.js, doctor.js, modules.js
+│   └── static/js/          # api.js, app.js, modules.js
 ├── scripts/                # БД, тесты, миграции
 │   ├── init-db.sql         # Схема БД (8 таблиц)
-│   └── migrations/         # 001_doctor, 002_invite_codes
+│   └── migrations/         # 002_invite_codes
 ├── configs/k8s/            # Kubernetes манифесты
 ├── deployments/            # Docker Compose
 ├── deploy/                 # NGINX, TLS
