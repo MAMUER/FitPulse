@@ -17,7 +17,7 @@ var (
 	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
 	ErrFullNameRequired = errors.New("full name is required")
 	ErrRoleRequired     = errors.New("role is required")
-	ErrInvalidRole      = errors.New("invalid role, must be client, admin, or doctor")
+	ErrInvalidRole      = errors.New("invalid role, must be client or admin")
 	ErrAgeOutOfRange    = errors.New("age must be between 0 and 150")
 	ErrHeightOutOfRange = errors.New("height_cm must be between 50 and 300")
 	ErrWeightOutOfRange = errors.New("weight_kg must be between 1 and 500")
@@ -56,7 +56,7 @@ func ValidateRegisterRequest(req *pb.RegisterRequest) error {
 	if req.Role == "" {
 		return status.Error(codes.InvalidArgument, ErrRoleRequired.Error())
 	}
-	validRoles := map[string]bool{"client": true, "admin": true, "doctor": true}
+	validRoles := map[string]bool{"client": true, "admin": true}
 	if !validRoles[req.Role] {
 		return status.Error(codes.InvalidArgument, ErrInvalidRole.Error())
 	}

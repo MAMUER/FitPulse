@@ -332,16 +332,6 @@ func TestValidateRegisterRequest(t *testing.T) {
 			},
 			wantCode: codes.OK,
 		},
-		{
-			name: "valid doctor role",
-			req: &userpb.RegisterRequest{
-				Email:    "doctor@example.com",
-				Password: "securepass123",
-				FullName: "Doctor User",
-				Role:     "doctor",
-			},
-			wantCode: codes.OK,
-		},
 	}
 
 	for _, tt := range tests {

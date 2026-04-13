@@ -39,18 +39,6 @@ func TestUser(t *testing.T) {
 				UpdatedAt:    now,
 			},
 		},
-		{
-			name: "doctor user",
-			user: User{
-				ID:           "doctor-789",
-				Email:        "doctor@example.com",
-				FullName:     "Doctor User",
-				Role:         "doctor",
-				PasswordHash: "hashed_doctor_password",
-				CreatedAt:    now,
-				UpdatedAt:    now,
-			},
-		},
 	}
 
 	for _, tt := range tests {

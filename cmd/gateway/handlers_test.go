@@ -587,14 +587,10 @@ func TestRegisterWithInviteHandler_Success(t *testing.T) {
 		Return(&userpb.RegisterResponse{UserId: "user-123", Message: "Registration successful"}, nil).Once()
 
 	body := jsonBody(t, map[string]string{
-		"email":          "test@example.com",
-		"password":       "password123",
-		"full_name":      "Test User",
-		"invite_code":    "ABC123",
-		"license_number": "LIC-001",
-		"specialty":      "cardiology",
-		"phone":          "+79001234567",
-		"bio":            "Doctor with 10 years experience",
+		"email":       "test@example.com",
+		"password":    "password123",
+		"full_name":   "Test User",
+		"invite_code": "ABC123",
 	})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/register/invite", body)
 	req.Header.Set("Content-Type", "application/json")
@@ -646,8 +642,8 @@ func TestValidateInviteCodeHandler_Success(t *testing.T) {
 	mockUser.On("ValidateInviteCode", mock.Anything, mock.AnythingOfType("*user.ValidateInviteCodeRequest")).
 		Return(&userpb.ValidateInviteCodeResponse{
 			IsValid:   true,
-			Role:      "doctor",
-			Specialty: "cardiology",
+			Role:      "admin",
+			Specialty: "",
 		}, nil).Once()
 
 	body := jsonBody(t, map[string]string{"code": "ABC123"})
@@ -661,8 +657,7 @@ func TestValidateInviteCodeHandler_Success(t *testing.T) {
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.True(t, resp["is_valid"].(bool))
-	assert.Equal(t, "doctor", resp["role"])
-	assert.Equal(t, "cardiology", resp["specialty"])
+	assert.Equal(t, "admin", resp["role"])
 	mockUser.AssertExpectations(t)
 }
 

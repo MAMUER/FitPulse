@@ -146,6 +146,6 @@ async function logout() {
     }
 }
 
-// Export shared functions for use by other modules (doctor.js, etc.)
+// Export shared functions for use by other modules
 window.apiRequest = apiRequest;
 window.setAuthToken = setAuthToken;

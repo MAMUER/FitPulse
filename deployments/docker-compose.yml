@@ -235,28 +235,6 @@ services:
       - fitness-network
     restart: unless-stopped
 
-  doctor-service:
-    build:
-      context: ..
-      dockerfile: cmd/doctor-service/Dockerfile
-    container_name: fitness-doctor-service
-    ports:
-      - "${DOCTOR_SERVICE_PORT:-50054}:50054"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
-      - DB_NAME=${DB_NAME:-fitness}
-      - DB_SSLMODE=disable
-      - DOCTOR_SERVICE_PORT=50054
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - fitness-network
-    restart: unless-stopped
-
   gateway:
     build:
       context: ..
@@ -281,7 +259,6 @@ services:
       - user-service
       - biometric-service
       - training-service
-      - doctor-service
       - device-connector
       - ml-classifier
       - ml-generator

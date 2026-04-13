@@ -488,19 +488,6 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
-	// Для doctors — создаём запись в doctors table
-	if finalRole == "doctor" {
-		doctorID := uuid.New().String()
-		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO doctors (id, email, full_name, specialty, license_number, phone, bio, is_active)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-		`, doctorID, sanitize.String(req.GetEmail()), sanitize.String(req.GetFullName()), specialty, req.GetLicenseNumber(), req.GetPhone(), req.GetBio())
-		if err != nil {
-			s.log.Error("Failed to create doctor record", zap.Error(err))
-			return nil, status.Error(codes.Internal, "failed to create doctor profile")
-		}
-	}
-
 	// Генерируем JWT (токен возвращается при login, не при регистрации)
 	_, err = auth.GenerateJWT(userID, req.GetEmail(), finalRole, s.secret, 24)
 	if err != nil {
