@@ -532,6 +532,7 @@ body {
     color: var(--text-primary);
     font-size: 17px;
     outline: none;
+    appearance: none;
     -webkit-appearance: none;
 }
 
