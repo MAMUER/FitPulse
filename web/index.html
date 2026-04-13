@@ -163,17 +163,19 @@
 
                 <!-- Профиль -->
                 <div id="profileView" class="view">
-                    <form id="profileForm" class="profile-form">
+                    <form id="profileForm" class="profile-form" novalidate>
                         <div class="form-section">
                             <h3>Основное</h3>
                             <div class="form-group">
-                                <label>Имя</label>
-                                <input type="text" id="profName" placeholder="Ваше имя">
+                                <label>Никнейм *</label>
+                                <input type="text" id="profNickname" placeholder="Ваш никнейм" maxlength="30" required>
+                                <div class="field-error" id="profNicknameError"></div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Возраст</label>
-                                    <input type="number" id="profAge" placeholder="30" min="10" max="100">
+                                    <input type="number" id="profAge" placeholder="30" min="10" max="100" inputmode="numeric">
+                                    <div class="field-error" id="profAgeError"></div>
                                 </div>
                                 <div class="form-group">
                                     <label>Пол</label>
@@ -191,11 +193,13 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Рост, см</label>
-                                    <input type="number" id="profHeight" placeholder="175" min="50" max="300">
+                                    <input type="number" id="profHeight" placeholder="175" min="50" max="300" inputmode="numeric">
+                                    <div class="field-error" id="profHeightError"></div>
                                 </div>
                                 <div class="form-group">
                                     <label>Вес, кг</label>
-                                    <input type="number" id="profWeight" placeholder="70" min="20" max="500" step="0.1">
+                                    <input type="number" id="profWeight" placeholder="70" min="20" max="500" step="0.1" inputmode="decimal">
+                                    <div class="field-error" id="profWeightError"></div>
                                 </div>
                             </div>
                         </div>
@@ -212,22 +216,35 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Питание</label>
-                                <input type="text" id="profNutrition" placeholder="Сбалансированное">
+                                <label>Тип питания</label>
+                                <select id="profNutrition">
+                                    <option value="">—</option>
+                                    <option value="balanced">Сбалансированное</option>
+                                    <option value="high_protein">Высокобелковое</option>
+                                    <option value="vegetarian">Вегетарианское</option>
+                                    <option value="vegan">Веганское</option>
+                                    <option value="keto">Кето</option>
+                                    <option value="paleo">Палео</option>
+                                </select>
+                                <div class="field-error" id="profNutritionError"></div>
                             </div>
                             <div class="form-group">
-                                <label>Сон, часов</label>
-                                <input type="number" id="profSleep" placeholder="7.5" step="0.5" min="0" max="24">
+                                <label>Сон</label>
+                                <div class="sleep-info">Данные поступают с подключённого устройства</div>
+                                <div id="profSleepDisplay" class="sleep-display" style="display: none;">
+                                    <span class="sleep-value" id="profSleepValue">--</span>
+                                    <span class="sleep-source">с устройства</span>
+                                </div>
                             </div>
                         </div>
 
                         <div class="form-section">
-                            <h3>Цели</h3>
+                            <h3>Основная цель</h3>
                             <div class="goals-grid">
-                                <label class="goal-chip"><input type="checkbox" value="weight_loss"> Похудение</label>
-                                <label class="goal-chip"><input type="checkbox" value="muscle_gain"> Набор мышц</label>
-                                <label class="goal-chip"><input type="checkbox" value="endurance"> Выносливость</label>
-                                <label class="goal-chip"><input type="checkbox" value="flexibility"> Гибкость</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="weight_loss"> Похудение</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="muscle_gain"> Набор мышц</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="endurance"> Выносливость</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="flexibility"> Гибкость</label>
                             </div>
                         </div>
 
@@ -260,39 +277,13 @@
                     <button class="action-btn" id="connectDeviceBtn">Подключить устройство</button>
                 </div>
 
-                <!-- Врач -->
-                <div id="doctorView" class="view">
-                    <div class="tabs" id="doctorTabs">
-                        <div class="doctor-tab active" data-tab="doctors-list">Врачи</div>
-                        <div class="doctor-tab" data-tab="chat">Чат</div>
-                        <div class="doctor-tab" data-tab="prescriptions">Назначения</div>
-                    </div>
+                <!-- Достижения и Соревнования -->
+                <div id="achievementsView" class="view">
+                    <h3>🏆 Достижения</h3>
+                    <div id="achievementsList" class="achievements-grid"></div>
 
-                    <!-- Список врачей -->
-                    <div id="doctors-list" class="doctor-tab-content active">
-                        <div class="subscription-banner">
-                            <h3>Персональный врач</h3>
-                            <p>Получите индивидуальную консультацию и контроль тренировок</p>
-                            <button class="subscribe-btn" id="subscribeBtn">Подключить врача</button>
-                        </div>
-                        <div id="doctorsList"></div>
-                    </div>
-
-                    <!-- Чат с врачом -->
-                    <div id="chat" class="doctor-tab-content">
-                        <div class="chat-container">
-                            <div id="chatMessages" class="chat-messages"></div>
-                            <div class="chat-input-container">
-                                <input type="text" id="chatInput" class="chat-input" placeholder="Напишите сообщение...">
-                                <button id="chatSendBtn" class="chat-send-btn">➤</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Назначения -->
-                    <div id="prescriptions" class="doctor-tab-content">
-                        <div id="prescriptionsList"></div>
-                    </div>
+                    <h3 style="margin-top: 24px;">🏅 Соревнования</h3>
+                    <div id="competitionsList" class="competitions-list"></div>
                 </div>
 
                 <!-- Диета -->
@@ -351,14 +342,12 @@
                     </svg>
                     <span>Устройства</span>
                 </button>
-                <button class="tab" data-view="doctor">
+                <button class="tab" data-view="achievements">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4.8 2.3A.3.3 0 105 2H4a2 2 0 00-2 2v5a2 2 0 002 2h1"/>
-                        <path d="M6 8V4a2 2 0 012-2h4"/>
-                        <circle cx="18" cy="8" r="3"/>
-                        <path d="M22 21v-1a6 6 0 00-12 0v1"/>
+                        <circle cx="12" cy="8" r="7"/>
+                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
                     </svg>
-                    <span>Врач</span>
+                    <span>Достижения</span>
                 </button>
                 <button class="tab" data-view="diet">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -374,9 +363,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/js/chart.umd.min.js"></script>
     <script src="/static/js/api.js"></script>
-    <script src="/static/js/doctor.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/modules.js"></script>
 </body>

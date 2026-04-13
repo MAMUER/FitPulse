@@ -336,11 +336,11 @@ func TestUserServer_GetProfile(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{
 						"id", "email", "full_name", "role",
 						"age", "gender", "height_cm", "weight_kg", "fitness_level",
-						"goals", "contraindications", "created_at", "updated_at",
+						"goals", "nutrition", "sleep_hours", "created_at", "updated_at",
 					}).AddRow(
 						"user-123", "test@example.com", "Test User", "client",
 						30, "male", 180, 75.5, "intermediate",
-						"{weight_loss}", "{}", now, now,
+						"{weight_loss}", "balanced", 7.5, now, now,
 					))
 			},
 			wantCode: codes.OK,
@@ -413,12 +413,22 @@ func TestUserServer_UpdateProfile(t *testing.T) {
 				Goals:        []string{"muscle_gain"},
 			},
 			mockFn: func(mock sqlmock.Sqlmock) {
-				// Update profile
+				// Update profile (INSERT ... ON CONFLICT)
 				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO user_profiles")).
 					WithArgs(
 						"user-123", int32(31), "male", int32(180), 74.0, "advanced",
 						sqlmock.AnyArg(), sqlmock.AnyArg(),
 					).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+
+				// Delete old goals
+				mock.ExpectExec(regexp.QuoteMeta("DELETE FROM user_goals")).
+					WithArgs("user-123").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+
+				// Insert new goal
+				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO user_goals")).
+					WithArgs("user-123", "muscle_gain").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 
 				// Fetch updated profile
@@ -428,11 +438,11 @@ func TestUserServer_UpdateProfile(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{
 						"id", "email", "full_name", "role",
 						"age", "gender", "height_cm", "weight_kg", "fitness_level",
-						"goals", "contraindications", "created_at", "updated_at",
+						"goals", "nutrition", "sleep_hours", "created_at", "updated_at",
 					}).AddRow(
 						"user-123", "test@example.com", "Test User", "client",
 						31, "male", 180, 74.0, "advanced",
-						"{muscle_gain}", "{}", now, now,
+						"{muscle_gain}", "balanced", 7.5, now, now,
 					))
 			},
 			wantCode: codes.OK,

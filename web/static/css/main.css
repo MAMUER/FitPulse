@@ -574,6 +574,42 @@ body {
     height: 18px;
 }
 
+.goal-chip input[type="radio"] {
+    accent-color: var(--accent);
+    width: 18px;
+    height: 18px;
+}
+
+/* Sleep info */
+.sleep-info {
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.sleep-display {
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sleep-value {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--purple);
+}
+
+.sleep-source {
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
 /* ===== Training View ===== */
 .plans-list { display: flex; flex-direction: column; gap: 12px; }
 

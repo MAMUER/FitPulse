@@ -277,6 +277,24 @@ CREATE TABLE IF NOT EXISTS doctors (
 CREATE INDEX IF NOT EXISTS idx_doctors_specialty ON doctors(specialty);
 CREATE INDEX IF NOT EXISTS idx_doctors_active ON doctors(id) WHERE is_active = TRUE;
 
+-- Consultations (before doctor_reviews — FK dependency)
+CREATE TABLE IF NOT EXISTS consultations (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    doctor_id   UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    status      VARCHAR(20) NOT NULL DEFAULT 'scheduled'
+                    CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
+    scheduled_at TIMESTAMPTZ NOT NULL,
+    started_at  TIMESTAMPTZ,
+    ended_at    TIMESTAMPTZ,
+    notes       TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_consultations_user ON consultations(user_id);
+CREATE INDEX IF NOT EXISTS idx_consultations_doctor ON consultations(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(user_id, doctor_id, status);
+
 -- Doctor reviews (3NF — source of truth for rating, not stored in doctors table)
 CREATE TABLE IF NOT EXISTS doctor_reviews (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -308,25 +326,7 @@ CREATE TABLE IF NOT EXISTS doctor_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_doctor ON doctor_subscriptions(user_id, doctor_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON doctor_subscriptions(user_id, doctor_id)
-    WHERE is_active = TRUE AND expires_at > NOW();
-
--- Consultations
-CREATE TABLE IF NOT EXISTS consultations (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    doctor_id   UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-    status      VARCHAR(20) NOT NULL DEFAULT 'scheduled'
-                    CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
-    scheduled_at TIMESTAMPTZ NOT NULL,
-    started_at  TIMESTAMPTZ,
-    ended_at    TIMESTAMPTZ,
-    notes       TEXT,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_consultations_user ON consultations(user_id);
-CREATE INDEX IF NOT EXISTS idx_consultations_doctor ON consultations(doctor_id);
-CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(user_id, doctor_id, status);
+    WHERE is_active = TRUE;
 
 -- Consultation messages (3NF — explicit FK instead of polymorphic sender_id/sender_type)
 CREATE TABLE IF NOT EXISTS consultation_messages (

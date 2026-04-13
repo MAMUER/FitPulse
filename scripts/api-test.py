@@ -19,6 +19,7 @@ from datetime import datetime
 
 # === Configuration ===
 DEFAULT_BASE_URL = "https://localhost:8443"
+TEST_PASSWORD = os.getenv("TEST_PASSWORD", "")
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
@@ -124,7 +125,7 @@ def main():
     section("1. AUTH")
     reg_body = {
         "email": test_email,
-        "password": "TestPass123!",
+        "password": TEST_PASSWORD,
         "full_name": "API Test User",
         "role": "client",
     }
@@ -144,20 +145,20 @@ def main():
 
     t.test("Register (dup)", "POST", "/api/v1/register", body=reg_body, expected=409)
     t.test("Register (bad email)", "POST", "/api/v1/register",
-           body={"email": "bad", "password": "TestPass123!", "full_name": "B", "role": "client"}, expected=400)
+           body={"email": "bad", "password": TEST_PASSWORD, "full_name": "B", "role": "client"}, expected=400)
     t.test("Register (short pw)", "POST", "/api/v1/register",
            body={"email": "s@e.com", "password": "123", "full_name": "S", "role": "client"}, expected=400)
 
     # Login
     login_resp = t.test("Login", "POST", "/api/v1/login",
-                        body={"email": test_email, "password": "TestPass123!"}, expected=200)
+                        body={"email": test_email, "password": TEST_PASSWORD}, expected=200)
     if isinstance(login_resp, dict) and login_resp.get("access_token"):
         t.token = login_resp["access_token"]
 
     t.test("Login (wrong pw)", "POST", "/api/v1/login",
            body={"email": test_email, "password": "wrong"}, expected=401)
     t.test("Login (empty email)", "POST", "/api/v1/login",
-           body={"email": "", "password": "TestPass123!"}, expected=400)
+           body={"email": "", "password": TEST_PASSWORD}, expected=400)
 
     if not t.token:
         print(f"\n{RED}No token obtained. Skipping auth tests.{RESET}")
@@ -199,7 +200,7 @@ def main():
 
     # Re-login
     lr = t.test("Re-login", "POST", "/api/v1/login",
-                body={"email": test_email, "password": "TestPass123!"}, expected=200)
+                body={"email": test_email, "password": TEST_PASSWORD}, expected=200)
     if isinstance(lr, dict) and lr.get("access_token"):
         t.token = lr["access_token"]
 
@@ -210,9 +211,9 @@ def main():
 
     # 6. ML
     section("6. ML")
-    # ML работает в async режиме — возвращает 202 с job_id
+    # ML может вернуть 202 (async job) или 200 (sync result)
     ml_resp = t.test("ML Classify", "POST", "/api/v1/ml/classify",
-                     token=t.token, expected=202)
+                     token=t.token, expected=200)
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 

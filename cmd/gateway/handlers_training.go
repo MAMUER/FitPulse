@@ -47,8 +47,13 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		AvailableDays:       availableDays,
 	})
 	if err != nil {
-		g.log.Error("Failed to generate plan", zap.Error(err))
+		g.log.Error("Failed to generate plan", zap.Error(err), zap.String("user_id", userID))
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		// Если сервис недоступен — даём понятное сообщение
+		if httpCode == http.StatusInternalServerError {
+			http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, errMsg, httpCode)
 		return
 	}

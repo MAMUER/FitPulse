@@ -56,9 +56,10 @@ message GetProfileRequest {
     string user_id = 1;
 }
 
-// ✅ Обновлён: добавлены nutrition и sleep_hours
+// ✅ Обновлён: добавлены nutrition, sleep_hours и full_name (никнейм)
 message UpdateProfileRequest {
     string user_id = 1;
+    optional string full_name = 11;          // ← НОВОЕ (никнейм)
     optional int32 age = 2;
     optional string gender = 3;
     optional int32 height_cm = 4;

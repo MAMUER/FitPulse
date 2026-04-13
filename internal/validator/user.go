@@ -85,6 +85,13 @@ func ValidateProfileUpdate(req *pb.UpdateProfileRequest) error {
 	if req.UserId == "" {
 		return status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	// full_name (никнейм): 2-100 символов, буквы/цифры/_/-
+	if req.FullName != nil {
+		fn := *req.FullName
+		if len(fn) < 2 || len(fn) > 100 {
+			return status.Error(codes.InvalidArgument, "nick must be 2-100 chars")
+		}
+	}
 	if req.Age != nil && (*req.Age < 0 || *req.Age > 150) {
 		return status.Error(codes.InvalidArgument, ErrAgeOutOfRange.Error())
 	}

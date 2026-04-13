@@ -410,10 +410,11 @@ func (x *GetProfileRequest) GetUserId() string {
 	return ""
 }
 
-// ✅ Обновлён: добавлены nutrition и sleep_hours
+// ✅ Обновлён: добавлены nutrition, sleep_hours и full_name (никнейм)
 type UpdateProfileRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	FullName          *string                `protobuf:"bytes,11,opt,name=full_name,json=fullName,proto3,oneof" json:"full_name,omitempty"` // ← НОВОЕ (никнейм)
 	Age               *int32                 `protobuf:"varint,2,opt,name=age,proto3,oneof" json:"age,omitempty"`
 	Gender            *string                `protobuf:"bytes,3,opt,name=gender,proto3,oneof" json:"gender,omitempty"`
 	HeightCm          *int32                 `protobuf:"varint,4,opt,name=height_cm,json=heightCm,proto3,oneof" json:"height_cm,omitempty"`
@@ -460,6 +461,13 @@ func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
 func (x *UpdateProfileRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
+	}
+	return ""
+}
+
+func (x *UpdateProfileRequest) GetFullName() string {
+	if x != nil && x.FullName != nil {
+		return *x.FullName
 	}
 	return ""
 }
@@ -1048,20 +1056,23 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04role\x18\x05 \x01(\tR\x04role\",\n" +
 	"\x11GetProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xbd\x03\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xed\x03\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x15\n" +
-	"\x03age\x18\x02 \x01(\x05H\x00R\x03age\x88\x01\x01\x12\x1b\n" +
-	"\x06gender\x18\x03 \x01(\tH\x01R\x06gender\x88\x01\x01\x12 \n" +
-	"\theight_cm\x18\x04 \x01(\x05H\x02R\bheightCm\x88\x01\x01\x12 \n" +
-	"\tweight_kg\x18\x05 \x01(\x01H\x03R\bweightKg\x88\x01\x01\x12(\n" +
-	"\rfitness_level\x18\x06 \x01(\tH\x04R\ffitnessLevel\x88\x01\x01\x12\x14\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12 \n" +
+	"\tfull_name\x18\v \x01(\tH\x00R\bfullName\x88\x01\x01\x12\x15\n" +
+	"\x03age\x18\x02 \x01(\x05H\x01R\x03age\x88\x01\x01\x12\x1b\n" +
+	"\x06gender\x18\x03 \x01(\tH\x02R\x06gender\x88\x01\x01\x12 \n" +
+	"\theight_cm\x18\x04 \x01(\x05H\x03R\bheightCm\x88\x01\x01\x12 \n" +
+	"\tweight_kg\x18\x05 \x01(\x01H\x04R\bweightKg\x88\x01\x01\x12(\n" +
+	"\rfitness_level\x18\x06 \x01(\tH\x05R\ffitnessLevel\x88\x01\x01\x12\x14\n" +
 	"\x05goals\x18\a \x03(\tR\x05goals\x12,\n" +
 	"\x11contraindications\x18\b \x03(\tR\x11contraindications\x12!\n" +
-	"\tnutrition\x18\t \x01(\tH\x05R\tnutrition\x88\x01\x01\x12$\n" +
+	"\tnutrition\x18\t \x01(\tH\x06R\tnutrition\x88\x01\x01\x12$\n" +
 	"\vsleep_hours\x18\n" +
-	" \x01(\x02H\x06R\n" +
-	"sleepHours\x88\x01\x01B\x06\n" +
+	" \x01(\x02H\aR\n" +
+	"sleepHours\x88\x01\x01B\f\n" +
+	"\n" +
+	"_full_nameB\x06\n" +
 	"\x04_ageB\t\n" +
 	"\a_genderB\f\n" +
 	"\n" +

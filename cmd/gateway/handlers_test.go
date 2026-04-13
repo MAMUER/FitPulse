@@ -1405,7 +1405,8 @@ func TestGeneratePlanHandler_GrpcError(t *testing.T) {
 
 	g.generatePlanHandler(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	// Internal ошибка маппится на 503 Service Unavailable для понятного сообщения клиенту
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	mockTraining.AssertExpectations(t)
 }
 

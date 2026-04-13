@@ -22,11 +22,12 @@ export const options = {
 };
 
 const BASE_URL = __ENV.BASE_URL || 'https://localhost:8443';
+const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTest123!';  // override via env
 // Unique email per test run to avoid stale email_confirmed=false from previous runs
 const RUN_ID = Math.random().toString(36).substring(2, 8);
 const TEST_USER = {
     email: `loadtest-${RUN_ID}@example.com`,
-    password: 'LoadTest123!',
+    password: TEST_PASSWORD,
     full_name: 'Load Test User',
     role: 'client'
 };

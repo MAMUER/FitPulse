@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -37,21 +36,17 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		zap.String("class", req.ClassificationClass),
 	)
 
-	// Проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
 		s.log.Warn("Request cancelled", zap.Error(err))
 		return nil, status.Error(codes.Canceled, "request cancelled")
 	}
 
-	// Валидация входных данных
 	if err := validator.ValidateGeneratePlanRequest(req); err != nil {
 		s.log.Warn("Invalid generate plan request", zap.Error(err))
 		return nil, err
 	}
 
-	// Санитизируем входные данные
 	classificationClass := sanitize.String(req.ClassificationClass)
-
 	planID := uuid.New().String()
 
 	planData := map[string]interface{}{
@@ -61,52 +56,87 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		"weeks":      req.DurationWeeks,
 		"schedule":   req.AvailableDays,
 		"workouts": []map[string]interface{}{
-			{
-				"day":       1,
-				"type":      "cardio",
-				"duration":  30,
-				"intensity": "medium",
-				"exercises": []string{"бег", "велосипед"},
-			},
-			{
-				"day":       3,
-				"type":      "strength",
-				"duration":  45,
-				"intensity": "high",
-				"exercises": []string{"приседания", "отжимания", "тяга"},
-			},
-			{
-				"day":       5,
-				"type":      "recovery",
-				"duration":  20,
-				"intensity": "low",
-				"exercises": []string{"растяжка", "йога"},
-			},
+			{"day": 1, "type": "cardio", "duration": 30, "intensity": "medium", "exercises": []string{"бег", "велосипед"}},
+			{"day": 3, "type": "strength", "duration": 45, "intensity": "high", "exercises": []string{"приседания", "отжимания", "тяга"}},
+			{"day": 5, "type": "recovery", "duration": 20, "intensity": "low", "exercises": []string{"растяжка", "йога"}},
 		},
-	}
-
-	planDataJSON, err := json.Marshal(planData)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to marshal plan data")
 	}
 
 	startDate := time.Now()
 	endDate := startDate.AddDate(0, 0, int(req.DurationWeeks)*7)
 
-	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO training_plans (id, user_id, plan_data, generated_at, start_date, end_date, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, planID, req.UserId, planDataJSON, time.Now(), startDate, endDate, "active")
+	// Сохраняем план в нормализованную схему
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO training_plans (id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, planID, req.UserId, "Персонализированная программа", classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active")
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to save plan")
 	}
 
+	workouts, _ := planData["workouts"].([]map[string]interface{})
+	for week := int32(1); week <= req.DurationWeeks; week++ {
+		weekID := uuid.New().String()
+		totalDays := len(workouts)
+		totalDuration := 0
+		for _, w := range workouts {
+			if dur, ok := w["duration"].(int); ok {
+				totalDuration += dur
+			}
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO training_plan_weeks (id, training_plan_id, week_number, total_training_days, total_duration_minutes)
+			VALUES ($1, $2, $3, $4, $5)
+		`, weekID, planID, week, totalDays, totalDuration)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to save plan weeks")
+		}
+
+		for dayIdx, w := range workouts {
+			dayID := uuid.New().String()
+			dayOfWeek := dayIdx % 7
+			trainingType, _ := w["type"].(string)
+			duration, _ := w["duration"].(int)
+
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO training_plan_days (id, week_id, day_of_week, training_date, training_type, is_rest_day, total_duration_minutes)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+			`, dayID, weekID, dayOfWeek, startDate.AddDate(0, 0, int(week-1)*7+dayOfWeek), trainingType, false, duration)
+			if err != nil {
+				return nil, status.Error(codes.Internal, "failed to save plan days")
+			}
+
+			exercises, _ := w["exercises"].([]string)
+			for exIdx, exName := range exercises {
+				_, err = tx.ExecContext(ctx, `
+					INSERT INTO training_exercises (id, day_id, exercise_name, sets, reps, sort_order)
+					VALUES ($1, $2, $3, $4, $5, $6)
+				`, uuid.New().String(), dayID, exName, 3, 12, exIdx)
+				if err != nil {
+					return nil, status.Error(codes.Internal, "failed to save exercises")
+				}
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, status.Error(codes.Internal, "failed to commit plan")
+	}
+
 	event := map[string]interface{}{
-		"event":     "plan_generated",
-		"user_id":   req.UserId,
-		"plan_id":   planID,
-		"class":     classificationClass,
-		"timestamp": time.Now(),
+		"event": "plan_generated", "user_id": req.UserId, "plan_id": planID,
+		"class": classificationClass, "timestamp": time.Now(),
 	}
 	if s.rabbitQueue != nil {
 		if pubErr := s.rabbitQueue.Publish(ctx, event); pubErr != nil {
@@ -120,24 +150,20 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		planStruct = &structpb.Struct{}
 	}
 
-	return &pb.GeneratePlanResponse{
-		PlanId:   planID,
-		PlanData: planStruct,
-	}, nil
+	return &pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil
 }
 
 func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.TrainingPlan, error) {
 	s.log.Debug("GetPlan", zap.String("plan_id", req.PlanId))
 
-	var plan pb.TrainingPlan
-	var planDataJSON []byte
+	var planID, userID, planName, planStatus string
 	var generatedAt, startDate, endDate time.Time
 
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, plan_data, generated_at, start_date, end_date, status
+		SELECT id, user_id, name, generated_at, start_date, end_date, status
 		FROM training_plans
 		WHERE id = $1
-	`, req.PlanId).Scan(&plan.Id, &plan.UserId, &planDataJSON, &generatedAt, &startDate, &endDate, &plan.Status)
+	`, req.PlanId).Scan(&planID, &userID, &planName, &generatedAt, &startDate, &endDate, &planStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.NotFound, "plan not found")
 	}
@@ -145,26 +171,130 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, status.Error(codes.Internal, "database error")
 	}
 
-	var planData map[string]interface{}
-	if umErr := json.Unmarshal(planDataJSON, &planData); umErr != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmarshal plan: %v", umErr)
+	// Собираем план из нормализованных таблиц в JSON
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT w.week_number, w.total_training_days, w.total_duration_minutes,
+			   d.id as day_id, d.day_of_week, d.training_date, d.training_type, d.is_rest_day, d.total_duration_minutes, d.notes,
+			   e.id as exercise_id, e.exercise_name, e.duration_minutes, e.intensity, e.sets, e.reps, e.rest_seconds, e.description, e.sort_order
+		FROM training_plan_weeks w
+		LEFT JOIN training_plan_days d ON d.week_id = w.id
+		LEFT JOIN training_exercises e ON e.day_id = d.id
+		WHERE w.training_plan_id = $1
+		ORDER BY w.week_number, d.day_of_week, e.sort_order
+	`, req.PlanId)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+		}
+	}()
+
+	weeks := make(map[int32]map[string]interface{})
+	dayExercises := make(map[string][]map[string]interface{})
+
+	for rows.Next() {
+		var weekNum, totalDays, totalDurMinutes int32
+		var dayID sql.NullString
+		var dayOfWeek int32
+		var trainingDate sql.NullTime
+		var trainingType, notes sql.NullString
+		var isRestDay bool
+		var dayDuration sql.NullInt32
+		var exerciseID sql.NullString
+		var exerciseName sql.NullString
+		var exDuration, exSets, exReps, exRest, exSortOrder sql.NullInt32
+		var exIntensity sql.NullFloat64
+		var exDescription sql.NullString
+
+		if scanErr := rows.Scan(&weekNum, &totalDays, &totalDurMinutes,
+			&dayID, &dayOfWeek, &trainingDate, &trainingType, &isRestDay, &dayDuration, &notes,
+			&exerciseID, &exerciseName, &exDuration, &exIntensity, &exSets, &exReps, &exRest, &exDescription, &exSortOrder); scanErr != nil {
+			s.log.Error("Failed to scan plan data", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+
+		if _, exists := weeks[weekNum]; !exists {
+			weeks[weekNum] = map[string]interface{}{
+				"week_number":            weekNum,
+				"total_training_days":    totalDays,
+				"total_duration_minutes": totalDurMinutes,
+				"days":                   []map[string]interface{}{},
+			}
+		}
+
+		if dayID.Valid && dayID.String != "" {
+			dayKey := dayID.String
+			if _, exists := dayExercises[dayKey]; !exists {
+				dayData := map[string]interface{}{
+					"day_id":        dayID.String,
+					"day_of_week":   dayOfWeek,
+					"training_type": stringValue(trainingType),
+					"is_rest_day":   isRestDay,
+					"duration":      int32Value(dayDuration),
+					"notes":         stringValue(notes),
+					"exercises":     []map[string]interface{}{},
+				}
+				if trainingDate.Valid {
+					dayData["training_date"] = trainingDate.Time.Format("2006-01-02")
+				}
+				dayExercises[dayKey] = []map[string]interface{}{}
+				weeks[weekNum]["days"] = append(weeks[weekNum]["days"].([]map[string]interface{}), dayData)
+			}
+
+			if exerciseID.Valid && exerciseID.String != "" {
+				dayExercises[dayKey] = append(dayExercises[dayKey], map[string]interface{}{
+					"exercise_name": stringValue(exerciseName),
+					"duration":      int32Value(exDuration),
+					"intensity":     float64Value(exIntensity),
+					"sets":          int32Value(exSets),
+					"reps":          int32Value(exReps),
+					"rest_seconds":  int32Value(exRest),
+					"description":   stringValue(exDescription),
+					"sort_order":    int32Value(exSortOrder),
+				})
+			}
+		}
 	}
 
-	planDataStruct, err := structpb.NewStruct(planData)
+	// Вставляем упражнения в дни
+	for _, weekData := range weeks {
+		days := weekData["days"].([]map[string]interface{})
+		for dayIdx := range days {
+			dayKey := days[dayIdx]["day_id"].(string)
+			days[dayIdx]["exercises"] = dayExercises[dayKey]
+		}
+	}
+
+	weekList := make([]map[string]interface{}, 0, len(weeks))
+	for _, w := range weeks {
+		weekList = append(weekList, w)
+	}
+
+	planData := map[string]interface{}{
+		"name":  planName,
+		"weeks": weekList,
+	}
+
+	planDataOut, err := structpb.NewStruct(planData)
 	if err != nil {
 		s.log.Error("Failed to create plan struct", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to process plan data")
 	}
-	plan.PlanData = planDataStruct
-	plan.GeneratedAt = timestamppb.New(generatedAt)
-	plan.StartDate = timestamppb.New(startDate)
-	plan.EndDate = timestamppb.New(endDate)
 
-	return &plan, nil
+	return &pb.TrainingPlan{
+		Id:          planID,
+		UserId:      userID,
+		PlanData:    planDataOut,
+		GeneratedAt: timestamppb.New(generatedAt),
+		StartDate:   timestamppb.New(startDate),
+		EndDate:     timestamppb.New(endDate),
+		Status:      planStatus,
+	}, nil
 }
 
 func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest) (*pb.ListPlansResponse, error) {
-	// Валидация параметров
 	if err := validator.ValidateListPlansRequest(req); err != nil {
 		s.log.Warn("Invalid list plans request", zap.Error(err))
 		return nil, err
@@ -173,7 +303,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	s.log.Debug("ListPlans", zap.String("user_id", req.UserId))
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, plan_data, generated_at, start_date, end_date, status
+		SELECT id, user_id, name, generated_at, start_date, end_date, status
 		FROM training_plans
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
@@ -190,34 +320,32 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 
 	var plans []*pb.TrainingPlan
 	for rows.Next() {
-		var plan pb.TrainingPlan
-		var planDataJSON []byte
+		var planID, userID, planName, planStatus string
 		var generatedAt, startDate, endDate time.Time
 
-		if err := rows.Scan(&plan.Id, &plan.UserId, &planDataJSON, &generatedAt, &startDate, &endDate, &plan.Status); err != nil {
+		if err := rows.Scan(&planID, &userID, &planName, &generatedAt, &startDate, &endDate, &planStatus); err != nil {
 			s.log.Error("Failed to scan plan", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to read plan data")
 		}
 
-		var planData map[string]interface{}
-		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
-			s.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			return nil, status.Error(codes.Internal, "invalid plan data")
-		}
-		planStruct, err := structpb.NewStruct(planData)
+		planData := map[string]interface{}{"name": planName}
+		planDataStruct, err := structpb.NewStruct(planData)
 		if err != nil {
 			s.log.Error("Failed to create plan struct", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to process plan data")
 		}
-		plan.PlanData = planStruct
-		plan.GeneratedAt = timestamppb.New(generatedAt)
-		plan.StartDate = timestamppb.New(startDate)
-		plan.EndDate = timestamppb.New(endDate)
 
-		plans = append(plans, &plan)
+		plans = append(plans, &pb.TrainingPlan{
+			Id:          planID,
+			UserId:      userID,
+			PlanData:    planDataStruct,
+			GeneratedAt: timestamppb.New(generatedAt),
+			StartDate:   timestamppb.New(startDate),
+			EndDate:     timestamppb.New(endDate),
+			Status:      planStatus,
+		})
 	}
 
-	// Проверяем ошибку итерации
 	if err := rows.Err(); err != nil {
 		s.log.Error("Row iteration error", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading plans")
@@ -226,13 +354,9 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	var total int32
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM training_plans WHERE user_id = $1", req.UserId).Scan(&total); err != nil {
 		s.log.Warn("Failed to count plans", zap.Error(err))
-		// Не блокируем ответ, просто логируем
 	}
 
-	return &pb.ListPlansResponse{
-		Plans: plans,
-		Total: total,
-	}, nil
+	return &pb.ListPlansResponse{Plans: plans, Total: total}, nil
 }
 
 func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWorkoutRequest) (*pb.CompleteWorkoutResponse, error) {
@@ -242,16 +366,13 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		zap.String("workout_id", req.WorkoutId),
 	)
 
-	// Валидация входных данных
 	if err := validator.ValidateCompleteWorkoutRequest(req); err != nil {
 		s.log.Warn("Invalid complete workout request", zap.Error(err))
 		return nil, err
 	}
 
-	// Санитизируем feedback
 	feedback := sanitize.String(req.Feedback)
 
-	// Проверяем, есть ли уже запись о выполнении
 	var exists bool
 	err := s.db.QueryRowContext(ctx, `
 		SELECT EXISTS(SELECT 1 FROM workout_completions
@@ -266,7 +387,6 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		return &pb.CompleteWorkoutResponse{Success: false}, nil
 	}
 
-	// Сохраняем выполнение (без scheduled_date, она будет NOW() по умолчанию)
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO workout_completions (user_id, training_plan_id, workout_id, completed, completed_at, feedback)
 		VALUES ($1, $2, $3, true, NOW(), $4)
@@ -276,7 +396,6 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		return nil, status.Error(codes.Internal, "failed to save completion")
 	}
 
-	// Подсчитываем количество завершенных тренировок
 	var completedCount int
 	err = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM workout_completions
@@ -297,10 +416,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		achievementID = "fifty_workouts"
 	}
 
-	return &pb.CompleteWorkoutResponse{
-		Success:       true,
-		AchievementId: achievementID,
-	}, nil
+	return &pb.CompleteWorkoutResponse{Success: true, AchievementId: achievementID}, nil
 }
 
 func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressRequest) (*pb.GetProgressResponse, error) {
@@ -358,7 +474,6 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		history = append(history, &wc)
 	}
 
-	// Проверяем ошибку итерации
 	if err := rows.Err(); err != nil {
 		s.log.Error("Row iteration error", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading workout history")
@@ -370,6 +485,29 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		CompletionRate:    completionRate,
 		History:           history,
 	}, nil
+}
+
+// === Helpers ===
+
+func stringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+func int32Value(ni sql.NullInt32) int32 {
+	if ni.Valid {
+		return ni.Int32
+	}
+	return 0
+}
+
+func float64Value(nf sql.NullFloat64) float64 {
+	if nf.Valid {
+		return nf.Float64
+	}
+	return 0
 }
 
 func main() {

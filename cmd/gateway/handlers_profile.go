@@ -55,6 +55,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
+		FullName          string   `json:"full_name"`
 		Age               int32    `json:"age"`
 		Gender            string   `json:"gender"`
 		HeightCm          int32    `json:"height_cm"`
@@ -73,6 +74,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := g.userClient.UpdateProfile(r.Context(), &userpb.UpdateProfileRequest{
 		UserId:            userID,
+		FullName:          ptrString(req.FullName),
 		Age:               ptrInt32(req.Age),
 		Gender:            ptrString(req.Gender),
 		HeightCm:          ptrInt32(req.HeightCm),
@@ -86,11 +88,14 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		g.log.Error("Failed to update profile", zap.Error(err))
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		if httpCode == http.StatusInternalServerError {
+			http.Error(w, "Сервис пользователей временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, errMsg, httpCode)
 		return
 	}
 
-	// ✅ Исправлено: проверяем ошибку Encode
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)

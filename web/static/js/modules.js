@@ -1,11 +1,11 @@
-// FitPulse Modules — Doctor, Devices, Training, Diet
+// FitPulse Modules — Devices, Training, Diet
 // Mobile web app UI logic
 
 const AppModules = (() => {
     // ===== State =====
     let currentUser = null;
-    let selectedDoctor = null;
     let selectedDevice = null;
+    let emulationInterval = null;
 
     // ===== Device Module =====
     const DeviceModule = {
@@ -19,6 +19,7 @@ const AppModules = (() => {
         init() {
             this.renderDeviceSelector();
             this.bindEvents();
+            this.renderConnectedDevices();
         },
 
         renderDeviceSelector() {
@@ -43,153 +44,50 @@ const AppModules = (() => {
                     selectedDevice = deviceOption.dataset.type;
                 }
             });
+
+            // Кнопка "Подключить устройство"
+            document.getElementById('connectDeviceBtn')?.addEventListener('click', async () => {
+                if (!selectedDevice) {
+                    showToast('Выберите устройство из списка выше', 'error');
+                    return;
+                }
+                try {
+                    const profile = await getProfile();
+                    const userId = profile.profile?.user_id || profile.user_id;
+                    await this.connectDevice(selectedDevice, userId);
+                    showToast(`${this.devices.find(d => d.type === selectedDevice)?.name} подключено!`, 'success');
+                } catch (err) {
+                    showToast('Ошибка подключения: ' + err.message, 'error');
+                }
+            });
         },
 
         async connectDevice(deviceType, userId) {
-            try {
-                const resp = await fetch('/api/v1/devices/register', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ device_type: deviceType, user_id: userId })
-                });
-                return await resp.json();
-            } catch (err) {
-                console.error('Device connection failed:', err);
-                throw err;
+            const resp = await fetch('/api/v1/devices/register', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ device_type: deviceType, user_id: userId })
+            });
+            if (!resp.ok) {
+                const text = await resp.text();
+                throw new Error(text || 'Ошибка сервера');
             }
-        }
-    };
-
-    // ===== Doctor Module =====
-    const DoctorModule = {
-        async loadDoctors() {
-            try {
-                const doctors = await window.doctorAPI.listDoctors();
-                this.renderDoctorsList(doctors.doctors || []);
-            } catch (err) {
-                console.error('Failed to load doctors:', err);
-            }
+            return resp.json();
         },
 
-        renderDoctorsList(doctors) {
-            const container = document.getElementById('doctorsList');
+        renderConnectedDevices() {
+            const container = document.getElementById('connectedDevicesList');
             if (!container) return;
 
-            if (doctors.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">👨‍⚕️</div>
-                        <div class="empty-state-text">Врачи пока недоступны</div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = doctors.map(d => `
-                <div class="doctor-card" data-id="${d.id}">
-                    <div class="doctor-avatar">👨‍⚕️</div>
-                    <div class="doctor-info">
-                        <div class="doctor-name">${d.full_name}</div>
-                        <div class="doctor-specialty">${d.specialty}</div>
-                    </div>
-                    <div class="doctor-rating">
-                        ⭐ ${d.rating}
-                        <span>(${d.consultation_count})</span>
-                    </div>
+            // Показываем заглушку — список будет заполнен при эмуляции
+            container.innerHTML = `
+                <div style="text-align:center; padding:20px; color:var(--text-secondary);">
+                    Нет подключённых устройств
                 </div>
-            `).join('');
-        },
-
-        async openChat(doctorId) {
-            selectedDoctor = doctorId;
-            this.loadChatHistory();
-        },
-
-        async loadChatHistory() {
-            if (!currentUser || !selectedDoctor) return;
-            try {
-                const history = await window.doctorAPI.getChatHistory(currentUser.id, selectedDoctor);
-                this.renderMessages(history.messages || []);
-            } catch (err) {
-                console.error('Failed to load chat:', err);
-            }
-        },
-
-        renderMessages(messages) {
-            const container = document.getElementById('chatMessages');
-            if (!container) return;
-
-            if (messages.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">💬</div>
-                        <div class="empty-state-text">Начните диалог с врачом</div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = messages.map(m => `
-                <div class="chat-message ${m.sender_type}">
-                    <div class="message-text">${m.message}</div>
-                    <div class="chat-time">${new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-            `).join('');
-
-            container.scrollTop = container.scrollHeight;
-        },
-
-        async sendMessage(text) {
-            if (!currentUser || !selectedDoctor || !text.trim()) return;
-            try {
-                await window.doctorAPI.sendMessage(
-                    currentUser.id, selectedDoctor,
-                    currentUser.id, 'user', text
-                );
-                this.loadChatHistory();
-            } catch (err) {
-                console.error('Failed to send message:', err);
-                showToast('Ошибка отправки сообщения', 'error');
-            }
-        },
-
-        async loadPrescriptions() {
-            if (!currentUser) return;
-            try {
-                const prescriptions = await window.doctorAPI.getPrescriptions(currentUser.id);
-                this.renderPrescriptions(prescriptions.prescriptions || []);
-            } catch (err) {
-                console.error('Failed to load prescriptions:', err);
-            }
-        },
-
-        renderPrescriptions(prescriptions) {
-            const container = document.getElementById('prescriptionsList');
-            if (!container) return;
-
-            if (prescriptions.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
-                        <div class="empty-state-text">Нет назначений от врача</div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = prescriptions.map(p => `
-                <div class="prescription-card priority-${p.priority}">
-                    <div class="prescription-title">${p.title}</div>
-                    <div class="prescription-desc">${p.description || 'Без описания'}</div>
-                    <div class="prescription-meta">
-                        <span>${p.prescription_type}</span>
-                        <span>${new Date(p.created_at).toLocaleDateString('ru-RU')}</span>
-                    </div>
-                </div>
-            `).join('');
+            `;
         }
     };
 
@@ -259,27 +157,33 @@ const AppModules = (() => {
             `;
 
             try {
-                // First, get user profile for context
-                const profile = await getProfile();
-                const p = profile.profile || profile;
-
-                // Classify current state
+                // First, classify current state
                 let trainingClass = '';
                 try {
                     const classifyRes = await window.apiRequest('/ml/classify', { method: 'POST', body: '{}' });
-                    trainingClass = classifyRes.predicted_class || '';
+                    trainingClass = classifyRes.predicted_class || 'recovery';
                 } catch {
-                    // No biometric data yet — use default
                     trainingClass = 'recovery';
                 }
 
-                // Generate plan
-                const plan = await generateTrainingPlan(
-                    4, // 4 weeks default
-                    [1, 3, 5], // Mon, Wed, Fri
-                    trainingClass,
-                    0.8
-                );
+                // Get profile for context
+                const profile = await getProfile();
+                const p = profile.profile || profile;
+
+                // Use the ML Generator endpoint (/ml/generate-plan) which calls the Python ML service
+                const plan = await window.apiRequest('/ml/generate-plan', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        training_class: trainingClass,
+                        duration_weeks: 4,
+                        available_days: [1, 3, 5],
+                        preferences: {
+                            max_duration: 60,
+                            available_equipment: [],
+                            preferred_time: 'morning'
+                        }
+                    })
+                });
 
                 showToast('Тренировочный план сгенерирован!', 'success');
                 await this.loadPlans();
@@ -290,6 +194,9 @@ const AppModules = (() => {
                         <div class="empty-icon">⚠️</div>
                         <h3>Ошибка генерации</h3>
                         <p>${err.message}</p>
+                        <p style="margin-top:8px; font-size:13px; color:var(--text-tertiary);">
+                            Убедитесь, что ML-сервис запущен
+                        </p>
                     </div>
                 `;
             }
@@ -464,16 +371,23 @@ const AppModules = (() => {
             const container = document.getElementById('dietPlanContainer');
             if (!container) return;
 
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="spinner"></div>
-                    <p>Рассчитываем вашу диету...</p>
-                </div>
-            `;
-
             try {
                 const profile = await getProfile();
                 const p = profile.profile || profile;
+
+                // Проверяем, заполнен ли профиль
+                const hasProfile = p.age && p.height_cm && p.weight_kg && p.gender;
+
+                if (!hasProfile) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🍽️</div>
+                            <h3>Заполните профиль</h3>
+                            <p>Укажите возраст, рост, вес и пол во вкладке «Профиль» для расчёта плана питания</p>
+                        </div>
+                    `;
+                    return;
+                }
 
                 const diet = this.calculate(p);
 
@@ -486,11 +400,6 @@ const AppModules = (() => {
                 const lunch = randomMeal(meals.lunch);
                 const snack2 = randomMeal(meals.snack2);
                 const dinner = randomMeal(meals.dinner);
-
-                const totalKcal = breakfast.kcal + snack1.kcal + lunch.kcal + snack2.kcal + dinner.kcal;
-                const totalProtein = breakfast.protein + snack1.protein + lunch.protein + snack2.protein + dinner.protein;
-                const totalCarbs = breakfast.carbs + snack1.carbs + lunch.carbs + snack2.carbs + dinner.carbs;
-                const totalFat = breakfast.fat + snack1.fat + lunch.fat + snack2.fat + dinner.fat;
 
                 container.innerHTML = `
                     <div class="diet-summary">
@@ -554,7 +463,10 @@ const AppModules = (() => {
                     </div>
 
                     <div style="text-align: center; padding: 12px; color: var(--text-secondary); font-size: 13px;">
-                        📊 Итого: ${totalKcal} ккал • ${totalProtein}г белка • ${totalCarbs}г углеводов • ${totalFat}г жиров
+                        📊 Итого: ${breakfast.kcal + snack1.kcal + lunch.kcal + snack2.kcal + dinner.kcal} ккал • 
+                        ${breakfast.protein + snack1.protein + lunch.protein + snack2.protein + dinner.protein}г белка • 
+                        ${breakfast.carbs + snack1.carbs + lunch.carbs + snack2.carbs + dinner.carbs}г углеводов • 
+                        ${breakfast.fat + snack1.fat + lunch.fat + snack2.fat + dinner.fat}г жиров
                     </div>
                 `;
             } catch (err) {
@@ -586,14 +498,11 @@ const AppModules = (() => {
     function init(user) {
         currentUser = user;
         DeviceModule.init();
-        DoctorModule.loadDoctors();
-        DoctorModule.loadPrescriptions();
     }
 
     return {
         init,
         DeviceModule,
-        DoctorModule,
         TrainingModule,
         DietModule,
         showToast

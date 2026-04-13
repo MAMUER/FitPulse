@@ -238,20 +238,22 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	var heightCm sql.NullInt32
 	var weightKg sql.NullFloat64
 	var fitnessLevel sql.NullString
+	var nutrition sql.NullString
+	var sleepHours sql.NullFloat64
 
 	err := s.db.QueryRowContext(ctx, `
         SELECT u.id, u.email, u.full_name, u.role,
                p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
-               p.goals,
-               p.contraindications,
+               p.goals, p.nutrition, p.sleep_hours,
                u.created_at, u.updated_at
         FROM users u
-        LEFT JOIN user_profiles p ON u.id = p.user_id
+        LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
         WHERE u.id = $1
     `, req.UserId).Scan(
 		&profile.UserId, &profile.Email, &profile.FullName, &profile.Role,
 		&age, &gender, &heightCm, &weightKg, &fitnessLevel,
-		pq.Array(&profile.Goals), pq.Array(&profile.Contraindications),
+		pq.Array(&profile.Goals),
+		&nutrition, &sleepHours,
 		&profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -277,6 +279,12 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	if fitnessLevel.Valid {
 		profile.FitnessLevel = fitnessLevel.String
 	}
+	if nutrition.Valid {
+		profile.Nutrition = nutrition.String
+	}
+	if sleepHours.Valid {
+		profile.SleepHours = float32(sleepHours.Float64)
+	}
 
 	return &profile, nil
 }
@@ -288,8 +296,20 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 		return nil, err
 	}
 
-	query := `
-        INSERT INTO user_profiles (user_id, age, gender, height_cm, weight_kg, fitness_level, goals, contraindications, updated_at)
+	// Обновляем full_name в users table (если передан)
+	if req.FullName != nil {
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2
+		`, req.GetFullName(), req.UserId)
+		if err != nil {
+			s.log.Error("Failed to update full_name", zap.Error(err), zap.String("user_id", req.UserId))
+			return nil, status.Error(codes.Internal, "failed to update full_name")
+		}
+	}
+
+	// Обновляем user_profiles (без goals/contraindications — они в отдельных таблицах)
+	profileQuery := `
+        INSERT INTO user_profiles (user_id, age, gender, height_cm, weight_kg, fitness_level, nutrition, sleep_hours, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
             age = COALESCE(EXCLUDED.age, user_profiles.age),
@@ -297,19 +317,55 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
             height_cm = COALESCE(EXCLUDED.height_cm, user_profiles.height_cm),
             weight_kg = COALESCE(EXCLUDED.weight_kg, user_profiles.weight_kg),
             fitness_level = COALESCE(EXCLUDED.fitness_level, user_profiles.fitness_level),
-            goals = COALESCE(EXCLUDED.goals, user_profiles.goals),
-            contraindications = COALESCE(EXCLUDED.contraindications, user_profiles.contraindications),
+            nutrition = COALESCE(EXCLUDED.nutrition, user_profiles.nutrition),
+            sleep_hours = COALESCE(EXCLUDED.sleep_hours, user_profiles.sleep_hours),
             updated_at = NOW()
     `
 
-	_, err := s.db.ExecContext(ctx, query,
+	_, err := s.db.ExecContext(ctx, profileQuery,
 		req.UserId,
 		req.Age, req.Gender, req.HeightCm, req.WeightKg, req.FitnessLevel,
-		pq.Array(req.Goals), pq.Array(req.Contraindications),
+		req.Nutrition, req.SleepHours,
 	)
 	if err != nil {
 		s.log.Error("Failed to update profile", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to update profile")
+	}
+
+	// Обновляем goals
+	if len(req.Goals) > 0 {
+		_, err = s.db.ExecContext(ctx, `DELETE FROM user_goals WHERE user_id = $1`, req.UserId)
+		if err != nil {
+			s.log.Error("Failed to delete old goals", zap.Error(err), zap.String("user_id", req.UserId))
+			return nil, status.Error(codes.Internal, "failed to update goals")
+		}
+		for _, goal := range req.Goals {
+			_, err = s.db.ExecContext(ctx,
+				`INSERT INTO user_goals (user_id, goal) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+				req.UserId, goal)
+			if err != nil {
+				s.log.Error("Failed to insert goal", zap.Error(err), zap.String("user_id", req.UserId))
+				return nil, status.Error(codes.Internal, "failed to update goals")
+			}
+		}
+	}
+
+	// Обновляем contraindications
+	if len(req.Contraindications) > 0 {
+		_, err = s.db.ExecContext(ctx, `DELETE FROM user_contraindications WHERE user_id = $1`, req.UserId)
+		if err != nil {
+			s.log.Error("Failed to delete old contraindications", zap.Error(err), zap.String("user_id", req.UserId))
+			return nil, status.Error(codes.Internal, "failed to update contraindications")
+		}
+		for _, c := range req.Contraindications {
+			_, err = s.db.ExecContext(ctx,
+				`INSERT INTO user_contraindications (user_id, contraindication) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+				req.UserId, c)
+			if err != nil {
+				s.log.Error("Failed to insert contraindication", zap.Error(err), zap.String("user_id", req.UserId))
+				return nil, status.Error(codes.Internal, "failed to update contraindications")
+			}
+		}
 	}
 
 	// Возвращаем обновленный профиль

@@ -17,7 +17,10 @@ from pathlib import Path
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+if not DB_PASSWORD:
+    print("WARNING: DB_PASSWORD not set. Using default 'postgres' (dev only).")
+    DB_PASSWORD = "postgres"
 DB_NAME = os.getenv("DB_NAME", "fitness")
 
 MIGRATION_FILE = Path("scripts/init-db.sql")

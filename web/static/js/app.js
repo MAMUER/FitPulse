@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = {
         currentView: 'dashboard',
         heartChart: null,
+        isAdmin: false,
     };
 
     // ===== DOM Elements =====
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profile: 'Профиль',
         training: 'Тренировки',
         devices: 'Устройства',
-        doctor: 'Врач',
+        achievements: 'Достижения',
         diet: 'Диета',
         ml: 'AI Анализ',
     };
@@ -29,19 +30,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         console.log('[APP] Init, authToken:', authToken ? 'present' : 'null');
 
-        // Проверяем токен подтверждения в URL (из письма)
         const urlParams = new URLSearchParams(window.location.search);
         const confirmToken = urlParams.get('token');
         if (confirmToken) {
             console.log('[APP] Found confirm token in URL, auto-confirming...');
             showAuthScreen();
-            // Показываем форму подтверждения с токеном
             loginForm.classList.add('hidden');
             registerForm.classList.add('hidden');
             if (verifyForm) {
                 verifyForm.classList.remove('hidden');
                 document.getElementById('verifyToken').value = confirmToken;
-                // Автоматически подтверждаем
                 autoConfirmEmail(confirmToken);
             }
             return;
@@ -74,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('verifyEmail').textContent = email;
 
-        // Show dev token if present in message
         const tokenMatch = message.match(/token \(dev only\):\s*([a-f0-9]+)/i);
         const devSection = document.getElementById('devTokenSection');
         if (tokenMatch && devSection) {
@@ -84,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
             devSection.classList.add('hidden');
         }
 
-        // Reset confirm state
         const confirmErr = document.getElementById('confirmError');
         const confirmOk = document.getElementById('confirmSuccess');
         if (confirmErr) { confirmErr.textContent = ''; confirmErr.classList.add('hidden'); }
@@ -184,6 +180,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!/^[A-Za-zА-Яа-яЁё\s\-]+$/.test(v)) return 'Только буквы';
             return '';
         },
+        // Никнейм: обязательно, уникальность проверяется на сервере
+        nickname: (v) => {
+            if (!v || !v.trim()) return 'Никнейм обязателен';
+            if (v.trim().length < 2) return 'Минимум 2 символа';
+            if (v.trim().length > 30) return 'Максимум 30 символов';
+            if (!/^[A-Za-zА-Яа-яЁё0-9_\s\-]+$/.test(v.trim())) return 'Только буквы, цифры, _ и -';
+            return '';
+        },
+        // Возраст — только целые цифры
+        age: (v) => {
+            if (!v) return '';
+            if (!/^\d+$/.test(v)) return 'Только целые цифры';
+            const n = parseInt(v, 10);
+            if (n < 10 || n > 100) return 'От 10 до 100';
+            return '';
+        },
+        // Рост — только целые цифры
+        height: (v) => {
+            if (!v) return '';
+            if (!/^\d+$/.test(v)) return 'Только целые цифры';
+            const n = parseInt(v, 10);
+            if (n < 50 || n > 300) return 'От 50 до 300 см';
+            return '';
+        },
+        // Вес — цифры с десятичной точкой
+        weight: (v) => {
+            if (!v) return '';
+            if (!/^\d+(\.\d{1,2})?$/.test(v)) return 'Число (например, 70.5)';
+            const n = parseFloat(v);
+            if (n < 20 || n > 500) return 'От 20 до 500 кг';
+            return '';
+        },
     };
 
     function setFieldError(input, errorEl, msg) {
@@ -279,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
             clearErrors();
         });
 
-        // Back to login from verify screen
         document.getElementById('backToLogin')?.addEventListener('click', e => {
             e.preventDefault();
             console.log('[APP] Back to login from verify');
@@ -288,7 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
             clearErrors();
         });
 
-        // Confirm email
         document.getElementById('confirmBtn')?.addEventListener('click', async (e) => {
             e.preventDefault();
             const token = document.getElementById('verifyToken').value.trim();
@@ -348,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[LOGIN] Got response type:', typeof data, 'keys:', data ? Object.keys(data) : 'null');
                     if (data && typeof data === 'object' && data.access_token) {
                         setAuthToken(data.access_token);
+                        state.isAdmin = data.role === 'admin';
                         showMainApp();
                     } else {
                         console.error('[LOGIN] Unexpected response:', data);
@@ -394,8 +421,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[REGISTER] Calling API for:', email, name);
                     const data = await register(email, password, name);
                     console.log('[REGISTER] Got response:', data);
-
-                    // Show verification screen
                     showVerification(email, data.message || '', data.user_id);
                 } catch (err) {
                     console.error('[REGISTER] Error:', err);
@@ -418,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.addEventListener('click', () => switchView(tab.dataset.view));
         });
 
-        // Generate plan
+        // Generate plan (both buttons)
         document.getElementById('generatePlanBtn')?.addEventListener('click', generatePlan);
         document.getElementById('dashGenerateBtn')?.addEventListener('click', generatePlan);
 
@@ -427,6 +452,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Profile save
         document.getElementById('profileForm')?.addEventListener('submit', saveProfile);
+
+        // Profile field validation
+        const profNickname = document.getElementById('profNickname');
+        const profAge = document.getElementById('profAge');
+        const profHeight = document.getElementById('profHeight');
+        const profWeight = document.getElementById('profWeight');
+
+        if (profNickname) profNickname.addEventListener('input', () => {
+            setFieldError(profNickname, document.getElementById('profNicknameError'), validators.nickname(profNickname.value));
+        });
+        if (profAge) profAge.addEventListener('input', () => {
+            setFieldError(profAge, document.getElementById('profAgeError'), validators.age(profAge.value));
+        });
+        if (profHeight) profHeight.addEventListener('input', () => {
+            setFieldError(profHeight, document.getElementById('profHeightError'), validators.height(profHeight.value));
+        });
+        if (profWeight) profWeight.addEventListener('input', () => {
+            setFieldError(profWeight, document.getElementById('profWeightError'), validators.weight(profWeight.value));
+        });
     }
 
     function clearErrors() {
@@ -458,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewName === 'training') loadTrainingPlans();
         if (viewName === 'ml') loadMLView();
         if (viewName === 'devices') initDevicesView();
-        if (viewName === 'doctor') initDoctorView();
+        if (viewName === 'achievements') loadAchievements();
         if (viewName === 'diet') initDietView();
     }
 
@@ -528,16 +572,34 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const profile = await getProfile();
             const p = profile.profile || profile;
-            document.getElementById('profName').value = p.full_name || '';
+            // Никнейм — используем full_name с бэкенда
+            document.getElementById('profNickname').value = p.full_name || '';
             document.getElementById('profAge').value = p.age || '';
             document.getElementById('profGender').value = p.gender || '';
             document.getElementById('profHeight').value = p.height_cm || '';
             document.getElementById('profWeight').value = p.weight_kg || '';
             document.getElementById('profFitness').value = p.fitness_level || '';
-            document.getElementById('profNutrition').value = p.nutrition || '';
-            document.getElementById('profSleep').value = p.sleep_hours || '';
-            document.querySelectorAll('.goal-chip input[type="checkbox"]').forEach(cb => {
-                cb.checked = p.goals?.includes(cb.value) || false;
+
+            // Питание — select
+            if (p.nutrition) {
+                document.getElementById('profNutrition').value = p.nutrition;
+            }
+
+            // Сон — показываем с устройства
+            if (p.sleep_hours) {
+                const sleepDisplay = document.getElementById('profSleepDisplay');
+                const sleepValue = document.getElementById('profSleepValue');
+                if (sleepDisplay && sleepValue) {
+                    sleepDisplay.style.display = 'flex';
+                    sleepValue.textContent = p.sleep_hours + ' ч';
+                    document.querySelector('.sleep-info').style.display = 'none';
+                }
+            }
+
+            // Цель — radio (одна)
+            const goal = Array.isArray(p.goals) && p.goals.length > 0 ? p.goals[0] : '';
+            document.querySelectorAll('.goals-grid input[type="radio"]').forEach(radio => {
+                radio.checked = radio.value === goal;
             });
         } catch (err) {
             console.error('Profile load failed:', err);
@@ -546,17 +608,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveProfile(e) {
         e.preventDefault();
-        const goals = Array.from(document.querySelectorAll('.goal-chip input:checked')).map(cb => cb.value);
+
+        // Валидация никнейма (обязательно)
+        const nickname = document.getElementById('profNickname').value.trim();
+        const nickErr = validators.nickname(nickname);
+        setFieldError(document.getElementById('profNickname'), document.getElementById('profNicknameError'), nickErr);
+        if (nickErr) {
+            showToast('Ошибка: ' + nickErr, 'error');
+            return;
+        }
+
+        // Валидация числовых полей
+        const ageVal = document.getElementById('profAge').value;
+        const heightVal = document.getElementById('profHeight').value;
+        const weightVal = document.getElementById('profWeight').value;
+
+        const ageErr = validators.age(ageVal);
+        const heightErr = validators.height(heightVal);
+        const weightErr = validators.weight(weightVal);
+
+        setFieldError(document.getElementById('profAge'), document.getElementById('profAgeError'), ageErr);
+        setFieldError(document.getElementById('profHeight'), document.getElementById('profHeightError'), heightErr);
+        setFieldError(document.getElementById('profWeight'), document.getElementById('profWeightError'), weightErr);
+
+        if (ageErr || heightErr || weightErr) {
+            showToast('Исправьте ошибки в числовых полях', 'error');
+            return;
+        }
+
+        // Цель — одна
+        const selectedGoal = document.querySelector('.goals-grid input[type="radio"]:checked');
+        const goals = selectedGoal ? [selectedGoal.value] : [];
+
         const data = {
-            age: parseInt(document.getElementById('profAge').value) || null,
+            full_name: nickname,
+            age: ageVal ? parseInt(ageVal, 10) : null,
             gender: document.getElementById('profGender').value || null,
-            height_cm: parseInt(document.getElementById('profHeight').value) || null,
-            weight_kg: parseFloat(document.getElementById('profWeight').value) || null,
+            height_cm: heightVal ? parseInt(heightVal, 10) : null,
+            weight_kg: weightVal ? parseFloat(weightVal) : null,
             fitness_level: document.getElementById('profFitness').value || null,
             nutrition: document.getElementById('profNutrition').value || null,
-            sleep_hours: parseFloat(document.getElementById('profSleep').value) || null,
             goals,
         };
+
         try {
             await updateProfile(data);
             showToast('Профиль сохранён', 'success');
@@ -599,19 +693,59 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ===== Achievements =====
+    async function loadAchievements() {
+        const container = document.getElementById('achievementsList');
+        const compContainer = document.getElementById('competitionsList');
+        if (!container || !compContainer) return;
+
+        // Заглушки достижений
+        const achievements = [
+            { icon: '🏃', name: 'Первый шаг', desc: 'Завершите первую тренировку', unlocked: false },
+            { icon: '🔥', name: 'Серия 7 дней', desc: 'Тренируйтесь 7 дней подряд', unlocked: false },
+            { icon: '💪', name: '10 тренировок', desc: 'Завершите 10 тренировок', unlocked: false },
+            { icon: '⭐', name: '50 тренировок', desc: 'Завершите 50 тренировок', unlocked: false },
+            { icon: '🎯', name: 'Точная цель', desc: 'Достигните поставленной цели', unlocked: false },
+            { icon: '📊', name: 'Аналитик', desc: 'Записывайте данные 30 дней', unlocked: false },
+        ];
+
+        container.innerHTML = achievements.map(a => `
+            <div class="achievement-card ${a.unlocked ? 'unlocked' : 'locked'}">
+                <div class="achievement-icon">${a.icon}</div>
+                <div class="achievement-name">${a.name}</div>
+                <div class="achievement-desc">${a.desc}</div>
+                ${a.unlocked ? '<div class="achievement-progress">✅ Получено</div>' : '<div class="achievement-progress">🔒 Заблокировано</div>'}
+            </div>
+        `).join('');
+
+        // Заглушки соревнований
+        const competitions = [
+            { name: 'Неделя активности', desc: 'Кто наберёт больше шагов за неделю', status: 'active', participants: 124, rank: null },
+            { name: 'Марафон выносливости', desc: '30 дней кардио тренировок', status: 'upcoming', participants: 89, rank: null },
+            { name: 'Новогодний челлендж', desc: 'Тренировки каждый день в январе', status: 'finished', participants: 256, rank: 42 },
+        ];
+
+        const statusLabels = { active: 'Активно', upcoming: 'Скоро', finished: 'Завершено' };
+
+        compContainer.innerHTML = competitions.map(c => `
+            <div class="competition-card">
+                <div class="competition-header">
+                    <div class="competition-name">${c.name}</div>
+                    <span class="competition-status ${c.status}">${statusLabels[c.status]}</span>
+                </div>
+                <div class="competition-desc">${c.desc}</div>
+                <div class="competition-meta">
+                    <span>👥 ${c.participants} участников</span>
+                    ${c.rank ? `<span class="competition-rank">🏅 Место: ${c.rank}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
     // ===== Devices View =====
     function initDevicesView() {
         if (window.AppModules) {
             window.AppModules.DeviceModule.init();
-        }
-    }
-
-    // ===== Doctor View =====
-    function initDoctorView() {
-        if (window.AppModules) {
-            window.AppModules.DoctorModule.loadDoctors();
-            window.AppModules.DoctorModule.loadPrescriptions();
-            bindDoctorTabs();
         }
     }
 
@@ -620,36 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.AppModules) {
             window.AppModules.DietModule.loadDietPlan();
         }
-    }
-
-    // ===== Doctor Tabs =====
-    function bindDoctorTabs() {
-        document.querySelectorAll('#doctorTabs .doctor-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('#doctorTabs .doctor-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const target = tab.dataset.tab;
-                document.querySelectorAll('.doctor-tab-content').forEach(c => c.classList.remove('active'));
-                const el = document.getElementById(target);
-                if (el) el.classList.add('active');
-            });
-        });
-
-        // Chat send button
-        document.getElementById('chatSendBtn')?.addEventListener('click', () => {
-            const input = document.getElementById('chatInput');
-            if (input && input.value.trim() && window.AppModules) {
-                window.AppModules.DoctorModule.sendMessage(input.value.trim());
-                input.value = '';
-            }
-        });
-
-        document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && e.target.value.trim() && window.AppModules) {
-                window.AppModules.DoctorModule.sendMessage(e.target.value.trim());
-                e.target.value = '';
-            }
-        });
     }
 
     // ===== Toast =====

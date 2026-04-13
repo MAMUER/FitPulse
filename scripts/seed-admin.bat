@@ -2,8 +2,8 @@
 REM ============================================================================
 REM Seed Admin User Script — FitPulse
 REM ============================================================================
-REM Creates the initial admin user and generates invite codes.
-REM Run AFTER `make migrate` (database schema must exist).
+REM Creates the initial admin user (email_confirmed = TRUE) and invite codes.
+REM Runs via Docker exec — no psql required on host.
 REM
 REM Usage:
 REM   scripts\seed-admin.bat
@@ -13,19 +13,16 @@ REM ============================================================================
 setlocal enabledelayedexpansion
 
 REM === Configuration ===
-set "DB_HOST=%DB_HOST:=localhost%"
-set "DB_PORT=%DB_PORT:=localhost%"
-if "%DB_PORT%"=="" set "DB_PORT=5432"
-set "DB_USER=%DB_USER: postgres%"
-if "%DB_USER%"=="" set "DB_USER=postgres"
-set "DB_PASSWORD=%DB_PASSWORD: postgres%"
-if "%DB_PASSWORD%"=="" set "DB_PASSWORD=postgres"
-set "DB_NAME=%DB_NAME: fitness%"
-if "%DB_NAME%"=="" set "DB_NAME=fitness"
-
+set "DB_USER=fitness_admin"
+set "DB_NAME=fitness"
 set "ADMIN_EMAIL=admin@fitpulse.local"
 set "ADMIN_PASSWORD=Admin@FitPulse2026"
 set "ADMIN_NAME=System Administrator"
+set "COMPOSE_FILE=deployments/docker-compose.yml"
+
+REM Allow override via environment variables
+if not "%SEED_ADMIN_EMAIL%"=="" set "ADMIN_EMAIL=%SEED_ADMIN_EMAIL%"
+if not "%SEED_ADMIN_PASSWORD%"=="" set "ADMIN_PASSWORD=%SEED_ADMIN_PASSWORD%"
 
 REM Parse command line arguments
 :parse_args
@@ -43,8 +40,11 @@ if "%~1"=="--password" (
 if "%~1"=="--help" (
     echo Usage: %0 [--email EMAIL] [--password PASSWORD]
     echo.
-    echo Creates initial admin user and invite codes.
+    echo Creates initial admin user (email_confirmed = TRUE) and invite codes.
     echo Default: admin@fitpulse.local / Admin@FitPulse2026
+    echo.
+    echo Environment variables override:
+    echo   SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
     exit /b 0
 )
 shift
@@ -53,139 +53,76 @@ goto :parse_args
 
 echo.
 echo ========================================
-echo   FITPULSE — ADMIN SEED SCRIPT
+echo   FITPULSE -- ADMIN SEED SCRIPT
 echo ========================================
 echo.
-echo   DB:       %DB_HOST%:%DB_PORT%/%DB_NAME%
-echo   User:     %DB_USER%
 echo   Admin:    %ADMIN_EMAIL%
+echo   DB:       %DB_NAME%
 echo.
-echo   Press Ctrl+C to cancel, or
-pause
 
-REM === Check psql ===
-where psql >nul 2>&1
+REM === Check Docker ===
+docker ps >nul 2>&1
 if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] psql not found. Install PostgreSQL client or use Docker:
-    echo   docker compose -f deployments/docker-compose.yml exec postgres psql -U postgres -d fitness
+    echo [ERROR] Docker is not running!
     exit /b 1
 )
 
-REM === SQL Script ===
-set "TEMP_SQL=%TEMP%\fitpulse_seed_admin_%RANDOM%.sql"
+REM === Check PostgreSQL container ===
+docker compose -f "%COMPOSE_FILE%" ps postgres --format "json" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] PostgreSQL container not found. Run: scripts\run-local.ps1
+    exit /b 1
+)
 
-REM Generate bcrypt hash using Go one-liner
-set "TEMP_HASH=%TEMP%\fitpulse_hash_%RANDOM%.txt"
-(
-    echo package main
-    echo import ("fmt"; "os"; "golang.org/x/crypto/bcrypt")
-    echo func main() {
-    echo     h, _ := bcrypt.GenerateFromPassword([]byte(os.Args[1]), bcrypt.DefaultCost)
-    echo     fmt.Print(string(h))
-    echo }
-) > "%TEMP_HASH%\hash.go"
+REM === Generate bcrypt hash via Go ===
+echo [1/3] Generating bcrypt hash...
+set "TEMP_DIR=%TEMP%\fitpulse_seed_%RANDOM%"
+mkdir "%TEMP_DIR%" 2>nul
 
-echo [0/3] Generating bcrypt hash...
+> "%TEMP_DIR%\hash.go" echo package main
+>> "%TEMP_DIR%\hash.go" echo import ("fmt"; "os"; "golang.org/x/crypto/bcrypt")
+>> "%TEMP_DIR%\hash.go" echo func main() {
+>> "%TEMP_DIR%\hash.go" echo     h, _ := bcrypt.GenerateFromPassword([]byte(os.Args[1]), bcrypt.DefaultCost)
+>> "%TEMP_DIR%\hash.go" echo     fmt.Print(string(h))
+>> "%TEMP_DIR%\hash.go" echo }
+
 cd /d "%~dp0\.."
-go run "%TEMP_HASH%\hash.go" "%ADMIN_PASSWORD%" > "%TEMP_HASH%\hash.txt" 2>nul
+go run "%TEMP_DIR%\hash.go" "%ADMIN_PASSWORD%" > "%TEMP_DIR%\hash.txt" 2>nul
 if %errorlevel% neq 0 (
-    echo.
-    echo [WARNING] Could not generate bcrypt hash via Go.
-    echo [INFO] Please create admin user manually via API registration.
-    del "%TEMP_HASH%\hash.go" 2>nul
-    del "%TEMP_HASH%\hash.txt" 2>nul
-    rmdir "%TEMP_HASH%" 2>nul
+    echo [ERROR] Failed to generate bcrypt hash. Make sure Go is installed.
+    rmdir /s /q "%TEMP_DIR%" 2>nul
     exit /b 1
 )
-set /p BCRYPT_HASH=<"%TEMP_HASH%\hash.txt"
-del "%TEMP_HASH%\hash.go" 2>nul
-del "%TEMP_HASH%\hash.txt" 2>nul
-rmdir "%TEMP_HASH%" 2>nul
+set /p BCRYPT_HASH=<"%TEMP_DIR%\hash.txt"
+rmdir /s /q "%TEMP_DIR%" 2>nul
 
-(
-    echo BEGIN;
-    echo.
-    echo -- 1. Create admin user (bypass invite requirement for bootstrap)
-    echo DO $$
-    echo DECLARE
-    echo     v_user_id UUID;
-    echo BEGIN
-    echo     -- Check if admin already exists
-    echo     IF EXISTS (SELECT 1 FROM users WHERE email = '%ADMIN_EMAIL%') THEN
-    echo         RAISE NOTICE 'Admin user already exists: %%', '%ADMIN_EMAIL%';
-    echo     ELSE
-    echo         -- Create admin user with confirmed email
-    echo         INSERT INTO users (email, password_hash, full_name, role, email_confirmed)
-    echo         VALUES (
-    echo             '%ADMIN_EMAIL%',
-    echo             '%BCRYPT_HASH%',
-    echo             '%ADMIN_NAME%',
-    echo             'admin',
-    echo             TRUE
-    echo         )
-    echo         RETURNING id INTO v_user_id;
-    echo.
-    echo         RAISE NOTICE 'Admin user created with ID: %%', v_user_id;
-    echo.
-    echo         -- Create user profile
-    echo         INSERT INTO user_profiles (user_id) VALUES (v_user_id);
-    echo     END IF;
-    echo.
-    echo     -- 2. Generate invite codes for future use
-    echo     IF NOT EXISTS (SELECT 1 FROM invite_codes WHERE role = 'admin' AND code LIKE 'ADMIN-BOOTSTRAP-%%') THEN
-    echo         INSERT INTO invite_codes (code, role, specialty, max_uses, is_active)
-    echo         VALUES (
-    echo             'ADMIN-BOOTSTRAP-' || substr(md5(random()::text), 1, 8),
-    echo             'admin',
-    echo             NULL,
-    echo             10,
-    echo             TRUE
-    echo         );
-    echo         RAISE NOTICE 'Admin invite codes generated';
-    echo     END IF;
-    echo.
-    echo     IF NOT EXISTS (SELECT 1 FROM invite_codes WHERE role = 'doctor' AND code LIKE 'DOCTOR-BOOTSTRAP-%%') THEN
-    echo         INSERT INTO invite_codes (code, role, specialty, max_uses, is_active)
-    echo         VALUES (
-    echo             'DOCTOR-BOOTSTRAP-' || substr(md5(random()::text), 1, 8),
-    echo             'doctor',
-    echo             NULL,
-    echo             50,
-    echo             TRUE
-    echo         );
-    echo         RAISE NOTICE 'Doctor invite codes generated';
-    echo     END IF;
-    echo END $$;
-    echo.
-    echo -- 3. Show results
-    echo SELECT email, full_name, role, email_confirmed, created_at
-    echo FROM users WHERE email = '%ADMIN_EMAIL%';
-    echo.
-    echo SELECT code, role, max_uses, is_active, created_at
-    echo FROM invite_codes WHERE code LIKE '%%BOOTSTRAP%%'
-    echo ORDER BY role, created_at DESC;
-    echo.
-    echo COMMIT;
-) > "%TEMP_SQL%"
+REM === Build and execute SQL via docker exec ===
+echo [2/3] Creating admin user in database...
 
-REM === Execute ===
-echo.
-echo [1/2] Running seed script...
-echo.
+REM Escape single quotes for SQL
+set "ESCAPED_EMAIL=%ADMIN_EMAIL:'=''%"
+set "ESCAPED_NAME=%ADMIN_NAME:'=''%"
 
-set "PGPASSWORD=%DB_PASSWORD%"
-psql -h "%DB_HOST%" -p "%DB_PORT%" -U "%DB_USER%" -d "%DB_NAME%" -f "%TEMP_SQL%" 2>&1
+REM Build SQL (use double quotes for bcrypt hash to avoid $ interpretation)
+set "SQL=INSERT INTO users (email, password_hash, full_name, role, email_confirmed) SELECT '%ESCAPED_EMAIL%', '%BCRYPT_HASH%', '%ESCAPED_NAME%', 'admin', TRUE WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = '%ESCAPED_EMAIL%');"
+
+set "SQL2=INSERT INTO user_profiles (user_id) SELECT id FROM users WHERE email = '%ESCAPED_EMAIL%' AND NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_id = (SELECT id FROM users WHERE email = '%ESCAPED_EMAIL%'));"
+
+set "SQL3=INSERT INTO invite_codes (code, role, specialty, max_uses, is_active) SELECT 'ADMIN-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'admin', NULL, 10, TRUE WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'ADMIN-BOOTSTRAP-%%');"
+
+set "SQL4=INSERT INTO invite_codes (code, role, specialty, max_uses, is_active) SELECT 'DOCTOR-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'doctor', NULL, 50, TRUE WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'DOCTOR-BOOTSTRAP-%%');"
+
+set "SQL5=SELECT email, full_name, role, email_confirmed, created_at FROM users WHERE email = '%ESCAPED_EMAIL%';"
+
+set "SQL6=SELECT code, role, max_uses, is_active, created_at FROM invite_codes WHERE code LIKE '%%BOOTSTRAP%%' ORDER BY role, created_at DESC;"
+
+docker compose -f "%COMPOSE_FILE%" exec -T postgres psql -U "%DB_USER%" -d "%DB_NAME%" -c "%SQL%" -c "%SQL2%" -c "%SQL3%" -c "%SQL4%" -c "%SQL5%" -c "%SQL6%" 2>&1
 
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Seed script failed.
-    del "%TEMP_SQL%" 2>nul
     exit /b 1
 )
-
-REM === Cleanup ===
-del "%TEMP_SQL%" 2>nul
 
 echo.
 echo ========================================
@@ -196,10 +133,9 @@ echo   Email:    %ADMIN_EMAIL%
 echo   Password: %ADMIN_PASSWORD%
 echo.
 echo   Login via API:
-echo   curl -X POST http://localhost:8080/api/v1/login ^
+echo   curl -k -X POST https://localhost:8443/api/v1/login ^
 echo     -H "Content-Type: application/json" ^
 echo     -d "{\"email\":\"%ADMIN_EMAIL%\",\"password\":\"%ADMIN_PASSWORD%\"}"
 echo.
-echo   IMPORTANT: Change the default password after first login!
-echo.
+echo   NOTE: Change the default password after first login!
 echo ========================================
