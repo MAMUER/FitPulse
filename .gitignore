@@ -95,8 +95,9 @@ configs\k8s\secrets.yaml
 configs\config.dev.yaml
 
 docs
-run-local.ps1
-scripts/run-local.bat
-scripts/stop-local.bat
-stop-local.ps1
-scripts/test_body.json
+# run-local.ps1
+# scripts/run-local.bat
+# scripts/stop-local.bat
+# stop-local.ps1
+# scripts/test_body.json
+# scripts/seed-admin.bat
