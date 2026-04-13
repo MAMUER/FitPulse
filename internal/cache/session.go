@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -60,10 +61,11 @@ func (s *SessionStore) ExchangeAuthCode(ctx context.Context, code, clientID, red
 	}
 
 	// Парсим сохранённые данные
-	var savedUserID, savedClientID, savedRedirectURI string
-	if _, err := fmt.Sscanf(value, "%[^|]|%[^|]|%s", &savedUserID, &savedClientID, &savedRedirectURI); err != nil {
+	parts := strings.SplitN(value, "|", 3)
+	if len(parts) != 3 {
 		return "", ErrCodeInvalid
 	}
+	savedUserID, savedClientID, savedRedirectURI := parts[0], parts[1], parts[2]
 
 	// Требование #2: Проверяем client_id и redirect_uri
 	if savedClientID != clientID || savedRedirectURI != redirectURI {

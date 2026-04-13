@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testSecret = "test-secret-key-for-auth-tests"
 
 func TestGenerateJWT(t *testing.T) {
 	tests := []struct {
@@ -232,4 +235,51 @@ func TestJWTStructure(t *testing.T) {
 	assert.Equal(t, userID, claims.UserID)
 	assert.Equal(t, email, claims.Email)
 	assert.Equal(t, role, claims.Role)
+}
+
+func TestGenerateJWT_NegativeExpiration_UsesDefault(t *testing.T) {
+	token, err := GenerateJWT("user-1", "a@b.com", "client", testSecret, -5)
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	claims, err := ValidateJWT(token, testSecret)
+	require.NoError(t, err)
+	// Token should still be valid (default 24h applied)
+	assert.NotNil(t, claims.ExpiresAt)
+	assert.True(t, claims.ExpiresAt.After(time.Now()))
+}
+
+func TestValidateJWT_InvalidTokenSignature(t *testing.T) {
+	// Create a valid token with one secret, then try to validate with another
+	token, err := GenerateJWT("user-1", "a@b.com", "client", "secret-a", 24)
+	require.NoError(t, err)
+
+	claims, err := ValidateJWT(token, "secret-b")
+	assert.Error(t, err)
+	assert.Nil(t, claims)
+}
+
+func TestClaimsJSONMarshaling(t *testing.T) {
+	claims := Claims{
+		UserID: "user-42",
+		Email:  "user@test.com",
+		Role:   "admin",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        "test-jti",
+		},
+	}
+
+	// Verify that claims can be serialized/deserialized
+	data, err := json.Marshal(claims)
+	require.NoError(t, err)
+	assert.NotEmpty(t, data)
+
+	var decoded Claims
+	err = json.Unmarshal(data, &decoded)
+	require.NoError(t, err)
+	assert.Equal(t, claims.UserID, decoded.UserID)
+	assert.Equal(t, claims.Email, decoded.Email)
+	assert.Equal(t, claims.Role, decoded.Role)
 }

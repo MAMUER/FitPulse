@@ -4,9 +4,13 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"testing"
 	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -213,4 +217,40 @@ func TestConsumerClose(t *testing.T) {
 	// Повторный close не должен вызывать ошибку
 	err = consumer.Close()
 	assert.NoError(t, err)
+}
+
+// --- Unit tests for isClosedError (no RabbitMQ required) ---
+
+func TestIsClosedErrorWithEOF(t *testing.T) {
+	assert.True(t, isClosedError(io.EOF))
+}
+
+func TestIsClosedErrorWithAmqpErrClosed(t *testing.T) {
+	assert.True(t, isClosedError(amqp.ErrClosed))
+}
+
+func TestIsClosedErrorWithWrappedEOF(t *testing.T) {
+	wrapped := fmt.Errorf("wrapped: %w", io.EOF)
+	assert.True(t, isClosedError(wrapped))
+}
+
+func TestIsClosedErrorWithWrappedAmqpErrClosed(t *testing.T) {
+	wrapped := fmt.Errorf("wrapped: %w", amqp.ErrClosed)
+	assert.True(t, isClosedError(wrapped))
+}
+
+func TestIsClosedErrorWithRegularError(t *testing.T) {
+	assert.False(t, isClosedError(errors.New("regular error")))
+}
+
+func TestIsClosedErrorWithNil(t *testing.T) {
+	assert.False(t, isClosedError(nil))
+}
+
+func TestPublisherInterface(t *testing.T) {
+	var _ Publisher = (*rabbitPublisher)(nil)
+}
+
+func TestConsumerInterface(t *testing.T) {
+	var _ Consumer = (*rabbitConsumer)(nil)
 }

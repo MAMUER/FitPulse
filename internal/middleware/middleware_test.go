@@ -240,3 +240,483 @@ func TestAuthMiddlewareLogging(t *testing.T) {
 	}
 	assert.True(t, found, "Token validation error not logged")
 }
+
+// ==========================================
+// LoggingMiddleware Tests
+// ==========================================
+
+func TestLoggingMiddleware(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := LoggingMiddleware(log)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test-path", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "HTTP request", logs[0].Message)
+	assert.Equal(t, "/test-path", logs[0].ContextMap()["path"])
+	assert.Equal(t, "GET", logs[0].ContextMap()["method"])
+}
+
+func TestLoggingMiddlewareWithCorrelationID(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := LoggingMiddleware(log)(nextHandler)
+
+	ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
+	req := httptest.NewRequestWithContext(ctx, "POST", "/api/data", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "corr-123", logs[0].ContextMap()["correlation_id"])
+	assert.Equal(t, "POST", logs[0].ContextMap()["method"])
+}
+
+func TestLoggingMiddlewareWithoutCorrelationID(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	handler := LoggingMiddleware(log)(nextHandler)
+
+	// Context without CorrelationIDKey
+	req := httptest.NewRequestWithContext(context.Background(), "DELETE", "/resource/1", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	// GetCorrelationID returns "" when key not found
+	assert.Equal(t, "", logs[0].ContextMap()["correlation_id"])
+}
+
+func TestLoggingMiddlewareLogsDuration(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := LoggingMiddleware(log)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	// Duration should be present and non-negative
+	duration, ok := logs[0].ContextMap()["duration"].(time.Duration)
+	assert.True(t, ok)
+	assert.GreaterOrEqual(t, duration, time.Duration(0))
+}
+
+func TestLoggingMiddlewareMultipleRequests(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := LoggingMiddleware(log)(nextHandler)
+
+	paths := []string{"/a", "/b", "/c"}
+	for _, path := range paths {
+		req := httptest.NewRequestWithContext(context.Background(), "GET", path, nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+	}
+
+	logs := recorded.All()
+	assert.Len(t, logs, 3)
+}
+
+// ==========================================
+// RecoveryMiddleware Tests
+// ==========================================
+
+func TestRecoveryMiddlewareRecoversFromPanic(t *testing.T) {
+	core, recorded := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic!")
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/panic", nil)
+	rr := httptest.NewRecorder()
+
+	// Should not panic
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, "text/plain", rr.Header().Get("Content-Type"))
+	assert.Equal(t, "Internal Server Error", rr.Body.String())
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "Panic recovered", logs[0].Message)
+	assert.Equal(t, "test panic!", logs[0].ContextMap()["panic"])
+	assert.Equal(t, "/panic", logs[0].ContextMap()["path"])
+	assert.NotEmpty(t, logs[0].ContextMap()["stack"])
+}
+
+func TestRecoveryMiddlewareNoPanic(t *testing.T) {
+	core, recorded := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RecoveryMiddleware(log)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/normal", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Zero(t, recorded.Len(), "should not log when no panic")
+}
+
+func TestRecoveryMiddlewarePanicWithStringValue(t *testing.T) {
+	core, recorded := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("something went wrong in handler")
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/crash", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "Panic recovered", logs[0].Message)
+}
+
+func TestRecoveryMiddlewarePanicWithIntValue(t *testing.T) {
+	core, recorded := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic(42)
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, "Internal Server Error", rr.Body.String())
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+}
+
+func TestRecoveryMiddlewarePanicWithNilValue(t *testing.T) {
+	core, _ := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+}
+
+func TestRecoveryMiddlewareResponseHeadersSet(t *testing.T) {
+	core, _ := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set some headers before panic
+		w.Header().Set("X-Custom", "value")
+		panic("crash")
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, "text/plain", rr.Header().Get("Content-Type"))
+}
+
+func TestRecoveryMiddlewareMultiplePanics(t *testing.T) {
+	core, recorded := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	panicCount := 0
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panicCount++
+		panic("repeated panic")
+	})
+
+	handler := RecoveryMiddleware(log)(panicHandler)
+
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	}
+
+	logs := recorded.All()
+	assert.Len(t, logs, 3)
+}
+
+func TestRecoveryMiddlewareNextHandlerCompletes(t *testing.T) {
+	core, _ := observer.New(zap.ErrorLevel)
+	log := zap.New(core)
+
+	completed := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		completed = true
+		w.WriteHeader(http.StatusAccepted)
+	})
+
+	handler := RecoveryMiddleware(log)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/ok", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.True(t, completed)
+	assert.Equal(t, http.StatusAccepted, rr.Code)
+}
+
+// ==========================================
+// RequireRole Tests
+// ==========================================
+
+func TestRequireRole(t *testing.T) {
+	tests := []struct {
+		name           string
+		roleInContext  interface{}
+		allowedRoles   []string
+		expectedStatus int
+		nextCalled     bool
+	}{
+		{
+			name:           "allowed role - admin",
+			roleInContext:  "admin",
+			allowedRoles:   []string{"admin"},
+			expectedStatus: http.StatusOK,
+			nextCalled:     true,
+		},
+		{
+			name:           "allowed role - one of many",
+			roleInContext:  "viewer",
+			allowedRoles:   []string{"admin", "editor", "viewer"},
+			expectedStatus: http.StatusOK,
+			nextCalled:     true,
+		},
+		{
+			name:           "disallowed role",
+			roleInContext:  "viewer",
+			allowedRoles:   []string{"admin", "editor"},
+			expectedStatus: http.StatusNotFound,
+			nextCalled:     false,
+		},
+		{
+			name:           "no role in context",
+			roleInContext:  nil,
+			allowedRoles:   []string{"admin"},
+			expectedStatus: http.StatusNotFound,
+			nextCalled:     false,
+		},
+		{
+			name:           "wrong type in context",
+			roleInContext:  123,
+			allowedRoles:   []string{"admin"},
+			expectedStatus: http.StatusNotFound,
+			nextCalled:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := RequireRole(tt.allowedRoles...)(nextHandler)
+
+			var ctx context.Context
+			if tt.roleInContext != nil {
+				ctx = context.WithValue(context.Background(), RoleKey, tt.roleInContext)
+			} else {
+				ctx = context.Background()
+			}
+
+			req := httptest.NewRequestWithContext(ctx, "GET", "/admin", nil)
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			assert.Equal(t, tt.nextCalled, called)
+		})
+	}
+}
+
+func TestRequireRoleMultipleRoles(t *testing.T) {
+	called := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RequireRole("admin", "moderator", "editor")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), RoleKey, "moderator")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/moderate", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.True(t, called)
+}
+
+func TestRequireRoleEmptyAllowedRoles(t *testing.T) {
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RequireRole()(nextHandler)
+
+	ctx := context.WithValue(context.Background(), RoleKey, "admin")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// No allowed roles, so no role matches -> 404
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestRequireRoleReturnsNotFound(t *testing.T) {
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RequireRole("admin")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), RoleKey, "client")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/admin", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "not found")
+}
+
+func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
+	secret := testSecretMW
+	log := zap.NewNop()
+
+	validToken, err := auth.GenerateJWT("user-789", "admin@example.com", "admin", secret, 24)
+	require.NoError(t, err)
+
+	called := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		userID := r.Context().Value(UserIDKey).(string)
+		role := r.Context().Value(RoleKey).(string)
+		assert.Equal(t, "user-789", userID)
+		assert.Equal(t, "admin", role)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Chain: AuthMiddleware -> RequireRole -> handler
+	handler := AuthMiddleware(secret, log)(RequireRole("admin")(nextHandler))
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin/panel", nil)
+	req.Header.Set("Authorization", "Bearer "+validToken)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.True(t, called)
+}
+
+func TestRequireRoleChainWithWrongRole(t *testing.T) {
+	secret := testSecretMW
+	log := zap.NewNop()
+
+	// User has "client" role but endpoint requires "admin"
+	validToken, err := auth.GenerateJWT("user-client", "user@example.com", "client", secret, 24)
+	require.NoError(t, err)
+
+	called := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := AuthMiddleware(secret, log)(RequireRole("admin")(nextHandler))
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin", nil)
+	req.Header.Set("Authorization", "Bearer "+validToken)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.False(t, called)
+}
