@@ -94,6 +94,7 @@ env
 configs\k8s\secrets.yaml
 configs\config.dev.yaml
 
+# Файлы для разработки
 docs
 run-local.ps1
 scripts/run-local.bat
@@ -102,3 +103,45 @@ stop-local.ps1
 scripts/test_body.json
 scripts/seed-admin.bat
 results.json
+
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+.env
+.env.local
+.env.*
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# MyPy cache
+.mypy_cache/
+# Pytest cache
+.pytest_cache/

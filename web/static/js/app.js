@@ -443,9 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.addEventListener('click', () => switchView(tab.dataset.view));
         });
 
-        // Generate plan (both buttons)
+        // Generate plan (training page button only)
         document.getElementById('generatePlanBtn')?.addEventListener('click', generatePlan);
-        document.getElementById('dashGenerateBtn')?.addEventListener('click', generatePlan);
 
         // ML classify
         document.getElementById('mlClassifyBtn')?.addEventListener('click', mlClassify);
@@ -590,9 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sleepDisplay = document.getElementById('profSleepDisplay');
                 const sleepValue = document.getElementById('profSleepValue');
                 if (sleepDisplay && sleepValue) {
-                    sleepDisplay.style.display = 'flex';
                     sleepValue.textContent = p.sleep_hours + ' ч';
-                    document.querySelector('.sleep-info').style.display = 'none';
                 }
             }
 

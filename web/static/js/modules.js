@@ -170,13 +170,23 @@ const AppModules = (() => {
                 const profile = await getProfile();
                 const p = profile.profile || profile;
 
+                // Build user_profile object matching backend expectations
+                const userProfile = {};
+                if (p.age) userProfile.age = p.age;
+                if (p.gender) userProfile.gender = p.gender;
+                if (p.weight_kg) userProfile.weight = p.weight_kg;
+                if (p.height_cm) userProfile.height = p.height_cm;
+                if (p.fitness_level) userProfile.fitness_level = p.fitness_level;
+                if (p.goals && Array.isArray(p.goals)) userProfile.goals = p.goals;
+                if (p.sleep_hours) userProfile.sleep_hours = p.sleep_hours;
+                if (p.nutrition) userProfile.nutrition = p.nutrition;
+
                 // Use the ML Generator endpoint (/ml/generate-plan) which calls the Python ML service
                 const plan = await window.apiRequest('/ml/generate-plan', {
                     method: 'POST',
                     body: JSON.stringify({
                         training_class: trainingClass,
-                        duration_weeks: 4,
-                        available_days: [1, 3, 5],
+                        user_profile: userProfile,
                         preferences: {
                             max_duration: 60,
                             available_equipment: [],
