@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -21,7 +19,48 @@ import (
 	trainingpb "github.com/MAMUER/Project/api/gen/training"
 	userpb "github.com/MAMUER/Project/api/gen/user"
 	"github.com/MAMUER/Project/internal/middleware"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
+
+// mlJobStatusHandler — общая функция проверки статуса ML-задачи
+// Устраняет дублирование между classifyStatusHandler и generatePlanStatusHandler
+func (g *gateway) mlJobStatusHandler(w http.ResponseWriter, r *http.Request, redisKey string) {
+	vars := mux.Vars(r)
+	jobID := vars["job_id"]
+	if jobID == "" {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	val, err := g.rdb.Get(ctx, fmt.Sprintf("%s%s", redisKey, jobID)).Result()
+	if errors.Is(err, redis.Nil) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if encErr := json.NewEncoder(w).Encode(map[string]interface{}{
+			"job_id": jobID,
+			"status": "processing",
+		}); encErr != nil {
+			g.log.Error("Failed to encode response", zap.Error(encErr))
+		}
+		return
+	}
+	if err != nil {
+		g.log.Error("Failed to get job result from Redis", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	safeVal := html.EscapeString(val)
+	if _, err := w.Write([]byte(safeVal)); err != nil {
+		g.log.Error("Failed to write response", zap.Error(err))
+	}
+}
 
 func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -129,41 +168,9 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 	}
 }
 
+// classifyStatusHandler — делегирует общую логику mlJobStatusHandler
 func (g *gateway) classifyStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	jobID := vars["job_id"]
-	if jobID == "" {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-
-	val, err := g.rdb.Get(ctx, fmt.Sprintf("ml:result:%s", jobID)).Result()
-	if errors.Is(err, redis.Nil) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if encErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"job_id": jobID,
-			"status": "processing",
-		}); encErr != nil {
-			g.log.Error("Failed to encode response", zap.Error(encErr))
-		}
-		return
-	}
-	if err != nil {
-		g.log.Error("Failed to get job result from Redis", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	safeVal := html.EscapeString(val)
-	if _, err := w.Write([]byte(safeVal)); err != nil {
-		g.log.Error("Failed to write response", zap.Error(err))
-	}
+	g.mlJobStatusHandler(w, r, "ml:result:")
 }
 
 func (g *gateway) generateMLPlanHandler(w http.ResponseWriter, r *http.Request) {
@@ -349,39 +356,7 @@ func (g *gateway) handleAsyncGeneratePlan(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// generatePlanStatusHandler — делегирует общую логику mlJobStatusHandler
 func (g *gateway) generatePlanStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	jobID := vars["job_id"]
-	if jobID == "" {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-
-	val, err := g.rdb.Get(ctx, fmt.Sprintf("ml:generate:%s", jobID)).Result()
-	if errors.Is(err, redis.Nil) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if encErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"job_id": jobID,
-			"status": "processing",
-		}); encErr != nil {
-			g.log.Error("Failed to encode response", zap.Error(encErr))
-		}
-		return
-	}
-	if err != nil {
-		g.log.Error("Failed to get job result from Redis", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	safeVal := html.EscapeString(val)
-	if _, err := w.Write([]byte(safeVal)); err != nil {
-		g.log.Error("Failed to write response", zap.Error(err))
-	}
+	g.mlJobStatusHandler(w, r, "ml:generate:")
 }

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Pre-commit hook for Gitleaks secret scanning
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "🔍 Running Gitleaks secret scan..."
+
+# Check if gitleaks is installed
+if ! command -v gitleaks &> /dev/null; then
+    echo "⚠️  Gitleaks not found. Installing..."
+    go install github.com/zricethezav/gitleaks/v8@latest
+fi
+
+# Run gitleaks on staged changes
+gitleaks detect \
+    --source . \
+    --config .gitleaks.toml \
+    --staged \
+    --verbose \
+    --no-banner
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ POTENTIAL SECRETS DETECTED!"
+    echo "   Remove sensitive data from your changes before committing."
+    echo "   Use .env.example as a template — never commit real credentials."
+    echo ""
+    exit 1
+fi
+
+echo "✅ No secrets detected."
+exit 0

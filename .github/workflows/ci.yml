@@ -150,6 +150,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Verify .env is NOT tracked in Git
+      - name: Verify .env not tracked
+        run: |
+          if git ls-files --error-unmatch .env &>/dev/null; then
+            echo "❌ CRITICAL: .env file is tracked in Git!"
+            echo "   Run: git rm --cached .env"
+            echo "   Add .env to .gitignore"
+            exit 1
+          fi
+          echo "✅ .env is not tracked"
+
       # TruffleHog: поиск secrets в истории коммитов
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@main
@@ -353,6 +364,12 @@ jobs:
             MODEL_PATH=/app/models/classifier.keras
             SCALER_PATH=/app/models/scaler.pkl
             GENERATOR_PATH=/app/models/generator.h5
+            SMTP_HOST=smtp.yandex.ru
+            SMTP_PORT=465
+            SMTP_USER=${{ secrets.SMTP_USER }}
+            SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+            EMAIL_DAILY_LIMIT=100
+            EMAIL_SKIP_DOMAINS=example.com
             EOF
           '
       - name: Get short SHA for image tag

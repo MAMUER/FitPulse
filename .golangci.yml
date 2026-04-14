@@ -24,6 +24,11 @@ linters:
     - exhaustive     # Проверка полноты switch statement
     - copyloopvar    # Обнаружение копирования переменных цикла
     - fatcontext     # Обнаружение больших context
+    # Complexity & maintainability (code-smells)
+    - gocyclo        # Цикломатическая сложность (Вирт: прозрачность алгоритмов)
+    - gocognit       # Когнитивная сложность (code-smell: сложные функции)
+    - funlen         # Слишком длинные функции (code-smell: Long Method)
+    - dupl           # Дублирование кода (code-smell: Duplicate Code)
   settings:
     gosec:
       severity: medium
@@ -34,6 +39,18 @@ linters:
       enable-all: true
       disable:
         - fieldalignment  # Не критично для production
+    # Code-smell thresholds (Вирт: «простота — основа надёжности»)
+    # Установлены ВЫШЕ худшего существующего кода.
+    # Новые функции должны быть ПРОЩЕ. Со временем пороги снижать.
+    gocyclo:
+      min-complexity: 40  # Худший в коде: gateway main=34
+    gocognit:
+      min-complexity: 60  # Худший в коде: gateway main=51
+    funlen:
+      lines: 250          # Худший в коде: gateway main=209, ingestHandler=174
+      statements: 100     # Худший в коде: gateway main=94, ingestHandler=87
+    dupl:
+      threshold: 200      # Пропускает мелкие и тестовые дубликаты
   exclusions:
     generated: lax
     rules:
@@ -43,6 +60,21 @@ linters:
       - linters:
           - gochecknoglobals
         path: "internal/metrics|internal/logger"
+      # Тесты могут быть длинными, сложными и содержать шаблонные дубликаты
+      - linters:
+          - funlen
+          - gocyclo
+          - gocognit
+          - dupl
+        path: "_test\\.go$"
+      # Сгенерированный proto-код может содержать дубликаты
+      - linters:
+          - dupl
+        path: "api/gen/"
+      # Дубликаты goals/contraindications в user-service — намеренный паттерн
+      - linters:
+          - dupl
+        path: "cmd/user-service/main\\.go"
     paths:
       - third_party$
       - builtin$
