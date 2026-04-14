@@ -131,10 +131,15 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {
-	jobID := uuid.New().String()
+	if g.rmqCh == nil {
+		g.log.Warn("RabbitMQ channel unavailable, falling back to sync classify")
+		g.handleSyncClassifyFallback(w, r, mlPayload)
+		return
+	}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"job_id":             jobID,
+	jobID := uuid.New().String()
+	jobBody, err := json.Marshal(map[string]interface{}{
+		"job_id":            jobID,
 		"physiological_data": mlPayload["physiological_data"],
 	})
 	if err != nil {
@@ -143,18 +148,18 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	err = g.rmqCh.PublishWithContext(ctx, "", "ml.classify", false, false,
 		amqp.Publishing{
 			ContentType:  "application/json",
-			Body:         body,
+			Body:         jobBody,
 			DeliveryMode: amqp.Persistent,
 		})
 	if err != nil {
 		g.log.Error("Failed to publish classify job to RabbitMQ", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		g.handleSyncClassifyFallback(w, r, mlPayload)
 		return
 	}
 
@@ -165,6 +170,53 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 		"status": "pending",
 	}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
+	}
+}
+
+func (g *gateway) handleSyncClassifyFallback(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {
+	reqBody, _ := json.Marshal(mlPayload)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	if !isValidServiceURL(g.mlClassifierURL, "http://localhost:", "http://ml-", "http://classifier:") {
+		g.log.Error("Invalid ML classifier URL", zap.String("url", g.mlClassifierURL))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		g.mlClassifierURL+"/classify",
+		bytes.NewReader(reqBody))
+	if err != nil {
+		g.log.Error("Failed to create ML classifier request", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		g.log.Error("ML classifier request failed", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			g.log.Error("Failed to close response body", zap.Error(closeErr))
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		g.log.Error("ML classifier returned error", zap.Int("status", resp.StatusCode))
+		http.Error(w, "Ошибка классификации", resp.StatusCode)
+		return
+	}
+
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		g.log.Error("Failed to write response", zap.Error(err))
 	}
 }
 

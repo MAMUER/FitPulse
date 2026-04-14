@@ -70,6 +70,7 @@ services:
     environment:
       - KERAS_BACKEND=tensorflow
       - ML_ASYNC=true
+      - ML_CONSUMER_THREADS=3
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS required}@rabbitmq:5672/
       - REDIS_HOST=redis
     depends_on:

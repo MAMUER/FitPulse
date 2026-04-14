@@ -1,147 +1,63 @@
-# Binaries
-/bin/
+# Build artifacts
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary
+*.o
+*.obj
 *.test
-
-# Output of the go coverage tool
 *.out
+coverage/
+htmlcov/
+.coverage
+build/
+dist/
+target/
 
-# Dependency directories
+# Go artifacts
 vendor/
-
-# Go workspace file
 go.work
 
-# Environment variables
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+
+# Environment files
 .env
 .env.local
 .env.*.local
 !.env.example
 
-# IDE
-.idea/
+# IDE and editor settings
 .vscode/
+.idea/
+.vs/
 *.swp
 *.swo
 *~
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-logs/
-
-# Temporary files
-tmp/
-temp/
-
-# Docker
+# Docker / Kubernetes
 *.pid
-
-# TLS certificates
 *.crt
 *.key
 *.pem
 deploy/tls/certs/
-
-# Minikube
 .minikube/
-
-# Kubernetes kubeconfig
 kubeconfig
 
-# Проект специфичные
-bin/
-coverage.out
-
-# ML models и датасеты
+# Large generated data
 datasets/
 
-# Python
-__pycache__/
-*.pyc
-venv/
-venv_ml/
-.venv/
-
-.git
-.github
-.vscode
-.vs
-*.log
-*.tmp
-*.swp
-.idea
-__pycache__
-*.pyc
-.DS_Store
-Thumbs.db
-venv
-env
-*.md
-!README.md
-
 *tree.txt
-
-configs\k8s\secrets.yaml
-configs\config.dev.yaml
-
-# Файлы для разработки
+SECURITY.md
 docs
-run-local.ps1
-scripts/run-local.bat
-scripts/stop-local.bat
-stop-local.ps1
-scripts/test_body.json
-scripts/seed-admin.bat
 results.json
-
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
-
-# Dependencies
-node_modules/
-venv/
-.venv/
-.env
-.env.local
-.env.*
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# MyPy cache
-.mypy_cache/
-# Pytest cache
-.pytest_cache/

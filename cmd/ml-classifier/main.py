@@ -17,8 +17,8 @@ import logging
 
 # Async imports (loaded conditionally)
 try:
-    import pika
-    import redis
+    import pika  # type: ignore[import]
+    import redis  # type: ignore[import]
     ASYNC_DEPS_AVAILABLE = True
 except ImportError:
     ASYNC_DEPS_AVAILABLE = False
@@ -182,14 +182,18 @@ def init_async():
         redis_client = None
         return
 
-    # Start RabbitMQ consumer in a background thread
-    consumer_thread = threading.Thread(
-        target=_run_rabbitmq_consumer,
-        daemon=True,
-        name="ml-classify-consumer"
-    )
-    consumer_thread.start()
-    print("RabbitMQ consumer thread started for ml.classify queue")
+    # Start multiple RabbitMQ consumer threads for better concurrency
+    num_consumers = int(os.environ.get('ML_CONSUMER_THREADS', 3))  # Default to 3 threads
+    for i in range(num_consumers):
+        consumer_thread = threading.Thread(
+            target=_run_rabbitmq_consumer,
+            daemon=True,
+            name=f"ml-classify-consumer-{i+1}"
+        )
+        consumer_thread.start()
+        print(f"RabbitMQ consumer thread {i+1} started for ml.classify queue")
+
+    print(f"Started {num_consumers} RabbitMQ consumer threads")
 
 
 def _run_rabbitmq_consumer():
@@ -201,7 +205,7 @@ def _run_rabbitmq_consumer():
             connection = pika.BlockingConnection(credentials)
             channel = connection.channel()
             channel.queue_declare(queue='ml.classify', durable=True)
-            channel.basic_qos(prefetch_count=1)
+            channel.basic_qos(prefetch_count=10)  # Increased prefetch from 1 to 10 for better throughput
             channel.basic_consume(
                 queue='ml.classify',
                 on_message_callback=_on_classify_message,
