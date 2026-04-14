@@ -15,14 +15,22 @@ setlocal enabledelayedexpansion
 REM === Configuration ===
 set "DB_USER=fitness_admin"
 set "DB_NAME=fitness"
-set "ADMIN_EMAIL=admin@fitpulse.local"
-set "ADMIN_PASSWORD=Admin@FitPulse2026"
+set "ADMIN_EMAIL="
+set "ADMIN_PASSWORD="
 set "ADMIN_NAME=System Administrator"
 set "COMPOSE_FILE=deployments/docker-compose.yml"
 
 REM Allow override via environment variables
 if not "%SEED_ADMIN_EMAIL%"=="" set "ADMIN_EMAIL=%SEED_ADMIN_EMAIL%"
 if not "%SEED_ADMIN_PASSWORD%"=="" set "ADMIN_PASSWORD=%SEED_ADMIN_PASSWORD%"
+
+REM Require password (no hardcoded default)
+if "%ADMIN_PASSWORD%"=="" (
+    echo [ERROR] Admin password is not set.
+    echo   Set SEED_ADMIN_PASSWORD env variable or pass --password PASSWORD
+    echo   Example: %0 --password "MyStr0ng!Pass"
+    exit /b 1
+)
 
 REM Parse command line arguments
 :parse_args
@@ -110,11 +118,9 @@ set "SQL2=INSERT INTO user_profiles (user_id) SELECT id FROM users WHERE email =
 
 set "SQL3=INSERT INTO invite_codes (code, role, specialty, max_uses, is_active) SELECT 'ADMIN-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'admin', NULL, 10, TRUE WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'ADMIN-BOOTSTRAP-%%');"
 
-set "SQL4=INSERT INTO invite_codes (code, role, specialty, max_uses, is_active) SELECT 'DOCTOR-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'doctor', NULL, 50, TRUE WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'DOCTOR-BOOTSTRAP-%%');"
+set "SQL4=SELECT email, full_name, role, email_confirmed, created_at FROM users WHERE email = '%ESCAPED_EMAIL%';"
 
-set "SQL5=SELECT email, full_name, role, email_confirmed, created_at FROM users WHERE email = '%ESCAPED_EMAIL%';"
-
-set "SQL6=SELECT code, role, max_uses, is_active, created_at FROM invite_codes WHERE code LIKE '%%BOOTSTRAP%%' ORDER BY role, created_at DESC;"
+set "SQL5=SELECT code, role, max_uses, is_active, created_at FROM invite_codes WHERE code LIKE '%%BOOTSTRAP%%' ORDER BY role, created_at DESC;"
 
 docker compose -f "%COMPOSE_FILE%" exec -T postgres psql -U "%DB_USER%" -d "%DB_NAME%" -c "%SQL%" -c "%SQL2%" -c "%SQL3%" -c "%SQL4%" -c "%SQL5%" -c "%SQL6%" 2>&1
 

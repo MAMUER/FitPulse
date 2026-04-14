@@ -168,7 +168,8 @@ def main():
     section("2. PROFILE")
     t.test("Get Profile", "GET", "/api/v1/profile", token=t.token, expected=200)
     t.test("Update Profile", "PUT", "/api/v1/profile",
-           body={"age": 28, "gender": "male", "height_cm": 180, "weight_kg": 75.5,
+           body={"full_name": "API Test User", "age": 28, "gender": "male",
+                 "height_cm": 180, "weight_kg": 75.5,
                  "fitness_level": "intermediate", "goals": ["weight_loss", "endurance"],
                  "contraindications": ["knee"], "nutrition": "balanced", "sleep_hours": 7.5},
            token=t.token, expected=200)
@@ -193,10 +194,10 @@ def main():
     t.test("Logout", "POST", "/api/v1/logout", token=t.token, expected=200)
     t.token = None
 
-    # 4. Post-logout
+    # 4. Post-logout — требование #4: сервер возвращает 404 вместо 401/403
     section("4. POST-LOGOUT")
-    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=401)
-    t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=401)
+    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
+    t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=404)
 
     # Re-login
     lr = t.test("Re-login", "POST", "/api/v1/login",
