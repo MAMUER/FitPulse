@@ -32,6 +32,11 @@ func NewClient(addr, password string, db int) (*Client, error) {
 	return &Client{rdb: rdb}, nil
 }
 
+// NewClientFromRedis создаёт Cache Client из существующего Redis клиента
+func NewClientFromRedis(rdb *redis.Client) *Client {
+	return &Client{rdb: rdb}
+}
+
 func (c *Client) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	return c.rdb.Set(ctx, key, value, expiration).Err()
 }

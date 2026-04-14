@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // SessionStore управляет сессиями и однократными кодами авторизации
@@ -20,6 +22,11 @@ type SessionStore struct {
 // NewSessionStore создаёт хранилище сессий
 func NewSessionStore(client *Client) *SessionStore {
 	return &SessionStore{client: client}
+}
+
+// NewSessionStoreFromRedis создаёт хранилище сессий из существующего Redis клиента
+func NewSessionStoreFromRedis(rdb *redis.Client) *SessionStore {
+	return &SessionStore{client: NewClientFromRedis(rdb)}
 }
 
 // generateCode генерирует криптографически безопасный код

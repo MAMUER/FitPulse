@@ -37,16 +37,21 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
 		// Требование #12: Строгая Content Security Policy
+		// Унифицировано с NGINX CSP (deploy/lb/nginx.conf)
+		// style-src 'self' 'unsafe-inline' — допустимо, т.к. inline-styles не исполняют код
 		w.Header().Set("Content-Security-Policy",
-			"default-src 'self'; "+
+			"default-src 'none'; "+
 				"script-src 'self' https://cdn.jsdelivr.net; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+
+				"media-src 'self'; "+
+				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
-				"form-action 'self'",
+				"form-action 'self'; "+
+				"upgrade-insecure-requests;",
 		)
 
 		// Permissions Policy — запрет доступа к аппаратным средствам

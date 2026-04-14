@@ -1,12 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/MAMUER/Project/internal/auth"
 	"github.com/MAMUER/Project/internal/middleware"
 	"go.uber.org/zap"
 )
@@ -83,11 +81,8 @@ func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	adminResp := map[string]interface{}{"status": "ok", "users": users, "total": len(users)}
-	if signature, err := auth.SignResponse(adminResp, g.jwtSecret); err == nil {
-		w.Header().Set("X-Response-Signature", signature)
-	}
-
-	if err := json.NewEncoder(w).Encode(adminResp); err != nil {
+	// Требование #11: SignAndSendJSON гарантирует подпись тех же байтов, что отправляются клиенту
+	if err := middleware.SignAndSendJSON(w, adminResp, g.jwtSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

@@ -168,11 +168,20 @@ func TestSendVerificationEmailNoSkipWhenUnderLimit(t *testing.T) {
 	}
 	sender := NewSender(cfg)
 
-	// Non-skipped domain, under limit — should attempt to send (will fail since no SMTP, but that's fine)
+	// Non-skipped domain, under limit — should attempt to send.
+	// Since no real SMTP server is running at localhost:1025, this will likely fail,
+	// but the important assertion is that dailySent counter behaves correctly.
 	err := sender.SendVerificationEmail("user@example.com", "token123", "http://localhost:8080")
-	// Error is expected since no real SMTP is running
-	assert.Error(t, err)
-	assert.Equal(t, 0, sender.dailySent) // counter should not increase on failure
+
+	// Two possible outcomes:
+	// 1. SMTP connection fails → err != nil, dailySent == 0
+	// 2. Mailpit is running → err == nil, dailySent == 1
+	// Both are valid — we just verify the logic path is executed.
+	if err != nil {
+		assert.Equal(t, 0, sender.dailySent, "counter should not increase on failure")
+	} else {
+		assert.Equal(t, 1, sender.dailySent, "counter should increment on success")
+	}
 }
 
 func TestBuildMessage(t *testing.T) {

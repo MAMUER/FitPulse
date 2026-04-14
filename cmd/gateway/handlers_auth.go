@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	userpb "github.com/MAMUER/Project/api/gen/user"
-	"github.com/MAMUER/Project/internal/auth"
 	"github.com/MAMUER/Project/internal/middleware"
 	"go.uber.org/zap"
 )
@@ -161,18 +160,14 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Требование #11: HMAC-SHA256 подпись критического ответа
+	// SignAndSendJSON сериализует → подписывает → отправляет одни и те же байты
 	loginResp := map[string]interface{}{
 		"status":       "ok",
 		"access_token": resp.GetAccessToken(),
 		"token_type":   resp.GetTokenType(),
 		"expires_in":   resp.GetExpiresIn(),
 	}
-	if signature, err := auth.SignResponse(loginResp, g.jwtSecret); err == nil {
-		w.Header().Set("X-Response-Signature", signature)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
+	if err := middleware.SignAndSendJSON(w, loginResp, g.jwtSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -181,8 +176,19 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 // logoutHandler — принудительная инвалидация сессии
 // Требование #1: Явное указание браузеру на удаление cookies (session, refresh_token)
+// Требование #1: Серверная инвалидация сессии в Redis
 // Требование #7: return после отправки заголовков
 func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	// Требование #1: Получаем userID из контекста (после AuthMiddleware)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if ok && g.sessionStore != nil {
+		// Требование #1: Инвалидация серверной сессии в Redis
+		if err := g.sessionStore.InvalidateUserSession(r.Context(), userID); err != nil {
+			g.log.Warn("Failed to invalidate server session", zap.String("user_id", userID), zap.Error(err))
+			// Не прерываем — всё равно удаляем cookies на клиенте
+		}
+	}
+
 	// Требование #1: Заголовки для удаления cookies на клиенте
 	logoutHeaders := middleware.LogoutHeaders()
 	for key, values := range logoutHeaders {

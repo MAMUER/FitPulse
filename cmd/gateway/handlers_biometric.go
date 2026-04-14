@@ -7,7 +7,6 @@ import (
 	"time"
 
 	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
-	"github.com/MAMUER/Project/internal/auth"
 	"github.com/MAMUER/Project/internal/middleware"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -102,11 +101,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 
 	// Требование #11: HMAC-SHA256 подпись критического ответа
 	bioResp := map[string]interface{}{"status": "ok"}
-	if signature, err := auth.SignResponse(bioResp, g.jwtSecret); err == nil {
-		w.Header().Set("X-Response-Signature", signature)
-	}
-
-	if err := json.NewEncoder(w).Encode(bioResp); err != nil {
+	if err := middleware.SignAndSendJSON(w, bioResp, g.jwtSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

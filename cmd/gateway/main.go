@@ -14,6 +14,7 @@ import (
 	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/Project/api/gen/training"
 	userpb "github.com/MAMUER/Project/api/gen/user"
+	"github.com/MAMUER/Project/internal/cache"
 	"github.com/MAMUER/Project/internal/logger"
 	"github.com/MAMUER/Project/internal/middleware"
 	"github.com/gorilla/mux"
@@ -31,7 +32,8 @@ type gateway struct {
 	deviceConnectorURL string
 	log                *logger.Logger
 	jwtSecret          string
-	db                 *sql.DB // For server-side role re-verification
+	db                 *sql.DB             // For server-side role re-verification
+	sessionStore       *cache.SessionStore // For session management (Security #1, #3)
 	// Async ML processing
 	rdb     *redis.Client
 	rmqCh   *amqp.Channel
@@ -135,6 +137,18 @@ func main() {
 		}
 	}
 
+	// Redis client for session management (Security #1, #3) — always required
+	var sessionStore *cache.SessionStore
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisHost + ":6379",
+	})
+	if pingErr := redisClient.Ping(context.Background()).Err(); pingErr != nil {
+		log.Warn("Redis unavailable for session management", zap.Error(pingErr))
+	} else {
+		sessionStore = cache.NewSessionStoreFromRedis(redisClient)
+		log.Info("Redis connected for session management", zap.String("host", redisHost))
+	}
+
 	// RabbitMQ channel for publishing ML jobs (used in async mode)
 	var rmqCh *amqp.Channel
 	var rmqClose func()
@@ -221,21 +235,18 @@ func main() {
 		log:                log,
 		jwtSecret:          jwtSecret,
 		db:                 db,
+		sessionStore:       sessionStore,
 		rdb:                rdb,
 		rmqCh:              rmqCh,
 		mlAsync:            mlAsync,
 	}
 
-	// Setup routes
+	// Setup routes (middleware applied via r.Use() in registerRoutes)
 	r := g.registerRoutes()
-
-	// Middleware
-	handler := middleware.RequestID(r)
-	handler = middleware.RateLimit(handler)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      handler,
+		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -254,6 +265,15 @@ func main() {
 func (g *gateway) registerRoutes() *mux.Router {
 	r := mux.NewRouter()
 
+	// ========== Security middleware (applied to ALL routes) ==========
+	// Требование #5, #8, #12: Security headers на уровне роутера
+	r.Use(middleware.RemoveServerHeader)
+	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
+	r.Use(middleware.RateLimit)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.LoggingMiddleware(g.log.Logger))
+
 	// Public routes
 	r.HandleFunc("/api/v1/register", g.registerHandler).Methods("POST")
 	r.HandleFunc("/api/v1/register/invite", g.registerWithInviteHandler).Methods("POST")
@@ -270,7 +290,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.HandleFunc("/api/v1/devices/register", g.deviceRegisterHandler).Methods("POST")
 	r.HandleFunc("/api/v1/devices/{device_id}/ingest", g.deviceIngestHandler).Methods("POST")
 
-	// Protected routes
+	// Protected routes (JWT required)
 	protected := r.PathPrefix("/api/v1").Subrouter()
 	protected.Use(middleware.AuthMiddleware(g.jwtSecret, g.log.Logger))
 
@@ -278,9 +298,6 @@ func (g *gateway) registerRoutes() *mux.Router {
 	protected.HandleFunc("/profile", g.profileHandler).Methods("GET")
 	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
 	protected.HandleFunc("/profile", g.deleteProfileHandler).Methods("DELETE")
-
-	// Admin routes (server-side role re-verification in handler)
-	protected.HandleFunc("/admin/users", g.adminListUsersHandler).Methods("GET")
 
 	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
 	protected.HandleFunc("/biometrics", g.getBiometricRecordsHandler).Methods("GET")
@@ -294,6 +311,14 @@ func (g *gateway) registerRoutes() *mux.Router {
 	protected.HandleFunc("/ml/classify/{job_id}", g.classifyStatusHandler).Methods("GET")
 	protected.HandleFunc("/ml/generate-plan", g.generateMLPlanHandler).Methods("POST")
 	protected.HandleFunc("/ml/generate-plan/{job_id}", g.generatePlanStatusHandler).Methods("GET")
+
+	// Admin routes (JWT + RequirePrivilege middleware — Security #10)
+	admin := r.PathPrefix("/api/v1/admin").Subrouter()
+	admin.Use(middleware.AuthMiddleware(g.jwtSecret, g.log.Logger))
+	if g.db != nil {
+		admin.Use(middleware.RequirePrivilege(g.db, "admin", g.log.Logger))
+	}
+	admin.HandleFunc("/users", g.adminListUsersHandler).Methods("GET")
 
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))

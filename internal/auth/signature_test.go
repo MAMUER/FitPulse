@@ -9,7 +9,7 @@ import (
 
 func TestSignResponse(t *testing.T) {
 	secret := testSecret
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 	sig, err := SignResponse(data, secret)
 	if err != nil {
 		t.Fatalf("SignResponse failed: %v", err)
@@ -21,7 +21,7 @@ func TestSignResponse(t *testing.T) {
 
 func TestVerifyResponse(t *testing.T) {
 	secret := testSecret
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 	sig, _ := SignResponse(data, secret)
 
 	if !VerifyResponse(data, sig, secret) {
@@ -34,7 +34,7 @@ func TestVerifyResponse(t *testing.T) {
 
 func TestSignResponse_DeterministicOutput(t *testing.T) {
 	secret := testSecret
-	data := map[string]string{"status": "ok"}
+	data := []byte(`{"status":"ok"}`)
 
 	sig1, err := SignResponse(data, secret)
 	require.NoError(t, err)
@@ -46,8 +46,8 @@ func TestSignResponse_DeterministicOutput(t *testing.T) {
 
 func TestSignResponse_DifferentDataDifferentSignature(t *testing.T) {
 	secret := testSecret
-	data1 := map[string]string{"key": "value1"}
-	data2 := map[string]string{"key": "value2"}
+	data1 := []byte(`{"key":"value1"}`)
+	data2 := []byte(`{"key":"value2"}`)
 
 	sig1, err := SignResponse(data1, secret)
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestSignResponse_DifferentDataDifferentSignature(t *testing.T) {
 }
 
 func TestSignResponse_DifferentSecretDifferentSignature(t *testing.T) {
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 
 	sig1, err := SignResponse(data, "secret-a")
 	require.NoError(t, err)
@@ -70,13 +70,7 @@ func TestSignResponse_DifferentSecretDifferentSignature(t *testing.T) {
 
 func TestSignResponse_ComplexData(t *testing.T) {
 	secret := testSecret
-	data := map[string]interface{}{
-		"user_id":  123,
-		"email":    "test@example.com",
-		"roles":    []string{"admin", "user"},
-		"active":   true,
-		"metadata": nil,
-	}
+	data := []byte(`{"user_id":123,"email":"test@example.com","roles":["admin","user"],"active":true}`)
 
 	sig, err := SignResponse(data, secret)
 	assert.NoError(t, err)
@@ -85,7 +79,7 @@ func TestSignResponse_ComplexData(t *testing.T) {
 }
 
 func TestSignResponse_EmptySecret(t *testing.T) {
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 
 	sig, err := SignResponse(data, "")
 	assert.NoError(t, err)
@@ -104,8 +98,16 @@ func TestSignResponse_NilData(t *testing.T) {
 	assert.True(t, VerifyResponse(nil, sig, testSecret))
 }
 
+func TestSignResponse_EmptyData(t *testing.T) {
+	sig, err := SignResponse([]byte{}, testSecret)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, sig)
+
+	assert.True(t, VerifyResponse([]byte{}, sig, testSecret))
+}
+
 func TestVerifyResponse_WrongSecret(t *testing.T) {
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 	sig, err := SignResponse(data, "correct-secret")
 	require.NoError(t, err)
 
@@ -113,16 +115,43 @@ func TestVerifyResponse_WrongSecret(t *testing.T) {
 }
 
 func TestVerifyResponse_EmptySignature(t *testing.T) {
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 	assert.False(t, VerifyResponse(data, "", testSecret))
 }
 
 func TestVerifyResponse_MalformedSignature(t *testing.T) {
-	data := map[string]string{"key": "value"}
+	data := []byte(`{"key":"value"}`)
 	validSig, err := SignResponse(data, testSecret)
 	require.NoError(t, err)
 
 	// Truncate the signature
 	malformed := validSig[:5]
 	assert.False(t, VerifyResponse(data, malformed, testSecret))
+}
+
+func TestSignResponseObject_BackwardCompatibility(t *testing.T) {
+	secret := testSecret
+	data := map[string]string{"key": "value"}
+
+	sig, err := SignResponseObject(data, secret)
+	require.NoError(t, err)
+	assert.NotEmpty(t, sig)
+}
+
+func TestSignResponse_ExactBytesMatch(t *testing.T) {
+	secret := testSecret
+	// Ключевой тест: подпись JSON, сериализованного двумя способами, должна совпадать
+	// только если байты идентичны
+	data1 := []byte(`{"status":"ok","token":"abc"}`)
+	data2 := []byte(`{"status":"ok","token":"abc"}`)
+
+	sig1, _ := SignResponse(data1, secret)
+	sig2, _ := SignResponse(data2, secret)
+
+	assert.Equal(t, sig1, sig2, "Identical bytes must produce identical signatures")
+
+	// Но если хотя бы один байт отличается — подпись другая
+	data3 := []byte(`{"status":"ok","token":"abd"}`)
+	sig3, _ := SignResponse(data3, secret)
+	assert.NotEqual(t, sig1, sig3, "Different byte must produce different signature")
 }

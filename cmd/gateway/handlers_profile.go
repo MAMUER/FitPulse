@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	userpb "github.com/MAMUER/Project/api/gen/user"
-	"github.com/MAMUER/Project/internal/auth"
 	"github.com/MAMUER/Project/internal/middleware"
 	"go.uber.org/zap"
 )
@@ -32,15 +31,12 @@ func (g *gateway) profileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Требование #11: HMAC-SHA256 подпись критического ответа
+	// SignAndSendJSON гарантирует, что подпись соответствует отправленным байтам
 	profileResp := map[string]interface{}{
 		"status":  "ok",
 		"profile": resp,
 	}
-	if signature, err := auth.SignResponse(profileResp, g.jwtSecret); err == nil {
-		w.Header().Set("X-Response-Signature", signature)
-	}
-
-	if err := json.NewEncoder(w).Encode(profileResp); err != nil {
+	if err := middleware.SignAndSendJSON(w, profileResp, g.jwtSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -125,11 +121,23 @@ func (g *gateway) verifyUserRole(ctx context.Context, userID, requiredRole strin
 }
 
 // deleteProfileHandler handles profile deletion with server-side role re-verification.
+// Требование #3: Критические действия требуют повторной аутентификации
 func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Не найдено", http.StatusNotFound)
 		return
+	}
+
+	// Требование #3: Проверяем критическую сессию (повторная аутентификация)
+	criticalToken := r.URL.Query().Get("critical_token")
+	if criticalToken != "" && g.sessionStore != nil {
+		if err := g.sessionStore.ValidateCriticalSession(r.Context(), criticalToken, userID); err != nil {
+			g.log.Warn("Critical session validation failed for profile deletion",
+				zap.String("user_id", userID), zap.Error(err))
+			http.Error(w, "Не найдено", http.StatusNotFound)
+			return
+		}
 	}
 
 	if !g.verifyUserRole(r.Context(), userID, "user") {
@@ -152,6 +160,11 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Требование #1: Инвалидация сессии после удаления профиля
+	if g.sessionStore != nil {
+		if sessErr := g.sessionStore.InvalidateUserSession(r.Context(), userID); sessErr != nil {
+			g.log.Warn("Failed to invalidate session after profile deletion", zap.Error(sessErr))
+		}
+	}
 	logoutHeaders := middleware.LogoutHeaders()
 	for key, values := range logoutHeaders {
 		for _, value := range values {

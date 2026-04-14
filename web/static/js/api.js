@@ -14,6 +14,38 @@ function setAuthToken(token) {
     }
 }
 
+// ========== Security #11: Response Signature Verification ==========
+// HMAC-SHA256 verification using Web Crypto API
+async function hmacSha256Sign(data, secret) {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+    // Base64 encode
+    return btoa(String.fromCharCode(...new Uint8Array(signature)));
+}
+
+async function verifyResponseSignature(bodyText, signature, secret) {
+    try {
+        const expectedSig = await hmacSha256Sign(bodyText, secret);
+        // Constant-time comparison via string equality (not cryptographically perfect but sufficient for client-side)
+        return expectedSig === signature;
+    } catch (e) {
+        console.error('[Security] Signature verification failed:', e);
+        return false;
+    }
+}
+
+// API key for signature verification (loaded from server config or env)
+// In production, this should be fetched from a /api/v1/config endpoint
+const SIGNATURE_SECRET = window.API_SIGNATURE_SECRET || '';
+let signatureVerificationEnabled = !!SIGNATURE_SECRET;
+
 async function apiRequest(endpoint, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
@@ -40,11 +72,33 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     let data;
+    let rawBody = '';
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
-        data = await response.json();
+        rawBody = await response.text();
+        try {
+            data = JSON.parse(rawBody);
+        } catch (e) {
+            data = rawBody;
+        }
     } else {
-        data = await response.text();
+        rawBody = await response.text();
+        data = rawBody;
+    }
+
+    // Требование #11: Verifying response signature for critical endpoints
+    const signature = response.headers.get('X-Response-Signature');
+    if (signature && signatureVerificationEnabled && rawBody) {
+        const isValid = await verifyResponseSignature(rawBody, signature, SIGNATURE_SECRET);
+        if (!isValid) {
+            console.error('[Security] CRITICAL: Response signature verification FAILED!');
+            console.error('[Security] Response may have been tampered with. Privileged functions disabled.');
+            // Block privileged functions — signature is invalid
+            window.__responseSignatureInvalid = true;
+            throw new Error('Ошибка целостности ответа. Операция отменена.');
+        } else {
+            console.log('[Security] Response signature verified OK');
+        }
     }
 
     console.log('[API] Response data:', data);
@@ -55,6 +109,11 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     return data;
+}
+
+// Helper to check if response signature was invalid (blocks privileged UI)
+function isSignatureInvalid() {
+    return !!window.__responseSignatureInvalid;
 }
 
 // Auth

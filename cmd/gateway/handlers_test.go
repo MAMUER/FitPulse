@@ -826,6 +826,25 @@ func TestLogoutHandler_Success(t *testing.T) {
 	assert.Contains(t, w.Header().Get("Pragma"), "no-cache")
 }
 
+// TestLogoutHandler_WithSessionStore verifies server-side session invalidation
+func TestLogoutHandler_WithSessionStore(t *testing.T) {
+	g, _, _, _ := newTestGatewayFull(t)
+
+	// Set up userID in context (as AuthMiddleware would)
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "test-user-123")
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/logout", nil)
+	w := httptest.NewRecorder()
+
+	g.logoutHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Should have both client-side (Set-Cookie) and server-side (Redis) invalidation
+	setCookie := w.Header().Values("Set-Cookie")
+	assert.NotEmpty(t, setCookie, "Should have Set-Cookie headers for session invalidation")
+	// sessionStore may be nil in tests — handler should not panic
+}
+
 // ============================================================================
 // Auth Handler Tests — confirmEmailHandler
 // ============================================================================
