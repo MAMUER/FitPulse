@@ -298,6 +298,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	protected.HandleFunc("/profile", g.profileHandler).Methods("GET")
 	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
 	protected.HandleFunc("/profile", g.deleteProfileHandler).Methods("DELETE")
+	protected.HandleFunc("/auth/change-password", g.changePasswordHandler).Methods("POST")
 
 	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
 	protected.HandleFunc("/biometrics", g.getBiometricRecordsHandler).Methods("GET")

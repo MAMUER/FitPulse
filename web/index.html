@@ -173,7 +173,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Возраст</label>
-                                    <input type="number" id="profAge" placeholder="30" min="10" max="100" inputmode="numeric">
+                                    <input type="number" id="profAge" placeholder="30" min="18" max="100" inputmode="numeric">
                                     <div class="field-error" id="profAgeError"></div>
                                 </div>
                                 <div class="form-group">
@@ -227,14 +227,6 @@
                                 </select>
                                 <div class="field-error" id="profNutritionError"></div>
                             </div>
-                            <div class="form-group">
-                                <label>Сон</label>
-                                <div class="sleep-info">Данные поступают с подключённого устройства</div>
-                                <div id="profSleepDisplay" class="sleep-display" style="display: none;">
-                                    <span class="sleep-value" id="profSleepValue">--</span>
-                                    <span class="sleep-source">с устройства</span>
-                                </div>
-                            </div>
                         </div>
 
                         <div class="form-section">
@@ -249,6 +241,54 @@
 
                         <button type="submit" class="btn-primary">Сохранить</button>
                     </form>
+
+                    <!-- Смена пароля -->
+                    <div class="form-section" style="margin-top: 24px;">
+                        <h3>🔒 Безопасность</h3>
+                        <button type="button" class="btn-secondary" id="changePasswordBtn" style="margin-bottom: 12px;">
+                            Сменить пароль
+                        </button>
+
+                        <!-- Форма смены пароля (скрыта по умолчанию) -->
+                        <form id="changePasswordForm" class="hidden" style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                            <div class="form-group">
+                                <label>Текущий пароль</label>
+                                <input type="password" id="currentPassword" placeholder="Введите текущий пароль" required>
+                                <div class="field-error" id="currentPasswordError"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Новый пароль</label>
+                                <input type="password" id="newPassword" placeholder="Минимум 8 символов, буквы и цифры" required minlength="8">
+                                <div class="field-error" id="newPasswordError"></div>
+                                <div id="passwordHint" class="password-hint hidden">
+                                    <span id="hintLength">✗ Минимум 8 символов</span>
+                                    <span id="hintUpper">✗ Заглавная буква</span>
+                                    <span id="hintLower">✗ Строчная буква</span>
+                                    <span id="hintDigit">✗ Цифра</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Подтверждение пароля</label>
+                                <input type="password" id="confirmPassword" placeholder="Повторите новый пароль" required>
+                                <div class="field-error" id="confirmPasswordError"></div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="submit" class="btn-primary">Сохранить новый пароль</button>
+                                <button type="button" class="btn-secondary" id="cancelChangePassword">Отмена</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Удаление профиля -->
+                    <div class="form-section danger-zone" style="margin-top: 24px;">
+                        <h3 style="color: var(--red);">⚠️ Опасная зона</h3>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                            Удаление профиля необратимо. Все ваши данные, тренировки и достижения будут удалены.
+                        </p>
+                        <button type="button" class="btn-danger" id="deleteProfileBtn">
+                            Удалить аккаунт
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Тренировки -->
@@ -271,9 +311,9 @@
                 <!-- Устройства -->
                 <div id="devicesView" class="view">
                     <h3>Подключённые устройства</h3>
-                    <div id="deviceSelector" class="device-selector"></div>
                     <div id="connectedDevicesList"></div>
-                    <button class="action-btn" id="connectDeviceBtn">Подключить устройство</button>
+                    <div id="deviceSelector" class="device-selector"></div>
+                    <button class="action-btn" id="connectDeviceBtn">🔗 Подключить устройство</button>
                 </div>
 
                 <!-- Достижения и Соревнования -->

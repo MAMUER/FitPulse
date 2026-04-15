@@ -14,6 +14,7 @@ service UserService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
+    rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
 }
@@ -69,6 +70,16 @@ message UpdateProfileRequest {
     repeated string contraindications = 8;
     optional string nutrition = 9;           // ← НОВОЕ
     optional float sleep_hours = 10;         // ← НОВОЕ
+}
+
+message ChangePasswordRequest {
+    string user_id = 1;
+    string current_password = 2;
+    string new_password = 3;
+}
+
+message ChangePasswordResponse {
+    string message = 1;
 }
 
 // ✅ Обновлён: добавлены nutrition и sleep_hours

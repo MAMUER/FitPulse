@@ -128,6 +128,17 @@ async function updateProfile(profile) {
     });
 }
 
+async function changePassword(currentPassword, newPassword) {
+    return apiRequest('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+    });
+}
+
+async function deleteProfile() {
+    return apiRequest('/profile', { method: 'DELETE' });
+}
+
 // Biometrics
 async function addBiometricRecord(metricType, value, timestamp, deviceType) {
     return apiRequest('/biometrics', {

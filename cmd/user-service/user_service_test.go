@@ -413,6 +413,11 @@ func TestUserServer_UpdateProfile(t *testing.T) {
 				Goals:        []string{"muscle_gain"},
 			},
 			mockFn: func(mock sqlmock.Sqlmock) {
+				// Check user exists
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")).
+					WithArgs("user-123").
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
 				// Update profile (INSERT ... ON CONFLICT)
 				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO user_profiles")).
 					WithArgs(

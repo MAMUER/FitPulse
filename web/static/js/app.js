@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!v) return '';
             if (!/^\d+$/.test(v)) return 'Только целые цифры';
             const n = parseInt(v, 10);
-            if (n < 10 || n > 100) return 'От 10 до 100';
+            if (n < 18 || n > 100) return 'От 18 до 100';
             return '';
         },
         // Рост — только целые цифры
@@ -470,6 +470,121 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profWeight) profWeight.addEventListener('input', () => {
             setFieldError(profWeight, document.getElementById('profWeightError'), validators.weight(profWeight.value));
         });
+
+        // ===== Change Password =====
+        document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
+            const form = document.getElementById('changePasswordForm');
+            if (form) form.classList.remove('hidden');
+        });
+        document.getElementById('cancelChangePassword')?.addEventListener('click', () => {
+            const form = document.getElementById('changePasswordForm');
+            if (form) {
+                form.classList.add('hidden');
+                form.reset();
+                ['currentPasswordError', 'newPasswordError', 'confirmPasswordError'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '';
+                });
+            }
+        });
+
+        // New password validation hints
+        const newPassInput = document.getElementById('newPassword');
+        if (newPassInput) newPassInput.addEventListener('input', () => {
+            const v = newPassInput.value;
+            const hint = document.getElementById('passwordHint');
+            if (hint) hint.classList.toggle('hidden', v.length === 0);
+
+            const checks = {
+                length: v.length >= 8,
+                upper: /[A-ZА-ЯЁ]/.test(v),
+                lower: /[a-zа-яё]/.test(v),
+                digit: /\d/.test(v),
+            };
+            const items = {
+                hintLength: checks.length,
+                hintUpper: checks.upper,
+                hintLower: checks.lower,
+                hintDigit: checks.digit,
+            };
+            for (const [id, pass] of Object.entries(items)) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.toggle('pass', pass);
+                    el.textContent = (pass ? '✓ ' : '✗ ') + el.textContent.slice(2);
+                }
+            }
+            const btn = document.querySelector('#changePasswordForm .btn-primary');
+            if (btn) btn.disabled = !Object.values(checks).every(Boolean);
+        });
+
+        // Confirm password validation
+        const confirmPass = document.getElementById('confirmPassword');
+        if (confirmPass) confirmPass.addEventListener('input', () => {
+            const newP = document.getElementById('newPassword')?.value || '';
+            const err = confirmPass.value !== newP ? 'Пароли не совпадают' : '';
+            setFieldError(confirmPass, document.getElementById('confirmPasswordError'), err);
+        });
+
+        document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentP = document.getElementById('currentPassword').value;
+            const newP = document.getElementById('newPassword').value;
+            const confirmP = document.getElementById('confirmPassword').value;
+
+            if (!currentP) {
+                setFieldError(document.getElementById('currentPassword'), document.getElementById('currentPasswordError'), 'Введите текущий пароль');
+                return;
+            }
+            if (!newP || newP.length < 8) {
+                setFieldError(document.getElementById('newPassword'), document.getElementById('newPasswordError'), 'Минимум 8 символов');
+                return;
+            }
+            if (newP !== confirmP) {
+                setFieldError(document.getElementById('confirmPassword'), document.getElementById('confirmPasswordError'), 'Пароли не совпадают');
+                return;
+            }
+
+            const btn = document.querySelector('#changePasswordForm .btn-primary');
+            if (btn) { btn.disabled = true; btn.textContent = 'Сохранение...'; }
+
+            try {
+                await changePassword(currentP, newP);
+                showToast('Пароль успешно изменён', 'success');
+                document.getElementById('cancelChangePassword')?.click();
+            } catch (err) {
+                if (err.message.includes('incorrect')) {
+                    setFieldError(document.getElementById('currentPassword'), document.getElementById('currentPasswordError'), 'Неверный текущий пароль');
+                } else if (err.message.includes('8 characters') || err.message.includes('uppercase')) {
+                    setFieldError(document.getElementById('newPassword'), document.getElementById('newPasswordError'), err.message);
+                } else {
+                    showToast('Ошибка: ' + err.message, 'error');
+                }
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Сохранить новый пароль'; }
+            }
+        });
+
+        // ===== Delete Profile =====
+        document.getElementById('deleteProfileBtn')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены? Это действие необратимо. Все данные будут удалены.')) return;
+            if (!confirm('Точно удалить аккаунт?')) return;
+
+            const btn = document.getElementById('deleteProfileBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Удаление...'; }
+
+            try {
+                await deleteProfile();
+                showToast('Аккаунт удалён', 'success');
+                setTimeout(() => {
+                    setAuthToken(null);
+                    window.location.reload();
+                }, 1500);
+            } catch (err) {
+                showToast('Ошибка: ' + err.message, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Удалить аккаунт'; }
+            }
+        });
     }
 
     function clearErrors() {
@@ -600,6 +715,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (err) {
             console.error('Profile load failed:', err);
+            // Если профиль не найден (404), возможно сессия устарела
+            if (err.message && err.message.includes('Не найдено')) {
+                showToast('Сессия устарела. Пожалуйста, перезайдите в систему.', 'error');
+                // Автоматически очищаем токен и предлагаем перезайти
+                setTimeout(() => {
+                    if (confirm('Ваша сессия устарела. Перезайти?')) {
+                        setAuthToken(null);
+                        window.location.reload();
+                    }
+                }, 1000);
+            }
         }
     }
 
@@ -652,7 +778,13 @@ document.addEventListener('DOMContentLoaded', () => {
             await updateProfile(data);
             showToast('Профиль сохранён', 'success');
         } catch (err) {
-            showToast('Ошибка: ' + err.message, 'error');
+            console.error('Profile save failed:', err);
+            // Если ошибка 503 или foreign key violation, предлагаем перезайти
+            if (err.message && (err.message.includes('Недоступен') || err.message.includes('violates foreign key'))) {
+                showToast('Ошибка сохранения. Попробуйте перезайти и повторить.', 'error');
+            } else {
+                showToast('Ошибка: ' + err.message, 'error');
+            }
         }
     }
 

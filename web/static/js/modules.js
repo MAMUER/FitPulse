@@ -42,6 +42,9 @@ const AppModules = (() => {
                     document.querySelectorAll('.device-option').forEach(el => el.classList.remove('selected'));
                     deviceOption.classList.add('selected');
                     selectedDevice = deviceOption.dataset.type;
+                    // Показываем какое устройство выбрано
+                    const deviceName = this.devices.find(d => d.type === selectedDevice)?.name || 'Устройство';
+                    window.AppModules.showToast(`${deviceName} выбрано. Нажмите "Подключить устройство"`, 'info');
                 }
             });
 
@@ -51,13 +54,25 @@ const AppModules = (() => {
                     showToast('Выберите устройство из списка выше', 'error');
                     return;
                 }
+                const btn = document.getElementById('connectDeviceBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = '⏳ Подключение...';
+                }
                 try {
                     const profile = await getProfile();
                     const userId = profile.profile?.user_id || profile.user_id;
                     await this.connectDevice(selectedDevice, userId);
                     showToast(`${this.devices.find(d => d.type === selectedDevice)?.name} подключено!`, 'success');
+                    // Обновляем список устройств
+                    this.renderConnectedDevices();
                 } catch (err) {
                     showToast('Ошибка подключения: ' + err.message, 'error');
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '🔗 Подключить устройство';
+                    }
                 }
             });
         },
@@ -82,10 +97,16 @@ const AppModules = (() => {
             const container = document.getElementById('connectedDevicesList');
             if (!container) return;
 
-            // Показываем заглушку — список будет заполнен при эмуляции
+            // Показываем информативное состояние когда нет устройств
             container.innerHTML = `
-                <div style="text-align:center; padding:20px; color:var(--text-secondary);">
-                    Нет подключённых устройств
+                <div style="text-align:center; padding:24px 16px; color:var(--text-secondary);">
+                    <div style="font-size:48px; margin-bottom:12px;">⌚</div>
+                    <div style="font-size:15px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">
+                        Нет подключённых устройств
+                    </div>
+                    <div style="font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;">
+                        Выберите устройство из списка ниже и нажмите «Подключить устройство»
+                    </div>
                 </div>
             `;
         }
@@ -167,7 +188,15 @@ const AppModules = (() => {
                 }
 
                 // Get profile for context
-                const profile = await getProfile();
+                let profile;
+                try {
+                    profile = await getProfile();
+                } catch (err) {
+                    if (err.message && err.message.includes('Не найдено')) {
+                        throw new Error('Профиль не найден. Попробуйте перезайти в систему.');
+                    }
+                    throw err;
+                }
                 const p = profile.profile || profile;
 
                 // Build user_profile object matching backend expectations

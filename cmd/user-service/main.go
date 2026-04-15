@@ -308,6 +308,18 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 	}
 
 	// Обновляем user_profiles (без goals/contraindications — они в отдельных таблицах)
+	// Сначала проверяем что пользователь существует
+	var userExists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", req.UserId).Scan(&userExists)
+	if err != nil {
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	if !userExists {
+		s.log.Error("User not found during profile update", zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+
 	profileQuery := `
         INSERT INTO user_profiles (user_id, age, gender, height_cm, weight_kg, fitness_level, nutrition, sleep_hours, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
@@ -322,7 +334,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
             updated_at = NOW()
     `
 
-	_, err := s.db.ExecContext(ctx, profileQuery,
+	_, err = s.db.ExecContext(ctx, profileQuery,
 		req.UserId,
 		req.Age, req.Gender, req.HeightCm, req.WeightKg, req.FitnessLevel,
 		req.Nutrition, req.SleepHours,
@@ -370,6 +382,90 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	// Возвращаем обновленный профиль
 	return s.GetProfile(ctx, &pb.GetProfileRequest{UserId: req.UserId})
+}
+
+// ChangePassword changes the user's password after verifying the current one.
+func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordRequest) (*pb.ChangePasswordResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.CurrentPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "current_password is required")
+	}
+	if req.NewPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "new_password is required")
+	}
+
+	// Validate new password complexity
+	if len(req.NewPassword) < 8 {
+		return nil, status.Error(codes.InvalidArgument, "new password must be at least 8 characters")
+	}
+	// Check password strength (uppercase, lowercase, digit)
+	if !containsUpperCase(req.NewPassword) || !containsLowerCase(req.NewPassword) || !containsDigit(req.NewPassword) {
+		return nil, status.Error(codes.InvalidArgument, "new password must contain uppercase, lowercase, and digit")
+	}
+
+	// Fetch current password hash
+	var currentHash string
+	err := s.db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id = $1", req.UserId).Scan(&currentHash)
+	if err == sql.ErrNoRows {
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+	if err != nil {
+		s.log.Error("Failed to fetch password hash", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.CurrentPassword)); err != nil {
+		s.log.Warn("Password change failed: incorrect current password", zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
+	}
+
+	// Hash new password
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.log.Error("Failed to hash new password", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to hash new password")
+	}
+
+	// Update password
+	_, err = s.db.ExecContext(ctx, "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2", string(newHash), req.UserId)
+	if err != nil {
+		s.log.Error("Failed to update password", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to update password")
+	}
+
+	s.log.Info("Password changed successfully", zap.String("user_id", req.UserId))
+	return &pb.ChangePasswordResponse{Message: "Password changed successfully"}, nil
+}
+
+// Helper functions for password validation
+func containsUpperCase(s string) bool {
+	for _, r := range s {
+		if r >= 'A' && r <= 'Z' {
+			return true
+		}
+	}
+	return false
+}
+
+func containsLowerCase(s string) bool {
+	for _, r := range s {
+		if r >= 'a' && r <= 'z' {
+			return true
+		}
+	}
+	return false
+}
+
+func containsDigit(s string) bool {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
