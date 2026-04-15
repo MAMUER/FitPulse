@@ -408,7 +408,7 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 	// Fetch current password hash
 	var currentHash string
 	err := s.db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id = $1", req.UserId).Scan(&currentHash)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.NotFound, "user not found")
 	}
 	if err != nil {
@@ -417,7 +417,7 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 	}
 
 	// Verify current password
-	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.CurrentPassword)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.CurrentPassword)); err != nil {
 		s.log.Warn("Password change failed: incorrect current password", zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
 	}
