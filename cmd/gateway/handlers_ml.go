@@ -139,7 +139,7 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 
 	jobID := uuid.New().String()
 	jobBody, err := json.Marshal(map[string]interface{}{
-		"job_id":            jobID,
+		"job_id":             jobID,
 		"physiological_data": mlPayload["physiological_data"],
 	})
 	if err != nil {
