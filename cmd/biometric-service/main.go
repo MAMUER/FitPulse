@@ -64,14 +64,13 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		return nil, status.Error(codes.Internal, "failed to insert record")
 	}
 
-	// ✅ Создаём event ПОСЛЕ сохранения в БД
 	event := map[string]interface{}{
 		"user_id":     req.UserId,
 		"metric_type": req.MetricType,
 		"value":       req.Value,
 		"timestamp":   timestamp,
 	}
-	// ✅ Публикуем в очередь (ошибка не блокирует ответ)
+	
 	if s.rabbitQueue != nil {
 		if err := s.rabbitQueue.Publish(ctx, event); err != nil {
 			s.log.Warn("Failed to publish to queue", zap.Error(err))
@@ -82,7 +81,6 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 }
 
 func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddRecordsRequest) (*pb.BatchAddRecordsResponse, error) {
-	// 🔥 ВАЖНО: Валидация ДО работы с БД
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
@@ -167,7 +165,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 		s.log.Error("Failed to query records", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to query records")
 	}
-	// ✅ Проверяем ошибку закрытия rows
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
 			s.log.Error("Failed to close rows", zap.Error(closeErr))
@@ -188,7 +185,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 		records = append(records, &record)
 	}
 
-	// ✅ Проверяем ошибку итерации
 	if err := rows.Err(); err != nil {
 		s.log.Error("Row iteration error", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading records")
@@ -251,12 +247,10 @@ func main() {
 		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor("biometric-service")),
 	)
 
-	// ✅ Сначала создаём соединение
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
 		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
-	// ✅ defer ПОСЛЕ объявления database
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
 			log.Error("Failed to close database", zap.Error(closeErr))

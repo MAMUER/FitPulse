@@ -57,10 +57,9 @@ message GetProfileRequest {
     string user_id = 1;
 }
 
-// ✅ Обновлён: добавлены nutrition, sleep_hours и full_name (никнейм)
 message UpdateProfileRequest {
     string user_id = 1;
-    optional string full_name = 11;          // ← НОВОЕ (никнейм)
+    optional string full_name = 11;          
     optional int32 age = 2;
     optional string gender = 3;
     optional int32 height_cm = 4;
@@ -68,8 +67,8 @@ message UpdateProfileRequest {
     optional string fitness_level = 6;
     repeated string goals = 7;
     repeated string contraindications = 8;
-    optional string nutrition = 9;           // ← НОВОЕ
-    optional float sleep_hours = 10;         // ← НОВОЕ
+    optional string nutrition = 9;          
+    optional float sleep_hours = 10;         
 }
 
 message ChangePasswordRequest {
@@ -82,13 +81,12 @@ message ChangePasswordResponse {
     string message = 1;
 }
 
-// ✅ Обновлён: добавлены nutrition и sleep_hours
 message UserProfile {
     string user_id = 1;
     string email = 2;
     string full_name = 3;
     string role = 4;
-    bool email_confirmed = 5;                 // ← НОВОЕ
+    bool email_confirmed = 5;                 
     int32 age = 6;
     string gender = 7;
     int32 height_cm = 8;
@@ -120,11 +118,6 @@ message RegisterWithInviteRequest {
     string password = 2;
     string full_name = 3;
     string invite_code = 4;
-    // Для doctors
-    string license_number = 5;
-    string specialty = 6;
-    string phone = 7;
-    string bio = 8;
 }
 
 message ValidateInviteCodeRequest {

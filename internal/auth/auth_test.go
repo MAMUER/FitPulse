@@ -44,16 +44,6 @@ func TestGenerateJWT(t *testing.T) {
 			wantRole:        "admin",
 		},
 		{
-			name:            "valid token for doctor",
-			userID:          "doctor-789",
-			email:           "doctor@example.com",
-			role:            "doctor",
-			secret:          "mysecretkey123",
-			expirationHours: 12,
-			wantErr:         false,
-			wantRole:        "doctor",
-		},
-		{
 			name:            "empty secret - should fail",
 			userID:          "123",
 			email:           "test@example.com",

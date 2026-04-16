@@ -73,7 +73,7 @@ func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType 
 	`, userID, metricType).Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) { // ✅ Используем errors.Is для надёжности
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("not found")
 		}
 		return nil, err

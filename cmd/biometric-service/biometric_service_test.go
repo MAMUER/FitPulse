@@ -21,7 +21,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ✅ Мокаем интерфейс Publisher, а не конкретную реализацию
 type mockPublisher struct {
 	mock.Mock
 }
@@ -226,7 +225,6 @@ func TestBiometricServer_AddRecord_ValidationError(t *testing.T) {
 		})
 	}
 
-	// ✅ Проверяем, что все ожидания мока выполнены
 	mockQueue.AssertExpectations(t)
 }
 
@@ -316,14 +314,14 @@ func TestBatchAddRecords_Validation(t *testing.T) {
 				},
 			},
 			wantCode:   codes.InvalidArgument,
-			wantErrMsg: "record[0]: metric_type is required", // ✅ Match actual format
+			wantErrMsg: "record[0]: metric_type is required",
 		},
 		{
 			name: "invalid record in batch - heart_rate out of range",
 			req: &pb.BatchAddRecordsRequest{
 				UserId: "user-123",
 				Records: []*pb.AddRecordRequest{
-					{MetricType: "heart_rate", Value: 250.0}, // ❌ out of range
+					{MetricType: "heart_rate", Value: 250.0},
 				},
 			},
 			wantCode:   codes.InvalidArgument,
@@ -596,7 +594,7 @@ func TestBiometricServer_GetRecords_Empty(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	if resp != nil { // ✅ Guard against nil
+	if resp != nil {
 		assert.Empty(t, resp.Records)
 	}
 	assert.NoError(t, mock.ExpectationsWereMet())

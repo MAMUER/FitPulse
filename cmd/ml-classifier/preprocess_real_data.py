@@ -1,7 +1,7 @@
 # cmd/ml-classifier/preprocess_real_data.py
 """
 Обработка ВСЕХ датасетов с исправлением проблемных форматов
-Версия 2.0 - Исправлены BIDMC, Big Ideas, CapnoBase, CSL
+Версия 2.0
 """
 import os
 import sys
@@ -103,7 +103,7 @@ class DataPreprocessor:
         return count
     
     def process_bidmc(self) -> int:
-        """BIDMC: PPG and respiration - ИСПРАВЛЕНО"""
+        """BIDMC: PPG and respiration"""
         count = 0
         bidmc_path = os.path.join(RAW_DATA_DIR, 'bidmc')
         

@@ -101,7 +101,7 @@ func TestSetWithExpiration(t *testing.T) {
 	assert.Error(t, err, "Key should have expired")
 }
 
-// Исправляем тест для bool значений (Redis хранит bool как "1"/"0")
+// Redis хранит bool как "1"/"0"
 func TestSetMultipleTypes(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestSetMultipleTypes(t *testing.T) {
 
 	client, err := NewClient(mr.Addr(), "", 0)
 	require.NoError(t, err)
-	defer func() { _ = client.Close() }() // Игнорируем ошибку в тесте
+	defer func() { _ = client.Close() }() 
 
 	ctx := context.Background()
 

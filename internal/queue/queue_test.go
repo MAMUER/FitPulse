@@ -21,7 +21,6 @@ const (
 	testQueueName = "test_queue"
 )
 
-// ✅ В тестах используем интерфейс через переменную типа Publisher
 func TestNewPublisher(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -108,8 +107,6 @@ func TestNewConsumer(t *testing.T) {
 	defer func() { _ = consumer.Close() }()
 
 	assert.NotNil(t, consumer)
-	// ✅ Проверяем через публичный метод, а не внутреннее поле
-	// Если в Consumer есть метод Messages(), проверяем его
 }
 
 func TestPublishAndConsume(t *testing.T) {
@@ -134,8 +131,6 @@ func TestPublishAndConsume(t *testing.T) {
 	}
 	defer func() { _ = consumer.Close() }()
 
-	// Канал для получения сообщений через публичный метод
-	// ✅ Используем публичный метод Messages() вместо доступа к полю msgs
 	received := make(chan map[string]interface{}, 1)
 
 	go func() {

@@ -37,7 +37,7 @@ def load_real_data():
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"Данные не найдены: {data_path}")
     
-    print(f"✅ Загрузка данных: {data_path}")
+    print(f"Загрузка данных: {data_path}")
     df = pd.read_csv(data_path)
     
     required_cols = ['hr', 'hrv', 'spo2', 'temp', 'bp_s', 'bp_d', 'sleep', 'label']
@@ -55,7 +55,7 @@ def load_real_data():
     X = df[required_cols[:-1]].values
     y = df['label'].values.astype(int)
     
-    print(f"\n✅ Загружено {len(df)} сэмплов")
+    print(f"\nЗагружено {len(df)} сэмплов")
     print(f"   Источников данных: {df['source'].nunique()}")
     
     return X, y
@@ -84,7 +84,6 @@ def create_classifier_model(input_shape=7, num_classes=4):
         layers.Dense(num_classes, activation='softmax')
     ])
     
-    # ✅ ИСПРАВЛЕНО: Убраны Precision/Recall метрики
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.0005),
         loss='sparse_categorical_crossentropy',

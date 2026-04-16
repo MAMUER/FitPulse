@@ -410,7 +410,6 @@ func (x *GetProfileRequest) GetUserId() string {
 	return ""
 }
 
-// ✅ Обновлён: добавлены nutrition, sleep_hours и full_name (никнейм)
 type UpdateProfileRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -639,7 +638,6 @@ func (x *ChangePasswordResponse) GetMessage() string {
 	return ""
 }
 
-// ✅ Обновлён: добавлены nutrition и sleep_hours
 type UserProfile struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -922,11 +920,6 @@ type RegisterWithInviteRequest struct {
 	Password   string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	FullName   string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	InviteCode string                 `protobuf:"bytes,4,opt,name=invite_code,json=inviteCode,proto3" json:"invite_code,omitempty"`
-	// Для doctors
-	LicenseNumber string `protobuf:"bytes,5,opt,name=license_number,json=licenseNumber,proto3" json:"license_number,omitempty"`
-	Specialty     string `protobuf:"bytes,6,opt,name=specialty,proto3" json:"specialty,omitempty"`
-	Phone         string `protobuf:"bytes,7,opt,name=phone,proto3" json:"phone,omitempty"`
-	Bio           string `protobuf:"bytes,8,opt,name=bio,proto3" json:"bio,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

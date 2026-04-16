@@ -6,7 +6,7 @@
 --
 -- Normalization highlights:
 --   1NF:  No arrays (TEXT[]) or nested JSONB for business data
---   2NF:  No partial dependencies (doctor data separated from user data)
+--   2NF:  No partial dependencies 
 --   3NF:  No transitive dependencies (polymorphic FK resolved, derived data via VIEWs)
 --   BCNF: All determinants are superkeys
 -- =============================================================================
@@ -46,11 +46,11 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id);
 
--- Invite codes (for doctor/admin registration)
+-- Invite codes (for admin registration)
 CREATE TABLE IF NOT EXISTS invite_codes (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code        VARCHAR(100) UNIQUE NOT NULL,
-    role        VARCHAR(50) NOT NULL DEFAULT 'doctor',
+    role        VARCHAR(50) NOT NULL DEFAULT 'admin',
     specialty   VARCHAR(100),
     max_uses    INT NOT NULL DEFAULT 1,
     created_by  UUID REFERENCES users(id) ON DELETE SET NULL,

@@ -199,10 +199,6 @@ INSERT INTO invite_codes (code, role, specialty, max_uses, is_active, created_at
 SELECT 'ADMIN-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'admin', NULL, 10, TRUE, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'ADMIN-BOOTSTRAP-%');
 
-INSERT INTO invite_codes (code, role, specialty, max_uses, is_active, created_at)
-SELECT 'DOCTOR-BOOTSTRAP-' || substr(md5(random()::text), 1, 8), 'doctor', 'general', 50, TRUE, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM invite_codes WHERE code LIKE 'DOCTOR-BOOTSTRAP-%');
-
 -- Show created user
 SELECT email, full_name, role, email_confirmed, created_at
 FROM users WHERE email = '{escaped_email}';

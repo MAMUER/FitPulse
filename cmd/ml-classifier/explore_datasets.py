@@ -35,7 +35,6 @@ class DatasetExplorer:
             print("❌ ERROR: Raw data directory not found!")
             return self.report
         
-        # 🔥 ДИНАМИЧЕСКИ ПОЛУЧАЕМ ВСЕ ПАПКИ ИЗ RAW
         available_folders = []
         for item in os.listdir(self.raw_data_dir):
             item_path = os.path.join(self.raw_data_dir, item)
@@ -80,7 +79,7 @@ class DatasetExplorer:
                 dataset_info['total_files'] = len(files)
                 dataset_info['total_subdirs'] = len(subdirs)
                 
-                print(f"✅ Папка доступна: {len(files)} файлов, {len(subdirs)} подпапок")
+                print(f"Папка доступна: {len(files)} файлов, {len(subdirs)} подпапок")
                 
                 # Определяем тип датасета по структуре
                 if folder == 'bidmc':
