@@ -9,7 +9,6 @@ package user
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	_ "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -413,7 +412,7 @@ func (x *GetProfileRequest) GetUserId() string {
 type UpdateProfileRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	FullName          *string                `protobuf:"bytes,11,opt,name=full_name,json=fullName,proto3,oneof" json:"full_name,omitempty"` // ← НОВОЕ (никнейм)
+	FullName          *string                `protobuf:"bytes,11,opt,name=full_name,json=fullName,proto3,oneof" json:"full_name,omitempty"`
 	Age               *int32                 `protobuf:"varint,2,opt,name=age,proto3,oneof" json:"age,omitempty"`
 	Gender            *string                `protobuf:"bytes,3,opt,name=gender,proto3,oneof" json:"gender,omitempty"`
 	HeightCm          *int32                 `protobuf:"varint,4,opt,name=height_cm,json=heightCm,proto3,oneof" json:"height_cm,omitempty"`
@@ -421,8 +420,8 @@ type UpdateProfileRequest struct {
 	FitnessLevel      *string                `protobuf:"bytes,6,opt,name=fitness_level,json=fitnessLevel,proto3,oneof" json:"fitness_level,omitempty"`
 	Goals             []string               `protobuf:"bytes,7,rep,name=goals,proto3" json:"goals,omitempty"`
 	Contraindications []string               `protobuf:"bytes,8,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
-	Nutrition         *string                `protobuf:"bytes,9,opt,name=nutrition,proto3,oneof" json:"nutrition,omitempty"`                        // ← НОВОЕ
-	SleepHours        *float32               `protobuf:"fixed32,10,opt,name=sleep_hours,json=sleepHours,proto3,oneof" json:"sleep_hours,omitempty"` // ← НОВОЕ
+	Nutrition         *string                `protobuf:"bytes,9,opt,name=nutrition,proto3,oneof" json:"nutrition,omitempty"`
+	SleepHours        *float32               `protobuf:"fixed32,10,opt,name=sleep_hours,json=sleepHours,proto3,oneof" json:"sleep_hours,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -644,7 +643,7 @@ type UserProfile struct {
 	Email             string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	FullName          string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	Role              string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
-	EmailConfirmed    bool                   `protobuf:"varint,5,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"` // ← НОВОЕ
+	EmailConfirmed    bool                   `protobuf:"varint,5,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"`
 	Age               int32                  `protobuf:"varint,6,opt,name=age,proto3" json:"age,omitempty"`
 	Gender            string                 `protobuf:"bytes,7,opt,name=gender,proto3" json:"gender,omitempty"`
 	HeightCm          int32                  `protobuf:"varint,8,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
@@ -915,11 +914,11 @@ func (x *ListUsersResponse) GetTotal() int32 {
 }
 
 type RegisterWithInviteRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Email      string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password   string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	FullName   string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
-	InviteCode string                 `protobuf:"bytes,4,opt,name=invite_code,json=inviteCode,proto3" json:"invite_code,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	FullName      string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	InviteCode    string                 `protobuf:"bytes,4,opt,name=invite_code,json=inviteCode,proto3" json:"invite_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -978,34 +977,6 @@ func (x *RegisterWithInviteRequest) GetFullName() string {
 func (x *RegisterWithInviteRequest) GetInviteCode() string {
 	if x != nil {
 		return x.InviteCode
-	}
-	return ""
-}
-
-func (x *RegisterWithInviteRequest) GetLicenseNumber() string {
-	if x != nil {
-		return x.LicenseNumber
-	}
-	return ""
-}
-
-func (x *RegisterWithInviteRequest) GetSpecialty() string {
-	if x != nil {
-		return x.Specialty
-	}
-	return ""
-}
-
-func (x *RegisterWithInviteRequest) GetPhone() string {
-	if x != nil {
-		return x.Phone
-	}
-	return ""
-}
-
-func (x *RegisterWithInviteRequest) GetBio() string {
-	if x != nil {
-		return x.Bio
 	}
 	return ""
 }
@@ -1127,7 +1098,7 @@ var File_user_proto protoreflect.FileDescriptor
 const file_user_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"user.proto\x12\x04user\x1a\x1fgoogle/protobuf/timestamp.proto\"t\n" +
+	"user.proto\x12\x04user\"t\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1b\n" +
@@ -1213,17 +1184,13 @@ const file_user_proto_rawDesc = "" +
 	"\x04role\x18\x03 \x01(\tR\x04role\"R\n" +
 	"\x11ListUsersResponse\x12'\n" +
 	"\x05users\x18\x01 \x03(\v2\x11.user.UserProfileR\x05users\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xf8\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8b\x01\n" +
 	"\x19RegisterWithInviteRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1b\n" +
 	"\tfull_name\x18\x03 \x01(\tR\bfullName\x12\x1f\n" +
 	"\vinvite_code\x18\x04 \x01(\tR\n" +
-	"inviteCode\x12%\n" +
-	"\x0elicense_number\x18\x05 \x01(\tR\rlicenseNumber\x12\x1c\n" +
-	"\tspecialty\x18\x06 \x01(\tR\tspecialty\x12\x14\n" +
-	"\x05phone\x18\a \x01(\tR\x05phone\x12\x10\n" +
-	"\x03bio\x18\b \x01(\tR\x03bio\"/\n" +
+	"inviteCode\"/\n" +
 	"\x19ValidateInviteCodeRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"\x8e\x01\n" +
 	"\x1aValidateInviteCodeResponse\x12\x19\n" +

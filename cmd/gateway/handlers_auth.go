@@ -71,14 +71,10 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := g.userClient.RegisterWithInvite(r.Context(), &userpb.RegisterWithInviteRequest{
-		Email:         req.Email,
-		Password:      req.Password,
-		FullName:      req.FullName,
-		InviteCode:    req.InviteCode,
-		LicenseNumber: req.LicenseNumber,
-		Specialty:     req.Specialty,
-		Phone:         req.Phone,
-		Bio:           req.Bio,
+		Email:      req.Email,
+		Password:   req.Password,
+		FullName:   req.FullName,
+		InviteCode: req.InviteCode,
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)

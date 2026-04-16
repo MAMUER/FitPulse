@@ -109,7 +109,7 @@ func TestSetMultipleTypes(t *testing.T) {
 
 	client, err := NewClient(mr.Addr(), "", 0)
 	require.NoError(t, err)
-	defer func() { _ = client.Close() }() 
+	defer func() { _ = client.Close() }()
 
 	ctx := context.Background()
 

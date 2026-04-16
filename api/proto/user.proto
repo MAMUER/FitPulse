@@ -2,10 +2,7 @@ syntax = "proto3";
 
 package user;
 
-// Важно: путь должен соответствовать структуре проекта
 option go_package = "github.com/MAMUER/Project/api/gen/user";
-
-import "google/protobuf/timestamp.proto";
 
 service UserService {
     rpc Register(RegisterRequest) returns (RegisterResponse);

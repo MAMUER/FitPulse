@@ -70,7 +70,7 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		"value":       req.Value,
 		"timestamp":   timestamp,
 	}
-	
+
 	if s.rabbitQueue != nil {
 		if err := s.rabbitQueue.Publish(ctx, event); err != nil {
 			s.log.Warn("Failed to publish to queue", zap.Error(err))
