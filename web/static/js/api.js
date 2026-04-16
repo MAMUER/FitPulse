@@ -135,8 +135,11 @@ async function changePassword(currentPassword, newPassword) {
     });
 }
 
-async function deleteProfile() {
-    return apiRequest('/profile', { method: 'DELETE' });
+async function deleteProfile(password) {
+    return apiRequest('/profile', {
+        method: 'DELETE',
+        body: JSON.stringify({ password })
+    });
 }
 
 // Biometrics

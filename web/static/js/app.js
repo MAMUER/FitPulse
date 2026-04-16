@@ -452,6 +452,41 @@ document.addEventListener('DOMContentLoaded', () => {
         // Profile save
         document.getElementById('profileForm')?.addEventListener('submit', saveProfile);
 
+        // Change password button
+        document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
+            document.getElementById('changePasswordModal').classList.remove('hidden');
+        });
+
+        // Delete profile button
+        document.getElementById('deleteProfileBtn')?.addEventListener('click', () => {
+            document.getElementById('deleteProfileModal').classList.remove('hidden');
+        });
+
+        // Cancel change password
+        document.getElementById('cancelChangePassword')?.addEventListener('click', () => {
+            document.getElementById('changePasswordModal').classList.add('hidden');
+            document.getElementById('changePasswordForm').reset();
+        });
+
+        // Cancel delete profile
+        document.getElementById('cancelDeleteProfile')?.addEventListener('click', () => {
+            document.getElementById('deleteProfileModal').classList.add('hidden');
+            document.getElementById('deleteConfirmPassword').value = '';
+        });
+
+        // Change password form submit
+        document.getElementById('changePasswordForm')?.addEventListener('submit', handleChangePassword);
+
+        // Confirm delete profile
+        document.getElementById('confirmDeleteProfile')?.addEventListener('click', handleDeleteProfile);
+
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                e.target.closest('.modal').classList.add('hidden');
+            });
+        });
+
         // Profile field validation
         const profNickname = document.getElementById('profNickname');
         const profAge = document.getElementById('profAge');
@@ -785,6 +820,92 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast('Ошибка: ' + err.message, 'error');
             }
+        }
+    }
+
+    // ===== Change Password =====
+    async function handleChangePassword(e) {
+        e.preventDefault();
+
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+        // Validation
+        if (!currentPassword) {
+            showToast('Введите текущий пароль', 'error');
+            return;
+        }
+
+        if (!newPassword) {
+            showToast('Введите новый пароль', 'error');
+            return;
+        }
+
+        // Password strength validation
+        const passwordChecks = {
+            length: newPassword.length >= 8,
+            upper: /[A-ZА-ЯЁ]/.test(newPassword),
+            lower: /[a-zа-яё]/.test(newPassword),
+            digit: /\d/.test(newPassword),
+        };
+
+        if (!passwordChecks.length) {
+            showToast('Пароль должен содержать минимум 8 символов', 'error');
+            return;
+        }
+        if (!passwordChecks.upper) {
+            showToast('Пароль должен содержать заглавную букву', 'error');
+            return;
+        }
+        if (!passwordChecks.lower) {
+            showToast('Пароль должен содержать строчную букву', 'error');
+            return;
+        }
+        if (!passwordChecks.digit) {
+            showToast('Пароль должен содержать цифру', 'error');
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            showToast('Новые пароли не совпадают', 'error');
+            return;
+        }
+
+        try {
+            await changePassword(currentPassword, newPassword);
+            showToast('Пароль успешно изменён', 'success');
+            document.getElementById('changePasswordModal').classList.add('hidden');
+            document.getElementById('changePasswordForm').reset();
+        } catch (err) {
+            console.error('Change password failed:', err);
+            showToast('Ошибка: ' + err.message, 'error');
+        }
+    }
+
+    // ===== Delete Profile =====
+    async function handleDeleteProfile() {
+        const password = document.getElementById('deleteConfirmPassword').value;
+
+        if (!password) {
+            showToast('Введите пароль для подтверждения', 'error');
+            return;
+        }
+
+        // Additional confirmation
+        if (!confirm('Вы уверены? Это действие нельзя отменить.')) {
+            return;
+        }
+
+        try {
+            await deleteProfile(password);
+            showToast('Профиль удалён', 'success');
+            // Logout and redirect
+            setAuthToken(null);
+            window.location.reload();
+        } catch (err) {
+            console.error('Delete profile failed:', err);
+            showToast('Ошибка: ' + err.message, 'error');
         }
     }
 
