@@ -93,22 +93,63 @@ const AppModules = (() => {
             return resp.json();
         },
 
-        renderConnectedDevices() {
+        async renderConnectedDevices() {
             const container = document.getElementById('connectedDevicesList');
             if (!container) return;
 
-            // Показываем информативное состояние когда нет устройств
-            container.innerHTML = `
-                <div style="text-align:center; padding:24px 16px; color:var(--text-secondary);">
-                    <div style="font-size:48px; margin-bottom:12px;">⌚</div>
-                    <div style="font-size:15px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">
-                        Нет подключённых устройств
+            try {
+                const resp = await fetch('/api/v1/devices', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                if (!resp.ok) {
+                    throw new Error('Failed to fetch devices');
+                }
+                const data = await resp.json();
+                const devices = data.devices || [];
+
+                if (devices.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center; padding:24px 16px; color:var(--text-secondary);">
+                            <div style="font-size:48px; margin-bottom:12px;">⌚</div>
+                            <div style="font-size:15px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">
+                                Нет подключённых устройств
+                            </div>
+                            <div style="font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;">
+                                Выберите устройство из списка ниже и нажмите «Подключить устройство»
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const deviceNames = {
+                    apple_watch: 'Apple Watch',
+                    samsung_galaxy_watch: 'Samsung Galaxy Watch',
+                    huawei_watch_d2: 'Huawei Watch D2',
+                    amazfit_trex3: 'Amazfit T-Rex 3'
+                };
+                const deviceIcons = {
+                    apple_watch: '⌚',
+                    samsung_galaxy_watch: '⌚',
+                    huawei_watch_d2: '⌚',
+                    amazfit_trex3: '⌚'
+                };
+
+                container.innerHTML = devices.map(d => `
+                    <div class="device-item">
+                        <div class="device-icon">${deviceIcons[d.device_type] || '⌚'}</div>
+                        <div class="device-info">
+                            <div class="device-name">${deviceNames[d.device_type] || d.device_type}</div>
+                            <div class="device-date">Подключено: ${new Date(d.created_at).toLocaleDateString('ru-RU')}</div>
+                        </div>
                     </div>
-                    <div style="font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;">
-                        Выберите устройство из списка ниже и нажмите «Подключить устройство»
-                    </div>
-                </div>
-            `;
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load devices:', err);
+                container.innerHTML = `<div class="error">Не удалось загрузить устройства</div>`;
+            }
         }
     };
 

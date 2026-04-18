@@ -85,7 +85,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	_, err := g.biometricClient.GetRecords(r.Context(), &biometricpb.GetRecordsRequest{
+	resp, err := g.biometricClient.GetRecords(r.Context(), &biometricpb.GetRecordsRequest{
 		UserId:     userID,
 		MetricType: metricType,
 		From:       timestamppb.New(from),
@@ -99,9 +99,27 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Convert protobuf records to JSON-serializable format
+	records := make([]map[string]interface{}, len(resp.Records))
+	for i, rec := range resp.Records {
+		records[i] = map[string]interface{}{
+			"id":          rec.Id,
+			"user_id":     rec.UserId,
+			"metric_type": rec.MetricType,
+			"value":       rec.Value,
+			"timestamp":   rec.Timestamp.AsTime().Format(time.RFC3339),
+			"device_type": rec.DeviceType,
+			"created_at":  rec.CreatedAt.AsTime().Format(time.RFC3339),
+		}
+	}
+
+	response := map[string]interface{}{
+		"status":  "ok",
+		"records": records,
+	}
+
 	// Требование #11: HMAC-SHA256 подпись критического ответа
-	bioResp := map[string]interface{}{"status": "ok"}
-	if err := middleware.SignAndSendJSON(w, bioResp, g.jwtSecret, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, response, g.jwtSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

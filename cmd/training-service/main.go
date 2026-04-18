@@ -303,7 +303,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	s.log.Debug("ListPlans", zap.String("user_id", req.UserId))
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, name, generated_at, start_date, end_date, status
+		SELECT id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status
 		FROM training_plans
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
@@ -321,14 +321,20 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	var plans []*pb.TrainingPlan
 	for rows.Next() {
 		var planID, userID, planName, planStatus string
+		var trainingGoal sql.NullString
+		var durationWeeks sql.NullInt32
 		var generatedAt, startDate, endDate time.Time
 
-		if err := rows.Scan(&planID, &userID, &planName, &generatedAt, &startDate, &endDate, &planStatus); err != nil {
+		if err := rows.Scan(&planID, &userID, &planName, &trainingGoal, &durationWeeks, &generatedAt, &startDate, &endDate, &planStatus); err != nil {
 			s.log.Error("Failed to scan plan", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to read plan data")
 		}
 
-		planData := map[string]interface{}{"name": planName}
+		planData := map[string]interface{}{
+			"name":           planName,
+			"training_goal":  stringValue(trainingGoal),
+			"duration_weeks": int32Value(durationWeeks),
+		}
 		planDataStruct, err := structpb.NewStruct(planData)
 		if err != nil {
 			s.log.Error("Failed to create plan struct", zap.Error(err))

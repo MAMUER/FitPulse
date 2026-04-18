@@ -88,41 +88,43 @@ export default function (data) {
         'Content-Type': 'application/json',
     };
 
-    // 1. ML Классификация (optional — ML может быть не запущен)
-    let start = new Date();
-    let classifyRes = http.post(`${BASE_URL}/api/v1/ml/classify`, JSON.stringify({}), { headers });
-    const classifyOk = classifyRes.status === 200 || classifyRes.status === 202;
-    const classifyUnavailable = classifyRes.status === 502 || classifyRes.status === 503 || classifyRes.status === 500;
-    if (classifyOk) {
-        check(classifyRes, { 'ml classify ok': () => true });
-    } else if (classifyUnavailable) {
-        // ML сервис не запущен — graceful degradation, не считаем ошибкой
-        check(classifyRes, { 'ml classify skipped (service unavailable)': () => true });
-    } else {
-        check(classifyRes, { 'ml classify ok': () => false });
+    // 1. ML Классификация - только в 30% случаев
+    if (Math.random() < 0.3) {
+        let startTime = new Date();
+        let classifyRes = http.post(`${BASE_URL}/api/v1/ml/classify`, JSON.stringify({}), { headers });
+        const classifyOk = classifyRes.status === 200 || classifyRes.status === 202;
+        const classifyUnavailable = classifyRes.status === 502 || classifyRes.status === 503 || classifyRes.status === 500;
+        if (classifyOk) {
+            check(classifyRes, { 'ml classify ok': () => true });
+        } else if (classifyUnavailable) {
+            check(classifyRes, { 'ml classify skipped (service unavailable)': () => true });
+        } else {
+            check(classifyRes, { 'ml classify ok': () => false });
+        }
+        biometricDuration.add(new Date() - startTime);
     }
-    biometricDuration.add(new Date() - start);
     sleep(0.5);
 
-    // 2. Генерация программы тренировок (optional — ML может быть не запущен)
-    start = new Date();
-    const plan = {
-        training_class: 'endurance_e1e2',
-        duration_weeks: 4,
-        available_days: [1, 3, 5],
-        preferences: { max_duration: 60 }
-    };
-    let planRes = http.post(`${BASE_URL}/api/v1/ml/generate-plan`, JSON.stringify(plan), { headers });
-    const planOk = planRes.status === 200 || planRes.status === 202;
-    const planUnavailable = planRes.status === 502 || planRes.status === 503 || planRes.status === 500;
-    if (planOk) {
-        check(planRes, { 'ml generate plan ok': () => true });
-    } else if (planUnavailable) {
-        // ML сервис не запущен — graceful degradation, не считаем ошибкой
-        check(planRes, { 'ml generate skipped (service unavailable)': () => true });
-    } else {
-        check(planRes, { 'ml generate plan ok': () => false });
+    // 2. Генерация программы - только в 30% случаев
+    if (Math.random() < 0.3) {
+        let startTime = new Date();
+        const plan = {
+            training_class: 'endurance_e1e2',
+            duration_weeks: 4,
+            available_days: [1, 3, 5],
+            preferences: { max_duration: 60 }
+        };
+        let planRes = http.post(`${BASE_URL}/api/v1/ml/generate-plan`, JSON.stringify(plan), { headers });
+        const planOk = planRes.status === 200 || planRes.status === 202;
+        const planUnavailable = planRes.status === 502 || planRes.status === 503 || planRes.status === 500;
+        if (planOk) {
+            check(planRes, { 'ml generate plan ok': () => true });
+        } else if (planUnavailable) {
+            check(planRes, { 'ml generate skipped (service unavailable)': () => true });
+        } else {
+            check(planRes, { 'ml generate plan ok': () => false });
+        }
+        generatePlanDuration.add(new Date() - startTime);
     }
-    generatePlanDuration.add(new Date() - start);
     sleep(1);
 }

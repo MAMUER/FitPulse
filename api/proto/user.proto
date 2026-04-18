@@ -12,6 +12,7 @@ service UserService {
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+    rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
 }
@@ -75,6 +76,16 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {
+    string message = 1;
+}
+
+message ChangeEmailRequest {
+    string user_id = 1;
+    string new_email = 2;
+    string password = 3;
+}
+
+message ChangeEmailResponse {
     string message = 1;
 }
 

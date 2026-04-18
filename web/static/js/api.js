@@ -135,6 +135,13 @@ async function changePassword(currentPassword, newPassword) {
     });
 }
 
+async function changeEmail(newEmail, password) {
+    return apiRequest('/auth/change-email', {
+        method: 'POST',
+        body: JSON.stringify({ new_email: newEmail, password })
+    });
+}
+
 async function deleteProfile(password) {
     return apiRequest('/profile', {
         method: 'DELETE',

@@ -39,7 +39,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		availableDays[i] = safeIntToInt32(d)
 	}
 
-	_, err := g.trainingClient.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
+	resp, err := g.trainingClient.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
 		UserId:              userID,
 		ClassificationClass: class,
 		Confidence:          req.Confidence,
@@ -49,7 +49,6 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		g.log.Error("Failed to generate plan", zap.Error(err), zap.String("user_id", userID))
 		httpCode, errMsg := grpcToHTTPStatus(err)
-		// Если сервис недоступен — даём понятное сообщение
 		if httpCode == http.StatusInternalServerError {
 			http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 			return
@@ -58,8 +57,31 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	planResp := map[string]interface{}{"status": "ok"}
-	if err := json.NewEncoder(w).Encode(planResp); err != nil {
+	planDataJSON, err := json.Marshal(resp.PlanData)
+	if err != nil {
+		g.log.Error("Failed to marshal plan data", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+	var planData map[string]interface{}
+	if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+		g.log.Error("Failed to unmarshal plan data", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+
+	// Add fields for frontend compatibility
+	planData["duration_weeks"] = req.DurationWeeks
+	planData["training_goal"] = class
+
+	response := map[string]interface{}{
+		"status":        "ok",
+		"plan_id":       resp.PlanId,
+		"plan_data":     planData,
+		"training_type": class,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -86,7 +108,7 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err := g.trainingClient.ListPlans(r.Context(), &trainingpb.ListPlansRequest{
+	resp, err := g.trainingClient.ListPlans(r.Context(), &trainingpb.ListPlansRequest{
 		UserId:   userID,
 		Page:     safeIntToInt32(page),
 		PageSize: safeIntToInt32(pageSize),
@@ -98,8 +120,46 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plansResp := map[string]interface{}{"status": "ok"}
-	if err := json.NewEncoder(w).Encode(plansResp); err != nil {
+	// Convert protobuf plans to JSON
+	plans := make([]map[string]interface{}, len(resp.Plans))
+	for i, plan := range resp.Plans {
+		planDataJSON, err := json.Marshal(plan.PlanData)
+		if err != nil {
+			g.log.Error("Failed to marshal plan data", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			return
+		}
+		var planData map[string]interface{}
+		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			return
+		}
+
+		// Extract common fields for frontend compatibility
+		durationWeeks, _ := planData["duration_weeks"].(float64)
+		trainingGoal, _ := planData["training_goal"].(string)
+
+		plans[i] = map[string]interface{}{
+			"plan_id":        plan.Id,
+			"user_id":        plan.UserId,
+			"plan_data":      planData,
+			"status":         plan.Status,
+			"duration_weeks": durationWeeks,
+			"training_goal":  trainingGoal,
+			// Also expose start_date/end_date as strings for frontend
+			"start_date": plan.StartDate.AsTime().Format("2006-01-02"),
+			"end_date":   plan.EndDate.AsTime().Format("2006-01-02"),
+		}
+	}
+
+	response := map[string]interface{}{
+		"status": "ok",
+		"plans":  plans,
+		"total":  resp.Total,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

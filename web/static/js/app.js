@@ -477,6 +477,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Change password form submit
         document.getElementById('changePasswordForm')?.addEventListener('submit', handleChangePassword);
 
+        // Change email button
+        document.getElementById('changeEmailBtn')?.addEventListener('click', () => {
+            document.getElementById('changeEmailModal').classList.remove('hidden');
+        });
+
+        // Cancel change email
+        document.getElementById('cancelChangeEmail')?.addEventListener('click', () => {
+            document.getElementById('changeEmailModal').classList.add('hidden');
+            document.getElementById('changeEmailForm').reset();
+        });
+
+        // Change email form submit
+        document.getElementById('changeEmailForm')?.addEventListener('submit', handleChangeEmail);
+
         // Confirm delete profile
         document.getElementById('confirmDeleteProfile')?.addEventListener('click', handleDeleteProfile);
 
@@ -879,6 +893,39 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('changePasswordForm').reset();
         } catch (err) {
             console.error('Change password failed:', err);
+            showToast('Ошибка: ' + err.message, 'error');
+        }
+    }
+
+    // ===== Change Email =====
+    async function handleChangeEmail(e) {
+        e.preventDefault();
+
+        const newEmail = document.getElementById('newEmail').value;
+        const password = document.getElementById('confirmEmailPassword').value;
+
+        if (!newEmail) {
+            showToast('Введите новую почту', 'error');
+            return;
+        }
+
+        if (!password) {
+            showToast('Введите пароль для подтверждения', 'error');
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            showToast('Введите корректный email', 'error');
+            return;
+        }
+
+        try {
+            await changeEmail(newEmail, password);
+            showToast('Email изменён', 'success');
+            document.getElementById('changeEmailModal').classList.add('hidden');
+            document.getElementById('changeEmailForm').reset();
+        } catch (err) {
+            console.error('Change email failed:', err);
             showToast('Ошибка: ' + err.message, 'error');
         }
     }

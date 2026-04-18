@@ -48,6 +48,7 @@
     <div class="profile-actions">
         <h2>Безопасность</h2>
         <button type="button" id="changePasswordBtn" class="btn-secondary">Сменить пароль</button>
+        <button type="button" id="changeEmailBtn" class="btn-secondary">Сменить почту</button>
         <button type="button" id="deleteProfileBtn" class="btn-danger">Удалить профиль</button>
     </div>
 </main>
@@ -63,6 +64,22 @@
             <div class="modal-actions">
                 <button type="button" id="cancelChangePassword" class="btn-secondary">Отмена</button>
                 <button type="submit" class="btn-primary">Сменить пароль</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Change Email -->
+<div id="changeEmailModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <h3>Смена почты</h3>
+        <form id="changeEmailForm">
+            <input type="email" id="newEmail" placeholder="Новая почта" required>
+            <input type="password" id="confirmEmailPassword" placeholder="Пароль для подтверждения" required>
+            <div class="modal-actions">
+                <button type="button" id="cancelChangeEmail" class="btn-secondary">Отмена</button>
+                <button type="submit" class="btn-primary">Сменить почту</button>
             </div>
         </form>
     </div>
