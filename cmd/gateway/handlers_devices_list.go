@@ -33,7 +33,11 @@ func (g *gateway) getDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			g.log.Error("Failed to close rows", zap.Error(closeErr))
+		}
+	}()
 
 	devices := make([]map[string]interface{}, 0)
 	for rows.Next() {
