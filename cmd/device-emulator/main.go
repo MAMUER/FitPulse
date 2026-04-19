@@ -66,7 +66,15 @@ func main() {
 
 	// Auto-register device
 	var deviceID, deviceToken string
-	if *autoRegister {
+	if deviceIDEnv := os.Getenv("DEVICE_ID"); deviceIDEnv != "" {
+		if deviceTokenEnv := os.Getenv("DEVICE_TOKEN"); deviceTokenEnv != "" {
+			deviceID = deviceIDEnv
+			deviceToken = deviceTokenEnv
+			emulator.DeviceID = deviceID
+			emulator.DeviceToken = deviceToken
+			log.Printf("Using device from environment: %s (%s)", deviceID, *deviceType)
+		}
+	} else if *autoRegister {
 		regURL := *connectorURL + "/api/v1/devices/register"
 		regReq := map[string]string{
 			"device_type": *deviceType,

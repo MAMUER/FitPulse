@@ -63,14 +63,15 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
 	}
-	var planData map[string]interface{}
-	if err := json.Unmarshal(planDataJSON, &planData); err != nil {
-		g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
+	planData := make(map[string]interface{})
+	if len(planDataJSON) > 0 && string(planDataJSON) != "null" {
+		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// Add fields for frontend compatibility
 	planData["duration_weeks"] = req.DurationWeeks
 	planData["training_goal"] = class
 
