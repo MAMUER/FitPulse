@@ -578,14 +578,13 @@ func TestValidateGeneratePlanRequest(t *testing.T) {
 			errMsg:   "user_id is required",
 		},
 		{
-			name: "duration weeks zero",
+			name: "duration weeks zero - uses default",
 			req: &trainingpb.GeneratePlanRequest{
 				UserId:        "user-123",
 				DurationWeeks: 0,
 				AvailableDays: []int32{1, 3, 5},
 			},
-			wantCode: codes.InvalidArgument,
-			errMsg:   "duration_weeks must be greater than 0",
+			wantCode: codes.OK,
 		},
 		{
 			name: "duration weeks negative",

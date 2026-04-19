@@ -221,9 +221,11 @@ const AppModules = (() => {
             try {
                 // First, classify current state
                 let trainingClass = '';
+                let confidence = 0.5;
                 try {
                     const classifyRes = await window.apiRequest('/ml/classify', { method: 'POST', body: '{}' });
                     trainingClass = classifyRes.predicted_class || 'recovery';
+                    confidence = classifyRes.confidence || 0.5;
                 } catch {
                     trainingClass = 'recovery';
                 }
@@ -251,17 +253,14 @@ const AppModules = (() => {
                 if (p.sleep_hours) userProfile.sleep_hours = p.sleep_hours;
                 if (p.nutrition) userProfile.nutrition = p.nutrition;
 
-                // Use the ML Generator endpoint (/ml/generate-plan) which calls the Python ML service
-                const plan = await window.apiRequest('/ml/generate-plan', {
+                // Use the Training service endpoint to generate and save a plan
+                const plan = await window.apiRequest('/training/generate', {
                     method: 'POST',
                     body: JSON.stringify({
-                        training_class: trainingClass,
-                        user_profile: userProfile,
-                        preferences: {
-                            max_duration: 60,
-                            available_equipment: [],
-                            preferred_time: 'morning'
-                        }
+                        class: trainingClass,
+                        confidence: confidence,
+                        duration_weeks: 4,
+                        available_days: [1, 3, 5]
                     })
                 });
 

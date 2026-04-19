@@ -14,6 +14,7 @@ package wearableemulator
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -146,8 +147,8 @@ type DataGenerator struct {
 func cryptoFloat64() float64 {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
-	return float64(int64(b[0])<<56|int64(b[1])<<48|int64(b[2])<<40|int64(b[3])<<32|
-		int64(b[4])<<24|int64(b[5])<<16|int64(b[6])<<8|int64(b[7])) / (1 << 64)
+	n := binary.LittleEndian.Uint64(b[:])
+	return float64(n) / float64(0x1_0000_0000_0000_0000)
 }
 
 // cryptoGauss returns Gaussian noise using Box-Muller transform with crypto/rand
@@ -233,6 +234,15 @@ func (g *DataGenerator) GenerateBloodPressure() (systolic, diastolic float64) {
 
 	systolic = math.Max(80, math.Min(200, systolic))
 	diastolic = math.Max(50, math.Min(130, diastolic))
+
+	// Ensure systolic > diastolic
+	if systolic <= diastolic {
+		systolic = diastolic + 10
+		if systolic > 200 {
+			systolic = 200
+			diastolic = systolic - 10
+		}
+	}
 
 	return systolic, diastolic
 }

@@ -249,6 +249,28 @@
                             Сменить пароль
                         </button>
 
+                        <button type="button" class="btn-secondary" id="changeEmailBtn" style="margin-bottom: 12px;">
+                            Сменить почту
+                        </button>
+
+                        <!-- Форма смены почты (скрыта по умолчанию) -->
+                        <form id="changeEmailForm" class="hidden" style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                            <div class="form-group">
+                                <label>Новый email</label>
+                                <input type="email" id="newEmail" placeholder="example@mail.ru" required>
+                                <div class="field-error" id="newEmailError"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Текущий пароль</label>
+                                <input type="password" id="emailConfirmPassword" placeholder="Введите пароль для подтверждения" required>
+                                <div class="field-error" id="emailConfirmPasswordError"></div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="submit" class="btn-primary">Сохранить новую почту</button>
+                                <button type="button" class="btn-secondary" id="cancelChangeEmail">Отмена</button>
+                            </div>
+                        </form>
+
                         <!-- Форма смены пароля (скрыта по умолчанию) -->
                         <form id="changePasswordForm" class="hidden" style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
                             <div class="form-group">

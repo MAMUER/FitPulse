@@ -155,7 +155,8 @@ CREATE TABLE IF NOT EXISTS training_plans (
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name                VARCHAR(255),
     training_goal       VARCHAR(50) CHECK (training_goal IS NULL OR training_goal IN (
-        'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility', 'general_fitness'
+        'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility', 'general_fitness',
+        'recovery', 'endurance_e1e2', 'threshold_e3', 'strength_hiit'
     )),
     training_location   VARCHAR(50) CHECK (training_location IS NULL OR training_location IN ('home', 'gym', 'pool', 'outdoor')),
     available_time      VARCHAR(20) CHECK (available_time IS NULL OR available_time IN ('morning', 'afternoon', 'evening')),

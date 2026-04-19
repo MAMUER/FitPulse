@@ -902,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
 
         const newEmail = document.getElementById('newEmail').value;
-        const password = document.getElementById('confirmEmailPassword').value;
+        const password = document.getElementById('emailConfirmPassword').value;
 
         if (!newEmail) {
             showToast('Введите новую почту', 'error');

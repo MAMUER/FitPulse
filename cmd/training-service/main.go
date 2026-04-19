@@ -31,9 +31,11 @@ type trainingServer struct {
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
-	s.log.Info("GeneratePlan",
+	s.log.Info("GeneratePlan request received",
 		zap.String("user_id", req.UserId),
 		zap.String("class", req.ClassificationClass),
+		zap.Int32("duration_weeks", req.DurationWeeks),
+		zap.Int("available_days", len(req.AvailableDays)),
 	)
 
 	if err := ctx.Err(); err != nil {
@@ -68,6 +70,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	// Сохраняем план в нормализованную схему
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		s.log.Error("Failed to begin transaction", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to begin transaction")
 	}
 	defer func() {
@@ -76,11 +79,13 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		}
 	}()
 
+	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", req.UserId), zap.String("class", classificationClass))
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, planID, req.UserId, "Персонализированная программа", classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active")
 	if err != nil {
+		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
 		return nil, status.Error(codes.Internal, "failed to save plan")
 	}
 
