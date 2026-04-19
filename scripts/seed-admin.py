@@ -149,7 +149,7 @@ def main():
     # Check PostgreSQL container exists
     try:
         result = subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q", "postgres"],
+            ["docker", "compose", "-f", str(compose_file), "--env-file", str(env_path), "ps", "-q", "postgres"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -217,7 +217,7 @@ COMMIT;
     try:
         result = subprocess.run(
             [
-                "docker", "compose", "-f", str(compose_file),
+                "docker", "compose", "-f", str(compose_file), "--env-file", str(env_path),
                 "exec", "-T", "postgres",
                 "psql", "-U", db_user, "-d", db_name,
             ],

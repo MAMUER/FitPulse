@@ -99,10 +99,11 @@ func (g *gateway) deviceIngestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Build safe URL (validated via isValidServiceURL check above)
+	// Build safe URL: deviceConnectorURL validated at startup, deviceID sanitized above
 	ingestURL := fmt.Sprintf("%s/api/v1/devices/%s/ingest", g.deviceConnectorURL, deviceID)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", // #nosec G704 -- URL validated via isValidServiceURL above
+	// #nosec G704 - URL validated at startup, deviceID sanitized above
+	req, err := http.NewRequestWithContext(ctx, "POST",
 		ingestURL,
 		bytes.NewReader(body))
 	if err != nil {
@@ -112,8 +113,9 @@ func (g *gateway) deviceIngestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second} // #nosec G704 -- internal service only
-	resp, err := client.Do(req)                       // #nosec G704 -- URL validated above
+	client := &http.Client{Timeout: 10 * time.Second}
+	// #nosec G704 - URL validated at startup, deviceID sanitized
+	resp, err := client.Do(req)
 	if err != nil {
 		g.log.Error("Device connector unreachable", zap.Error(err))
 		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)

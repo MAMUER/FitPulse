@@ -13,10 +13,10 @@ package wearableemulator
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -137,59 +137,58 @@ func DefaultPhysiologicalState() *UserPhysiologicalState {
 // Realistic Data Generator
 // ==========================================
 
-// DataGenerator генерирует реалистичные биометрические данные
-//
-//nolint:gosec // G404: math/rand is acceptable for biometric emulation (not security-sensitive)
+// DataGenerator generates realistic biometric data using crypto/rand
 type DataGenerator struct {
 	state *UserPhysiologicalState
-	rng   *rand.Rand
-	mu    sync.Mutex
 }
 
-// NewDataGenerator создаёт генератор данных
+// cryptoFloat64 returns a cryptographically secure float64 in [0, 1)
+func cryptoFloat64() float64 {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return float64(int64(b[0])<<56|int64(b[1])<<48|int64(b[2])<<40|int64(b[3])<<32|
+		int64(b[4])<<24|int64(b[5])<<16|int64(b[6])<<8|int64(b[7])) / (1 << 64)
+}
+
+// cryptoGauss returns Gaussian noise using Box-Muller transform with crypto/rand
+func cryptoGauss(stdDev float64) float64 {
+	u1 := cryptoFloat64()
+	u2 := cryptoFloat64()
+	if u1 == 0 {
+		u1 = 1e-10
+	}
+	return stdDev * math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*u2)
+}
+
+// NewDataGenerator creates a data generator
 func NewDataGenerator(state *UserPhysiologicalState) *DataGenerator {
 	return &DataGenerator{
 		state: state,
-		//nolint:gosec // G404: math/rand is acceptable for biometric data emulation (not security-sensitive)
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())), // #nosec G404 -- biometric emulation, not security
 	}
 }
 
-// GenerateHeartRate генерирует реалистичный пульс
+// GenerateHeartRate generates realistic heart rate
 func (g *DataGenerator) GenerateHeartRate() float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	base := g.state.BaseHeartRate
 
-	// Вариация в зависимости от активности
-	activityVariation := g.state.ActivityLevel * 40 * math.Sin(g.rng.Float64()*math.Pi*2)
-
-	// Вариация в зависимости от стресса
-	stressVariation := g.state.StressLevel * 15 * (g.rng.Float64() - 0.5)
-
-	// Циркадный ритм (суточные колебания)
+	activityVariation := g.state.ActivityLevel * 40 * math.Sin(cryptoFloat64()*math.Pi*2)
+	stressVariation := g.state.StressLevel * 15 * (cryptoFloat64() - 0.5)
 	hour := time.Now().Hour()
 	circadianVariation := -5 * math.Cos(float64(hour)/24*math.Pi*2)
-
-	// Фитнес-уровень снижает пульс в покое
 	fitnessAdjustment := -g.state.FitnessLevel * 10
 
 	value := base + activityVariation + stressVariation + circadianVariation + fitnessAdjustment
-	value += g.gaussianNoise(2)
+	value += cryptoGauss(2)
 
 	return math.Max(40, math.Min(200, value))
 }
 
 // GenerateHRV генерирует вариабельность сердечного ритма
 func (g *DataGenerator) GenerateHRV() float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	base := g.state.BaseHRV
 	stressAdjustment := -g.state.StressLevel * 20
 	sleepAdjustment := g.state.SleepQuality * 10
-	noise := g.gaussianNoise(3)
+	noise := cryptoGauss(3)
 
 	value := base + stressAdjustment + sleepAdjustment + noise
 	return math.Max(10, math.Min(100, value))
@@ -197,11 +196,9 @@ func (g *DataGenerator) GenerateHRV() float64 {
 
 // GenerateSpO2 генерирует сатурацию крови
 func (g *DataGenerator) GenerateSpO2() float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	base := g.state.BaseSpO2
-	noise := g.gaussianNoise(0.5)
+	noise := cryptoGauss(0.5)
 
 	value := base + noise
 	return math.Max(90, math.Min(100, value))
@@ -209,13 +206,11 @@ func (g *DataGenerator) GenerateSpO2() float64 {
 
 // GenerateTemperature генерирует температуру тела
 func (g *DataGenerator) GenerateTemperature() float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	base := g.state.BaseTemperature
 	hour := time.Now().Hour()
 	circadianVariation := 0.3 * math.Sin(float64(hour)/24*math.Pi*2)
-	noise := g.gaussianNoise(0.1)
+	noise := cryptoGauss(0.1)
 
 	value := base + circadianVariation + noise
 	return math.Max(35.5, math.Min(38.5, value))
@@ -223,8 +218,6 @@ func (g *DataGenerator) GenerateTemperature() float64 {
 
 // GenerateBloodPressure генерирует артериальное давление
 func (g *DataGenerator) GenerateBloodPressure() (systolic, diastolic float64) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	baseSys := g.state.BaseBPSystolic
 	baseDia := g.state.BaseBPDiastolic
@@ -232,8 +225,8 @@ func (g *DataGenerator) GenerateBloodPressure() (systolic, diastolic float64) {
 	stressAdjSys := g.state.StressLevel * 15
 	stressAdjDia := g.state.StressLevel * 10
 	activityAdjSys := g.state.ActivityLevel * 20
-	noiseSys := g.gaussianNoise(3)
-	noiseDia := g.gaussianNoise(2)
+	noiseSys := cryptoGauss(3)
+	noiseDia := cryptoGauss(2)
 
 	systolic = baseSys + stressAdjSys + activityAdjSys + noiseSys
 	diastolic = baseDia + stressAdjDia + noiseDia
@@ -246,13 +239,11 @@ func (g *DataGenerator) GenerateBloodPressure() (systolic, diastolic float64) {
 
 // GenerateSleepStage генерирует текущую фазу сна
 func (g *DataGenerator) GenerateSleepStage() string {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	hour := time.Now().Hour()
 	// Предполагаем, что сон между 23:00 и 7:00
 	if hour >= 23 || hour < 7 {
-		r := g.rng.Float64()
+		r := cryptoFloat64()
 		quality := g.state.SleepQuality
 
 		switch {
@@ -271,8 +262,6 @@ func (g *DataGenerator) GenerateSleepStage() string {
 
 // GenerateSteps генерирует количество шагов за интервал
 func (g *DataGenerator) GenerateSteps() float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	hour := time.Now().Hour()
 
@@ -290,26 +279,15 @@ func (g *DataGenerator) GenerateSteps() float64 {
 	}
 
 	activityMultiplier := 0.5 + g.state.ActivityLevel*1.5
-	value := base * activityMultiplier * (0.5 + g.rng.Float64())
+	value := base * activityMultiplier * (0.5 + cryptoFloat64())
 
 	return math.Max(0, value)
-}
-
-// gaussianNoise генерирует гауссовский шум
-func (g *DataGenerator) gaussianNoise(stdDev float64) float64 {
-	u1 := g.rng.Float64()
-	u2 := g.rng.Float64()
-	z := math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*u2)
-	return z * stdDev
 }
 
 // GenerateECG генерирует упрощённые данные ЭКГ (симуляция PQRST волны)
 func (g *DataGenerator) GenerateECG() []float64 {
 	// GenerateHeartRate acquires its own lock, so call it BEFORE locking
 	heartRate := g.GenerateHeartRate()
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	// Симуляция PQRST комплекса (5 точек)
 	amplitude := 1.0 + (heartRate-70)/100

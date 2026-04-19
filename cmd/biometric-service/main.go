@@ -154,13 +154,44 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	from := req.From.AsTime()
 	to := req.To.AsTime()
 
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-		FROM biometric_data
-		WHERE user_id = $1 AND metric_type = $2 AND timestamp BETWEEN $3 AND $4
-		ORDER BY timestamp DESC
-		LIMIT $5
-	`, req.UserId, req.MetricType, from, to, req.Limit)
+	// Use fixed parameter positions with COALESCE for optional filters
+	// This avoids SQL string concatenation while handling null time filters
+	var rows *sql.Rows
+	var err error
+	if from.IsZero() && to.IsZero() {
+		// No time filters - use simple query
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
+			FROM biometric_data
+			WHERE user_id = $1 AND metric_type = $2
+			ORDER BY timestamp DESC LIMIT $3
+		`, req.UserId, req.MetricType, req.Limit)
+	} else if from.IsZero() {
+		// Only to filter
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
+			FROM biometric_data
+			WHERE user_id = $1 AND metric_type = $2 AND timestamp <= $3
+			ORDER BY timestamp DESC LIMIT $4
+		`, req.UserId, req.MetricType, to, req.Limit)
+	} else if to.IsZero() {
+		// Only from filter
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
+			FROM biometric_data
+			WHERE user_id = $1 AND metric_type = $2 AND timestamp >= $3
+			ORDER BY timestamp DESC LIMIT $4
+		`, req.UserId, req.MetricType, from, req.Limit)
+	} else {
+		// Both filters
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
+			FROM biometric_data
+			WHERE user_id = $1 AND metric_type = $2 AND timestamp >= $3 AND timestamp <= $4
+			ORDER BY timestamp DESC LIMIT $5
+		`, req.UserId, req.MetricType, from, to, req.Limit)
+	}
+
 	if err != nil {
 		s.log.Error("Failed to query records", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to query records")

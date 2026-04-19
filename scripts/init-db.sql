@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS user_contraindications (
 -- 3. BIOMETRIC DATA
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS biometric_records (
+CREATE TABLE IF NOT EXISTS biometric_data (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     metric_type VARCHAR(50) NOT NULL,
@@ -117,8 +117,8 @@ CREATE TABLE IF NOT EXISTS biometric_records (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_records(user_id, metric_type, timestamp);
-CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_records(timestamp);
+CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_data(timestamp);
 
 -- =============================================================================
 -- 4. DEVICES (registered by device-connector)

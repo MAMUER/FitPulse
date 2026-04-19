@@ -24,7 +24,8 @@ var (
 	ErrWorkoutIdRequired      = errors.New("workout_id is required")
 )
 
-// ValidateGeneratePlanRequest проверяет запрос генерации плана
+// ValidateGeneratePlanRequest checks request for training plan generation.
+// DurationWeeks is optional - defaults to 4 if not specified.
 func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	if req == nil {
 		return NilRequestError()
@@ -32,7 +33,11 @@ func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	if req.UserId == "" {
 		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
 	}
-	if req.DurationWeeks <= 0 {
+	// Default duration to 4 weeks if not specified (for ML-generated plans)
+	if req.DurationWeeks == 0 {
+		req.DurationWeeks = 4
+	}
+	if req.DurationWeeks < 0 {
 		return status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error())
 	}
 	if req.DurationWeeks > MaxDurationWeeks {
