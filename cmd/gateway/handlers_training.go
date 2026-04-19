@@ -7,6 +7,7 @@ import (
 
 	trainingpb "github.com/MAMUER/Project/api/gen/training"
 	"github.com/MAMUER/Project/internal/middleware"
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -164,7 +165,61 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+	}
+}
+
+func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := r.Context().Value(middleware.UserIDKey).(string); !ok {
+		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
 		return
+	}
+
+	vars := mux.Vars(r)
+	planID := vars["plan_id"]
+	if planID == "" {
+		http.Error(w, "ID плана не указан", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := g.trainingClient.GetPlan(r.Context(), &trainingpb.GetPlanRequest{
+		PlanId: planID,
+	})
+	if err != nil {
+		g.log.Error("Failed to get plan", zap.Error(err), zap.String("plan_id", planID))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	planDataJSON, err := json.Marshal(resp.PlanData)
+	if err != nil {
+		g.log.Error("Failed to marshal plan data", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+	var planData map[string]interface{}
+	if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+		g.log.Error("Failed to unmarshal plan data", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"status": "ok",
+		"plan": map[string]interface{}{
+			"plan_id":      resp.Id,
+			"user_id":      resp.UserId,
+			"plan_data":    planData,
+			"status":       resp.Status,
+			"start_date":   resp.StartDate.AsTime().Format("2006-01-02"),
+			"end_date":     resp.EndDate.AsTime().Format("2006-01-02"),
+			"generated_at": resp.GeneratedAt.AsTime().Format("2006-01-02"),
+		},
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 	}
 }
 

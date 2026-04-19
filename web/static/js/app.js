@@ -142,11 +142,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showMainApp() {
+function showMainApp() {
         authScreen.classList.remove('active');
         mainScreen.classList.add('active');
         mainScreen.classList.remove('hidden');
         switchView('dashboard');
+        
+        if (window.AppModules && window.AppModules.TrainingModule) {
+            window.AppModules.TrainingModule.loadPlans();
+        }
+        
         console.log('[APP] Main app shown');
     }
 
@@ -716,14 +721,42 @@ document.addEventListener('DOMContentLoaded', () => {
             // AI recommendation
             try {
                 const classifyRes = await apiRequest('/ml/classify', { method: 'POST', body: '{}' });
-                if (classifyRes.predicted_class_ru) {
+                console.log('[Dashboard] ML classify result:', classifyRes);
+                if (classifyRes && classifyRes.predicted_class_ru) {
                     document.getElementById('aiRecommendation').textContent = classifyRes.predicted_class_ru;
                     document.getElementById('aiDescription').textContent =
                         `Уверенность: ${Math.round(classifyRes.confidence * 100)}% | ${classifyRes.description || ''}`;
+                } else if (classifyRes && classifyRes.predicted_class) {
+                    document.getElementById('aiRecommendation').textContent = classifyRes.predicted_class;
+                    document.getElementById('aiDescription').textContent = 'AI анализ требует больше данных';
                 }
-            } catch {
-                document.getElementById('aiRecommendation').textContent = 'Нужно больше данных';
-                document.getElementById('aiDescription').textContent = 'Добавьте биометрические данные для AI-анализа';
+            } catch (err) {
+                console.error('[Dashboard] ML classify error:', err);
+                document.getElementById('aiRecommendation').textContent = 'Ошибка анализа';
+                document.getElementById('aiDescription').textContent = 'Сервис AI временно недоступен';
+            }
+
+            // Today's workout - load active training plan
+            try {
+                let plansData = await getTrainingPlans(1, 1);
+                if (typeof plansData === 'string') {
+                    plansData = JSON.parse(plansData);
+                }
+                const plans = plansData?.plans || [];
+                if (plans.length > 0) {
+                    const plan = plans[0];
+                    const planData = plan.plan_data || {};
+                    document.getElementById('todayWorkout').innerHTML = `
+                        <div class="workout-content">
+                            <h4>${planData.name || 'Персонализированная программа'}</h4>
+                            <p>🎯 ${plan.training_goal || 'Общая тренировка'}</p>
+                            <p>📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
+                            <p>⏱️ Длительность: ${plan.duration_weeks || planData.duration_weeks || 4} недель</p>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Failed to load today workout:', err);
             }
         } catch (err) {
             console.error('Dashboard load failed:', err);

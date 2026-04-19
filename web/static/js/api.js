@@ -181,6 +181,10 @@ async function getTrainingPlans(page = 1, pageSize = 10) {
     return apiRequest(`/training/plans?page=${page}&page_size=${pageSize}`);
 }
 
+async function getPlan(planId) {
+    return apiRequest(`/training/plan/${planId}`);
+}
+
 async function completeWorkout(planId, workoutId, rating, feedback) {
     return apiRequest('/training/complete', {
         method: 'POST',

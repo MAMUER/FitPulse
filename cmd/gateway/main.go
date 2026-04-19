@@ -308,6 +308,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 
 	protected.HandleFunc("/training/generate", g.generatePlanHandler).Methods("POST")
 	protected.HandleFunc("/training/plans", g.getPlansHandler).Methods("GET")
+	protected.HandleFunc("/training/plan/{plan_id}", g.getPlanHandler).Methods("GET")
 	protected.HandleFunc("/training/complete", g.completeWorkoutHandler).Methods("POST")
 	protected.HandleFunc("/training/progress", g.getProgressHandler).Methods("GET")
 

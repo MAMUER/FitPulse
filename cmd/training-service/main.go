@@ -313,7 +313,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
 		LIMIT $2 OFFSET $3
-	`, req.UserId, req.PageSize, req.Page*req.PageSize)
+	`, req.UserId, req.PageSize, (req.Page-1)*req.PageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}

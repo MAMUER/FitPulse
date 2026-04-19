@@ -160,11 +160,17 @@ const AppModules = (() => {
 
         async loadPlans() {
             const container = document.getElementById('plansList');
-            if (!container) return;
+            if (!container) {
+                return;
+            }
 
             try {
-                const data = await getTrainingPlans();
-                const plans = data.plans || [];
+                let data = await getTrainingPlans();
+                if (typeof data === 'string') {
+                    data = JSON.parse(data);
+                }
+
+                const plans = (data && data.plans) || [];
 
                 if (plans.length === 0) {
                     container.innerHTML = `
@@ -177,29 +183,101 @@ const AppModules = (() => {
                     return;
                 }
 
-                container.innerHTML = plans.map(p => {
-                    const statusLabels = {
-                        active: '🟢 Активен',
-                        completed: '✅ Завершён',
-                        cancelled: '❌ Отменён',
-                        paused: '⏸ На паузе'
-                    };
-                    const status = statusLabels[p.status] || p.status;
-                    const startDate = p.start_date ? new Date(p.start_date).toLocaleDateString('ru-RU') : '—';
-                    const endDate = p.end_date ? new Date(p.end_date).toLocaleDateString('ru-RU') : '—';
+                container.innerHTML = `<div class="loading">Загрузка программ...</div>`;
 
-                    return `
-                        <div class="plan-card">
-                            <h4>${p.name || 'Тренировочный план'}</h4>
-                            <p>${status}</p>
-                            <div class="plan-meta">
-                                <span>📅 ${startDate} — ${endDate}</span>
-                                <span>⏱️ ${p.duration_weeks || '?'} нед.</span>
-                                ${p.training_goal ? `<span>🎯 ${p.training_goal}</span>` : ''}
+                const statusLabels = {
+                    active: '🟢 Активен',
+                    completed: '✅ Завершён',
+                    cancelled: '❌ Отменён',
+                    paused: '⏸ На паузе'
+                };
+
+                const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                const trainingTypes = {
+                    'cardio': '🏃 Кардио',
+                    'strength': '💪 Силовая',
+                    'recovery': '🧘 Восстановление',
+                    'endurance': '🏃 Выносливость',
+                    'hiit': '🔥 HIIT'
+                };
+
+                let allPlansHtml = '';
+
+                for (const plan of plans) {
+                    let planDetails;
+                    try {
+                        let planData = await getPlan(plan.plan_id);
+                        if (typeof planData === 'string') {
+                            planData = JSON.parse(planData);
+                        }
+                        planDetails = planData?.plan;
+                    } catch (e) {
+                        console.error('Failed to get plan details:', e);
+                        planDetails = null;
+                    }
+
+                    const planData = plan?.plan_data || {};
+                    const fullData = planDetails?.plan_data || planData;
+                    const weeks = fullData?.weeks || [];
+                    
+                    const status = statusLabels[plan.status] || plan.status;
+
+                    let weeksHtml = '';
+                    if (weeks.length > 0) {
+                        weeks.forEach(week => {
+                            const days = week.days || [];
+                            let daysHtml = '';
+                            days.forEach(day => {
+                                const typeLabel = trainingTypes[day.training_type] || '🏋️ Тренировка';
+                                const exercises = day.exercises || [];
+                                let exercisesHtml = '';
+                                if (exercises.length > 0) {
+                                    exercisesHtml = '<ul class="exercise-list">' + 
+                                        exercises.map(ex => `<li>${ex.exercise_name || ''} ${ex.sets ? `${ex.sets}x${ex.reps}` : ''} ${ex.duration ? `${ex.duration}мин` : ''}</li>`).join('') + 
+                                        '</ul>';
+                                }
+                                daysHtml += `
+                                    <div class="day-card ${day.is_rest_day ? 'rest-day' : ''}">
+                                        <div class="day-header">
+                                            <span class="day-name">${dayNames[day.day_of_week] || ''}</span>
+                                            <span class="day-type">${day.is_rest_day ? '😴 Отдых' : typeLabel}</span>
+                                        </div>
+                                        ${exercisesHtml}
+                                        ${day.notes ? `<p class="day-notes">${day.notes}</p>` : ''}
+                                    </div>
+                                `;
+                            });
+                            
+                            weeksHtml += `
+                                <div class="week-section">
+                                    <h4>Неделя ${week.week_number}</h4>
+                                    <div class="days-grid">${daysHtml}</div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        weeksHtml = `
+                            <div class="week-section">
+                                <p>Программа: ${planData.name || 'Персонализированная программа'}</p>
+                                <p>Цель: ${plan.training_goal || 'Общая тренировка'}</p>
+                                <p>Длительность: ${plan.duration_weeks || 4} недель</p>
                             </div>
+                        `;
+                    }
+
+                    allPlansHtml += `
+                        <div class="plan-full">
+                            <div class="plan-header">
+                                <h3>${fullData.name || 'Персонализированная программа'}</h3>
+                                <span class="plan-status">${status}</span>
+                            </div>
+                            <p class="plan-dates">📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
+                            ${weeksHtml}
                         </div>
                     `;
-                }).join('');
+                }
+
+                container.innerHTML = allPlansHtml;
             } catch (err) {
                 console.error('Failed to load plans:', err);
                 container.innerHTML = `<div class="empty-state"><p>Не удалось загрузить планы</p></div>`;
