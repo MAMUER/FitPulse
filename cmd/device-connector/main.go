@@ -155,6 +155,19 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Check if user already has a device registered
+	var count int
+	checkErr := s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM devices WHERE user_id = $1`, req.UserID).Scan(&count)
+	if checkErr != nil {
+		s.log.Error("Failed to check existing devices", zap.Error(checkErr))
+		http.Error(w, "failed to register device", http.StatusInternalServerError)
+		return
+	}
+	if count > 0 {
+		http.Error(w, "user already has a connected device", http.StatusConflict)
+		return
+	}
+
 	// Generate device ID and auth token
 	deviceID := uuid.New().String()
 	token := uuid.New().String()

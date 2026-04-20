@@ -49,20 +49,26 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, err
 	}
 
+	// Check if user already has an active plan
+	var existingCount int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM training_plans WHERE user_id = $1 AND status = 'active'`, req.UserId).Scan(&existingCount)
+	if err != nil {
+		s.log.Error("Failed to check existing plans", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	if existingCount > 0 {
+		s.log.Warn("User already has an active plan", zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.AlreadyExists, "user already has an active plan")
+	}
+
 	classificationClass := sanitize.String(req.ClassificationClass)
 	planID := uuid.New().String()
 
 	planData := map[string]interface{}{
-		"name":       "Персонализированная программа",
-		"class":      classificationClass,
-		"confidence": req.Confidence,
-		"weeks":      req.DurationWeeks,
-		"schedule":   req.AvailableDays,
-		"workouts": []map[string]interface{}{
-			{"day": 1, "type": "cardio", "duration": 30, "intensity": "medium", "exercises": []string{"бег", "велосипед"}},
-			{"day": 3, "type": "strength", "duration": 45, "intensity": "high", "exercises": []string{"приседания", "отжимания", "тяга"}},
-			{"day": 5, "type": "recovery", "duration": 20, "intensity": "low", "exercises": []string{"растяжка", "йога"}},
-		},
+		"name":           "Персонализированная программа",
+		"class":          classificationClass,
+		"confidence":     req.Confidence,
+		"duration_weeks": int(req.DurationWeeks),
 	}
 
 	startDate := time.Now()
@@ -193,8 +199,10 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		Fields: make(map[string]*structpb.Value),
 	}
 
-	// Добавляем name
+	// Добавляем поля
 	planDataOut.Fields["name"] = structpb.NewStringValue(planName)
+	planDataOut.Fields["training_goal"] = structpb.NewStringValue("recovery")
+	planDataOut.Fields["duration_weeks"] = structpb.NewNumberValue(4)
 	planDataOut.Fields["weeks"] = structpb.NewListValue(weeksList)
 
 	s.log.Info("Plan data created successfully")
@@ -537,10 +545,10 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 		dayData["exercises"] = exercises
 
 		// Добавляем день в неделю
-		if week, exists := weeksMap[weekNum]; exists {
-			days := week["days"].([]map[string]interface{})
+		if _, exists := weeksMap[weekNum]; exists {
+			days := weeksMap[weekNum]["days"].([]map[string]interface{})
 			days = append(days, dayData)
-			week["days"] = days
+			weeksMap[weekNum]["days"] = days
 		}
 	}
 
@@ -565,33 +573,33 @@ func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) 
 		Values: make([]*structpb.Value, len(weeks)),
 	}
 	for i, week := range weeks {
-		// Создаем структуру недели вручную, избегая проблем с []map
 		weekStruct := &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
 		}
 
-		// Добавляем все поля недели
 		if val, ok := week["week_number"].(int32); ok {
+			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := week["week_number"].(int); ok {
 			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
 		}
 		if val, ok := week["total_training_days"].(int32); ok {
 			weekStruct.Fields["total_training_days"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := week["total_training_days"].(int); ok {
+			weekStruct.Fields["total_training_days"] = structpb.NewNumberValue(float64(val))
 		}
 		if val, ok := week["total_duration_minutes"].(int32); ok {
 			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := week["total_duration_minutes"].(int); ok {
+			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
 		}
 
-		// Вручную конвертируем days
+		daysSlice := week["days"].([]map[string]interface{})
 		daysList := &structpb.ListValue{
-			Values: make([]*structpb.Value, len(week["days"].([]map[string]interface{}))),
+			Values: make([]*structpb.Value, len(daysSlice)),
 		}
 
-		for dayIdx, day := range week["days"].([]map[string]interface{}) {
-			dayStruct, err := structpb.NewStruct(day)
-			if err != nil {
-				log.Error("Failed to create day struct", zap.Error(err), zap.Int("day_index", dayIdx))
-				return nil, status.Error(codes.Internal, "failed to process plan data")
-			}
+		for dayIdx, day := range daysSlice {
+			dayStruct := convertDayToStructpb(day, log)
 			daysList.Values[dayIdx] = structpb.NewStructValue(dayStruct)
 		}
 
@@ -602,27 +610,85 @@ func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) 
 	return weeksList, nil
 }
 
-// === Helpers ===
-
-func stringValue(ns sql.NullString) string {
-	if ns.Valid {
-		return ns.String
+func convertDayToStructpb(day map[string]interface{}, log *logger.Logger) *structpb.Struct {
+	dayStruct := &structpb.Struct{
+		Fields: make(map[string]*structpb.Value),
 	}
-	return ""
-}
 
-func int32Value(ni sql.NullInt32) int32 {
-	if ni.Valid {
-		return ni.Int32
+	if val, ok := day["day_id"].(string); ok {
+		dayStruct.Fields["day_id"] = structpb.NewStringValue(val)
 	}
-	return 0
-}
+	if val, ok := day["day_of_week"].(int32); ok {
+		dayStruct.Fields["day_of_week"] = structpb.NewNumberValue(float64(val))
+	} else if val, ok := day["day_of_week"].(int); ok {
+		dayStruct.Fields["day_of_week"] = structpb.NewNumberValue(float64(val))
+	}
+	if val, ok := day["training_date"].(string); ok {
+		dayStruct.Fields["training_date"] = structpb.NewStringValue(val)
+	}
+	if val, ok := day["training_type"].(string); ok {
+		dayStruct.Fields["training_type"] = structpb.NewStringValue(val)
+	}
+	if val, ok := day["is_rest_day"].(bool); ok {
+		dayStruct.Fields["is_rest_day"] = structpb.NewBoolValue(val)
+	}
+	if val, ok := day["duration"].(int32); ok {
+		dayStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
+	} else if val, ok := day["duration"].(int); ok {
+		dayStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
+	}
+	if val, ok := day["notes"].(string); ok {
+		dayStruct.Fields["notes"] = structpb.NewStringValue(val)
+	}
 
-func float64Value(nf sql.NullFloat64) float64 {
-	if nf.Valid {
-		return nf.Float64
+	exercisesSlice := day["exercises"].([]map[string]interface{})
+	exercisesList := &structpb.ListValue{
+		Values: make([]*structpb.Value, len(exercisesSlice)),
 	}
-	return 0
+
+	for exIdx, ex := range exercisesSlice {
+		exStruct := &structpb.Struct{
+			Fields: make(map[string]*structpb.Value),
+		}
+		if val, ok := ex["exercise_name"].(string); ok {
+			exStruct.Fields["exercise_name"] = structpb.NewStringValue(val)
+		}
+		if val, ok := ex["duration"].(int32); ok {
+			exStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := ex["duration"].(int); ok {
+			exStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := ex["intensity"].(float64); ok {
+			exStruct.Fields["intensity"] = structpb.NewNumberValue(val)
+		}
+		if val, ok := ex["sets"].(int32); ok {
+			exStruct.Fields["sets"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := ex["sets"].(int); ok {
+			exStruct.Fields["sets"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := ex["reps"].(int32); ok {
+			exStruct.Fields["reps"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := ex["reps"].(int); ok {
+			exStruct.Fields["reps"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := ex["rest_seconds"].(int32); ok {
+			exStruct.Fields["rest_seconds"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := ex["rest_seconds"].(int); ok {
+			exStruct.Fields["rest_seconds"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := ex["description"].(string); ok {
+			exStruct.Fields["description"] = structpb.NewStringValue(val)
+		}
+		if val, ok := ex["sort_order"].(int32); ok {
+			exStruct.Fields["sort_order"] = structpb.NewNumberValue(float64(val))
+		} else if val, ok := ex["sort_order"].(int); ok {
+			exStruct.Fields["sort_order"] = structpb.NewNumberValue(float64(val))
+		}
+		exercisesList.Values[exIdx] = structpb.NewStructValue(exStruct)
+	}
+
+	dayStruct.Fields["exercises"] = structpb.NewListValue(exercisesList)
+	return dayStruct
 }
 
 func main() {
@@ -682,4 +748,25 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatal("Failed to serve", zap.Error(err))
 	}
+}
+
+func stringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+func int32Value(ni sql.NullInt32) int32 {
+	if ni.Valid {
+		return ni.Int32
+	}
+	return 0
+}
+
+func float64Value(nf sql.NullFloat64) float64 {
+	if nf.Valid {
+		return nf.Float64
+	}
+	return 0
 }
