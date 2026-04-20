@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"math"
 	"net"
 	"os"
@@ -179,169 +178,26 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, status.Error(codes.Internal, "database error")
 	}
 
-	// Собираем план: неделя -> дни -> упражнения
-	// Используем map[string]interface{} для структур
-	weeksMap := make(map[int32]map[string]interface{})
-
-	// 1. Получаем все недели
-	weekRows, err := s.db.QueryContext(ctx, `
-		SELECT week_number, total_training_days, total_duration_minutes
-		FROM training_plan_weeks
-		WHERE training_plan_id = $1
-		ORDER BY week_number
-	`, req.PlanId)
+	weeks, err := populatePlanWeeks(ctx, s.db, planID, s.log)
 	if err != nil {
-		s.log.Error("Failed to query weeks", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
-	}
-	defer func() {
-		if closeErr := weekRows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close week rows", zap.Error(closeErr))
-		}
-	}()
-
-	for weekRows.Next() {
-		var weekNum, totalDays, duration int32
-		scanErr := weekRows.Scan(&weekNum, &totalDays, &duration)
-		if scanErr != nil {
-			s.log.Error("Failed to scan week", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "database error")
-		}
-		weeksMap[weekNum] = map[string]interface{}{
-			"week_number":            weekNum,
-			"total_training_days":    totalDays,
-			"total_duration_minutes": duration,
-			"days":                   []map[string]interface{}{},
-		}
+		return nil, err
 	}
 
-	// 2. Получаем дни, для каждого дня отдельно получаем его упражнения
-	dayRows, err := s.db.QueryContext(ctx, `
-		SELECT d.id, w.week_number, d.day_of_week, d.training_date, d.training_type, d.is_rest_day, d.total_duration_minutes, d.notes
-		FROM training_plan_days d
-		JOIN training_plan_weeks w ON d.week_id = w.id
-		WHERE w.training_plan_id = $1
-		ORDER BY w.week_number, d.day_of_week
-	`, req.PlanId)
+	weeksList, err := convertWeeksToStructpb(weeks, s.log)
 	if err != nil {
-		s.log.Error("Failed to query days", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
-	}
-	defer func() {
-		if closeErr := dayRows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close day rows", zap.Error(closeErr))
-		}
-	}()
-
-	dayIDToWeekNum := make(map[string]int32)
-
-	for dayRows.Next() {
-		var dayID, weekNum, dayOfWeek, duration int32
-		var trainingDate sql.NullTime
-		var trainingType, notes sql.NullString
-		var isRestDay bool
-
-		scanErr := dayRows.Scan(&dayID, &weekNum, &dayOfWeek, &trainingDate, &trainingType, &isRestDay, &duration, &notes)
-		if scanErr != nil {
-			s.log.Error("Failed to scan day", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "database error")
-		}
-
-		dayIDStr := fmt.Sprintf("%d", dayID)
-		dayIDToWeekNum[dayIDStr] = weekNum
-
-		trainingDateStr := ""
-		if trainingDate.Valid {
-			trainingDateStr = trainingDate.Time.Format("2006-01-02")
-		}
-
-		dayData := map[string]interface{}{
-			"day_id":        dayIDStr,
-			"day_of_week":   dayOfWeek,
-			"training_date": trainingDateStr,
-			"training_type": trainingType.String,
-			"is_rest_day":   isRestDay,
-			"duration":      duration,
-			"notes":         notes.String,
-			"exercises":     []map[string]interface{}{},
-		}
-
-		// Получаем упражнения для этого дня
-		exRows, exQueryErr := s.db.QueryContext(ctx, `
-			SELECT exercise_name, duration_minutes, intensity, sets, reps, rest_seconds, description, sort_order
-			FROM training_exercises
-			WHERE day_id = $1
-			ORDER BY sort_order
-		`, dayID)
-		if exQueryErr != nil {
-			s.log.Error("Failed to query exercises", zap.Error(exQueryErr))
-			return nil, status.Error(codes.Internal, "database error")
-		}
-
-		exercises := []map[string]interface{}{}
-		for exRows.Next() {
-			var exName, exDesc sql.NullString
-			var exDuration, exSets, exReps, exRest, exSort sql.NullInt32
-			var exIntensity sql.NullFloat64
-
-			scanErr := exRows.Scan(&exName, &exDuration, &exIntensity, &exSets, &exReps, &exRest, &exDesc, &exSort)
-			if scanErr != nil {
-				s.log.Error("Failed to scan exercise", zap.Error(scanErr))
-				if closeErr := exRows.Close(); closeErr != nil {
-					s.log.Warn("Failed to close exercise rows", zap.Error(closeErr))
-				}
-				return nil, status.Error(codes.Internal, "database error")
-			}
-
-			exercise := map[string]interface{}{
-				"exercise_name": exName.String,
-				"duration":      int32Value(exDuration),
-				"intensity":     float64Value(exIntensity),
-				"sets":          int32Value(exSets),
-				"reps":          int32Value(exReps),
-				"rest_seconds":  int32Value(exRest),
-				"description":   exDesc.String,
-				"sort_order":    int32Value(exSort),
-			}
-			exercises = append(exercises, exercise)
-		}
-		if closeErr := exRows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close exercise rows", zap.Error(closeErr))
-		}
-
-		dayData["exercises"] = exercises
-
-		// Добавляем день в неделю
-		if week, exists := weeksMap[weekNum]; exists {
-			days := week["days"].([]map[string]interface{})
-			days = append(days, dayData)
-			week["days"] = days
-		}
+		return nil, err
 	}
 
-	// 3. Собираем недели в упорядоченный массив
-	var weeks []map[string]interface{}
-	maxWeekNum := len(weeksMap)
-	if maxWeekNum > math.MaxInt32 {
-		s.log.Error("Too many weeks in plan", zap.Int("maxWeekNum", maxWeekNum))
-		return nil, status.Error(codes.Internal, "plan has too many weeks")
-	}
-	for i := int32(1); i <= int32(maxWeekNum); i++ {
-		if w, exists := weeksMap[i]; exists {
-			weeks = append(weeks, w)
-		}
+	// Создаем Struct вручную, чтобы избежать проблем с []map[string]interface{}
+	planDataOut := &structpb.Struct{
+		Fields: make(map[string]*structpb.Value),
 	}
 
-	planData := map[string]interface{}{
-		"name":  planName,
-		"weeks": weeks,
-	}
+	// Добавляем name
+	planDataOut.Fields["name"] = structpb.NewStringValue(planName)
+	planDataOut.Fields["weeks"] = structpb.NewListValue(weeksList)
 
-	planDataOut, err := structpb.NewStruct(planData)
-	if err != nil {
-		s.log.Error("Failed to create plan struct", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to process plan data")
-	}
+	s.log.Info("Plan data created successfully")
 
 	return &pb.TrainingPlan{
 		Id:          planID,
@@ -551,6 +407,199 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		CompletionRate:    completionRate,
 		History:           history,
 	}, nil
+}
+
+func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logger.Logger) ([]map[string]interface{}, error) {
+	weeksMap := make(map[int32]map[string]interface{})
+
+	// 1. Получаем все недели
+	weekRows, err := db.QueryContext(ctx, `
+		SELECT week_number, total_training_days, total_duration_minutes
+		FROM training_plan_weeks
+		WHERE training_plan_id = $1
+		ORDER BY week_number
+	`, planID)
+	if err != nil {
+		log.Error("Failed to query weeks", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := weekRows.Close(); closeErr != nil {
+			log.Warn("Failed to close week rows", zap.Error(closeErr))
+		}
+	}()
+
+	for weekRows.Next() {
+		var weekNum, totalDays, duration int32
+		scanErr := weekRows.Scan(&weekNum, &totalDays, &duration)
+		if scanErr != nil {
+			log.Error("Failed to scan week", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+		weeksMap[weekNum] = map[string]interface{}{
+			"week_number":            weekNum,
+			"total_training_days":    totalDays,
+			"total_duration_minutes": duration,
+			"days":                   []map[string]interface{}{},
+		}
+	}
+
+	// 2. Получаем дни, для каждого дня отдельно получаем его упражнения
+	dayRows, err := db.QueryContext(ctx, `
+		SELECT d.id, w.week_number, d.day_of_week, d.training_date, d.training_type, d.is_rest_day, d.total_duration_minutes, d.notes
+		FROM training_plan_days d
+		JOIN training_plan_weeks w ON d.week_id = w.id
+		WHERE w.training_plan_id = $1
+		ORDER BY w.week_number, d.day_of_week
+	`, planID)
+	if err != nil {
+		log.Error("Failed to query days", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := dayRows.Close(); closeErr != nil {
+			log.Warn("Failed to close day rows", zap.Error(closeErr))
+		}
+	}()
+
+	for dayRows.Next() {
+		var dayID string
+		var weekNum, dayOfWeek, duration int32
+		var trainingDate sql.NullTime
+		var trainingType, notes sql.NullString
+		var isRestDay bool
+
+		scanErr := dayRows.Scan(&dayID, &weekNum, &dayOfWeek, &trainingDate, &trainingType, &isRestDay, &duration, &notes)
+		if scanErr != nil {
+			log.Error("Failed to scan day", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+
+		trainingDateStr := ""
+		if trainingDate.Valid {
+			trainingDateStr = trainingDate.Time.Format("2006-01-02")
+		}
+
+		dayData := map[string]interface{}{
+			"day_id":        dayID,
+			"day_of_week":   dayOfWeek,
+			"training_date": trainingDateStr,
+			"training_type": trainingType.String,
+			"is_rest_day":   isRestDay,
+			"duration":      duration,
+			"notes":         notes.String,
+			"exercises":     []map[string]interface{}{},
+		}
+
+		// Получаем упражнения для этого дня
+		exRows, exQueryErr := db.QueryContext(ctx, `
+			SELECT exercise_name, duration_minutes, intensity, sets, reps, rest_seconds, description, sort_order
+			FROM training_exercises
+			WHERE day_id = $1
+			ORDER BY sort_order
+		`, dayID)
+		if exQueryErr != nil {
+			log.Error("Failed to query exercises", zap.Error(exQueryErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+
+		exercises := []map[string]interface{}{}
+		for exRows.Next() {
+			var exName, exDesc sql.NullString
+			var exDuration, exSets, exReps, exRest, exSort sql.NullInt32
+			var exIntensity sql.NullFloat64
+
+			scanErr := exRows.Scan(&exName, &exDuration, &exIntensity, &exSets, &exReps, &exRest, &exDesc, &exSort)
+			if scanErr != nil {
+				log.Error("Failed to scan exercise", zap.Error(scanErr))
+				if closeErr := exRows.Close(); closeErr != nil {
+					log.Warn("Failed to close exercise rows", zap.Error(closeErr))
+				}
+				return nil, status.Error(codes.Internal, "database error")
+			}
+
+			exercise := map[string]interface{}{
+				"exercise_name": exName.String,
+				"duration":      int32Value(exDuration),
+				"intensity":     float64Value(exIntensity),
+				"sets":          int32Value(exSets),
+				"reps":          int32Value(exReps),
+				"rest_seconds":  int32Value(exRest),
+				"description":   exDesc.String,
+				"sort_order":    int32Value(exSort),
+			}
+			exercises = append(exercises, exercise)
+		}
+		if closeErr := exRows.Close(); closeErr != nil {
+			log.Warn("Failed to close exercise rows", zap.Error(closeErr))
+		}
+
+		dayData["exercises"] = exercises
+
+		// Добавляем день в неделю
+		if week, exists := weeksMap[weekNum]; exists {
+			days := week["days"].([]map[string]interface{})
+			days = append(days, dayData)
+			week["days"] = days
+		}
+	}
+
+	// 3. Собираем недели в упорядоченный массив
+	var weeks []map[string]interface{}
+	maxWeekNum := len(weeksMap)
+	if maxWeekNum > math.MaxInt32 {
+		log.Error("Too many weeks in plan", zap.Int("maxWeekNum", maxWeekNum))
+		return nil, status.Error(codes.Internal, "plan has too many weeks")
+	}
+	for i := int32(1); i <= int32(maxWeekNum); i++ {
+		if w, exists := weeksMap[i]; exists {
+			weeks = append(weeks, w)
+		}
+	}
+
+	return weeks, nil
+}
+
+func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) (*structpb.ListValue, error) {
+	weeksList := &structpb.ListValue{
+		Values: make([]*structpb.Value, len(weeks)),
+	}
+	for i, week := range weeks {
+		// Создаем структуру недели вручную, избегая проблем с []map
+		weekStruct := &structpb.Struct{
+			Fields: make(map[string]*structpb.Value),
+		}
+
+		// Добавляем все поля недели
+		if val, ok := week["week_number"].(int32); ok {
+			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := week["total_training_days"].(int32); ok {
+			weekStruct.Fields["total_training_days"] = structpb.NewNumberValue(float64(val))
+		}
+		if val, ok := week["total_duration_minutes"].(int32); ok {
+			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
+		}
+
+		// Вручную конвертируем days
+		daysList := &structpb.ListValue{
+			Values: make([]*structpb.Value, len(week["days"].([]map[string]interface{}))),
+		}
+
+		for dayIdx, day := range week["days"].([]map[string]interface{}) {
+			dayStruct, err := structpb.NewStruct(day)
+			if err != nil {
+				log.Error("Failed to create day struct", zap.Error(err), zap.Int("day_index", dayIdx))
+				return nil, status.Error(codes.Internal, "failed to process plan data")
+			}
+			daysList.Values[dayIdx] = structpb.NewStructValue(dayStruct)
+		}
+
+		weekStruct.Fields["days"] = structpb.NewListValue(daysList)
+		weeksList.Values[i] = structpb.NewStructValue(weekStruct)
+	}
+
+	return weeksList, nil
 }
 
 // === Helpers ===
