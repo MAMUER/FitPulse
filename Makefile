@@ -23,6 +23,12 @@ certs:
 
 BIN_DIR := bin
 
+# Зависимости
+tidy:
+	@echo "Tidying Go modules..."
+	go mod tidy
+	@echo "Tidy complete."
+
 # Форматирование кода
 fmt:
 	@echo "Formatting Go code..."
@@ -61,7 +67,7 @@ lint:
 	@echo "Lint complete."
 
 # Запуск всех проверок
-check: fmt vet lint test build
+check: tidy fmt vet lint test build 
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

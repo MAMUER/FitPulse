@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -321,8 +322,12 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 	// 3. Собираем недели в упорядоченный массив
 	var weeks []map[string]interface{}
 	maxWeekNum := len(weeksMap)
-	for i := 1; i <= maxWeekNum; i++ {
-		if w, exists := weeksMap[int32(i)]; exists {
+	if maxWeekNum > math.MaxInt32 {
+		s.log.Error("Too many weeks in plan", zap.Int("maxWeekNum", maxWeekNum))
+		return nil, status.Error(codes.Internal, "plan has too many weeks")
+	}
+	for i := int32(1); i <= int32(maxWeekNum); i++ {
+		if w, exists := weeksMap[i]; exists {
 			weeks = append(weeks, w)
 		}
 	}
