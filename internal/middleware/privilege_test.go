@@ -35,7 +35,6 @@ func TestRequirePrivilege_MissingUserID(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	assert.Contains(t, rr.Body.String(), "not found")
-	// No DB query should be made
 	require.NoError(t, mock.ExpectationsWereMet())
 	assert.Zero(t, observed.Len(), "no logs expected for missing userID")
 }
@@ -180,9 +179,6 @@ func TestRequirePrivilege_ContextCancelled(t *testing.T) {
 	core, observed := observer.New(zapcore.ErrorLevel)
 	log := zap.New(core)
 
-	// When context is already cancelled, QueryRowContext returns ctx.Err()
-	// without executing the query, so we don't set a mock expectation.
-
 	handler := RequirePrivilege(db, "admin", log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -197,7 +193,6 @@ func TestRequirePrivilege_ContextCancelled(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	// No DB query executed because context was already cancelled
 	require.NoError(t, mock.ExpectationsWereMet())
 
 	logs := observed.All()

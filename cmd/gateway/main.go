@@ -84,12 +84,11 @@ func main() {
 		deviceConnectorURL = "http://localhost:8082"
 	}
 
-	// Async ML processing configuration
 	mlAsync := os.Getenv("ML_ASYNC") == "true" || os.Getenv("ML_ASYNC") == "True" || os.Getenv("ML_ASYNC") == "1"
 
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://guest:guest@localhost:5672/" //nolint:gosec // G101: default dev credentials, not for production
+		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")

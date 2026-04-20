@@ -229,7 +229,6 @@ func TestJSONError_TimestampFormat(t *testing.T) {
 func TestJSONError_EmptyCorrelationId(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
-	// No RequestIDKey in context
 
 	JSONError(rr, req, http.StatusNotFound, "error")
 

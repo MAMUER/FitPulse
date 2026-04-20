@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -173,113 +174,162 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, status.Error(codes.NotFound, "plan not found")
 	}
 	if err != nil {
+		s.log.Error("Failed to query plan", zap.Error(err), zap.String("plan_id", req.PlanId))
 		return nil, status.Error(codes.Internal, "database error")
 	}
 
-	// Собираем план из нормализованных таблиц в JSON
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT w.week_number, w.total_training_days, w.total_duration_minutes,
-			   d.id as day_id, d.day_of_week, d.training_date, d.training_type, d.is_rest_day, d.total_duration_minutes, d.notes,
-			   e.id as exercise_id, e.exercise_name, e.duration_minutes, e.intensity, e.sets, e.reps, e.rest_seconds, e.description, e.sort_order
-		FROM training_plan_weeks w
-		LEFT JOIN training_plan_days d ON d.week_id = w.id
-		LEFT JOIN training_exercises e ON e.day_id = d.id
-		WHERE w.training_plan_id = $1
-		ORDER BY w.week_number, d.day_of_week, e.sort_order
+	// Собираем план: неделя -> дни -> упражнения
+	// Используем map[string]interface{} для структур
+	weeksMap := make(map[int32]map[string]interface{})
+
+	// 1. Получаем все недели
+	weekRows, err := s.db.QueryContext(ctx, `
+		SELECT week_number, total_training_days, total_duration_minutes
+		FROM training_plan_weeks
+		WHERE training_plan_id = $1
+		ORDER BY week_number
 	`, req.PlanId)
 	if err != nil {
+		s.log.Error("Failed to query weeks", zap.Error(err))
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+		if closeErr := weekRows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close week rows", zap.Error(closeErr))
 		}
 	}()
 
-	weeks := make(map[int32]map[string]interface{})
-	dayExercises := make(map[string][]map[string]interface{})
+	for weekRows.Next() {
+		var weekNum, totalDays, duration int32
+		scanErr := weekRows.Scan(&weekNum, &totalDays, &duration)
+		if scanErr != nil {
+			s.log.Error("Failed to scan week", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+		weeksMap[weekNum] = map[string]interface{}{
+			"week_number":            weekNum,
+			"total_training_days":    totalDays,
+			"total_duration_minutes": duration,
+			"days":                   []map[string]interface{}{},
+		}
+	}
 
-	for rows.Next() {
-		var weekNum, totalDays, totalDurMinutes int32
-		var dayID sql.NullString
-		var dayOfWeek int32
+	// 2. Получаем дни, для каждого дня отдельно получаем его упражнения
+	dayRows, err := s.db.QueryContext(ctx, `
+		SELECT d.id, w.week_number, d.day_of_week, d.training_date, d.training_type, d.is_rest_day, d.total_duration_minutes, d.notes
+		FROM training_plan_days d
+		JOIN training_plan_weeks w ON d.week_id = w.id
+		WHERE w.training_plan_id = $1
+		ORDER BY w.week_number, d.day_of_week
+	`, req.PlanId)
+	if err != nil {
+		s.log.Error("Failed to query days", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := dayRows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close day rows", zap.Error(closeErr))
+		}
+	}()
+
+	dayIDToWeekNum := make(map[string]int32)
+
+	for dayRows.Next() {
+		var dayID, weekNum, dayOfWeek, duration int32
 		var trainingDate sql.NullTime
 		var trainingType, notes sql.NullString
 		var isRestDay bool
-		var dayDuration sql.NullInt32
-		var exerciseID sql.NullString
-		var exerciseName sql.NullString
-		var exDuration, exSets, exReps, exRest, exSortOrder sql.NullInt32
-		var exIntensity sql.NullFloat64
-		var exDescription sql.NullString
 
-		if scanErr := rows.Scan(&weekNum, &totalDays, &totalDurMinutes,
-			&dayID, &dayOfWeek, &trainingDate, &trainingType, &isRestDay, &dayDuration, &notes,
-			&exerciseID, &exerciseName, &exDuration, &exIntensity, &exSets, &exReps, &exRest, &exDescription, &exSortOrder); scanErr != nil {
-			s.log.Error("Failed to scan plan data", zap.Error(scanErr))
+		scanErr := dayRows.Scan(&dayID, &weekNum, &dayOfWeek, &trainingDate, &trainingType, &isRestDay, &duration, &notes)
+		if scanErr != nil {
+			s.log.Error("Failed to scan day", zap.Error(scanErr))
 			return nil, status.Error(codes.Internal, "database error")
 		}
 
-		if _, exists := weeks[weekNum]; !exists {
-			weeks[weekNum] = map[string]interface{}{
-				"week_number":            weekNum,
-				"total_training_days":    totalDays,
-				"total_duration_minutes": totalDurMinutes,
-				"days":                   []map[string]interface{}{},
-			}
+		dayIDStr := fmt.Sprintf("%d", dayID)
+		dayIDToWeekNum[dayIDStr] = weekNum
+
+		trainingDateStr := ""
+		if trainingDate.Valid {
+			trainingDateStr = trainingDate.Time.Format("2006-01-02")
 		}
 
-		if dayID.Valid && dayID.String != "" {
-			dayKey := dayID.String
-			if _, exists := dayExercises[dayKey]; !exists {
-				dayData := map[string]interface{}{
-					"day_id":        dayID.String,
-					"day_of_week":   dayOfWeek,
-					"training_type": stringValue(trainingType),
-					"is_rest_day":   isRestDay,
-					"duration":      int32Value(dayDuration),
-					"notes":         stringValue(notes),
-					"exercises":     []map[string]interface{}{},
+		dayData := map[string]interface{}{
+			"day_id":        dayIDStr,
+			"day_of_week":   dayOfWeek,
+			"training_date": trainingDateStr,
+			"training_type": trainingType.String,
+			"is_rest_day":   isRestDay,
+			"duration":      duration,
+			"notes":         notes.String,
+			"exercises":     []map[string]interface{}{},
+		}
+
+		// Получаем упражнения для этого дня
+		exRows, exQueryErr := s.db.QueryContext(ctx, `
+			SELECT exercise_name, duration_minutes, intensity, sets, reps, rest_seconds, description, sort_order
+			FROM training_exercises
+			WHERE day_id = $1
+			ORDER BY sort_order
+		`, dayID)
+		if exQueryErr != nil {
+			s.log.Error("Failed to query exercises", zap.Error(exQueryErr))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+
+		exercises := []map[string]interface{}{}
+		for exRows.Next() {
+			var exName, exDesc sql.NullString
+			var exDuration, exSets, exReps, exRest, exSort sql.NullInt32
+			var exIntensity sql.NullFloat64
+
+			scanErr := exRows.Scan(&exName, &exDuration, &exIntensity, &exSets, &exReps, &exRest, &exDesc, &exSort)
+			if scanErr != nil {
+				s.log.Error("Failed to scan exercise", zap.Error(scanErr))
+				if closeErr := exRows.Close(); closeErr != nil {
+					s.log.Warn("Failed to close exercise rows", zap.Error(closeErr))
 				}
-				if trainingDate.Valid {
-					dayData["training_date"] = trainingDate.Time.Format("2006-01-02")
-				}
-				dayExercises[dayKey] = []map[string]interface{}{}
-				weeks[weekNum]["days"] = append(weeks[weekNum]["days"].([]map[string]interface{}), dayData)
+				return nil, status.Error(codes.Internal, "database error")
 			}
 
-			if exerciseID.Valid && exerciseID.String != "" {
-				dayExercises[dayKey] = append(dayExercises[dayKey], map[string]interface{}{
-					"exercise_name": stringValue(exerciseName),
-					"duration":      int32Value(exDuration),
-					"intensity":     float64Value(exIntensity),
-					"sets":          int32Value(exSets),
-					"reps":          int32Value(exReps),
-					"rest_seconds":  int32Value(exRest),
-					"description":   stringValue(exDescription),
-					"sort_order":    int32Value(exSortOrder),
-				})
+			exercise := map[string]interface{}{
+				"exercise_name": exName.String,
+				"duration":      int32Value(exDuration),
+				"intensity":     float64Value(exIntensity),
+				"sets":          int32Value(exSets),
+				"reps":          int32Value(exReps),
+				"rest_seconds":  int32Value(exRest),
+				"description":   exDesc.String,
+				"sort_order":    int32Value(exSort),
 			}
+			exercises = append(exercises, exercise)
+		}
+		if closeErr := exRows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close exercise rows", zap.Error(closeErr))
+		}
+
+		dayData["exercises"] = exercises
+
+		// Добавляем день в неделю
+		if week, exists := weeksMap[weekNum]; exists {
+			days := week["days"].([]map[string]interface{})
+			days = append(days, dayData)
+			week["days"] = days
 		}
 	}
 
-	// Вставляем упражнения в дни
-	for _, weekData := range weeks {
-		days := weekData["days"].([]map[string]interface{})
-		for dayIdx := range days {
-			dayKey := days[dayIdx]["day_id"].(string)
-			days[dayIdx]["exercises"] = dayExercises[dayKey]
+	// 3. Собираем недели в упорядоченный массив
+	var weeks []map[string]interface{}
+	maxWeekNum := len(weeksMap)
+	for i := 1; i <= maxWeekNum; i++ {
+		if w, exists := weeksMap[int32(i)]; exists {
+			weeks = append(weeks, w)
 		}
-	}
-
-	weekList := make([]map[string]interface{}, 0, len(weeks))
-	for _, w := range weeks {
-		weekList = append(weekList, w)
 	}
 
 	planData := map[string]interface{}{
 		"name":  planName,
-		"weeks": weekList,
+		"weeks": weeks,
 	}
 
 	planDataOut, err := structpb.NewStruct(planData)

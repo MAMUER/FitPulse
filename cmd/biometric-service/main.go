@@ -159,7 +159,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	var rows *sql.Rows
 	var err error
 	if from.IsZero() && to.IsZero() {
-		// No time filters - use simple query
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 			FROM biometric_data

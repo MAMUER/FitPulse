@@ -97,8 +97,6 @@ func grpcToHTTPStatus(err error) (int, string) {
 
 // translateError converts technical error messages to user-friendly Russian
 func translateError(msg string) string {
-	// gRPC error patterns from validators and services
-	//nolint:gosec // G101: error message translations, not actual credentials
 	translations := map[string]string{
 		"email is required":             "Укажите email",
 		"password is required":          "Укажите пароль",

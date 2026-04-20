@@ -745,15 +745,83 @@ function showMainApp() {
                 const plans = plansData?.plans || [];
                 if (plans.length > 0) {
                     const plan = plans[0];
-                    const planData = plan.plan_data || {};
-                    document.getElementById('todayWorkout').innerHTML = `
-                        <div class="workout-content">
-                            <h4>${planData.name || 'Персонализированная программа'}</h4>
-                            <p>🎯 ${plan.training_goal || 'Общая тренировка'}</p>
-                            <p>📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
-                            <p>⏱️ Длительность: ${plan.duration_weeks || planData.duration_weeks || 4} недель</p>
-                        </div>
-                    `;
+                    let todayWorkoutHtml = '';
+                    
+                    // Try to load full plan details
+                    try {
+                        const fullPlan = await fetch(`/api/v1/training/plan/${plan.plan_id}`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                        }).then(r => r.json());
+                        
+                        const planData = fullPlan?.plan?.plan_data;
+                        if (planData?.weeks && planData.weeks.length > 0) {
+                            // Get today's day of week (0 = Sunday, 1 = Monday, etc)
+                            const today = new Date().getDay();
+                            
+                            // Search for today's workout in the first week
+                            let todayWorkout = null;
+                            for (const week of planData.weeks) {
+                                for (const day of week.days || []) {
+                                    if (day.day_of_week === today) {
+                                        todayWorkout = day;
+                                        break;
+                                    }
+                                }
+                                if (todayWorkout) break;
+                            }
+                            
+                            if (todayWorkout) {
+                                const trainingTypes = {
+                                    'cardio': '🏃 Кардио',
+                                    'strength': '💪 Силовая',
+                                    'recovery': '🧘 Восстановление',
+                                    'endurance': '🏃 Выносливость',
+                                    'hiit': '🔥 HIIT'
+                                };
+                                
+                                const exercises = todayWorkout.exercises || [];
+                                const typeLabel = trainingTypes[todayWorkout.training_type] || '🏋️ Тренировка';
+                                
+                                let exercisesHtml = '';
+                                if (exercises.length > 0) {
+                                    exercisesHtml = '<ul style="margin: 10px 0; padding-left: 20px;">' +
+                                        exercises.map(ex => {
+                                            const details = [];
+                                            if (ex.sets) details.push(`${ex.sets}x${ex.reps}`);
+                                            if (ex.duration) details.push(`${ex.duration}мин`);
+                                            return `<li>${ex.exercise_name || ''} ${details.length > 0 ? '(' + details.join(', ') + ')' : ''}</li>`;
+                                        }).join('') +
+                                        '</ul>';
+                                }
+                                
+                                todayWorkoutHtml = `
+                                    <div class="workout-content">
+                                        <h4>${typeLabel}</h4>
+                                        ${exercisesHtml}
+                                        ${todayWorkout.duration ? `<p>⏱️ Длительность: ${todayWorkout.duration} мин</p>` : ''}
+                                        ${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
+                                    </div>
+                                `;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Could not load full plan details:', e);
+                    }
+                    
+                    // Fallback if no today's workout found
+                    if (!todayWorkoutHtml) {
+                        const planData = plan.plan_data || {};
+                        todayWorkoutHtml = `
+                            <div class="workout-content">
+                                <h4>${planData.name || 'Персонализированная программа'}</h4>
+                                <p>🎯 ${plan.training_goal || 'Общая тренировка'}</p>
+                                <p>📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
+                                <p>⏱️ Длительность: ${plan.duration_weeks || planData.duration_weeks || 4} недель</p>
+                            </div>
+                        `;
+                    }
+                    
+                    document.getElementById('todayWorkout').innerHTML = todayWorkoutHtml;
                 }
             } catch (err) {
                 console.error('Failed to load today workout:', err);

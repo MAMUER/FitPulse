@@ -172,7 +172,6 @@ func TestMultiCloserImplementsCloser(t *testing.T) {
 	var _ io.Closer = mc
 }
 
-// nopCloser is a test double for io.Closer
 type nopCloser struct{}
 
 func (nopCloser) Close() error { return nil }

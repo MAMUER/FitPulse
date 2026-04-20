@@ -400,10 +400,6 @@ func TestContainsIgnoreCase_Match(t *testing.T) {
 	assert.True(t, containsIgnoreCase("Hello World", "hello"))
 	assert.True(t, containsIgnoreCase("HELLO WORLD", "world"))
 	assert.True(t, containsIgnoreCase("test", "test"))
-	// Note: containsIgnoreCase has a bug -- when len(s) == len(substr) but case differs,
-	// it returns false because the substring check is only done when len(s) > len(substr).
-	// So containsIgnoreCase("email IS required", "email is required") returns false.
-	// This tests the actual behavior, not the ideal behavior.
 	assert.False(t, containsIgnoreCase("email IS required", "email is required"))
 }
 
@@ -781,11 +777,6 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 
 func TestLoginHandler_EmailNotConfirmed(t *testing.T) {
 	g, mockUser, _, _ := newTestGatewayFull(t)
-	// Note: The handler checks strings.Contains(errMsg, "Email not confirmed") but
-	// grpcToHTTPStatus maps codes.Unauthenticated to "Неверные учётные данные" regardless
-	// of the original message. So the email-not-confirmed special case in the handler
-	// is unreachable with the current grpcToHTTPStatus implementation.
-	// We test what actually happens: the user gets the generic unauthenticated error.
 	mockUser.On("Login", mock.Anything, mock.AnythingOfType("*user.LoginRequest")).
 		Return(nil, status.Error(codes.Unauthenticated, "Email not confirmed")).Once()
 
@@ -1764,9 +1755,9 @@ func TestDeviceIngestHandler_PathInjectionSanitization(t *testing.T) {
 
 			g.deviceIngestHandler(w, req)
 
-			// The handler should sanitize and still attempt the request
-			// Since localhost:19999 is unreachable, expect 503
-			assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+			// The handler should validate device ID format and reject invalid ones
+			// Invalid device IDs containing path traversal characters should return 400
+			assert.Equal(t, http.StatusBadRequest, w.Code)
 		})
 	}
 }

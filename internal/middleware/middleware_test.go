@@ -644,7 +644,6 @@ func TestRequireRoleEmptyAllowedRoles(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	// No allowed roles, so no role matches -> 404
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 

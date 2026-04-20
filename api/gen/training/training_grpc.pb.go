@@ -109,9 +109,6 @@ type TrainingServiceServer interface {
 
 // UnimplementedTrainingServiceServer must be embedded to have
 // forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
 type UnimplementedTrainingServiceServer struct{}
 
 func (UnimplementedTrainingServiceServer) GeneratePlan(context.Context, *GeneratePlanRequest) (*GeneratePlanResponse, error) {

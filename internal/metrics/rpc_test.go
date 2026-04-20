@@ -332,8 +332,6 @@ func TestUnaryServerInterceptor_DurationIsRecorded(t *testing.T) {
 
 	_, err := interceptor(context.Background(), nil, info, slowHandler)
 	require.NoError(t, err)
-	// No assertion on exact duration value; the fact that no panic / error
-	// occurred and the call returned is sufficient for this smoke test.
 }
 
 // ---------------------------------------------------------------------------
@@ -393,7 +391,6 @@ func TestUnaryClientInterceptor_Success(t *testing.T) {
 	}
 	assert.True(t, found, "expected grpc_requests_total with status=ok for client interceptor")
 
-	// No errors should be recorded
 	errCount := testutil.CollectAndCount(registry, metricErrorsTotal)
 	assert.Equal(t, 0, errCount, "expected no grpc_errors_total on client success")
 }

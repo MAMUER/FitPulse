@@ -15,10 +15,11 @@ import (
 )
 
 // Prometheus метрики для очереди
-// Prometheus counters must be global — registered once at startup
 //
-//nolint:gochecknoglobals // Prometheus metrics require package-level registration
-var (
+//nolint:gochecknoglobals
+var queueMessagesTotal *prometheus.CounterVec
+
+func init() {
 	queueMessagesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "queue_messages_total",
@@ -26,9 +27,6 @@ var (
 		},
 		[]string{"queue", "status"},
 	)
-)
-
-func init() {
 	prometheus.MustRegister(queueMessagesTotal)
 }
 
