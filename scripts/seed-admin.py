@@ -41,46 +41,23 @@ def load_env_file(env_path: Path) -> dict[str, str]:
 
 def generate_bcrypt_hash(password: str) -> str:
     """Generate bcrypt hash using Go (reuses project's Go toolchain)."""
-    import tempfile
-
-    go_code = """\
-package main
-
-import (
-    "fmt"
-    "os"
-
-    "golang.org/x/crypto/bcrypt"
-)
-
-func main() {
-    h, err := bcrypt.GenerateFromPassword([]byte(os.Args[1]), bcrypt.DefaultCost)
-    if err != nil {
-        fmt.Fprintln(os.Stderr, err)
-        os.Exit(1)
-    }
-    fmt.Print(string(h))
-}
-"""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".go", delete=False
-    ) as f:
-        f.write(go_code)
-        go_file = f.name
+    script_dir = Path(__file__).resolve().parent
+    go_file = script_dir / "bcrypt_hash.go"
 
     try:
         result = subprocess.run(
-            ["go", "run", go_file, password],
+            ["go", "run", str(go_file), password],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
         )
         if result.returncode != 0:
             print(f"[ERROR] Failed to generate bcrypt hash: {result.stderr.strip()}")
             return ""
         return result.stdout
-    finally:
-        os.unlink(go_file)
+    except subprocess.TimeoutExpired:
+        print("[ERROR] bcrypt generation timed out (password may be too long or system is slow)")
+        return ""
 
 
 def find_project_root() -> Path:
