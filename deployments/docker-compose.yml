@@ -221,6 +221,7 @@ services:
       - DB_SSLMODE=disable
       - REDIS_HOST=redis
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS required}@rabbitmq:5672/
+      - ML_ASYNC=false
       - ML_CLASSIFIER_URL=http://ml-classifier:8001
       - ML_GENERATOR_URL=http://ml-generator:8002
     depends_on:

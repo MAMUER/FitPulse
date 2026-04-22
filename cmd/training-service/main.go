@@ -189,7 +189,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, err
 	}
 
-	weeksList, err := convertWeeksToStructpb(weeks, s.log)
+	weeksList, err := convertWeeksToStructpb(weeks)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +568,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 	return weeks, nil
 }
 
-func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) (*structpb.ListValue, error) {
+func convertWeeksToStructpb(weeks []map[string]interface{}) (*structpb.ListValue, error) {
 	weeksList := &structpb.ListValue{
 		Values: make([]*structpb.Value, len(weeks)),
 	}
@@ -599,7 +599,7 @@ func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) 
 		}
 
 		for dayIdx, day := range daysSlice {
-			dayStruct := convertDayToStructpb(day, log)
+			dayStruct := convertDayToStructpb(day)
 			daysList.Values[dayIdx] = structpb.NewStructValue(dayStruct)
 		}
 
@@ -610,7 +610,7 @@ func convertWeeksToStructpb(weeks []map[string]interface{}, log *logger.Logger) 
 	return weeksList, nil
 }
 
-func convertDayToStructpb(day map[string]interface{}, log *logger.Logger) *structpb.Struct {
+func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 	dayStruct := &structpb.Struct{
 		Fields: make(map[string]*structpb.Value),
 	}

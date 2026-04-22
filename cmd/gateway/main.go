@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -76,7 +77,25 @@ func main() {
 
 	mlGeneratorURL := os.Getenv("ML_GENERATOR_URL")
 	if mlGeneratorURL == "" {
-		mlGeneratorURL = "http://localhost:8002"
+		mlGeneratorURL = "http://ml-generator:8002"
+	}
+
+	parsedURL, err := url.Parse(mlGeneratorURL)
+	if err != nil {
+		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
+	}
+
+	allowedHosts := map[string]bool{
+		"ml-generator:8002": true,
+		"ml-generator":      true,
+		"generator:8002":    true,
+		"generator":         true,
+		"localhost:8002":    true,
+		"localhost:8001":    true,
+		"localhost":         true,
+	}
+	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
+		log.Fatal("ML_GENERATOR_URL host not allowed", zap.String("host", parsedURL.Host))
 	}
 
 	deviceConnectorURL := os.Getenv("DEVICE_CONNECTOR_URL")
