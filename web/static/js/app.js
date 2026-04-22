@@ -8,6 +8,47 @@ document.addEventListener('DOMContentLoaded', () => {
         isAdmin: false,
     };
 
+    // Mapping from exercise identifiers to Russian display names
+    const EXERCISE_NAME_MAP = {
+        "jumping_jacks": "Прыжки на месте",
+        "arm_circles": "Вращение руками",
+        "high_knees": "Подъем коленей",
+        "pushups": "Отжимания",
+        "squats": "Приседания",
+        "plank": "Планка",
+        "lunges": "Выпады",
+        "burpees": "Бёрпи",
+        "mountain_climbers": "Альпинист",
+        "stretching": "Растяжка",
+        "deep_breathing": "Глубокое дыхание",
+        "treadmill_walk": "Ходьба на беговой дорожке",
+        "dynamic_stretch": "Динамическая растяжка",
+        "bench_press": "Жим лёжа",
+        "deadlift": "Становая тяга",
+        "leg_press": "Жим ногами",
+        "lat_pulldown": "Тяга верхнего блока",
+        "shoulder_press": "Жим плечами",
+        "cable_rows": "Тяга блока",
+        "foam_rolling": "Фоам-роллинг",
+        "static_stretching": "Статическая растяжка",
+        "easy_swim": "Лёгкое плавание",
+        "freestyle_intervals": "Интервалы вольным стилем",
+        "breaststroke": "Брасс",
+        "backstroke": "На спине",
+        "kickboard_drills": "Работа с доской",
+        "pool_stretching": "Растяжка в бассейне",
+        "brisk_walk": "Быстрая ходьба",
+        "leg_swings": "Махи ногами",
+        "running": "Бег",
+        "cycling": "Велосипед",
+        "hill_sprints": "Спринты в гору",
+        "bodyweight_circuit": "Круговая тренировка",
+        "walk_recovery": "Ходьба",
+        "active_recovery": "Активное восстановление",
+        "light_warmup": "Лёгкая разминка",
+        "breathing_exercises": "Дыхательные упражнения"
+    };
+
     // ===== DOM Elements =====
     const authScreen = document.getElementById('authScreen');
     const mainScreen = document.getElementById('mainScreen');
@@ -725,7 +766,7 @@ function showMainApp() {
                 if (classifyRes && classifyRes.predicted_class_ru) {
                     document.getElementById('aiRecommendation').textContent = classifyRes.predicted_class_ru;
                     document.getElementById('aiDescription').textContent =
-                        `Уверенность: ${Math.round(classifyRes.confidence * 100)}% | ${classifyRes.description || ''}`;
+                        `${classifyRes.description || ''}`;
                 } else if (classifyRes && classifyRes.predicted_class) {
                     document.getElementById('aiRecommendation').textContent = classifyRes.predicted_class;
                     document.getElementById('aiDescription').textContent = 'AI анализ требует больше данных';
@@ -789,7 +830,7 @@ function showMainApp() {
                                             const details = [];
                                             if (ex.sets) details.push(`${ex.sets}x${ex.reps}`);
                                             if (ex.duration) details.push(`${ex.duration}мин`);
-                                            return `<li>${ex.exercise_name || ''} ${details.length > 0 ? '(' + details.join(', ') + ')' : ''}</li>`;
+                                            return `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${details.length > 0 ? '(' + details.join(', ') + ')' : ''}</li>`;
                                         }).join('') +
                                         '</ul>';
                                 }
@@ -808,18 +849,15 @@ function showMainApp() {
                         console.warn('Could not load full plan details:', e);
                     }
                     
-                    // Fallback if no today's workout found
-                    if (!todayWorkoutHtml) {
-                        const planData = plan.plan_data || {};
-                        todayWorkoutHtml = `
-                            <div class="workout-content">
-                                <h4>${planData.name || 'Персонализированная программа'}</h4>
-                                <p>🎯 ${plan.training_goal || 'Общая тренировка'}</p>
-                                <p>📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
-                                <p>⏱️ Длительность: ${plan.duration_weeks || planData.duration_weeks || 4} недель</p>
-                            </div>
-                        `;
-                    }
+                     // Fallback if no today's workout found
+                     if (!todayWorkoutHtml) {
+                         todayWorkoutHtml = `
+                             <div class="workout-content">
+                                 <h4>😴 Отдых</h4>
+                                 <p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
+                             </div>
+                         `;
+                     }
                     
                     document.getElementById('todayWorkout').innerHTML = todayWorkoutHtml;
                 }
@@ -1083,7 +1121,6 @@ function showMainApp() {
             container.innerHTML = `<div class="ml-classification">
                 <div class="class-label">Ваше состояние</div>
                 <div class="class-name">${classRu}</div>
-                <div class="confidence">Уверенность: ${confidence}%</div>
                 ${result.description ? `<p style="margin-top:12px;font-size:15px;color:var(--text-secondary);">${result.description}</p>` : ''}</div>`;
         } catch (err) {
             document.getElementById('mlResult').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>

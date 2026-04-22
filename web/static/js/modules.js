@@ -8,6 +8,47 @@ const AppModules = (() => {
     let emulationInterval = null;
 
     // ===== Device Module =====
+    // Mapping from exercise identifiers to Russian display names
+    const EXERCISE_NAME_MAP = {
+        "jumping_jacks": "Прыжки на месте",
+        "arm_circles": "Вращение руками",
+        "high_knees": "Подъем коленей",
+        "pushups": "Отжимания",
+        "squats": "Приседания",
+        "plank": "Планка",
+        "lunges": "Выпады",
+        "burpees": "Бёрпи",
+        "mountain_climbers": "Альпинист",
+        "stretching": "Растяжка",
+        "deep_breathing": "Глубокое дыхание",
+        "treadmill_walk": "Ходьба на беговой дорожке",
+        "dynamic_stretch": "Динамическая растяжка",
+        "bench_press": "Жим лёжа",
+        "deadlift": "Становая тяга",
+        "leg_press": "Жим ногами",
+        "lat_pulldown": "Тяга верхнего блока",
+        "shoulder_press": "Жим плечами",
+        "cable_rows": "Тяга блока",
+        "foam_rolling": "Фоам-роллинг",
+        "static_stretching": "Статическая растяжка",
+        "easy_swim": "Лёгкое плавание",
+        "freestyle_intervals": "Интервалы вольным стилем",
+        "breaststroke": "Брасс",
+        "backstroke": "На спине",
+        "kickboard_drills": "Работа с доской",
+        "pool_stretching": "Растяжка в бассейне",
+        "brisk_walk": "Быстрая ходьба",
+        "leg_swings": "Махи ногами",
+        "running": "Бег",
+        "cycling": "Велосипед",
+        "hill_sprints": "Спринты в гору",
+        "bodyweight_circuit": "Круговая тренировка",
+        "walk_recovery": "Ходьба",
+        "active_recovery": "Активное восстановление",
+        "light_warmup": "Лёгкая разминка",
+        "breathing_exercises": "Дыхательные упражнения"
+    };
+
     const DeviceModule = {
         devices: [
             { type: 'apple_watch', name: 'Apple Watch', icon: '⌚', capabilities: 'Пульс, ЭКГ, SpO₂, Сон' },
@@ -223,9 +264,9 @@ const AppModules = (() => {
                                 const exercises = day.exercises || [];
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {
-                                    exercisesHtml = '<ul class="exercise-list">' + 
-                                        exercises.map(ex => `<li>${ex.exercise_name || ''} ${ex.sets ? `${ex.sets}x${ex.reps}` : ''} ${ex.duration ? `${ex.duration}мин` : ''}</li>`).join('') + 
-                                        '</ul>';
+                                     exercisesHtml = '<ul class="exercise-list">' + 
+                                         exercises.map(ex => `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${ex.sets ? `${ex.sets}x${ex.reps}` : ''} ${ex.duration ? `${ex.duration}мін` : ''}</li>`).join('') + 
+                                         '</ul>';
                                 }
                                 daysHtml += `
                                     <div class="day-card ${day.is_rest_day ? 'rest-day' : ''}">
@@ -378,7 +419,7 @@ const AppModules = (() => {
                                 <div class="exercise-item">
                                     <div class="exercise-number">${i + 1}</div>
                                     <div class="exercise-details">
-                                        <div class="exercise-name">${ex.exercise_name || ex.name || 'Упражнение'}</div>
+                                        <div class="exercise-name">${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ex.name || 'Упражнение'}</div>
                                         <div class="exercise-meta">${metaParts.join(' • ')}</div>
                                     </div>
                                 </div>
