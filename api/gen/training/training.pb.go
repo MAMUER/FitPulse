@@ -30,6 +30,7 @@ type GeneratePlanRequest struct {
 	Confidence          float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	DurationWeeks       int32                  `protobuf:"varint,4,opt,name=duration_weeks,json=durationWeeks,proto3" json:"duration_weeks,omitempty"`
 	AvailableDays       []int32                `protobuf:"varint,5,rep,packed,name=available_days,json=availableDays,proto3" json:"available_days,omitempty"`
+	PlanData            *structpb.Struct       `protobuf:"bytes,6,opt,name=plan_data,json=planData,proto3" json:"plan_data,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -95,6 +96,13 @@ func (x *GeneratePlanRequest) GetDurationWeeks() int32 {
 func (x *GeneratePlanRequest) GetAvailableDays() []int32 {
 	if x != nil {
 		return x.AvailableDays
+	}
+	return nil
+}
+
+func (x *GeneratePlanRequest) GetPlanData() *structpb.Struct {
+	if x != nil {
+		return x.PlanData
 	}
 	return nil
 }
@@ -727,7 +735,7 @@ var File_training_proto protoreflect.FileDescriptor
 
 const file_training_proto_rawDesc = "" +
 	"\n" +
-	"\x0etraining.proto\x12\btraining\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xcf\x01\n" +
+	"\x0etraining.proto\x12\btraining\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x85\x02\n" +
 	"\x13GeneratePlanRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x121\n" +
 	"\x14classification_class\x18\x02 \x01(\tR\x13classificationClass\x12\x1e\n" +
@@ -735,7 +743,8 @@ const file_training_proto_rawDesc = "" +
 	"confidence\x18\x03 \x01(\x01R\n" +
 	"confidence\x12%\n" +
 	"\x0eduration_weeks\x18\x04 \x01(\x05R\rdurationWeeks\x12%\n" +
-	"\x0eavailable_days\x18\x05 \x03(\x05R\ravailableDays\"e\n" +
+	"\x0eavailable_days\x18\x05 \x03(\x05R\ravailableDays\x124\n" +
+	"\tplan_data\x18\x06 \x01(\v2\x17.google.protobuf.StructR\bplanData\"e\n" +
 	"\x14GeneratePlanResponse\x12\x17\n" +
 	"\aplan_id\x18\x01 \x01(\tR\x06planId\x124\n" +
 	"\tplan_data\x18\x02 \x01(\v2\x17.google.protobuf.StructR\bplanData\"\xb6\x02\n" +
@@ -818,32 +827,33 @@ var file_training_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),   // 12: google.protobuf.Timestamp
 }
 var file_training_proto_depIdxs = []int32{
-	11, // 0: training.GeneratePlanResponse.plan_data:type_name -> google.protobuf.Struct
-	11, // 1: training.TrainingPlan.plan_data:type_name -> google.protobuf.Struct
-	12, // 2: training.TrainingPlan.generated_at:type_name -> google.protobuf.Timestamp
-	12, // 3: training.TrainingPlan.start_date:type_name -> google.protobuf.Timestamp
-	12, // 4: training.TrainingPlan.end_date:type_name -> google.protobuf.Timestamp
-	2,  // 5: training.ListPlansResponse.plans:type_name -> training.TrainingPlan
-	12, // 6: training.GetProgressRequest.from:type_name -> google.protobuf.Timestamp
-	12, // 7: training.GetProgressRequest.to:type_name -> google.protobuf.Timestamp
-	10, // 8: training.GetProgressResponse.history:type_name -> training.WorkoutCompletion
-	12, // 9: training.WorkoutCompletion.scheduled_date:type_name -> google.protobuf.Timestamp
-	12, // 10: training.WorkoutCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	0,  // 11: training.TrainingService.GeneratePlan:input_type -> training.GeneratePlanRequest
-	3,  // 12: training.TrainingService.GetPlan:input_type -> training.GetPlanRequest
-	4,  // 13: training.TrainingService.ListPlans:input_type -> training.ListPlansRequest
-	6,  // 14: training.TrainingService.CompleteWorkout:input_type -> training.CompleteWorkoutRequest
-	8,  // 15: training.TrainingService.GetProgress:input_type -> training.GetProgressRequest
-	1,  // 16: training.TrainingService.GeneratePlan:output_type -> training.GeneratePlanResponse
-	2,  // 17: training.TrainingService.GetPlan:output_type -> training.TrainingPlan
-	5,  // 18: training.TrainingService.ListPlans:output_type -> training.ListPlansResponse
-	7,  // 19: training.TrainingService.CompleteWorkout:output_type -> training.CompleteWorkoutResponse
-	9,  // 20: training.TrainingService.GetProgress:output_type -> training.GetProgressResponse
-	16, // [16:21] is the sub-list for method output_type
-	11, // [11:16] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 0: training.GeneratePlanRequest.plan_data:type_name -> google.protobuf.Struct
+	11, // 1: training.GeneratePlanResponse.plan_data:type_name -> google.protobuf.Struct
+	11, // 2: training.TrainingPlan.plan_data:type_name -> google.protobuf.Struct
+	12, // 3: training.TrainingPlan.generated_at:type_name -> google.protobuf.Timestamp
+	12, // 4: training.TrainingPlan.start_date:type_name -> google.protobuf.Timestamp
+	12, // 5: training.TrainingPlan.end_date:type_name -> google.protobuf.Timestamp
+	2,  // 6: training.ListPlansResponse.plans:type_name -> training.TrainingPlan
+	12, // 7: training.GetProgressRequest.from:type_name -> google.protobuf.Timestamp
+	12, // 8: training.GetProgressRequest.to:type_name -> google.protobuf.Timestamp
+	10, // 9: training.GetProgressResponse.history:type_name -> training.WorkoutCompletion
+	12, // 10: training.WorkoutCompletion.scheduled_date:type_name -> google.protobuf.Timestamp
+	12, // 11: training.WorkoutCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	0,  // 12: training.TrainingService.GeneratePlan:input_type -> training.GeneratePlanRequest
+	3,  // 13: training.TrainingService.GetPlan:input_type -> training.GetPlanRequest
+	4,  // 14: training.TrainingService.ListPlans:input_type -> training.ListPlansRequest
+	6,  // 15: training.TrainingService.CompleteWorkout:input_type -> training.CompleteWorkoutRequest
+	8,  // 16: training.TrainingService.GetProgress:input_type -> training.GetProgressRequest
+	1,  // 17: training.TrainingService.GeneratePlan:output_type -> training.GeneratePlanResponse
+	2,  // 18: training.TrainingService.GetPlan:output_type -> training.TrainingPlan
+	5,  // 19: training.TrainingService.ListPlans:output_type -> training.ListPlansResponse
+	7,  // 20: training.TrainingService.CompleteWorkout:output_type -> training.CompleteWorkoutResponse
+	9,  // 21: training.TrainingService.GetProgress:output_type -> training.GetProgressResponse
+	17, // [17:22] is the sub-list for method output_type
+	12, // [12:17] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_training_proto_init() }

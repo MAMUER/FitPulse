@@ -780,7 +780,7 @@ function showMainApp() {
                                 };
                                 
                                 const exercises = todayWorkout.exercises || [];
-                                const typeLabel = trainingTypes[todayWorkout.training_type] || '🏋️ Тренировка';
+                                const typeLabel = trainingTypes[todayWorkout.training_type] || '';
                                 
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {

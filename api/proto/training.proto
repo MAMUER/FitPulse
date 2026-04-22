@@ -21,6 +21,7 @@ message GeneratePlanRequest {
     double confidence = 3;
     int32 duration_weeks = 4;
     repeated int32 available_days = 5;
+    google.protobuf.Struct plan_data = 6;
 }
 
 message GeneratePlanResponse {

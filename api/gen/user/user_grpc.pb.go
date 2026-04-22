@@ -174,6 +174,9 @@ type UserServiceServer interface {
 
 // UnimplementedUserServiceServer must be embedded to have
 // forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedUserServiceServer struct{}
 
 func (UnimplementedUserServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {

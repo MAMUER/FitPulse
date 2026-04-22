@@ -185,13 +185,6 @@ const AppModules = (() => {
 
                 container.innerHTML = `<div class="loading">Загрузка программ...</div>`;
 
-                const statusLabels = {
-                    active: '🟢 Активен',
-                    completed: '✅ Завершён',
-                    cancelled: '❌ Отменён',
-                    paused: '⏸ На паузе'
-                };
-
                 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
                 const trainingTypes = {
                     'cardio': '🏃 Кардио',
@@ -219,8 +212,6 @@ const AppModules = (() => {
                     const planData = plan?.plan_data || {};
                     const fullData = planDetails?.plan_data || planData;
                     const weeks = fullData?.weeks || [];
-                    
-                    const status = statusLabels[plan.status] || plan.status;
 
                     let weeksHtml = '';
                     if (weeks.length > 0) {
@@ -228,7 +219,7 @@ const AppModules = (() => {
                             const days = week.days || [];
                             let daysHtml = '';
                             days.forEach(day => {
-                                const typeLabel = trainingTypes[day.training_type] || '🏋️ Тренировка';
+                                const typeLabel = trainingTypes[day.training_type] || '';
                                 const exercises = day.exercises || [];
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {

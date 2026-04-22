@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	pb "github.com/MAMUER/Project/api/gen/training"
@@ -49,16 +50,17 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, err
 	}
 
-	// Check if user already has an active plan
-	var existingCount int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM training_plans WHERE user_id = $1 AND status = 'active'`, req.UserId).Scan(&existingCount)
-	if err != nil {
-		s.log.Error("Failed to check existing plans", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
-	}
-	if existingCount > 0 {
-		s.log.Warn("User already has an active plan", zap.String("user_id", req.UserId))
-		return nil, status.Error(codes.AlreadyExists, "user already has an active plan")
+	// Check if user already has an active plan - delete it completely (CASCADE will clean up all related data)
+	var existingPlanID string
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM training_plans WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`, req.UserId).Scan(&existingPlanID)
+	if err == nil && existingPlanID != "" {
+		s.log.Info("Deleting existing plan for replacement", zap.String("user_id", req.UserId), zap.String("old_plan_id", existingPlanID))
+		_, delErr := s.db.ExecContext(ctx, `DELETE FROM training_plans WHERE id = $1`, existingPlanID)
+		if delErr != nil {
+			s.log.Error("Failed to delete old plan", zap.Error(delErr))
+		}
+	} else if err != nil {
+		s.log.Debug("No existing active plan found, creating new", zap.String("user_id", req.UserId))
 	}
 
 	classificationClass := sanitize.String(req.ClassificationClass)
@@ -70,6 +72,15 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		"confidence":     req.Confidence,
 		"duration_weeks": int(req.DurationWeeks),
 	}
+
+	// Merge PlanData from request into planData map
+	if req.PlanData != nil {
+		for k, v := range req.PlanData.Fields {
+			planData[k] = v.AsInterface()
+		}
+	}
+
+	s.log.Info("PlanData received", zap.Any("planData", planData))
 
 	startDate := time.Now()
 	endDate := startDate.AddDate(0, 0, int(req.DurationWeeks)*7)
@@ -96,7 +107,30 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, status.Error(codes.Internal, "failed to save plan")
 	}
 
-	workouts, _ := planData["workouts"].([]map[string]interface{})
+	workoutsRaw, ok := planData["workouts"]
+	var workouts []map[string]interface{}
+	if ok {
+		switch v := workoutsRaw.(type) {
+		case []interface{}:
+			for _, item := range v {
+				if m, ok := item.(map[string]interface{}); ok {
+					workouts = append(workouts, m)
+				}
+			}
+		}
+	}
+
+	// If ML didn't provide workouts, try to build from exercises + weekly_schedule
+	if len(workouts) == 0 {
+		workouts = buildWeeklyWorkouts(planData, req.AvailableDays)
+	}
+
+	// If still empty, use basic default workouts
+	if len(workouts) == 0 {
+		s.log.Info("ML provided no valid exercises, using basic default plan", zap.String("class", classificationClass))
+		workouts = generateBasicWeeklyWorkouts(classificationClass, req.AvailableDays)
+	}
+
 	for week := int32(1); week <= req.DurationWeeks; week++ {
 		weekID := uuid.New().String()
 		totalDays := len(workouts)
@@ -689,6 +723,132 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 
 	dayStruct.Fields["exercises"] = structpb.NewListValue(exercisesList)
 	return dayStruct
+}
+
+// buildWeeklyWorkouts creates a one-week schedule from ML data (no repetition across weeks)
+func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} {
+	workouts := make([]map[string]interface{}, 0, len(availableDays))
+
+	exercisesRaw := planData["exercises"]
+	weeklySchedule := planData["weekly_schedule"]
+
+	// Extract exercises list
+	var exercises []string
+	switch v := exercisesRaw.(type) {
+	case []interface{}:
+		for _, e := range v {
+			if s, ok := e.(string); ok {
+				exercises = append(exercises, s)
+			}
+		}
+	case []string:
+		exercises = v
+	}
+
+	// Parse weekly_schedule map (day name -> exercise)
+	scheduleMap := make(map[int]string)
+	if m, ok := weeklySchedule.(map[string]interface{}); ok {
+		for dayName, exVal := range m {
+			if exStr, ok := exVal.(string); ok {
+				dayIdx := dayNameToIndex(dayName)
+				if dayIdx >= 0 {
+					scheduleMap[dayIdx] = exStr
+				}
+			}
+		}
+	}
+
+	// Get duration (per session)
+	duration := 30
+	if d, ok := planData["duration_minutes"].(int); ok {
+		duration = d
+	} else if d, ok := planData["duration_minutes"].(float64); ok {
+		duration = int(d)
+	}
+
+	// Get training type
+	trainingType := "general"
+	if t, ok := planData["training_type"].(string); ok {
+		trainingType = t
+	}
+
+	// Primary exercise fallback
+	primaryEx := ""
+	if p, ok := planData["primary_exercise"].(string); ok {
+		primaryEx = p
+	}
+
+	// Build workouts for ONE week based on available days
+	for _, dayIdx := range availableDays {
+		ex := ""
+		if scheduled, ok := scheduleMap[int(dayIdx)]; ok && scheduled != "" {
+			ex = scheduled
+		} else if primaryEx != "" {
+			ex = primaryEx
+		} else if len(exercises) > 0 {
+			// Pick first exercise as default
+			ex = exercises[0]
+		} else {
+			ex = "active_recovery"
+		}
+
+		workouts = append(workouts, map[string]interface{}{
+			"type":      trainingType,
+			"duration":  duration,
+			"exercises": []string{ex},
+		})
+	}
+
+	return workouts
+}
+
+func dayNameToIndex(name string) int {
+	switch strings.ToLower(name) {
+	case "monday":
+		return 0
+	case "tuesday":
+		return 1
+	case "wednesday":
+		return 2
+	case "thursday":
+		return 3
+	case "friday":
+		return 4
+	case "saturday":
+		return 5
+	case "sunday":
+		return 6
+	default:
+		return -1
+	}
+}
+
+func generateBasicWeeklyWorkouts(class string, availableDays []int32) []map[string]interface{} {
+	workouts := make([]map[string]interface{}, 0, len(availableDays))
+
+	workoutTypes := map[string]map[string]interface{}{
+		"recovery":    {"type": "recovery", "duration": 30, "exercises": []string{"лёгкая разминка", "растяжка", "дыхательные упражнения"}},
+		"strength":    {"type": "strength", "duration": 45, "exercises": []string{"приседания", "отжимания", "станов тяга", "жим лёжа"}},
+		"cardio":      {"type": "cardio", "duration": 40, "exercises": []string{"бег", "скакалка", "берпи", "махи ногами"}},
+		"flexibility": {"type": "flexibility", "duration": 35, "exercises": []string{"йога", "пилатес", "растяжка"}},
+		"hiit":        {"type": "hiit", "duration": 25, "exercises": []string{"спринт", "прыжки", "альпинист"}},
+	}
+
+	wt := workoutTypes[class]
+	if wt == nil {
+		wt = workoutTypes["recovery"]
+	}
+
+	// Create one workout for each available day in the week
+	for range availableDays {
+		wcopy := make(map[string]interface{})
+		for k, v := range wt {
+			wcopy[k] = v
+		}
+		workouts = append(workouts, wcopy)
+	}
+
+	return workouts
 }
 
 func main() {

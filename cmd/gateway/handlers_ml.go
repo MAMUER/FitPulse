@@ -14,6 +14,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/Project/api/gen/training"
@@ -89,7 +90,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	if !isValidServiceURL(g.mlClassifierURL, "http://localhost:", "http://ml-", "http://classifier:") {
+	if !isValidServiceURL(g.mlClassifierURL, "http://localhost:", "http://ml-", "http://ml-classifier:", "http://classifier:") {
 		g.log.Error("Invalid ML classifier URL", zap.String("url", g.mlClassifierURL))
 		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
 		return
@@ -145,50 +146,41 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (g *gateway) handleSyncClassifyFallback(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {
-	reqBody, _ := json.Marshal(mlPayload)
+func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {
+	jobID := uuid.New().String()
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	body, err := json.Marshal(map[string]interface{}{
+		"job_id":             jobID,
+		"physiological_data": mlPayload["physiological_data"],
+	})
+	if err != nil {
+		g.log.Error("Failed to marshal classify job", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	if !isValidServiceURL(g.mlClassifierURL, "http://localhost:", "http://ml-", "http://ml-classifier:", "http://classifier:") {
-		g.log.Error("Invalid ML classifier URL", zap.String("url", g.mlClassifierURL))
+	err = g.rmqCh.PublishWithContext(ctx, "", "ml.classify", false, false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         body,
+			DeliveryMode: amqp.Persistent,
+		})
+	if err != nil {
+		g.log.Error("Failed to publish classify job to RabbitMQ", zap.Error(err))
 		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		g.mlClassifierURL+"/classify",
-		bytes.NewReader(reqBody))
-	if err != nil {
-		g.log.Error("Failed to create ML classifier request", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		g.log.Error("ML classifier request failed", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			g.log.Error("Failed to close response body", zap.Error(closeErr))
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		g.log.Error("ML classifier returned error", zap.Int("status", resp.StatusCode))
-		http.Error(w, "Ошибка классификации", resp.StatusCode)
-		return
-	}
-
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		g.log.Error("Failed to write response", zap.Error(err))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"job_id": jobID,
+		"status": "pending",
+	}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -308,20 +300,53 @@ func (g *gateway) generateMLPlanHandler(w http.ResponseWriter, r *http.Request) 
 
 	var mlResp map[string]interface{}
 	if err := json.Unmarshal(body, &mlResp); err == nil {
+		// Extract plan_data and merge top-level fields
+		planDataMap, _ := mlResp["plan_data"].(map[string]interface{})
+		if planDataMap == nil {
+			planDataMap = make(map[string]interface{})
+		}
+		// Merge top-level fields (except plan_id, status, plan_data) into planDataMap
+		for k, v := range mlResp {
+			if k != "plan_id" && k != "status" && k != "plan_data" {
+				planDataMap[k] = v
+			}
+		}
+
+		g.log.Info("ML plan_data merged", zap.Any("planData", planDataMap))
+
 		availableDays := make([]int32, len(req.AvailableDays))
 		for i, d := range req.AvailableDays {
 			availableDays[i] = safeIntToInt32(d)
 		}
 
+		classificationClass := req.ClassName
+		if cc, ok := planDataMap["class"].(string); ok {
+			classificationClass = cc
+		}
+
+		var planDataStruct *structpb.Struct
+		if len(planDataMap) > 0 {
+			planDataStruct, _ = structpb.NewStruct(planDataMap)
+		}
+
+		confidence := 0.85
+		if c, ok := planDataMap["confidence"].(float64); ok {
+			confidence = c
+		}
+
+		// Save plan to training service
 		_, saveErr := g.trainingClient.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
 			UserId:              userID,
-			ClassificationClass: req.ClassName,
-			Confidence:          0.85,
+			ClassificationClass: classificationClass,
+			Confidence:          confidence,
 			DurationWeeks:       safeIntToInt32(req.DurationWeeks),
 			AvailableDays:       availableDays,
+			PlanData:            planDataStruct,
 		})
 		if saveErr != nil {
-			g.log.Warn("Failed to save ML plan to training service (non-critical)", zap.Error(saveErr))
+			g.log.Error("Failed to save ML plan to training service", zap.Error(saveErr))
+			http.Error(w, "Ошибка сохранения плана", http.StatusInternalServerError)
+			return
 		}
 	}
 
