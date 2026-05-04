@@ -1620,9 +1620,9 @@ func TestClassifyHandler_InvalidMLURL(t *testing.T) {
 	g.mlAsync = false
 	g.mlClassifierURL = "http://evil.com/classify" // Invalid - not in allowed prefixes
 
-	// classifyHandler calls GetLatest first before checking ML URL
+	// classifyHandler calls GetLatest for each metric type before checking ML URL
 	mockBio.On("GetLatest", mock.Anything, mock.AnythingOfType("*biometric.GetLatestRequest")).
-		Return(&biometricpb.BiometricRecord{MetricType: "heart_rate", Value: 75.0}, nil).Once()
+		Return(&biometricpb.BiometricRecord{MetricType: "heart_rate", Value: 75.0}, nil).Times(7)
 
 	ctx := contextWithUserID(context.Background(), "test-user-id")
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/ml/classify", nil).WithContext(ctx)

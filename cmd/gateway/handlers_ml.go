@@ -70,15 +70,25 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bioResp, err := g.biometricClient.GetLatest(r.Context(), &biometricpb.GetLatestRequest{
-		UserId:     userID,
-		MetricType: "heart_rate",
-	})
-	if err != nil {
-		g.log.Warn("Failed to get heart rate", zap.Error(err))
+	// Запрашиваем все необходимые метрики для ML-классификации
+	metricTypes := []string{"heart_rate", "hrv", "spo2", "temperature", "systolic_pressure", "diastolic_pressure", "sleep_hours"}
+	metrics := make(map[string]*biometricpb.BiometricRecord)
+
+	for _, metricType := range metricTypes {
+		bioResp, err := g.biometricClient.GetLatest(r.Context(), &biometricpb.GetLatestRequest{
+			UserId:     userID,
+			MetricType: metricType,
+		})
+		if err != nil {
+			g.log.Debug("Failed to get metric", zap.String("metric", metricType), zap.Error(err))
+			// Продолжаем с nil - будут использованы дефолтные значения
+		} else {
+			metrics[metricType] = bioResp
+		}
 	}
 
-	mlPayload := extractMLPayload(bioResp)
+	// Агрегируем все метрики в один payload
+	mlPayload := aggregateMLPayload(metrics)
 
 	if g.mlAsync {
 		g.handleAsyncClassify(w, r, mlPayload)
@@ -144,6 +154,21 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 
+}
+
+// aggregateMLPayload aggregates biometric metrics into a payload for ML service
+func aggregateMLPayload(metrics map[string]*biometricpb.BiometricRecord) map[string]interface{} {
+	physiologicalData := make(map[string]interface{})
+	for metricType, record := range metrics {
+		if record != nil {
+			physiologicalData[metricType] = record.Value
+		} else {
+			physiologicalData[metricType] = nil
+		}
+	}
+	return map[string]interface{}{
+		"physiological_data": physiologicalData,
+	}
 }
 
 func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {

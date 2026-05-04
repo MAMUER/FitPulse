@@ -54,7 +54,7 @@ def generate_bcrypt_hash(password: str) -> str:
         if result.returncode != 0:
             print(f"[ERROR] Failed to generate bcrypt hash: {result.stderr.strip()}")
             return ""
-        return result.stdout
+        return result.stdout.strip()
     except subprocess.TimeoutExpired:
         print("[ERROR] bcrypt generation timed out (password may be too long or system is slow)")
         return ""
@@ -146,21 +146,21 @@ def main():
     bcrypt_hash = generate_bcrypt_hash(admin_password)
     if not bcrypt_hash:
         sys.exit(1)
-    print(f"     Hash generated: {bcrypt_hash[:20]}...")
+    print(f"     Hash generated: {bcrypt_hash}")
+    print(f"     Hash length: {len(bcrypt_hash)}")
 
-    # Build SQL — write to stdin of psql to avoid shell-escaping issues with $
+    # Build SQL — use psql variable to pass hash safely
     print("[2/3] Creating admin user in database...")
 
     escaped_email = admin_email.replace("'", "''")
     escaped_name = admin_name.replace("'", "''")
-    # Note: $ in bcrypt hash is passed via stdin, no escaping needed
 
     sql = f"""\
 BEGIN;
 
 -- Create admin user if not exists
 INSERT INTO users (id, email, password_hash, full_name, role, email_confirmed, created_at, updated_at)
-SELECT gen_random_uuid(), '{escaped_email}', %HASH%, '{escaped_name}', 'admin', TRUE, NOW(), NOW()
+SELECT gen_random_uuid(), '{escaped_email}', :'hash', '{escaped_name}', 'admin', TRUE, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = '{escaped_email}');
 
 -- Create user profile if not exists
@@ -187,18 +187,22 @@ ORDER BY role;
 
 COMMIT;
 """
-    # Replace %HASH% placeholder with actual bcrypt hash (passed safely via psql variable)
-    sql = sql.replace("%HASH%", f"'{bcrypt_hash}'")
 
     # Execute SQL via docker exec (stdin avoids shell escaping)
     try:
+        # Include UPDATE in the main SQL
+        update_sql = f"""\
+UPDATE users SET password_hash = '{bcrypt_hash}'
+WHERE email = '{escaped_email}';
+"""
+        full_sql = update_sql + sql
         result = subprocess.run(
             [
                 "docker", "compose", "-f", str(compose_file), "--env-file", str(env_path),
                 "exec", "-T", "postgres",
                 "psql", "-U", db_user, "-d", db_name,
             ],
-            input=sql,
+            input=full_sql,
             capture_output=True,
             text=True,
             timeout=30,

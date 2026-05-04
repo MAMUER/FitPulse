@@ -94,6 +94,10 @@ func main() {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
+		if resp.StatusCode != http.StatusCreated {
+			log.Fatalf("Device registration failed: %s", resp.Status)
+		}
+
 		var regResp map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&regResp); err != nil {
 			log.Fatalf("Failed to decode registration response: %v", err)
