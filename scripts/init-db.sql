@@ -1,32 +1,26 @@
--- =============================================================================
--- FitPulse — Complete Database Schema (3NF / BCNF)
--- =============================================================================
--- This file creates the entire normalized database schema from scratch.
--- No separate migration files needed — this is the single source of truth.
---
--- Normalization highlights:
---   1NF:  No arrays (TEXT[]) or nested JSONB for business data
---   2NF:  No partial dependencies 
---   3NF:  No transitive dependencies (polymorphic FK resolved, derived data via VIEWs)
---   BCNF: All determinants are superkeys
--- =============================================================================
+-- V1__create_extensions.sql
+-- V1__create_extensions.sql
+-- Create necessary extensions
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- =============================================================================
--- 1. CORE: Users & Authentication
--- =============================================================================
+-- V2__create_users_and_auth.sql
+-- V2__create_users_and_auth.sql
+-- Core users and authentication tables
 
+-- Users table
 CREATE TABLE IF NOT EXISTS users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           VARCHAR(255) UNIQUE NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,
-    full_name       VARCHAR(255),
-    role            VARCHAR(50) NOT NULL DEFAULT 'client'
-                        CHECK (role IN ('client', 'admin')),
-    email_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email               VARCHAR(255) UNIQUE NOT NULL,
+    password_hash       VARCHAR(255) NOT NULL,
+    full_name           VARCHAR(255),
+    nickname            VARCHAR(100) UNIQUE,
+    profile_photo_url   VARCHAR(500),
+    role                VARCHAR(50) NOT NULL DEFAULT 'client'
+                            CHECK (role IN ('client', 'admin')),
+    email_confirmed     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -70,10 +64,11 @@ CREATE TABLE IF NOT EXISTS invite_code_uses (
 CREATE INDEX IF NOT EXISTS idx_invite_code_uses_code ON invite_code_uses(invite_code_id);
 CREATE INDEX IF NOT EXISTS idx_invite_code_uses_user ON invite_code_uses(user_id);
 
--- =============================================================================
--- 2. CORE: User Profiles (1NF — no arrays)
--- =============================================================================
+-- V3__create_user_profiles.sql
+-- V3__create_user_profiles.sql
+-- User profiles and related data
 
+-- User profiles
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id         UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     age             INT CHECK (age IS NULL OR (age >= 0 AND age <= 150)),
@@ -103,10 +98,29 @@ CREATE TABLE IF NOT EXISTS user_contraindications (
     PRIMARY KEY (user_id, contraindication)
 );
 
--- =============================================================================
--- 3. BIOMETRIC DATA
--- =============================================================================
+-- V4__create_devices.sql
+-- V4__create_devices.sql
+-- Devices registered by device-connector
 
+-- Devices
+CREATE TABLE IF NOT EXISTS devices (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_type     VARCHAR(50) NOT NULL,
+    device_name     VARCHAR(100),
+    token           VARCHAR(255) UNIQUE NOT NULL,
+    is_connected    BOOLEAN NOT NULL DEFAULT TRUE,
+    last_sync       TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
+
+-- V5__create_biometric_data.sql
+-- V4__create_biometric_data.sql
+-- Biometric data and device ingestion
+
+-- Biometric data
 CREATE TABLE IF NOT EXISTS biometric_data (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -120,20 +134,6 @@ CREATE TABLE IF NOT EXISTS biometric_data (
 CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp);
 CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_data(timestamp);
 
--- =============================================================================
--- 4. DEVICES (registered by device-connector)
--- =============================================================================
-
-CREATE TABLE IF NOT EXISTS devices (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    device_type VARCHAR(50) NOT NULL,
-    token       VARCHAR(255) UNIQUE NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
-
 -- Device ingestion log (deduplication)
 CREATE TABLE IF NOT EXISTS device_ingest_log (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,10 +146,11 @@ CREATE TABLE IF NOT EXISTS device_ingest_log (
 
 CREATE INDEX IF NOT EXISTS idx_ingest_log_device_time ON device_ingest_log(device_id, timestamp);
 
--- =============================================================================
--- 5. TRAINING PLANS (1NF — normalized from plan_data JSONB)
--- =============================================================================
+-- V6__create_training_plans.sql
+-- V6__create_training_plans.sql
+-- Training plans and related data
 
+-- Training plans
 CREATE TABLE IF NOT EXISTS training_plans (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -171,7 +172,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
 CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_plans_status ON training_plans(user_id, status);
 
--- Training plan weeks (1NF — from JSONB)
+-- Training plan weeks (1NF — normalized from JSONB)
 CREATE TABLE IF NOT EXISTS training_plan_weeks (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     training_plan_id        UUID NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
@@ -182,7 +183,7 @@ CREATE TABLE IF NOT EXISTS training_plan_weeks (
     UNIQUE (training_plan_id, week_number)
 );
 
--- Training plan days (1NF — from JSONB)
+-- Training plan days (1NF — normalized from JSONB)
 CREATE TABLE IF NOT EXISTS training_plan_days (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     week_id                 UUID NOT NULL REFERENCES training_plan_weeks(id) ON DELETE CASCADE,
@@ -195,7 +196,7 @@ CREATE TABLE IF NOT EXISTS training_plan_days (
     notes                   TEXT
 );
 
--- Individual exercises (1NF — from JSONB)
+-- Individual exercises (1NF — normalized from JSONB)
 CREATE TABLE IF NOT EXISTS training_exercises (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     day_id          UUID NOT NULL REFERENCES training_plan_days(id) ON DELETE CASCADE,
@@ -229,10 +230,11 @@ CREATE TABLE IF NOT EXISTS workout_completions (
 CREATE INDEX IF NOT EXISTS idx_workout_completions_user ON workout_completions(user_id);
 CREATE INDEX IF NOT EXISTS idx_workout_completions_plan ON workout_completions(training_plan_id);
 
--- =============================================================================
--- 6. ACHIEVEMENTS
--- =============================================================================
+-- V7__create_achievements.sql
+-- V7__create_achievements.sql
+-- Achievements system
 
+-- Achievements
 CREATE TABLE IF NOT EXISTS achievements (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(255) NOT NULL,
@@ -242,6 +244,7 @@ CREATE TABLE IF NOT EXISTS achievements (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- User achievements
 CREATE TABLE IF NOT EXISTS user_achievements (
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     achievement_id  UUID NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
@@ -258,9 +261,9 @@ INSERT INTO achievements (name, description, criteria) VALUES
     ('Мастер спорта', '1000 завершенных тренировок', '{"type": "workout_count", "threshold": 1000}')
 ON CONFLICT DO NOTHING;
 
--- =============================================================================
--- 7. VIEWS (backward compatibility for derived/aggregated data)
--- =============================================================================
+-- V8__create_views.sql
+-- V8__create_views.sql
+-- Views for backward compatibility and derived data
 
 -- Invite code statistics (replaces invite_codes.used_count)
 CREATE OR REPLACE VIEW invite_code_stats AS
@@ -297,9 +300,9 @@ LEFT JOIN user_goals ug ON ug.user_id = up.user_id
 GROUP BY up.user_id, up.age, up.gender, up.height_cm, up.weight_kg, up.fitness_level,
          up.nutrition, up.sleep_hours, up.created_at, up.updated_at;
 
--- =============================================================================
--- 9. FUNCTIONS: Invite code management
--- =============================================================================
+-- V9__create_functions.sql
+-- V9__create_functions.sql
+-- Functions for invite code management
 
 -- Create a new invite code
 -- Parameters: p_role, p_specialty, p_max_uses, p_valid_days
@@ -399,6 +402,3 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- =============================================================================
--- Schema complete
--- =============================================================================

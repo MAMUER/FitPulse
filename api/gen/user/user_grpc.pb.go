@@ -27,6 +27,15 @@ const (
 	UserService_UpdateProfile_FullMethodName      = "/user.UserService/UpdateProfile"
 	UserService_ChangePassword_FullMethodName     = "/user.UserService/ChangePassword"
 	UserService_ChangeEmail_FullMethodName        = "/user.UserService/ChangeEmail"
+	UserService_UploadProfilePhoto_FullMethodName = "/user.UserService/UploadProfilePhoto"
+	UserService_RemoveProfilePhoto_FullMethodName = "/user.UserService/RemoveProfilePhoto"
+	UserService_ChangeNickname_FullMethodName     = "/user.UserService/ChangeNickname"
+	UserService_ListDevices_FullMethodName        = "/user.UserService/ListDevices"
+	UserService_AddDevice_FullMethodName          = "/user.UserService/AddDevice"
+	UserService_RemoveDevice_FullMethodName       = "/user.UserService/RemoveDevice"
+	UserService_SyncDeviceData_FullMethodName     = "/user.UserService/SyncDeviceData"
+	UserService_GetTrainingStats_FullMethodName   = "/user.UserService/GetTrainingStats"
+	UserService_GetAchievements_FullMethodName    = "/user.UserService/GetAchievements"
 	UserService_ListUsers_FullMethodName          = "/user.UserService/ListUsers"
 	UserService_ValidateInviteCode_FullMethodName = "/user.UserService/ValidateInviteCode"
 )
@@ -43,6 +52,15 @@ type UserServiceClient interface {
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
 	ChangeEmail(ctx context.Context, in *ChangeEmailRequest, opts ...grpc.CallOption) (*ChangeEmailResponse, error)
+	UploadProfilePhoto(ctx context.Context, in *UploadProfilePhotoRequest, opts ...grpc.CallOption) (*UploadProfilePhotoResponse, error)
+	RemoveProfilePhoto(ctx context.Context, in *RemoveProfilePhotoRequest, opts ...grpc.CallOption) (*RemoveProfilePhotoResponse, error)
+	ChangeNickname(ctx context.Context, in *ChangeNicknameRequest, opts ...grpc.CallOption) (*ChangeNicknameResponse, error)
+	ListDevices(ctx context.Context, in *ListDevicesRequest, opts ...grpc.CallOption) (*ListDevicesResponse, error)
+	AddDevice(ctx context.Context, in *AddDeviceRequest, opts ...grpc.CallOption) (*AddDeviceResponse, error)
+	RemoveDevice(ctx context.Context, in *RemoveDeviceRequest, opts ...grpc.CallOption) (*RemoveDeviceResponse, error)
+	SyncDeviceData(ctx context.Context, in *SyncDeviceDataRequest, opts ...grpc.CallOption) (*SyncDeviceDataResponse, error)
+	GetTrainingStats(ctx context.Context, in *GetTrainingStatsRequest, opts ...grpc.CallOption) (*GetTrainingStatsResponse, error)
+	GetAchievements(ctx context.Context, in *GetAchievementsRequest, opts ...grpc.CallOption) (*GetAchievementsResponse, error)
 	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
 	ValidateInviteCode(ctx context.Context, in *ValidateInviteCodeRequest, opts ...grpc.CallOption) (*ValidateInviteCodeResponse, error)
 }
@@ -135,6 +153,96 @@ func (c *userServiceClient) ChangeEmail(ctx context.Context, in *ChangeEmailRequ
 	return out, nil
 }
 
+func (c *userServiceClient) UploadProfilePhoto(ctx context.Context, in *UploadProfilePhotoRequest, opts ...grpc.CallOption) (*UploadProfilePhotoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadProfilePhotoResponse)
+	err := c.cc.Invoke(ctx, UserService_UploadProfilePhoto_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RemoveProfilePhoto(ctx context.Context, in *RemoveProfilePhotoRequest, opts ...grpc.CallOption) (*RemoveProfilePhotoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveProfilePhotoResponse)
+	err := c.cc.Invoke(ctx, UserService_RemoveProfilePhoto_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ChangeNickname(ctx context.Context, in *ChangeNicknameRequest, opts ...grpc.CallOption) (*ChangeNicknameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChangeNicknameResponse)
+	err := c.cc.Invoke(ctx, UserService_ChangeNickname_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ListDevices(ctx context.Context, in *ListDevicesRequest, opts ...grpc.CallOption) (*ListDevicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDevicesResponse)
+	err := c.cc.Invoke(ctx, UserService_ListDevices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AddDevice(ctx context.Context, in *AddDeviceRequest, opts ...grpc.CallOption) (*AddDeviceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddDeviceResponse)
+	err := c.cc.Invoke(ctx, UserService_AddDevice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RemoveDevice(ctx context.Context, in *RemoveDeviceRequest, opts ...grpc.CallOption) (*RemoveDeviceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveDeviceResponse)
+	err := c.cc.Invoke(ctx, UserService_RemoveDevice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) SyncDeviceData(ctx context.Context, in *SyncDeviceDataRequest, opts ...grpc.CallOption) (*SyncDeviceDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SyncDeviceDataResponse)
+	err := c.cc.Invoke(ctx, UserService_SyncDeviceData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetTrainingStats(ctx context.Context, in *GetTrainingStatsRequest, opts ...grpc.CallOption) (*GetTrainingStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTrainingStatsResponse)
+	err := c.cc.Invoke(ctx, UserService_GetTrainingStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetAchievements(ctx context.Context, in *GetAchievementsRequest, opts ...grpc.CallOption) (*GetAchievementsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAchievementsResponse)
+	err := c.cc.Invoke(ctx, UserService_GetAchievements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userServiceClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListUsersResponse)
@@ -167,6 +275,15 @@ type UserServiceServer interface {
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UserProfile, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
 	ChangeEmail(context.Context, *ChangeEmailRequest) (*ChangeEmailResponse, error)
+	UploadProfilePhoto(context.Context, *UploadProfilePhotoRequest) (*UploadProfilePhotoResponse, error)
+	RemoveProfilePhoto(context.Context, *RemoveProfilePhotoRequest) (*RemoveProfilePhotoResponse, error)
+	ChangeNickname(context.Context, *ChangeNicknameRequest) (*ChangeNicknameResponse, error)
+	ListDevices(context.Context, *ListDevicesRequest) (*ListDevicesResponse, error)
+	AddDevice(context.Context, *AddDeviceRequest) (*AddDeviceResponse, error)
+	RemoveDevice(context.Context, *RemoveDeviceRequest) (*RemoveDeviceResponse, error)
+	SyncDeviceData(context.Context, *SyncDeviceDataRequest) (*SyncDeviceDataResponse, error)
+	GetTrainingStats(context.Context, *GetTrainingStatsRequest) (*GetTrainingStatsResponse, error)
+	GetAchievements(context.Context, *GetAchievementsRequest) (*GetAchievementsResponse, error)
 	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
 	ValidateInviteCode(context.Context, *ValidateInviteCodeRequest) (*ValidateInviteCodeResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
@@ -202,6 +319,33 @@ func (UnimplementedUserServiceServer) ChangePassword(context.Context, *ChangePas
 }
 func (UnimplementedUserServiceServer) ChangeEmail(context.Context, *ChangeEmailRequest) (*ChangeEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangeEmail not implemented")
+}
+func (UnimplementedUserServiceServer) UploadProfilePhoto(context.Context, *UploadProfilePhotoRequest) (*UploadProfilePhotoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UploadProfilePhoto not implemented")
+}
+func (UnimplementedUserServiceServer) RemoveProfilePhoto(context.Context, *RemoveProfilePhotoRequest) (*RemoveProfilePhotoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveProfilePhoto not implemented")
+}
+func (UnimplementedUserServiceServer) ChangeNickname(context.Context, *ChangeNicknameRequest) (*ChangeNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChangeNickname not implemented")
+}
+func (UnimplementedUserServiceServer) ListDevices(context.Context, *ListDevicesRequest) (*ListDevicesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDevices not implemented")
+}
+func (UnimplementedUserServiceServer) AddDevice(context.Context, *AddDeviceRequest) (*AddDeviceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddDevice not implemented")
+}
+func (UnimplementedUserServiceServer) RemoveDevice(context.Context, *RemoveDeviceRequest) (*RemoveDeviceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveDevice not implemented")
+}
+func (UnimplementedUserServiceServer) SyncDeviceData(context.Context, *SyncDeviceDataRequest) (*SyncDeviceDataResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncDeviceData not implemented")
+}
+func (UnimplementedUserServiceServer) GetTrainingStats(context.Context, *GetTrainingStatsRequest) (*GetTrainingStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTrainingStats not implemented")
+}
+func (UnimplementedUserServiceServer) GetAchievements(context.Context, *GetAchievementsRequest) (*GetAchievementsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAchievements not implemented")
 }
 func (UnimplementedUserServiceServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListUsers not implemented")
@@ -374,6 +518,168 @@ func _UserService_ChangeEmail_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_UploadProfilePhoto_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadProfilePhotoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UploadProfilePhoto(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UploadProfilePhoto_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UploadProfilePhoto(ctx, req.(*UploadProfilePhotoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RemoveProfilePhoto_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveProfilePhotoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RemoveProfilePhoto(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RemoveProfilePhoto_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RemoveProfilePhoto(ctx, req.(*RemoveProfilePhotoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ChangeNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangeNicknameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ChangeNickname(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ChangeNickname_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ChangeNickname(ctx, req.(*ChangeNicknameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ListDevices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDevicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListDevices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListDevices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListDevices(ctx, req.(*ListDevicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AddDevice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddDeviceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AddDevice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AddDevice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AddDevice(ctx, req.(*AddDeviceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RemoveDevice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveDeviceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RemoveDevice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RemoveDevice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RemoveDevice(ctx, req.(*RemoveDeviceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_SyncDeviceData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncDeviceDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).SyncDeviceData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_SyncDeviceData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).SyncDeviceData(ctx, req.(*SyncDeviceDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetTrainingStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTrainingStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetTrainingStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetTrainingStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetTrainingStats(ctx, req.(*GetTrainingStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetAchievements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAchievementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetAchievements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetAchievements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetAchievements(ctx, req.(*GetAchievementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UserService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListUsersRequest)
 	if err := dec(in); err != nil {
@@ -448,6 +754,42 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangeEmail",
 			Handler:    _UserService_ChangeEmail_Handler,
+		},
+		{
+			MethodName: "UploadProfilePhoto",
+			Handler:    _UserService_UploadProfilePhoto_Handler,
+		},
+		{
+			MethodName: "RemoveProfilePhoto",
+			Handler:    _UserService_RemoveProfilePhoto_Handler,
+		},
+		{
+			MethodName: "ChangeNickname",
+			Handler:    _UserService_ChangeNickname_Handler,
+		},
+		{
+			MethodName: "ListDevices",
+			Handler:    _UserService_ListDevices_Handler,
+		},
+		{
+			MethodName: "AddDevice",
+			Handler:    _UserService_AddDevice_Handler,
+		},
+		{
+			MethodName: "RemoveDevice",
+			Handler:    _UserService_RemoveDevice_Handler,
+		},
+		{
+			MethodName: "SyncDeviceData",
+			Handler:    _UserService_SyncDeviceData_Handler,
+		},
+		{
+			MethodName: "GetTrainingStats",
+			Handler:    _UserService_GetTrainingStats_Handler,
+		},
+		{
+			MethodName: "GetAchievements",
+			Handler:    _UserService_GetAchievements_Handler,
 		},
 		{
 			MethodName: "ListUsers",

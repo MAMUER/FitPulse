@@ -413,6 +413,7 @@ type UpdateProfileRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	FullName          *string                `protobuf:"bytes,11,opt,name=full_name,json=fullName,proto3,oneof" json:"full_name,omitempty"`
+	Nickname          *string                `protobuf:"bytes,12,opt,name=nickname,proto3,oneof" json:"nickname,omitempty"` // New field for nickname
 	Age               *int32                 `protobuf:"varint,2,opt,name=age,proto3,oneof" json:"age,omitempty"`
 	Gender            *string                `protobuf:"bytes,3,opt,name=gender,proto3,oneof" json:"gender,omitempty"`
 	HeightCm          *int32                 `protobuf:"varint,4,opt,name=height_cm,json=heightCm,proto3,oneof" json:"height_cm,omitempty"`
@@ -466,6 +467,13 @@ func (x *UpdateProfileRequest) GetUserId() string {
 func (x *UpdateProfileRequest) GetFullName() string {
 	if x != nil && x.FullName != nil {
 		return *x.FullName
+	}
+	return ""
+}
+
+func (x *UpdateProfileRequest) GetNickname() string {
+	if x != nil && x.Nickname != nil {
+		return *x.Nickname
 	}
 	return ""
 }
@@ -741,31 +749,1133 @@ func (x *ChangeEmailResponse) GetMessage() string {
 	return ""
 }
 
+type UploadProfilePhotoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	PhotoData     []byte                 `protobuf:"bytes,2,opt,name=photo_data,json=photoData,proto3" json:"photo_data,omitempty"`
+	ContentType   string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"` // e.g., "image/jpeg"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadProfilePhotoRequest) Reset() {
+	*x = UploadProfilePhotoRequest{}
+	mi := &file_user_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadProfilePhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadProfilePhotoRequest) ProtoMessage() {}
+
+func (x *UploadProfilePhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadProfilePhotoRequest.ProtoReflect.Descriptor instead.
+func (*UploadProfilePhotoRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UploadProfilePhotoRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *UploadProfilePhotoRequest) GetPhotoData() []byte {
+	if x != nil {
+		return x.PhotoData
+	}
+	return nil
+}
+
+func (x *UploadProfilePhotoRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+type UploadProfilePhotoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PhotoUrl      string                 `protobuf:"bytes,1,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadProfilePhotoResponse) Reset() {
+	*x = UploadProfilePhotoResponse{}
+	mi := &file_user_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadProfilePhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadProfilePhotoResponse) ProtoMessage() {}
+
+func (x *UploadProfilePhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadProfilePhotoResponse.ProtoReflect.Descriptor instead.
+func (*UploadProfilePhotoResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *UploadProfilePhotoResponse) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+type RemoveProfilePhotoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveProfilePhotoRequest) Reset() {
+	*x = RemoveProfilePhotoRequest{}
+	mi := &file_user_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveProfilePhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveProfilePhotoRequest) ProtoMessage() {}
+
+func (x *RemoveProfilePhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveProfilePhotoRequest.ProtoReflect.Descriptor instead.
+func (*RemoveProfilePhotoRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *RemoveProfilePhotoRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type RemoveProfilePhotoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveProfilePhotoResponse) Reset() {
+	*x = RemoveProfilePhotoResponse{}
+	mi := &file_user_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveProfilePhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveProfilePhotoResponse) ProtoMessage() {}
+
+func (x *RemoveProfilePhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveProfilePhotoResponse.ProtoReflect.Descriptor instead.
+func (*RemoveProfilePhotoResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *RemoveProfilePhotoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ChangeNicknameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	NewNickname   string                 `protobuf:"bytes,2,opt,name=new_nickname,json=newNickname,proto3" json:"new_nickname,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangeNicknameRequest) Reset() {
+	*x = ChangeNicknameRequest{}
+	mi := &file_user_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangeNicknameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeNicknameRequest) ProtoMessage() {}
+
+func (x *ChangeNicknameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeNicknameRequest.ProtoReflect.Descriptor instead.
+func (*ChangeNicknameRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ChangeNicknameRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ChangeNicknameRequest) GetNewNickname() string {
+	if x != nil {
+		return x.NewNickname
+	}
+	return ""
+}
+
+type ChangeNicknameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangeNicknameResponse) Reset() {
+	*x = ChangeNicknameResponse{}
+	mi := &file_user_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangeNicknameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeNicknameResponse) ProtoMessage() {}
+
+func (x *ChangeNicknameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeNicknameResponse.ProtoReflect.Descriptor instead.
+func (*ChangeNicknameResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ChangeNicknameResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type Device struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	DeviceType    string                 `protobuf:"bytes,2,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // e.g., "apple_watch"
+	DeviceName    string                 `protobuf:"bytes,3,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	IsConnected   bool                   `protobuf:"varint,4,opt,name=is_connected,json=isConnected,proto3" json:"is_connected,omitempty"`
+	LastSync      string                 `protobuf:"bytes,5,opt,name=last_sync,json=lastSync,proto3" json:"last_sync,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Device) Reset() {
+	*x = Device{}
+	mi := &file_user_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Device) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Device) ProtoMessage() {}
+
+func (x *Device) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Device.ProtoReflect.Descriptor instead.
+func (*Device) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *Device) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *Device) GetDeviceType() string {
+	if x != nil {
+		return x.DeviceType
+	}
+	return ""
+}
+
+func (x *Device) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+func (x *Device) GetIsConnected() bool {
+	if x != nil {
+		return x.IsConnected
+	}
+	return false
+}
+
+func (x *Device) GetLastSync() string {
+	if x != nil {
+		return x.LastSync
+	}
+	return ""
+}
+
+type ListDevicesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDevicesRequest) Reset() {
+	*x = ListDevicesRequest{}
+	mi := &file_user_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDevicesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDevicesRequest) ProtoMessage() {}
+
+func (x *ListDevicesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDevicesRequest.ProtoReflect.Descriptor instead.
+func (*ListDevicesRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListDevicesRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListDevicesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Devices       []*Device              `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDevicesResponse) Reset() {
+	*x = ListDevicesResponse{}
+	mi := &file_user_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDevicesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDevicesResponse) ProtoMessage() {}
+
+func (x *ListDevicesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDevicesResponse.ProtoReflect.Descriptor instead.
+func (*ListDevicesResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListDevicesResponse) GetDevices() []*Device {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
+type AddDeviceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DeviceType    string                 `protobuf:"bytes,2,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`
+	DeviceName    string                 `protobuf:"bytes,3,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddDeviceRequest) Reset() {
+	*x = AddDeviceRequest{}
+	mi := &file_user_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddDeviceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddDeviceRequest) ProtoMessage() {}
+
+func (x *AddDeviceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddDeviceRequest.ProtoReflect.Descriptor instead.
+func (*AddDeviceRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *AddDeviceRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AddDeviceRequest) GetDeviceType() string {
+	if x != nil {
+		return x.DeviceType
+	}
+	return ""
+}
+
+func (x *AddDeviceRequest) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+type AddDeviceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Device        *Device                `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddDeviceResponse) Reset() {
+	*x = AddDeviceResponse{}
+	mi := &file_user_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddDeviceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddDeviceResponse) ProtoMessage() {}
+
+func (x *AddDeviceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddDeviceResponse.ProtoReflect.Descriptor instead.
+func (*AddDeviceResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *AddDeviceResponse) GetDevice() *Device {
+	if x != nil {
+		return x.Device
+	}
+	return nil
+}
+
+type RemoveDeviceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveDeviceRequest) Reset() {
+	*x = RemoveDeviceRequest{}
+	mi := &file_user_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveDeviceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveDeviceRequest) ProtoMessage() {}
+
+func (x *RemoveDeviceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveDeviceRequest.ProtoReflect.Descriptor instead.
+func (*RemoveDeviceRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *RemoveDeviceRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RemoveDeviceRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+type RemoveDeviceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveDeviceResponse) Reset() {
+	*x = RemoveDeviceResponse{}
+	mi := &file_user_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveDeviceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveDeviceResponse) ProtoMessage() {}
+
+func (x *RemoveDeviceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveDeviceResponse.ProtoReflect.Descriptor instead.
+func (*RemoveDeviceResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *RemoveDeviceResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type SyncDeviceDataRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncDeviceDataRequest) Reset() {
+	*x = SyncDeviceDataRequest{}
+	mi := &file_user_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncDeviceDataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncDeviceDataRequest) ProtoMessage() {}
+
+func (x *SyncDeviceDataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncDeviceDataRequest.ProtoReflect.Descriptor instead.
+func (*SyncDeviceDataRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SyncDeviceDataRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SyncDeviceDataRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+type SyncDeviceDataResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	SyncedSamples int32                  `protobuf:"varint,2,opt,name=synced_samples,json=syncedSamples,proto3" json:"synced_samples,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncDeviceDataResponse) Reset() {
+	*x = SyncDeviceDataResponse{}
+	mi := &file_user_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncDeviceDataResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncDeviceDataResponse) ProtoMessage() {}
+
+func (x *SyncDeviceDataResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncDeviceDataResponse.ProtoReflect.Descriptor instead.
+func (*SyncDeviceDataResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *SyncDeviceDataResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SyncDeviceDataResponse) GetSyncedSamples() int32 {
+	if x != nil {
+		return x.SyncedSamples
+	}
+	return 0
+}
+
+type GetTrainingStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	FromDate      string                 `protobuf:"bytes,2,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"` // ISO date
+	ToDate        string                 `protobuf:"bytes,3,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`       // ISO date
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTrainingStatsRequest) Reset() {
+	*x = GetTrainingStatsRequest{}
+	mi := &file_user_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTrainingStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTrainingStatsRequest) ProtoMessage() {}
+
+func (x *GetTrainingStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTrainingStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetTrainingStatsRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetTrainingStatsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *GetTrainingStatsRequest) GetFromDate() string {
+	if x != nil {
+		return x.FromDate
+	}
+	return ""
+}
+
+func (x *GetTrainingStatsRequest) GetToDate() string {
+	if x != nil {
+		return x.ToDate
+	}
+	return ""
+}
+
+type TrainingStats struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	TotalWorkouts          int32                  `protobuf:"varint,1,opt,name=total_workouts,json=totalWorkouts,proto3" json:"total_workouts,omitempty"`
+	CompletedWorkouts      int32                  `protobuf:"varint,2,opt,name=completed_workouts,json=completedWorkouts,proto3" json:"completed_workouts,omitempty"`
+	AverageDurationMinutes float64                `protobuf:"fixed64,3,opt,name=average_duration_minutes,json=averageDurationMinutes,proto3" json:"average_duration_minutes,omitempty"`
+	TotalCaloriesBurned    float64                `protobuf:"fixed64,4,opt,name=total_calories_burned,json=totalCaloriesBurned,proto3" json:"total_calories_burned,omitempty"`
+	MostFrequentExercise   string                 `protobuf:"bytes,5,opt,name=most_frequent_exercise,json=mostFrequentExercise,proto3" json:"most_frequent_exercise,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *TrainingStats) Reset() {
+	*x = TrainingStats{}
+	mi := &file_user_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrainingStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrainingStats) ProtoMessage() {}
+
+func (x *TrainingStats) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrainingStats.ProtoReflect.Descriptor instead.
+func (*TrainingStats) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *TrainingStats) GetTotalWorkouts() int32 {
+	if x != nil {
+		return x.TotalWorkouts
+	}
+	return 0
+}
+
+func (x *TrainingStats) GetCompletedWorkouts() int32 {
+	if x != nil {
+		return x.CompletedWorkouts
+	}
+	return 0
+}
+
+func (x *TrainingStats) GetAverageDurationMinutes() float64 {
+	if x != nil {
+		return x.AverageDurationMinutes
+	}
+	return 0
+}
+
+func (x *TrainingStats) GetTotalCaloriesBurned() float64 {
+	if x != nil {
+		return x.TotalCaloriesBurned
+	}
+	return 0
+}
+
+func (x *TrainingStats) GetMostFrequentExercise() string {
+	if x != nil {
+		return x.MostFrequentExercise
+	}
+	return ""
+}
+
+type GetTrainingStatsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stats         *TrainingStats         `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTrainingStatsResponse) Reset() {
+	*x = GetTrainingStatsResponse{}
+	mi := &file_user_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTrainingStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTrainingStatsResponse) ProtoMessage() {}
+
+func (x *GetTrainingStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTrainingStatsResponse.ProtoReflect.Descriptor instead.
+func (*GetTrainingStatsResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *GetTrainingStatsResponse) GetStats() *TrainingStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+type Achievement struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AchievementId string                 `protobuf:"bytes,1,opt,name=achievement_id,json=achievementId,proto3" json:"achievement_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	EarnedDate    string                 `protobuf:"bytes,4,opt,name=earned_date,json=earnedDate,proto3" json:"earned_date,omitempty"`
+	IconUrl       string                 `protobuf:"bytes,5,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Achievement) Reset() {
+	*x = Achievement{}
+	mi := &file_user_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Achievement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Achievement) ProtoMessage() {}
+
+func (x *Achievement) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Achievement.ProtoReflect.Descriptor instead.
+func (*Achievement) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Achievement) GetAchievementId() string {
+	if x != nil {
+		return x.AchievementId
+	}
+	return ""
+}
+
+func (x *Achievement) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Achievement) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Achievement) GetEarnedDate() string {
+	if x != nil {
+		return x.EarnedDate
+	}
+	return ""
+}
+
+func (x *Achievement) GetIconUrl() string {
+	if x != nil {
+		return x.IconUrl
+	}
+	return ""
+}
+
+type GetAchievementsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAchievementsRequest) Reset() {
+	*x = GetAchievementsRequest{}
+	mi := &file_user_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAchievementsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAchievementsRequest) ProtoMessage() {}
+
+func (x *GetAchievementsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAchievementsRequest.ProtoReflect.Descriptor instead.
+func (*GetAchievementsRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GetAchievementsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetAchievementsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Achievements  []*Achievement         `protobuf:"bytes,1,rep,name=achievements,proto3" json:"achievements,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAchievementsResponse) Reset() {
+	*x = GetAchievementsResponse{}
+	mi := &file_user_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAchievementsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAchievementsResponse) ProtoMessage() {}
+
+func (x *GetAchievementsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAchievementsResponse.ProtoReflect.Descriptor instead.
+func (*GetAchievementsResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetAchievementsResponse) GetAchievements() []*Achievement {
+	if x != nil {
+		return x.Achievements
+	}
+	return nil
+}
+
 type UserProfile struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email             string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	FullName          string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
-	Role              string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
-	EmailConfirmed    bool                   `protobuf:"varint,5,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"`
-	Age               int32                  `protobuf:"varint,6,opt,name=age,proto3" json:"age,omitempty"`
-	Gender            string                 `protobuf:"bytes,7,opt,name=gender,proto3" json:"gender,omitempty"`
-	HeightCm          int32                  `protobuf:"varint,8,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
-	WeightKg          float64                `protobuf:"fixed64,9,opt,name=weight_kg,json=weightKg,proto3" json:"weight_kg,omitempty"`
-	FitnessLevel      string                 `protobuf:"bytes,10,opt,name=fitness_level,json=fitnessLevel,proto3" json:"fitness_level,omitempty"`
-	Goals             []string               `protobuf:"bytes,11,rep,name=goals,proto3" json:"goals,omitempty"`
-	Contraindications []string               `protobuf:"bytes,12,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
-	CreatedAt         string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt         string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Nutrition         string                 `protobuf:"bytes,15,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
-	SleepHours        float32                `protobuf:"fixed32,16,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
+	Nickname          string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"` // New field
+	Role              string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	EmailConfirmed    bool                   `protobuf:"varint,6,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"`
+	Age               int32                  `protobuf:"varint,7,opt,name=age,proto3" json:"age,omitempty"`
+	Gender            string                 `protobuf:"bytes,8,opt,name=gender,proto3" json:"gender,omitempty"`
+	HeightCm          int32                  `protobuf:"varint,9,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
+	WeightKg          float64                `protobuf:"fixed64,10,opt,name=weight_kg,json=weightKg,proto3" json:"weight_kg,omitempty"`
+	FitnessLevel      string                 `protobuf:"bytes,11,opt,name=fitness_level,json=fitnessLevel,proto3" json:"fitness_level,omitempty"`
+	Goals             []string               `protobuf:"bytes,12,rep,name=goals,proto3" json:"goals,omitempty"`
+	Contraindications []string               `protobuf:"bytes,13,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
+	CreatedAt         string                 `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt         string                 `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Nutrition         string                 `protobuf:"bytes,16,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
+	SleepHours        float32                `protobuf:"fixed32,17,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
+	ProfilePhotoUrl   string                 `protobuf:"bytes,18,opt,name=profile_photo_url,json=profilePhotoUrl,proto3" json:"profile_photo_url,omitempty"` // New field
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *UserProfile) Reset() {
 	*x = UserProfile{}
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +1887,7 @@ func (x *UserProfile) String() string {
 func (*UserProfile) ProtoMessage() {}
 
 func (x *UserProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +1900,7 @@ func (x *UserProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserProfile.ProtoReflect.Descriptor instead.
 func (*UserProfile) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{12}
+	return file_user_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UserProfile) GetUserId() string {
@@ -810,6 +1920,13 @@ func (x *UserProfile) GetEmail() string {
 func (x *UserProfile) GetFullName() string {
 	if x != nil {
 		return x.FullName
+	}
+	return ""
+}
+
+func (x *UserProfile) GetNickname() string {
+	if x != nil {
+		return x.Nickname
 	}
 	return ""
 }
@@ -905,6 +2022,13 @@ func (x *UserProfile) GetSleepHours() float32 {
 	return 0
 }
 
+func (x *UserProfile) GetProfilePhotoUrl() string {
+	if x != nil {
+		return x.ProfilePhotoUrl
+	}
+	return ""
+}
+
 type ListUsersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
@@ -916,7 +2040,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -928,7 +2052,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -941,7 +2065,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{13}
+	return file_user_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListUsersRequest) GetPage() int32 {
@@ -975,7 +2099,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -987,7 +2111,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1000,7 +2124,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{14}
+	return file_user_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListUsersResponse) GetUsers() []*UserProfile {
@@ -1029,7 +2153,7 @@ type RegisterWithInviteRequest struct {
 
 func (x *RegisterWithInviteRequest) Reset() {
 	*x = RegisterWithInviteRequest{}
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +2165,7 @@ func (x *RegisterWithInviteRequest) String() string {
 func (*RegisterWithInviteRequest) ProtoMessage() {}
 
 func (x *RegisterWithInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +2178,7 @@ func (x *RegisterWithInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterWithInviteRequest.ProtoReflect.Descriptor instead.
 func (*RegisterWithInviteRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{15}
+	return file_user_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *RegisterWithInviteRequest) GetEmail() string {
@@ -1094,7 +2218,7 @@ type ValidateInviteCodeRequest struct {
 
 func (x *ValidateInviteCodeRequest) Reset() {
 	*x = ValidateInviteCodeRequest{}
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1106,7 +2230,7 @@ func (x *ValidateInviteCodeRequest) String() string {
 func (*ValidateInviteCodeRequest) ProtoMessage() {}
 
 func (x *ValidateInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1119,7 +2243,7 @@ func (x *ValidateInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*ValidateInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{16}
+	return file_user_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ValidateInviteCodeRequest) GetCode() string {
@@ -1141,7 +2265,7 @@ type ValidateInviteCodeResponse struct {
 
 func (x *ValidateInviteCodeResponse) Reset() {
 	*x = ValidateInviteCodeResponse{}
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +2277,7 @@ func (x *ValidateInviteCodeResponse) String() string {
 func (*ValidateInviteCodeResponse) ProtoMessage() {}
 
 func (x *ValidateInviteCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +2290,7 @@ func (x *ValidateInviteCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateInviteCodeResponse.ProtoReflect.Descriptor instead.
 func (*ValidateInviteCodeResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{17}
+	return file_user_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ValidateInviteCodeResponse) GetIsValid() bool {
@@ -1228,23 +2352,25 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04role\x18\x05 \x01(\tR\x04role\",\n" +
 	"\x11GetProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xed\x03\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x9b\x04\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12 \n" +
-	"\tfull_name\x18\v \x01(\tH\x00R\bfullName\x88\x01\x01\x12\x15\n" +
-	"\x03age\x18\x02 \x01(\x05H\x01R\x03age\x88\x01\x01\x12\x1b\n" +
-	"\x06gender\x18\x03 \x01(\tH\x02R\x06gender\x88\x01\x01\x12 \n" +
-	"\theight_cm\x18\x04 \x01(\x05H\x03R\bheightCm\x88\x01\x01\x12 \n" +
-	"\tweight_kg\x18\x05 \x01(\x01H\x04R\bweightKg\x88\x01\x01\x12(\n" +
-	"\rfitness_level\x18\x06 \x01(\tH\x05R\ffitnessLevel\x88\x01\x01\x12\x14\n" +
+	"\tfull_name\x18\v \x01(\tH\x00R\bfullName\x88\x01\x01\x12\x1f\n" +
+	"\bnickname\x18\f \x01(\tH\x01R\bnickname\x88\x01\x01\x12\x15\n" +
+	"\x03age\x18\x02 \x01(\x05H\x02R\x03age\x88\x01\x01\x12\x1b\n" +
+	"\x06gender\x18\x03 \x01(\tH\x03R\x06gender\x88\x01\x01\x12 \n" +
+	"\theight_cm\x18\x04 \x01(\x05H\x04R\bheightCm\x88\x01\x01\x12 \n" +
+	"\tweight_kg\x18\x05 \x01(\x01H\x05R\bweightKg\x88\x01\x01\x12(\n" +
+	"\rfitness_level\x18\x06 \x01(\tH\x06R\ffitnessLevel\x88\x01\x01\x12\x14\n" +
 	"\x05goals\x18\a \x03(\tR\x05goals\x12,\n" +
 	"\x11contraindications\x18\b \x03(\tR\x11contraindications\x12!\n" +
-	"\tnutrition\x18\t \x01(\tH\x06R\tnutrition\x88\x01\x01\x12$\n" +
+	"\tnutrition\x18\t \x01(\tH\aR\tnutrition\x88\x01\x01\x12$\n" +
 	"\vsleep_hours\x18\n" +
-	" \x01(\x02H\aR\n" +
+	" \x01(\x02H\bR\n" +
 	"sleepHours\x88\x01\x01B\f\n" +
 	"\n" +
-	"_full_nameB\x06\n" +
+	"_full_nameB\v\n" +
+	"\t_nicknameB\x06\n" +
 	"\x04_ageB\t\n" +
 	"\a_genderB\f\n" +
 	"\n" +
@@ -1266,28 +2392,100 @@ const file_user_proto_rawDesc = "" +
 	"\tnew_email\x18\x02 \x01(\tR\bnewEmail\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\"/\n" +
 	"\x13ChangeEmailResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\xe0\x03\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"v\n" +
+	"\x19UploadProfilePhotoRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"photo_data\x18\x02 \x01(\fR\tphotoData\x12!\n" +
+	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\"9\n" +
+	"\x1aUploadProfilePhotoResponse\x12\x1b\n" +
+	"\tphoto_url\x18\x01 \x01(\tR\bphotoUrl\"4\n" +
+	"\x19RemoveProfilePhotoRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"6\n" +
+	"\x1aRemoveProfilePhotoResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"S\n" +
+	"\x15ChangeNicknameRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
+	"\fnew_nickname\x18\x02 \x01(\tR\vnewNickname\"2\n" +
+	"\x16ChangeNicknameResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xa7\x01\n" +
+	"\x06Device\x12\x1b\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12\x1f\n" +
+	"\vdevice_type\x18\x02 \x01(\tR\n" +
+	"deviceType\x12\x1f\n" +
+	"\vdevice_name\x18\x03 \x01(\tR\n" +
+	"deviceName\x12!\n" +
+	"\fis_connected\x18\x04 \x01(\bR\visConnected\x12\x1b\n" +
+	"\tlast_sync\x18\x05 \x01(\tR\blastSync\"-\n" +
+	"\x12ListDevicesRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"=\n" +
+	"\x13ListDevicesResponse\x12&\n" +
+	"\adevices\x18\x01 \x03(\v2\f.user.DeviceR\adevices\"m\n" +
+	"\x10AddDeviceRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vdevice_type\x18\x02 \x01(\tR\n" +
+	"deviceType\x12\x1f\n" +
+	"\vdevice_name\x18\x03 \x01(\tR\n" +
+	"deviceName\"9\n" +
+	"\x11AddDeviceResponse\x12$\n" +
+	"\x06device\x18\x01 \x01(\v2\f.user.DeviceR\x06device\"K\n" +
+	"\x13RemoveDeviceRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\"0\n" +
+	"\x14RemoveDeviceResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"M\n" +
+	"\x15SyncDeviceDataRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\"Y\n" +
+	"\x16SyncDeviceDataResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12%\n" +
+	"\x0esynced_samples\x18\x02 \x01(\x05R\rsyncedSamples\"h\n" +
+	"\x17GetTrainingStatsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tfrom_date\x18\x02 \x01(\tR\bfromDate\x12\x17\n" +
+	"\ato_date\x18\x03 \x01(\tR\x06toDate\"\x89\x02\n" +
+	"\rTrainingStats\x12%\n" +
+	"\x0etotal_workouts\x18\x01 \x01(\x05R\rtotalWorkouts\x12-\n" +
+	"\x12completed_workouts\x18\x02 \x01(\x05R\x11completedWorkouts\x128\n" +
+	"\x18average_duration_minutes\x18\x03 \x01(\x01R\x16averageDurationMinutes\x122\n" +
+	"\x15total_calories_burned\x18\x04 \x01(\x01R\x13totalCaloriesBurned\x124\n" +
+	"\x16most_frequent_exercise\x18\x05 \x01(\tR\x14mostFrequentExercise\"E\n" +
+	"\x18GetTrainingStatsResponse\x12)\n" +
+	"\x05stats\x18\x01 \x01(\v2\x13.user.TrainingStatsR\x05stats\"\xa8\x01\n" +
+	"\vAchievement\x12%\n" +
+	"\x0eachievement_id\x18\x01 \x01(\tR\rachievementId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
+	"\vearned_date\x18\x04 \x01(\tR\n" +
+	"earnedDate\x12\x19\n" +
+	"\bicon_url\x18\x05 \x01(\tR\aiconUrl\"1\n" +
+	"\x16GetAchievementsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"P\n" +
+	"\x17GetAchievementsResponse\x125\n" +
+	"\fachievements\x18\x01 \x03(\v2\x11.user.AchievementR\fachievements\"\xa8\x04\n" +
 	"\vUserProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
-	"\tfull_name\x18\x03 \x01(\tR\bfullName\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\x12'\n" +
-	"\x0femail_confirmed\x18\x05 \x01(\bR\x0eemailConfirmed\x12\x10\n" +
-	"\x03age\x18\x06 \x01(\x05R\x03age\x12\x16\n" +
-	"\x06gender\x18\a \x01(\tR\x06gender\x12\x1b\n" +
-	"\theight_cm\x18\b \x01(\x05R\bheightCm\x12\x1b\n" +
-	"\tweight_kg\x18\t \x01(\x01R\bweightKg\x12#\n" +
-	"\rfitness_level\x18\n" +
-	" \x01(\tR\ffitnessLevel\x12\x14\n" +
-	"\x05goals\x18\v \x03(\tR\x05goals\x12,\n" +
-	"\x11contraindications\x18\f \x03(\tR\x11contraindications\x12\x1d\n" +
+	"\tfull_name\x18\x03 \x01(\tR\bfullName\x12\x1a\n" +
+	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12'\n" +
+	"\x0femail_confirmed\x18\x06 \x01(\bR\x0eemailConfirmed\x12\x10\n" +
+	"\x03age\x18\a \x01(\x05R\x03age\x12\x16\n" +
+	"\x06gender\x18\b \x01(\tR\x06gender\x12\x1b\n" +
+	"\theight_cm\x18\t \x01(\x05R\bheightCm\x12\x1b\n" +
+	"\tweight_kg\x18\n" +
+	" \x01(\x01R\bweightKg\x12#\n" +
+	"\rfitness_level\x18\v \x01(\tR\ffitnessLevel\x12\x14\n" +
+	"\x05goals\x18\f \x03(\tR\x05goals\x12,\n" +
+	"\x11contraindications\x18\r \x03(\tR\x11contraindications\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x0e \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12\x1c\n" +
-	"\tnutrition\x18\x0f \x01(\tR\tnutrition\x12\x1f\n" +
-	"\vsleep_hours\x18\x10 \x01(\x02R\n" +
-	"sleepHours\"W\n" +
+	"updated_at\x18\x0f \x01(\tR\tupdatedAt\x12\x1c\n" +
+	"\tnutrition\x18\x10 \x01(\tR\tnutrition\x12\x1f\n" +
+	"\vsleep_hours\x18\x11 \x01(\x02R\n" +
+	"sleepHours\x12*\n" +
+	"\x11profile_photo_url\x18\x12 \x01(\tR\x0fprofilePhotoUrl\"W\n" +
 	"\x10ListUsersRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x12\n" +
@@ -1307,7 +2505,8 @@ const file_user_proto_rawDesc = "" +
 	"\bis_valid\x18\x01 \x01(\bR\aisValid\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1c\n" +
 	"\tspecialty\x18\x03 \x01(\tR\tspecialty\x12#\n" +
-	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage2\xb2\x05\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage2\xea\n" +
+	"\n" +
 	"\vUserService\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
 	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
@@ -1317,7 +2516,16 @@ const file_user_proto_rawDesc = "" +
 	"GetProfile\x12\x17.user.GetProfileRequest\x1a\x11.user.UserProfile\x12>\n" +
 	"\rUpdateProfile\x12\x1a.user.UpdateProfileRequest\x1a\x11.user.UserProfile\x12K\n" +
 	"\x0eChangePassword\x12\x1b.user.ChangePasswordRequest\x1a\x1c.user.ChangePasswordResponse\x12B\n" +
-	"\vChangeEmail\x12\x18.user.ChangeEmailRequest\x1a\x19.user.ChangeEmailResponse\x12<\n" +
+	"\vChangeEmail\x12\x18.user.ChangeEmailRequest\x1a\x19.user.ChangeEmailResponse\x12W\n" +
+	"\x12UploadProfilePhoto\x12\x1f.user.UploadProfilePhotoRequest\x1a .user.UploadProfilePhotoResponse\x12W\n" +
+	"\x12RemoveProfilePhoto\x12\x1f.user.RemoveProfilePhotoRequest\x1a .user.RemoveProfilePhotoResponse\x12K\n" +
+	"\x0eChangeNickname\x12\x1b.user.ChangeNicknameRequest\x1a\x1c.user.ChangeNicknameResponse\x12B\n" +
+	"\vListDevices\x12\x18.user.ListDevicesRequest\x1a\x19.user.ListDevicesResponse\x12<\n" +
+	"\tAddDevice\x12\x16.user.AddDeviceRequest\x1a\x17.user.AddDeviceResponse\x12E\n" +
+	"\fRemoveDevice\x12\x19.user.RemoveDeviceRequest\x1a\x1a.user.RemoveDeviceResponse\x12K\n" +
+	"\x0eSyncDeviceData\x12\x1b.user.SyncDeviceDataRequest\x1a\x1c.user.SyncDeviceDataResponse\x12Q\n" +
+	"\x10GetTrainingStats\x12\x1d.user.GetTrainingStatsRequest\x1a\x1e.user.GetTrainingStatsResponse\x12N\n" +
+	"\x0fGetAchievements\x12\x1c.user.GetAchievementsRequest\x1a\x1d.user.GetAchievementsResponse\x12<\n" +
 	"\tListUsers\x12\x16.user.ListUsersRequest\x1a\x17.user.ListUsersResponse\x12W\n" +
 	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponseB(Z&github.com/MAMUER/Project/api/gen/userb\x06proto3"
 
@@ -1333,7 +2541,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),            // 0: user.RegisterRequest
 	(*RegisterResponse)(nil),           // 1: user.RegisterResponse
@@ -1347,40 +2555,83 @@ var file_user_proto_goTypes = []any{
 	(*ChangePasswordResponse)(nil),     // 9: user.ChangePasswordResponse
 	(*ChangeEmailRequest)(nil),         // 10: user.ChangeEmailRequest
 	(*ChangeEmailResponse)(nil),        // 11: user.ChangeEmailResponse
-	(*UserProfile)(nil),                // 12: user.UserProfile
-	(*ListUsersRequest)(nil),           // 13: user.ListUsersRequest
-	(*ListUsersResponse)(nil),          // 14: user.ListUsersResponse
-	(*RegisterWithInviteRequest)(nil),  // 15: user.RegisterWithInviteRequest
-	(*ValidateInviteCodeRequest)(nil),  // 16: user.ValidateInviteCodeRequest
-	(*ValidateInviteCodeResponse)(nil), // 17: user.ValidateInviteCodeResponse
+	(*UploadProfilePhotoRequest)(nil),  // 12: user.UploadProfilePhotoRequest
+	(*UploadProfilePhotoResponse)(nil), // 13: user.UploadProfilePhotoResponse
+	(*RemoveProfilePhotoRequest)(nil),  // 14: user.RemoveProfilePhotoRequest
+	(*RemoveProfilePhotoResponse)(nil), // 15: user.RemoveProfilePhotoResponse
+	(*ChangeNicknameRequest)(nil),      // 16: user.ChangeNicknameRequest
+	(*ChangeNicknameResponse)(nil),     // 17: user.ChangeNicknameResponse
+	(*Device)(nil),                     // 18: user.Device
+	(*ListDevicesRequest)(nil),         // 19: user.ListDevicesRequest
+	(*ListDevicesResponse)(nil),        // 20: user.ListDevicesResponse
+	(*AddDeviceRequest)(nil),           // 21: user.AddDeviceRequest
+	(*AddDeviceResponse)(nil),          // 22: user.AddDeviceResponse
+	(*RemoveDeviceRequest)(nil),        // 23: user.RemoveDeviceRequest
+	(*RemoveDeviceResponse)(nil),       // 24: user.RemoveDeviceResponse
+	(*SyncDeviceDataRequest)(nil),      // 25: user.SyncDeviceDataRequest
+	(*SyncDeviceDataResponse)(nil),     // 26: user.SyncDeviceDataResponse
+	(*GetTrainingStatsRequest)(nil),    // 27: user.GetTrainingStatsRequest
+	(*TrainingStats)(nil),              // 28: user.TrainingStats
+	(*GetTrainingStatsResponse)(nil),   // 29: user.GetTrainingStatsResponse
+	(*Achievement)(nil),                // 30: user.Achievement
+	(*GetAchievementsRequest)(nil),     // 31: user.GetAchievementsRequest
+	(*GetAchievementsResponse)(nil),    // 32: user.GetAchievementsResponse
+	(*UserProfile)(nil),                // 33: user.UserProfile
+	(*ListUsersRequest)(nil),           // 34: user.ListUsersRequest
+	(*ListUsersResponse)(nil),          // 35: user.ListUsersResponse
+	(*RegisterWithInviteRequest)(nil),  // 36: user.RegisterWithInviteRequest
+	(*ValidateInviteCodeRequest)(nil),  // 37: user.ValidateInviteCodeRequest
+	(*ValidateInviteCodeResponse)(nil), // 38: user.ValidateInviteCodeResponse
 }
 var file_user_proto_depIdxs = []int32{
-	12, // 0: user.ListUsersResponse.users:type_name -> user.UserProfile
-	0,  // 1: user.UserService.Register:input_type -> user.RegisterRequest
-	15, // 2: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
-	2,  // 3: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
-	4,  // 4: user.UserService.Login:input_type -> user.LoginRequest
-	6,  // 5: user.UserService.GetProfile:input_type -> user.GetProfileRequest
-	7,  // 6: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
-	8,  // 7: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
-	10, // 8: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
-	13, // 9: user.UserService.ListUsers:input_type -> user.ListUsersRequest
-	16, // 10: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
-	1,  // 11: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 12: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 13: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 14: user.UserService.Login:output_type -> user.LoginResponse
-	12, // 15: user.UserService.GetProfile:output_type -> user.UserProfile
-	12, // 16: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	9,  // 17: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	11, // 18: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	14, // 19: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	17, // 20: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	11, // [11:21] is the sub-list for method output_type
-	1,  // [1:11] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	18, // 0: user.ListDevicesResponse.devices:type_name -> user.Device
+	18, // 1: user.AddDeviceResponse.device:type_name -> user.Device
+	28, // 2: user.GetTrainingStatsResponse.stats:type_name -> user.TrainingStats
+	30, // 3: user.GetAchievementsResponse.achievements:type_name -> user.Achievement
+	33, // 4: user.ListUsersResponse.users:type_name -> user.UserProfile
+	0,  // 5: user.UserService.Register:input_type -> user.RegisterRequest
+	36, // 6: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
+	2,  // 7: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
+	4,  // 8: user.UserService.Login:input_type -> user.LoginRequest
+	6,  // 9: user.UserService.GetProfile:input_type -> user.GetProfileRequest
+	7,  // 10: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
+	8,  // 11: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
+	10, // 12: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
+	12, // 13: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
+	14, // 14: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
+	16, // 15: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
+	19, // 16: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
+	21, // 17: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
+	23, // 18: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
+	25, // 19: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
+	27, // 20: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
+	31, // 21: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
+	34, // 22: user.UserService.ListUsers:input_type -> user.ListUsersRequest
+	37, // 23: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
+	1,  // 24: user.UserService.Register:output_type -> user.RegisterResponse
+	1,  // 25: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
+	3,  // 26: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
+	5,  // 27: user.UserService.Login:output_type -> user.LoginResponse
+	33, // 28: user.UserService.GetProfile:output_type -> user.UserProfile
+	33, // 29: user.UserService.UpdateProfile:output_type -> user.UserProfile
+	9,  // 30: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
+	11, // 31: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
+	13, // 32: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
+	15, // 33: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
+	17, // 34: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
+	20, // 35: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
+	22, // 36: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
+	24, // 37: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
+	26, // 38: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
+	29, // 39: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
+	32, // 40: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
+	35, // 41: user.UserService.ListUsers:output_type -> user.ListUsersResponse
+	38, // 42: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
+	24, // [24:43] is the sub-list for method output_type
+	5,  // [5:24] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -1395,7 +2646,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

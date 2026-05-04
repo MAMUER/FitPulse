@@ -13,6 +13,15 @@ service UserService {
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
     rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
+    rpc UploadProfilePhoto(UploadProfilePhotoRequest) returns (UploadProfilePhotoResponse);
+    rpc RemoveProfilePhoto(RemoveProfilePhotoRequest) returns (RemoveProfilePhotoResponse);
+    rpc ChangeNickname(ChangeNicknameRequest) returns (ChangeNicknameResponse);
+    rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+    rpc AddDevice(AddDeviceRequest) returns (AddDeviceResponse);
+    rpc RemoveDevice(RemoveDeviceRequest) returns (RemoveDeviceResponse);
+    rpc SyncDeviceData(SyncDeviceDataRequest) returns (SyncDeviceDataResponse);
+    rpc GetTrainingStats(GetTrainingStatsRequest) returns (GetTrainingStatsResponse);
+    rpc GetAchievements(GetAchievementsRequest) returns (GetAchievementsResponse);
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
 }
@@ -57,7 +66,8 @@ message GetProfileRequest {
 
 message UpdateProfileRequest {
     string user_id = 1;
-    optional string full_name = 11;          
+    optional string full_name = 11;
+    optional string nickname = 12; // New field for nickname
     optional int32 age = 2;
     optional string gender = 3;
     optional int32 height_cm = 4;
@@ -65,8 +75,8 @@ message UpdateProfileRequest {
     optional string fitness_level = 6;
     repeated string goals = 7;
     repeated string contraindications = 8;
-    optional string nutrition = 9;          
-    optional float sleep_hours = 10;         
+    optional string nutrition = 9;
+    optional float sleep_hours = 10;
 }
 
 message ChangePasswordRequest {
@@ -89,23 +99,131 @@ message ChangeEmailResponse {
     string message = 1;
 }
 
+message UploadProfilePhotoRequest {
+    string user_id = 1;
+    bytes photo_data = 2;
+    string content_type = 3; // e.g., "image/jpeg"
+}
+
+message UploadProfilePhotoResponse {
+    string photo_url = 1;
+}
+
+message RemoveProfilePhotoRequest {
+    string user_id = 1;
+}
+
+message RemoveProfilePhotoResponse {
+    string message = 1;
+}
+
+message ChangeNicknameRequest {
+    string user_id = 1;
+    string new_nickname = 2;
+}
+
+message ChangeNicknameResponse {
+    string message = 1;
+}
+
+message Device {
+    string device_id = 1;
+    string device_type = 2; // e.g., "apple_watch"
+    string device_name = 3;
+    bool is_connected = 4;
+    string last_sync = 5;
+}
+
+message ListDevicesRequest {
+    string user_id = 1;
+}
+
+message ListDevicesResponse {
+    repeated Device devices = 1;
+}
+
+message AddDeviceRequest {
+    string user_id = 1;
+    string device_type = 2;
+    string device_name = 3;
+}
+
+message AddDeviceResponse {
+    Device device = 1;
+}
+
+message RemoveDeviceRequest {
+    string user_id = 1;
+    string device_id = 2;
+}
+
+message RemoveDeviceResponse {
+    string message = 1;
+}
+
+message SyncDeviceDataRequest {
+    string user_id = 1;
+    string device_id = 2;
+}
+
+message SyncDeviceDataResponse {
+    string message = 1;
+    int32 synced_samples = 2;
+}
+
+message GetTrainingStatsRequest {
+    string user_id = 1;
+    string from_date = 2; // ISO date
+    string to_date = 3;   // ISO date
+}
+
+message TrainingStats {
+    int32 total_workouts = 1;
+    int32 completed_workouts = 2;
+    double average_duration_minutes = 3;
+    double total_calories_burned = 4;
+    string most_frequent_exercise = 5;
+}
+
+message GetTrainingStatsResponse {
+    TrainingStats stats = 1;
+}
+
+message Achievement {
+    string achievement_id = 1;
+    string title = 2;
+    string description = 3;
+    string earned_date = 4;
+    string icon_url = 5;
+}
+
+message GetAchievementsRequest {
+    string user_id = 1;
+}
+
+message GetAchievementsResponse {
+    repeated Achievement achievements = 1;
+}
+
 message UserProfile {
     string user_id = 1;
     string email = 2;
     string full_name = 3;
-    string role = 4;
-    bool email_confirmed = 5;                 
-    int32 age = 6;
-    string gender = 7;
-    int32 height_cm = 8;
-    double weight_kg = 9;
-    string fitness_level = 10;
-    repeated string goals = 11;
-    repeated string contraindications = 12;
-    string created_at = 13;
-    string updated_at = 14;
-    string nutrition = 15;
-    float sleep_hours = 16;
+    string nickname = 4; // New field
+    string role = 5;
+    bool email_confirmed = 6;
+    int32 age = 7;
+    string gender = 8;
+    int32 height_cm = 9;
+    double weight_kg = 10;
+    string fitness_level = 11;
+    repeated string goals = 12;
+    repeated string contraindications = 13;
+    string created_at = 14;
+    string updated_at = 15;
+    string nutrition = 16;
+    float sleep_hours = 17;
+    string profile_photo_url = 18; // New field
 }
 
 message ListUsersRequest {

@@ -23,7 +23,7 @@ if not DB_PASSWORD:
     DB_PASSWORD = "postgres"
 DB_NAME = os.getenv("DB_NAME", "fitness")
 
-MIGRATION_FILE = Path("scripts/init-db.sql")
+MIGRATIONS_DIR = Path("db/migrations")
 DOCKER_COMPOSE_FILE = Path("deployments/docker-compose.yml")
 
 GREEN = "\033[92m"
@@ -102,9 +102,15 @@ def main():
     print(f"  User:     {DB_USER}")
     print()
 
-    # Check if migration file exists
-    if not MIGRATION_FILE.exists():
-        error(f"Migration file not found: {MIGRATION_FILE}")
+    # Check if migrations directory exists
+    if not MIGRATIONS_DIR.exists():
+        error(f"Migrations directory not found: {MIGRATIONS_DIR}")
+        sys.exit(1)
+
+    # Get migration files
+    migration_files = sorted(MIGRATIONS_DIR.glob("V*.sql"))
+    if not migration_files:
+        error(f"No migration files found in {MIGRATIONS_DIR}")
         sys.exit(1)
 
     # Strategy 1: Try psql directly
@@ -112,12 +118,13 @@ def main():
     if psql_path:
         info("[1/3] psql found, running migrations...")
         try:
-            result = run_psql(["-f", str(MIGRATION_FILE)], check=False)
-            if result.returncode == 0:
-                success("Migrations completed successfully")
-            else:
-                error(f"Migrations failed:\n{result.stderr}")
-                sys.exit(1)
+            for mig_file in migration_files:
+                info(f"Running migration: {mig_file.name}")
+                result = run_psql(["-f", str(mig_file)], check=False)
+                if result.returncode != 0:
+                    error(f"Migration {mig_file.name} failed:\n{result.stderr}")
+                    sys.exit(1)
+            success("All migrations completed successfully")
         except Exception as e:
             error(f"psql error: {e}")
             sys.exit(1)
@@ -127,8 +134,25 @@ def main():
             error(f"Docker Compose file not found: {DOCKER_COMPOSE_FILE}")
             sys.exit(1)
 
-        info("[2/3] Running migrations via Docker Compose...")
-        result = docker_compose_exec()
+        # For Docker, combine migrations into a single file and run
+        combined_sql = Path("scripts/init-db.sql")
+        info("[2/3] Combining migrations for Docker...")
+        with open(combined_sql, 'w') as outfile:
+            for mig_file in migration_files:
+                outfile.write(f"-- {mig_file.name}\n")
+                with open(mig_file, 'r') as infile:
+                    outfile.write(infile.read())
+                    outfile.write("\n\n")
+
+        info("[2/3] Running combined migrations via Docker Compose...")
+        cmd = [
+            "docker", "compose",
+            "-f", str(DOCKER_COMPOSE_FILE),
+            "exec", "-T", "postgres",
+            "psql", "-U", DB_USER, "-d", DB_NAME,
+            "-f", "/docker-entrypoint-initdb.d/init.sql",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             success("Migrations completed via Docker")
         else:

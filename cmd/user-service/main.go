@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	pb "github.com/MAMUER/Project/api/gen/user"
@@ -17,7 +19,6 @@ import (
 	"github.com/MAMUER/Project/internal/logger"
 	"github.com/MAMUER/Project/internal/sanitize"
 	"github.com/MAMUER/Project/internal/validator"
-	"github.com/MAMUER/Project/pkg/models"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
@@ -26,6 +27,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// Local User struct for login
+type User struct {
+	ID           string
+	Email        string
+	PasswordHash string
+	Role         string
+}
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
@@ -196,7 +205,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 		return nil, status.Error(codes.Unauthenticated, "Email not confirmed. Please check your inbox.")
 	}
 
-	var user models.User
+	var user User
 	err = s.db.QueryRowContext(ctx, `
         SELECT id, email, password_hash, role FROM users WHERE email = $1
     `, req.Email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role)
@@ -241,16 +250,18 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	var nutrition sql.NullString
 	var sleepHours sql.NullFloat64
 
+	var nickname, profilePhotoUrl sql.NullString
+
 	err := s.db.QueryRowContext(ctx, `
-        SELECT u.id, u.email, u.full_name, u.role,
-               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
-               p.goals, p.nutrition, p.sleep_hours,
-               u.created_at, u.updated_at
+        SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,
+                p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
+                p.goals, p.nutrition, p.sleep_hours,
+                u.created_at, u.updated_at
         FROM users u
         LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
         WHERE u.id = $1
     `, req.UserId).Scan(
-		&profile.UserId, &profile.Email, &profile.FullName, &profile.Role,
+		&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoUrl, &profile.Role,
 		&age, &gender, &heightCm, &weightKg, &fitnessLevel,
 		pq.Array(&profile.Goals),
 		&nutrition, &sleepHours,
@@ -264,6 +275,12 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 		return nil, status.Error(codes.Internal, "database error")
 	}
 
+	if nickname.Valid {
+		profile.Nickname = nickname.String
+	}
+	if profilePhotoUrl.Valid {
+		profile.ProfilePhotoUrl = profilePhotoUrl.String
+	}
 	if age.Valid {
 		profile.Age = age.Int32
 	}
@@ -296,14 +313,25 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 		return nil, err
 	}
 
-	// Обновляем full_name в users table (если передан)
-	if req.FullName != nil {
-		_, err := s.db.ExecContext(ctx, `
-			UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2
-		`, req.GetFullName(), req.UserId)
+	// Обновляем full_name и nickname в users table (если передан)
+	if req.FullName != nil || req.Nickname != nil {
+		query := "UPDATE users SET updated_at = NOW()"
+		args := []interface{}{}
+		if req.FullName != nil {
+			query += ", full_name = $1"
+			args = append(args, req.GetFullName())
+		}
+		if req.Nickname != nil {
+			query += ", nickname = $" + strconv.Itoa(len(args)+1)
+			args = append(args, req.GetNickname())
+		}
+		query += " WHERE id = $" + strconv.Itoa(len(args)+1)
+		args = append(args, req.UserId)
+
+		_, err := s.db.ExecContext(ctx, query, args...)
 		if err != nil {
-			s.log.Error("Failed to update full_name", zap.Error(err), zap.String("user_id", req.UserId))
-			return nil, status.Error(codes.Internal, "failed to update full_name")
+			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
+			return nil, status.Error(codes.Internal, "failed to update user details")
 		}
 	}
 
@@ -438,6 +466,242 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 
 	s.log.Info("Password changed successfully", zap.String("user_id", req.UserId))
 	return &pb.ChangePasswordResponse{Message: "Password changed successfully"}, nil
+}
+
+// ChangeNickname changes the user's nickname.
+func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameRequest) (*pb.ChangeNicknameResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.NewNickname == "" {
+		return nil, status.Error(codes.InvalidArgument, "new_nickname is required")
+	}
+
+	// Check if nickname is unique
+	var exists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE nickname = $1 AND id != $2)", req.NewNickname, req.UserId).Scan(&exists)
+	if err != nil {
+		s.log.Error("Failed to check nickname uniqueness", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	if exists {
+		return nil, status.Error(codes.AlreadyExists, "nickname already taken")
+	}
+
+	// Update nickname
+	_, err = s.db.ExecContext(ctx, "UPDATE users SET nickname = $1, updated_at = NOW() WHERE id = $2", req.NewNickname, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to update nickname")
+	}
+
+	s.log.Info("Nickname changed", zap.String("user_id", req.UserId), zap.String("new_nickname", req.NewNickname))
+	return &pb.ChangeNicknameResponse{Message: "Nickname changed successfully"}, nil
+}
+
+// UploadProfilePhoto uploads a new profile photo for the user.
+func (s *userServer) UploadProfilePhoto(ctx context.Context, req *pb.UploadProfilePhotoRequest) (*pb.UploadProfilePhotoResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if len(req.PhotoData) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "photo_data is required")
+	}
+
+	// Validate content type
+	if req.ContentType != "image/jpeg" && req.ContentType != "image/png" && req.ContentType != "image/gif" {
+		return nil, status.Error(codes.InvalidArgument, "unsupported content type")
+	}
+
+	// Generate filename
+	filename := req.UserId + "_profile." + strings.TrimPrefix(req.ContentType, "image/")
+	// In production, save to storage like S3
+	// For now, simulate by updating DB with URL
+	photoURL := s.baseURL + "/uploads/profile_photos/" + filename
+
+	_, err := s.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = $1, updated_at = NOW() WHERE id = $2", photoURL, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to update profile photo URL", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to update profile photo")
+	}
+
+	s.log.Info("Profile photo uploaded", zap.String("user_id", req.UserId), zap.String("photo_url", photoURL))
+	return &pb.UploadProfilePhotoResponse{PhotoUrl: photoURL}, nil
+}
+
+// RemoveProfilePhoto removes the user's profile photo.
+func (s *userServer) RemoveProfilePhoto(ctx context.Context, req *pb.RemoveProfilePhotoRequest) (*pb.RemoveProfilePhotoResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	// Update DB to remove photo URL
+	_, err := s.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = NULL, updated_at = NOW() WHERE id = $1", req.UserId)
+	if err != nil {
+		s.log.Error("Failed to remove profile photo", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to remove profile photo")
+	}
+
+	s.log.Info("Profile photo removed", zap.String("user_id", req.UserId))
+	return &pb.RemoveProfilePhotoResponse{Message: "Profile photo removed successfully"}, nil
+}
+
+// ListDevices lists the user's connected devices.
+func (s *userServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest) (*pb.ListDevicesResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	// Query devices
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id as device_id, device_type, device_name, is_connected, last_sync
+		FROM devices WHERE user_id = $1
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to list devices", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to list devices")
+	}
+	defer rows.Close()
+
+	var devices []*pb.Device
+	for rows.Next() {
+		var d pb.Device
+		var lastSync sql.NullString
+		err := rows.Scan(&d.DeviceId, &d.DeviceType, &d.DeviceName, &d.IsConnected, &lastSync)
+		if err != nil {
+			s.log.Error("Failed to scan device", zap.Error(err))
+			continue
+		}
+		if lastSync.Valid {
+			d.LastSync = lastSync.String
+		}
+		devices = append(devices, &d)
+	}
+
+	return &pb.ListDevicesResponse{Devices: devices}, nil
+}
+
+// AddDevice adds a new device for the user.
+func (s *userServer) AddDevice(ctx context.Context, req *pb.AddDeviceRequest) (*pb.AddDeviceResponse, error) {
+	if req.UserId == "" || req.DeviceType == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and device_type are required")
+	}
+
+	deviceID := uuid.New().String()
+	deviceName := req.DeviceName
+	if deviceName == "" {
+		deviceName = req.DeviceType + " Device"
+	}
+
+	// Insert device
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO devices (id, user_id, device_type, device_name, token, is_connected, last_sync)
+		VALUES ($1, $2, $3, $4, $5, true, NOW())
+	`, deviceID, req.UserId, req.DeviceType, deviceName, uuid.New().String())
+	if err != nil {
+		s.log.Error("Failed to add device", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to add device")
+	}
+
+	device := &pb.Device{
+		DeviceId:    deviceID,
+		DeviceType:  req.DeviceType,
+		DeviceName:  deviceName,
+		IsConnected: true,
+		LastSync:    time.Now().Format(time.RFC3339),
+	}
+
+	s.log.Info("Device added", zap.String("user_id", req.UserId), zap.String("device_id", deviceID))
+	return &pb.AddDeviceResponse{Device: device}, nil
+}
+
+// RemoveDevice removes a device from the user.
+func (s *userServer) RemoveDevice(ctx context.Context, req *pb.RemoveDeviceRequest) (*pb.RemoveDeviceResponse, error) {
+	if req.UserId == "" || req.DeviceId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and device_id are required")
+	}
+
+	// Delete device
+	result, err := s.db.ExecContext(ctx, "DELETE FROM devices WHERE user_id = $1 AND id = $2", req.UserId, req.DeviceId)
+	if err != nil {
+		s.log.Error("Failed to remove device", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to remove device")
+	}
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return nil, status.Error(codes.NotFound, "device not found")
+	}
+
+	s.log.Info("Device removed", zap.String("user_id", req.UserId), zap.String("device_id", req.DeviceId))
+	return &pb.RemoveDeviceResponse{Message: "Device removed successfully"}, nil
+}
+
+// SyncDeviceData syncs data from the device (stub implementation).
+func (s *userServer) SyncDeviceData(ctx context.Context, req *pb.SyncDeviceDataRequest) (*pb.SyncDeviceDataResponse, error) {
+	if req.UserId == "" || req.DeviceId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and device_id are required")
+	}
+
+	// In real implementation, trigger sync with wearable emulator or real API
+	// For now, simulate sync by updating last_sync
+	_, err := s.db.ExecContext(ctx, "UPDATE devices SET last_sync = NOW() WHERE user_id = $1 AND id = $2", req.UserId, req.DeviceId)
+	if err != nil {
+		s.log.Error("Failed to sync device data", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to sync device data")
+	}
+
+	// Simulate synced samples
+	syncedSamples := 100 // Placeholder
+
+	s.log.Info("Device data synced", zap.String("user_id", req.UserId), zap.String("device_id", req.DeviceId), zap.Int("samples", syncedSamples))
+	return &pb.SyncDeviceDataResponse{Message: "Device data synced successfully", SyncedSamples: int32(syncedSamples)}, nil
+}
+
+// GetTrainingStats retrieves training statistics for the user (stub implementation).
+func (s *userServer) GetTrainingStats(ctx context.Context, req *pb.GetTrainingStatsRequest) (*pb.GetTrainingStatsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	// In real implementation, query training service or database for stats
+	// For now, return mock data
+	stats := &pb.TrainingStats{
+		TotalWorkouts:          25,
+		CompletedWorkouts:      20,
+		AverageDurationMinutes: 45.5,
+		TotalCaloriesBurned:    1500.0,
+		MostFrequentExercise:   "Push-ups",
+	}
+
+	return &pb.GetTrainingStatsResponse{Stats: stats}, nil
+}
+
+// GetAchievements retrieves user's achievements (stub implementation).
+func (s *userServer) GetAchievements(ctx context.Context, req *pb.GetAchievementsRequest) (*pb.GetAchievementsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	// In real implementation, query achievements from database
+	// For now, return mock achievements
+	achievements := []*pb.Achievement{
+		{
+			AchievementId: "first_workout",
+			Title:         "First Workout",
+			Description:   "Completed your first training session",
+			EarnedDate:    "2024-01-15T10:00:00Z",
+			IconUrl:       "/icons/first_workout.png",
+		},
+		{
+			AchievementId: "week_streak",
+			Title:         "Week Streak",
+			Description:   "Worked out for 7 consecutive days",
+			EarnedDate:    "2024-02-01T10:00:00Z",
+			IconUrl:       "/icons/week_streak.png",
+		},
+	}
+
+	return &pb.GetAchievementsResponse{Achievements: achievements}, nil
 }
 
 // Helper functions for password validation
