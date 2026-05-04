@@ -505,7 +505,7 @@ func TestHealthKitClientFetchBiometricData(t *testing.T) {
 
 	assert.Equal(t, string(AppleWatch), samples[0].DeviceType)
 	assert.Equal(t, "heart_rate", samples[0].MetricType)
-	assert.Equal(t, "emulated", samples[0].Quality)
+	assert.Equal(t, "real_api", samples[0].Quality)
 }
 
 func TestHealthKitClientFetchEmptyMetrics(t *testing.T) {

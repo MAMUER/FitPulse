@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -315,20 +314,13 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	// Обновляем full_name и nickname в users table (если передан)
 	if req.FullName != nil || req.Nickname != nil {
-		query := "UPDATE users SET updated_at = NOW()"
-		args := []interface{}{}
-		if req.FullName != nil {
-			query += ", full_name = $1"
-			args = append(args, req.GetFullName())
-		}
-		if req.Nickname != nil {
-			query += ", nickname = $" + strconv.Itoa(len(args)+1)
-			args = append(args, req.GetNickname())
-		}
-		query += " WHERE id = $" + strconv.Itoa(len(args)+1)
-		args = append(args, req.UserId)
-
-		_, err := s.db.ExecContext(ctx, query, args...)
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE users SET
+				full_name = COALESCE($1, full_name),
+				nickname = COALESCE($2, nickname),
+				updated_at = NOW()
+			WHERE id = $3
+		`, req.FullName, req.Nickname, req.UserId)
 		if err != nil {
 			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
 			return nil, status.Error(codes.Internal, "failed to update user details")
@@ -561,7 +553,7 @@ func (s *userServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest
 		s.log.Error("Failed to list devices", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to list devices")
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var devices []*pb.Device
 	for rows.Next() {

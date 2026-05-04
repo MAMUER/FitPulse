@@ -331,14 +331,14 @@ func TestUserServer_GetProfile(t *testing.T) {
 			},
 			mockFn: func(mock sqlmock.Sqlmock) {
 				now := time.Now()
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.role,")).
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,")).
 					WithArgs("user-123").
 					WillReturnRows(sqlmock.NewRows([]string{
-						"id", "email", "full_name", "role",
+						"id", "email", "full_name", "nickname", "profile_photo_url", "role",
 						"age", "gender", "height_cm", "weight_kg", "fitness_level",
 						"goals", "nutrition", "sleep_hours", "created_at", "updated_at",
 					}).AddRow(
-						"user-123", "test@example.com", "Test User", "client",
+						"user-123", "test@example.com", "Test User", "testuser", "http://example.com/photo.jpg", "client",
 						30, "male", 180, 75.5, "intermediate",
 						"{weight_loss}", "balanced", 7.5, now, now,
 					))
@@ -351,7 +351,7 @@ func TestUserServer_GetProfile(t *testing.T) {
 				UserId: "nonexistent",
 			},
 			mockFn: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.role,")).
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,")).
 					WithArgs("nonexistent").
 					WillReturnError(sql.ErrNoRows)
 			},
@@ -438,16 +438,16 @@ func TestUserServer_UpdateProfile(t *testing.T) {
 
 				// Fetch updated profile
 				now := time.Now()
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.role,")).
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,")).
 					WithArgs("user-123").
 					WillReturnRows(sqlmock.NewRows([]string{
-						"id", "email", "full_name", "role",
+						"id", "email", "full_name", "nickname", "profile_photo_url", "role",
 						"age", "gender", "height_cm", "weight_kg", "fitness_level",
 						"goals", "nutrition", "sleep_hours", "created_at", "updated_at",
 					}).AddRow(
-						"user-123", "test@example.com", "Test User", "client",
+						"user-123", "test@example.com", "Test User", "testuser", "http://example.com/photo.jpg", "client",
 						31, "male", 180, 74.0, "advanced",
-						"{muscle_gain}", "balanced", 7.5, now, now,
+						"{muscle_gain}", "balanced", 8.0, now, now,
 					))
 			},
 			wantCode: codes.OK,

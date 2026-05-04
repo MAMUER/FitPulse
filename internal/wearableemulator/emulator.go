@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -497,7 +498,7 @@ func (c *HealthKitClient) FetchBiometricData(ctx context.Context, userID string,
 	// In real app, replace with actual HTTP request to health data provider
 
 	// Simulated API call structure:
-	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/health/samples")
+	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/health/samples", nil)
 	if err != nil {
 		return nil, err
 	}
