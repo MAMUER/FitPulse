@@ -58,13 +58,14 @@ if ($hasModels) {
     Write-Host "       python cmd/ml-generator/train_gan.py" -ForegroundColor Gray
 }
 
-# 4. Load .env
+# 4. Check .env
 Write-Host ""
-Write-Host "[4/5] Loading environment from .env..."
+Write-Host "[4/5] Checking .env file..."
 $envFile = Join-Path $PSScriptRoot "..\.env"
 if (-not (Test-Path $envFile)) {
     Write-Host "  ERROR - .env file not found!" -ForegroundColor Red
-    Write-Host "  Generate it: scripts\generate-env.ps1" -ForegroundColor Yellow
+    Write-Host "  Create .env file in project root with required environment variables." -ForegroundColor Yellow
+    Write-Host "  See configs/config.prod.yaml for reference." -ForegroundColor Gray
     exit 1
 }
 
@@ -102,6 +103,9 @@ Write-Host "========================================"
 
 $checks = @(
     @{Name="Gateway (HTTPS)"; URL="https://localhost:8443/health"}
+    @{Name="Gateway (dev)"; URL="http://localhost:8085/health"}
+    @{Name="ML Classifier"; URL="http://localhost:8001/health"}
+    @{Name="ML Generator"; URL="http://localhost:8002/health"}
 )
 
 foreach ($svc in $checks) {

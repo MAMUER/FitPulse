@@ -52,6 +52,58 @@ paths:
       responses:
         '200':
           description: User profile
+    post:
+      summary: Update user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated
+  /devices/register:
+    post:
+      summary: Register a wearable device
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_type:
+                  type: string
+                user_id:
+                  type: string
+      responses:
+        '201':
+          description: Device registered
+  /devices/{device_id}/ingest:
+    post:
+      summary: Ingest biometric data from a wearable device
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricIngestRequest'
+      responses:
+        '200':
+          description: Ingestion accepted
   /biometrics:
     post:
       summary: Add biometric record
@@ -200,3 +252,72 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    HealthCondition:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        category:
+          type: string
+        severity:
+          type: string
+        note:
+          type: string
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        height_cm:
+          type: integer
+        weight_kg:
+          type: number
+        fitness_level:
+          type: string
+        goals:
+          type: array
+          items:
+            type: string
+        contraindications:
+          type: array
+          items:
+            type: string
+        health_conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthCondition'
+        custom_health_notes:
+          type: string
+        nutrition:
+          type: string
+        sleep_hours:
+          type: number
+    BiometricIngestRequest:
+      type: object
+      properties:
+        device_type:
+          type: string
+        device_token:
+          type: string
+        sync_interval_ms:
+          type: integer
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              metric_type:
+                type: string
+              value:
+                type: number
+              timestamp:
+                type: string
+              quality:
+                type: string

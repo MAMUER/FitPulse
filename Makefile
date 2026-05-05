@@ -130,6 +130,14 @@ migrate: combine-migrations
 api-test:
 	python scripts/api-test.py
 
+# Database backup helper
+backup-db:
+	@echo "Run scripts/backup-db.sh or scripts/backup-db.ps1 with BACKUP_KEY and PostgreSQL env vars set."
+
+# Database restore helper
+restore-db:
+	@echo "Run scripts/restore-db.sh <encrypted-backup-file> or scripts/restore-db.ps1 <encrypted-backup-file> with BACKUP_KEY and PostgreSQL env vars set."
+
 # Нагрузочный тест (требует k6)
 load-test:
 	@echo "Install k6: https://k6.io/docs/getting-started/installation/"

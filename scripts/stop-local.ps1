@@ -31,10 +31,33 @@ Write-Host "   STOPPING ALL SERVICES"
 Write-Host "========================================"
 Write-Host ""
 
-# Stop processes by saved PIDs
+# Check if Docker containers are running
+$composeFile = Join-Path $PSScriptRoot "..\deployments\docker-compose.yml"
+$runningContainers = docker compose --env-file $envFile -f $composeFile ps -q 2>$null
+if ($runningContainers) {
+    Write-Host "[1/3] Stopping Docker containers..."
+    if ($Full) {
+        Write-Host "  [FULL MODE] Deleting volumes (database will be reset)..." -ForegroundColor Red
+        docker compose --env-file $envFile -f $composeFile down -v 2>&1
+    } else {
+        docker compose --env-file $envFile -f $composeFile down 2>&1
+    }
+    Write-Host "  OK - Containers stopped" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "[2/3] Cleaning up..."
+    Write-Host "  OK - Cleanup completed" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "========================================"
+    Write-Host "   ALL SERVICES STOPPED!"
+    Write-Host "========================================"
+    Write-Host ""
+    exit 0
+}
+
+# If no containers, stop local processes
+Write-Host "[1/3] No Docker containers found. Stopping local processes..."
 $pidFile = Join-Path $PSScriptRoot ".pids.json"
 if (Test-Path $pidFile) {
-    Write-Host "[1/3] Stopping Go and Python services..."
     $processes = Get-Content $pidFile | ConvertFrom-Json
     foreach ($proc in $processes.PSObject.Properties) {
         try {
@@ -53,23 +76,17 @@ if (Test-Path $pidFile) {
             Write-Host "  [OK] Stopped go.exe PID $($_.Id)" -ForegroundColor Green
         } catch {}
     }
+    Get-Process -Name "python" -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "  [OK] Stopped python.exe PID $($_.Id)" -ForegroundColor Green
+        } catch {}
+    }
 }
-
-# Stop Docker containers
-Write-Host ""
-Write-Host "[2/3] Stopping Docker containers..."
-$composeFile = Join-Path $PSScriptRoot "..\deployments\docker-compose.yml"
-if ($Full) {
-    Write-Host "  [FULL MODE] Deleting volumes (database will be reset)..." -ForegroundColor Red
-    docker compose --env-file $envFile -f $composeFile down -v 2>&1
-} else {
-    docker compose --env-file $envFile -f $composeFile down 2>&1
-}
-Write-Host "  OK - Containers stopped" -ForegroundColor Green
 
 # Cleanup
 Write-Host ""
-Write-Host "[3/3] Cleaning up..."
+Write-Host "[2/3] Cleaning up..."
 Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 Write-Host "  OK - Cleanup completed" -ForegroundColor Green
 
