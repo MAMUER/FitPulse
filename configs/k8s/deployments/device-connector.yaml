@@ -20,6 +20,9 @@ spec:
         component: device-connector
     spec:
       serviceAccountName: app-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -38,6 +41,7 @@ spec:
         imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true
+          runAsUser: 1000
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:

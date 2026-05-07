@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=false
+# yaml-language-server: $schema: false
 # Grafana datasource configuration for Prometheus
 
 apiVersion: 1
