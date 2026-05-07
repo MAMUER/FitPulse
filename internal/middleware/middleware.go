@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/MAMUER/Project/internal/auth"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -83,22 +86,71 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 }
 
 // LoggingMiddleware логирует запросы с корреляционным ID
-func LoggingMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
+func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec, requestTotal *prometheus.CounterVec, errorTotal *prometheus.CounterVec) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			cid := GetCorrelationID(r.Context())
+			userId := GetUserID(r.Context())
 
-			next.ServeHTTP(w, r)
+			// Wrap response writer to capture status code
+			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
-			log.Info("HTTP request",
-				zap.String("correlation_id", cid),
+			next.ServeHTTP(rw, r)
+
+			duration := time.Since(start)
+
+			// Record metrics
+			statusStr := fmt.Sprintf("%d", rw.statusCode)
+			if requestDuration != nil {
+				requestDuration.WithLabelValues("gateway", r.URL.Path, r.Method, statusStr).Observe(duration.Seconds())
+			}
+			if requestTotal != nil {
+				requestTotal.WithLabelValues("gateway", r.URL.Path, r.Method).Inc()
+			}
+
+			if rw.statusCode >= 400 && errorTotal != nil {
+				errorTotal.WithLabelValues("gateway", statusStr, r.URL.Path).Inc()
+			}
+
+			// Log in structured format
+			log.Info("HTTP_REQUEST",
+				zap.String("correlationId", cid),
+				zap.String("userId", userId),
+				zap.String("action", "HTTP_REQUEST"),
+				zap.Int64("durationMs", duration.Milliseconds()),
+				zap.String("endpoint", r.URL.Path),
 				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.Duration("duration", time.Since(start)),
+				zap.Int("statusCode", rw.statusCode),
+				zap.String("userAgent", r.Header.Get("User-Agent")),
+				zap.String("ip", getClientIP(r)),
 			)
 		})
 	}
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// Take the first IP if multiple
+		ips := strings.Split(xff, ",")
+		return strings.TrimSpace(ips[0])
+	}
+
+	// Check X-Real-IP header
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
 }
 
 // RecoveryMiddleware перехватывает паники

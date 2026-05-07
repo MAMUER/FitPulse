@@ -4,14 +4,20 @@ metadata:
   name: gateway
   namespace: fitness-platform
 spec:
-  replicas: 2
+  replicas: 1  # Dev environment, adjust per environment matrix
   selector:
     matchLabels:
       app: gateway
+      tier: api
   template:
     metadata:
       labels:
         app: gateway
+        tier: api
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
+        prometheus.io/path: '/metrics'
     spec:
       securityContext:
         runAsNonRoot: true
@@ -32,16 +38,15 @@ spec:
           name: http
         env:
         - name: GATEWAY_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: GATEWAY_PORT
+          value: '8080'
         - name: USER_SERVICE_ADDR
           value: "user-service:50051"
         - name: BIOMETRIC_SERVICE_ADDR
           value: "biometric-service:50052"
         - name: TRAINING_SERVICE_ADDR
           value: "training-service:50053"
+        - name: PROMETHEUS_ENABLED
+          value: 'true'
         - name: ML_CLASSIFIER_URL
           value: "http://ml-classifier:8001"
         - name: ML_GENERATOR_URL

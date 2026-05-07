@@ -66,8 +66,14 @@ lint:
 	golangci-lint run --max-issues-per-linter=0
 	@echo "Lint complete."
 
+# Проверка YAML файлов на синтаксис
+yaml-check:
+	@echo "Checking YAML files..."
+	go run tools/validate_yaml.go
+	@echo "YAML check complete."
+
 # Запуск всех проверок
-check: tidy fmt vet lint test build 
+check: tidy fmt vet yaml-check lint test build 
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

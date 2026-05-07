@@ -74,7 +74,7 @@ func TestWithRequestID(t *testing.T) {
 			if tt.requestID != "" {
 				found := false
 				for _, field := range lastLog.Context {
-					if field.Key == "request_id" && field.String == tt.requestID {
+					if field.Key == "correlationId" && field.String == tt.requestID {
 						found = true
 						break
 					}

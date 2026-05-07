@@ -1,0 +1,91 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - prometheus_rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'fitness-services'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: 'fitness-.*'
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        regex: 'true'
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+        replacement: ${1}
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        target_label: __address__
+        regex: (.+)
+        replacement: "[__address__]:${1}"
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: service
+
+  - job_name: 'fitness-gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'fitness-user-service'
+    static_configs:
+      - targets: ['user-service:50051']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'fitness-biometric-service'
+    static_configs:
+      - targets: ['biometric-service:50052']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'fitness-training-service'
+    static_configs:
+      - targets: ['training-service:50053']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'ml-classifier'
+    static_configs:
+      - targets: ['ml-classifier:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'ml-generator'
+    static_configs:
+      - targets: ['ml-generator:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:9187']
+    scrape_interval: 30s

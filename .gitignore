@@ -83,6 +83,6 @@ datasets/
 
 *tree.txt
 SECURITY.md
-docs
 results.json
 *temp*
+*.docx

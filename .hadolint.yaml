@@ -1,0 +1,15 @@
+# Hadolint configuration
+ignored:
+  # Ignore FROM latest tag warning (may be acceptable in CI)
+  - DL3007
+  # Ignore WORKDIR without absolute path (often fine)
+  - DL3008
+  # Ignore USER not specified (common in simple containers)
+  - DL3002
+  # Ignore no healthcheck (may not be needed for all services)
+  - DL3006
+  # Ignore use of ADD instead of COPY (sometimes ADD is needed)
+  - DL3010
+
+# Additional rules can be configured here
+# For full list: https://github.com/hadolint/hadolint#rules

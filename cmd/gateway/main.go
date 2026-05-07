@@ -10,6 +10,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 
@@ -40,6 +42,10 @@ type gateway struct {
 	rdb     *redis.Client
 	rmqCh   *amqp.Channel
 	mlAsync bool
+	// Metrics
+	requestDuration *prometheus.HistogramVec
+	requestTotal    *prometheus.CounterVec
+	errorTotal      *prometheus.CounterVec
 }
 
 func main() {
@@ -49,6 +55,32 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed to sync logger: %v\n", syncErr)
 		}
 	}()
+
+	// Initialize Prometheus metrics
+	requestDuration := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "request_duration_seconds",
+			Help:    "Duration of HTTP requests",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"service", "endpoint", "method", "status"},
+	)
+	requestTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "request_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"service", "endpoint", "method"},
+	)
+	errorTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "error_total",
+			Help: "Total number of errors",
+		},
+		[]string{"service", "error_code", "endpoint"},
+	)
+
+	prometheus.MustRegister(requestDuration, requestTotal, errorTotal)
 
 	port := os.Getenv("GATEWAY_PORT")
 	if port == "" {
@@ -258,6 +290,9 @@ func main() {
 		rdb:                rdb,
 		rmqCh:              rmqCh,
 		mlAsync:            mlAsync,
+		requestDuration:    requestDuration,
+		requestTotal:       requestTotal,
+		errorTotal:         errorTotal,
 	}
 
 	// Setup routes (middleware applied via r.Use() in registerRoutes)
@@ -291,7 +326,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
 	r.Use(middleware.RateLimit)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.LoggingMiddleware(g.log.Logger))
+	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 
 	// Public routes
 	r.HandleFunc("/api/v1/register", g.registerHandler).Methods("POST")
@@ -301,6 +336,9 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.HandleFunc("/api/v1/auth/confirm", g.confirmEmailHandler).Methods("POST")
 	r.HandleFunc("/api/v1/auth/verify-status", g.checkVerificationStatusHandler).Methods("GET")
 	r.HandleFunc("/health", g.healthHandler).Methods("GET")
+
+	// Metrics endpoint
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
 	// Email confirmation page
 	r.HandleFunc("/confirm", g.emailConfirmPageHandler).Methods("GET")

@@ -253,7 +253,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := LoggingMiddleware(log)(nextHandler)
+	handler := LoggingMiddleware(log, nil, nil, nil)(nextHandler)
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test-path", nil)
 	rr := httptest.NewRecorder()
@@ -264,8 +264,8 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
-	assert.Equal(t, "HTTP request", logs[0].Message)
-	assert.Equal(t, "/test-path", logs[0].ContextMap()["path"])
+	assert.Equal(t, "HTTP_REQUEST", logs[0].Message)
+	assert.Equal(t, "/test-path", logs[0].ContextMap()["endpoint"])
 	assert.Equal(t, "GET", logs[0].ContextMap()["method"])
 }
 
@@ -277,7 +277,7 @@ func TestLoggingMiddlewareWithCorrelationID(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := LoggingMiddleware(log)(nextHandler)
+	handler := LoggingMiddleware(log, nil, nil, nil)(nextHandler)
 
 	ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
 	req := httptest.NewRequestWithContext(ctx, "POST", "/api/data", nil)
@@ -287,7 +287,7 @@ func TestLoggingMiddlewareWithCorrelationID(t *testing.T) {
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
-	assert.Equal(t, "corr-123", logs[0].ContextMap()["correlation_id"])
+	assert.Equal(t, "corr-123", logs[0].ContextMap()["correlationId"])
 	assert.Equal(t, "POST", logs[0].ContextMap()["method"])
 }
 
@@ -299,7 +299,7 @@ func TestLoggingMiddlewareWithoutCorrelationID(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	})
 
-	handler := LoggingMiddleware(log)(nextHandler)
+	handler := LoggingMiddleware(log, nil, nil, nil)(nextHandler)
 
 	// Context without CorrelationIDKey
 	req := httptest.NewRequestWithContext(context.Background(), "DELETE", "/resource/1", nil)
@@ -310,7 +310,7 @@ func TestLoggingMiddlewareWithoutCorrelationID(t *testing.T) {
 	logs := recorded.All()
 	require.Len(t, logs, 1)
 	// GetCorrelationID returns "" when key not found
-	assert.Equal(t, "", logs[0].ContextMap()["correlation_id"])
+	assert.Equal(t, "", logs[0].ContextMap()["correlationId"])
 }
 
 func TestLoggingMiddlewareLogsDuration(t *testing.T) {
@@ -321,7 +321,7 @@ func TestLoggingMiddlewareLogsDuration(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := LoggingMiddleware(log)(nextHandler)
+	handler := LoggingMiddleware(log, nil, nil, nil)(nextHandler)
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	rr := httptest.NewRecorder()
@@ -331,9 +331,9 @@ func TestLoggingMiddlewareLogsDuration(t *testing.T) {
 	logs := recorded.All()
 	require.Len(t, logs, 1)
 	// Duration should be present and non-negative
-	duration, ok := logs[0].ContextMap()["duration"].(time.Duration)
+	durationMs, ok := logs[0].ContextMap()["durationMs"].(int64)
 	assert.True(t, ok)
-	assert.GreaterOrEqual(t, duration, time.Duration(0))
+	assert.GreaterOrEqual(t, durationMs, int64(0))
 }
 
 func TestLoggingMiddlewareMultipleRequests(t *testing.T) {
@@ -344,7 +344,7 @@ func TestLoggingMiddlewareMultipleRequests(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := LoggingMiddleware(log)(nextHandler)
+	handler := LoggingMiddleware(log, nil, nil, nil)(nextHandler)
 
 	paths := []string{"/a", "/b", "/c"}
 	for _, path := range paths {

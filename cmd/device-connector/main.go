@@ -539,7 +539,7 @@ func main() {
 	// Apply middleware
 	handler := http.Handler(r)
 	handler = middleware.RequestID(handler)
-	handler = middleware.LoggingMiddleware(log.Logger)(handler)
+	handler = middleware.LoggingMiddleware(log.Logger, nil, nil, nil)(handler)
 
 	srv := &http.Server{
 		Addr:         ":" + port,

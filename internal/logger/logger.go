@@ -4,6 +4,7 @@ package logger
 import (
 	"log"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,6 +19,7 @@ type Logger struct {
 // New создает новый логгер с именем сервиса
 func New(service string) *Logger {
 	cfg := zap.NewProductionConfig()
+	cfg.Encoding = "json"
 	cfg.EncoderConfig.TimeKey = "timestamp"
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	cfg.EncoderConfig.LevelKey = "level"
@@ -51,11 +53,60 @@ func (l *Logger) Service() string {
 	return l.service
 }
 
-// WithRequestID добавляет request_id к контексту логгера
-func (l *Logger) WithRequestID(requestID string) *Logger {
+// WithRequestID добавляет correlationId к контексту логгера
+func (l *Logger) WithRequestID(correlationId string) *Logger {
 	return &Logger{
-		Logger:  l.With(zap.String("request_id", requestID)), // Используем встроенный метод
-		service: l.service,                                   // Сохраняем сервис!
+		Logger:  l.With(zap.String("correlationId", correlationId)),
+		service: l.service,
+	}
+}
+
+// WithUserID добавляет userId к контексту логгера
+func (l *Logger) WithUserID(userId string) *Logger {
+	return &Logger{
+		Logger:  l.With(zap.String("userId", userId)),
+		service: l.service,
+	}
+}
+
+// WithAction добавляет action к контексту логгера
+func (l *Logger) WithAction(action string) *Logger {
+	return &Logger{
+		Logger:  l.With(zap.String("action", action)),
+		service: l.service,
+	}
+}
+
+// WithDuration добавляет durationMs к контексту логгера
+func (l *Logger) WithDuration(duration time.Duration) *Logger {
+	return &Logger{
+		Logger:  l.With(zap.Int64("durationMs", duration.Milliseconds())),
+		service: l.service,
+	}
+}
+
+// WithContext добавляет context объект к логгеру
+func (l *Logger) WithContext(context map[string]interface{}) *Logger {
+	fields := make([]zap.Field, 0, len(context))
+	for k, v := range context {
+		switch val := v.(type) {
+		case string:
+			fields = append(fields, zap.String(k, val))
+		case int:
+			fields = append(fields, zap.Int(k, val))
+		case int64:
+			fields = append(fields, zap.Int64(k, val))
+		case float64:
+			fields = append(fields, zap.Float64(k, val))
+		case bool:
+			fields = append(fields, zap.Bool(k, val))
+		default:
+			fields = append(fields, zap.Any(k, val))
+		}
+	}
+	return &Logger{
+		Logger:  l.With(fields...),
+		service: l.service,
 	}
 }
 

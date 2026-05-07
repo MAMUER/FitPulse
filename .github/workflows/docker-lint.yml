@@ -1,0 +1,25 @@
+name: Docker Lint
+
+on:
+  push:
+    branches: [main, master, Microservice_arc]
+    paths:
+      - '**/Dockerfile*'
+  pull_request:
+    branches: [main, master, Microservice_arc]
+    paths:
+      - '**/Dockerfile*'
+
+jobs:
+  hadolint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Hadolint on all Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: |
+            cmd/*/Dockerfile*
+          config: .hadolint.yaml

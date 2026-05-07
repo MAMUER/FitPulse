@@ -28,6 +28,14 @@ func GetCorrelationID(ctx context.Context) string {
 	return ""
 }
 
+// GetUserID извлекает ID пользователя из контекста
+func GetUserID(ctx context.Context) string {
+	if uid, ok := ctx.Value(UserIDKey).(string); ok {
+		return uid
+	}
+	return ""
+}
+
 // WithCorrelationID добавляет корреляционный ID в контекст (для тестов)
 func WithCorrelationID(ctx context.Context, cid string) context.Context {
 	return context.WithValue(ctx, CorrelationIDKey, cid)
