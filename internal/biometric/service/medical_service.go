@@ -30,7 +30,7 @@ func (s *MedicalService) EvaluateWorkout(ctx context.Context, userID string, wor
 			violation := s.checkRuleAgainstWorkout(constraint, rule, workout)
 			if violation != nil {
 				violations = append(violations, *violation)
-				if rule.Action == "require_approval" {
+				if rule.Action == "require_approval" || violation.Action == "require_approval" {
 					requiresReview = true
 				}
 			}

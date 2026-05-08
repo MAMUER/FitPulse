@@ -1,3 +1,2 @@
 # Trivy misconfiguration ignore rules
 # PostgreSQL needs writable filesystem for data files
-AVD-KSV-0014

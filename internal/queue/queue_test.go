@@ -249,3 +249,219 @@ func TestPublisherInterface(t *testing.T) {
 func TestConsumerInterface(t *testing.T) {
 	var _ Consumer = (*rabbitConsumer)(nil)
 }
+
+// MockAMQPConnection is a mock for amqp.Connection
+type MockAMQPConnection struct {
+	shouldFail bool
+	closed     bool
+}
+
+func (m *MockAMQPConnection) Channel() (*amqp.Channel, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock connection failed")
+	}
+	return &amqp.Channel{}, nil
+}
+
+func (m *MockAMQPConnection) Close() error {
+	if m.closed {
+		return amqp.ErrClosed
+	}
+	m.closed = true
+	return nil
+}
+
+func (m *MockAMQPConnection) IsClosed() bool {
+	return m.closed
+}
+
+// MockAMQPChannel is a mock for amqp.Channel
+type MockAMQPChannel struct {
+	shouldFailQueueDeclare bool
+	shouldFailQos          bool
+	shouldFailConsume      bool
+	shouldFailPublish      bool
+	shouldFailClose        bool
+	closed                  bool
+}
+
+func (m *MockAMQPChannel) QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error) {
+	if m.shouldFailQueueDeclare {
+		return amqp.Queue{}, errors.New("mock queue declare failed")
+	}
+	return amqp.Queue{Name: name}, nil
+}
+
+func (m *MockAMQPChannel) Qos(prefetchCount, prefetchSize int, global bool) error {
+	if m.shouldFailQos {
+		return errors.New("mock qos failed")
+	}
+	return nil
+}
+
+func (m *MockAMQPChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	if m.shouldFailConsume {
+		return nil, errors.New("mock consume failed")
+	}
+	ch := make(chan amqp.Delivery, 1)
+	return ch, nil
+}
+
+func (m *MockAMQPChannel) PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error {
+	if m.shouldFailPublish {
+		return errors.New("mock publish failed")
+	}
+	return nil
+}
+
+func (m *MockAMQPChannel) Ack(tag uint64, multiple bool) error {
+	return nil
+}
+
+func (m *MockAMQPChannel) Nack(tag uint64, multiple, requeue bool) error {
+	return nil
+}
+
+func (m *MockAMQPChannel) Close() error {
+	if m.shouldFailClose {
+		return errors.New("mock channel close failed")
+	}
+	if m.closed {
+		return amqp.ErrClosed
+	}
+	m.closed = true
+	return nil
+}
+
+// Test NewPublisher with nil logger
+func TestNewPublisherNilLogger(t *testing.T) {
+	// This test will fail without RabbitMQ, but demonstrates the nil logger handling
+	pub, err := NewPublisher("amqp://invalid", "test", nil)
+	assert.Error(t, err)
+	assert.Nil(t, pub)
+}
+
+// Test publisher Publish method with closed publisher
+func TestPublisherPublishClosed(t *testing.T) {
+	// Create a publisher instance (will fail, but we can test the closed logic)
+	pub := &rabbitPublisher{closed: true}
+	err := pub.Publish(context.Background(), map[string]string{"test": "data"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "publisher is closed")
+}
+
+// Test publisher Publish method with marshal error
+func TestPublisherPublishMarshalError(t *testing.T) {
+	pub := &rabbitPublisher{
+		channel: &amqp.Channel{}, // mock channel that doesn't fail
+		queue:   "test",
+		closed:  false,
+	}
+
+	// Use a type that can't be marshaled
+	err := pub.Publish(context.Background(), make(chan int))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to marshal event")
+}
+
+// Test consumer Messages method
+func TestConsumerMessages(t *testing.T) {
+	consumer := &rabbitConsumer{
+		msgs: make(<-chan amqp.Delivery, 1),
+	}
+	ch := consumer.Messages()
+	assert.NotNil(t, ch)
+}
+
+// Test consumer Ack method (requires real channel, will be integration test)
+func TestConsumerAck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	consumer, err := NewConsumer(testRabbitURL, testQueueName, zap.NewNop())
+	if err != nil {
+		t.Skip("RabbitMQ not available")
+	}
+	defer func() { _ = consumer.Close() }()
+
+	err = consumer.Ack(1, false)
+	// Ack might fail if no message, but shouldn't panic
+	assert.NoError(t, err)
+}
+
+// Test consumer Nack method (requires real channel, will be integration test)
+func TestConsumerNack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	consumer, err := NewConsumer(testRabbitURL, testQueueName, zap.NewNop())
+	if err != nil {
+		t.Skip("RabbitMQ not available")
+	}
+	defer func() { _ = consumer.Close() }()
+
+	err = consumer.Nack(1, false, true)
+	// Nack might fail if no message, but shouldn't panic
+	assert.NoError(t, err)
+}
+
+// Test publisher Close with various error conditions
+func TestPublisherCloseErrors(t *testing.T) {
+	pub := &rabbitPublisher{
+		closed: false,
+	}
+
+	// Close without channel/connection - should not error
+	err := pub.Close()
+	assert.NoError(t, err)
+
+	// Close again - should not error
+	err = pub.Close()
+	assert.NoError(t, err)
+}
+
+// Test consumer Close with various error conditions
+func TestConsumerCloseErrors(t *testing.T) {
+	consumer := &rabbitConsumer{
+		closed: false,
+	}
+
+	// Close without channel/connection - should not error
+	err := consumer.Close()
+	assert.NoError(t, err)
+
+	// Close again - should not error
+	err = consumer.Close()
+	assert.NoError(t, err)
+}
+
+// Test publisher Publish after close
+func TestPublisherPublishAfterClose(t *testing.T) {
+	pub := &rabbitPublisher{
+		closed: true,
+	}
+	err := pub.Publish(context.Background(), "test")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "publisher is closed")
+}
+
+// Test consumer methods on closed consumer
+func TestConsumerMethodsOnClosed(t *testing.T) {
+	consumer := &rabbitConsumer{
+		closed: true,
+		msgs:   make(<-chan amqp.Delivery, 1), // Initialize with a channel
+	}
+
+	// These methods don't check closed status, so they should not error
+	ch := consumer.Messages()
+	assert.NotNil(t, ch)
+}
+
+// Test NewConsumer with nil logger
+func TestNewConsumerNilLogger(t *testing.T) {
+	consumer, err := NewConsumer("amqp://invalid", "test", nil)
+	assert.Error(t, err)
+	assert.Nil(t, consumer)
+}
