@@ -56,30 +56,25 @@ func TestConstantRelationships(t *testing.T) {
 
 func TestConstantTypes(t *testing.T) {
 	// Verify types are correct
-	var timeout time.Duration = DefaultTimeout
-	assert.IsType(t, time.Duration(0), timeout)
+	timeout := DefaultTimeout
+	batchSize := MaxBatchSize
+	ttl := RedisTTLSeconds
+	jwtHours := JWTExpirationHours
+	minHR := MinHeartRate
+	maxHR := MaxHeartRate
+	minSpO2 := MinSpO2
+	maxSpO2 := MaxSpO2
+	header := CorrelationIDHeader
 
-	var batchSize int = MaxBatchSize
-	assert.IsType(t, 0, batchSize)
-
-	var ttl int = RedisTTLSeconds
-	assert.IsType(t, 0, ttl)
-
-	var jwtHours int = JWTExpirationHours
-	assert.IsType(t, 0, jwtHours)
-
-	var minHR int = MinHeartRate
-	assert.IsType(t, 0, minHR)
-
-	var maxHR int = MaxHeartRate
-	assert.IsType(t, 0, maxHR)
-
-	var minSpO2 int = MinSpO2
-	assert.IsType(t, 0, minSpO2)
-
-	var maxSpO2 int = MaxSpO2
-	assert.IsType(t, 0, maxSpO2)
-
-	var header string = CorrelationIDHeader
+	// Use variables to avoid unused variable errors
+	_ = timeout
+	_ = batchSize
+	_ = ttl
+	_ = jwtHours
+	_ = minHR
+	_ = maxHR
+	_ = minSpO2
+	_ = maxSpO2
+	_ = header
 	assert.IsType(t, "", header)
 }

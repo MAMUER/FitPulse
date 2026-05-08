@@ -1,4 +1,4 @@
-// internal/errors/errors.go
+// Package errors provides application error types and utilities.
 package errors
 
 import (

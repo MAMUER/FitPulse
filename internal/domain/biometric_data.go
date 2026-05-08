@@ -1,4 +1,4 @@
-// internal/domain/biometric_data.go
+// Package domain provides core business domain models and types.
 package domain
 
 import "time"

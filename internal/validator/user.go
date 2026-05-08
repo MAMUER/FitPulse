@@ -1,4 +1,4 @@
-// internal/validator/user.go
+// Package validator provides input validation utilities for API requests.
 package validator
 
 import (

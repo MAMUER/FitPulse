@@ -282,7 +282,7 @@ type MockAMQPChannel struct {
 	shouldFailConsume      bool
 	shouldFailPublish      bool
 	shouldFailClose        bool
-	closed                  bool
+	closed                 bool
 }
 
 func (m *MockAMQPChannel) QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error) {

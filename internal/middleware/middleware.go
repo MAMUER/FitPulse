@@ -1,4 +1,4 @@
-// internal/middleware/middleware.go
+// Package middleware provides HTTP middleware for authentication, logging, and security.
 package middleware
 
 import (
@@ -91,7 +91,7 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			cid := GetCorrelationID(r.Context())
-			userId := GetUserID(r.Context())
+			userID := GetUserID(r.Context())
 
 			// Wrap response writer to capture status code
 			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
@@ -116,7 +116,7 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 			// Log in structured format
 			log.Info("HTTP_REQUEST",
 				zap.String("correlationId", cid),
-				zap.String("userId", userId),
+				zap.String("userId", userID),
 				zap.String("action", "HTTP_REQUEST"),
 				zap.Int64("durationMs", duration.Milliseconds()),
 				zap.String("endpoint", r.URL.Path),

@@ -1,4 +1,4 @@
-// internal/queue/interface.go
+// Package queue provides message queue interfaces and implementations.
 package queue
 
 import (

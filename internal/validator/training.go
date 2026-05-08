@@ -1,4 +1,4 @@
-// internal/validator/training.go
+// Package validator provides input validation utilities for API requests.
 package validator
 
 import (
@@ -20,8 +20,8 @@ var (
 	ErrDurationWeeksTooLarge  = errors.New("duration_weeks must not exceed 52")
 	ErrAvailableDaysRequired  = errors.New("available_days is required")
 	ErrAvailableDaysTooMany   = errors.New("available_days must not exceed 7")
-	ErrPlanIdRequired         = errors.New("plan_id is required")
-	ErrWorkoutIdRequired      = errors.New("workout_id is required")
+	ErrPlanIDRequired         = errors.New("plan_id is required")
+	ErrWorkoutIDRequired      = errors.New("workout_id is required")
 )
 
 // ValidateGeneratePlanRequest checks request for training plan generation.
@@ -61,10 +61,10 @@ func ValidateCompleteWorkoutRequest(req *pb.CompleteWorkoutRequest) error {
 		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
 	}
 	if req.PlanId == "" {
-		return status.Error(codes.InvalidArgument, ErrPlanIdRequired.Error())
+		return status.Error(codes.InvalidArgument, ErrPlanIDRequired.Error())
 	}
 	if req.WorkoutId == "" {
-		return status.Error(codes.InvalidArgument, ErrWorkoutIdRequired.Error())
+		return status.Error(codes.InvalidArgument, ErrWorkoutIDRequired.Error())
 	}
 	return nil
 }

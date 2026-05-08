@@ -11,7 +11,7 @@ type Client struct {
 	rdb *redis.Client
 }
 
-// Добавляем метод Close с проверкой ошибок
+// Close closes the cache client and returns any error encountered.
 func (c *Client) Close() error {
 	if c.rdb != nil {
 		return c.rdb.Close()

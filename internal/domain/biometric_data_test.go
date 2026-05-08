@@ -52,40 +52,40 @@ func TestBiometricDataFieldTypes(t *testing.T) {
 
 func TestBiometricDataCreation(t *testing.T) {
 	tests := []struct {
-		name        string
-		id          string
-		userID      string
-		metricType  string
-		value       float64
-		timestamp   time.Time
-		deviceType  string
+		name       string
+		id         string
+		userID     string
+		metricType string
+		value      float64
+		timestamp  time.Time
+		deviceType string
 	}{
 		{
-			name:        "heart rate data",
-			id:          "hr123",
-			userID:      "user456",
-			metricType:  "heart_rate",
-			value:       72.0,
-			timestamp:   time.Now(),
-			deviceType:  "apple_watch",
+			name:       "heart rate data",
+			id:         "hr123",
+			userID:     "user456",
+			metricType: "heart_rate",
+			value:      72.0,
+			timestamp:  time.Now(),
+			deviceType: "apple_watch",
 		},
 		{
-			name:        "blood pressure data",
-			id:          "bp123",
-			userID:      "user789",
-			metricType:  "blood_pressure_systolic",
-			value:       120.0,
-			timestamp:   time.Now().Add(-time.Hour),
-			deviceType:  "samsung_watch",
+			name:       "blood pressure data",
+			id:         "bp123",
+			userID:     "user789",
+			metricType: "blood_pressure_systolic",
+			value:      120.0,
+			timestamp:  time.Now().Add(-time.Hour),
+			deviceType: "samsung_watch",
 		},
 		{
-			name:        "temperature data",
-			id:          "temp123",
-			userID:      "user101",
-			metricType:  "temperature",
-			value:       36.6,
-			timestamp:   time.Now().Add(-2 * time.Hour),
-			deviceType:  "huawei_watch",
+			name:       "temperature data",
+			id:         "temp123",
+			userID:     "user101",
+			metricType: "temperature",
+			value:      36.6,
+			timestamp:  time.Now().Add(-2 * time.Hour),
+			deviceType: "huawei_watch",
 		},
 	}
 

@@ -1,3 +1,4 @@
+// Package adapters provides biometric data source adapters and aggregators.
 package adapters
 
 import (

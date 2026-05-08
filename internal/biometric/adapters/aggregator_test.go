@@ -153,7 +153,7 @@ func TestCompositeBiometricSourceFetchEmptySources(t *testing.T) {
 	source := NewCompositeBiometricSource()
 
 	_, err := source.Fetch(ctx, "user-1", []string{"heart_rate"})
-	if err != domain.ErrSourceUnavailable {
+	if !errors.Is(err, domain.ErrSourceUnavailable) {
 		t.Fatalf("expected ErrSourceUnavailable, got %v", err)
 	}
 }
@@ -268,9 +268,9 @@ func TestMergeSamples(t *testing.T) {
 	baseTime := time.Date(2026, 5, 5, 12, 30, 0, 0, time.UTC)
 
 	tests := []struct {
-		name     string
-		samples  []domain.BiometricSample
-		expected int
+		name      string
+		samples   []domain.BiometricSample
+		expected  int
 		checkFunc func(t *testing.T, samples []domain.BiometricSample)
 	}{
 		{

@@ -1,4 +1,4 @@
-// internal/metrics/rpc.go
+// Package metrics provides Prometheus metrics collection and RPC instrumentation.
 package metrics
 
 import (

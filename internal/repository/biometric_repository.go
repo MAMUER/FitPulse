@@ -1,4 +1,4 @@
-// internal/repository/biometric_repository.go
+// Package repository provides data access layer for biometric data persistence.
 package repository
 
 import (

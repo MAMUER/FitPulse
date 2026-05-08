@@ -1,4 +1,4 @@
-// internal/validator/biometric.go
+// Package validator provides input validation utilities for API requests.
 package validator
 
 import (

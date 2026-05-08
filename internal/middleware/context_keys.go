@@ -1,4 +1,4 @@
-// internal/middleware/context_keys.go
+// Package middleware provides HTTP middleware for authentication, logging, and security.
 package middleware
 
 const (

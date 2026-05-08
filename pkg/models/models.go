@@ -1,3 +1,4 @@
+// Package models provides shared data models and types.
 package models
 
 import (

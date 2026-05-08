@@ -132,10 +132,10 @@ func TestMedicalConstraintValidate(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name    string
+		name       string
 		constraint MedicalConstraint
-		wantErr bool
-		errMsg  string
+		wantErr    bool
+		errMsg     string
 	}{
 		{
 			name: "valid constraint",
@@ -196,9 +196,9 @@ func TestMedicalConstraintValidate(t *testing.T) {
 		{
 			name: "missing category",
 			constraint: MedicalConstraint{
-				ID:    "test-4",
-				Code:  "I10",
-				Label: "Hypertension",
+				ID:       "test-4",
+				Code:     "I10",
+				Label:    "Hypertension",
 				Severity: "moderate",
 				ImpactOnTraining: []ImpactRule{
 					{

@@ -44,15 +44,17 @@ func TestNewMedicalService(t *testing.T) {
 	assert.Equal(t, mockRepo, service.repo)
 }
 
+const testUserID = "user123"
+
 func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 	ctx := context.Background()
-	userID := "user123"
+	userID := testUserID
 
 	tests := []struct {
-		name           string
-		constraints    []domain.MedicalConstraint
-		repoError      error
-		workout        *domain.WorkoutPlan
+		name               string
+		constraints        []domain.MedicalConstraint
+		repoError          error
+		workout            *domain.WorkoutPlan
 		expectedViolations []domain.ConstraintViolation
 		expectedReview     bool
 	}{
@@ -68,7 +70,7 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			expectedReview:     false,
 		},
 		{
-			name:     "repository error",
+			name:        "repository error",
 			constraints: nil,
 			repoError:   errors.New("database error"),
 			workout: &domain.WorkoutPlan{
@@ -81,8 +83,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			name: "heart rate above threshold",
 			constraints: []domain.MedicalConstraint{
 				{
-					ID:   "constraint1",
-					Code: "I10",
+					ID:    "constraint1",
+					Code:  "I10",
 					Label: "Hypertension",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -115,8 +117,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			name: "blood pressure violation requiring approval",
 			constraints: []domain.MedicalConstraint{
 				{
-					ID:   "constraint2",
-					Code: "I10",
+					ID:    "constraint2",
+					Code:  "I10",
 					Label: "Hypertension",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -148,8 +150,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			name: "below threshold violation",
 			constraints: []domain.MedicalConstraint{
 				{
-					ID:   "constraint3",
-					Code: "I50",
+					ID:    "constraint3",
+					Code:  "I50",
 					Label: "Heart Failure",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -181,8 +183,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			name: "unknown metric",
 			constraints: []domain.MedicalConstraint{
 				{
-					ID:   "constraint4",
-					Code: "E11",
+					ID:    "constraint4",
+					Code:  "E11",
 					Label: "Diabetes",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -210,8 +212,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 			name: "multiple constraints with mixed violations",
 			constraints: []domain.MedicalConstraint{
 				{
-					ID:   "constraint5",
-					Code: "I10",
+					ID:    "constraint5",
+					Code:  "I10",
 					Label: "Hypertension",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -222,8 +224,8 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 					},
 				},
 				{
-					ID:   "constraint6",
-					Code: "I50",
+					ID:    "constraint6",
+					Code:  "I50",
 					Label: "Heart Failure",
 					ImpactOnTraining: []domain.ImpactRule{
 						{
@@ -280,7 +282,7 @@ func TestMedicalServiceEvaluateWorkout(t *testing.T) {
 
 func TestMedicalServiceGetRecommendedModifications(t *testing.T) {
 	ctx := context.Background()
-	userID := "user123"
+	userID := testUserID
 
 	tests := []struct {
 		name         string
@@ -297,10 +299,10 @@ func TestMedicalServiceGetRecommendedModifications(t *testing.T) {
 			expectations: nil,
 		},
 		{
-			name:      "repository error",
-			constraints: nil,
-			repoError:   errors.New("database error"),
-			workout:     &domain.WorkoutPlan{MaxHeartRate: 170},
+			name:         "repository error",
+			constraints:  nil,
+			repoError:    errors.New("database error"),
+			workout:      &domain.WorkoutPlan{MaxHeartRate: 170},
 			expectations: nil,
 		},
 		{
@@ -454,13 +456,13 @@ func TestMedicalServiceGetRecommendedModifications(t *testing.T) {
 
 func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 	ctx := context.Background()
-	userID := "user123"
+	userID := testUserID
 
 	tests := []struct {
-		name        string
-		constraints []domain.MedicalConstraint
-		repoError   error
-		metricType  string
+		name            string
+		constraints     []domain.MedicalConstraint
+		repoError       error
+		metricType      string
 		expectedAllowed bool
 		expectedReason  string
 		expectError     bool
@@ -475,10 +477,10 @@ func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 			expectError:     false,
 		},
 		{
-			name:        "repository error",
-			constraints: nil,
-			repoError:   errors.New("database error"),
-			metricType:  "heart_rate",
+			name:            "repository error",
+			constraints:     nil,
+			repoError:       errors.New("database error"),
+			metricType:      "heart_rate",
 			expectedAllowed: false,
 			expectedReason:  "",
 			expectError:     true,

@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Local User struct for login
+// User represents a user for login operations.
 type User struct {
 	ID           string
 	Email        string
@@ -249,7 +249,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	var nutrition sql.NullString
 	var sleepHours sql.NullFloat64
 
-	var nickname, profilePhotoUrl sql.NullString
+	var nickname, profilePhotoURL sql.NullString
 
 	err := s.db.QueryRowContext(ctx, `
         SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,
@@ -260,7 +260,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
         LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
         WHERE u.id = $1
     `, req.UserId).Scan(
-		&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoUrl, &profile.Role,
+		&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
 		&age, &gender, &heightCm, &weightKg, &fitnessLevel,
 		pq.Array(&profile.Goals),
 		&nutrition, &sleepHours,
@@ -277,8 +277,8 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	if nickname.Valid {
 		profile.Nickname = nickname.String
 	}
-	if profilePhotoUrl.Valid {
-		profile.ProfilePhotoUrl = profilePhotoUrl.String
+	if profilePhotoURL.Valid {
+		profile.ProfilePhotoUrl = profilePhotoURL.String
 	}
 	if age.Valid {
 		profile.Age = age.Int32

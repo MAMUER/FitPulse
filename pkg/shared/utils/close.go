@@ -1,4 +1,4 @@
-// pkg/shared/utils/close.go
+// Package utils provides shared utility functions.
 package utils
 
 import (

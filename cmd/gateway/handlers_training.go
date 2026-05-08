@@ -11,6 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type completeWorkoutRequest struct {
+	PlanID    string `json:"plan_id"`
+	WorkoutID string `json:"workout_id"`
+	Rating    int32  `json:"rating"`
+	Feedback  string `json:"feedback"`
+}
+
 func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
@@ -230,12 +237,7 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req struct {
-		PlanId    string `json:"plan_id"`
-		WorkoutId string `json:"workout_id"`
-		Rating    int32  `json:"rating"`
-		Feedback  string `json:"feedback"`
-	}
+	var req completeWorkoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode complete workout request", zap.Error(err))
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
@@ -244,8 +246,8 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 
 	_, err := g.trainingClient.CompleteWorkout(r.Context(), &trainingpb.CompleteWorkoutRequest{
 		UserId:    userID,
-		PlanId:    req.PlanId,
-		WorkoutId: req.WorkoutId,
+		PlanId:    req.PlanID,
+		WorkoutId: req.WorkoutID,
 		Rating:    req.Rating,
 		Feedback:  req.Feedback,
 	})

@@ -1,4 +1,4 @@
-// internal/sanitize/sanitize.go
+// Package sanitize provides input sanitization utilities for security.
 package sanitize
 
 import (

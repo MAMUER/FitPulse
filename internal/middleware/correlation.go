@@ -1,4 +1,4 @@
-// internal/middleware/correlation.go
+// Package middleware provides HTTP middleware for authentication, logging, and security.
 package middleware
 
 import (

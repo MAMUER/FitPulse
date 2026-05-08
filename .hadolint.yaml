@@ -1,4 +1,5 @@
 # Hadolint configuration
-
-# Additional rules can be configured here
-# For full list: https://github.com/hadolint/hadolint#rules
+ignored: []
+trustedRegistries:
+  - docker.io
+  - ghcr.io

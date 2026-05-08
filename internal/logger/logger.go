@@ -1,4 +1,4 @@
-// internal/logger/logger.go
+// Package logger provides structured logging utilities.
 package logger
 
 import (
@@ -54,17 +54,17 @@ func (l *Logger) Service() string {
 }
 
 // WithRequestID добавляет correlationId к контексту логгера
-func (l *Logger) WithRequestID(correlationId string) *Logger {
+func (l *Logger) WithRequestID(correlationID string) *Logger {
 	return &Logger{
-		Logger:  l.With(zap.String("correlationId", correlationId)),
+		Logger:  l.With(zap.String("correlationId", correlationID)),
 		service: l.service,
 	}
 }
 
 // WithUserID добавляет userId к контексту логгера
-func (l *Logger) WithUserID(userId string) *Logger {
+func (l *Logger) WithUserID(userID string) *Logger {
 	return &Logger{
-		Logger:  l.With(zap.String("userId", userId)),
+		Logger:  l.With(zap.String("userId", userID)),
 		service: l.service,
 	}
 }

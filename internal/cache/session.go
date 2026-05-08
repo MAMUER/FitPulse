@@ -1,4 +1,4 @@
-// internal/cache/session.go
+// Package cache provides caching utilities for user sessions and data.
 package cache
 
 import (
