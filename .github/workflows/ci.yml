@@ -81,10 +81,14 @@ jobs:
         run: |
           # Placeholder for Pact contract tests
           echo "Contract tests would run here"
-      - name: Hadolint Docker lint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: ./cmd/*/Dockerfile
+       - name: Hadolint Docker lint
+         run: |
+           for dockerfile in ./cmd/*/Dockerfile; do
+             if [ -f "$dockerfile" ]; then
+               echo "Linting $dockerfile"
+               docker run --rm -i hadolint/hadolint < "$dockerfile"
+             fi
+           done
       - name: Trivy security scan
         uses: aquasecurity/trivy-action@master
         with:
