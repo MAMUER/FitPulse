@@ -72,8 +72,14 @@ yaml-check:
 	go run tools/validate_yaml.go
 	@echo "YAML check complete."
 
+# Запуск integration тестов
+test-integration:
+	@echo "Running integration tests..."
+	go test -v -tags=integration ./...
+	@echo "Integration tests complete."
+
 # Запуск всех проверок
-check: tidy fmt vet yaml-check lint test build test-cover
+check: tidy fmt vet yaml-check lint test test-integration build test-cover
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
