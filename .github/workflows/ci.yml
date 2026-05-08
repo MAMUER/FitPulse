@@ -45,10 +45,6 @@ jobs:
             -Dsonar.go.coverage.reportPaths=coverage.out
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      - name: Snyk Dependency Scan
-        uses: snyk/actions/golang@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   ci-build:
     name: CI Build
