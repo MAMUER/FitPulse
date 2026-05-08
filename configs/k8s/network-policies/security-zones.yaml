@@ -105,17 +105,10 @@ spec:
     - protocol: TCP
       port: 5672  # RabbitMQ
   egress:
-  - to:
-    - namespaceSelector: {}
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    ports:
-    - protocol: UDP
-      port: 53
+  - to: []  # No outbound traffic from data zone
 
 ---
-# Monitoring zone
+# Monitoring zone - ELK, Prometheus, Grafana
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -129,6 +122,23 @@ spec:
   - Ingress
   - Egress
   ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          zone: app-zone
+    ports:
+    - protocol: TCP
+      port: 9090  # Prometheus
+    - protocol: TCP
+      port: 5044  # Logstash
+    - protocol: TCP
+      port: 5601  # Kibana
+    - protocol: TCP
+      port: 3000  # Grafana
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system  # Allow kubelet metrics
   - from:
     - namespaceSelector:
         matchLabels:
@@ -153,6 +163,12 @@ spec:
         matchLabels:
           zone: data-zone
     ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL
+    - protocol: TCP
+      port: 6379  # Redis
+    - protocol: TCP
+      port: 5672  # RabbitMQ
     - protocol: TCP
       port: 9200  # Elasticsearch
   - to:

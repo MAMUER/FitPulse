@@ -6,6 +6,20 @@ metadata:
 data:
   init.sql: |
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    
+    -- Enable TDE-like encryption for sensitive fields
+    CREATE OR REPLACE FUNCTION encrypt_sensitive(text) RETURNS text AS $$
+    BEGIN
+      RETURN encode(encrypt($1::bytea, 'your-encryption-key-here', 'aes'), 'hex');
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    CREATE OR REPLACE FUNCTION decrypt_sensitive(text) RETURNS text AS $$
+    BEGIN
+      RETURN decrypt(decode($1, 'hex'), 'your-encryption-key-here', 'aes')::text;
+    END;
+    $$ LANGUAGE plpgsql;
     
     CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -73,10 +73,23 @@ yaml-check:
 	@echo "YAML check complete."
 
 # Запуск всех проверок
-check: tidy fmt vet yaml-check lint test build 
+check: tidy fmt vet yaml-check lint test build test-cover
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
+
+# Сборка всех Go-сервисов
+build:
+	@echo "Building Go services..."
+	go build -o bin/gateway ./cmd/gateway
+	go build -o bin/user-service ./cmd/user-service
+	go build -o bin/biometric-service ./cmd/biometric-service
+	go build -o bin/training-service ./cmd/training-service
+	go build -o bin/data-processor ./cmd/data-processor
+	go build -o bin/device-connector ./cmd/device-connector
+	go build -o bin/device-emulator ./cmd/device-emulator
+	@echo "Skipping Python-based ML services for Go build target: cmd/ml-classifier, cmd/ml-generator"
+	@echo "Build complete."
 
 
 proto:
@@ -104,16 +117,6 @@ proto-clean:
 	@echo "Cleaning generated proto files..."
 	powershell -Command "if (Test-Path 'api/gen') { Remove-Item -Recurse -Force 'api/gen' }"
 	@echo "Done."
-
-build:
-	@echo "Building services..."
-	powershell -Command "if (!(Test-Path '$(BIN_DIR)')) { New-Item -ItemType Directory -Path '$(BIN_DIR)' -Force }"
-	go build -o $(BIN_DIR)/user-service.exe ./cmd/user-service
-	go build -o $(BIN_DIR)/gateway.exe ./cmd/gateway
-	go build -o $(BIN_DIR)/biometric-service.exe ./cmd/biometric-service
-	go build -o $(BIN_DIR)/training-service.exe ./cmd/training-service
-	go build -o $(BIN_DIR)/device-emulator.exe ./cmd/device-emulator
-	@echo "Build complete."
 
 run: build
 	.\bin\gateway.exe

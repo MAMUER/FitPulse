@@ -1,8 +1,8 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
   title: Fitness Platform API
-  version: 1.0.0
-  description: API for personalized fitness management
+  version: 2.0.0
+  description: API for personalized fitness management with biometric data integration
 servers:
   - url: http://localhost:8080/api/v1
 paths:
