@@ -33,9 +33,10 @@ jobs:
             echo "Warning: No ADR update detected. Please document architectural decisions."
           fi
       - name: SonarQube Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        with:
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-project-base-dir: .
       - name: Snyk Dependency Scan
         uses: snyk/actions/golang@master
         env:
