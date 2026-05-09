@@ -51,55 +51,55 @@ jobs:
     runs-on: ubuntu-latest
     needs: code-review
     steps:
-      - uses: actions/checkout@v5
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Install dependencies
-        run: go mod download
-      - name: Run unit tests
-        run: |
-          PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
-          if [ -z "$PACKAGES" ]; then
-            echo "No testable packages found."
-            exit 1
-          fi
-          echo "Testing packages: $PACKAGES"
-          go test -v -coverprofile=coverage.out $PACKAGES
-      - name: Check coverage
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-          echo "Total coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 45" | bc -l) )); then
-            echo "Coverage $COVERAGE% is below 45%"
-            exit 1
-          fi
-      - name: Run integration tests
-        run: go test -v -tags=integration ./...
-      - name: Run contract tests
-        run: |
-          # Placeholder for Pact contract tests
-          echo "Contract tests would run here"
-       - name: Hadolint Docker lint
-         run: |
-           for dockerfile in ./cmd/*/Dockerfile; do
-             if [ -f "$dockerfile" ]; then
-               echo "Linting $dockerfile"
-               docker run --rm -i hadolint/hadolint < "$dockerfile"
-             fi
-           done
-      - name: Trivy security scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-      - name: Multi-arch build
-        run: |
-          docker buildx create --use
-          for service in gateway user-service biometric-service training-service; do
-            docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ github.repository }}/$service:latest ./cmd/$service
-          done
+        - uses: actions/checkout@v5
+        - name: Set up Go
+          uses: actions/setup-go@v6
+          with:
+            go-version: ${{ env.GO_VERSION }}
+        - name: Install dependencies
+          run: go mod download
+        - name: Run unit tests
+          run: |
+            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
+            if [ -z "$PACKAGES" ]; then
+              echo "No testable packages found."
+              exit 1
+            fi
+            echo "Testing packages: $PACKAGES"
+            go test -v -coverprofile=coverage.out $PACKAGES
+        - name: Check coverage
+          run: |
+            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+            echo "Total coverage: $COVERAGE%"
+            if (( $(echo "$COVERAGE < 45" | bc -l) )); then
+              echo "Coverage $COVERAGE% is below 45%"
+              exit 1
+            fi
+        - name: Run integration tests
+          run: go test -v -tags=integration ./...
+        - name: Run contract tests
+          run: |
+            # Placeholder for Pact contract tests
+            echo "Contract tests would run here"
+        - name: Hadolint Docker lint
+          run: |
+            for dockerfile in ./cmd/*/Dockerfile; do
+              if [ -f "$dockerfile" ]; then
+                echo "Linting $dockerfile"
+                docker run --rm -i hadolint/hadolint < "$dockerfile"
+              fi
+            done
+        - name: Trivy security scan
+          uses: aquasecurity/trivy-action@master
+          with:
+            scan-type: 'fs'
+            scan-ref: '.'
+        - name: Multi-arch build
+          run: |
+            docker buildx create --use
+            for service in gateway user-service biometric-service training-service; do
+              docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ github.repository }}/$service:latest ./cmd/$service
+            done
 
   deploy-test:
     name: Deploy to Test
