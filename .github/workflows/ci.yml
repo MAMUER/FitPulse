@@ -94,12 +94,17 @@ jobs:
           with:
             scan-type: 'fs'
             scan-ref: '.'
-        - name: Multi-arch build
-          run: |
-            docker buildx create --use
-            for service in gateway user-service biometric-service training-service; do
-              docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ github.repository }}/$service:latest ./cmd/$service
-            done
+         - name: Get lowercase repo name
+           id: repo-lower
+           run: |
+             REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+             echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
+         - name: Multi-arch build
+           run: |
+             docker buildx create --use
+             for service in gateway user-service biometric-service training-service; do
+               docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ steps.repo-lower.outputs.repo_lower }}/$service:latest ./cmd/$service
+             done
 
   deploy-test:
     name: Deploy to Test
