@@ -94,12 +94,12 @@ jobs:
           with:
             scan-type: 'fs'
             scan-ref: '.'
-         - name: Get lowercase repo name
+        - name: Get lowercase repo name
            id: repo-lower
            run: |
              REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
              echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
-         - name: Multi-arch build
+        - name: Multi-arch build
            run: |
              docker buildx create --use
              for service in gateway user-service biometric-service training-service; do
