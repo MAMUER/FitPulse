@@ -27,8 +27,8 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Suppress git warnings
-        run: git config --global advice.defaultBranchName false
+      - name: Set git default branch to main
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
