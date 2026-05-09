@@ -4,7 +4,7 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint certs
+.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint certs docker-lint
 
 # ... (existing targets)
 
@@ -72,6 +72,12 @@ yaml-check:
 	go run tools/validate_yaml.go
 	@echo "YAML check complete."
 
+# Проверка Docker файлов с помощью hadolint
+docker-lint:
+	@echo "Running hadolint..."
+	@powershell -Command "Get-ChildItem './cmd/*/Dockerfile' | ForEach-Object { Write-Host 'Linting' $$_.FullName; Get-Content $$_.FullName | docker run --rm -i hadolint/hadolint }"
+	@echo "Docker lint complete."
+
 # Запуск integration тестов
 test-integration:
 	@echo "Running integration tests..."
@@ -79,7 +85,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок
-check: tidy fmt vet yaml-check lint test test-integration build test-cover
+check: tidy fmt vet yaml-check docker-lint lint test test-integration build test-cover
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
