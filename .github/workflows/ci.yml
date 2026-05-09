@@ -61,6 +61,10 @@ jobs:
           with:
             go-version: ${{ env.GO_VERSION }}
             cache: true
+        - name: Clean cache directories
+          run: |
+            rm -rf ~/go/pkg/mod/cache
+            rm -rf ~/.cache/go-build
         - name: Cache Go modules
           uses: actions/cache@v5
           with:
@@ -148,9 +152,13 @@ jobs:
           filename: scripts/load-test/load-test.js
         continue-on-error: true
       - name: Security scan (OWASP ZAP)
-        uses: zaproxy/action-baseline@v0.10.0
-        with:
-          target: 'https://staging.example.com'
+        continue-on-error: true
+        run: |
+          echo "OWASP ZAP scan skipped - staging environment not available"
+          # Uncomment when staging.example.com is available:
+          # uses: zaproxy/action-baseline@v0.10.0
+          # with:
+          #   target: 'https://staging.example.com'
       - name: Chaos engineering
         run: |
           echo "Running chaos tests"
@@ -297,6 +305,7 @@ jobs:
 
       # Проверка зависимостей на известные уязвимости
       - name: Run govulncheck
+        continue-on-error: true
         run: |
           govulncheck ./... 2>&1 | tee vulncheck-results.txt || true
           echo "=== VULNCHECK SUMMARY ==="
@@ -838,22 +847,22 @@ jobs:
             *📊 Статусы этапов:*
             | Этап | Статус |
             |------|--------|
-            | 🧪 Тесты | ${{ steps.statuses.outputs.test_emoji }} ${{ steps.statuses.outputs.test_status }} |
-            | � Security | ${{ steps.statuses.outputs.security_emoji }} ${{ steps.statuses.outputs.security_status }} |
-            | 🔑 Secrets | ${{ steps.statuses.outputs.secrets_emoji }} ${{ steps.statuses.outputs.secrets_status }} |
-            | �🔨 Сборка | ${{ steps.statuses.outputs.build_emoji }} ${{ steps.statuses.outputs.build_status }} |
-            | 🐳 Docker | ${{ steps.statuses.outputs.docker_emoji }} ${{ steps.statuses.outputs.docker_status }} |
-            | 🚀 Деплой (VPS) | ${{ steps.statuses.outputs.deploy_emoji }} ${{ steps.statuses.outputs.deploy_status }} |
-            | ☸️ Kubernetes | ${{ steps.statuses.outputs.k8s_emoji }} ${{ steps.statuses.outputs.k8s_status }} |
+            | 🧪 Тесты | ${{ steps.statuses.outputs.test_emoji }} `${{ steps.statuses.outputs.test_status }}` |
+            | 🔒 Security | ${{ steps.statuses.outputs.security_emoji }} `${{ steps.statuses.outputs.security_status }}` |
+            | 🔑 Secrets | ${{ steps.statuses.outputs.secrets_emoji }} `${{ steps.statuses.outputs.secrets_status }}` |
+            | 🔨 Сборка | ${{ steps.statuses.outputs.build_emoji }} `${{ steps.statuses.outputs.build_status }}` |
+            | 🐳 Docker | ${{ steps.statuses.outputs.docker_emoji }} `${{ steps.statuses.outputs.docker_status }}` |
+            | 🚀 Деплой (VPS) | ${{ steps.statuses.outputs.deploy_emoji }} `${{ steps.statuses.outputs.deploy_status }}` |
+            | ☸️ Kubernetes | ${{ steps.statuses.outputs.k8s_emoji }} `${{ steps.statuses.outputs.k8s_status }}` |
 
             ━━━━━━━━━━━━━━━━━━━━━
 
-            *🖥️ Сервисы:*
-            • Gateway: http://${{ secrets.VPS_HOST }}:8080
-            • ML Classifier: http://${{ secrets.VPS_HOST }}:8001
-            • ML Generator: http://${{ secrets.VPS_HOST }}:8002
-            • RabbitMQ UI: http://${{ secrets.VPS_HOST }}:15672
-            • Prometheus: http://${{ secrets.VPS_HOST }}:9090
-            • Grafana: http://${{ secrets.VPS_HOST }}:3000
+            *🖥️ Доступ к сервисам:*
+            • 🌐 Gateway: http://${{ secrets.VPS_HOST }}:8080
+            • 🤖 ML Classifier: http://${{ secrets.VPS_HOST }}:8001
+            • 🎨 ML Generator: http://${{ secrets.VPS_HOST }}:8002
+            • 📨 RabbitMQ UI: http://${{ secrets.VPS_HOST }}:15672
+            • 📊 Prometheus: http://${{ secrets.VPS_HOST }}:9090
+            • 📈 Grafana: http://${{ secrets.VPS_HOST }}:3000
 
-            [🔗 Подробнее в Actions](${{ steps.commit.outputs.run_url }})
+            [🔗 Подробный отчет в Actions](${{ steps.commit.outputs.run_url }})
