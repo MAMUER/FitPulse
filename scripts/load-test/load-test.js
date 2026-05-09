@@ -1,29 +1,37 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Trend } from 'k6/metrics';
+import { check, sleep, group } from 'k6';
+import { Trend, Counter, Rate } from 'k6/metrics';
 
 // Пользовательские метрики
 const loginDuration = new Trend('login_duration');
-const getProfileDuration = new Trend('get_profile_duration');
 const biometricDuration = new Trend('biometric_duration');
 const generatePlanDuration = new Trend('generate_plan_duration');
+const healthCheckDuration = new Trend('health_check_duration');
+const apiErrors = new Counter('api_errors_total');
+const errorRate = new Rate('errors');
 
 export const options = {
-    insecureSkipTLSVerify: true,  // for self-signed certs
+    insecureSkipTLSVerify: true,
     stages: [
-        { duration: '30s', target: 20 },  // разогрев до 20 пользователей
-        { duration: '1m', target: 50 },   // пиковая нагрузка
-        { duration: '30s', target: 0 },   // спад
+        { duration: '1m', target: 20 },   // Разогрев
+        { duration: '3m', target: 50 },   // Пиковая нагрузка
+        { duration: '1m', target: 100 },  // Повышение
+        { duration: '2m', target: 50 },   // Снижение
+        { duration: '1m', target: 0 },    // Спад
     ],
     thresholds: {
-        http_req_duration: ['p(95)<500'], // 95% запросов <500мс
-        'login_duration': ['p(95)<300'],
+        http_req_duration: [
+            'p(95)<500',
+            'p(99)<1000',
+            'p(99.9)<2000'
+        ],
+        'errors': ['rate<0.1'],
+        'api_errors_total': ['count<100'],
     },
 };
 
 const BASE_URL = __ENV.BASE_URL || 'https://localhost:8443';
-const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTest123!';  // override via env
-// Unique email per test run to avoid stale email_confirmed=false from previous runs
+const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTest123!';
 const RUN_ID = Math.random().toString(36).substring(2, 8);
 const TEST_USER = {
     email: `loadtest-${RUN_ID}@example.com`,
@@ -33,13 +41,16 @@ const TEST_USER = {
 };
 
 export function setup() {
-    // Регистрация тестового пользователя (уникальный email каждый раз)
+    console.log(`Setup: Starting load test with user ${TEST_USER.email}`);
+
+    // Регистрация
     const registerRes = http.post(`${BASE_URL}/api/v1/register`, JSON.stringify(TEST_USER), {
         headers: { 'Content-Type': 'application/json' },
+        timeout: '10s'
     });
     check(registerRes, { 'register success': (r) => r.status === 200 });
 
-    // Извлекаем токен подтверждения (dev mode)
+    // Извлекаем токен подтверждения
     let verifyToken = null;
     const regData = registerRes.json();
     if (regData && regData.message) {
@@ -51,6 +62,7 @@ export function setup() {
     if (verifyToken) {
         const confirmRes = http.post(`${BASE_URL}/api/v1/auth/confirm`, JSON.stringify({ token: verifyToken }), {
             headers: { 'Content-Type': 'application/json' },
+            timeout: '10s'
         });
         check(confirmRes, { 'email confirmed': (r) => r.status === 200 });
     }
@@ -59,12 +71,15 @@ export function setup() {
     const loginRes = http.post(`${BASE_URL}/api/v1/login`, JSON.stringify({
         email: TEST_USER.email,
         password: TEST_USER.password,
-    }), { headers: { 'Content-Type': 'application/json' } });
+    }), {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: '10s'
+    });
     check(loginRes, { 'login success': (r) => r.status === 200 });
 
     const token = loginRes.json('access_token');
 
-    // Заполняем профиль (нужно для ML генерации)
+    // Заполняем профиль
     const profileRes = http.put(`${BASE_URL}/api/v1/profile`, JSON.stringify({
         full_name: 'Load Test User',
         age: 30,
@@ -76,9 +91,13 @@ export function setup() {
         contraindications: [],
         nutrition: 'balanced',
         sleep_hours: 7.5,
-    }), { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } });
+    }), {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        timeout: '10s'
+    });
     check(profileRes, { 'profile setup': (r) => r.status === 200 });
 
+    console.log(`Setup: User ${TEST_USER.email} ready for load test`);
     return { token };
 }
 
@@ -88,43 +107,95 @@ export default function (data) {
         'Content-Type': 'application/json',
     };
 
-    // 1. ML Классификация - только в 30% случаев
-    if (Math.random() < 0.3) {
+    // 1. Health Check
+    group('Health Check', () => {
         let startTime = new Date();
-        let classifyRes = http.post(`${BASE_URL}/api/v1/ml/classify`, JSON.stringify({}), { headers });
-        const classifyOk = classifyRes.status === 200 || classifyRes.status === 202;
-        const classifyUnavailable = classifyRes.status === 502 || classifyRes.status === 503 || classifyRes.status === 500;
-        if (classifyOk) {
-            check(classifyRes, { 'ml classify ok': () => true });
-        } else if (classifyUnavailable) {
-            check(classifyRes, { 'ml classify skipped (service unavailable)': () => true });
-        } else {
-            check(classifyRes, { 'ml classify ok': () => false });
-        }
-        biometricDuration.add(new Date() - startTime);
-    }
+        let healthRes = http.get(`${BASE_URL}/health`, { timeout: '10s' });
+        healthCheckDuration.add(new Date() - startTime);
+        check(healthRes, {
+            'health check success': (r) => r.status === 200,
+        }) || (apiErrors.add(1), errorRate.add(1));
+    });
     sleep(0.5);
 
-    // 2. Генерация программы - только в 30% случаев
+    // 2. ML Классификация - 30%
     if (Math.random() < 0.3) {
-        let startTime = new Date();
-        const plan = {
-            training_class: 'endurance_e1e2',
-            duration_weeks: 4,
-            available_days: [1, 3, 5],
-            preferences: { max_duration: 60 }
-        };
-        let planRes = http.post(`${BASE_URL}/api/v1/ml/generate-plan`, JSON.stringify(plan), { headers });
-        const planOk = planRes.status === 200 || planRes.status === 202;
-        const planUnavailable = planRes.status === 502 || planRes.status === 503 || planRes.status === 500;
-        if (planOk) {
-            check(planRes, { 'ml generate plan ok': () => true });
-        } else if (planUnavailable) {
-            check(planRes, { 'ml generate skipped (service unavailable)': () => true });
-        } else {
-            check(planRes, { 'ml generate plan ok': () => false });
-        }
-        generatePlanDuration.add(new Date() - startTime);
+        group('ML Classification', () => {
+            let startTime = new Date();
+            let classifyRes = http.post(`${BASE_URL}/api/v1/ml/classify`, JSON.stringify({}), {
+                headers,
+                timeout: '15s'
+            });
+            biometricDuration.add(new Date() - startTime);
+
+            const ok = classifyRes.status === 200 || classifyRes.status === 202;
+            const unavailable = [500, 502, 503].includes(classifyRes.status);
+
+            if (ok) {
+                check(classifyRes, { 'ml classify success': () => true });
+            } else if (unavailable) {
+                check(classifyRes, { 'ml classify unavailable (expected)': () => true });
+            } else {
+                apiErrors.add(1);
+                errorRate.add(1);
+                check(classifyRes, { 'ml classify error': () => false });
+            }
+        });
+        sleep(1);
     }
-    sleep(1);
+
+    // 3. Генерация плана - 30%
+    if (Math.random() < 0.3) {
+        group('ML Generate Plan', () => {
+            let startTime = new Date();
+            const plan = {
+                training_class: 'endurance_e1e2',
+                duration_weeks: 4,
+                available_days: [1, 3, 5],
+                preferences: { max_duration: 60 }
+            };
+            let planRes = http.post(`${BASE_URL}/api/v1/ml/generate-plan`, JSON.stringify(plan), {
+                headers,
+                timeout: '30s'
+            });
+            generatePlanDuration.add(new Date() - startTime);
+
+            const ok = planRes.status === 200 || planRes.status === 202;
+            const unavailable = [500, 502, 503].includes(planRes.status);
+
+            if (ok) {
+                check(planRes, { 'ml generate plan success': () => true });
+            } else if (unavailable) {
+                check(planRes, { 'ml generate plan unavailable (expected)': () => true });
+            } else {
+                apiErrors.add(1);
+                errorRate.add(1);
+                check(planRes, { 'ml generate plan error': () => false });
+            }
+        });
+        sleep(1);
+    }
+
+    // 4. Получение профиля - 50%
+    if (Math.random() < 0.5) {
+        group('Get Profile', () => {
+            let profileRes = http.get(`${BASE_URL}/api/v1/profile`, { headers, timeout: '10s' });
+            check(profileRes, {
+                'get profile success': (r) => r.status === 200,
+                'profile has data': (r) => r.body && r.body.length > 0,
+            }) || (apiErrors.add(1), errorRate.add(1));
+        });
+        sleep(0.5);
+    }
+
+    // 5. Список устройств - 40%
+    if (Math.random() < 0.4) {
+        group('List Devices', () => {
+            let devicesRes = http.get(`${BASE_URL}/api/v1/devices`, { headers, timeout: '10s' });
+            check(devicesRes, {
+                'list devices success': (r) => r.status === 200 || r.status === 404,
+            }) || (apiErrors.add(1), errorRate.add(1));
+        });
+        sleep(0.5);
+    }
 }
