@@ -23,6 +23,8 @@ jobs:
   code-review:
     name: Code Review Gates
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - name: Check ADR updates
@@ -50,6 +52,8 @@ jobs:
     name: CI Build
     runs-on: ubuntu-latest
     needs: code-review
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
         - uses: actions/checkout@v5
         - name: Set up Go
@@ -103,13 +107,15 @@ jobs:
           run: |
              docker buildx create --use
              for service in gateway user-service biometric-service training-service; do
-               docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ steps.repo-lower.outputs.repo_lower }}/$service:latest ./cmd/$service
+               docker buildx build --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ steps.repo-lower.outputs.repo_lower }}/$service:latest --file ./cmd/$service/Dockerfile .
              done
 
   deploy-test:
     name: Deploy to Test
     runs-on: ubuntu-latest
     needs: ci-build
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Smoke tests
         run: |
@@ -120,6 +126,8 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: deploy-test
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: UAT Tests
         run: |
@@ -141,6 +149,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-staging
     if: github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Create git tag
         run: |
@@ -159,6 +169,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: release-candidate
     environment: production
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Canary deployment (10%)
         run: |
@@ -178,6 +190,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-production
     if: failure()
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Check error rate
         run: |
@@ -225,6 +239,8 @@ jobs:
     name: Security Scanning (SAST + Dependencies)
     runs-on: ubuntu-latest
     needs: code-review
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
 
@@ -307,6 +323,8 @@ jobs:
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -341,6 +359,8 @@ jobs:
     name: Build Binaries
     runs-on: ubuntu-latest
     needs: [ci-build, security-scan, secrets-scan]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -365,6 +385,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - name: Log in to GitHub Container Registry
@@ -456,6 +478,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: webfactory/ssh-agent@v0.9.0
@@ -630,6 +654,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - name: Create secrets from GitHub Secrets
@@ -691,6 +717,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ci-build, security-scan, secrets-scan, build, docker, deploy, k8s-deploy]
     if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
       - name: Get all job statuses
