@@ -3,7 +3,7 @@
 # ========== Builder stage ==========
 FROM golang:1.26-alpine AS builder
 
-RUN apk add --no-cache git=2.47.3-r0 ca-certificates=20260413-r0
+RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
 
 WORKDIR /app
 
