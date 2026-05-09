@@ -4,7 +4,7 @@ package validator
 import (
 	"errors"
 
-	pb "github.com/MAMUER/Project/api/gen/training"
+	pb "github.com/MAMUER/project/api/gen/training"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

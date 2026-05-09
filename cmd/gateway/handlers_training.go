@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	trainingpb "github.com/MAMUER/Project/api/gen/training"
-	"github.com/MAMUER/Project/internal/middleware"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
+	"github.com/MAMUER/project/internal/middleware"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

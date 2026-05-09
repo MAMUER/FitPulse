@@ -27,7 +27,7 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 
 SCRIPT_DIR = Path(__file__).parent
-LOAD_TEST_JS = SCRIPT_DIR / "load-test" / "load-test.js"
+LOAD_TEST_K6 = SCRIPT_DIR.parent / "load-test.k6"
 
 
 def print_results(results_file):
@@ -75,19 +75,35 @@ Examples:
     # Check k6
     k6_path = shutil.which("k6")
     if not k6_path:
-        print(f"{RED}❌ k6 not found!{RESET}")
-        print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}\n")
+        # Try common installation paths
+        common_paths = [
+            "/usr/local/bin/k6",
+            "/usr/bin/k6",
+            "/opt/homebrew/bin/k6",  # macOS
+            "~/bin/k6",
+            "./k6"
+        ]
+        for path in common_paths:
+            expanded_path = os.path.expanduser(path)
+            if os.path.isfile(expanded_path) and os.access(expanded_path, os.X_OK):
+                k6_path = expanded_path
+                break
+
+    if not k6_path:
+        print(f"{RED}❌ k6 not found in PATH or common locations!{RESET}")
+        print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}")
+        print(f"Or download and place in one of: {', '.join(common_paths)}{RESET}\n")
         sys.exit(1)
 
-    if not LOAD_TEST_JS.exists():
-        print(f"{RED}❌ Load test script not found: {LOAD_TEST_JS}{RESET}")
+    if not LOAD_TEST_K6.exists():
+        print(f"{RED}❌ Load test script not found: {LOAD_TEST_K6}{RESET}")
         sys.exit(1)
 
     print(f"\n{BOLD}{CYAN}{'=' * 55}{RESET}")
     print(f"{BOLD}{CYAN}   FITNESS PLATFORM — LOAD TEST{RESET}")
     print(f"{BOLD}{CYAN}{'=' * 55}{RESET}")
     print(f"  k6 path     : {k6_path}")
-    print(f"  Script      : {LOAD_TEST_JS.name}")
+    print(f"  Script      : {LOAD_TEST_K6.name}")
     print(f"  Base URL    : {args.base_url}")
     print(f"  Duration    : {args.duration}")
     print(f"  VUs (max)   : {args.vus}")
@@ -100,7 +116,7 @@ Examples:
     cmd = [
         k6_path, "run",
         "--out", f"json={args.output}",
-        str(LOAD_TEST_JS),
+        str(LOAD_TEST_K6),
         "--env", f"BASE_URL={args.base_url}",
     ]
 

@@ -5,9 +5,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/MAMUER/Project/internal/db"
-	"github.com/MAMUER/Project/internal/logger"
-	"github.com/MAMUER/Project/internal/queue"
+	"github.com/MAMUER/project/internal/db"
+	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/queue"
 	"go.uber.org/zap"
 )
 

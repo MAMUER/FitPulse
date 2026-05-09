@@ -796,7 +796,7 @@ const file_training_proto_rawDesc = "" +
 	"\aGetPlan\x12\x18.training.GetPlanRequest\x1a\x16.training.TrainingPlan\x12D\n" +
 	"\tListPlans\x12\x1a.training.ListPlansRequest\x1a\x1b.training.ListPlansResponse\x12V\n" +
 	"\x0fCompleteWorkout\x12 .training.CompleteWorkoutRequest\x1a!.training.CompleteWorkoutResponse\x12J\n" +
-	"\vGetProgress\x12\x1c.training.GetProgressRequest\x1a\x1d.training.GetProgressResponseB,Z*github.com/MAMUER/Project/api/gen/trainingb\x06proto3"
+	"\vGetProgress\x12\x1c.training.GetProgressRequest\x1a\x1d.training.GetProgressResponseB,Z*github.com/MAMUER/project/api/gen/trainingb\x06proto3"
 
 var (
 	file_training_proto_rawDescOnce sync.Once

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 // CompositeBiometricSource aggregates multiple biometric sources, providing a single normalized view.

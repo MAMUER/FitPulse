@@ -34,8 +34,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
-	"github.com/MAMUER/Project/internal/biometric/mocks"
+	"github.com/MAMUER/project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/mocks"
 )
 
 // IngestRecord matches device-connector expected format.

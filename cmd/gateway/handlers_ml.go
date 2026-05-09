@@ -16,10 +16,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
-	trainingpb "github.com/MAMUER/Project/api/gen/training"
-	userpb "github.com/MAMUER/Project/api/gen/user"
-	"github.com/MAMUER/Project/internal/middleware"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/middleware"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )

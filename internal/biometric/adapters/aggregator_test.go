@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 type stubSource struct {

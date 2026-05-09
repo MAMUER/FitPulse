@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/MAMUER/Project/internal/logger"
+	"github.com/MAMUER/project/internal/logger"
 	"github.com/gorilla/mux"
 )
 

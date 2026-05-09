@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	pb "github.com/MAMUER/Project/api/gen/biometric"
+	pb "github.com/MAMUER/project/api/gen/biometric"
 )
 
 var (

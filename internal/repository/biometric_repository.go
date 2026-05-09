@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/MAMUER/Project/internal/domain"
+	"github.com/MAMUER/project/internal/domain"
 	"github.com/google/uuid"
 )
 

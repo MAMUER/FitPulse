@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	userpb "github.com/MAMUER/Project/api/gen/user"
-	"github.com/MAMUER/Project/internal/middleware"
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
 )
 

@@ -3,9 +3,9 @@ package validator
 import (
 	"testing"
 
-	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
-	trainingpb "github.com/MAMUER/Project/api/gen/training"
-	userpb "github.com/MAMUER/Project/api/gen/user"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
+	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

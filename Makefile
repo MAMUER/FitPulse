@@ -85,7 +85,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок
-check: tidy fmt vet yaml-check docker-lint lint test test-integration build test-cover
+check: tidy fmt vet yaml-check docker-lint lint test-integration build test-cover
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

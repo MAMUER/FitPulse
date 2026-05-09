@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	biometricpb "github.com/MAMUER/Project/api/gen/biometric"
-	"github.com/MAMUER/Project/internal/middleware"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

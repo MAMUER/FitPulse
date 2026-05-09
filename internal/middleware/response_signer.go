@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/MAMUER/Project/internal/auth"
+	"github.com/MAMUER/project/internal/auth"
 	"go.uber.org/zap"
 )
 

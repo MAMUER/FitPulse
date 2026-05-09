@@ -5,7 +5,7 @@ import (
 	"errors"
 	"regexp"
 
-	pb "github.com/MAMUER/Project/api/gen/user"
+	pb "github.com/MAMUER/project/api/gen/user"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

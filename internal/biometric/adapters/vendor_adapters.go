@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 // ==========================================

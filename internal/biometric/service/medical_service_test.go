@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	pb "github.com/MAMUER/Project/api/gen/biometric"
-	"github.com/MAMUER/Project/internal/logger"
-	"github.com/MAMUER/Project/internal/validator"
+	pb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

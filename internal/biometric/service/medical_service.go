@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/MAMUER/Project/internal/biometric/domain"
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 // MedicalService manages medical constraints and validates training plans.

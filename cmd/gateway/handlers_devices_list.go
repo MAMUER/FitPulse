@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MAMUER/Project/internal/middleware"
+	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
 )
 

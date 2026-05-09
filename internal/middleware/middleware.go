@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MAMUER/Project/internal/auth"
+	"github.com/MAMUER/project/internal/auth"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"

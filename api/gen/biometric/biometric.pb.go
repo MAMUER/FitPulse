@@ -551,7 +551,7 @@ const file_biometric_proto_rawDesc = "" +
 	"\x0fBatchAddRecords\x12!.biometric.BatchAddRecordsRequest\x1a\".biometric.BatchAddRecordsResponse\x12I\n" +
 	"\n" +
 	"GetRecords\x12\x1c.biometric.GetRecordsRequest\x1a\x1d.biometric.GetRecordsResponse\x12D\n" +
-	"\tGetLatest\x12\x1b.biometric.GetLatestRequest\x1a\x1a.biometric.BiometricRecordB-Z+github.com/MAMUER/Project/api/gen/biometricb\x06proto3"
+	"\tGetLatest\x12\x1b.biometric.GetLatestRequest\x1a\x1a.biometric.BiometricRecordB-Z+github.com/MAMUER/project/api/gen/biometricb\x06proto3"
 
 var (
 	file_biometric_proto_rawDescOnce sync.Once
