@@ -54,6 +54,8 @@ jobs:
             -Dsonar.go.coverage.reportPaths=coverage.out
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+          NODE_OPTIONS: "--no-deprecation"
 
   ci-build:
     name: CI Build
@@ -385,8 +387,6 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
-          base: Microservice_arc
-          head: HEAD
 
       # Gitleaks: дополнительный поиск утечек credentials
       - name: Run Gitleaks
