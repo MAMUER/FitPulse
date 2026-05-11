@@ -34,24 +34,18 @@ jobs:
           fetch-depth: 0
       - name: Check ADR updates
         run: |
-          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-            CHANGED_FILES=$(git diff --name-only HEAD~1)
-            if echo "$CHANGED_FILES" | grep -q "docs/adr/"; then
-              echo "ADR updated - good!"
-            elif echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|\.yml$|\.yaml$" | grep -v "test\|spec\|_test\.go$"; then
-              echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
-            else
-              echo "No significant architectural changes requiring ADR documentation."
-            fi
-          else
-            echo "First commit, skipping ADR check."
-          fi
-          else
-            echo "First commit or not a push event, skipping ADR check."
-          fi
-          else
-            echo "First commit, skipping ADR check."
-          fi
+           if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+             CHANGED_FILES=$(git diff --name-only HEAD~1)
+             if echo "$CHANGED_FILES" | grep -q "docs/adr/"; then
+               echo "ADR updated - good!"
+             elif echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|\.yml$|\.yaml$" | grep -v "test\|spec\|_test\.go$"; then
+               echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
+             else
+               echo "No significant architectural changes requiring ADR documentation."
+             fi
+           else
+             echo "First commit, skipping ADR check."
+           fi
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
