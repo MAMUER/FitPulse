@@ -62,28 +62,7 @@ jobs:
              exit 1
            else
              echo "No significant architectural changes requiring ADR documentation."
-           fi
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
-        with:
-          args: >
-            -Dsonar.projectKey=fitness-platform
-            -Dsonar.organization=mamuer
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/vendor/**,**/node_modules/**,**/*.pb.go,**/*.gen.go
-            -Dsonar.plsql.file.suffixes=.sql
-            -Dsonar.plsql.analysis.enabled=true
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.python.version=3.11
-            -Dsonar.sca.enabled=false
-            -Dsonar.branch.name=${{ github.ref_name }}
-            -Dsonar.branch.target=main
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-          NODE_OPTIONS: "--no-deprecation"
+            fi
 
   ci-build:
     name: CI Build
@@ -134,15 +113,36 @@ jobs:
         run: |
              # Placeholder for Pact contract tests
              echo "Contract tests would run here"
-      - name: Generate coverage for SonarQube
-        run: |
-             if [ -f "coverage.out" ]; then
-               echo "Coverage report exists"
-             else
-               echo "Generating coverage report..."
-               go test -v -coverprofile=coverage.out ./... || echo "Coverage generation failed, but continuing"
-             fi
-      - name: Hadolint Docker lint
+       - name: Generate coverage for SonarQube
+         run: |
+              if [ -f "coverage.out" ]; then
+                echo "Coverage report exists"
+              else
+                echo "Generating coverage report..."
+                go test -v -coverprofile=coverage.out ./... || echo "Coverage generation failed, but continuing"
+              fi
+       - name: SonarQube Scan
+         uses: SonarSource/sonarqube-scan-action@v5.0.0
+         with:
+           args: >
+             -Dsonar.projectKey=fitness-platform
+             -Dsonar.organization=mamuer
+             -Dsonar.sources=.
+             -Dsonar.exclusions=**/vendor/**,**/node_modules/**,**/*.pb.go,**/*.gen.go
+             -Dsonar.plsql.file.suffixes=.sql
+             -Dsonar.plsql.analysis.enabled=true
+             -Dsonar.tests=.
+             -Dsonar.test.inclusions=**/*_test.go
+             -Dsonar.go.coverage.reportPaths=coverage.out
+             -Dsonar.python.version=3.11
+             -Dsonar.sca.enabled=false
+             -Dsonar.branch.name=${{ github.ref_name }}
+             -Dsonar.branch.target=main
+         env:
+           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+           NODE_OPTIONS: "--no-deprecation"
+       - name: Hadolint Docker lint
         run: |
              for dockerfile in ./cmd/*/Dockerfile; do
                if [ -f "$dockerfile" ]; then
