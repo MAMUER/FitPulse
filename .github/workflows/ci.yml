@@ -32,56 +32,37 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Check ADR updates
-        run: |
-            # Determine base branch/commit for comparison
-            if [ -n "$GITHUB_BASE_REF" ]; then
-              # Pull Request: compare with base branch
-              BASE_REF="origin/$GITHUB_BASE_REF"
-            elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-              # Push to branch with parent: compare all changes in this push
-              BASE_REF="HEAD~1..HEAD"
-            else
-              # First commit ever
-              echo "First commit, skipping ADR check."
-              exit 0
-            fi
+       - name: Check ADR updates
+         run: |
+           # Determine base branch/commit for comparison
+           if [ -n "$GITHUB_BASE_REF" ]; then
+             # Pull Request: compare with base branch
+             BASE_REF="origin/$GITHUB_BASE_REF"
+           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+             # Push to branch: compare with previous commit
+             BASE_REF="HEAD~1"
+           else
+             # First commit ever
+             echo "First commit, skipping ADR check."
+             exit 0
+           fi
 
-            # Get changed files relative to base
-            if [ "$BASE_REF" = "HEAD~1..HEAD" ]; then
-              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-            else
-              CHANGED_FILES=$(git diff --name-only $BASE_REF...HEAD)
-            fi
+           # Get changed files relative to base
+           CHANGED_FILES=$(git diff --name-only $BASE_REF HEAD)
 
-            # Check if ADR was updated
-            if echo "$CHANGED_FILES" | grep -qE "^docs/adr/.*\.md$"; then
-              echo "ADR updated - good!"
-            elif echo "$CHANGED_FILES" | grep -qE "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
-                 grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$"; then
-              echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
-              echo "Changed files:"
-              echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
-                grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$" || true
-              exit 1
-            else
-              echo "No significant architectural changes requiring ADR documentation."
-            fi
-            else
-              # For PRs, compare with base branch
-              BASE_COMMIT=origin/$BASE_BRANCH
-            fi
-            
-            CHANGED_FILES=$(git diff --name-only $BASE_COMMIT HEAD)
-            
-            if echo "$CHANGED_FILES" | grep -q "docs/adr/"; then
-              echo "ADR updated - good!"
-            elif echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|\.yml$|\.yaml$" | grep -v "^test/|_test\.go$|\.github/workflows/|^cmd/.*/Dockerfile$"; then
-              echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
-              echo "Changed files: $CHANGED_FILES"
-            else
-              echo "No significant architectural changes requiring ADR documentation."
-            fi
+           # Check if ADR was updated
+           if echo "$CHANGED_FILES" | grep -qE "^docs/adr/.*\.md$"; then
+             echo "ADR updated - good!"
+           elif echo "$CHANGED_FILES" | grep -qE "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
+                grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$"; then
+             echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
+             echo "Changed files:"
+             echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
+               grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$" || true
+             exit 1
+           else
+             echo "No significant architectural changes requiring ADR documentation."
+           fi
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
@@ -97,6 +78,7 @@ jobs:
             -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.python.version=3.11
             -Dsonar.sca.enabled=false
+            -Dsonar.branch.name=${{ github.ref_name }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
