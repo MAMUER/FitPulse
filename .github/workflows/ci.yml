@@ -160,8 +160,9 @@ jobs:
       - name: Trivy security scan
         uses: aquasecurity/trivy-action@master
         with:
-            scan-type: 'fs'
-            scan-ref: '.'
+             scan-type: 'fs'
+             scan-ref: '.'
+             skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -382,12 +383,13 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+           scan-type: 'fs'
+           scan-ref: '.'
+           format: 'sarif'
+           output: 'trivy-results.sarif'
+           severity: 'CRITICAL,HIGH'
+           exit-code: '0'
+           skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
