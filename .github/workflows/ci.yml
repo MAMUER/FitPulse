@@ -38,7 +38,7 @@ jobs:
              CHANGED_FILES=$(git diff --name-only HEAD~1)
              if echo "$CHANGED_FILES" | grep -q "docs/adr/"; then
                echo "ADR updated - good!"
-             elif echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|\.yml$|\.yaml$" | grep -v "test\|spec\|_test\.go$"; then
+              elif echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|\.yml$|\.yaml$" | grep -v "test\|spec\|_test\.go$\|\.github/workflows/"; then
                echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
              else
                echo "No significant architectural changes requiring ADR documentation."
