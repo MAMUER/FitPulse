@@ -37,8 +37,8 @@ func TestBiometricRepository_Save_Success(t *testing.T) {
 		DeviceType: "smartwatch",
 	}
 
-	mock.ExpectExec(`INSERT INTO biometric_data \(id, user_id, metric_type, value, timestamp, device_type\)`).
-		WithArgs(sqlmock.AnyArg(), data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType).
+	mock.ExpectExec(`INSERT INTO biometric_data \(id, user_id, metric_type, value, timestamp, device_type, created_at\)`).
+		WithArgs(sqlmock.AnyArg(), data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Save(context.Background(), data)

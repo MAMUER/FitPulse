@@ -13,7 +13,6 @@ require (
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.48.0
 	google.golang.org/grpc v1.79.3

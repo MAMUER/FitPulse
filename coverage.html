@@ -71,7 +71,7 @@
 				
 				<option value="file7">github.com/MAMUER/project/api/gen/user/user_grpc.pb.go (0.0%)</option>
 				
-				<option value="file8">github.com/MAMUER/project/cmd/biometric-service/main.go (55.1%)</option>
+				<option value="file8">github.com/MAMUER/project/cmd/biometric-service/main.go (57.5%)</option>
 				
 				<option value="file9">github.com/MAMUER/project/cmd/data-processor/main.go (0.0%)</option>
 				
@@ -101,7 +101,7 @@
 				
 				<option value="file22">github.com/MAMUER/project/cmd/gateway/main.go (26.7%)</option>
 				
-				<option value="file23">github.com/MAMUER/project/cmd/training-service/main.go (0.0%)</option>
+				<option value="file23">github.com/MAMUER/project/cmd/training-service/main.go (32.6%)</option>
 				
 				<option value="file24">github.com/MAMUER/project/cmd/user-service/main.go (33.7%)</option>
 				
@@ -8356,7 +8356,7 @@ func (s *biometricServer) GetLatest(ctx context.Context, req *pb.GetLatestReques
         if err == sql.ErrNoRows </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.NotFound, "no records found")
         }</span>
-        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
                 s.log.Error("Failed to query latest record", zap.Error(err))
                 return nil, status.Error(codes.Internal, "failed to query record")
         }</span>
@@ -11673,7 +11673,7 @@ type trainingServer struct {
         rabbitQueue queue.Publisher // ← ИНТЕРФЕЙС
 }
 
-func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) <span class="cov0" title="0">{
+func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) <span class="cov8" title="1">{
         s.log.Info("GeneratePlan request received",
                 zap.String("user_id", req.UserId),
                 zap.String("class", req.ClassificationClass),
@@ -11686,13 +11686,13 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                 return nil, status.Error(codes.Canceled, "request cancelled")
         }</span>
 
-        <span class="cov0" title="0">if err := validator.ValidateGeneratePlanRequest(req); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := validator.ValidateGeneratePlanRequest(req); err != nil </span><span class="cov0" title="0">{
                 s.log.Warn("Invalid generate plan request", zap.Error(err))
                 return nil, err
         }</span>
 
         // Check if user already has an active plan - delete it completely (CASCADE will clean up all related data)
-        <span class="cov0" title="0">var existingPlanID string
+        <span class="cov8" title="1">var existingPlanID string
         err := s.db.QueryRowContext(ctx, `SELECT id FROM training_plans WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`, req.UserId).Scan(&amp;existingPlanID)
         if err == nil &amp;&amp; existingPlanID != "" </span><span class="cov0" title="0">{
                 s.log.Info("Deleting existing plan for replacement", zap.String("user_id", req.UserId), zap.String("old_plan_id", existingPlanID))
@@ -11700,11 +11700,11 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                 if delErr != nil </span><span class="cov0" title="0">{
                         s.log.Error("Failed to delete old plan", zap.Error(delErr))
                 }</span>
-        } else<span class="cov0" title="0"> if err != nil </span><span class="cov0" title="0">{
+        } else<span class="cov8" title="1"> if err != nil </span><span class="cov8" title="1">{
                 s.log.Debug("No existing active plan found, creating new", zap.String("user_id", req.UserId))
         }</span>
 
-        <span class="cov0" title="0">classificationClass := sanitize.String(req.ClassificationClass)
+        <span class="cov8" title="1">classificationClass := sanitize.String(req.ClassificationClass)
         planID := uuid.New().String()
 
         planData := map[string]interface{}{
@@ -11721,34 +11721,34 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                 }</span>
         }
 
-        <span class="cov0" title="0">s.log.Info("PlanData received", zap.Any("planData", planData))
+        <span class="cov8" title="1">s.log.Info("PlanData received", zap.Any("planData", planData))
 
         startDate := time.Now()
         endDate := startDate.AddDate(0, 0, int(req.DurationWeeks)*7)
 
         // Сохраняем план в нормализованную схему
         tx, err := s.db.BeginTx(ctx, nil)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 s.log.Error("Failed to begin transaction", zap.Error(err))
                 return nil, status.Error(codes.Internal, "failed to begin transaction")
         }</span>
-        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
                 if rbErr := tx.Rollback(); rbErr != nil &amp;&amp; !errors.Is(rbErr, sql.ErrTxDone) </span><span class="cov0" title="0">{
                         s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
                 }</span>
         }()
 
-        <span class="cov0" title="0">s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", req.UserId), zap.String("class", classificationClass))
+        <span class="cov8" title="1">s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", req.UserId), zap.String("class", classificationClass))
         _, err = tx.ExecContext(ctx, `
-                INSERT INTO training_plans (id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, planID, req.UserId, "Персонализированная программа", classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active")
+                INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `, planID, req.UserId, "Персонализированная программа", classificationClass, classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
         if err != nil </span><span class="cov0" title="0">{
                 s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
                 return nil, status.Error(codes.Internal, "failed to save plan")
         }</span>
 
-        <span class="cov0" title="0">workoutsRaw, ok := planData["workouts"]
+        <span class="cov8" title="1">workoutsRaw, ok := planData["workouts"]
         var workouts []map[string]interface{}
         if ok </span><span class="cov0" title="0">{
                 switch v := workoutsRaw.(type) </span>{
@@ -11762,27 +11762,27 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
         }
 
         // If ML didn't provide workouts, try to build from exercises + weekly_schedule
-        <span class="cov0" title="0">if len(workouts) == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(workouts) == 0 </span><span class="cov8" title="1">{
                 workouts = buildWeeklyWorkouts(planData, req.AvailableDays)
         }</span>
 
         // If still empty, use basic default workouts
-        <span class="cov0" title="0">if len(workouts) == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(workouts) == 0 </span><span class="cov0" title="0">{
                 s.log.Info("ML provided no valid exercises, using basic default plan", zap.String("class", classificationClass))
                 workouts = generateBasicWeeklyWorkouts(classificationClass, req.AvailableDays)
         }</span>
 
-        <span class="cov0" title="0">for week := int32(1); week &lt;= req.DurationWeeks; week++ </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for week := int32(1); week &lt;= req.DurationWeeks; week++ </span><span class="cov8" title="1">{
                 weekID := uuid.New().String()
                 totalDays := len(workouts)
                 totalDuration := 0
-                for _, w := range workouts </span><span class="cov0" title="0">{
-                        if dur, ok := w["duration"].(int); ok </span><span class="cov0" title="0">{
+                for _, w := range workouts </span><span class="cov8" title="1">{
+                        if dur, ok := w["duration"].(int); ok </span><span class="cov8" title="1">{
                                 totalDuration += dur
                         }</span>
                 }
 
-                <span class="cov0" title="0">_, err = tx.ExecContext(ctx, `
+                <span class="cov8" title="1">_, err = tx.ExecContext(ctx, `
                         INSERT INTO training_plan_weeks (id, training_plan_id, week_number, total_training_days, total_duration_minutes)
                         VALUES ($1, $2, $3, $4, $5)
                 `, weekID, planID, week, totalDays, totalDuration)
@@ -11790,7 +11790,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                         return nil, status.Error(codes.Internal, "failed to save plan weeks")
                 }</span>
 
-                <span class="cov0" title="0">for dayIdx, w := range workouts </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">for dayIdx, w := range workouts </span><span class="cov8" title="1">{
                         dayID := uuid.New().String()
                         dayOfWeek := dayIdx % 7
                         trainingType, _ := w["type"].(string)
@@ -11804,8 +11804,8 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                                 return nil, status.Error(codes.Internal, "failed to save plan days")
                         }</span>
 
-                        <span class="cov0" title="0">exercises, _ := w["exercises"].([]string)
-                        for exIdx, exName := range exercises </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">exercises, _ := w["exercises"].([]string)
+                        for exIdx, exName := range exercises </span><span class="cov8" title="1">{
                                 _, err = tx.ExecContext(ctx, `
                                         INSERT INTO training_exercises (id, day_id, exercise_name, sets, reps, sort_order)
                                         VALUES ($1, $2, $3, $4, $5, $6)
@@ -11817,27 +11817,27 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
                 }
         }
 
-        <span class="cov0" title="0">if err = tx.Commit(); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err = tx.Commit(); err != nil </span><span class="cov0" title="0">{
                 return nil, status.Error(codes.Internal, "failed to commit plan")
         }</span>
 
-        <span class="cov0" title="0">event := map[string]interface{}{
+        <span class="cov8" title="1">event := map[string]interface{}{
                 "event": "plan_generated", "user_id": req.UserId, "plan_id": planID,
                 "class": classificationClass, "timestamp": time.Now(),
         }
-        if s.rabbitQueue != nil </span><span class="cov0" title="0">{
+        if s.rabbitQueue != nil </span><span class="cov8" title="1">{
                 if pubErr := s.rabbitQueue.Publish(ctx, event); pubErr != nil </span><span class="cov0" title="0">{
                         s.log.Warn("Failed to publish event", zap.Error(pubErr))
                 }</span>
         }
 
-        <span class="cov0" title="0">planStruct, err := structpb.NewStruct(planData)
+        <span class="cov8" title="1">planStruct, err := structpb.NewStruct(planData)
         if err != nil </span><span class="cov0" title="0">{
                 s.log.Error("Failed to create plan struct", zap.Error(err))
                 planStruct = &amp;structpb.Struct{}
         }</span>
 
-        <span class="cov0" title="0">return &amp;pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil</span>
+        <span class="cov8" title="1">return &amp;pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil</span>
 }
 
 func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.TrainingPlan, error) <span class="cov0" title="0">{
@@ -11893,13 +11893,13 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
         }, nil</span>
 }
 
-func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest) (*pb.ListPlansResponse, error) <span class="cov0" title="0">{
+func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest) (*pb.ListPlansResponse, error) <span class="cov8" title="1">{
         if err := validator.ValidateListPlansRequest(req); err != nil </span><span class="cov0" title="0">{
                 s.log.Warn("Invalid list plans request", zap.Error(err))
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">s.log.Debug("ListPlans", zap.String("user_id", req.UserId))
+        <span class="cov8" title="1">s.log.Debug("ListPlans", zap.String("user_id", req.UserId))
 
         rows, err := s.db.QueryContext(ctx, `
                 SELECT id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status
@@ -11911,14 +11911,14 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
         if err != nil </span><span class="cov0" title="0">{
                 return nil, status.Error(codes.Internal, "database error")
         }</span>
-        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
                 if closeErr := rows.Close(); closeErr != nil </span><span class="cov0" title="0">{
                         s.log.Warn("Failed to close rows", zap.Error(closeErr))
                 }</span>
         }()
 
-        <span class="cov0" title="0">var plans []*pb.TrainingPlan
-        for rows.Next() </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">var plans []*pb.TrainingPlan
+        for rows.Next() </span><span class="cov8" title="1">{
                 var planID, userID, planName, planStatus string
                 var trainingGoal sql.NullString
                 var durationWeeks sql.NullInt32
@@ -11929,7 +11929,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
                         return nil, status.Error(codes.Internal, "failed to read plan data")
                 }</span>
 
-                <span class="cov0" title="0">planData := map[string]interface{}{
+                <span class="cov8" title="1">planData := map[string]interface{}{
                         "name":           planName,
                         "training_goal":  stringValue(trainingGoal),
                         "duration_weeks": int32Value(durationWeeks),
@@ -11940,7 +11940,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
                         return nil, status.Error(codes.Internal, "failed to process plan data")
                 }</span>
 
-                <span class="cov0" title="0">plans = append(plans, &amp;pb.TrainingPlan{
+                <span class="cov8" title="1">plans = append(plans, &amp;pb.TrainingPlan{
                         Id:          planID,
                         UserId:      userID,
                         PlanData:    planDataStruct,
@@ -11951,20 +11951,20 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
                 })</span>
         }
 
-        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
                 s.log.Error("Row iteration error", zap.Error(err))
                 return nil, status.Error(codes.Internal, "error reading plans")
         }</span>
 
-        <span class="cov0" title="0">var total int32
+        <span class="cov8" title="1">var total int32
         if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM training_plans WHERE user_id = $1", req.UserId).Scan(&amp;total); err != nil </span><span class="cov0" title="0">{
                 s.log.Warn("Failed to count plans", zap.Error(err))
         }</span>
 
-        <span class="cov0" title="0">return &amp;pb.ListPlansResponse{Plans: plans, Total: total}, nil</span>
+        <span class="cov8" title="1">return &amp;pb.ListPlansResponse{Plans: plans, Total: total}, nil</span>
 }
 
-func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWorkoutRequest) (*pb.CompleteWorkoutResponse, error) <span class="cov0" title="0">{
+func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWorkoutRequest) (*pb.CompleteWorkoutResponse, error) <span class="cov8" title="1">{
         s.log.Info("CompleteWorkout",
                 zap.String("user_id", req.UserId),
                 zap.String("plan_id", req.PlanId),
@@ -11976,7 +11976,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">feedback := sanitize.String(req.Feedback)
+        <span class="cov8" title="1">feedback := sanitize.String(req.Feedback)
 
         var exists bool
         err := s.db.QueryRowContext(ctx, `
@@ -11988,11 +11988,11 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
                 return nil, status.Error(codes.Internal, "database error")
         }</span>
 
-        <span class="cov0" title="0">if exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if exists </span><span class="cov8" title="1">{
                 return &amp;pb.CompleteWorkoutResponse{Success: false}, nil
         }</span>
 
-        <span class="cov0" title="0">_, err = s.db.ExecContext(ctx, `
+        <span class="cov8" title="1">_, err = s.db.ExecContext(ctx, `
                 INSERT INTO workout_completions (user_id, training_plan_id, workout_id, completed, completed_at, feedback)
                 VALUES ($1, $2, $3, true, NOW(), $4)
         `, req.UserId, req.PlanId, req.WorkoutId, feedback)
@@ -12001,7 +12001,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
                 return nil, status.Error(codes.Internal, "failed to save completion")
         }</span>
 
-        <span class="cov0" title="0">var completedCount int
+        <span class="cov8" title="1">var completedCount int
         err = s.db.QueryRowContext(ctx, `
                 SELECT COUNT(*) FROM workout_completions
                 WHERE user_id = $1 AND completed = true
@@ -12011,9 +12011,9 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
                 completedCount = 0
         }</span>
 
-        <span class="cov0" title="0">var achievementID string
+        <span class="cov8" title="1">var achievementID string
         switch completedCount </span>{
-        case 1:<span class="cov0" title="0">
+        case 1:<span class="cov8" title="1">
                 achievementID = "first_workout"</span>
         case 10:<span class="cov0" title="0">
                 achievementID = "ten_workouts"</span>
@@ -12021,16 +12021,16 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
                 achievementID = "fifty_workouts"</span>
         }
 
-        <span class="cov0" title="0">return &amp;pb.CompleteWorkoutResponse{Success: true, AchievementId: achievementID}, nil</span>
+        <span class="cov8" title="1">return &amp;pb.CompleteWorkoutResponse{Success: true, AchievementId: achievementID}, nil</span>
 }
 
-func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressRequest) (*pb.GetProgressResponse, error) <span class="cov0" title="0">{
+func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressRequest) (*pb.GetProgressResponse, error) <span class="cov8" title="1">{
         if err := validator.ValidateGetProgressRequest(req); err != nil </span><span class="cov0" title="0">{
                 s.log.Warn("Invalid get progress request", zap.Error(err))
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">s.log.Debug("GetProgress", zap.String("user_id", req.UserId))
+        <span class="cov8" title="1">s.log.Debug("GetProgress", zap.String("user_id", req.UserId))
 
         var totalWorkouts, completedWorkouts int32
         err := s.db.QueryRowContext(ctx, `
@@ -12045,12 +12045,12 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
                 return nil, status.Error(codes.Internal, "database error")
         }</span>
 
-        <span class="cov0" title="0">completionRate := 0.0
-        if totalWorkouts &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">completionRate := 0.0
+        if totalWorkouts &gt; 0 </span><span class="cov8" title="1">{
                 completionRate = float64(completedWorkouts) / float64(totalWorkouts) * 100
         }</span>
 
-        <span class="cov0" title="0">rows, err := s.db.QueryContext(ctx, `
+        <span class="cov8" title="1">rows, err := s.db.QueryContext(ctx, `
                 SELECT workout_id, scheduled_date, completed_at
                 FROM workout_completions
                 WHERE user_id = $1 AND completed = true
@@ -12060,31 +12060,31 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
         if err != nil </span><span class="cov0" title="0">{
                 return nil, status.Error(codes.Internal, "database error")
         }</span>
-        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
                 if closeErr := rows.Close(); closeErr != nil </span><span class="cov0" title="0">{
                         s.log.Warn("Failed to close rows", zap.Error(closeErr))
                 }</span>
         }()
 
-        <span class="cov0" title="0">var history []*pb.WorkoutCompletion
-        for rows.Next() </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">var history []*pb.WorkoutCompletion
+        for rows.Next() </span><span class="cov8" title="1">{
                 var wc pb.WorkoutCompletion
                 var scheduledDate, completedAt time.Time
                 if err := rows.Scan(&amp;wc.WorkoutId, &amp;scheduledDate, &amp;completedAt); err != nil </span><span class="cov0" title="0">{
                         s.log.Error("Failed to scan workout completion", zap.Error(err))
                         return nil, status.Error(codes.Internal, "failed to read workout data")
                 }</span>
-                <span class="cov0" title="0">wc.ScheduledDate = timestamppb.New(scheduledDate)
+                <span class="cov8" title="1">wc.ScheduledDate = timestamppb.New(scheduledDate)
                 wc.CompletedAt = timestamppb.New(completedAt)
                 history = append(history, &amp;wc)</span>
         }
 
-        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
                 s.log.Error("Row iteration error", zap.Error(err))
                 return nil, status.Error(codes.Internal, "error reading workout history")
         }</span>
 
-        <span class="cov0" title="0">return &amp;pb.GetProgressResponse{
+        <span class="cov8" title="1">return &amp;pb.GetProgressResponse{
                 TotalWorkouts:     totalWorkouts,
                 CompletedWorkouts: completedWorkouts,
                 CompletionRate:    completionRate,
@@ -12367,7 +12367,7 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct <span cla
 }
 
 // buildWeeklyWorkouts creates a one-week schedule from ML data (no repetition across weeks)
-func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} <span class="cov0" title="0">{
+func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} <span class="cov8" title="1">{
         workouts := make([]map[string]interface{}, 0, len(availableDays))
 
         exercisesRaw := planData["exercises"]
@@ -12387,7 +12387,7 @@ func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32)
         }
 
         // Parse weekly_schedule map (day name -&gt; exercise)
-        <span class="cov0" title="0">scheduleMap := make(map[int]string)
+        <span class="cov8" title="1">scheduleMap := make(map[int]string)
         if m, ok := weeklySchedule.(map[string]interface{}); ok </span><span class="cov0" title="0">{
                 for dayName, exVal := range m </span><span class="cov0" title="0">{
                         if exStr, ok := exVal.(string); ok </span><span class="cov0" title="0">{
@@ -12400,47 +12400,47 @@ func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32)
         }
 
         // Get duration (per session)
-        <span class="cov0" title="0">duration := 30
+        <span class="cov8" title="1">duration := 30
         if d, ok := planData["duration_minutes"].(int); ok </span><span class="cov0" title="0">{
                 duration = d
-        }</span> else<span class="cov0" title="0"> if d, ok := planData["duration_minutes"].(float64); ok </span><span class="cov0" title="0">{
+        }</span> else<span class="cov8" title="1"> if d, ok := planData["duration_minutes"].(float64); ok </span><span class="cov0" title="0">{
                 duration = int(d)
         }</span>
 
         // Get training type
-        <span class="cov0" title="0">trainingType := "general"
+        <span class="cov8" title="1">trainingType := "general"
         if t, ok := planData["training_type"].(string); ok </span><span class="cov0" title="0">{
                 trainingType = t
         }</span>
 
         // Primary exercise fallback
-        <span class="cov0" title="0">primaryEx := ""
+        <span class="cov8" title="1">primaryEx := ""
         if p, ok := planData["primary_exercise"].(string); ok </span><span class="cov0" title="0">{
                 primaryEx = p
         }</span>
 
         // Build workouts for ONE week based on available days
-        <span class="cov0" title="0">for _, dayIdx := range availableDays </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, dayIdx := range availableDays </span><span class="cov8" title="1">{
                 ex := ""
                 if scheduled, ok := scheduleMap[int(dayIdx)]; ok &amp;&amp; scheduled != "" </span><span class="cov0" title="0">{
                         ex = scheduled
-                }</span> else<span class="cov0" title="0"> if primaryEx != "" </span><span class="cov0" title="0">{
+                }</span> else<span class="cov8" title="1"> if primaryEx != "" </span><span class="cov0" title="0">{
                         ex = primaryEx
-                }</span> else<span class="cov0" title="0"> if len(exercises) &gt; 0 </span><span class="cov0" title="0">{
+                }</span> else<span class="cov8" title="1"> if len(exercises) &gt; 0 </span><span class="cov0" title="0">{
                         // Pick first exercise as default
                         ex = exercises[0]
-                }</span> else<span class="cov0" title="0"> {
+                }</span> else<span class="cov8" title="1"> {
                         ex = "active_recovery"
                 }</span>
 
-                <span class="cov0" title="0">workouts = append(workouts, map[string]interface{}{
+                <span class="cov8" title="1">workouts = append(workouts, map[string]interface{}{
                         "type":      trainingType,
                         "duration":  duration,
                         "exercises": []string{ex},
                 })</span>
         }
 
-        <span class="cov0" title="0">return workouts</span>
+        <span class="cov8" title="1">return workouts</span>
 }
 
 func dayNameToIndex(name string) int <span class="cov0" title="0">{
@@ -12551,15 +12551,15 @@ func main() <span class="cov0" title="0">{
         }</span>
 }
 
-func stringValue(ns sql.NullString) string <span class="cov0" title="0">{
-        if ns.Valid </span><span class="cov0" title="0">{
+func stringValue(ns sql.NullString) string <span class="cov8" title="1">{
+        if ns.Valid </span><span class="cov8" title="1">{
                 return ns.String
         }</span>
         <span class="cov0" title="0">return ""</span>
 }
 
-func int32Value(ni sql.NullInt32) int32 <span class="cov0" title="0">{
-        if ni.Valid </span><span class="cov0" title="0">{
+func int32Value(ni sql.NullInt32) int32 <span class="cov8" title="1">{
+        if ni.Valid </span><span class="cov8" title="1">{
                 return ni.Int32
         }</span>
         <span class="cov0" title="0">return 0</span>
@@ -16643,9 +16643,9 @@ func NewBiometricRepository(db *sql.DB) BiometricRepository <span class="cov8" t
 func (r *biometricRepository) Save(ctx context.Context, data *domain.BiometricData) error <span class="cov8" title="1">{
         id := uuid.New().String()
         _, err := r.db.ExecContext(ctx, `
-                INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type)
-                VALUES ($1, $2, $3, $4, $5, $6)
-        `, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType)
+                INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, time.Now())
         return err
 }</span>
 

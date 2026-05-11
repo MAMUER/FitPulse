@@ -28,9 +28,9 @@ func NewBiometricRepository(db *sql.DB) BiometricRepository {
 func (r *biometricRepository) Save(ctx context.Context, data *domain.BiometricData) error {
 	id := uuid.New().String()
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType)
+		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, time.Now())
 	return err
 }
 

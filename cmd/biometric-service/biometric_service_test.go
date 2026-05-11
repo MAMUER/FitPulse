@@ -653,3 +653,289 @@ func TestBatchAddRecords_ContextCancelled(t *testing.T) {
 		assert.Nil(t, resp)
 	}
 }
+
+// Edge Case Tests
+func TestBiometricServer_GetLatest_EmptyResult(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	srv := &biometricServer{db: db, log: logger.New("test")}
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = $1 AND metric_type = $2 ORDER BY timestamp DESC LIMIT 1`)).
+		WithArgs("user-123", "").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
+
+	resp, err := srv.GetLatest(context.Background(), &pb.GetLatestRequest{
+		UserId:     "user-123",
+		MetricType: "",
+	})
+
+	assert.Error(t, err) // Should return NotFound error for empty result
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricServer_GetLatest_DBError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	srv := &biometricServer{db: db, log: logger.New("test")}
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = $1 AND metric_type = $2 ORDER BY timestamp DESC LIMIT 1`)).
+		WithArgs("user-123", "").
+		WillReturnError(errors.New("db connection failed"))
+
+	resp, err := srv.GetLatest(context.Background(), &pb.GetLatestRequest{
+		UserId:     "user-123",
+		MetricType: "",
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricServer_AddRecord_DeviceTypeValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		deviceType  string
+		expectError bool
+	}{
+		{"valid apple_watch", "apple_watch", false},
+		{"valid samsung_galaxy_watch", "samsung_galaxy_watch", false},
+		{"valid huawei_watch_d2", "huawei_watch_d2", false},
+		{"valid amazfit_trex3", "amazfit_trex3", false},
+		{"invalid empty", "", false},                 // Empty is allowed
+		{"invalid unknown", "unknown_device", false}, // Unknown is allowed, just logged
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer func() { _ = db.Close() }()
+
+			srv := &biometricServer{db: db, log: logger.New("test")}
+
+			mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
+				WithArgs(sqlmock.AnyArg(), "user-123", "heart_rate", 75.0, sqlmock.AnyArg(), tt.deviceType).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+
+			resp, err := srv.AddRecord(context.Background(), &pb.AddRecordRequest{
+				UserId:     "user-123",
+				MetricType: "heart_rate",
+				Value:      75.0,
+				DeviceType: tt.deviceType,
+				Timestamp:  timestamppb.Now(),
+			})
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+			}
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestBiometricServer_GetRecords_LargeLimit(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	srv := &biometricServer{db: db, log: logger.New("test")}
+
+	// Test with limit larger than default max (not capped)
+	now := time.Now()
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`)).
+		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(2000)). // Actual limit, not capped
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
+
+	resp, err := srv.GetRecords(context.Background(), &pb.GetRecordsRequest{
+		UserId:     "user-123",
+		MetricType: "heart_rate",
+		From:       timestamppb.New(now.Add(-24 * time.Hour)),
+		To:         timestamppb.New(now),
+		Limit:      2000, // Larger than max
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricServer_BatchAddRecords_PartialFailure(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	srv := &biometricServer{db: db, log: logger.New("test")}
+
+	mock.ExpectBegin()
+
+	// First record succeeds
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
+		WithArgs(sqlmock.AnyArg(), "user-123", "heart_rate", 75.0, sqlmock.AnyArg(), "device-1", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Second record fails
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
+		WithArgs(sqlmock.AnyArg(), "user-123", "heart_rate", 80.0, sqlmock.AnyArg(), "device-1", sqlmock.AnyArg()).
+		WillReturnError(errors.New("simulated DB error"))
+
+	mock.ExpectRollback()
+
+	req := &pb.BatchAddRecordsRequest{
+		UserId: "user-123",
+		Records: []*pb.AddRecordRequest{
+			{MetricType: "heart_rate", Value: 75.0, DeviceType: "device-1", Timestamp: timestamppb.Now()},
+			{MetricType: "heart_rate", Value: 80.0, DeviceType: "device-1", Timestamp: timestamppb.Now()}, // Valid value but DB will error
+		},
+	}
+
+	resp, err := srv.BatchAddRecords(context.Background(), req)
+
+	// Should return error due to invalid second record
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricServer_GetRecords_TimeRangeEdgeCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		from      *timestamppb.Timestamp
+		to        *timestamppb.Timestamp
+		expectErr bool
+	}{
+		{"valid range", timestamppb.New(time.Now().Add(-24 * time.Hour)), timestamppb.New(time.Now()), false},
+		{"from after to", timestamppb.New(time.Now()), timestamppb.New(time.Now().Add(-24 * time.Hour)), true},
+		{"future from", timestamppb.New(time.Now().Add(24 * time.Hour)), timestamppb.New(time.Now().Add(48 * time.Hour)), false}, // Allowed, just no data
+		{"very old dates", timestamppb.New(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)), timestamppb.New(time.Now()), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer func() { _ = db.Close() }()
+
+			srv := &biometricServer{db: db, log: logger.New("test")}
+
+			if !tt.expectErr {
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`)).
+					WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(100)).
+					WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
+			}
+
+			resp, err := srv.GetRecords(context.Background(), &pb.GetRecordsRequest{
+				UserId:     "user-123",
+				MetricType: "heart_rate",
+				From:       tt.from,
+				To:         tt.to,
+				Limit:      100,
+			})
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+			}
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestBiometricServer_MetricValueBoundaries(t *testing.T) {
+	tests := []struct {
+		name       string
+		metricType string
+		value      float64
+		expectErr  bool
+	}{
+		{"heart_rate normal", "heart_rate", 75.0, false},
+		{"heart_rate min boundary", "heart_rate", 30.0, false},
+		{"heart_rate max boundary", "heart_rate", 220.0, false},
+		{"heart_rate too low", "heart_rate", 20.0, true},
+		{"heart_rate too high", "heart_rate", 300.0, true},
+		{"spo2 normal", "spo2", 98.0, false},
+		{"spo2 min boundary", "spo2", 70.0, false},
+		{"spo2 max boundary", "spo2", 100.0, false},
+		{"spo2 too low", "spo2", 50.0, true},
+		{"spo2 too high", "spo2", 110.0, true},
+		{"temperature normal", "temperature", 36.6, false},
+		{"temperature too low", "temperature", 30.0, false},  // No temperature validator, so passes
+		{"temperature too high", "temperature", 45.0, false}, // No temperature validator, so passes
+		{"unknown metric", "unknown_metric", 100.0, false},   // Unknown metrics are allowed
+		{"zero value", "heart_rate", 0.0, true},
+		{"negative value", "heart_rate", -10.0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateBiometricRecord(&pb.AddRecordRequest{
+				UserId:     "user-123",
+				MetricType: tt.metricType,
+				Value:      tt.value,
+				Timestamp:  timestamppb.Now(),
+			})
+
+			if tt.expectErr {
+				assert.Error(t, err, "Expected validation error for %s with value %.1f", tt.metricType, tt.value)
+			} else {
+				assert.NoError(t, err, "Expected no validation error for %s with value %.1f", tt.metricType, tt.value)
+			}
+		})
+	}
+}
+
+func TestBiometricServer_ConcurrentRequests(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	srv := &biometricServer{db: db, log: logger.New("test")}
+
+	// Setup mock to expect multiple concurrent calls
+	for i := 0; i < 10; i++ {
+		mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
+			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "heart_rate", 75.0, sqlmock.AnyArg(), "").
+			WillReturnResult(sqlmock.NewResult(1, 1))
+	}
+
+	// Run 10 concurrent requests
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			resp, err := srv.AddRecord(context.Background(), &pb.AddRecordRequest{
+				UserId:     "user-123",
+				MetricType: "heart_rate",
+				Value:      75.0,
+				Timestamp:  timestamppb.Now(),
+			})
+			assert.NoError(t, err)
+			assert.NotNil(t, resp)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}

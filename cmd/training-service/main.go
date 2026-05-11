@@ -99,9 +99,9 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", req.UserId), zap.String("class", classificationClass))
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO training_plans (id, user_id, name, training_goal, duration_weeks, generated_at, start_date, end_date, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, planID, req.UserId, "Персонализированная программа", classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active")
+		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, planID, req.UserId, "Персонализированная программа", classificationClass, classificationClass, int32(req.DurationWeeks), time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
 		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
 		return nil, status.Error(codes.Internal, "failed to save plan")
