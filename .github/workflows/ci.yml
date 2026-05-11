@@ -79,6 +79,7 @@ jobs:
             -Dsonar.python.version=3.11
             -Dsonar.sca.enabled=false
             -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.branch.target=main
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
