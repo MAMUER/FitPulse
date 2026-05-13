@@ -172,6 +172,7 @@ jobs:
              scan-ref: '.'
              scanners: 'vuln'
              skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
+             hide-progress: true
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -343,6 +344,8 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
+      - name: Set git default branch to main
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
 
       - name: Set up Go
@@ -392,18 +395,19 @@ jobs:
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
           echo "Found $VULN_COUNT potential vulnerabilities"
 
-      # Trivy: сканирование filesystem на secrets, misconfigurations
+       # Trivy: сканирование filesystem на secrets, misconfigurations
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-            scan-type: 'fs'
-            scan-ref: '.'
-            format: 'sarif'
-            output: 'trivy-results.sarif'
-            severity: 'CRITICAL,HIGH'
-            exit-code: '0'
-            scanners: 'vuln'
-            skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
+             scan-type: 'fs'
+             scan-ref: '.'
+             format: 'sarif'
+             output: 'trivy-results.sarif'
+             severity: 'CRITICAL,HIGH'
+             exit-code: '0'
+             scanners: 'vuln'
+             skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
+             hide-progress: true
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
