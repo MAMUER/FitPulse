@@ -235,22 +235,47 @@ jobs:
           else
             echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
           fi
+      - id: validate-staging-target
+        name: Validate staging target URL
+        run: |
+          if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          TARGET="${{ steps.prepare-staging-target.outputs.target }}"
+          if python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          u = urlparse(os.getenv('TARGET'))
+          if u.scheme not in ('http', 'https') or not u.netloc:
+              raise SystemExit(1)
+          PY
+                    then
+                      echo "valid=true" >> $GITHUB_OUTPUT
+                    else
+                      echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          TARGET: ${{ steps.prepare-staging-target.outputs.target }}
       - name: Performance tests (k6)
+        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
         uses: k6io/action@v0.3.1
+        env:
+          BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
         with:
           filename: load-test.k6
         continue-on-error: true
       - name: Security scan (OWASP ZAP)
-        if: ${{ env.STAGING_URL != '' }}
+        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
         uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ steps.prepare-staging-target.outputs.target }}
           fail_action: false
         continue-on-error: true
       - name: OWASP ZAP skipped
-        if: ${{ env.STAGING_URL == '' }}
+        if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
         run: |
-          echo "OWASP ZAP scan skipped - STAGING_URL secret not configured"
+          echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
       - name: Chaos engineering
         run: |
           echo "Running chaos tests"

@@ -97,7 +97,7 @@ func grpcToHTTPStatus(err error) (int, string) {
 
 // translateError converts technical error messages to user-friendly Russian
 func translateError(msg string) string {
-	translations := map[string]string{
+	translations := map[string]string{ //nolint:gosec
 		"email is required":                   "Укажите email",
 		"password is required":                "Укажите пароль",
 		"full name is required":               "Укажите имя",

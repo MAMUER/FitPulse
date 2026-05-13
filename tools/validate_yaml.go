@@ -50,7 +50,7 @@ func readYAMLFile(path string) ([]byte, error) {
 		return nil, fmt.Errorf("unsafe path rejected: %s", path)
 	}
 
-	// Open file safely
+	// Open file safely. Path is validated before this call.
 	file, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("error opening file %s: %w", path, err)

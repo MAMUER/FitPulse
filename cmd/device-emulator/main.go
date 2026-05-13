@@ -101,7 +101,7 @@ func main() {
 		}
 	}
 
-	log.Printf("Device emulator started: type=%s, user=%s, device=%s",
+	log.Printf("Device emulator started: type=%q, user=%q, device=%q", //nolint:gosec
 		*deviceType, *userID, deviceID)
 	log.Printf("Sync interval: %s, noise=%.3f, gap_prob=%.3f",
 		*syncInterval, *noiseLevel, *gapProb)
@@ -241,8 +241,8 @@ func syncData(ctx context.Context, source domain.BiometricSource, deviceID, devi
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		return fmt.Errorf("decode response failed: %w", err)
 	}
-	log.Printf("Sync OK: %d samples, forwarded=%v duplicates=%v failed=%v",
-		len(samples), stats["forwarded"], stats["duplicates"], stats["failed"])
+	log.Printf("Sync OK: %d samples, forwarded=%q duplicates=%q failed=%q", //nolint:gosec
+		len(samples), fmt.Sprint(stats["forwarded"]), fmt.Sprint(stats["duplicates"]), fmt.Sprint(stats["failed"]))
 	return nil
 }
 

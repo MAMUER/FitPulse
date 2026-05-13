@@ -7,7 +7,8 @@ WORKDIR /app
 
 # Установка зависимостей
 COPY cmd/ml-generator/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir --retries 5 --timeout 120 -r requirements.txt
 
 # Копирование кода
 COPY cmd/ml-generator/main.py .

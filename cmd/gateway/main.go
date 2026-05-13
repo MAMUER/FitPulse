@@ -139,7 +139,7 @@ func main() {
 
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
+		rabbitmqURL = "amqp://localhost:5672/"
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")
