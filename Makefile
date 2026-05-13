@@ -75,7 +75,7 @@ yaml-check:
 # Проверка Docker файлов с помощью hadolint
 docker-lint:
 	@echo "Running hadolint..."
-	@powershell -Command "Get-ChildItem './cmd/*/Dockerfile' | ForEach-Object { Write-Host 'Linting' $$_.FullName; Get-Content $$_.FullName | docker run --rm -i hadolint/hadolint }"
+	@powershell -Command "if (Get-Command docker -ErrorAction SilentlyContinue) { docker info > $$null 2>&1; if ($$LASTEXITCODE -eq 0) { Get-ChildItem './cmd/*/Dockerfile' | ForEach-Object { Write-Host 'Linting' $$_.FullName; Get-Content $$_.FullName | docker run --rm -i hadolint/hadolint } } else { Write-Host 'Docker daemon unavailable, skipping docker-lint.' } } else { Write-Host 'Docker CLI not installed, skipping docker-lint.' }"
 	@echo "Docker lint complete."
 
 # Запуск integration тестов

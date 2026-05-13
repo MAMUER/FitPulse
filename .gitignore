@@ -87,3 +87,4 @@ results.json
 *temp*
 *.docx
 bin/
+coverage.html
