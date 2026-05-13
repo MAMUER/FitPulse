@@ -211,13 +211,13 @@ jobs:
           echo "Running smoke tests against test environment"
           # Placeholder for smoke tests
 
-   deploy-staging:
+  deploy-staging:
      name: Deploy to Staging
      runs-on: ubuntu-latest
      needs: deploy-test
      env:
        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-       STAGING_URL: ${{ secrets.STAGING_URL }}
+       STAGING_URL: ${{ secrets.VPS_HOST }}
      steps:
       - name: UAT Tests
         run: |
@@ -228,14 +228,14 @@ jobs:
           filename: load-test.k6
         continue-on-error: true
       - name: Security scan (OWASP ZAP)
-        if: ${{ ne(env.STAGING_URL, '') }}
+        if: ${{ env.STAGING_URL != '' }}
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: ${{ env.STAGING_URL }}
           fail_action: false
         continue-on-error: true
       - name: OWASP ZAP skipped
-        if: ${{ eq(env.STAGING_URL, '') }}
+        if: ${{ env.STAGING_URL == '' }}
         run: |
           echo "OWASP ZAP scan skipped - STAGING_URL secret not configured"
       - name: Chaos engineering
