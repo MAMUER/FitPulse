@@ -138,7 +138,7 @@ jobs:
              -Dsonar.projectKey=fitness-platform
              -Dsonar.organization=mamuer
              -Dsonar.sources=.
-             -Dsonar.exclusions=**/vendor/**,**/node_modules/**,**/*.pb.go,**/*.gen.go
+             -Dsonar.exclusions=**/vendor/**,**/node_modules/**,**/*.pb.go,**/*.gen.go,db/migrations/**,scripts/init-db.sql
              -Dsonar.plsql.file.suffixes=.sql
              -Dsonar.plsql.analysis.enabled=true
              -Dsonar.tests=.
@@ -220,19 +220,31 @@ jobs:
        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
        STAGING_URL: ${{ secrets.VPS_HOST }}
      steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: UAT Tests
         run: |
           echo "Running UAT tests"
+      - id: prepare-staging-target
+        name: Prepare staging target URL
+        run: |
+          if [[ "$STAGING_URL" == http* ]]; then
+            echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
+          else
+            echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
+          fi
       - name: Performance tests (k6)
-        uses: k6io/action@v0.1
+        uses: k6io/action@v0.3.1
         with:
           filename: load-test.k6
         continue-on-error: true
       - name: Security scan (OWASP ZAP)
         if: ${{ env.STAGING_URL != '' }}
-        uses: zaproxy/action-baseline@v0.10.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: ${{ env.STAGING_URL }}
+          target: ${{ steps.prepare-staging-target.outputs.target }}
           fail_action: false
         continue-on-error: true
       - name: OWASP ZAP skipped
@@ -471,6 +483,8 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -526,13 +540,26 @@ jobs:
               -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest \
               -f cmd/$svc/Dockerfile \
               .
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest
-            echo "✅ $svc pushed"
+
+            for attempt in 1 2 3; do
+              echo "Pushing $svc (attempt $attempt)..."
+              if docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:${{ steps.sha.outputs.short_sha }} && \
+                 docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest; then
+                echo "✅ $svc pushed"
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "❌ Failed to push $svc after $attempt attempts"
+                exit 1
+              fi
+              echo "Retrying push for $svc in $((5 * attempt)) seconds..."
+              sleep $((5 * attempt))
+            done
           done
 
       # Security scan Docker images before pushing
-      - name: Scan Docker images with Trivy
+      - id: trivy-scan
+        name: Scan Docker images with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/gateway:${{ steps.sha.outputs.short_sha }}'
@@ -542,8 +569,8 @@ jobs:
           exit-code: '0'
 
       - name: Upload Docker Trivy results
+        if: always() && steps.trivy-scan.outcome == 'success'
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
         with:
           sarif_file: trivy-image-results.sarif
           category: trivy-docker
@@ -915,7 +942,7 @@ jobs:
           echo "commit_url=$COMMIT_URL" >> $GITHUB_OUTPUT
           echo "run_url=$RUN_URL" >> $GITHUB_OUTPUT
       - name: Send Telegram notification
-        uses: appleboy/telegram-action@master
+        uses: appleboy/telegram-action@v1.0.1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
