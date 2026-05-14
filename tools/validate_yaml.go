@@ -51,7 +51,8 @@ func readYAMLFile(path string) ([]byte, error) {
 	}
 
 	// Open file safely. Path is validated before this call.
-	file, err := os.Open(path) //nolint:gosec
+	root := os.DirFS(".")
+	file, err := root.Open(filepath.ToSlash(path)) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("error opening file %s: %w", path, err)
 	}

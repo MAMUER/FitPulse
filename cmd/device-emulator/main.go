@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -52,6 +53,45 @@ type IngestRequest struct {
 	DeviceToken    string         `json:"device_token"`
 	SyncIntervalMs int64          `json:"sync_interval_ms"`
 	Records        []IngestRecord `json:"records"`
+}
+
+func sanitizeForLog(value string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '\n', '\r', '\t', '\v', '\f':
+			return -1
+		default:
+			return r
+		}
+	}, value)
+}
+
+func safeInt(value interface{}) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int8:
+		return int(v)
+	case int16:
+		return int(v)
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float32:
+		return int(v)
+	case float64:
+		return int(v)
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			return i
+		}
+	case json.Number:
+		if i, err := v.Int64(); err == nil {
+			return int(i)
+		}
+	}
+	return 0
 }
 
 func main() {
@@ -94,15 +134,15 @@ func main() {
 	if deviceID == "" || deviceToken == "" {
 		if *autoRegister {
 			deviceID, deviceToken = registerDevice(ctx, *userID, *deviceType, *connectorURL)
-			log.Printf("Device registered: %s (%s)", deviceID, *deviceType)
+			log.Printf("Device registered: %s (%s)", sanitizeForLog(deviceID), sanitizeForLog(*deviceType))
 			source = mocks.NewCustomMockBiometricSource(*userID, deviceID, config)
 		} else {
 			log.Fatal("device_id and device_token required when auto-register=false")
 		}
 	}
 
-	log.Printf("Device emulator started: type=%q, user=%q, device=%q", //nolint:gosec
-		*deviceType, *userID, deviceID)
+	log.Printf("Device emulator started: type=%q, user=%q, device=%q",
+		sanitizeForLog(*deviceType), sanitizeForLog(*userID), sanitizeForLog(deviceID))
 	log.Printf("Sync interval: %s, noise=%.3f, gap_prob=%.3f",
 		*syncInterval, *noiseLevel, *gapProb)
 
@@ -241,8 +281,8 @@ func syncData(ctx context.Context, source domain.BiometricSource, deviceID, devi
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		return fmt.Errorf("decode response failed: %w", err)
 	}
-	log.Printf("Sync OK: %d samples, forwarded=%q duplicates=%q failed=%q", //nolint:gosec
-		len(samples), fmt.Sprint(stats["forwarded"]), fmt.Sprint(stats["duplicates"]), fmt.Sprint(stats["failed"]))
+	log.Printf("Sync OK: %d samples, forwarded=%d duplicates=%d failed=%d",
+		len(samples), safeInt(stats["forwarded"]), safeInt(stats["duplicates"]), safeInt(stats["failed"]))
 	return nil
 }
 
