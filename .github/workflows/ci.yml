@@ -29,7 +29,7 @@ jobs:
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
       - name: Fetch all branches and tags
@@ -75,7 +75,7 @@ jobs:
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
         with:
             fetch-depth: 0
       - name: Fetch all branches and tags
@@ -223,7 +223,7 @@ jobs:
        STAGING_URL: ${{ secrets.VPS_HOST }}
      steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
       - name: UAT Tests
@@ -331,7 +331,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - name: Check K8s cluster and rollback
         continue-on-error: true
         run: |
@@ -385,7 +385,7 @@ jobs:
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -477,7 +477,7 @@ jobs:
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
@@ -513,7 +513,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v6
@@ -541,7 +541,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -647,7 +647,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -823,7 +823,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - name: Create secrets from GitHub Secrets
         run: |
           kubectl create namespace fitness-platform --dry-run=client -o yaml | kubectl apply -f -
@@ -886,7 +886,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - name: Get all job statuses
         id: statuses
         run: |
