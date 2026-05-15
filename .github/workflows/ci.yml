@@ -168,13 +168,14 @@ jobs:
       - name: Trivy security scan
         uses: aquasecurity/trivy-action@master
         env:
-           TRIVY_QUIET: "true"
+            TRIVY_QUIET: "true"
         with:
-             scan-type: 'fs'
-             scan-ref: '.'
-             scanners: 'vuln'
-             skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
-             hide-progress: true
+              scan-type: 'fs'
+              scan-ref: '.'
+              scanners: 'vuln'
+              skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
+              hide-progress: true
+              cache: false
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -461,13 +462,14 @@ jobs:
       - name: Run Trivy config scan
         uses: aquasecurity/trivy-action@master
         env:
-           TRIVY_QUIET: "true"
+            TRIVY_QUIET: "true"
         with:
-           scan-type: 'config'
-           scan-ref: '.'
-           format: 'table'
-           severity: 'CRITICAL,HIGH'
-           exit-code: '1'
+            scan-type: 'config'
+            scan-ref: '.'
+            format: 'table'
+            severity: 'CRITICAL,HIGH'
+            exit-code: '1'
+            cache: false
 
   secrets-scan:
     name: Secrets Scanning
@@ -593,11 +595,12 @@ jobs:
         name: Scan Docker images with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/gateway:${{ steps.sha.outputs.short_sha }}'
-          format: 'sarif'
-          output: 'trivy-image-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+           image-ref: '${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/gateway:${{ steps.sha.outputs.short_sha }}'
+           format: 'sarif'
+           output: 'trivy-image-results.sarif'
+           severity: 'CRITICAL,HIGH'
+           exit-code: '0'
+           cache: false
 
       - name: Upload Docker Trivy results
         if: always() && steps.trivy-scan.outcome == 'success'
