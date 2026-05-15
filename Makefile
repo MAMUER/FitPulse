@@ -4,7 +4,7 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint certs docker-lint
+.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint certs
 
 # ... (existing targets)
 
@@ -22,6 +22,7 @@ certs:
 	@echo "NOTE: These are self-signed — browsers will show a warning."
 
 BIN_DIR := bin
+GO_VERSION := 1.26.3
 
 # Зависимости
 tidy:
@@ -66,6 +67,12 @@ lint:
 	golangci-lint run --max-issues-per-linter=0
 	@echo "Lint complete."
 
+# SAST: govulncheck — проверка зависимостей на известные уязвимости
+vulncheck:
+	@echo "Running govulncheck..."
+	@govulncheck ./...
+	@echo "Govulncheck complete."
+
 # Проверка YAML файлов на синтаксис
 yaml-check:
 	@echo "Checking YAML files..."
@@ -85,7 +92,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок
-check: tidy fmt vet yaml-check docker-lint lint test-integration build test-cover
+check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration build test-cover
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -179,9 +186,12 @@ help:
 	@echo "Available commands:"
 	@echo "  make fmt        - Format Go code"
 	@echo "  make vet        - Run go vet"
+	@echo "  make lint       - Run golangci-lint"
+	@echo "  make gosec      - Run gosec SAST scanner"
+	@echo "  make vulncheck  - Run govulncheck dependency scanner"
 	@echo "  make test       - Run unit tests"
 	@echo "  make test-cover - Run tests with coverage report"
-	@echo "  make check      - Run fmt, vet, lint, test, build"
+	@echo "  make check      - Run fmt, vet, lint, gosec, vulncheck, test, build"
 	@echo "  make proto      - Generate proto files"
 	@echo "  make build      - Build all services"
 	@echo "  make run        - Run gateway"

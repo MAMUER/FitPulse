@@ -141,7 +141,8 @@ func main() {
 		}
 	}
 
-	log.Printf("Device emulator started: type=%q, user=%q, device=%q", //gosec:ignore G706 // sanitizeForLog and %q provide proper escaping
+	//gosec:ignore G706 // sanitizeForLog and %q provide proper escaping
+	log.Printf("Device emulator started: type=%q, user=%q, device=%q",
 		sanitizeForLog(*deviceType), sanitizeForLog(*userID), sanitizeForLog(deviceID))
 	log.Printf("Sync interval: %s, noise=%.3f, gap_prob=%.3f",
 		*syncInterval, *noiseLevel, *gapProb)
@@ -281,7 +282,8 @@ func syncData(ctx context.Context, source domain.BiometricSource, deviceID, devi
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		return fmt.Errorf("decode response failed: %w", err)
 	}
-	log.Printf("Sync OK: %d samples, forwarded=%d duplicates=%d failed=%d", //gosec:ignore G706 // safeInt guarantees integer values, %d formatting is safe
+	//gosec:ignore G706 // safeInt guarantees integer values, %d formatting is safe
+	log.Printf("Sync OK: %d samples, forwarded=%d duplicates=%d failed=%d",
 		len(samples), safeInt(stats["forwarded"]), safeInt(stats["duplicates"]), safeInt(stats["failed"]))
 	return nil
 }
