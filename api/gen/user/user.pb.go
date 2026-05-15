@@ -2527,7 +2527,7 @@ const file_user_proto_rawDesc = "" +
 	"\x10GetTrainingStats\x12\x1d.user.GetTrainingStatsRequest\x1a\x1e.user.GetTrainingStatsResponse\x12N\n" +
 	"\x0fGetAchievements\x12\x1c.user.GetAchievementsRequest\x1a\x1d.user.GetAchievementsResponse\x12<\n" +
 	"\tListUsers\x12\x16.user.ListUsersRequest\x1a\x17.user.ListUsersResponse\x12W\n" +
-	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
+	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponseB(Z&github.com/MAMUER/Project/api/gen/userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once

@@ -2007,7 +2007,7 @@ const file_ml_proto_rawDesc = "" +
 	"\x11ClassifyUserState\x12\x1c.ml.ClassifyUserStateRequest\x1a\x1d.ml.ClassifyUserStateResponse\x12Y\n" +
 	"\x14GenerateTrainingPlan\x12\x1f.ml.GenerateTrainingPlanRequest\x1a .ml.GenerateTrainingPlanResponse\x12M\n" +
 	"\x10GenerateDietPlan\x12\x1b.ml.GenerateDietPlanRequest\x1a\x1c.ml.GenerateDietPlanResponse\x128\n" +
-	"\tAdaptPlan\x12\x14.ml.AdaptPlanRequest\x1a\x15.ml.AdaptPlanResponseB&Z$github.com/MAMUER/project/api/gen/mlb\x06proto3"
+	"\tAdaptPlan\x12\x14.ml.AdaptPlanRequest\x1a\x15.ml.AdaptPlanResponseB&Z$github.com/MAMUER/Project/api/gen/mlb\x06proto3"
 
 var (
 	file_ml_proto_rawDescOnce sync.Once
