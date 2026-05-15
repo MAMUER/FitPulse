@@ -1,0 +1,87 @@
+---
+name: Новая функция (Feature Request)
+description: Предложить новую функцию или улучшение
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за предложение новой функции! Пожалуйста, опишите вашу идею подробно.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Описание проблемы
+      description: Какую проблему решает эта функция?
+      placeholder: "Я всегда сталкиваюсь с проблемой, когда..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Опишите, как должна работать эта функция
+      placeholder: "Добавить возможность..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативные решения
+      description: Какие ещё варианты решения вы рассматривали?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Компонент
+      description: Какой компонент затронет новая функция
+      options:
+        - Gateway
+        - User Service
+        - Biometric Service
+        - Training Service
+        - Device Connector
+        - Device Emulator
+        - ML Classifier
+        - ML Generator
+        - Database/Migrations
+        - Docker/Kubernetes
+        - Другое
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Приоритет
+      description: Насколько важна эта функция для вас
+      options:
+        - Низкий (nice to have)
+        - Средний (would be nice)
+        - Высокий (important)
+        - Критический (blocker)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительный контекст
+      description: Любая дополнительная информация, скриншоты, примеры использования
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Кодекс поведения
+      description: Подтвердите, что вы ознакомились с нашими правилами
+      options:
+        - label: Я согласен следовать кодексу поведения проекта
+          required: true

@@ -1,0 +1,97 @@
+---
+name: Баг-репорт
+description: Сообщить об ошибке в работе приложения
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение об ошибке! Пожалуйста, заполните эту форму подробно.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание ошибки
+      description: Краткое описание того, что пошло не так
+      placeholder: "Например: При регистрации администратора с invite-кодом возникает ошибка 500"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Шаги для воспроизведения
+      description: Подробные шаги для воспроизведения ошибки
+      placeholder: |
+        1. Запустить эмулятор устройства
+        2. Отправить биометрические данные...
+        3. Увидеть ошибку в логах
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно было произойти вместо ошибки
+      placeholder: "Данные должны были успешно сохраниться в БД"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Версия FitPulse
+      description: Версия, где обнаружена ошибка (см. README.md)
+      placeholder: "2.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Компонент
+      description: Какой компонент затронут ошибкой
+      options:
+        - Gateway
+        - User Service
+        - Biometric Service
+        - Training Service
+        - Device Connector
+        - Device Emulator
+        - ML Classifier
+        - ML Generator
+        - Database/Migrations
+        - Docker/Kubernetes
+        - Другое
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Окружение
+      description: OS, версия Docker, Go, Python
+      placeholder: "Ubuntu 22.04, Docker 24.0, Go 1.26.3, Python 3.11"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи и ошибки
+      description: Вставьте соответствующие логи или скриншоты ошибок
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Кодекс поведения
+      description: Подтвердите, что вы ознакомились с нашими правилами
+      options:
+        - label: Я согласен следовать кодексу поведения проекта
+          required: true
