@@ -272,7 +272,7 @@ func TestIsValidServiceURL_Valid(t *testing.T) {
 	assert.True(t, isValidServiceURL("http://localhost:8080", "http://localhost:"))
 	assert.True(t, isValidServiceURL("http://ml-classifier:8001", "http://ml-"))
 	assert.True(t, isValidServiceURL("http://connector:9090", "http://connector:"))
-	assert.True(t, isValidServiceURL("https://localhost:443", "https://localhost:"))
+	assert.True(t, isValidServiceURL("https://localhost:8443", "https://localhost:"))
 }
 
 func TestIsValidServiceURL_Invalid(t *testing.T) {

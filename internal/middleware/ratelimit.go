@@ -41,6 +41,10 @@ func init() {
 
 func RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		ip := r.RemoteAddr
 		v, ok := rateLimiterInstance.visitors.Load(ip)
 		if !ok {

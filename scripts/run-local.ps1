@@ -80,16 +80,44 @@ Get-Content $envFile | Where-Object { $_ -match '^\s*([^#][^=]+)=(.*)$' } | ForE
 }
 Write-Host "  OK - $varCount variables loaded" -ForegroundColor Green
 
-# 5. Start Docker containers
+# 5. Build Docker images (if needed)
 Write-Host ""
-Write-Host "[5/5] Starting all services via Docker Compose..."
+Write-Host "[5/5] Building Docker images (if needed)..."
 $composeFile = Join-Path $PSScriptRoot "..\deployments\docker-compose.yml"
-docker compose --env-file $envFile -f $composeFile up -d --build
+$overrideFile = Join-Path $PSScriptRoot "..\deployments\docker-compose.override.yml"
+$buildArgs = @("--env-file", $envFile, "-f", $composeFile, "-f", $overrideFile)
+# Set Go environment variables to avoid module download issues
+$env:GOPROXY = "https://proxy.golang.org,direct"
+$env:GOSUMDB = "off"
+$buildArgs += @("build")
+docker compose @buildArgs
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  ERROR - docker compose build failed!" -ForegroundColor Red
+    Write-Host "  Check logs: docker compose -f $composeFile logs" -ForegroundColor Yellow
+    exit 1
+}
+
+# 6. Start Docker containers
+Write-Host ""
+Write-Host "[6/6] Starting all services via Docker Compose..."
+$monitoringServices = @("elasticsearch", "logstash", "kibana", "prometheus", "grafana", "alertmanager", "node-exporter")
+$scaleArgs = @()
+foreach ($service in $monitoringServices) {
+    $scaleArgs += "--scale"
+    $scaleArgs += "$service=0"
+}
+$startArgs = @("--env-file", $envFile, "-f", $composeFile, "-f", $overrideFile)
+
+$startArgs += @("up")
+$startArgs += $scaleArgs
+$startArgs += @("--pull", "missing", "-d")
+docker compose @startArgs
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR - docker compose failed!" -ForegroundColor Red
     Write-Host "  Check logs: docker compose -f $composeFile logs" -ForegroundColor Yellow
     exit 1
 }
+
 
 # Wait for services
 Write-Host "  Waiting for services to initialize..." -ForegroundColor Gray

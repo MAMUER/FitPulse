@@ -3,6 +3,10 @@
 # ========== Builder stage ==========
 FROM golang:1.26-alpine AS builder
 
+# Set Go environment for module downloading
+ENV GOPROXY=direct
+ENV GOSUMDB=off
+
 RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
 
 WORKDIR /app

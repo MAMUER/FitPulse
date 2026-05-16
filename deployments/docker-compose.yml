@@ -259,14 +259,22 @@ services:
       - REDIS_HOST=redis
       - DATABASE_URL=postgres://${POSTGRES_USER:-fitness_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fitness}?sslmode=disable
     depends_on:
-      - user-service
-      - biometric-service
-      - training-service
-      - device-connector
-      - ml-classifier
-      - ml-generator
-      - rabbitmq
-      - redis
+      user-service:
+        condition: service_started
+      biometric-service:
+        condition: service_started
+      training-service:
+        condition: service_started
+      device-connector:
+        condition: service_started
+      ml-classifier:
+        condition: service_started
+      ml-generator:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - fitness-network
     restart: unless-stopped
@@ -393,6 +401,19 @@ services:
     networks:
       - fitness-network
     restart: unless-stopped
+
+  nginx-proxy:
+    image: nginx:latest
+    ports:
+      - "8443:8443"
+      - "80:80"
+    volumes:
+      - ../deploy/tls/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../deploy/tls/certs:/etc/nginx/certs:ro
+    depends_on:
+      - gateway
+    networks:
+      - fitness-network
 
 networks:
   fitness-network:
