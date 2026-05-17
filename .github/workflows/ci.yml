@@ -73,14 +73,11 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Enable strict error handling
-        run: set -euo pipefail
-
       - name: Set git default branch to main
         run: |
           set -euo pipefail
-           git fetch --all --tags
-           git branch -f main origin/main 2>/dev/null || true
+          git fetch --all --tags
+          git branch -f main origin/main 2>/dev/null || true
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -214,9 +211,6 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Enable strict error handling
-        run: set -euo pipefail
-
       - name: Smoke tests
         run: |
           set -euo pipefail
