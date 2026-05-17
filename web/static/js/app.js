@@ -1149,7 +1149,7 @@ function showMainApp() {
                 <div class="achievement-icon">${a.icon}</div>
                 <div class="achievement-name">${a.name}</div>
                 <div class="achievement-desc">${a.desc}</div>
-                ${a.unlocked ? '<div class="achievement-progress">✅ Получено</div>' : '<div class="achievement-progress">🔒 Заблокировано</div>'}
+                ${a.unlocked ? '<div class="achievement-progress">Получено</div>' : '<div class="achievement-progress">Заблокировано</div>'}
             </div>
         `).join('');
 

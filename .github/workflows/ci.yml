@@ -505,7 +505,7 @@ jobs:
             echo "   Add .env to .gitignore"
             exit 1
           fi
-          echo "✅ .env is not tracked"
+          echo ".env is not tracked"
 
       # TruffleHog: поиск secrets в истории коммитов
       - name: TruffleHog OSS
@@ -589,7 +589,7 @@ jobs:
               echo "Pushing $svc (attempt $attempt)..."
               if docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:${{ steps.sha.outputs.short_sha }} && \
                  docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest; then
-                echo "✅ $svc pushed"
+                echo "$svc pushed"
                 break
               fi
               if [ "$attempt" -eq 3 ]; then
@@ -632,7 +632,7 @@ jobs:
               .
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:${{ steps.sha.outputs.short_sha }}
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest
-            echo "✅ ml-classifier pushed"
+            echo "ml-classifier pushed"
           else
             echo "⚠️  Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
             echo "   Run 'python cmd/ml-classifier/train.py' locally and commit models to build ML image"
@@ -648,7 +648,7 @@ jobs:
               .
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:${{ steps.sha.outputs.short_sha }}
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:latest
-            echo "✅ ml-generator pushed"
+            echo "ml-generator pushed"
           else
             echo "⚠️  Skipping ml-generator — models/generator not found"
             echo "   Run 'python cmd/ml-generator/train_gan.py' locally and commit model to build ML image"
@@ -1000,7 +1000,7 @@ jobs:
             🌿 **Ветка:** `${{ github.ref_name }}`
             🔖 **Коммит:** [`${{ github.sha }}`](${{ steps.commit.outputs.commit_url }})
             👤 **Автор:** ${{ steps.commit.outputs.author }}
-            📝 **Сообщение:** ${{ steps.commit.outputs.message }}
+            **Сообщение:** ${{ steps.commit.outputs.message }}
 
             ━━━━━━━━━━━━━━━━━━━━━
 
@@ -1008,7 +1008,7 @@ jobs:
             | Этап | Статус |
             |------|--------|
             | 🧪 Тесты | ${{ steps.statuses.outputs.test_emoji }} `${{ steps.statuses.outputs.test_status }}` |
-            | 🔒 Security | ${{ steps.statuses.outputs.security_emoji }} `${{ steps.statuses.outputs.security_status }}` |
+            | Security | ${{ steps.statuses.outputs.security_emoji }} `${{ steps.statuses.outputs.security_status }}` |
             | 🔑 Secrets | ${{ steps.statuses.outputs.secrets_emoji }} `${{ steps.statuses.outputs.secrets_status }}` |
             | 🔨 Сборка | ${{ steps.statuses.outputs.build_emoji }} `${{ steps.statuses.outputs.build_status }}` |
             | 🐳 Docker | ${{ steps.statuses.outputs.docker_emoji }} `${{ steps.statuses.outputs.docker_status }}` |

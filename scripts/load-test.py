@@ -130,7 +130,7 @@ Examples:
         result = subprocess.run(cmd, timeout=1200)  # 20 min timeout
         
         if result.returncode == 0:
-            print(f"\n{GREEN}{BOLD}✅  LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
+            print(f"\n{GREEN}{BOLD} LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
             if Path(args.output).exists():
                 print(f"{CYAN}📄 Results saved to: {args.output}{RESET}")
                 print_results(args.output)

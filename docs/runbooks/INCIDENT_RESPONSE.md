@@ -159,14 +159,14 @@ kubectl top pod -n fitness-platform --containers
 🔴 INCIDENT: Service API Degradation
 ⏰ Started: 2026-05-06T14:30Z
 👥 Impact: ~10% of users experiencing timeouts
-⚡ Status: Investigating
+Status: Investigating
 🔗 Updates: https://status.fitpulse.app
 ```
 
 ### Resolution
 
 ```
-✅ RESOLVED: Service API Degradation
+RESOLVED: Service API Degradation
 ⏰ Duration: 45 minutes
 🔍 Cause: Database connection pool exhausted due to memory leak in biometric-service
 📋 Fix: Patched and redeployed biometric-service v2.1.1

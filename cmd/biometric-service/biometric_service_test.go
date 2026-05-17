@@ -268,7 +268,7 @@ func TestBiometricServer_AddRecord_Success(t *testing.T) {
 
 func TestBatchAddRecords_Validation(t *testing.T) {
 	mockLog := logger.New("test")
-	// ✅ Используем мокаемый интерфейс, а не конкретный тип
+	// Используем мокаемый интерфейс, а не конкретный тип
 	mockQueue := new(mockPublisher)
 	// Не ожидаем Close - сервер не вызывает Close на очереди при валидации
 

@@ -286,14 +286,14 @@ class DatasetExplorer:
         }
         
         print(f"📈 Всего датасетов: {total_datasets}")
-        print(f"✅ Доступно: {accessible}")
+        print(f"Доступно: {accessible}")
         print(f"📡 Сигналы: {list(all_signals)[:10]}...")
         
         self.report['recommendations'] = [
-            "✅ BIDMC: HR, SpO2 (53 субъекта)",
-            "✅ WESAD: ECG, EDA, TEMP (15 субъектов)",
-            "✅ SPD: HR, IBI, EDA (35 субъектов)",
-            "✅ ADARP: HR, EDA (75+ сессий)",
+            "BIDMC: HR, SpO2 (53 субъекта)",
+            "WESAD: ECG, EDA, TEMP (15 субъектов)",
+            "SPD: HR, IBI, EDA (35 субъектов)",
+            "ADARP: HR, EDA (75+ сессий)",
             "💡 Для классификатора: BIDMC + WESAD + SPD",
             "💡 Для GAN: WESAD + WESD + SPD"
         ]
@@ -325,7 +325,7 @@ def main():
     explorer = DatasetExplorer(RAW_DATA_DIR)
     explorer.explore_all()
     print(f"\n{'=' * 80}")
-    print("✅ ГОТОВО!")
+    print("ГОТОВО!")
     print(f"{'=' * 80}")
     print("\nСледующие шаги:")
     print("1. python preprocess_real_data.py")

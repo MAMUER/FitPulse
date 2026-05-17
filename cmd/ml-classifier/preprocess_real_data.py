@@ -98,7 +98,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'ADARP {hr_file}: {str(e)}')
         
-        print(f"✅ ADARP: {count} сэмплов")
+        print(f"ADARP: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'adarp', 'samples': count})
         return count
     
@@ -139,7 +139,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'BIDMC {file}: {str(e)}')
         
-        print(f"✅ BIDMC: {count} сэмплов")
+        print(f"BIDMC: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'bidmc', 'samples': count})
         return count
     
@@ -188,7 +188,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'WESAD {pkl_file}: {str(e)}')
         
-        print(f"✅ WESAD: {count} сэмплов")
+        print(f"WESAD: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'wesad', 'samples': count})
         return count
     
@@ -226,7 +226,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'SPD {hr_file}: {str(e)}')
         
-        print(f"✅ SPD: {count} сэмплов")
+        print(f"SPD: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'spd', 'samples': count})
         return count
     
@@ -270,7 +270,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'WESD {hr_file}: {str(e)}')
         
-        print(f"✅ WESD: {count} сэмплов")
+        print(f"WESD: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'wesd', 'samples': count})
         return count
     
@@ -311,7 +311,7 @@ class DataPreprocessor:
                         self.stats['errors'].append(f'BigIdeas {hr_file}: {str(e)}')
                         continue
         
-        print(f"✅ Big Ideas Lab: {count} сэмплов")
+        print(f"Big Ideas Lab: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'big_ideas_lab', 'samples': count})
         return count
     
@@ -357,7 +357,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'CapnoBase {file}: {str(e)}')
         
-        print(f"✅ CapnoBase: {count} сэмплов")
+        print(f"CapnoBase: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'capnobase', 'samples': count})
         return count
     
@@ -400,7 +400,7 @@ class DataPreprocessor:
             print("⚠️ scipy не установлен, пропускаем CSL")
             self.stats['errors'].append('CSL: scipy not installed')
         
-        print(f"✅ CSL: {count} сэмплов")
+        print(f"CSL: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'csl', 'samples': count})
         return count
     
@@ -439,7 +439,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'Nurses {hr_file}: {str(e)}')
         
-        print(f"✅ Stress Nurses: {count} сэмплов")
+        print(f"Stress Nurses: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'stress_nurses', 'samples': count})
         return count
     
@@ -474,7 +474,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'DaLiA {pkl_file}: {str(e)}')
         
-        print(f"✅ PPG DaLiA: {count} сэмплов")
+        print(f"PPG DaLiA: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'ppg_dalia', 'samples': count})
         return count
     
@@ -513,7 +513,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'E4SelfLearning {hr_file}: {str(e)}')
         
-        print(f"✅ E4 Self-Learning: {count} сэмплов")
+        print(f"E4 Self-Learning: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'e4selflearning', 'samples': count})
         return count
     
@@ -550,7 +550,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'Toadstool {hr_file}: {str(e)}')
         
-        print(f"✅ Toadstool: {count} сэмплов")
+        print(f"Toadstool: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'toadstool', 'samples': count})
         return count
     
@@ -587,7 +587,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'UE4W {hr_file}: {str(e)}')
         
-        print(f"✅ UE4W: {count} сэмплов")
+        print(f"UE4W: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'ue4w', 'samples': count})
         return count
     
@@ -624,7 +624,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.stats['errors'].append(f'WEEE {hr_file}: {str(e)}')
         
-        print(f"✅ WEEE: {count} сэмплов")
+        print(f"WEEE: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'weee', 'samples': count})
         return count
     
@@ -645,7 +645,7 @@ class DataPreprocessor:
                 ))
                 count += 1
         
-        print(f"✅ Sleep EDF: {count} сэмплов")
+        print(f"Sleep EDF: {count} сэмплов")
         self.stats['datasets_processed'].append({'name': 'sleep_edf', 'samples': count})
         return count
     
@@ -681,7 +681,7 @@ class DataPreprocessor:
                         }
                         self.all_data.append(augmented)
         
-        print(f"✅ После балансировки: {len(self.all_data)} сэмплов")
+        print(f"После балансировки: {len(self.all_data)} сэмплов")
     
     def save_processed_data(self):
         """Сохранение обработанных данных"""
@@ -689,7 +689,7 @@ class DataPreprocessor:
         
         csv_path = os.path.join(OUTPUT_DIR, 'training_data_real.csv')
         df.to_csv(csv_path, index=False)
-        print(f"\n✅ Сохранено: {csv_path}")
+        print(f"\nСохранено: {csv_path}")
         print(f"   Всего сэмплов: {len(df)}")
         
         class_dist = df['label'].value_counts().to_dict()
@@ -707,7 +707,7 @@ class DataPreprocessor:
         
         with open(LOG_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.stats, f, indent=2, ensure_ascii=False)
-        print(f"✅ Лог: {LOG_FILE}")
+        print(f"Лог: {LOG_FILE}")
         
         dist_path = os.path.join(OUTPUT_DIR, 'dataset_stats.json')
         with open(dist_path, 'w', encoding='utf-8') as f:
@@ -716,7 +716,7 @@ class DataPreprocessor:
                 'classes': class_dist,
                 'datasets': self.stats['datasets_processed']
             }, f, indent=2, ensure_ascii=False)
-        print(f"✅ Статистика: {dist_path}")
+        print(f"Статистика: {dist_path}")
         
         return df
     
@@ -761,7 +761,7 @@ class DataPreprocessor:
         self.save_processed_data()
         
         print("\n" + "=" * 70)
-        print("✅ ПРЕПРОЦЕССИНГ ЗАВЕРШЁН")
+        print("ПРЕПРОЦЕССИНГ ЗАВЕРШЁН")
         print("=" * 70)
         print(f"📈 Всего сэмплов: {self.stats['total_samples']}")
         print(f"📈 Датасетов обработано: {len(self.stats['datasets_processed'])}")

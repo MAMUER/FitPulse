@@ -203,7 +203,7 @@ def train_model():
     print("Training plot saved to ../../models/training_history.png")
     
     print("\n" + "=" * 70)
-    print("✅ ОБУЧЕНИЕ ЗАВЕРШЕНО!")
+    print("ОБУЧЕНИЕ ЗАВЕРШЕНО!")
     print("=" * 70)
     
     return model, scaler
