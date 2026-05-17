@@ -57,7 +57,7 @@ jobs:
              echo "ADR updated - good!"
            elif echo "$CHANGED_FILES" | grep -qE "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
                 grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$"; then
-             echo "Warning: Significant architectural changes detected without ADR. Consider documenting in docs/adr/"
+              echo "ERROR: Significant architectural changes detected without ADR. Failing the build."
              echo "Changed files:"
              echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
                grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$" || true
@@ -73,13 +73,12 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
+      - name: Enable strict error handling
+        run: set -euo pipefail
+
       - name: Set git default branch to main
-        run: git config --global init.defaultBranch main
-      - uses: actions/checkout@v6.0.2
-        with:
-            fetch-depth: 0
-      - name: Fetch all branches and tags
         run: |
+          set -euo pipefail
            git fetch --all --tags
            git branch -f main origin/main 2>/dev/null || true
       - name: Set up Go
@@ -102,6 +101,7 @@ jobs:
         run: go mod tidy
       - name: Run unit tests (parallel)
         run: |
+          set -euo pipefail
             PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
             if [ -z "$PACKAGES" ]; then
               echo "No testable packages found."
@@ -111,6 +111,7 @@ jobs:
             go test -v -coverprofile=coverage.out -parallel 4 $PACKAGES
       - name: Check coverage
         run: |
+          set -euo pipefail
             # Filter out generated + hard-to-cover integration packages
             grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|cmd/data-processor|cmd/training-service|cmd/gateway|cmd/user-service|cmd/device-connector|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
             COVERAGE=$(go tool cover -func=coverage.filtered.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
@@ -125,7 +126,7 @@ jobs:
         run: |
           go install github.com/pact-foundation/pact-go@latest
           export PATH=$PATH:$(go env GOPATH)/bin
-          go test -v ./contracts/pact/... -timeout 2m || true
+          go test -v ./contracts/pact/... -timeout 2m
       - name: Generate coverage for SonarQube
         run: |
               if [ -f "coverage.out" ]; then
@@ -213,12 +214,16 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
+      - name: Enable strict error handling
+        run: set -euo pipefail
+
       - name: Smoke tests
         run: |
+          set -euo pipefail
           echo "Running smoke tests against test environment"
           TEST_URL=${TEST_URL:-https://test.fitness-platform.local}
           curl -f --retry 5 --retry-delay 10 "$TEST_URL/health" || exit 1
-          curl -f "$TEST_URL/api/v1/register" -X POST -H "Content-Type: application/json" -d '{"email":"smoke@test.com","password":"Test123!"}' || true
+          curl -f "$TEST_URL/api/v1/register" -X POST -H "Content-Type: application/json" -d '{"email":"smoke@test.com","password":"Test123!"}'
           echo "Smoke tests passed"
 
   deploy-staging:
@@ -236,7 +241,7 @@ jobs:
       - name: UAT Tests
         run: |
           echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
-          python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}" || true
+            python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
       - id: prepare-staging-target
         name: Prepare staging target URL
         run: |
@@ -291,7 +296,7 @@ jobs:
           echo "Running chaos tests (simulated failures)"
           # Simple chaos: hit health endpoint under load and expect some errors
           for i in {1..20}; do
-            curl -s -o /dev/null -w "%{http_code}\n" "${{ steps.prepare-staging-target.outputs.target }}/health" || true
+            curl -s -o /dev/null -w "%{http_code}\n" "${{ steps.prepare-staging-target.outputs.target }}/health"
             sleep 0.5
           done
           echo "Chaos test completed"
@@ -380,7 +385,7 @@ jobs:
           golangci-lint run --timeout=5m
       - name: Run fmt check
         run: |
-          FILES=$(gofmt -l . | grep -v "cmd/tools/tools.go" || true)
+          FILES=$(gofmt -l . | grep -v "cmd/tools/tools.go")
           if [ -n "$FILES" ]; then
             echo "Files not formatted:"
             echo "$FILES"
@@ -426,9 +431,9 @@ jobs:
       # SAST: статический анализ кода на security issues
       - name: Run gosec SAST scanner
         run: |
-          gosec -exclude-generated -fmt=sarif -out=gosec-results.sarif ./... || true
+          gosec -exclude-generated -fmt=sarif -out=gosec-results.sarif ./...
           echo "=== GOSEC SUMMARY ==="
-          gosec -exclude-generated ./... || true
+          gosec -exclude-generated ./...
 
       # Upload gosec results to GitHub Security tab
       - name: Upload gosec results
@@ -442,7 +447,7 @@ jobs:
       - name: Run govulncheck
         continue-on-error: true
         run: |
-          govulncheck ./... 2>&1 | tee vulncheck-results.txt || true
+          govulncheck ./... 2>&1 | tee vulncheck-results.txt
           echo "=== VULNCHECK SUMMARY ==="
           # Считаем количество найденных уязвимостей
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
@@ -517,7 +522,7 @@ jobs:
 
       # Gitleaks: дополнительный поиск утечек credentials
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v2.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
