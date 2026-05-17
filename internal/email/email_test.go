@@ -113,6 +113,12 @@ func TestNewSender(t *testing.T) {
 	assert.Equal(t, 0, sender.dailySent)
 }
 
+// Additional daily limit path coverage via config
+func TestSenderDailyLimitConfig(t *testing.T) {
+	cfg := Config{DailyLimit: 10}
+	s := NewSender(cfg)
+	assert.Equal(t, 10, s.cfg.DailyLimit)
+}
 func TestSendVerificationEmailSkipDomain(t *testing.T) {
 	cfg := Config{
 		Host:            "localhost",

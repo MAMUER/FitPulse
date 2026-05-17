@@ -1836,3 +1836,6 @@ func TestGrpcToHTTPStatus_AllCodes(t *testing.T) {
 
 // timestamppb usage verification (used in biometric requests)
 var _ = timestamppb.Now
+
+// timestamppb usage verification (used in biometric requests)
+var _ = timestamppb.Now

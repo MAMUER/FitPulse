@@ -719,3 +719,19 @@ func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	assert.False(t, called)
 }
+
+// Test response signer middleware
+func TestResponseSigner(t *testing.T) {
+	log := zap.NewNop()
+	secret := "sign-secret"
+
+	handler := SignCriticalResponses(secret, log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true}`))
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}

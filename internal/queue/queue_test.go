@@ -465,3 +465,27 @@ func TestNewConsumerNilLogger(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, consumer)
 }
+
+// Additional unit test for publish error path simulation
+func TestPublisherPublishErrorPaths(t *testing.T) {
+	pub := &rabbitPublisher{
+		closed: false,
+	}
+	// Force error by using invalid internal state (simulates channel failure)
+	err := pub.Publish(context.Background(), nil)
+	// Expect error due to nil channel
+	assert.Error(t, err)
+}
+
+// Cover more Close branches
+func TestPublisherCloseWithPartialState(t *testing.T) {
+	pub := &rabbitPublisher{
+		closed:  false,
+		channel: nil,
+		conn:    nil,
+	}
+	err := pub.Close()
+	assert.NoError(t, err)
+}
+
+// Test Ack/Nack on nil channel would panic in real lib - covered by integration paths instead
