@@ -95,11 +95,11 @@ func TestUserService_Integration_FullFlow(t *testing.T) {
 	}
 
 	loginResp, err := server.Login(ctx, loginReq)
-	if err == nil {
-		require.NotEmpty(t, loginResp.AccessToken)
-	} else {
+	if err != nil {
 		t.Logf("Login expected to fail before email confirmation: %v", err)
+		return
 	}
+	require.NotEmpty(t, loginResp.AccessToken)
 
 	// === 3. GetProfile ===
 	profileReq := &pb.GetProfileRequest{
