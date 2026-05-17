@@ -374,3 +374,71 @@ func TestGeneratePlan_InvalidDuration(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
+
+func TestGetPlan_Nil(t *testing.T) {
+	_ = validator.ValidateGeneratePlanRequest(nil)
+}
+
+func TestTrainingServer_ListPlans_Nil(t *testing.T) {
+	_ = validator.ValidateListPlansRequest(nil)
+}
+
+func TestGetPlan_ValidationError_Extra(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{db: db, log: log, rabbitQueue: &mockPublisher{}}
+
+	req := &pb.GetPlanRequest{PlanId: ""}
+
+	resp, err := server.GetPlan(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestListPlans_ValidationError_Extra(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{db: db, log: log, rabbitQueue: &mockPublisher{}}
+
+	req := &pb.ListPlansRequest{UserId: "", PageSize: 10, Page: 1}
+
+	resp, err := server.ListPlans(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestCompleteWorkout_ValidationError_Extra(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{db: db, log: log, rabbitQueue: &mockPublisher{}}
+
+	req := &pb.CompleteWorkoutRequest{UserId: "", PlanId: "", WorkoutId: ""}
+
+	resp, err := server.CompleteWorkout(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestGetProgress_ValidationError_Extra(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{db: db, log: log, rabbitQueue: &mockPublisher{}}
+
+	req := &pb.GetProgressRequest{UserId: ""}
+
+	resp, err := server.GetProgress(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
