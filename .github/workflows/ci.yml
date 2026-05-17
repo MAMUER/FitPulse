@@ -102,7 +102,7 @@ jobs:
         run: go mod tidy
       - name: Run unit tests (parallel)
         run: |
-            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./... | grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator)')
+            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
             if [ -z "$PACKAGES" ]; then
               echo "No testable packages found."
               exit 1
@@ -111,7 +111,9 @@ jobs:
             go test -v -coverprofile=coverage.out -parallel 4 $PACKAGES
       - name: Check coverage
         run: |
-            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+            # Filter out generated/mocks/scripts from coverage report
+            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
+            COVERAGE=$(go tool cover -func=coverage.filtered.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
             echo "Total coverage: $COVERAGE%"
             if (( $(echo "$COVERAGE < 60" | bc -l) )); then
               echo "Coverage $COVERAGE% is below 60%"
