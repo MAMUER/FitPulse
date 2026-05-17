@@ -489,3 +489,8 @@ func TestPublisherCloseWithPartialState(t *testing.T) {
 }
 
 // Test Ack/Nack on nil channel would panic in real lib - covered by integration paths instead
+
+func TestNewPublisher_NilLogger(t *testing.T) {
+	_, err := NewPublisher(testRabbitURL, testQueueName, nil)
+	assert.Error(t, err)
+}

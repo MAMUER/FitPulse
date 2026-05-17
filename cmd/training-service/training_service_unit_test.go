@@ -195,3 +195,151 @@ func TestCompleteWorkout_NotFound(t *testing.T) {
 	assert.False(t, resp.Success)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestGeneratePlan_ValidationError(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	req := &pb.GeneratePlanRequest{
+		UserId:              "", // invalid
+		ClassificationClass: "endurance_e1e2",
+		DurationWeeks:       4,
+		AvailableDays:       []int32{1, 2, 3},
+	}
+
+	resp, err := server.GeneratePlan(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestGeneratePlan_ContextCancelled(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // immediately cancelled
+
+	req := &pb.GeneratePlanRequest{
+		UserId:              "user-123",
+		ClassificationClass: "endurance_e1e2",
+		DurationWeeks:       4,
+		AvailableDays:       []int32{1, 2, 3},
+	}
+
+	resp, err := server.GeneratePlan(ctx, req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestListPlans_ValidationError(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	req := &pb.ListPlansRequest{
+		UserId:   "", // invalid
+		PageSize: 10,
+		Page:     1,
+	}
+
+	resp, err := server.ListPlans(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestCompleteWorkout_ValidationError(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	req := &pb.CompleteWorkoutRequest{
+		UserId:    "", // invalid
+		PlanId:    "plan-1",
+		WorkoutId: "workout-1",
+	}
+
+	resp, err := server.CompleteWorkout(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestGetProgress_ValidationError(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	req := &pb.GetProgressRequest{
+		UserId: "", // invalid
+	}
+
+	resp, err := server.GetProgress(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestGeneratePlan_InvalidDuration(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	log := logger.New("test")
+	server := &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: &mockPublisher{},
+	}
+
+	req := &pb.GeneratePlanRequest{
+		UserId:              "user-123",
+		ClassificationClass: "endurance_e1e2",
+		DurationWeeks:       0, // invalid
+		AvailableDays:       []int32{1, 2, 3},
+	}
+
+	resp, err := server.GeneratePlan(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}

@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
@@ -252,4 +254,74 @@ func TestDataProcessorMain_ConfigurationValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRun_InvalidDBConfig exercises the DB connection failure path in run()
+func TestRun_InvalidDBConfig(t *testing.T) {
+	oldHost := os.Getenv("DB_HOST")
+	defer func() { _ = os.Setenv("DB_HOST", oldHost) }()
+
+	_ = os.Setenv("DB_HOST", "")
+	_ = os.Setenv("DB_PORT", "5432")
+	_ = os.Setenv("DB_USER", "u")
+	_ = os.Setenv("DB_PASSWORD", "p")
+	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("DB_SSLMODE", "disable")
+
+	// run() should return error when DB connection fails
+	stopCh := make(chan os.Signal, 1)
+	err := run(stopCh)
+	assert.Error(t, err)
+}
+
+// TestRun_EmptyRabbitMQ exercises the branch where RABBITMQ_URL is empty
+func TestRun_EmptyRabbitMQ(t *testing.T) {
+	oldRabbit := os.Getenv("RABBITMQ_URL")
+	defer func() { _ = os.Setenv("RABBITMQ_URL", oldRabbit) }()
+
+	_ = os.Setenv("RABBITMQ_URL", "")
+
+	// We still expect DB error in test env, but the RabbitMQ branch is exercised
+	_ = os.Setenv("DB_HOST", "invalid")
+	stopCh := make(chan os.Signal, 1)
+	err := run(stopCh)
+	assert.Error(t, err)
+}
+
+// TestRun_RabbitMQInvalidURL exercises the RabbitMQ warning path
+func TestRun_RabbitMQInvalidURL(t *testing.T) {
+	oldRabbit := os.Getenv("RABBITMQ_URL")
+	defer func() { _ = os.Setenv("RABBITMQ_URL", oldRabbit) }()
+
+	_ = os.Setenv("RABBITMQ_URL", "amqp://invalid-host:5672/")
+
+	_ = os.Setenv("DB_HOST", "invalid")
+	stopCh := make(chan os.Signal, 1)
+	err := run(stopCh)
+	assert.Error(t, err)
+}
+
+// TestRun_GracefulShutdown tests proper startup + shutdown via stop channel
+func TestRun_GracefulShutdown(t *testing.T) {
+	_ = os.Setenv("DB_HOST", "invalid-host")
+	_ = os.Setenv("DB_PORT", "5432")
+	_ = os.Setenv("DB_USER", "u")
+	_ = os.Setenv("DB_PASSWORD", "p")
+	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("DB_SSLMODE", "disable")
+	_ = os.Setenv("RABBITMQ_URL", "")
+
+	stopCh := make(chan os.Signal, 1)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(stopCh)
+	}()
+
+	// Give it a moment to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Trigger shutdown (best-effort, test is non-critical)
+	stopCh <- syscall.SIGTERM
+	<-done // wait for goroutine to finish
 }

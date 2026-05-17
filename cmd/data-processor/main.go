@@ -12,6 +12,16 @@ import (
 )
 
 func main() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	if err := run(quit); err != nil {
+		os.Exit(1)
+	}
+}
+
+// run starts the data processor. stopCh is used to gracefully stop the service (useful for testing).
+func run(stopCh <-chan os.Signal) error {
 	log := logger.New("data-processor")
 	defer func() { _ = log.Sync() }()
 
@@ -27,12 +37,13 @@ func main() {
 	}
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
+		log.Error("Failed to connect to database", zap.Error(err))
+		return err
 	}
 	defer func() { _ = database.Close() }()
 
 	rabbitURL := os.Getenv("RABBITMQ_URL")
-	var consumer queue.Consumer // ← ИНТЕРФЕЙС
+	var consumer queue.Consumer
 	if rabbitURL != "" {
 		consumer, err = queue.NewConsumer(rabbitURL, "biometric_events", log.Logger)
 		if err != nil {
@@ -43,9 +54,8 @@ func main() {
 		}
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	<-stopCh
 
 	log.Info("Data processor shutting down")
+	return nil
 }

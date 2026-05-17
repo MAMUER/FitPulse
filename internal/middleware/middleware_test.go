@@ -726,10 +726,10 @@ func TestResponseSigner(t *testing.T) {
 	secret := "sign-secret"
 
 	handler := SignCriticalResponses(secret, log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -748,7 +748,7 @@ func TestCorrelationID(t *testing.T) {
 
 	handler := CorrelationID(next)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	req.Header.Set("X-Correlation-ID", "test-cid-123")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

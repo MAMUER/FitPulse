@@ -1837,5 +1837,30 @@ func TestGrpcToHTTPStatus_AllCodes(t *testing.T) {
 // timestamppb usage verification (used in biometric requests)
 var _ = timestamppb.Now
 
-// timestamppb usage verification (used in biometric requests)
-var _ = timestamppb.Now
+func TestIsValidDeviceID(t *testing.T) {
+	validIDs := []string{
+		"dev-123",
+		"device_456",
+		"abc123DEF",
+		"a1_b2-c3",
+		"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", // 100 chars
+	}
+	for _, id := range validIDs {
+		if !isValidDeviceID(id) {
+			t.Errorf("expected %q to be valid device ID", id)
+		}
+	}
+
+	invalidIDs := []string{
+		"",
+		"device with space",
+		"device@special",
+		"device#hash",
+		strings.Repeat("a", 101),
+	}
+	for _, id := range invalidIDs {
+		if isValidDeviceID(id) {
+			t.Errorf("expected %q to be invalid device ID", id)
+		}
+	}
+}
