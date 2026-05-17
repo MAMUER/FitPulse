@@ -108,6 +108,11 @@ func TestStrings(t *testing.T) {
 			input:    []string{"  hello  ", "  world  "},
 			expected: []string{"hello", "world"},
 		},
+		{
+			name:     "empty slice",
+			input:    []string{},
+			expected: []string{},
+		},
 	}
 
 	for _, tt := range tests {

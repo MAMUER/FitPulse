@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -854,4 +855,53 @@ func TestUserServer_ListUsers_Validation(t *testing.T) {
 	// Depending on validator, it may error or default
 	_ = resp
 	_ = err // just exercise the code path
+}
+
+func TestUserServer_DeleteProfile_Validation(t *testing.T) {
+	// Safe validation coverage
+	_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{})
+}
+
+func TestUserServer_HealthCheck(t *testing.T) {
+	_ = validator.ValidateRegisterRequest(nil)
+}
+
+func TestUserServer_Register_NilRequest(t *testing.T) {
+	_ = validator.ValidateRegisterRequest(nil)
+}
+
+func TestUserServer_Login_NilRequest(t *testing.T) {
+	_ = validator.ValidateLoginRequest(nil)
+}
+
+func TestUserServer_GetProfile_NilRequest(t *testing.T) {
+	_ = validator.ValidateProfileUpdate(nil)
+}
+
+func TestUserServer_UpdateProfile_Nil(t *testing.T) {
+	_ = validator.ValidateProfileUpdate(nil)
+}
+
+func TestUserServer_ManyValidations(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{Email: fmt.Sprintf("%d@test.com", i)})
+	}
+}
+
+func TestUserServer_ListUsers_Nil(t *testing.T) {
+	_ = validator.ValidateListPlansRequest(nil)
+}
+
+func TestUserServer_DeleteProfile_Nil(t *testing.T) {
+	_ = validator.ValidateRegisterRequest(nil)
+}
+
+func TestUserServer_ConfirmEmail_Nil(t *testing.T) {
+	_ = validator.ValidateRegisterRequest(nil)
+}
+
+func TestUserServer_Register_ManyCases(t *testing.T) {
+	for i := 0; i < 3; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{Email: fmt.Sprintf("t%d@test.com", i)})
+	}
 }

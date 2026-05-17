@@ -33,6 +33,14 @@ type trainingServer struct {
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is nil")
+	}
+	if err := validator.ValidateGeneratePlanRequest(req); err != nil {
+		s.log.Warn("Invalid generate plan request", zap.Error(err))
+		return nil, err
+	}
+
 	s.log.Info("GeneratePlan request received",
 		zap.String("user_id", req.UserId),
 		zap.String("class", req.ClassificationClass),
@@ -43,11 +51,6 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	if err := ctx.Err(); err != nil {
 		s.log.Warn("Request cancelled", zap.Error(err))
 		return nil, status.Error(codes.Canceled, "request cancelled")
-	}
-
-	if err := validator.ValidateGeneratePlanRequest(req); err != nil {
-		s.log.Warn("Invalid generate plan request", zap.Error(err))
-		return nil, err
 	}
 
 	// Check if user already has an active plan - delete it completely (CASCADE will clean up all related data)
@@ -324,16 +327,19 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 }
 
 func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWorkoutRequest) (*pb.CompleteWorkoutResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is nil")
+	}
+	if err := validator.ValidateCompleteWorkoutRequest(req); err != nil {
+		s.log.Warn("Invalid complete workout request", zap.Error(err))
+		return nil, err
+	}
+
 	s.log.Info("CompleteWorkout",
 		zap.String("user_id", req.UserId),
 		zap.String("plan_id", req.PlanId),
 		zap.String("workout_id", req.WorkoutId),
 	)
-
-	if err := validator.ValidateCompleteWorkoutRequest(req); err != nil {
-		s.log.Warn("Invalid complete workout request", zap.Error(err))
-		return nil, err
-	}
 
 	feedback := sanitize.String(req.Feedback)
 
