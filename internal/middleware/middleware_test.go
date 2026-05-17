@@ -735,3 +735,24 @@ func TestResponseSigner(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
+
+// Test CorrelationID middleware with and without header
+func TestCorrelationID(t *testing.T) {
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		cid := r.Context().Value(CorrelationIDKey)
+		assert.NotNil(t, cid)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := CorrelationID(next)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Correlation-ID", "test-cid-123")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.True(t, called)
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
