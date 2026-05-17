@@ -144,7 +144,7 @@ Examples:
         sys.exit(1)
         
     except KeyboardInterrupt:
-        print(f"\n{YELLOW}⚠️  Load test interrupted by user{RESET}\n")
+        print(f"\n{YELLOW} Load test interrupted by user{RESET}\n")
         sys.exit(130)
         
     except FileNotFoundError:

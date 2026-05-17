@@ -68,7 +68,7 @@ class DataPreprocessor:
         adarp_path = os.path.join(RAW_DATA_DIR, 'adarp')
         
         if not os.path.exists(adarp_path):
-            print("⚠️ ADARP не найден")
+            print("ADARP не найден")
             return 0
         
         for part in os.listdir(adarp_path):
@@ -108,7 +108,7 @@ class DataPreprocessor:
         bidmc_path = os.path.join(RAW_DATA_DIR, 'bidmc')
         
         if not os.path.exists(bidmc_path):
-            print("⚠️ BIDMC не найден")
+            print("BIDMC не найден")
             return 0
         
         for file in os.listdir(bidmc_path):
@@ -149,7 +149,7 @@ class DataPreprocessor:
         wesad_path = os.path.join(RAW_DATA_DIR, 'wesad')
         
         if not os.path.exists(wesad_path):
-            print("⚠️ WESAD не найден")
+            print("WESAD не найден")
             return 0
         
         for subject in os.listdir(wesad_path):
@@ -198,7 +198,7 @@ class DataPreprocessor:
         spd_path = os.path.join(RAW_DATA_DIR, 'spd')
         
         if not os.path.exists(spd_path):
-            print("⚠️ SPD не найден")
+            print("SPD не найден")
             return 0
         
         for subject in os.listdir(spd_path):
@@ -236,7 +236,7 @@ class DataPreprocessor:
         wesd_path = os.path.join(RAW_DATA_DIR, 'wesd')
         
         if not os.path.exists(wesd_path):
-            print("⚠️ WESD не найден")
+            print("WESD не найден")
             return 0
         
         for subject in os.listdir(wesd_path):
@@ -280,7 +280,7 @@ class DataPreprocessor:
         lab_path = os.path.join(RAW_DATA_DIR, 'big_ideas_lab')
         
         if not os.path.exists(lab_path):
-            print("⚠️ Big Ideas Lab не найден")
+            print("Big Ideas Lab не найден")
             return 0
         
         for subject in os.listdir(lab_path):
@@ -367,7 +367,7 @@ class DataPreprocessor:
         csl_path = os.path.join(RAW_DATA_DIR, 'csl')
         
         if not os.path.exists(csl_path):
-            print("⚠️ CSL не найден")
+            print("CSL не найден")
             return 0
         
         try:
@@ -397,7 +397,7 @@ class DataPreprocessor:
                     except Exception as e:
                         self.stats['errors'].append(f'CSL {file}: {str(e)}')
         except ImportError:
-            print("⚠️ scipy не установлен, пропускаем CSL")
+            print("scipy не установлен, пропускаем CSL")
             self.stats['errors'].append('CSL: scipy not installed')
         
         print(f"CSL: {count} сэмплов")
@@ -765,7 +765,7 @@ class DataPreprocessor:
         print("=" * 70)
         print(f"📈 Всего сэмплов: {self.stats['total_samples']}")
         print(f"📈 Датасетов обработано: {len(self.stats['datasets_processed'])}")
-        print(f"⚠️ Ошибок: {len(self.stats['errors'])}")
+        print(f"Ошибок: {len(self.stats['errors'])}")
         print("=" * 70)
 
 

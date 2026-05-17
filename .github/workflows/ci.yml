@@ -234,25 +234,25 @@ jobs:
        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
        STAGING_URL: ${{ secrets.VPS_HOST }}
      steps:
-      - name: Check out repository
-        uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-      - name: UAT Tests
-        run: |
-          echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
-            python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
-      - id: prepare-staging-target
-        name: Prepare staging target URL
-        run: |
-          if [[ "$STAGING_URL" == http* ]]; then
-            echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
-          else
-            echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
-          fi
-      - id: validate-staging-target
-        name: Validate staging target URL
-        run: |
+       - name: Check out repository
+         uses: actions/checkout@v6.0.2
+         with:
+           fetch-depth: 0
+       - id: prepare-staging-target
+         name: Prepare staging target URL
+         run: |
+           if [[ "$STAGING_URL" == http* ]]; then
+             echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
+           else
+             echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
+           fi
+       - name: UAT Tests
+         run: |
+           echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
+             python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
+       - id: validate-staging-target
+         name: Validate staging target URL
+         run: |
           if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
@@ -270,29 +270,29 @@ jobs:
                     else
                       echo "valid=false" >> $GITHUB_OUTPUT
           fi
-        env:
+         env:
           TARGET: ${{ steps.prepare-staging-target.outputs.target }}
-      - name: Performance tests (k6)
-        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-        uses: k6io/action@v0.3.1
-        env:
+       - name: Performance tests (k6)
+         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+         uses: k6io/action@v0.3.1
+         env:
           BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
-        with:
+         with:
           filename: load-test.k6
-        continue-on-error: true
-      - name: Security scan (OWASP ZAP)
-        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
+         continue-on-error: true
+       - name: Security scan (OWASP ZAP)
+         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+         uses: zaproxy/action-baseline@v0.15.0
+         with:
           target: ${{ steps.prepare-staging-target.outputs.target }}
           fail_action: false
-        continue-on-error: true
-      - name: OWASP ZAP skipped
-        if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
-        run: |
+         continue-on-error: true
+       - name: OWASP ZAP skipped
+         if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
+         run: |
           echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
-      - name: Chaos engineering
-        run: |
+       - name: Chaos engineering
+         run: |
           echo "Running chaos tests (simulated failures)"
           # Simple chaos: hit health endpoint under load and expect some errors
           for i in {1..20}; do
@@ -359,7 +359,7 @@ jobs:
             echo "Attempting K8s rollback..."
             kubectl rollout undo deployment/gateway -n fitness-platform 2>/dev/null || echo "K8s rollback failed or cluster unavailable"
           else
-            echo "⚠️  K8s not configured, skipping K8s rollback"
+            echo " K8s not configured, skipping K8s rollback"
           fi
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -525,7 +525,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2.3.9
         env:
           GITLEAKS_VERSION: 8.30.1
-        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
@@ -643,7 +642,7 @@ jobs:
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest
             echo "ml-classifier pushed"
           else
-            echo "⚠️  Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
+            echo " Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
             echo "   Run 'python cmd/ml-classifier/train.py' locally and commit models to build ML image"
           fi
 
@@ -659,7 +658,7 @@ jobs:
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:latest
             echo "ml-generator pushed"
           else
-            echo "⚠️  Skipping ml-generator — models/generator not found"
+            echo " Skipping ml-generator — models/generator not found"
             echo "   Run 'python cmd/ml-generator/train_gan.py' locally and commit model to build ML image"
           fi
 

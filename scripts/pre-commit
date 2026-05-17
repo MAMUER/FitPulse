@@ -6,7 +6,7 @@ echo "🔍 Running Gitleaks secret scan..."
 
 # Check if gitleaks is installed
 if ! command -v gitleaks &> /dev/null; then
-    echo "⚠️  Gitleaks not found. Installing..."
+    echo " Gitleaks not found. Installing..."
     go install github.com/zricethezav/gitleaks/v8@latest
 fi
 

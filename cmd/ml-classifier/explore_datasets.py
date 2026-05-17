@@ -113,7 +113,7 @@ class DatasetExplorer:
                 elif folder == 'csl':
                     self._explore_csl(folder_path, dataset_info)
                 else:
-                    print(f"⚠️  Неизвестный формат датасета")
+                    print(f" Неизвестный формат датасета")
                     dataset_info['files'] = files[:10]
                 
                 self.report['datasets'][folder] = dataset_info
