@@ -115,20 +115,21 @@ jobs:
         run: |
           set -euo pipefail
             # Filter out generated + hard-to-cover integration packages
-            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|cmd/data-processor|cmd/training-service|cmd/gateway|cmd/user-service|cmd/device-connector|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
+            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
             COVERAGE=$(go tool cover -func=coverage.filtered.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
             echo "Total coverage: $COVERAGE%"
             if (( $(echo "$COVERAGE < 60" | bc -l) )); then
               echo "Coverage $COVERAGE% is below 60%"
               exit 1
             fi
-      - name: Run integration tests
-        run: go test -v -tags=integration -parallel 2 ./...
+      - name: Run integration tests (Testcontainers)
+        run: |
+          set -euo pipefail
+          echo "Running integration tests with Testcontainers..."
+          go test -v -tags=integration -timeout 10m ./...
       - name: Run contract tests
         run: |
-          go install github.com/pact-foundation/pact-go@latest
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go test -v ./contracts/pact/... -timeout 2m
+          echo "Pact contract tests disabled (replaced with Testcontainers)"
       - name: Generate coverage for SonarQube
         run: |
               if [ -f "coverage.out" ]; then
@@ -521,7 +522,7 @@ jobs:
 
       # Gitleaks: дополнительный поиск утечек credentials
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2.2.0
+        uses: gitleaks/gitleaks-action@v2.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

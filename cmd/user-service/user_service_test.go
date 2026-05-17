@@ -19,8 +19,6 @@ import (
 )
 
 // Helper functions for pointer values
-func ptrInt32(v int32) *int32       { return &v }
-func ptrString(v string) *string    { return &v }
 func ptrFloat64(v float64) *float64 { return &v }
 
 func newTestServer(t *testing.T) (*userServer, sqlmock.Sqlmock, func()) {

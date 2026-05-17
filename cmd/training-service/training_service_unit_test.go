@@ -13,17 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockPublisher реализует queue.Publisher интерфейс для тестов
-type mockPublisher struct{}
-
-func (m *mockPublisher) Publish(ctx context.Context, event interface{}) error {
-	return nil
-}
-
-func (m *mockPublisher) Close() error {
-	return nil
-}
-
 func TestNewTrainingServer(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
