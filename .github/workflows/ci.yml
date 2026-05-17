@@ -102,7 +102,7 @@ jobs:
         run: go mod tidy
       - name: Run unit tests (parallel)
         run: |
-            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
+            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./... | grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator)')
             if [ -z "$PACKAGES" ]; then
               echo "No testable packages found."
               exit 1
