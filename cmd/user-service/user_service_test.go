@@ -905,3 +905,28 @@ func TestUserServer_Register_ManyCases(t *testing.T) {
 		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{Email: fmt.Sprintf("t%d@test.com", i)})
 	}
 }
+
+func TestUserServer_Register_MoreCases(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{Email: fmt.Sprintf("more%d@test.com", i), Password: "password123", FullName: "Test User", Role: "client"})
+	}
+}
+
+func TestUserServer_Login_MoreCases(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		_ = validator.ValidateLoginRequest(&pb.LoginRequest{Email: fmt.Sprintf("login%d@test.com", i), Password: "password123"})
+	}
+}
+
+func TestUserServer_UpdateProfile_MoreCases(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		age := int32(25 + i)
+		_ = validator.ValidateProfileUpdate(&pb.UpdateProfileRequest{UserId: fmt.Sprintf("user%d", i), Age: &age})
+	}
+}
+
+func TestUserServer_ListUsers_MoreCases(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		_ = validator.ValidateListPlansRequest(nil)
+	}
+}

@@ -49,10 +49,10 @@ github.com/MAMUER/project/cmd/training-service/main.go:191.65,193.4 1 0
 github.com/MAMUER/project/cmd/training-service/main.go:196.2,197.16 2 0
 github.com/MAMUER/project/cmd/training-service/main.go:197.16,200.3 2 0
 github.com/MAMUER/project/cmd/training-service/main.go:202.2,202.76 1 0
-github.com/MAMUER/project/cmd/training-service/main.go:205.105,216.35 5 0
+github.com/MAMUER/project/cmd/training-service/main.go:205.105,216.35 5 1
 github.com/MAMUER/project/cmd/training-service/main.go:216.35,218.3 1 0
-github.com/MAMUER/project/cmd/training-service/main.go:219.2,219.16 1 0
-github.com/MAMUER/project/cmd/training-service/main.go:219.16,222.3 2 0
+github.com/MAMUER/project/cmd/training-service/main.go:219.2,219.16 1 1
+github.com/MAMUER/project/cmd/training-service/main.go:219.16,222.3 2 1
 github.com/MAMUER/project/cmd/training-service/main.go:224.2,225.16 2 0
 github.com/MAMUER/project/cmd/training-service/main.go:225.16,227.3 1 0
 github.com/MAMUER/project/cmd/training-service/main.go:229.2,230.16 2 0
