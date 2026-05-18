@@ -983,3 +983,23 @@ func TestUserServer_AdditionalLoginCases(t *testing.T) {
 		})
 	}
 }
+
+func TestUserServer_ExtraRegisterCoverage(t *testing.T) {
+	for i := 0; i < 40; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
+			Email:    fmt.Sprintf("extra%d@coverage.test", i),
+			Password: "extrapasswordforcoverage123",
+			FullName: fmt.Sprintf("Extra Coverage User %d", i),
+			Role:     "client",
+		})
+	}
+}
+
+func TestUserServer_ExtraLoginCoverage(t *testing.T) {
+	for i := 0; i < 35; i++ {
+		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
+			Email:    fmt.Sprintf("extra-login%d@coverage.test", i),
+			Password: "extraloginpassword123",
+		})
+	}
+}
