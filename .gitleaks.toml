@@ -37,9 +37,18 @@ regex = '''RABBITMQ_DEFAULT_PASS\s*=\s*['"]?[^\s'"]+['"]?'''
 tags = ["rabbitmq", "password"]
 
 [allowlist]
-description = "Allowlisted paths that should not be scanned"
+description = "Allowlisted paths and regexes that should not be scanned"
 paths = [
     '''^\.git''',
     '''^vendor/''',
     '''^api/gen/''',
+]
+regexes = [
+    '''=example$''',
+    '''=example-''',
+    '''=<change-me>''',
+    '''=<generate''',
+    '''=<your-''',
+    '''=<app-''',
+    '''=<same-''',
 ]

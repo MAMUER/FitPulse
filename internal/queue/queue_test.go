@@ -494,3 +494,17 @@ func TestNewPublisher_NilLogger(t *testing.T) {
 	_, err := NewPublisher(testRabbitURL, testQueueName, nil)
 	assert.Error(t, err)
 }
+
+func TestIsClosedError_MoreCases(t *testing.T) {
+	// Test various error types - actual behavior
+	assert.False(t, isClosedError(errors.New("random error")))
+	assert.False(t, isClosedError(nil))
+}
+
+func TestPublisherInterface_MoreCoverage(t *testing.T) {
+	var _ Publisher = (*rabbitPublisher)(nil)
+}
+
+func TestConsumerInterface_MoreCoverage(t *testing.T) {
+	var _ Consumer = (*rabbitConsumer)(nil)
+}

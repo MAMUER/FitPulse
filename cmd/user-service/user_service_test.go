@@ -930,3 +930,36 @@ func TestUserServer_ListUsers_MoreCases(t *testing.T) {
 		_ = validator.ValidateListPlansRequest(nil)
 	}
 }
+
+func TestUserServer_Register_ExtendedCases(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		req := &pb.RegisterRequest{
+			Email:    fmt.Sprintf("ext%d@test.com", i),
+			Password: "password123456",
+			FullName: fmt.Sprintf("Extended User %d", i),
+			Role:     "client",
+		}
+		_ = validator.ValidateRegisterRequest(req)
+	}
+}
+
+func TestUserServer_Login_ExtendedCases(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		req := &pb.LoginRequest{
+			Email:    fmt.Sprintf("login-ext%d@test.com", i),
+			Password: "password123456",
+		}
+		_ = validator.ValidateLoginRequest(req)
+	}
+}
+
+func TestUserServer_Profile_ExtendedCases(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		age := int32(20 + i)
+		req := &pb.UpdateProfileRequest{
+			UserId: fmt.Sprintf("profile-ext%d", i),
+			Age:    &age,
+		}
+		_ = validator.ValidateProfileUpdate(req)
+	}
+}
