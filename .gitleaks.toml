@@ -37,10 +37,7 @@ regex = '''RABBITMQ_DEFAULT_PASS\s*=\s*['"]?[^\s'"]+['"]?'''
 tags = ["rabbitmq", "password"]
 
 [allowlist]
-description = "Allowlisted files that should not be scanned"
-files = [
-    '''^\.env\.example$''',
-]
+description = "Allowlisted paths that should not be scanned"
 paths = [
     '''^\.git''',
     '''^vendor/''',

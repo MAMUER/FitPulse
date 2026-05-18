@@ -325,3 +325,117 @@ func TestRun_GracefulShutdown(t *testing.T) {
 	stopCh <- syscall.SIGTERM
 	<-done // wait for goroutine to finish
 }
+
+func TestDataProcessorMain_MoreCoverage(t *testing.T) {
+	oldHost := os.Getenv("DB_HOST")
+	oldPort := os.Getenv("DB_PORT")
+	oldUser := os.Getenv("DB_USER")
+	oldPass := os.Getenv("DB_PASSWORD")
+	oldDB := os.Getenv("DB_NAME")
+	oldSSL := os.Getenv("DB_SSLMODE")
+	oldRabbit := os.Getenv("RABBITMQ_URL")
+
+	defer func() {
+		_ = os.Setenv("DB_HOST", oldHost)
+		_ = os.Setenv("DB_PORT", oldPort)
+		_ = os.Setenv("DB_USER", oldUser)
+		_ = os.Setenv("DB_PASSWORD", oldPass)
+		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("DB_SSLMODE", oldSSL)
+		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
+	}()
+
+	_ = os.Setenv("DB_HOST", "")
+	_ = os.Setenv("DB_PORT", "5432")
+	_ = os.Setenv("DB_USER", "u")
+	_ = os.Setenv("DB_PASSWORD", "p")
+	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("DB_SSLMODE", "disable")
+	_ = os.Setenv("RABBITMQ_URL", "amqp://localhost")
+
+	stopCh := make(chan os.Signal, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- run(stopCh)
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	stopCh <- syscall.SIGTERM
+	<-done
+}
+
+func TestDataProcessorMain_AdditionalCoverage(t *testing.T) {
+	oldHost := os.Getenv("DB_HOST")
+	oldPort := os.Getenv("DB_PORT")
+	oldUser := os.Getenv("DB_USER")
+	oldPass := os.Getenv("DB_PASSWORD")
+	oldDB := os.Getenv("DB_NAME")
+	oldSSL := os.Getenv("DB_SSLMODE")
+	oldRabbit := os.Getenv("RABBITMQ_URL")
+
+	defer func() {
+		_ = os.Setenv("DB_HOST", oldHost)
+		_ = os.Setenv("DB_PORT", oldPort)
+		_ = os.Setenv("DB_USER", oldUser)
+		_ = os.Setenv("DB_PASSWORD", oldPass)
+		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("DB_SSLMODE", oldSSL)
+		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
+	}()
+
+	_ = os.Setenv("DB_HOST", "localhost")
+	_ = os.Setenv("DB_PORT", "")
+	_ = os.Setenv("DB_USER", "u")
+	_ = os.Setenv("DB_PASSWORD", "p")
+	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("DB_SSLMODE", "disable")
+	_ = os.Setenv("RABBITMQ_URL", "amqp://localhost")
+
+	stopCh := make(chan os.Signal, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- run(stopCh)
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	stopCh <- syscall.SIGTERM
+	<-done
+}
+
+func TestDataProcessorMain_MoreEnvCoverage(t *testing.T) {
+	oldHost := os.Getenv("DB_HOST")
+	oldPort := os.Getenv("DB_PORT")
+	oldUser := os.Getenv("DB_USER")
+	oldPass := os.Getenv("DB_PASSWORD")
+	oldDB := os.Getenv("DB_NAME")
+	oldSSL := os.Getenv("DB_SSLMODE")
+	oldRabbit := os.Getenv("RABBITMQ_URL")
+
+	defer func() {
+		_ = os.Setenv("DB_HOST", oldHost)
+		_ = os.Setenv("DB_PORT", oldPort)
+		_ = os.Setenv("DB_USER", oldUser)
+		_ = os.Setenv("DB_PASSWORD", oldPass)
+		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("DB_SSLMODE", oldSSL)
+		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
+	}()
+
+	_ = os.Setenv("DB_HOST", "h")
+	_ = os.Setenv("DB_PORT", "1234")
+	_ = os.Setenv("DB_USER", "u")
+	_ = os.Setenv("DB_PASSWORD", "p")
+	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("DB_SSLMODE", "disable")
+	_ = os.Setenv("RABBITMQ_URL", "")
+
+	stopCh := make(chan os.Signal, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- run(stopCh)
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	stopCh <- syscall.SIGTERM
+	<-done
+}

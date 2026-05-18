@@ -492,8 +492,6 @@ jobs:
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main

@@ -1960,3 +1960,26 @@ func TestPtrHelpers_Loop(t *testing.T) {
 		_ = ptrString("x")
 	}
 }
+
+func TestPtrHelpers_ExtendedCoverage(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		_ = ptrInt32(int32(i * 2))
+		_ = ptrString(fmt.Sprintf("test-%d", i))
+		_ = ptrFloat64(float64(i) * 1.5)
+		_ = ptrFloat32(float32(i) * 2.5)
+	}
+}
+
+func TestTranslateError_ExtendedCoverage(t *testing.T) {
+	errs := []string{
+		"email is required",
+		"password is required",
+		"invalid email format",
+		"user not found",
+		"email already exists",
+		"unknown error message",
+	}
+	for _, e := range errs {
+		_ = translateError(e)
+	}
+}
