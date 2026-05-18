@@ -46,7 +46,6 @@ docs/
 !README.md
 
 # Security files — не должны попадать в образ
-.gitleaks.toml
 SECURITY.md
 
 # Temporary files

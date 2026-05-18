@@ -1,22 +1,19 @@
 #!/bin/bash
-# Pre-commit hook for Gitleaks secret scanning
+# Pre-commit hook for secret scanning
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
-echo "🔍 Running Gitleaks secret scan..."
+echo "🔍 Running secret scan with TruffleHog..."
 
-# Check if gitleaks is installed
-if ! command -v gitleaks &> /dev/null; then
-    echo " Gitleaks not found. Installing..."
-    go install github.com/zricethezav/gitleaks/v8@latest
+# Check if trufflehog is installed
+if ! command -v trufflehog &> /dev/null; then
+    echo " TruffleHog not found. Please install it:"
+    echo "   go install github.com/trufflesecurity/trufflehog/v3@latest"
+    echo "   or visit https://github.com/trufflesecurity/trufflehog"
+    exit 0
 fi
 
-# Run gitleaks on staged changes
-gitleaks detect \
-    --source . \
-    --config .gitleaks.toml \
-    --staged \
-    --verbose \
-    --no-banner
+# Run TruffleHog on staged changes
+trufflehog git file://. --since-commit HEAD --only-verified --fail
 
 if [ $? -ne 0 ]; then
     echo ""

@@ -605,7 +605,6 @@ API для валидации: `POST /api/v1/invite/validate`
 ├── .github/workflows/      # CI/CD Pipeline
 ├── .env.example            # Шаблон переменных окружения
 ├── SECURITY.md             # Security Policy
-├── .gitleaks.toml          # Gitleaks конфигурация
 ├── .golangci.yml           # Линтер конфигурация
 ├── Makefile                # Команды сборки/тестов
 └── README.md               # Этот файл

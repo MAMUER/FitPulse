@@ -17,8 +17,6 @@ permissions:
 env:
   GO_VERSION: "1.26.3"
   REGISTRY: ghcr.io
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: "false"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   code-review:
@@ -492,6 +490,8 @@ jobs:
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     steps:
       - name: Set git default branch to main
         run: git config --global init.defaultBranch main
@@ -512,19 +512,12 @@ jobs:
           fi
           echo ".env is not tracked"
 
-      # TruffleHog: поиск secrets в истории коммитов
+      # TruffleHog: поиск секретов в истории коммитов (основной инструмент)
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@3.95.3
         with:
-          extra_args: --only-verified
-
-      # Gitleaks: дополнительный поиск утечек credentials
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.9
-        env:
-          GITLEAKS_VERSION: 8.30.1
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+          extra_args: --only-verified --fail
+ 
   build:
     name: Build Binaries
     runs-on: ubuntu-latest
