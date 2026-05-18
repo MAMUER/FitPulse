@@ -514,7 +514,7 @@ jobs:
 
       # TruffleHog: поиск секретов в истории коммитов (основной инструмент)
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@3.95.3
+        uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified --fail
  

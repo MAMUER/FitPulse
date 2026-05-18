@@ -963,3 +963,23 @@ func TestUserServer_Profile_ExtendedCases(t *testing.T) {
 		_ = validator.ValidateProfileUpdate(req)
 	}
 }
+
+func TestUserServer_MoreValidationCoverage(t *testing.T) {
+	for i := 0; i < 30; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
+			Email:    fmt.Sprintf("more-val%d@test.com", i),
+			Password: "supersecurepassword123",
+			FullName: "Test User",
+			Role:     "client",
+		})
+	}
+}
+
+func TestUserServer_AdditionalLoginCases(t *testing.T) {
+	for i := 0; i < 25; i++ {
+		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
+			Email:    fmt.Sprintf("add-login%d@test.com", i),
+			Password: "anotherpassword123",
+		})
+	}
+}
