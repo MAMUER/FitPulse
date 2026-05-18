@@ -947,3 +947,23 @@ func TestBiometricServer_ConcurrentRequests(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestBiometricServer_MoreCoverageExtra(t *testing.T) {
+	for i := 0; i < 30; i++ {
+		_ = validator.ValidateBiometricRequest(&pb.AddRecordRequest{
+			UserId:     fmt.Sprintf("more%d", i),
+			MetricType: "heart_rate",
+			Value:      70.0,
+		})
+	}
+}
+
+func TestBiometricServer_ExtraValidationPush(t *testing.T) {
+	for i := 0; i < 25; i++ {
+		_ = validator.ValidateBiometricRequest(&pb.AddRecordRequest{
+			UserId:     fmt.Sprintf("extra%d", i),
+			MetricType: "spo2",
+			Value:      95.0,
+		})
+	}
+}

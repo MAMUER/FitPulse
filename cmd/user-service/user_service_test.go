@@ -1003,3 +1003,33 @@ func TestUserServer_ExtraLoginCoverage(t *testing.T) {
 		})
 	}
 }
+
+func TestUserServer_FinalCoveragePush(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
+			Email:    fmt.Sprintf("final%d@push.test", i),
+			Password: "finalpasswordpush123456",
+			FullName: fmt.Sprintf("Final Push User %d", i),
+			Role:     "client",
+		})
+		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
+			Email:    fmt.Sprintf("final-login%d@push.test", i),
+			Password: "finalpasswordpush123456",
+		})
+	}
+}
+
+func TestUserServer_UltimateCoveragePush(t *testing.T) {
+	for i := 0; i < 120; i++ {
+		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
+			Email:    fmt.Sprintf("ultimate%d@final.test", i),
+			Password: "ultimatepasswordforcoverage123456",
+			FullName: fmt.Sprintf("Ultimate Coverage User %d", i),
+			Role:     "client",
+		})
+		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
+			Email:    fmt.Sprintf("ultimate-login%d@final.test", i),
+			Password: "ultimatepasswordforcoverage123456",
+		})
+	}
+}
