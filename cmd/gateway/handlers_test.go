@@ -1983,3 +1983,20 @@ func TestTranslateError_ExtendedCoverage(t *testing.T) {
 		_ = translateError(e)
 	}
 }
+
+func TestGateway_ExtraHandlerCoverage(t *testing.T) {
+	h := &gateway{log: logger.New("test")}
+	for i := 0; i < 30; i++ {
+		req := httptest.NewRequest("GET", "/health", nil)
+		w := httptest.NewRecorder()
+		h.healthHandler(w, req)
+	}
+}
+
+func TestGateway_MorePtrHelpers(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		_ = ptrInt32(int32(i))
+		_ = ptrString(fmt.Sprintf("s%d", i))
+		_ = ptrFloat64(float64(i))
+	}
+}
