@@ -918,118 +918,52 @@ func TestUserServer_Login_MoreCases(t *testing.T) {
 	}
 }
 
-func TestUserServer_UpdateProfile_MoreCases(t *testing.T) {
-	for i := 0; i < 10; i++ {
-		age := int32(25 + i)
-		_ = validator.ValidateProfileUpdate(&pb.UpdateProfileRequest{UserId: fmt.Sprintf("user%d", i), Age: &age})
+// Real error path tests
+func TestUserServer_Register_AlreadyExists(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectQuery(`SELECT EXISTS`).
+		WithArgs("existing@test.com").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+	log := logger.New("test")
+	server := &userServer{db: db, log: log}
+
+	req := &pb.RegisterRequest{
+		Email:    "existing@test.com",
+		Password: "password123",
+		FullName: "Existing User",
+		Role:     "client",
 	}
+
+	resp, err := server.Register(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
 }
 
-func TestUserServer_ListUsers_MoreCases(t *testing.T) {
-	for i := 0; i < 10; i++ {
-		_ = validator.ValidateListPlansRequest(nil)
+func TestUserServer_Login_WrongPassword(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectQuery(`SELECT id, password_hash, email_confirmed`).
+		WithArgs("user@test.com").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "password_hash", "email_confirmed"}).
+			AddRow("user-123", "$2a$10$somehash", true))
+
+	log := logger.New("test")
+	server := &userServer{db: db, log: log}
+
+	req := &pb.LoginRequest{
+		Email:    "user@test.com",
+		Password: "wrongpassword",
 	}
+
+	resp, err := server.Login(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
 }
 
-func TestUserServer_Register_ExtendedCases(t *testing.T) {
-	for i := 0; i < 20; i++ {
-		req := &pb.RegisterRequest{
-			Email:    fmt.Sprintf("ext%d@test.com", i),
-			Password: "password123456",
-			FullName: fmt.Sprintf("Extended User %d", i),
-			Role:     "client",
-		}
-		_ = validator.ValidateRegisterRequest(req)
-	}
-}
 
-func TestUserServer_Login_ExtendedCases(t *testing.T) {
-	for i := 0; i < 20; i++ {
-		req := &pb.LoginRequest{
-			Email:    fmt.Sprintf("login-ext%d@test.com", i),
-			Password: "password123456",
-		}
-		_ = validator.ValidateLoginRequest(req)
-	}
-}
-
-func TestUserServer_Profile_ExtendedCases(t *testing.T) {
-	for i := 0; i < 20; i++ {
-		age := int32(20 + i)
-		req := &pb.UpdateProfileRequest{
-			UserId: fmt.Sprintf("profile-ext%d", i),
-			Age:    &age,
-		}
-		_ = validator.ValidateProfileUpdate(req)
-	}
-}
-
-func TestUserServer_MoreValidationCoverage(t *testing.T) {
-	for i := 0; i < 30; i++ {
-		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
-			Email:    fmt.Sprintf("more-val%d@test.com", i),
-			Password: "supersecurepassword123",
-			FullName: "Test User",
-			Role:     "client",
-		})
-	}
-}
-
-func TestUserServer_AdditionalLoginCases(t *testing.T) {
-	for i := 0; i < 25; i++ {
-		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
-			Email:    fmt.Sprintf("add-login%d@test.com", i),
-			Password: "anotherpassword123",
-		})
-	}
-}
-
-func TestUserServer_ExtraRegisterCoverage(t *testing.T) {
-	for i := 0; i < 40; i++ {
-		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
-			Email:    fmt.Sprintf("extra%d@coverage.test", i),
-			Password: "extrapasswordforcoverage123",
-			FullName: fmt.Sprintf("Extra Coverage User %d", i),
-			Role:     "client",
-		})
-	}
-}
-
-func TestUserServer_ExtraLoginCoverage(t *testing.T) {
-	for i := 0; i < 35; i++ {
-		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
-			Email:    fmt.Sprintf("extra-login%d@coverage.test", i),
-			Password: "extraloginpassword123",
-		})
-	}
-}
-
-func TestUserServer_FinalCoveragePush(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
-			Email:    fmt.Sprintf("final%d@push.test", i),
-			Password: "finalpasswordpush123456",
-			FullName: fmt.Sprintf("Final Push User %d", i),
-			Role:     "client",
-		})
-		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
-			Email:    fmt.Sprintf("final-login%d@push.test", i),
-			Password: "finalpasswordpush123456",
-		})
-	}
-}
-
-func TestUserServer_UltimateCoveragePush(t *testing.T) {
-	for i := 0; i < 120; i++ {
-		_ = validator.ValidateRegisterRequest(&pb.RegisterRequest{
-			Email:    fmt.Sprintf("ultimate%d@final.test", i),
-			Password: "ultimatepasswordforcoverage123456",
-			FullName: fmt.Sprintf("Ultimate Coverage User %d", i),
-			Role:     "client",
-		})
-		_ = validator.ValidateLoginRequest(&pb.LoginRequest{
-			Email:    fmt.Sprintf("ultimate-login%d@final.test", i),
-			Password: "ultimatepasswordforcoverage123456",
-		})
-	}
-}

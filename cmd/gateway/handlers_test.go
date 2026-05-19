@@ -2002,6 +2002,47 @@ func TestGateway_MorePtrHelpers(t *testing.T) {
 	}
 }
 
+// Real tests for uncovered error paths
+func TestGateway_RegisterHandler_GrpcError(t *testing.T) {
+	mockUser := new(mockUserServiceClient)
+	mockUser.On("Register", mock.Anything, mock.Anything).Return(&userpb.RegisterResponse{}, status.Error(codes.AlreadyExists, "email already exists"))
+
+	h := &gateway{
+		log:        logger.New("test"),
+		userClient: mockUser,
+		jwtSecret:  "test-secret",
+	}
+
+	body := `{"email":"dup@test.com","password":"pass123456","full_name":"Dup","role":"client"}`
+	req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.registerHandler(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestGateway_LoginHandler_InvalidCredentials(t *testing.T) {
+	mockUser := new(mockUserServiceClient)
+	mockUser.On("Login", mock.Anything, mock.Anything).Return(&userpb.LoginResponse{}, status.Error(codes.Unauthenticated, "invalid credentials"))
+
+	h := &gateway{
+		log:        logger.New("test"),
+		userClient: mockUser,
+		jwtSecret:  "test-secret",
+	}
+
+	body := `{"email":"bad@test.com","password":"wrong"}`
+	req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.loginHandler(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
 func TestGateway_RealRegisterHandler(t *testing.T) {
 	mockUser := new(mockUserServiceClient)
 	mockUser.On("Register", mock.Anything, mock.Anything).Return(&userpb.RegisterResponse{UserId: "new-user"}, nil)

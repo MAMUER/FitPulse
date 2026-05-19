@@ -967,3 +967,49 @@ func TestBiometricServer_ExtraValidationPush(t *testing.T) {
 		})
 	}
 }
+
+// Real error path tests
+func TestBiometricServer_AddRecord_DBError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectExec(`INSERT INTO biometric_data`).
+		WillReturnError(errors.New("database error"))
+
+	log := logger.New("test")
+	server := &biometricServer{db: db, log: log}
+
+	req := &pb.AddRecordRequest{
+		UserId:     "user-123",
+		MetricType: "heart_rate",
+		Value:      80.0,
+	}
+
+	resp, err := server.AddRecord(context.Background(), req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestBiometricServer_GetRecords_NotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
+
+	log := logger.New("test")
+	server := &biometricServer{db: db, log: log}
+
+	req := &pb.GetRecordsRequest{
+		UserId:     "user-123",
+		MetricType: "heart_rate",
+		Limit:      10,
+	}
+
+	resp, err := server.GetRecords(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Records, 0)
+}
