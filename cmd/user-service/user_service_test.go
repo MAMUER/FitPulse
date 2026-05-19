@@ -965,5 +965,3 @@ func TestUserServer_Login_WrongPassword(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
-
-

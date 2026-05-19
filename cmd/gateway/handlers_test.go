@@ -1988,7 +1988,7 @@ func TestTranslateError_ExtendedCoverage(t *testing.T) {
 func TestGateway_ExtraHandlerCoverage(t *testing.T) {
 	h := &gateway{log: logger.New("test")}
 	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest("GET", "/health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/health", nil)
 		w := httptest.NewRecorder()
 		h.healthHandler(w, req)
 	}
@@ -2014,7 +2014,7 @@ func TestGateway_RegisterHandler_GrpcError(t *testing.T) {
 	}
 
 	body := `{"email":"dup@test.com","password":"pass123456","full_name":"Dup","role":"client"}`
-	req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBufferString(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/register", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -2034,7 +2034,7 @@ func TestGateway_LoginHandler_InvalidCredentials(t *testing.T) {
 	}
 
 	body := `{"email":"bad@test.com","password":"wrong"}`
-	req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBufferString(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/login", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -2054,7 +2054,7 @@ func TestGateway_RealRegisterHandler(t *testing.T) {
 	}
 
 	body := `{"email":"real@test.com","password":"pass123456","full_name":"Real User","role":"client"}`
-	req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBufferString(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/register", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -2074,7 +2074,7 @@ func TestGateway_RealLoginHandler(t *testing.T) {
 	}
 
 	body := `{"email":"login@test.com","password":"pass123456"}`
-	req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBufferString(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/login", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 

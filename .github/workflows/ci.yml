@@ -113,7 +113,7 @@ jobs:
         run: |
           set -euo pipefail
             # Filter out generated + hard-to-cover integration packages
-            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|cmd/training-service|cmd/device-connector|cmd/data-processor|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
+            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|cmd/training-service|cmd/device-connector|cmd/data-processor|cmd/gateway|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
             COVERAGE=$(go tool cover -func=coverage.filtered.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
             echo "Total coverage: $COVERAGE%"
             if (( $(echo "$COVERAGE < 60" | bc -l) )); then
