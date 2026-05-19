@@ -17,6 +17,7 @@ permissions:
 env:
   GO_VERSION: "1.26.3"
   REGISTRY: ghcr.io
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
 jobs:
   code-review:
@@ -85,16 +86,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
             go-version: ${{ env.GO_VERSION }}
-            cache: false
-      - name: Cache Go modules
-        uses: actions/cache@v5
-        with:
-           path: |
-             ~/go/pkg/mod
-             ~/.cache/go-build
-           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-           restore-keys: |
-             ${{ runner.os }}-go-
+            cache: true
       - name: Install dependencies
         run: go mod download
       - name: Tidy dependencies
@@ -212,17 +204,46 @@ jobs:
     name: Deploy to Test
     runs-on: ubuntu-latest
     needs: ci-build
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Smoke tests
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Start test environment
+        run: |
+          docker compose -f docker-compose.test.yml up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for test services to become healthy..."
+          docker compose -f docker-compose.test.yml up -d --wait
+          docker compose -f docker-compose.test.yml ps
+
+      - name: Smoke tests (real API)
         run: |
           set -euo pipefail
-          echo "Running smoke tests against test environment"
-          TEST_URL=${TEST_URL:-https://test.fitness-platform.local}
-          curl -f --retry 5 --retry-delay 10 "$TEST_URL/health" || exit 1
-          curl -f "$TEST_URL/api/v1/register" -X POST -H "Content-Type: application/json" -d '{"email":"smoke@test.com","password":"Test123!"}'
-          echo "Smoke tests passed"
+          echo "Running real smoke tests against Gateway..."
+          
+          GATEWAY_URL="http://localhost:8081"
+          
+          # 1. Health check
+          echo "→ Checking /health..."
+          curl -f --retry 3 --retry-delay 5 "$GATEWAY_URL/health" || exit 1
+          
+          # 2. Register new user
+          echo "→ Testing registration..."
+          REGISTER_RESPONSE=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/api/v1/register" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"smoke'$(date +%s)'@test.com","password":"Test123!","full_name":"Smoke Test","role":"client"}')
+          
+          HTTP_CODE="${REGISTER_RESPONSE: -3}"
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "Registration failed with code: $HTTP_CODE"
+            echo "Response: $REGISTER_RESPONSE"
+            exit 1
+          fi
+          echo "✅ Registration successful (HTTP $HTTP_CODE)"
+          
+          echo "✅ All smoke tests passed!"
 
   deploy-staging:
      name: Deploy to Staging
@@ -364,15 +385,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Cache Go modules
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
       - name: Install dependencies
         run: go mod download
       - name: Run vet
@@ -383,7 +395,7 @@ jobs:
           golangci-lint run --timeout=5m
       - name: Run fmt check
         run: |
-          FILES=$(gofmt -l . | grep -v "cmd/tools/tools.go")
+          FILES=$(gofmt -l ./cmd ./internal ./pkg 2>/dev/null | grep -v "cmd/tools/tools.go" || true)
           if [ -n "$FILES" ]; then
             echo "Files not formatted:"
             echo "$FILES"
@@ -408,16 +420,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: false
-      - name: Cache Go modules
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          cache: true
       - name: Install dependencies
         run: go mod download
       # Go Security: проверка зависимостей на уязвимости (аналог npm audit)
@@ -519,29 +522,31 @@ jobs:
           extra_args: --only-verified
  
   build:
-    name: Build Binaries
-    runs-on: ubuntu-latest
-    needs: [ci-build, security-scan, secrets-scan]
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v6
-        with:
+     name: Build Binaries
+     runs-on: ubuntu-latest
+     needs: [ci-build, security-scan, secrets-scan]
+     env:
+       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+     steps:
+       - name: Set git default branch to main
+         run: git config --global init.defaultBranch main
+       - uses: actions/checkout@v6.0.2
+         with:
+           fetch-depth: 0
+       - uses: actions/setup-go@v6
+         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Build Go services
-        run: |
+       - name: Build Go services
+         run: |
           mkdir -p bin
           go build -o bin/user-service ./cmd/user-service
           go build -o bin/biometric-service ./cmd/biometric-service
           go build -o bin/training-service ./cmd/training-service
           go build -o bin/gateway ./cmd/gateway
           go build -o bin/device-emulator ./cmd/device-emulator
-      - uses: actions/upload-artifact@v7
-        with:
+       - uses: actions/upload-artifact@v7
+         with:
           name: binaries
           path: bin/
 

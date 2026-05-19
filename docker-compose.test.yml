@@ -1,0 +1,90 @@
+# docker-compose.test.yml
+# Лёгкая тестовая среда для CI и локальной разработки
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  redis-test:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: testuser
+      RABBITMQ_DEFAULT_PASS: testpass
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service-test:
+    build:
+      context: .
+      dockerfile: cmd/user-service/Dockerfile
+    environment:
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_USER: testuser
+      DB_PASSWORD: testpass
+      DB_NAME: testdb
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://testuser:testpass@rabbitmq-test:5672/
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      rabbitmq-test:
+        condition: service_healthy
+    ports:
+      - "50054:50051"   # gRPC port
+
+  gateway-test:
+    build:
+      context: .
+      dockerfile: cmd/gateway/Dockerfile
+    environment:
+      USER_SERVICE_ADDR: user-service-test:50051
+      BIOMETRIC_SERVICE_ADDR: biometric-service-test:50052
+      TRAINING_SERVICE_ADDR: training-service-test:50053
+    depends_on:
+      user-service-test:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  postgres_test_data:
