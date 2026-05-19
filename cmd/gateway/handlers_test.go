@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1999,4 +2000,44 @@ func TestGateway_MorePtrHelpers(t *testing.T) {
 		_ = ptrString(fmt.Sprintf("s%d", i))
 		_ = ptrFloat64(float64(i))
 	}
+}
+
+func TestGateway_RealRegisterHandler(t *testing.T) {
+	mockUser := new(mockUserServiceClient)
+	mockUser.On("Register", mock.Anything, mock.Anything).Return(&userpb.RegisterResponse{UserId: "new-user"}, nil)
+
+	h := &gateway{
+		log:        logger.New("test"),
+		userClient: mockUser,
+		jwtSecret:  "test-secret",
+	}
+
+	body := `{"email":"real@test.com","password":"pass123456","full_name":"Real User","role":"client"}`
+	req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.registerHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGateway_RealLoginHandler(t *testing.T) {
+	mockUser := new(mockUserServiceClient)
+	mockUser.On("Login", mock.Anything, mock.Anything).Return(&userpb.LoginResponse{}, nil)
+
+	h := &gateway{
+		log:        logger.New("test"),
+		userClient: mockUser,
+		jwtSecret:  "test-secret",
+	}
+
+	body := `{"email":"login@test.com","password":"pass123456"}`
+	req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.loginHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
