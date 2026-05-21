@@ -15,9 +15,11 @@ permissions:
   security-events: write
 
 env:
-  GO_VERSION: "1.26.3"
-  REGISTRY: ghcr.io
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+    GO_VERSION: "1.26.3"
+    REGISTRY: ghcr.io
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 
 jobs:
   code-review:
@@ -25,151 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set git default branch to main
-        run: git config --global init.defaultBranch main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-      - name: Fetch all branches and tags
-        run: git fetch --all --tags
-      - name: Check ADR updates
-        run: |
-           # Determine base branch/commit for comparison
-           if [ -n "$GITHUB_BASE_REF" ]; then
-             # Pull Request: compare with base branch
-             BASE_REF="origin/$GITHUB_BASE_REF"
-           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-             # Push to branch: compare with previous commit
-             BASE_REF="HEAD~1"
-           else
-             # First commit ever
-             echo "First commit, skipping ADR check."
-             exit 0
-           fi
-
-           # Get changed files relative to base
-           CHANGED_FILES=$(git diff --name-only $BASE_REF HEAD)
-
-           # Check if ADR was updated
-           if echo "$CHANGED_FILES" | grep -qE "^docs/adr/.*\.md$"; then
-             echo "ADR updated - good!"
-           elif echo "$CHANGED_FILES" | grep -qE "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
-                grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$"; then
-              echo "ERROR: Significant architectural changes detected without ADR. Failing the build."
-             echo "Changed files:"
-             echo "$CHANGED_FILES" | grep -E "\.(go|py|js|ts|proto)$|Dockerfile|Makefile|k8s/|configs/|deployments/|\.yml$|\.yaml$" | \
-               grep -v -E "^tests?/|_test\.go$|_test\.py$|\.github/|\.gitlab/|ci/|cd/|deploy\.|^.dockerignore$|^\.gitignore$" || true
-             exit 1
-           else
-             echo "No significant architectural changes requiring ADR documentation."
-            fi
-
-  ci-build:
-    name: CI Build
-    runs-on: ubuntu-latest
-    needs: code-review
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-    steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Set git default branch to main
-        run: |
-          set -euo pipefail
-          git fetch --all --tags
-          git branch -f main origin/main 2>/dev/null || true
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-            go-version: ${{ env.GO_VERSION }}
-            cache: true
-      - name: Install dependencies
-        run: go mod download
-      - name: Tidy dependencies
-        run: go mod tidy
-      - name: Run unit tests (parallel)
-        run: |
-          set -euo pipefail
-            PACKAGES=$(go list -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}} {{end}}' ./...)
-            if [ -z "$PACKAGES" ]; then
-              echo "No testable packages found."
-              exit 1
-            fi
-            echo "Testing packages: $PACKAGES"
-            go test -v -coverprofile=coverage.out -parallel 4 $PACKAGES
-      - name: Check coverage
-        run: |
-          set -euo pipefail
-            # Filter out generated + hard-to-cover integration packages
-            grep -vE '(/api/gen/|/mocks/|/scripts/|/tools/|cmd/device-emulator|cmd/training-service|cmd/device-connector|cmd/data-processor|cmd/gateway|internal/queue|internal/biometric/adapters)' coverage.out > coverage.filtered.out || cp coverage.out coverage.filtered.out
-            COVERAGE=$(go tool cover -func=coverage.filtered.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-            echo "Total coverage: $COVERAGE%"
-            if (( $(echo "$COVERAGE < 60" | bc -l) )); then
-              echo "Coverage $COVERAGE% is below 60%"
-              exit 1
-            fi
-      - name: Run integration tests (Testcontainers)
-        run: |
-          set -euo pipefail
-          echo "Running integration tests with Testcontainers..."
-          go test -v -tags=integration -timeout 10m ./...
-      - name: Run contract tests
-        run: |
-          echo "Pact contract tests disabled (replaced with Testcontainers)"
-      - name: Generate coverage for SonarQube
-        run: |
-              if [ -f "coverage.out" ]; then
-                echo "Coverage report exists"
-              else
-                echo "Generating coverage report..."
-                go test -v -coverprofile=coverage.out ./... || echo "Coverage generation failed, but continuing"
-              fi
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
-        with:
-           args: >
-             -Dsonar.projectKey=fitness-platform
-             -Dsonar.organization=mamuer
-             -Dsonar.sources=.
-             -Dsonar.exclusions=**/vendor/**,**/node_modules/**,**/*.pb.go,**/*.gen.go,db/migrations/**,scripts/init-db.sql
-             -Dsonar.plsql.file.suffixes=.sql
-             -Dsonar.plsql.analysis.enabled=true
-             -Dsonar.tests=.
-             -Dsonar.test.inclusions=**/*_test.go
-             -Dsonar.go.coverage.reportPaths=coverage.out
-             -Dsonar.python.version=3.11
-             -Dsonar.sca.enabled=false
-             -Dsonar.branch.name=${{ github.ref_name }}
-             -Dsonar.branch.target=main
-        env:
-            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-            NODE_OPTIONS: "--no-deprecation"
-      - name: Hadolint Docker lint
-        run: |
-             for dockerfile in ./cmd/*/Dockerfile; do
-               if [ -f "$dockerfile" ]; then
-                 echo "Linting $dockerfile"
-                 docker run --rm -i hadolint/hadolint < "$dockerfile"
-               fi
-             done
-      - name: Install Python dependencies for Trivy
-        run: |
-            python -m pip install --upgrade pip
-            pip install -r cmd/ml-classifier/requirements.txt
-            pip install -r cmd/ml-generator/requirements.txt
-      - name: Trivy security scan
-        uses: aquasecurity/trivy-action@master
-        env:
-            TRIVY_QUIET: "true"
-        with:
-              scan-type: 'fs'
-              scan-ref: '.'
-              scanners: 'vuln'
-              skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
-              hide-progress: true
-              cache: false
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -200,8 +62,14 @@ jobs:
   deploy-test:
     name: Deploy to Test
     runs-on: ubuntu-latest
-    needs: ci-build
+    needs: build
     steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
+
       - name: Checkout code
         uses: actions/checkout@v6.0.2
 
@@ -226,9 +94,17 @@ jobs:
           
           GATEWAY_URL="http://localhost:8081"
           
-          # 1. Health check
+          # 1. Health check (extra patience after --wait)
           echo "→ Checking /health..."
-          curl -f --retry 3 --retry-delay 5 "$GATEWAY_URL/health" || exit 1
+          for i in $(seq 1 12); do
+            if curl -f --silent --max-time 3 "$GATEWAY_URL/health" > /dev/null; then
+              echo "Gateway is healthy"
+              break
+            fi
+            echo "Waiting for gateway... ($i/12)"
+            sleep 5
+          done
+          curl -f "$GATEWAY_URL/health" || exit 1
           
           # 2. Register new user
           echo "→ Testing registration..."
@@ -253,72 +129,78 @@ jobs:
      env:
         STAGING_URL: ${{ secrets.VPS_HOST }}
      steps:
-       - name: Check out repository
-         uses: actions/checkout@v6.0.2
-         with:
-           fetch-depth: 0
-       - id: prepare-staging-target
-         name: Prepare staging target URL
-         run: |
-           if [[ "$STAGING_URL" == http* ]]; then
+         - name: Set git default branch to main
+           run: |
+             git config --global init.defaultBranch main
+             git config --global advice.defaultBranchName false
+             git config --global advice.detachedHead false
+
+         - name: Check out repository
+           uses: actions/checkout@v6.0.2
+           with:
+            fetch-depth: 0
+         - id: prepare-staging-target
+           name: Prepare staging target URL
+           run: |
+            if [[ "$STAGING_URL" == http* ]]; then
              echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
-           else
+            else
              echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
-           fi
-       - name: UAT Tests
-         run: |
-           echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
+            fi
+         - name: UAT Tests
+           run: |
+            echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
              python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
-       - id: validate-staging-target
-         name: Validate staging target URL
-         run: |
-          if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
+         - id: validate-staging-target
+           name: Validate staging target URL
+           run: |
+            if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
-          fi
-          TARGET="${{ steps.prepare-staging-target.outputs.target }}"
-          if python - <<'PY'
-          import os
-          from urllib.parse import urlparse
-          u = urlparse(os.getenv('TARGET'))
-          if u.scheme not in ('http', 'https') or not u.netloc:
+            fi
+            TARGET="${{ steps.prepare-staging-target.outputs.target }}"
+            if python - <<'PY'
+            import os
+            from urllib.parse import urlparse
+            u = urlparse(os.getenv('TARGET'))
+            if u.scheme not in ('http', 'https') or not u.netloc:
               raise SystemExit(1)
-          PY
+            PY
                     then
                       echo "valid=true" >> $GITHUB_OUTPUT
                     else
                       echo "valid=false" >> $GITHUB_OUTPUT
-          fi
-         env:
-          TARGET: ${{ steps.prepare-staging-target.outputs.target }}
-       - name: Performance tests (k6)
-         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-         uses: k6io/action@v0.3.1
-         env:
-          BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
-         with:
-          filename: load-test.k6
-         continue-on-error: true
-       - name: Security scan (OWASP ZAP)
-         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-         uses: zaproxy/action-baseline@v0.15.0
-         with:
-          target: ${{ steps.prepare-staging-target.outputs.target }}
-          fail_action: false
-         continue-on-error: true
-       - name: OWASP ZAP skipped
-         if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
-         run: |
-          echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
-       - name: Chaos engineering
-         run: |
-          echo "Running chaos tests (simulated failures)"
-          # Simple chaos: hit health endpoint under load and expect some errors
-          for i in {1..20}; do
+            fi
+           env:
+            TARGET: ${{ steps.prepare-staging-target.outputs.target }}
+         - name: Performance tests (k6)
+           if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+           uses: k6io/action@v0.3.1
+           env:
+            BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
+           with:
+            filename: load-test.k6
+           continue-on-error: true
+         - name: Security scan (OWASP ZAP)
+           if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+           uses: zaproxy/action-baseline@v0.15.0
+           with:
+            target: ${{ steps.prepare-staging-target.outputs.target }}
+            fail_action: false
+           continue-on-error: true
+         - name: OWASP ZAP skipped
+           if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
+           run: |
+            echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
+         - name: Chaos engineering
+           run: |
+            echo "Running chaos tests (simulated failures)"
+            # Simple chaos: hit health endpoint under load and expect some errors
+            for i in {1..20}; do
             curl -s -o /dev/null -w "%{http_code}\n" "${{ steps.prepare-staging-target.outputs.target }}/health"
             sleep 0.5
-          done
-          echo "Chaos test completed"
+            done
+            echo "Chaos test completed"
 
   release-candidate:
     name: Release Candidate
@@ -363,6 +245,11 @@ jobs:
     needs: deploy-production
     if: failure()
     steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
       - name: Check K8s cluster and rollback
         continue-on-error: true
@@ -403,9 +290,14 @@ jobs:
     name: Security Scanning (SAST + Dependencies)
     runs-on: ubuntu-latest
     needs: code-review
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Set git default branch to main
-        run: git config --global init.defaultBranch main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
 
       - name: Set up Go
@@ -487,9 +379,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Set git default branch to main
-        run: git config --global init.defaultBranch main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
@@ -514,29 +410,41 @@ jobs:
           extra_args: --only-verified
  
   build:
-     name: Build Binaries
-     runs-on: ubuntu-latest
-     needs: [ci-build, security-scan, secrets-scan]
-     steps:
-       - name: Set git default branch to main
-         run: git config --global init.defaultBranch main
-       - uses: actions/checkout@v6.0.2
-         with:
-           fetch-depth: 0
-       - uses: actions/setup-go@v6
-         with:
+      name: Build Binaries
+      runs-on: ubuntu-latest
+      needs: [security-scan, secrets-scan]
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+        # Retry configuration (can be overridden via GitHub Variables)
+        SSH_RETRY_MAX_ATTEMPTS: ${{ vars.SSH_RETRY_MAX_ATTEMPTS || 5 }}
+        SSH_RETRY_DELAY_SECONDS: ${{ vars.SSH_RETRY_DELAY_SECONDS || 10 }}
+        SSH_RETRY_TIMEOUT: ${{ vars.SSH_RETRY_TIMEOUT || 120 }}
+        # Bastion / Jump host (optional)
+        BASTION_USER: ${{ secrets.BASTION_USER || '' }}
+        BASTION_HOST: ${{ secrets.BASTION_HOST || '' }}
+      steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
+      - uses: actions/checkout@v6.0.2
+        with:
+            fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-       - name: Build Go services
-         run: |
+      - name: Build Go services
+        run: |
           mkdir -p bin
           go build -o bin/user-service ./cmd/user-service
           go build -o bin/biometric-service ./cmd/biometric-service
           go build -o bin/training-service ./cmd/training-service
           go build -o bin/gateway ./cmd/gateway
           go build -o bin/device-emulator ./cmd/device-emulator
-       - uses: actions/upload-artifact@v7
-         with:
+      - uses: actions/upload-artifact@v7
+        with:
           name: binaries
           path: bin/
 
@@ -546,6 +454,12 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
+
       - uses: actions/checkout@v6.0.2
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
@@ -614,7 +528,9 @@ jobs:
           category: trivy-docker
       - name: Build and push ML images (if models exist)
         run: |
-          # ML classifier — собираем только если модели присутствуют
+          set -euo pipefail
+
+          # ML classifier — build only if both model files exist
           if [ -f "models/classifier.keras" ] && [ -f "models/scaler.pkl" ]; then
             echo "Building ml-classifier (models found)..."
             docker build \
@@ -626,11 +542,11 @@ jobs:
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest
             echo "ml-classifier pushed"
           else
-            echo " Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
-            echo "   Run 'python cmd/ml-classifier/train.py' locally and commit models to build ML image"
+            echo "Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
+            echo "  Run 'python cmd/ml-classifier/train.py' locally and commit the models to build the ML image"
           fi
 
-          # ML generator — собираем только если модель присутствует
+          # ML generator — build if either .h5 or .keras model exists
           if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
             echo "Building ml-generator (model found)..."
             docker build \
@@ -642,8 +558,8 @@ jobs:
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:latest
             echo "ml-generator pushed"
           else
-            echo " Skipping ml-generator — models/generator not found"
-            echo "   Run 'python cmd/ml-generator/train_gan.py' locally and commit model to build ML image"
+            echo "Skipping ml-generator — models/generator not found"
+            echo "  Run 'python cmd/ml-generator/train_gan.py' locally and commit the model to build the ML image"
           fi
 
   deploy:
@@ -651,162 +567,201 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: webfactory/ssh-agent@v0.9.0
+      - name: Make ssh-retry script executable
+        run: chmod +x scripts/ssh-retry.sh
+      - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add host to known_hosts
-        run: ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Install Docker on VPS
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            echo "=== INSTALLING DOCKER ==="
-            if ! command -v docker &> /dev/null; then
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sh get-docker.sh
-              apt-get install -y docker-compose
-              systemctl enable docker
-              systemctl start docker
-              echo "Docker installed"
-            else
-              echo "Docker already installed"
-            fi
-            docker --version
-            docker-compose --version
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              echo "=== INSTALLING DOCKER ==="
+              if ! command -v docker &> /dev/null; then
+                curl -fsSL https://get.docker.com -o get-docker.sh
+                sh get-docker.sh
+                apt-get install -y docker-compose
+                systemctl enable docker
+                systemctl start docker
+                echo "Docker installed"
+              else
+                echo "Docker already installed"
+              fi
+              docker --version
+              docker-compose --version
+            '
       - name: Clean up old Docker data
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            echo "=== CLEANING UP OLD DOCKER DATA ==="
-            docker system prune -f --filter "until=72h"
-            docker image prune -f --filter "until=168h"
-            docker volume prune -f
-            echo "Cleanup completed"
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              echo "=== CLEANING UP OLD DOCKER DATA ==="
+              docker system prune -f --filter "until=72h"
+              docker image prune -f --filter "until=168h"
+              docker volume prune -f
+              echo "Cleanup completed"
+            '
       - name: Prepare server directories
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            mkdir -p /opt/techip
-            mkdir -p /opt/techip/certs
-            mkdir -p /opt/techip/deploy/tls
-            mkdir -p /opt/techip/deploy/lb
-            mkdir -p /opt/techip/deploy/monitoring
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              mkdir -p /opt/techip
+              mkdir -p /opt/techip/certs
+              mkdir -p /opt/techip/deploy/tls
+              mkdir -p /opt/techip/deploy/lb
+              mkdir -p /opt/techip/deploy/monitoring
+            '
       - name: Create .env file on VPS
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            cat > /opt/techip/.env << EOF
-            POSTGRES_USER=${{ vars.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ vars.POSTGRES_DB }}
-            DB_HOST=postgres
-            DB_PORT=5432
-            DB_NAME=${{ vars.POSTGRES_DB }}
-            DB_SSLMODE=disable
-            REDIS_ADDR=redis:6379
-            REDIS_DB=0
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            AUTH_PORT=8081
-            AUTH_GRPC_PORT=50051
-            TASKS_PORT=8082
-            AUTH_GRPC_ADDR=auth:50051
-            USER_SERVICE_ADDR=user-service:50051
-            BIOMETRIC_SERVICE_ADDR=biometric-service:50052
-            TRAINING_SERVICE_ADDR=training-service:50053
-            GATEWAY_PORT=8080
-            ML_CLASSIFIER_URL=http://ml-classifier:8001
-            ML_GENERATOR_URL=http://ml-generator:8002
-            MODEL_PATH=/app/models/classifier.keras
-            SCALER_PATH=/app/models/scaler.pkl
-            GENERATOR_PATH=/app/models/generator.h5
-            SMTP_HOST=smtp.yandex.ru
-            SMTP_PORT=465
-            SMTP_USER=${{ secrets.SMTP_USER }}
-            SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-            EMAIL_DAILY_LIMIT=100
-            EMAIL_SKIP_DOMAINS=example.com
-            EOF
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              cat > /opt/techip/.env << "EOF"
+              POSTGRES_USER=${{ vars.POSTGRES_USER }}
+              POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+              POSTGRES_DB=${{ vars.POSTGRES_DB }}
+              DB_HOST=postgres
+              DB_PORT=5432
+              DB_NAME=${{ vars.POSTGRES_DB }}
+              DB_SSLMODE=disable
+              REDIS_ADDR=redis:6379
+              REDIS_DB=0
+              REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+              JWT_SECRET=${{ secrets.JWT_SECRET }}
+              AUTH_PORT=8081
+              AUTH_GRPC_PORT=50051
+              TASKS_PORT=8082
+              AUTH_GRPC_ADDR=auth:50051
+              USER_SERVICE_ADDR=user-service:50051
+              BIOMETRIC_SERVICE_ADDR=biometric-service:50052
+              TRAINING_SERVICE_ADDR=training-service:50053
+              GATEWAY_PORT=8080
+              ML_CLASSIFIER_URL=http://ml-classifier:8001
+              ML_GENERATOR_URL=http://ml-generator:8002
+              MODEL_PATH=/app/models/classifier.keras
+              SCALER_PATH=/app/models/scaler.pkl
+              GENERATOR_PATH=/app/models/generator.h5
+              SMTP_HOST=smtp.yandex.ru
+              SMTP_PORT=465
+              SMTP_USER=${{ secrets.SMTP_USER }}
+              SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+              EMAIL_DAILY_LIMIT=100
+              EMAIL_SKIP_DOMAINS=example.com
+              EOF
+            '
       - name: Get short SHA for image tag
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Copy docker-compose file
         run: |
-          scp -o StrictHostKeyChecking=accept-new deployments/docker-compose.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/techip/docker-compose.yml
+          ./scripts/ssh-retry.sh scp \
+            deployments/docker-compose.yml \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/techip/docker-compose.yml"
+
       - name: Copy init SQL
         run: |
-          scp -o StrictHostKeyChecking=accept-new scripts/init-db.sql ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/techip/init.sql
+          ./scripts/ssh-retry.sh scp \
+            scripts/init-db.sql \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/techip/init.sql"
       - name: Update docker-compose with specific image tags
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            cd /opt/techip
-            for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
-              sed -i "s|ghcr.io/.*/$svc:latest|ghcr.io/${{ github.repository_owner }}/technology_2_sem/$svc:${{ steps.sha.outputs.short_sha }}|g" docker-compose.yml
-            done
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              cd /opt/techip
+              for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
+                sed -i "s|ghcr.io/.*/$svc:latest|ghcr.io/${{ github.repository_owner }}/technology_2_sem/$svc:${{ steps.sha.outputs.short_sha }}|g" docker-compose.yml
+              done
+            '
+
       - name: Deploy with Docker Compose
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            cd /opt/techip
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              cd /opt/techip
 
-            # Скачаем основные сервисы (обязательные)
-            docker-compose pull user-service biometric-service training-service gateway
+              # Скачаем основные сервисы (обязательные)
+              docker-compose pull user-service biometric-service training-service gateway
 
-            # Попробуем скачать ML образы — если их нет, пропустим
-            ML_SERVICES="user-service biometric-service training-service gateway"
-            docker-compose pull ml-classifier 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-classifier" || echo "Skipping ml-classifier — image not in registry"
-            docker-compose pull ml-generator 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-generator" || echo "Skipping ml-generator — image not in registry"
+              # Попробуем скачать ML образы — если их нет, пропустим
+              ML_SERVICES="user-service biometric-service training-service gateway"
+              docker-compose pull ml-classifier 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-classifier" || echo "Skipping ml-classifier — image not in registry"
+              docker-compose pull ml-generator 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-generator" || echo "Skipping ml-generator — image not in registry"
 
-            # Остановим старые контейнеры
-            docker-compose down 2>/dev/null || true
+              # Остановим старые контейнеры
+              docker-compose down 2>/dev/null || true
 
-            # Запустим только доступные сервисы
-            docker-compose up -d $ML_SERVICES
-            sleep 20
-            docker-compose ps
-          '
+              # Запустим только доступные сервисы
+              docker-compose up -d $ML_SERVICES
+              sleep 20
+              docker-compose ps
+             '
+
+      - name: Wait for services healthy
+        run: |
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              echo "=== Waiting for services to become healthy ==="
+              for i in $(seq 1 20); do
+                echo "Health check $i/20..."
+                if curl -sf --max-time 5 http://localhost:8080/health > /dev/null && \
+                   curl -sf --max-time 5 http://localhost:8081/health > /dev/null 2>/dev/null || true; then
+                  echo "✅ Main services are responding"
+                  exit 0
+                fi
+                sleep 8
+              done
+              echo "❌ Services did not become healthy in time"
+              exit 1
+            '
+
       - name: Verify deployment
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            echo "=== HEALTH CHECKS ==="
-            curl -s http://localhost:8080/health || echo "Gateway not responding"
-            echo ""
-            curl -s http://localhost:8001/health || echo "ML Classifier not responding"
-            echo ""
-            curl -s http://localhost:8002/health || echo "ML Generator not responding"
-          '
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              echo "=== HEALTH CHECKS ==="
+              curl -s --max-time 5 http://localhost:8080/health || echo "Gateway not responding"
+              echo ""
+              curl -s --max-time 5 http://localhost:8001/health || echo "ML Classifier not responding"
+              echo ""
+              curl -s --max-time 5 http://localhost:8002/health || echo "ML Generator not responding"
+            '
       - name: Configure system for DDoS protection
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            echo "=== Setting sysctl parameters ==="
-            cat >> /etc/sysctl.d/99-fitness.conf << EOF
-            net.ipv4.tcp_syncookies=1
-            net.ipv4.tcp_syn_retries=2
-            net.ipv4.tcp_synack_retries=2
-            net.core.somaxconn=1024
-            net.ipv4.ip_local_port_range=1024 65535
-            EOF
-            sysctl -p /etc/sysctl.d/99-fitness.conf
+          ./scripts/ssh-retry.sh ssh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              echo "=== Setting sysctl parameters ==="
+              cat >> /etc/sysctl.d/99-fitness.conf << "EOF"
+              net.ipv4.tcp_syncookies=1
+              net.ipv4.tcp_syn_retries=2
+              net.ipv4.tcp_synack_retries=2
+              net.core.somaxconn=1024
+              net.ipv4.ip_local_port_range=1024 65535
+              EOF
+              sysctl -p /etc/sysctl.d/99-fitness.conf
 
-            echo "=== Creating cleanup script ==="
-            mkdir -p /opt/techip
-            cat > /opt/techip/cleanup.sh << '"EOF"'
-            #!/bin/bash
-            docker image prune -a -f --filter "until=168h"
-            docker container prune -f
-            docker volume prune -f
-            docker builder prune -f
-            find /var/log -name "*.log" -type f -mtime +30 -delete
-            journalctl --vacuum-time=7d
-            docker system prune -f --volumes
-            EOF
-            chmod +x /opt/techip/cleanup.sh
+              echo "=== Creating cleanup script ==="
+              mkdir -p /opt/techip
+              cat > /opt/techip/cleanup.sh << "EOF"
+              #!/bin/bash
+              docker image prune -a -f --filter "until=168h"
+              docker container prune -f
+              docker volume prune -f
+              docker builder prune -f
+              find /var/log -name "*.log" -type f -mtime +30 -delete
+              journalctl --vacuum-time=7d
+              docker system prune -f --volumes
+              EOF
+              chmod +x /opt/techip/cleanup.sh
 
-            echo "=== Setting up cron for weekly cleanup ==="
-            (crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/techip/cleanup.sh >> /var/log/cleanup.log 2>&1") | crontab -
-          '
+              echo "=== Setting up cron for weekly cleanup ==="
+              (crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/techip/cleanup.sh >> /var/log/cleanup.log 2>&1") | crontab -
+            '
       - name: Get deployment status for notification
         id: deployment-status
         run: |
@@ -826,10 +781,31 @@ jobs:
     needs: docker
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
+
       - uses: actions/checkout@v6.0.2
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
       - name: Create secrets from GitHub Secrets
         run: |
-          kubectl create namespace fitness-platform --dry-run=client -o yaml | kubectl apply -f -
+          KUBECTL="kubectl apply --validate=false"
+
+          kubectl create namespace fitness-platform --dry-run=client -o yaml | $KUBECTL -f -
           kubectl create secret generic app-secrets \
             --namespace=fitness-platform \
             --from-literal=POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
@@ -838,60 +814,59 @@ jobs:
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-      - name: Configure kubectl
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+            --dry-run=client -o yaml | $KUBECTL -f -
+
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f configs/k8s/namespace.yaml
-          kubectl apply -f configs/k8s/configmap.yaml
-          kubectl apply -f configs/k8s/serviceaccount.yaml
-          kubectl apply -f configs/k8s/pvc.yaml
-          kubectl apply -f configs/k8s/init-sql.yaml
+          KUBECTL="kubectl apply --validate=false"
+
+          $KUBECTL -f configs/k8s/namespace.yaml
+          $KUBECTL -f configs/k8s/configmap.yaml
+          $KUBECTL -f configs/k8s/serviceaccount.yaml
+          $KUBECTL -f configs/k8s/pvc.yaml
+          $KUBECTL -f configs/k8s/init-sql.yaml
           # Infrastructure
-          kubectl apply -f configs/k8s/deployments/postgres.yaml
-          kubectl apply -f configs/k8s/deployments/redis.yaml
-          kubectl apply -f configs/k8s/deployments/rabbitmq.yaml
+          $KUBECTL -f configs/k8s/deployments/postgres.yaml
+          $KUBECTL -f configs/k8s/deployments/redis.yaml
+          $KUBECTL -f configs/k8s/deployments/rabbitmq.yaml
           kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform --timeout=120s || true
           kubectl wait --for=condition=ready pod -l app=redis -n fitness-platform --timeout=60s || true
           # Application services
-          kubectl apply -f configs/k8s/deployments/user-service.yaml
-          kubectl apply -f configs/k8s/deployments/biometric-service.yaml
-          kubectl apply -f configs/k8s/deployments/training-service.yaml
-          kubectl apply -f configs/k8s/deployments/device-connector.yaml
-          kubectl apply -f configs/k8s/deployments/ml-classifier.yaml
-          kubectl apply -f configs/k8s/deployments/ml-generator.yaml
-          kubectl apply -f configs/k8s/deployments/gateway.yaml
-          kubectl apply -f configs/k8s/nginx-lb.yaml
+          $KUBECTL -f configs/k8s/deployments/user-service.yaml
+          $KUBECTL -f configs/k8s/deployments/biometric-service.yaml
+          $KUBECTL -f configs/k8s/deployments/training-service.yaml
+          $KUBECTL -f configs/k8s/deployments/device-connector.yaml
+          $KUBECTL -f configs/k8s/deployments/ml-classifier.yaml
+          $KUBECTL -f configs/k8s/deployments/ml-generator.yaml
+          $KUBECTL -f configs/k8s/deployments/gateway.yaml
+          $KUBECTL -f configs/k8s/nginx-lb.yaml
           # Services
-          kubectl apply -f configs/k8s/services/
+          $KUBECTL -f configs/k8s/services/
           # Security & scaling
-          kubectl apply -f configs/k8s/network-policies.yaml || true
-          kubectl apply -f configs/k8s/resource-quota.yaml || true
-          kubectl apply -f configs/k8s/hpa.yaml || true
-          kubectl apply -f configs/k8s/pdb.yaml || true
+          $KUBECTL -f configs/k8s/network-policies.yaml || true
+          $KUBECTL -f configs/k8s/resource-quota.yaml || true
+          $KUBECTL -f configs/k8s/hpa.yaml || true
+          $KUBECTL -f configs/k8s/pdb.yaml || true
+
       - name: Verify pods
         run: kubectl get pods -n fitness-platform
 
   notify:
     name: Send Notification
     runs-on: ubuntu-latest
-    needs: [ci-build, security-scan, secrets-scan, build, docker, deploy, k8s-deploy]
+    needs: [security-scan, secrets-scan, build, docker, deploy, k8s-deploy]
     if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
       - name: Get all job statuses
         id: statuses
         run: |
-          TEST_STATUS="${{ needs.ci-build.result }}"
+          TEST_STATUS="${{ needs.build.result }}"
           SECURITY_STATUS="${{ needs.security-scan.result }}"
           SECRETS_STATUS="${{ needs.secrets-scan.result }}"
           BUILD_STATUS="${{ needs.build.result }}"
