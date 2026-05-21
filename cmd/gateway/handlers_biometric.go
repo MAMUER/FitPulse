@@ -37,7 +37,13 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_, err := g.biometricClient.AddRecord(r.Context(), &biometricpb.AddRecordRequest{
+	client, err := g.getBiometricClient()
+	if err != nil {
+		http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, err = client.AddRecord(r.Context(), &biometricpb.AddRecordRequest{
 		UserId:     userID,
 		MetricType: req.MetricType,
 		Value:      req.Value,
@@ -85,7 +91,13 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	resp, err := g.biometricClient.GetRecords(r.Context(), &biometricpb.GetRecordsRequest{
+	client, err := g.getBiometricClient()
+	if err != nil {
+		http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	resp, err := client.GetRecords(r.Context(), &biometricpb.GetRecordsRequest{
 		UserId:     userID,
 		MetricType: metricType,
 		From:       timestamppb.New(from),

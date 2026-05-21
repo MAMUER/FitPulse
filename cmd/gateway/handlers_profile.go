@@ -99,52 +99,6 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// changePasswordHandler handles password change requests.
-func (g *gateway) changePasswordHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
-		return
-	}
-
-	var req struct {
-		CurrentPassword string `json:"current_password"`
-		NewPassword     string `json:"new_password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		g.log.Error("Failed to decode change password request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	if req.CurrentPassword == "" || req.NewPassword == "" {
-		http.Error(w, "Укажите текущий и новый пароль", http.StatusBadRequest)
-		return
-	}
-
-	resp, err := g.userClient.ChangePassword(r.Context(), &userpb.ChangePasswordRequest{
-		UserId:          userID,
-		CurrentPassword: req.CurrentPassword,
-		NewPassword:     req.NewPassword,
-	})
-	if err != nil {
-		g.log.Error("Failed to change password", zap.Error(err), zap.String("user_id", userID))
-		httpCode, errMsg := grpcToHTTPStatus(err)
-		http.Error(w, errMsg, httpCode)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"message": resp.Message,
-	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-}
-
 // ========== Security #10: Server-side Role Re-verification ==========
 
 // verifyUserRole re-queries the user's role from the database to prevent privilege escalation.

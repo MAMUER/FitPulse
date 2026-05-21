@@ -359,11 +359,15 @@ func TestGateway_HealthHandler(t *testing.T) {
 	err := json.NewDecoder(rr.Body).Decode(&response)
 	require.NoError(t, err)
 
-	assert.Equal(t, "ok", response["status"])
+	assert.Equal(t, "degraded", response["status"])
 	assert.Equal(t, "gateway", response["service"])
 	assert.Contains(t, response, "timestamp")
 	assert.Equal(t, "http://classifier:8001", response["ml_classifier"])
 	assert.Equal(t, "http://generator:8002", response["ml_generator"])
+	services, ok := response["services"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "down", services["biometric"])
+	assert.Equal(t, "down", services["training"])
 }
 
 // Интеграционный тест полного цикла регистрации и получения профиля

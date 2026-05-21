@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -31,6 +32,8 @@ type gateway struct {
 	userClient         userpb.UserServiceClient
 	biometricClient    biometricpb.BiometricServiceClient
 	trainingClient     trainingpb.TrainingServiceClient
+	biometricAddr      string
+	trainingAddr       string
 	mlClassifierURL    string
 	mlGeneratorURL     string
 	deviceConnectorURL string
@@ -46,6 +49,10 @@ type gateway struct {
 	requestDuration *prometheus.HistogramVec
 	requestTotal    *prometheus.CounterVec
 	errorTotal      *prometheus.CounterVec
+
+	// Lazy client initialization (advanced decoupling)
+	biometricMu sync.Mutex
+	trainingMu  sync.Mutex
 }
 
 func main() {
@@ -232,7 +239,7 @@ func main() {
 		}
 	}
 
-	// gRPC connections
+	// gRPC connections — User service is critical
 	userConn, err := grpc.NewClient(userServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
@@ -246,40 +253,14 @@ func main() {
 		}
 	}()
 
-	biometricConn, err := grpc.NewClient(biometricServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
-	)
-	if err != nil {
-		log.Fatal("Failed to connect to biometric service", zap.Error(err))
-	}
-	defer func() {
-		if closeErr := biometricConn.Close(); closeErr != nil {
-			log.Error("Failed to close biometric service connection", zap.Error(closeErr))
-		}
-	}()
-
-	trainingConn, err := grpc.NewClient(trainingServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
-	)
-	if err != nil {
-		log.Fatal("Failed to connect to training service", zap.Error(err))
-	}
-	defer func() {
-		if closeErr := trainingConn.Close(); closeErr != nil {
-			log.Error("Failed to close training service connection", zap.Error(closeErr))
-		}
-	}()
-
 	if rmqClose != nil {
 		defer rmqClose()
 	}
 
 	g := &gateway{
 		userClient:         userpb.NewUserServiceClient(userConn),
-		biometricClient:    biometricpb.NewBiometricServiceClient(biometricConn),
-		trainingClient:     trainingpb.NewTrainingServiceClient(trainingConn),
+		biometricAddr:      biometricServiceAddr,
+		trainingAddr:       trainingServiceAddr,
 		mlClassifierURL:    mlClassifierURL,
 		mlGeneratorURL:     mlGeneratorURL,
 		deviceConnectorURL: deviceConnectorURL,
@@ -343,42 +324,9 @@ func (g *gateway) registerRoutes() *mux.Router {
 	// Email confirmation page
 	r.HandleFunc("/confirm", g.emailConfirmPageHandler).Methods("GET")
 
-	// Device connector routes (device token auth, not JWT)
-	r.HandleFunc("/api/v1/devices/register", g.deviceRegisterHandler).Methods("POST")
-	r.HandleFunc("/api/v1/devices/{device_id}/ingest", g.deviceIngestHandler).Methods("POST")
-
-	// Protected routes (JWT required)
-	protected := r.PathPrefix("/api/v1").Subrouter()
-	protected.Use(middleware.AuthMiddleware(g.jwtSecret, g.log.Logger))
-
-	protected.HandleFunc("/logout", g.logoutHandler).Methods("POST")
-	protected.HandleFunc("/profile", g.profileHandler).Methods("GET")
-	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
-	protected.HandleFunc("/profile", g.deleteProfileHandler).Methods("DELETE")
-	protected.HandleFunc("/auth/change-password", g.changePasswordHandler).Methods("POST")
-
-	protected.HandleFunc("/devices", g.getDevicesHandler).Methods("GET")
-
-	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
-	protected.HandleFunc("/biometrics", g.getBiometricRecordsHandler).Methods("GET")
-
-	protected.HandleFunc("/training/generate", g.generatePlanHandler).Methods("POST")
-	protected.HandleFunc("/training/plans", g.getPlansHandler).Methods("GET")
-	protected.HandleFunc("/training/plan/{plan_id}", g.getPlanHandler).Methods("GET")
-	protected.HandleFunc("/training/complete", g.completeWorkoutHandler).Methods("POST")
-	protected.HandleFunc("/training/progress", g.getProgressHandler).Methods("GET")
-
-	protected.HandleFunc("/ml/classify", g.classifyHandler).Methods("POST")
-	protected.HandleFunc("/ml/classify/{job_id}", g.classifyStatusHandler).Methods("GET")
-	protected.HandleFunc("/ml/generate-plan", g.generateMLPlanHandler).Methods("POST")
-	protected.HandleFunc("/ml/generate-plan/{job_id}", g.generatePlanStatusHandler).Methods("GET")
-
-	// Admin routes (JWT + RequirePrivilege middleware — Security #10)
+	// Admin routes (protected by RequireRole)
 	admin := r.PathPrefix("/api/v1/admin").Subrouter()
-	admin.Use(middleware.AuthMiddleware(g.jwtSecret, g.log.Logger))
-	if g.db != nil {
-		admin.Use(middleware.RequirePrivilege(g.db, "admin", g.log.Logger))
-	}
+	admin.Use(middleware.RequireRole("admin"))
 	admin.HandleFunc("/users", g.adminListUsersHandler).Methods("GET")
 
 	// Static files
@@ -386,4 +334,58 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
 
 	return r
+}
+
+// ===================== Lazy Client Getters (Advanced Decoupling) =====================
+
+func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, error) {
+	g.biometricMu.Lock()
+	defer g.biometricMu.Unlock()
+
+	if g.biometricClient != nil {
+		return g.biometricClient, nil
+	}
+
+	if g.biometricAddr == "" {
+		return nil, fmt.Errorf("biometric service address not configured")
+	}
+
+	conn, err := grpc.NewClient(g.biometricAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+	)
+	if err != nil {
+		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
+		return nil, err
+	}
+
+	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
+	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
+	return g.biometricClient, nil
+}
+
+func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) {
+	g.trainingMu.Lock()
+	defer g.trainingMu.Unlock()
+
+	if g.trainingClient != nil {
+		return g.trainingClient, nil
+	}
+
+	if g.trainingAddr == "" {
+		return nil, fmt.Errorf("training service address not configured")
+	}
+
+	conn, err := grpc.NewClient(g.trainingAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+	)
+	if err != nil {
+		g.log.Warn("Failed to create training client on demand", zap.Error(err))
+		return nil, err
+	}
+
+	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)
+	g.log.Info("Training client initialized on first use", zap.String("addr", g.trainingAddr))
+	return g.trainingClient, nil
 }

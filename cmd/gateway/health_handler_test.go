@@ -29,7 +29,11 @@ func TestHealthHandler(t *testing.T) {
 	err := json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Equal(t, "ok", response["status"])
+	assert.Equal(t, "degraded", response["status"])
 	assert.Equal(t, "gateway", response["service"])
 	assert.NotEmpty(t, response["timestamp"])
+	services, ok := response["services"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "down", services["biometric"])
+	assert.Equal(t, "down", services["training"])
 }

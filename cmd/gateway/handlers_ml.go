@@ -4,64 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	trainingpb "github.com/MAMUER/project/api/gen/training"
-	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
-
-// mlJobStatusHandler — общая функция проверки статуса ML-задачи
-// Устраняет дублирование между classifyStatusHandler и generatePlanStatusHandler
-func (g *gateway) mlJobStatusHandler(w http.ResponseWriter, r *http.Request, redisKey string) {
-	vars := mux.Vars(r)
-	jobID := vars["job_id"]
-	if jobID == "" {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-
-	val, err := g.rdb.Get(ctx, fmt.Sprintf("%s%s", redisKey, jobID)).Result()
-	if errors.Is(err, redis.Nil) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if encErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"job_id": jobID,
-			"status": "processing",
-		}); encErr != nil {
-			g.log.Error("Failed to encode response", zap.Error(encErr))
-		}
-		return
-	}
-	if err != nil {
-		g.log.Error("Failed to get job result from Redis", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	safeVal := html.EscapeString(val)
-	if _, err := w.Write([]byte(safeVal)); err != nil {
-		g.log.Error("Failed to write response", zap.Error(err))
-	}
-}
 
 func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -75,7 +28,13 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	metrics := make(map[string]*biometricpb.BiometricRecord)
 
 	for _, metricType := range metricTypes {
-		bioResp, err := g.biometricClient.GetLatest(r.Context(), &biometricpb.GetLatestRequest{
+		client, err := g.getBiometricClient()
+		if err != nil {
+			http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		bioResp, err := client.GetLatest(r.Context(), &biometricpb.GetLatestRequest{
 			UserId:     userID,
 			MetricType: metricType,
 		})
@@ -207,230 +166,4 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 	}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
-}
-
-// classifyStatusHandler — делегирует общую логику mlJobStatusHandler
-func (g *gateway) classifyStatusHandler(w http.ResponseWriter, r *http.Request) {
-	g.mlJobStatusHandler(w, r, "ml:result:")
-}
-
-func (g *gateway) generateMLPlanHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
-		return
-	}
-
-	var req struct {
-		ClassName     string `json:"training_class"`
-		DurationWeeks int    `json:"duration_weeks"`
-		AvailableDays []int  `json:"available_days"`
-		Preferences   struct {
-			MaxDuration        int      `json:"max_duration"`
-			AvailableEquipment []string `json:"available_equipment"`
-			PreferredTime      string   `json:"preferred_time"`
-		} `json:"preferences"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		g.log.Error("Failed to decode generate ML plan request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	profile, err := g.userClient.GetProfile(r.Context(), &userpb.GetProfileRequest{UserId: userID})
-	if err != nil {
-		g.log.Error("Failed to get profile", zap.Error(err))
-		httpCode, errMsg := grpcToHTTPStatus(err)
-		http.Error(w, errMsg, httpCode)
-		return
-	}
-
-	userProfile := map[string]interface{}{}
-	if profile.Age > 0 {
-		userProfile["age"] = profile.Age
-	}
-	if profile.Gender != "" {
-		userProfile["gender"] = profile.Gender
-	}
-	if profile.WeightKg > 0 {
-		userProfile["weight"] = profile.WeightKg
-	}
-	if profile.HeightCm > 0 {
-		userProfile["height"] = profile.HeightCm
-	}
-	if profile.FitnessLevel != "" {
-		userProfile["fitness_level"] = profile.FitnessLevel
-	}
-	if len(profile.Contraindications) > 0 {
-		userProfile["health_conditions"] = profile.Contraindications
-	}
-	if len(profile.Goals) > 0 {
-		userProfile["goals"] = profile.Goals
-	}
-	if profile.SleepHours > 0 {
-		userProfile["sleep_hours"] = profile.SleepHours
-	}
-	if profile.Nutrition != "" {
-		userProfile["nutrition"] = profile.Nutrition
-	}
-
-	if g.mlAsync {
-		g.handleAsyncGeneratePlan(w, r, req.ClassName, userProfile, req.Preferences)
-		return
-	}
-
-	genReq := map[string]interface{}{
-		"training_class": req.ClassName,
-		"user_profile":   userProfile,
-		"preferences": map[string]interface{}{
-			"max_duration":        req.Preferences.MaxDuration,
-			"available_equipment": req.Preferences.AvailableEquipment,
-			"preferred_time":      req.Preferences.PreferredTime,
-		},
-	}
-
-	reqBody, err := json.Marshal(genReq)
-	if err != nil {
-		g.log.Error("Failed to marshal generator request", zap.Error(err))
-		http.Error(w, "Ошибка формирования запроса", http.StatusInternalServerError)
-		return
-	}
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	mlReq, err := http.NewRequestWithContext(r.Context(), "POST", g.mlGeneratorURL+"/generate-plan", bytes.NewBuffer(reqBody))
-	if err != nil {
-		g.log.Error("Failed to create request", zap.Error(err))
-		http.Error(w, "Ошибка формирования запроса", http.StatusInternalServerError)
-		return
-	}
-	mlReq.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(mlReq)
-	if err != nil {
-		g.log.Error("Failed to call ML generator", zap.Error(err))
-		http.Error(w, "Ошибка обращения к ML-генератору", http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			g.log.Error("Failed to close response body", zap.Error(closeErr))
-		}
-	}()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		g.log.Error("Failed to read response body", zap.Error(err))
-		http.Error(w, "Ошибка чтения ответа", http.StatusInternalServerError)
-		return
-	}
-
-	var mlResp map[string]interface{}
-	if err := json.Unmarshal(body, &mlResp); err == nil {
-		// Extract plan_data and merge top-level fields
-		planDataMap, _ := mlResp["plan_data"].(map[string]interface{})
-		if planDataMap == nil {
-			planDataMap = make(map[string]interface{})
-		}
-		// Merge top-level fields (except plan_id, status, plan_data) into planDataMap
-		for k, v := range mlResp {
-			if k != "plan_id" && k != "status" && k != "plan_data" {
-				planDataMap[k] = v
-			}
-		}
-
-		g.log.Info("ML plan_data merged", zap.Any("planData", planDataMap))
-
-		availableDays := make([]int32, len(req.AvailableDays))
-		for i, d := range req.AvailableDays {
-			availableDays[i] = safeIntToInt32(d)
-		}
-
-		classificationClass := req.ClassName
-		if cc, ok := planDataMap["class"].(string); ok {
-			classificationClass = cc
-		}
-
-		var planDataStruct *structpb.Struct
-		if len(planDataMap) > 0 {
-			planDataStruct, _ = structpb.NewStruct(planDataMap)
-		}
-
-		confidence := 0.85
-		if c, ok := planDataMap["confidence"].(float64); ok {
-			confidence = c
-		}
-
-		// Save plan to training service
-		_, saveErr := g.trainingClient.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
-			UserId:              userID,
-			ClassificationClass: classificationClass,
-			Confidence:          confidence,
-			DurationWeeks:       safeIntToInt32(req.DurationWeeks),
-			AvailableDays:       availableDays,
-			PlanData:            planDataStruct,
-		})
-		if saveErr != nil {
-			g.log.Error("Failed to save ML plan to training service", zap.Error(saveErr))
-			http.Error(w, "Ошибка сохранения плана", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	if _, err := w.Write(body); err != nil {
-		g.log.Error("Failed to write response body", zap.Error(err))
-	}
-}
-
-func (g *gateway) handleAsyncGeneratePlan(w http.ResponseWriter, r *http.Request, trainingClass string, userProfile map[string]interface{}, prefs struct {
-	MaxDuration        int      `json:"max_duration"`
-	AvailableEquipment []string `json:"available_equipment"`
-	PreferredTime      string   `json:"preferred_time"`
-}) {
-	jobID := uuid.New().String()
-
-	body, err := json.Marshal(map[string]interface{}{
-		"job_id":         jobID,
-		"training_class": trainingClass,
-		"user_profile":   userProfile,
-		"preferences": map[string]interface{}{
-			"max_duration":        prefs.MaxDuration,
-			"available_equipment": prefs.AvailableEquipment,
-			"preferred_time":      prefs.PreferredTime,
-		},
-	})
-	if err != nil {
-		g.log.Error("Failed to marshal generate-plan job", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	err = g.rmqCh.PublishWithContext(ctx, "", "ml.generate", false, false,
-		amqp.Publishing{
-			ContentType:  "application/json",
-			Body:         body,
-			DeliveryMode: amqp.Persistent,
-		})
-	if err != nil {
-		g.log.Error("Failed to publish generate-plan job to RabbitMQ", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"job_id": jobID,
-		"status": "pending",
-	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-	}
-}
-
-// generatePlanStatusHandler — делегирует общую логику mlJobStatusHandler
-func (g *gateway) generatePlanStatusHandler(w http.ResponseWriter, r *http.Request) {
-	g.mlJobStatusHandler(w, r, "ml:generate:")
 }

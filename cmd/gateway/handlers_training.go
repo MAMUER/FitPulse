@@ -7,7 +7,6 @@ import (
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -47,7 +46,13 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		availableDays[i] = safeIntToInt32(d)
 	}
 
-	resp, err := g.trainingClient.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
+	client, err := g.getTrainingClient()
+	if err != nil {
+		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	resp, err := client.GeneratePlan(r.Context(), &trainingpb.GeneratePlanRequest{
 		UserId:              userID,
 		ClassificationClass: class,
 		Confidence:          req.Confidence,
@@ -118,7 +123,13 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, err := g.trainingClient.ListPlans(r.Context(), &trainingpb.ListPlansRequest{
+	client, err := g.getTrainingClient()
+	if err != nil {
+		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	resp, err := client.ListPlans(r.Context(), &trainingpb.ListPlansRequest{
 		UserId:   userID,
 		Page:     safeIntToInt32(page),
 		PageSize: safeIntToInt32(pageSize),
@@ -175,61 +186,6 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := r.Context().Value(middleware.UserIDKey).(string); !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
-		return
-	}
-
-	vars := mux.Vars(r)
-	planID := vars["plan_id"]
-	if planID == "" {
-		http.Error(w, "ID плана не указан", http.StatusBadRequest)
-		return
-	}
-
-	resp, err := g.trainingClient.GetPlan(r.Context(), &trainingpb.GetPlanRequest{
-		PlanId: planID,
-	})
-	if err != nil {
-		g.log.Error("Failed to get plan", zap.Error(err), zap.String("plan_id", planID))
-		httpCode, errMsg := grpcToHTTPStatus(err)
-		http.Error(w, errMsg, httpCode)
-		return
-	}
-
-	planDataJSON, err := json.Marshal(resp.PlanData)
-	if err != nil {
-		g.log.Error("Failed to marshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-	var planData map[string]interface{}
-	if err := json.Unmarshal(planDataJSON, &planData); err != nil {
-		g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]interface{}{
-		"status": "ok",
-		"plan": map[string]interface{}{
-			"plan_id":      resp.Id,
-			"user_id":      resp.UserId,
-			"plan_data":    planData,
-			"status":       resp.Status,
-			"start_date":   resp.StartDate.AsTime().Format("2006-01-02"),
-			"end_date":     resp.EndDate.AsTime().Format("2006-01-02"),
-			"generated_at": resp.GeneratedAt.AsTime().Format("2006-01-02"),
-		},
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-	}
-}
-
 func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
@@ -244,7 +200,13 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	_, err := g.trainingClient.CompleteWorkout(r.Context(), &trainingpb.CompleteWorkoutRequest{
+	client, err := g.getTrainingClient()
+	if err != nil {
+		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, err = client.CompleteWorkout(r.Context(), &trainingpb.CompleteWorkoutRequest{
 		UserId:    userID,
 		PlanId:    req.PlanID,
 		WorkoutId: req.WorkoutID,
@@ -272,7 +234,13 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := g.trainingClient.GetProgress(r.Context(), &trainingpb.GetProgressRequest{
+	client, err := g.getTrainingClient()
+	if err != nil {
+		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, err = client.GetProgress(r.Context(), &trainingpb.GetProgressRequest{
 		UserId: userID,
 	})
 	if err != nil {
