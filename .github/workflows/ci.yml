@@ -215,8 +215,12 @@ jobs:
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for test services to become healthy..."
-          docker compose -f docker-compose.test.yml up -d --wait
+          docker compose -f docker-compose.test.yml up -d --wait || true
           docker compose -f docker-compose.test.yml ps
+          echo "=== Gateway logs (last 100 lines) ==="
+          docker compose -f docker-compose.test.yml logs --tail=100 gateway-test || true
+          echo "=== User Service logs (last 100 lines) ==="
+          docker compose -f docker-compose.test.yml logs --tail=100 user-service-test || true
 
       - name: Smoke tests (real API)
         run: |

@@ -1,6 +1,5 @@
 # docker-compose.test.yml
 # Лёгкая тестовая среда для CI и локальной разработки
-version: '3.8'
 
 services:
   postgres-test:
@@ -72,8 +71,9 @@ services:
       dockerfile: cmd/gateway/Dockerfile
     environment:
       USER_SERVICE_ADDR: user-service-test:50051
-      BIOMETRIC_SERVICE_ADDR: biometric-service-test:50052
-      TRAINING_SERVICE_ADDR: training-service-test:50053
+      # Biometric and Training services are not started in this minimal test env
+      # BIOMETRIC_SERVICE_ADDR: biometric-service-test:50052
+      # TRAINING_SERVICE_ADDR: training-service-test:50053
     depends_on:
       user-service-test:
         condition: service_started
