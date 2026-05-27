@@ -29,7 +29,7 @@ FROM alpine:3.21
 RUN apk --no-cache add \
     ca-certificates=20260413-r0 \
     tzdata=2026b-r0 \
-    curl=8.12.1-r0
+    curl
 
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
