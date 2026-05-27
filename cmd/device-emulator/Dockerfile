@@ -23,9 +23,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ========== Runtime stage ==========
 FROM alpine:3.21
 
-RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0
-
-RUN addgroup -g 1001 -S appgroup && \
+RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0 && \
+    addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app
@@ -34,5 +33,5 @@ COPY --from=builder --chown=appuser:appgroup /app/bin/device-emulator .
 
 USER appuser
 
-# Device emulator doesn't expose портов, он подключается к device-connector
+# Device emulator doesn't expose ports, он подключается к device-connector
 ENTRYPOINT ["./device-emulator"]

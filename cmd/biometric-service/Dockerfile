@@ -7,12 +7,13 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=direct
 ENV GOSUMDB=off
 
-RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0 && \
-    go mod download
-
 WORKDIR /app
 
+RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
+
 COPY go.mod go.sum ./
+RUN go mod download
+
 COPY cmd/biometric-service/ ./cmd/biometric-service/
 COPY internal/ ./internal/
 COPY pkg/ ./pkg/

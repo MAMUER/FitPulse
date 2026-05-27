@@ -11,17 +11,15 @@ RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
 
 WORKDIR /app
 
-# Кэшируем загрузку зависимостей
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Копируем только нужный код
 COPY cmd/user-service/ ./cmd/user-service/
 COPY internal/ ./internal/
 COPY pkg/ ./pkg/
 COPY api/ ./api/
 
-# Собираем статический бинарник
+# Build static binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -o /app/bin/user-service \
@@ -32,7 +30,7 @@ FROM alpine:3.21
 
 RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0
 
-# Создаём непривилегированного пользователя
+# Create non-privileged user
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 

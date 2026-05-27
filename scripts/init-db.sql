@@ -1,13 +1,3 @@
--- V10__add_classification_class_column.sql
--- V10__add_classification_class_column.sql
--- Add classification_class column to training_plans (was missing from V6)
-
-ALTER TABLE training_plans
-    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
-
-COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';
-
-
 -- V1__create_extensions.sql
 -- V1__create_extensions.sql
 -- Create necessary extensions
@@ -27,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     nickname            VARCHAR(100) UNIQUE,
     profile_photo_url   VARCHAR(500),
     role                VARCHAR(50) NOT NULL DEFAULT 'client'
-                            CHECK (role IN ('client', 'admin')),
+                          CHECK (role IN ('client', 'admin')),
     email_confirmed     BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
@@ -411,4 +401,13 @@ BEGIN
     INSERT INTO invite_code_uses (invite_code_id, user_id) VALUES (v_invite_id, p_user_id);
 END;
 $$ LANGUAGE plpgsql;
+
+-- V10__add_classification_class_column.sql
+-- V10__add_classification_class_column.sql
+-- Add classification_class column to training_plans (was missing from V6)
+
+ALTER TABLE training_plans
+    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
+
+COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';
 
