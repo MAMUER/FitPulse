@@ -101,7 +101,7 @@ FitPulse представляет собой комплексную платфо
 | Device Connector | Go, HTTP | 8082 | Подключение внешних устройств |
 | Device Emulator | Go | — | Эмуляция носимых устройств |
 | ML Classifier | Python, FastAPI | 8001 | Классификация состояния (6 классов) |
-| ML Generator | Python, FastAPI | 8002 | Генерация планов (GAN) |
+| ML Generator | Python, FastAPI | 8002 | Генерация планов (GAN, 19-dim output, 64-latent) |
 | NGINX LB | Nginx, Alpine | 8443 | SSL termination, балансировка, CSP |
 | PostgreSQL | 15 | 5432 | Основная база данных |
 | Redis | 7 | 6379 | Кэширование, сессии, auth-коды |

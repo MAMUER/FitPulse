@@ -11,9 +11,11 @@ import keras  # standalone Keras 3 (via KERAS_BACKEND=tensorflow)
 import joblib
 import os
 import json
+import shutil
 import threading
 import uuid
 import logging
+from pathlib import Path
 
 # Async imports (loaded conditionally)
 try:
@@ -140,16 +142,44 @@ def load_models():
     """Load trained models"""
     global model, scaler
 
-    model_path = '/app/models/classifier.keras'
-    scaler_path = '/app/models/scaler.pkl'
+    models_dir = Path('/app/models')
+    scaler_path = models_dir / 'scaler.pkl'
 
-    if os.path.exists(model_path):
+    # === Smart model selection + auto-sync ===
+    timestamped_models = sorted(models_dir.glob('classifier_*.keras'))
+
+    if timestamped_models:
+        latest_model = timestamped_models[-1]           # newest by filename
+
+        # Always keep classifier.keras in sync with the latest timestamped model
+        stable_model = models_dir / 'classifier.keras'
+        if latest_model != stable_model:
+            try:
+                shutil.copy2(latest_model, stable_model)
+                print(f"🔄 Updated stable model: classifier.keras ← {latest_model.name}")
+            except Exception as e:
+                print(f"⚠️  Could not sync classifier.keras: {e}")
+
+        # Clean up older timestamped models (keep only the newest one)
+        for old_model in timestamped_models[:-1]:
+            try:
+                old_model.unlink()
+                print(f"🗑️  Removed old model: {old_model.name}")
+            except Exception as e:
+                print(f"⚠️  Could not remove {old_model.name}: {e}")
+
+        model_path = str(stable_model)
+    else:
+        model_path = str(models_dir / 'classifier.keras')
+    # === end smart selection + auto-sync ===
+
+    if Path(model_path).exists():
         model = keras.models.load_model(model_path)
         print(f"Model loaded from {model_path}")
     else:
         print(f"Model not found at {model_path}")
 
-    if os.path.exists(scaler_path):
+    if scaler_path.exists():
         scaler = joblib.load(scaler_path)
         print(f"Scaler loaded from {scaler_path}")
     else:

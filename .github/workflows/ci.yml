@@ -80,7 +80,7 @@ jobs:
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for test services to become healthy..."
-          docker compose -f docker-compose.test.yml up -d --wait || true
+          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 180 || true
           docker compose -f docker-compose.test.yml ps
           echo "=== Gateway logs (last 100 lines) ==="
           docker compose -f docker-compose.test.yml logs --tail=100 gateway-test || true
@@ -94,17 +94,24 @@ jobs:
           
           GATEWAY_URL="http://localhost:8081"
           
-          # 1. Health check (extra patience after --wait)
+          # 1. Health check (up to ~3 minutes)
           echo "→ Checking /health..."
-          for i in $(seq 1 12); do
+          for i in $(seq 1 36); do
             if curl -f --silent --max-time 3 "$GATEWAY_URL/health" > /dev/null; then
               echo "Gateway is healthy"
               break
             fi
-            echo "Waiting for gateway... ($i/12)"
+            echo "Waiting for gateway... ($i/36)"
             sleep 5
           done
-          curl -f "$GATEWAY_URL/health" || exit 1
+
+          if ! curl -f --silent --max-time 5 "$GATEWAY_URL/health" > /dev/null; then
+            echo "❌ Gateway did not become healthy after waiting"
+            echo "=== Gateway logs (last 150 lines) ==="
+            docker compose -f docker-compose.test.yml logs --tail=150 gateway-test || true
+            exit 1
+          fi
+          echo "✅ Gateway is ready"
           
           # 2. Register new user
           echo "→ Testing registration..."
@@ -338,41 +345,34 @@ jobs:
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
           echo "Found $VULN_COUNT potential vulnerabilities"
 
-       # Trivy: сканирование filesystem на secrets, misconfigurations
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        env:
-           TRIVY_QUIET: "true"
-        with:
-             scan-type: 'fs'
-             scan-ref: '.'
-             format: 'sarif'
-             output: 'trivy-results.sarif'
-             severity: 'CRITICAL,HIGH'
-             exit-code: '0'
-             scanners: 'vuln'
-             skip-dirs: '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**'
-             hide-progress: true
+        run: |
+           trivy fs \
+             --scanners vuln \
+             --severity CRITICAL,HIGH \
+             --format sarif \
+             --output trivy-results.sarif \
+             --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**' \
+             --quiet \
+             .
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy-fs
+           sarif_file: trivy-results.sarif
+           category: trivy-fs
 
-       # Проверка Dockerfile на best practices
       - name: Run Trivy config scan
-        uses: aquasecurity/trivy-action@master
-        env:
-            TRIVY_QUIET: "true"
-        with:
-            scan-type: 'config'
-            scan-ref: '.'
-            format: 'table'
-            severity: 'CRITICAL,HIGH'
-            exit-code: '1'
-            cache: false
+        run: |
+           trivy config \
+             --severity CRITICAL,HIGH \
+             --exit-code 1 \
+             --quiet \
+             .
 
   secrets-scan:
     name: Secrets Scanning
@@ -530,9 +530,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ML classifier — build only if both model files exist
-          if [ -f "models/classifier.keras" ] && [ -f "models/scaler.pkl" ]; then
-            echo "Building ml-classifier (models found)..."
+          # ML classifier — build if scaler exists and at least one model (regular or timestamped) is present
+          if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
+            echo "Building ml-classifier (latest model found)..."
             docker build \
               -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:${{ steps.sha.outputs.short_sha }} \
               -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest \
@@ -542,8 +542,8 @@ jobs:
             docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest
             echo "ml-classifier pushed"
           else
-            echo "Skipping ml-classifier — models/classifier.keras or models/scaler.pkl not found"
-            echo "  Run 'python cmd/ml-classifier/train.py' locally and commit the models to build the ML image"
+            echo "Skipping ml-classifier — no model found (need models/scaler.pkl + classifier.keras or classifier_*.keras)"
+            echo "  Run training locally, commit the models (including timestamped), then push"
           fi
 
           # ML generator — build if either .h5 or .keras model exists

@@ -7,13 +7,12 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=direct
 ENV GOSUMDB=off
 
-RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
+RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0 && \
+    go mod download
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
-
 COPY cmd/biometric-service/ ./cmd/biometric-service/
 COPY internal/ ./internal/
 COPY pkg/ ./pkg/
@@ -27,9 +26,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ========== Runtime stage ==========
 FROM alpine:3.21
 
-RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0
-
-RUN addgroup -g 1001 -S appgroup && \
+RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0 && \
+    addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app

@@ -11,7 +11,6 @@ import keras  # standalone Keras 3 (via KERAS_BACKEND=tensorflow)
 import os
 import json
 import threading
-import uuid
 import logging
 
 # Async imports (loaded conditionally)
@@ -128,6 +127,13 @@ def load_generator():
         print(f"Generator not found at {model_path}")
 
 
+def generate_from_noise(noise: np.ndarray) -> np.ndarray:
+    """Generate plan from noise vector using the new model"""
+    if generator is None:
+        raise RuntimeError("Generator not loaded")
+    return generator.predict(noise, verbose=0)[0]
+
+
 def init_async():
     """Initialize RabbitMQ consumer and Redis client for async mode."""
     global redis_client, rabbitmq_url, ml_async_enabled
@@ -240,23 +246,10 @@ def _do_generate_plan(training_class, user_profile, preferences=None):
     """Core plan generation logic, shared between sync and async endpoints."""
     if generator is None:
         raise RuntimeError("Generator not loaded")
-
-    # Get training class index
-    class_idx = list(TRAINING_CLASSES.values()).index(training_class)
-
-    # Encode user profile
-    profile_encoded = encode_user_profile(user_profile)
-
-    # Encode training class
-    class_onehot = keras.utils.to_categorical([class_idx], 4)
-
-    # Generate noise
-    noise = np.random.normal(0, 1, (1, 32))
-
-    # Generate plan
-    plan_vector = generator.predict([noise, profile_encoded, class_onehot], verbose=0)[0]
-
-    # Decode to human-readable format
+    
+    import numpy as np
+    noise = np.random.normal(0, 1, (1, 64))
+    plan_vector = generator.predict(noise, verbose=0)[0]
     plan = decode_plan(plan_vector, training_class, user_profile)
     return plan
 
@@ -332,20 +325,19 @@ def encode_user_profile(profile: UserProfile) -> np.ndarray:
 
 
 def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: UserProfile) -> dict:
-    """Decode GAN output (16 dimensions) to training plan"""
+    """Decode GAN output (19 dimensions) to training plan"""
     template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES['endurance_e1e2'])
 
     duration = int(plan_vector[0] * 100)
     intensity = plan_vector[1]
-    rest_ratio = plan_vector[2]
     weekly_freq = int(plan_vector[3] * 7)
 
-    exercise_probs = plan_vector[4:9]
-    primary_exercise_idx = np.argmax(exercise_probs)
+    equipment_dist = plan_vector[4:12]
+    primary_exercise_idx = int(np.argmax(equipment_dist))
     primary_exercise = template['exercises'][primary_exercise_idx % len(template['exercises'])]
 
-    warmup = int(plan_vector[9] * 100)
-    cooldown = int(plan_vector[10] * 100)
+    warmup = int(plan_vector[12] * 100)
+    cooldown = int(plan_vector[13] * 100)
 
     # Build session structure
     session_structure = [

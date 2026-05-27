@@ -1,35 +1,35 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Security: non-root user
-RUN groupadd -r mluser && useradd -r -g mluser -d /app -s /sbin/nologin mluser
+# Security: non-root user and venv setup in one RUN
+RUN groupadd -r mluser && \
+    useradd -r -g mluser -d /app -s /sbin/nologin mluser && \
+    python -m venv /opt/venv && \
+    chown -R mluser:mluser /opt/venv
 
 WORKDIR /app
 
-# Установка зависимостей
-COPY cmd/ml-classifier/requirements.txt .
-RUN python -m pip install --no-cache-dir --upgrade pip==24.3.1 setuptools==69.1.0 wheel==0.42.0 && \
-    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r requirements.txt
+# Create models directory before switching user
+RUN mkdir -p /app/models && chown -R mluser:mluser /app
 
-# Копирование кода
-COPY cmd/ml-classifier/main.py .
-COPY cmd/ml-classifier/train.py .
-
-# Создание директории для моделей
-RUN mkdir -p /app/models
-
-# Копирование моделей из корневой директории
-# ВАЖНО: этот Dockerfile собирается ТОЛЬКО когда модели существуют.
-# CI пропускает эту сборку если models/classifier.keras отсутствует.
-COPY models/classifier.keras /app/models/classifier.keras
-COPY models/scaler.pkl /app/models/scaler.pkl
-
-# Security: ownership
-RUN chown -R mluser:mluser /app
 USER mluser
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install dependencies
+COPY --chown=mluser:mluser cmd/ml-classifier/requirements.txt /app/cmd/ml-classifier/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip==25.2 setuptools==81.0 wheel==0.45.1 && \
+    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r /app/cmd/ml-classifier/requirements.txt
+
+# Copy code (preserves project structure)
+COPY --chown=mluser:mluser cmd /app/cmd
+
+# Copy all models from models/ folder (including timestamped versions).
+# At container startup, main.py will select the latest timestamped model
+# and update classifier.keras. Old timestamped models will be deleted automatically.
+COPY --chown=mluser:mluser models/ /app/models/
 
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" || exit 1
+   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" || exit 1
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["python", "-m", "uvicorn", "cmd.ml-classifier.main:app", "--host", "0.0.0.0", "--port", "8001"]

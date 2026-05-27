@@ -1,33 +1,34 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Security: non-root user
-RUN groupadd -r mluser && useradd -r -g mluser -d /app -s /sbin/nologin mluser
+# Security: non-root user and venv setup in one RUN
+RUN groupadd -r mluser && \
+    useradd -r -g mluser -d /app -s /sbin/nologin mluser && \
+    python -m venv /opt/venv && \
+    chown -R mluser:mluser /opt/venv
 
 WORKDIR /app
 
-# Установка зависимостей
-COPY cmd/ml-generator/requirements.txt .
-RUN python -m pip install --no-cache-dir --upgrade pip==24.3.1 setuptools==69.1.0 wheel==0.42.0 && \
-    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r requirements.txt
+# Create models directory before switching user
+RUN mkdir -p /app/models && chown -R mluser:mluser /app/models
 
-# Копирование кода
-COPY cmd/ml-generator/main.py .
-COPY cmd/ml-generator/train_gan.py .
-
-# Создание директории для моделей
-RUN mkdir -p /app/models
-
-# Копирование моделей из корневой директории
-COPY models/generator.keras /app/models/generator.keras
-COPY models/generator.h5 /app/models/generator.h5
-
-# Security: ownership
-RUN chown -R mluser:mluser /app
 USER mluser
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install dependencies
+COPY --chown=mluser:mluser cmd/ml-generator/requirements.txt /app/cmd/ml-generator/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip==25.2 setuptools==81.0 wheel==0.45.1 && \
+    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r /app/cmd/ml-generator/requirements.txt
+
+# Copy code (preserves project structure)
+COPY --chown=mluser:mluser cmd /app/cmd
+
+# Copy models from root directory
+COPY --chown=mluser:mluser models/generator.keras /app/models/generator.keras
+COPY --chown=mluser:mluser models/generator.h5 /app/models/generator.h5
 
 EXPOSE 8002
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
+   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["python", "-m", "uvicorn", "cmd.ml-generator.main:app", "--host", "0.0.0.0", "--port", "8002"]

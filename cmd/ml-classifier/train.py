@@ -2,12 +2,24 @@
 """
 Training script for ML Classifier - Keras 3 compatible
 """
+
+# === Подавление CUDA / XLA / TensorFlow шума (должно быть САМЫМ ПЕРВЫМ) ===
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+os.environ['KERAS_BACKEND'] = 'tensorflow'
+
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+# === конец подавления ===
+
 import sys
 import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, confusion_matrix
@@ -17,11 +29,11 @@ from keras import layers, models, callbacks
 import joblib
 import matplotlib.pyplot as plt
 
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-import tensorflow as tf
-tf.get_logger().setLevel('ERROR')
+# Robust paths based on script location
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+DATA_PATH = PROJECT_ROOT / "datasets" / "processed" / "training_data_real_v3.csv"
+MODELS_DIR = PROJECT_ROOT / "models"
 
 TRAINING_CLASSES = {
     0: {'name': 'recovery', 'name_ru': 'Восстановление', 'hr_range': '50-65% HRmax'},
@@ -31,10 +43,9 @@ TRAINING_CLASSES = {
 }
 
 def load_real_data():
-    """Загрузка данных"""
-    data_path = '../../datasets/processed/training_data_real.csv'
+    data_path = str(DATA_PATH)
     
-    if not os.path.exists(data_path):
+    if not DATA_PATH.exists():
         raise FileNotFoundError(f"Данные не найдены: {data_path}")
     
     print(f"Загрузка данных: {data_path}")
@@ -61,33 +72,33 @@ def load_real_data():
     return X, y
 
 def create_classifier_model(input_shape=7, num_classes=4):
-    """Создание модели классификатора"""
     model = models.Sequential([
         layers.Input(shape=(input_shape,)),
+        layers.GaussianNoise(0.05),
         
-        layers.Dense(256, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.Dense(256, activation='relu', kernel_regularizer=keras.regularizers.l2(0.003)),
+        layers.BatchNormalization(),
+        layers.Dropout(0.4),
+        
+        layers.Dense(128, activation='relu', kernel_regularizer=keras.regularizers.l2(0.003)),
+        layers.BatchNormalization(),
+        layers.Dropout(0.4),
+        
+        layers.Dense(64, activation='relu', kernel_regularizer=keras.regularizers.l2(0.003)),
         layers.BatchNormalization(),
         layers.Dropout(0.3),
         
-        layers.Dense(128, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.Dense(32, activation='relu', kernel_regularizer=keras.regularizers.l2(0.003)),
         layers.BatchNormalization(),
         layers.Dropout(0.3),
-        
-        layers.Dense(64, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001)),
-        layers.BatchNormalization(),
-        layers.Dropout(0.2),
-        
-        layers.Dense(32, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001)),
-        layers.BatchNormalization(),
-        layers.Dropout(0.2),
         
         layers.Dense(num_classes, activation='softmax')
     ])
     
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=0.0005),
+        optimizer=keras.optimizers.Adam(learning_rate=0.0003),
         loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']  # Только accuracy
+        metrics=['accuracy']
     )
     
     return model
@@ -95,7 +106,7 @@ def create_classifier_model(input_shape=7, num_classes=4):
 def train_model():
     """Main training function"""
     print("=" * 70)
-    print("🧠 ОБУЧЕНИЕ КЛАССИФИКАТОРА v2.1")
+    print("🧠 ОБУЧЕНИЕ КЛАССИФИКАТОРА v3 (v3 data + strong reg)")
     print("=" * 70)
     
     print("\n[1/5] Загрузка данных...")
@@ -114,9 +125,10 @@ def train_model():
     X_train_scaled = np.nan_to_num(X_train_scaled, nan=0.0)
     X_test_scaled = np.nan_to_num(X_test_scaled, nan=0.0)
     
-    os.makedirs('../../models', exist_ok=True)
-    joblib.dump(scaler, '../../models/scaler.pkl')
-    print("Scaler saved to ../../models/scaler.pkl")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    scaler_path = MODELS_DIR / "scaler.pkl"
+    joblib.dump(scaler, scaler_path)
+    print(f"Scaler saved to {scaler_path}")
     
     print("\n[4/5] Создание модели...")
     model = create_classifier_model(input_shape=X_train_scaled.shape[1])
@@ -129,7 +141,7 @@ def train_model():
     
     early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
     reduce_lr = callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6, verbose=1)
-    checkpoint = callbacks.ModelCheckpoint('../../models/classifier.keras', monitor='val_accuracy', save_best_only=True, verbose=1)
+    checkpoint = callbacks.ModelCheckpoint(str(MODELS_DIR / 'classifier.keras'), monitor='val_accuracy', save_best_only=True, verbose=1)
 
     print("\n[5/5] Обучение...")
     history = model.fit(
@@ -157,8 +169,15 @@ def train_model():
     print("\nConfusion Matrix:")
     print(confusion_matrix(y_test, y_pred))
     
-    model.save('../../models/classifier.keras')
-    print("\nModel saved to ../../models/classifier.keras")
+    model_path = MODELS_DIR / "classifier.keras"
+    model.save(model_path)
+    print(f"\nModel saved to {model_path}")
+
+    # Timestamped version for best model
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    ts_model_path = MODELS_DIR / f"classifier_{ts}.keras"
+    model.save(ts_model_path)
+    print(f"Timestamped best model saved to {ts_model_path}")
     
     training_history = {
         'accuracy': [float(a) for a in history.history['accuracy']],
@@ -175,9 +194,10 @@ def train_model():
         }
     }
     
-    with open('../../models/training_history.json', 'w', encoding='utf-8') as f:
+    history_path = MODELS_DIR / "training_history.json"
+    with open(history_path, 'w', encoding='utf-8') as f:
         json.dump(training_history, f, indent=2, ensure_ascii=False)
-    print("Training history saved to ../../models/training_history.json")
+    print(f"Training history saved to {history_path}")
     
     # Графики
     plt.figure(figsize=(14, 5))
@@ -199,8 +219,9 @@ def train_model():
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('../../models/training_history.png', dpi=150)
-    print("Training plot saved to ../../models/training_history.png")
+    plot_path = MODELS_DIR / "training_history.png"
+    plt.savefig(plot_path, dpi=150)
+    print(f"Training plot saved to {plot_path}")
     
     print("\n" + "=" * 70)
     print("ОБУЧЕНИЕ ЗАВЕРШЕНО!")
