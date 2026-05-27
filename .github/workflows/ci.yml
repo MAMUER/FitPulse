@@ -130,84 +130,85 @@ jobs:
           echo "✅ All smoke tests passed!"
 
   deploy-staging:
-     name: Deploy to Staging
-     runs-on: ubuntu-latest
-     needs: deploy-test
-     env:
-        STAGING_URL: ${{ secrets.VPS_HOST }}
-     steps:
-         - name: Set git default branch to main
-           run: |
-             git config --global init.defaultBranch main
-             git config --global advice.defaultBranchName false
-             git config --global advice.detachedHead false
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: deploy
+    env:
+      STAGING_URL: ${{ secrets.VPS_HOST }}
+    steps:
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
 
-         - name: Check out repository
-           uses: actions/checkout@v6.0.2
-           with:
-            fetch-depth: 0
-         - id: prepare-staging-target
-           name: Prepare staging target URL
-           run: |
-            if [[ "$STAGING_URL" == http* ]]; then
-             echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
-            else
-             echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
-            fi
-         - name: UAT Tests
-           run: |
-            echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
-             python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
-         - id: validate-staging-target
-           name: Validate staging target URL
-           run: |
-            if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - id: prepare-staging-target
+        name: Prepare staging target URL
+        run: |
+          if [[ "$STAGING_URL" == http* ]]; then
+            echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
+          else
+            echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: UAT Tests
+        run: |
+          echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
+          python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
+
+      - id: validate-staging-target
+        name: Validate staging target URL
+        run: |
+          if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
-            fi
-            TARGET="${{ steps.prepare-staging-target.outputs.target }}"
-            if python - <<'PY'
-            import os
-            from urllib.parse import urlparse
-            u = urlparse(os.getenv('TARGET'))
-            if u.scheme not in ('http', 'https') or not u.netloc:
-              raise SystemExit(1)
-            PY
-                    then
-                      echo "valid=true" >> $GITHUB_OUTPUT
-                    else
-                      echo "valid=false" >> $GITHUB_OUTPUT
-            fi
-           env:
-            TARGET: ${{ steps.prepare-staging-target.outputs.target }}
-         - name: Performance tests (k6)
-           if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-           uses: k6io/action@v0.3.1
-           env:
-            BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
-           with:
-            filename: load-test.k6
-           continue-on-error: true
-         - name: Security scan (OWASP ZAP)
-           if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
-           uses: zaproxy/action-baseline@v0.15.0
-           with:
-            target: ${{ steps.prepare-staging-target.outputs.target }}
-            fail_action: false
-           continue-on-error: true
-         - name: OWASP ZAP skipped
-           if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
-           run: |
-            echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
-         - name: Chaos engineering
-           run: |
-            echo "Running chaos tests (simulated failures)"
-            # Simple chaos: hit health endpoint under load and expect some errors
-            for i in {1..20}; do
+          fi
+          TARGET="${{ steps.prepare-staging-target.outputs.target }}"
+          if python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          u = urlparse(os.getenv('TARGET'))
+          if u.scheme not in ('http', 'https') or not u.netloc:
+            raise SystemExit(1)
+          PY
+          then
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          TARGET: ${{ steps.prepare-staging-target.outputs.target }}
+      - name: Performance tests (k6)
+        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+        uses: k6io/action@v0.3.1
+        env:
+          BASE_URL: ${{ steps.prepare-staging-target.outputs.target }}
+        with:
+          filename: load-test.k6
+        continue-on-error: true
+      - name: Security scan (OWASP ZAP)
+        if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ steps.prepare-staging-target.outputs.target }}
+          fail_action: false
+        continue-on-error: true
+      - name: OWASP ZAP skipped
+        if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
+        run: |
+          echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
+      - name: Chaos engineering
+        run: |
+          echo "Running chaos tests (simulated failures)"
+          for i in {1..20}; do
             curl -s -o /dev/null -w "%{http_code}\n" "${{ steps.prepare-staging-target.outputs.target }}/health"
             sleep 0.5
-            done
-            echo "Chaos test completed"
+          done
+          echo "Chaos test completed"
 
   release-candidate:
     name: Release Candidate
@@ -647,8 +648,8 @@ jobs:
               MODEL_PATH=/app/models/classifier.keras
               SCALER_PATH=/app/models/scaler.pkl
               GENERATOR_PATH=/app/models/generator.h5
-              RABBITMQ_DEFAULT_USER=${{ vars.RABBITMQ_DEFAULT_USER }}
-              RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}
+              RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_USER }}
+              RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_PASS }}
               SMTP_HOST=smtp.yandex.ru
               SMTP_PORT=465
               SMTP_USER=${{ secrets.SMTP_USER }}
@@ -761,9 +762,9 @@ jobs:
               EOF
               chmod +x /opt/techip/cleanup.sh
 
-              echo "=== Setting up cron for weekly cleanup ==="
-              (crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/techip/cleanup.sh >> /var/log/cleanup.log 2>&1") | crontab -
-            '
+          echo "=== Setting up cron for weekly cleanup ==="
+               (crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/techip/cleanup.sh >> /var/log/cleanup.log 2>&1") | crontab -
+             '
       - name: Get deployment status for notification
         id: deployment-status
         run: |
@@ -810,7 +811,7 @@ jobs:
           kubectl create namespace fitness-platform --dry-run=client -o yaml | $KUBECTL -f -
           kubectl create secret generic app-secrets \
             --namespace=fitness-platform \
-            --from-literal=POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            --from-literal=POSTGRES_USER=${{ vars.POSTGRES_USER || 'fitness_admin' }} \
             --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
             --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
@@ -868,7 +869,7 @@ jobs:
       - name: Get all job statuses
         id: statuses
         run: |
-          TEST_STATUS="${{ needs.build.result }}"
+          TEST_STATUS="${{ needs.deploy-test.result }}"
           SECURITY_STATUS="${{ needs.security-scan.result }}"
           SECRETS_STATUS="${{ needs.secrets-scan.result }}"
           BUILD_STATUS="${{ needs.build.result }}"
