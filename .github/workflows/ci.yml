@@ -630,6 +630,7 @@ jobs:
               DB_HOST=postgres
               DB_PORT=5432
               DB_NAME=${{ vars.POSTGRES_DB }}
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
               DB_SSLMODE=disable
               REDIS_ADDR=redis:6379
               REDIS_DB=0
@@ -799,6 +800,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/
 
       - name: Configure kubectl
+        id: kubeconfig
         run: |
           mkdir -p $HOME/.kube
           printf '%s' "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config 2>/dev/null || printf '%s' "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
@@ -807,12 +809,14 @@ jobs:
             echo "kubectl not installed correctly"
             exit 1
           fi
-          if [ ! -s $HOME/.kube/config ]; then
-            echo "KUBECONFIG is empty — skipping K8s steps"
-            exit 0
+          if [ ! -s $HOME/.kube/config ] || ! grep -q '^apiVersion:' $HOME/.kube/config 2>/dev/null; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Create secrets from GitHub Secrets
+        if: steps.kubeconfig.outputs.configured == 'true'
         run: |
           KUBECTL="kubectl apply --validate=false"
 
@@ -828,6 +832,7 @@ jobs:
             --dry-run=client -o yaml | $KUBECTL -f -
 
       - name: Apply Kubernetes manifests
+        if: steps.kubeconfig.outputs.configured == 'true'
         run: |
           KUBECTL="kubectl apply --validate=false"
 
@@ -860,6 +865,7 @@ jobs:
           $KUBECTL -f configs/k8s/pdb.yaml || true
 
       - name: Verify pods
+        if: steps.kubeconfig.outputs.configured == 'true'
         run: kubectl get pods -n fitness-platform
 
   notify:
