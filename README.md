@@ -643,6 +643,21 @@ push/PR → test → security-scan → secrets-scan → build → docker → dep
 - **deploy**: VPS (Docker Compose) + Kubernetes
 - **notify**: Telegram с полным отчётом
 
+### Kubernetes (опционально / на перспективу)
+
+Job `Deploy to Kubernetes` в CI/CD настроен как **опциональный**: если GitHub Secret `KUBECONFIG` пустой или отсутствует, шаг gracefully пропускается без ошибки.
+
+**Почему K8s не активен по умолчанию:**
+- Managed Kubernetes (Yandex Cloud, DO, AWS EKS, GKE) — платные сервисы, требуют отдельного бюджета.
+- Самостоятельная установка кластера через kubeadm/k3s/minikube на одном VPS неоправданно сложна и не даёт реальных преимуществ по сравнению с Docker Compose.
+- Текущий деплой полностью покрывает потребности через Docker Compose на VPS.
+
+**Для активации K8s-деплоя:**
+1. Создать кластер в облаке (Managed K8s).
+2. Скачать `kubeconfig` с панели управления.
+3. Сохранить содержимое YAML (или его base64-кодировку) в GitHub Secret `KUBECONFIG`.
+4. Тогда CI автоматически применит манифесты из `configs/k8s/`.
+
 ## Тестирование
 
 ```bash

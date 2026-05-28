@@ -623,7 +623,7 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh ssh \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-              cat > /opt/techip/.env << "EOF"
+              cat > /opt/techip/.env << "ENVEOF"
               POSTGRES_USER=${{ vars.POSTGRES_USER }}
               POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
               POSTGRES_DB=${{ vars.POSTGRES_DB }}
@@ -656,7 +656,7 @@ jobs:
               SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
               EMAIL_DAILY_LIMIT=100
               EMAIL_SKIP_DOMAINS=example.com
-              EOF
+              ENVEOF
             '
       - name: Get short SHA for image tag
         id: sha
@@ -801,8 +801,16 @@ jobs:
       - name: Configure kubectl
         run: |
           mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+          printf '%s' "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config 2>/dev/null || printf '%s' "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+          if ! kubectl version --client > /dev/null 2>&1; then
+            echo "kubectl not installed correctly"
+            exit 1
+          fi
+          if [ ! -s $HOME/.kube/config ]; then
+            echo "KUBECONFIG is empty — skipping K8s steps"
+            exit 0
+          fi
 
       - name: Create secrets from GitHub Secrets
         run: |

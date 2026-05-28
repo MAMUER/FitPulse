@@ -34,56 +34,62 @@ TIMEOUT="${SSH_RETRY_TIMEOUT:-120}"
 COMMON_OPTS="-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60"
 
 # Bastion / Jump host support via ProxyJump (recommended)
-  if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
-    echo "→ Using bastion: ${BASTION_USER}@${BASTION_HOST}"
-    COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${BASTION_USER}@${BASTION_HOST}"
-  elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
-    echo "→ Using jump host: ${SSH_JUMP_HOST}"
-    COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${SSH_JUMP_HOST}"
-  fi
+if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
+  echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
+  COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${BASTION_USER}@${BASTION_HOST}"
+elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
+  echo "-> Using jump host: ${SSH_JUMP_HOST}"
+  COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${SSH_JUMP_HOST}"
+fi
 
 # Merge with user-provided options if any
 if [[ -n "${SSH_OPTS:-}" ]]; then
   COMMON_OPTS="$COMMON_OPTS $SSH_OPTS"
 fi
 
+# Arguments for the current mode
+TARGET=""
+COMMAND=""
+SRC=""
+DEST=""
+if [[ "$MODE" == "ssh" ]]; then
+  TARGET="${1:-}"
+  shift || true
+  COMMAND="$*"
+else
+  SRC="${1:-}"
+  DEST="${2:-}"
+fi
+
 attempt=1
 while true; do
-  echo "────────────────────────────────────────────────────────"
-  echo "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS — Mode: $MODE"
+  echo "--------------------------------------------------"
+  echo "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS - Mode: $MODE"
 
   if [[ "$MODE" == "ssh" ]]; then
-    TARGET="$1"
-    shift
-    COMMAND="$*"
-
-    echo "→ Target : $TARGET"
-    echo "→ Command: $COMMAND"
+    echo "-> Target : $TARGET"
+    echo "-> Command: $COMMAND"
 
     if timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" "$COMMAND"; then
-      echo "✅ Success on attempt $attempt"
+      echo "Success on attempt $attempt"
       exit 0
     fi
   else
-    # SCP mode
-    SRC="$1"
-    DEST="$2"
-
-    echo "→ Source : $SRC"
-    echo "→ Dest   : $DEST"
+    echo "-> Source : $SRC"
+    echo "-> Dest   : $DEST"
 
     if timeout "$TIMEOUT" scp $COMMON_OPTS "$SRC" "$DEST"; then
-      echo "✅ Success on attempt $attempt"
+      echo "Success on attempt $attempt"
       exit 0
     fi
   fi
 
   if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
-    echo "❌ Failed after $MAX_ATTEMPTS attempts"
+    echo "Failed after $MAX_ATTEMPTS attempts"
     exit 1
   fi
 
-  echo "⏳ Retrying in ${DELAY}s..."
+  echo "Retrying in ${DELAY}s..."
   sleep "$DELAY"
   attempt=$((attempt + 1))
 done
