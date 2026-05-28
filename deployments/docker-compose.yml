@@ -112,7 +112,7 @@ services:
       dockerfile: cmd/user-service/Dockerfile
     container_name: fitness-user-service
     env_file:
-      - ../.env
+      - .env
     ports:
       - "${USER_SERVICE_PORT:-50051}:50051"
     environment:
