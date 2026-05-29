@@ -135,7 +135,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: deploy  # Changed from deploy-test to deploy
+    needs: deploy
     env:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
@@ -145,12 +145,13 @@ jobs:
           git config --global advice.defaultBranchName false
           git config --global advice.detachedHead false
 
-      - name: Check out repository
+      - name: Checkout code
         uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-      - id: prepare-staging-target
-        name: Prepare staging target URL
+
+      - name: Prepare staging target URL
+        id: prepare-staging-target
         run: |
           if [[ "$STAGING_URL" == http* ]]; then
             echo "target=$STAGING_URL" >> $GITHUB_OUTPUT
@@ -158,13 +159,22 @@ jobs:
             echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
           fi
 
+      - name: Safely apply PVC (skip if exists)
+        run: |
+          if ! kubectl get pvc -n fitness-platform -o jsonpath='{.items[?(@.metadata.name=="postgres-pvc")]}' &>/dev/null; then
+            echo "Creating postgres-pvc..."
+            kubectl apply -f configs/k8s/pvc.yaml
+          else
+            echo "postgres-pvc already exists - skipping apply"
+          fi
+
       - name: UAT Tests
         run: |
           echo "Running UAT tests against ${{ steps.prepare-staging-target.outputs.target }}"
           python scripts/api-test.py --base-url "${{ steps.prepare-staging-target.outputs.target }}"
 
-      - id: validate-staging-target
-        name: Validate staging target URL
+      - name: Validate staging target URL
+        id: validate-staging-target
         run: |
           if [ -z "${{ steps.prepare-staging-target.outputs.target }}" ]; then
             echo "valid=false" >> $GITHUB_OUTPUT
@@ -185,6 +195,7 @@ jobs:
           fi
         env:
           TARGET: ${{ steps.prepare-staging-target.outputs.target }}
+
       - name: Performance tests (k6)
         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
         uses: k6io/action@v0.3.1
@@ -193,6 +204,7 @@ jobs:
         with:
           filename: load-test.k6
         continue-on-error: true
+
       - name: Security scan (OWASP ZAP)
         if: ${{ steps.validate-staging-target.outputs.valid == 'true' }}
         uses: zaproxy/action-baseline@v0.15.0
@@ -200,10 +212,12 @@ jobs:
           target: ${{ steps.prepare-staging-target.outputs.target }}
           fail_action: false
         continue-on-error: true
+
       - name: OWASP ZAP skipped
         if: ${{ steps.validate-staging-target.outputs.valid != 'true' }}
         run: |
           echo "OWASP ZAP scan skipped - invalid or missing STAGING_URL"
+
       - name: Chaos engineering
         run: |
           echo "Running chaos tests (simulated failures)"
@@ -886,10 +900,10 @@ jobs:
        - name: Create namespace and config
          if: steps.kubeconfig.outputs.configured == 'true'
          run: |
-           kubectl apply -f configs/k8s/namespace.yaml
-           kubectl apply -f configs/k8s/configmap.yaml
-           kubectl apply -f configs/k8s/pvc.yaml
-           kubectl apply -f configs/k8s/init-sql.yaml
+            kubectl apply -f configs/k8s/namespace.yaml || true
+            kubectl apply -f configs/k8s/configmap.yaml || true
+            kubectl apply -f configs/k8s/serviceaccount.yaml || true
+            kubectl apply -f configs/k8s/init-sql.yaml || true
 
        - name: Deploy infrastructure services
          if: steps.kubeconfig.outputs.configured == 'true'

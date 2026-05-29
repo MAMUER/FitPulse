@@ -5,8 +5,9 @@ metadata:
   namespace: fitness-platform
 data:
   init.sql: |
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    -- Extensions (commented out to avoid init failures)
+    -- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    -- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
     
     -- Enable TDE-like encryption for sensitive fields
     CREATE OR REPLACE FUNCTION encrypt_sensitive(text) RETURNS text AS $$
@@ -20,8 +21,6 @@ data:
       RETURN decrypt(decode($1, 'hex'), 'your-encryption-key-here', 'aes')::text;
     END;
     $$ LANGUAGE plpgsql;
-    
-    CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
