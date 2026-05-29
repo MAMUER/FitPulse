@@ -416,11 +416,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Get lowercase repo name
-        id: repo-lower
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -430,15 +425,15 @@ jobs:
           for svc in $services; do
             echo "Building $svc with tag ${{ steps.sha.outputs.short_sha }}..."
             docker build \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/$svc:${{ steps.sha.outputs.short_sha }} \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/$svc:latest \
               -f cmd/$svc/Dockerfile \
               .
 
             for attempt in 1 2 3; do
               echo "Pushing $svc (attempt $attempt)..."
-              if docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:${{ steps.sha.outputs.short_sha }} && \
-                 docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/$svc:latest; then
+              if docker push ${{ env.REGISTRY }}/MAMUER/Project/$svc:${{ steps.sha.outputs.short_sha }} && \
+                 docker push ${{ env.REGISTRY }}/MAMUER/Project/$svc:latest; then
                 echo "$svc pushed"
                 break
               fi
@@ -456,7 +451,7 @@ jobs:
         name: Scan Docker images with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/gateway:${{ steps.sha.outputs.short_sha }}'
+          image-ref: '${{ env.REGISTRY }}/MAMUER/Project/gateway:${{ steps.sha.outputs.short_sha }}'
           format: 'sarif'
           output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -478,12 +473,12 @@ jobs:
           if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
             echo "Building ml-classifier (latest model found)..."
             docker build \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/ml-classifier:${{ steps.sha.outputs.short_sha }} \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/ml-classifier:latest \
               -f cmd/ml-classifier/Dockerfile \
               .
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-classifier:latest
+            docker push ${{ env.REGISTRY }}/MAMUER/Project/ml-classifier:${{ steps.sha.outputs.short_sha }}
+            docker push ${{ env.REGISTRY }}/MAMUER/Project/ml-classifier:latest
             echo "ml-classifier pushed"
           else
             echo "Skipping ml-classifier — no model found (need models/scaler.pkl + classifier.keras or classifier_*.keras)"
@@ -494,12 +489,12 @@ jobs:
           if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
             echo "Building ml-generator (model found)..."
             docker build \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:latest \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/ml-generator:${{ steps.sha.outputs.short_sha }} \
+              -t ${{ env.REGISTRY }}/MAMUER/Project/ml-generator:latest \
               -f cmd/ml-generator/Dockerfile \
               .
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/${{ steps.repo-lower.outputs.repo_lower }}/ml-generator:latest
+            docker push ${{ env.REGISTRY }}/MAMUER/Project/ml-generator:${{ steps.sha.outputs.short_sha }}
+            docker push ${{ env.REGISTRY }}/MAMUER/Project/ml-generator:latest
             echo "ml-generator pushed"
           else
             echo "Skipping ml-generator — models/generator not found"
@@ -1018,33 +1013,23 @@ jobs:
           message: |
             CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}
 
-            📦 **Репозиторий:** [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
-            🌿 **Ветка:** `${{ github.ref_name }}`
-            🔖 **Коммит:** [`${{ github.sha }}`](${{ steps.commit.outputs.commit_url }})
-            👤 **Автор:** ${{ steps.commit.outputs.author }}
-            **Сообщение:** ${{ steps.commit.outputs.message }}
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ steps.commit.outputs.author }}
 
-            ━━━━━━━━━━━━━━━━━━━━━
+            Statuses:
+            - Tests: ${{ steps.statuses.outputs.test_emoji }} ${{ steps.statuses.outputs.test_status }}
+            - Security: ${{ steps.statuses.outputs.security_emoji }} ${{ steps.statuses.outputs.security_status }}
+            - Secrets: ${{ steps.statuses.outputs.secrets_emoji }} ${{ steps.statuses.outputs.secrets_status }}
+            - Build: ${{ steps.statuses.outputs.build_emoji }} ${{ steps.statuses.outputs.build_status }}
+            - Docker: ${{ steps.statuses.outputs.docker_emoji }} ${{ steps.statuses.outputs.docker_status }}
+            - Deploy (VPS): ${{ steps.statuses.outputs.deploy_emoji }} ${{ steps.statuses.outputs.deploy_status }}
+            - Kubernetes: ${{ steps.statuses.outputs.k8s_emoji }} ${{ steps.statuses.outputs.k8s_status }}
 
-            *📊 Статусы этапов:*
-            | Этап | Статус |
-            |------|--------|
-            | 🧪 Тесты | ${{ steps.statuses.outputs.test_emoji }} `${{ steps.statuses.outputs.test_status }}` |
-            | Security | ${{ steps.statuses.outputs.security_emoji }} `${{ steps.statuses.outputs.security_status }}` |
-            | 🔑 Secrets | ${{ steps.statuses.outputs.secrets_emoji }} `${{ steps.statuses.outputs.secrets_status }}` |
-            | 🔨 Сборка | ${{ steps.statuses.outputs.build_emoji }} `${{ steps.statuses.outputs.build_status }}` |
-            | 🐳 Docker | ${{ steps.statuses.outputs.docker_emoji }} `${{ steps.statuses.outputs.docker_status }}` |
-            | 🚀 Деплой (VPS) | ${{ steps.statuses.outputs.deploy_emoji }} `${{ steps.statuses.outputs.deploy_status }}` |
-            | ☸️ Kubernetes | ${{ steps.statuses.outputs.k8s_emoji }} `${{ steps.statuses.outputs.k8s_status }}` |
+            Services:
+            - Gateway: http://${{ secrets.VPS_HOST }}:8080
+            - ML Classifier: http://${{ secrets.VPS_HOST }}:8001
+            - ML Generator: http://${{ secrets.VPS_HOST }}:8002
 
-            ━━━━━━━━━━━━━━━━━━━━━
-
-            *🖥️ Доступ к сервисам:*
-            • 🌐 Gateway: http://${{ secrets.VPS_HOST }}:8080
-            • 🤖 ML Classifier: http://${{ secrets.VPS_HOST }}:8001
-            • 🎨 ML Generator: http://${{ secrets.VPS_HOST }}:8002
-            • 📨 RabbitMQ UI: http://${{ secrets.VPS_HOST }}:15672
-            • 📊 Prometheus: http://${{ secrets.VPS_HOST }}:9090
-            • 📈 Grafana: http://${{ secrets.VPS_HOST }}:3000
-
-            [🔗 Подробный отчет в Actions](${{ steps.commit.outputs.run_url }})
+            Report: ${{ steps.commit.outputs.run_url }}

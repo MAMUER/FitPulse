@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
 
   ml-generator:
-    image: ghcr.io/mamuer/project/ml-generator:latest
+    image: ghcr.io/MAMUER/Project/ml-generator:latest
     container_name: fitness-ml-generator
     ports:
       - "${ML_GENERATOR_PORT:-8002}:8002"
@@ -101,9 +101,9 @@ services:
       - fitness-network
     restart: unless-stopped
 
-   # Go микросервисы
-   user-service:
-     image: ghcr.io/MAMUER/Project/user-service:latest
+# Go микросервисы
+  user-service:
+    image: ghcr.io/MAMUER/Project/user-service:latest
     container_name: fitness-user-service
     env_file:
       - .env
@@ -119,7 +119,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - REDIS_HOST=redis
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS required}@rabbitmq:5672/
-      # SMTP — берётся из .env файла
       - SMTP_HOST=${SMTP_HOST:-mailpit}
       - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_USER=${SMTP_USER:-}
@@ -151,7 +150,7 @@ services:
     restart: unless-stopped
 
   biometric-service:
-   image: ghcr.io/MAMUER/Project/biometric-service:latest
+    image: ghcr.io/MAMUER/Project/biometric-service:latest
     container_name: fitness-biometric-service
     ports:
       - "${BIOMETRIC_SERVICE_PORT:-50052}:50052"
@@ -174,7 +173,7 @@ services:
     restart: unless-stopped
 
   device-connector:
-   image: ghcr.io/MAMUER/Project/device-connector:latest
+    image: ghcr.io/MAMUER/Project/device-connector:latest
     container_name: fitness-device-connector
     ports:
       - "${DEVICE_CONNECTOR_PORT:-8082}:8082"
@@ -196,7 +195,7 @@ services:
     restart: unless-stopped
 
   training-service:
-   image: ghcr.io/MAMUER/Project/training-service:latest
+    image: ghcr.io/MAMUER/Project/training-service:latest
     container_name: fitness-training-service
     ports:
       - "${TRAINING_SERVICE_PORT:-50053}:50053"
@@ -226,7 +225,7 @@ services:
     restart: unless-stopped
 
   gateway:
-   image: ghcr.io/MAMUER/Project/gateway:latest
+    image: ghcr.io/MAMUER/Project/gateway:latest
     container_name: fitness-gateway
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
@@ -411,4 +410,4 @@ volumes:
   rabbitmq-data:
   elasticsearch-data:
   prometheus-data:
-  grafana-data::
+  grafana-data:
