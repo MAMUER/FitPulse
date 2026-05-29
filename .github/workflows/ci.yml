@@ -617,15 +617,13 @@ jobs:
       - name: Update docker-compose with image tags
         run: |
           ./scripts/ssh-retry.sh ssh \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
               cd /opt/techip
-              SHA_TAG=$(git rev-parse --short HEAD)
+              SHA_TAG=\"${{ steps.sha.outputs.short_sha }}\"
               for svc in user-service biometric-service training-service gateway; do
-                sed -i "s|ghcr.io/.*/$svc:latest|ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/$svc:$SHA_TAG|g" docker-compose.yml
+                sed -i \"s|ghcr.io/.*/\$svc:latest|ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/\$svc:\$SHA_TAG|g\" docker-compose.yml
               done
-              # ML services are now pre-configured to use specific image references
-              # No changes needed for ml-classifier and ml-generator
-            '
+            "
 
       - name: Deploy with Docker Compose
         run: |
