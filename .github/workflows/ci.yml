@@ -274,7 +274,7 @@ jobs:
 
 
   security-scan:
-    name: Security Scanning (SecPrompter)
+    name: Security Scanning
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -328,6 +328,9 @@ jobs:
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
           echo "Found $VULN_COUNT potential vulnerabilities"
 
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+
       - name: Run Trivy config scan
         run: |
           trivy config \
@@ -336,10 +339,8 @@ jobs:
             --quiet \
             .
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.6
-
       - name: Run Trivy vulnerability scanner
+        id: trivy-scan
         run: |
            trivy fs \
              --scanners vuln \
