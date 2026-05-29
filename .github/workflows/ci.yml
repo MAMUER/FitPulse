@@ -351,18 +351,11 @@ jobs:
              .
 
       - name: Upload Trivy scan results
+        if: always() && steps.trivy-scan.outcome == 'success'
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
         with:
            sarif_file: trivy-results.sarif
-           category: trivy-fs
-
-      - name: Secprompter scan
-        uses: github/secprompter-action@v1.3.1
-        with:
-            repo: ${{ github.repository }}
-            access_token: ${{ secrets.GITHUB_TOKEN }}
-
+           category: trivy-docker
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
