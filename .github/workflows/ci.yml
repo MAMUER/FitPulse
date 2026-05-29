@@ -117,7 +117,20 @@ jobs:
             echo "target=http://$STAGING_URL" >> $GITHUB_OUTPUT
           fi
 
+      - name: Configure kubectl
+        id: kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          printf '%s' "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config 2>/dev/null || printf '%s' "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          if [ ! -s $HOME/.kube/config ] || ! grep -q '^apiVersion:' $HOME/.kube/config 2>/dev/null; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Safely apply PVC (skip if exists)
+        if: steps.kubeconfig.outputs.configured == 'true'
         run: |
           if ! kubectl get pvc -n fitness-platform -o jsonpath='{.items[?(@.metadata.name=="postgres-pvc")]}' &>/dev/null; then
             echo "Creating postgres-pvc..."
@@ -125,6 +138,10 @@ jobs:
           else
             echo "postgres-pvc already exists - skipping apply"
           fi
+
+      - name: Skip PVC — no KUBECONFIG
+        if: steps.kubeconfig.outputs.configured != 'true'
+        run: echo "KUBECONFIG not configured, skipping PVC apply"
 
       - name: UAT Tests
         run: |
@@ -1007,22 +1024,22 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: text
+          format: markdown
           message: |
-            CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}
+            *CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}*
 
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
 
             Statuses:
-            - Tests: ${{ steps.statuses.outputs.test_emoji }} ${{ steps.statuses.outputs.test_status }}
-            - Security: ${{ steps.statuses.outputs.security_emoji }} ${{ steps.statuses.outputs.security_status }}
-            - Secrets: ${{ steps.statuses.outputs.secrets_emoji }} ${{ steps.statuses.outputs.secrets_status }}
-            - Build: ${{ steps.statuses.outputs.build_emoji }} ${{ steps.statuses.outputs.build_status }}
-            - Docker: ${{ steps.statuses.outputs.docker_emoji }} ${{ steps.statuses.outputs.docker_status }}
-            - Deploy: ${{ steps.statuses.outputs.deploy_emoji }} ${{ steps.statuses.outputs.deploy_status }}
-            - K8s: ${{ steps.statuses.outputs.k8s_emoji }} ${{ steps.statuses.outputs.k8s_status }}
+            - Tests: ${{ steps.statuses.outputs.test_status }}
+            - Security: ${{ steps.statuses.outputs.security_status }}
+            - Secrets: ${{ steps.statuses.outputs.secrets_status }}
+            - Build: ${{ steps.statuses.outputs.build_status }}
+            - Docker: ${{ steps.statuses.outputs.docker_status }}
+            - Deploy: ${{ steps.statuses.outputs.deploy_status }}
+            - K8s: ${{ steps.statuses.outputs.k8s_status }}
 
             Services:
             - Gateway: http://${{ secrets.VPS_HOST }}:8080
