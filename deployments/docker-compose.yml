@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
 
   ml-generator:
-    image: ghcr.io/MAMUER/Project/ml-generator:latest
+    image: ghcr.io/mamuer/project/ml-generator:latest
     container_name: fitness-ml-generator
     ports:
       - "${ML_GENERATOR_PORT:-8002}:8002"
@@ -103,7 +103,7 @@ services:
 
 # Go микросервисы
   user-service:
-    image: ghcr.io/MAMUER/Project/user-service:latest
+    image: ghcr.io/mamuer/project/user-service:latest
     container_name: fitness-user-service
     env_file:
       - .env
@@ -150,7 +150,7 @@ services:
     restart: unless-stopped
 
   biometric-service:
-    image: ghcr.io/MAMUER/Project/biometric-service:latest
+    image: ghcr.io/mamuer/project/biometric-service:latest
     container_name: fitness-biometric-service
     ports:
       - "${BIOMETRIC_SERVICE_PORT:-50052}:50052"
@@ -173,7 +173,7 @@ services:
     restart: unless-stopped
 
   device-connector:
-    image: ghcr.io/MAMUER/Project/device-connector:latest
+    image: ghcr.io/mamuer/project/device-connector:latest
     container_name: fitness-device-connector
     ports:
       - "${DEVICE_CONNECTOR_PORT:-8082}:8082"
@@ -195,7 +195,7 @@ services:
     restart: unless-stopped
 
   training-service:
-    image: ghcr.io/MAMUER/Project/training-service:latest
+    image: ghcr.io/mamuer/project/training-service:latest
     container_name: fitness-training-service
     ports:
       - "${TRAINING_SERVICE_PORT:-50053}:50053"
@@ -225,7 +225,7 @@ services:
     restart: unless-stopped
 
   gateway:
-    image: ghcr.io/MAMUER/Project/gateway:latest
+    image: ghcr.io/mamuer/project/gateway:latest
     container_name: fitness-gateway
     ports:
       - "${GATEWAY_PORT:-8080}:8080"

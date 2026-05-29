@@ -18,7 +18,7 @@ spec:
         runAsUser: 1001
       containers:
       - name: ml-generator
-        image: ghcr.io/MAMUER/Project/ml-generator:latest
+        image: ghcr.io/mamuer/project/ml-generator:latest
         imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true

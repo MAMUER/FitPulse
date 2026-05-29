@@ -18,7 +18,7 @@ spec:
         runAsUser: 1001
       containers:
       - name: gateway
-        image: ghcr.io/MAMUER/Project/gateway:canary
+        image: ghcr.io/mamuer/project/gateway:canary
         imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true
