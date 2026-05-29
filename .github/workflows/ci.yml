@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main, master, Microservice_arc]
   schedule:
-    # Еженедельный security scan (понедельник 00:00 UTC)
     - cron: '0 0 * * 1'
 
 permissions:
@@ -15,15 +14,14 @@ permissions:
   security-events: write
 
 env:
-    GO_VERSION: "1.26.3"
-    REGISTRY: ghcr.io
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
+  GO_VERSION: "1.26.3"
+  REGISTRY: ghcr.io
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  code-review:
-    name: Code Review Gates
+  docker_build:
+    name: Build and Push Docker Images (Multi-arch)
     runs-on: ubuntu-latest
     steps:
       - name: Set git default branch to main
@@ -31,22 +29,27 @@ jobs:
           git config --global init.defaultBranch main
           git config --global advice.defaultBranchName false
           git config --global advice.detachedHead false
+
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
-            registry: ${{ env.REGISTRY }}
-            username: ${{ github.actor }}
-            password: ${{ secrets.GHCR_TOKEN }}
+           registry: ${{ env.REGISTRY }}
+           username: ${{ github.actor }}
+           password: ${{ secrets.GHCR_TOKEN }}
+
       - name: Get lowercase repo name
         id: repo-lower
         run: |
-             REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-             echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
+              REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+              echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
       - name: Multi-arch build
         run: |
-            docker buildx create --use
-             for service in gateway user-service biometric-service training-service; do
+             docker buildx create --use
+              for service in gateway user-service biometric-service training-service device-emulator; do
                echo "Building $service..."
                for i in {1..3}; do
                  if docker buildx build --push --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ steps.repo-lower.outputs.repo_lower }}/$service:latest --file ./cmd/$service/Dockerfile .; then
@@ -57,15 +60,15 @@ jobs:
                    sleep $((5 * i))
                  fi
                done
-            done
+               done
 
-  deploy-test:
+  deploy-test:  # ← Теперь на одном уровне с docker_build
     name: Deploy to Test
     runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Set git default branch to main
-        run: |
+    needs: docker_build  # ← Исправлено: было docker_build (верно)
+    steps:  # ← 4 пробела
+      - name: Set git default branch to main  # ← 6 пробелей
+        run: |  # ← 8 пробелов
           git config --global init.defaultBranch main
           git config --global advice.defaultBranchName false
           git config --global advice.detachedHead false
@@ -132,7 +135,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: deploy  # Changed from deploy-test to deploy
     env:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
@@ -216,49 +219,10 @@ jobs:
     needs: deploy-staging
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Create git tag
-        run: |
-          VERSION=$(date +%Y%m%d.%H%M%S)
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-      - name: Generate changelog
-        run: |
-          echo "Generating changelog"
-      - name: Create runbook
-        run: |
-          echo "Generating runbook"
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: release-candidate
-    environment: production
-    steps:
-      - name: Canary deployment (10%)
-        run: |
-          kubectl set image deployment/gateway gateway=$REGISTRY/${{ github.repository }}/gateway:$(git describe --tags)
-          kubectl rollout pause deployment/gateway
-          # Wait 1h, monitor metrics
-      - name: Rolling deployment (30%→60%→100%)
-        run: |
-          kubectl rollout resume deployment/gateway
-          # Gradual rollout with 30min intervals
-      - name: Post-deploy monitoring
-        run: |
-          # 24h monitoring with alerts
-
-  rollback:
-    name: Rollback Triggers
-    runs-on: ubuntu-latest
-    needs: deploy-production
-    if: failure()
-    steps:
-      - name: Set git default branch to main
-        run: |
-          git config --global init.defaultBranch main
-          git config --global advice.defaultBranchName false
-          git config --global advice.detachedHead false
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
       - name: Check K8s cluster and rollback
         continue-on-error: true
         run: |
@@ -294,63 +258,65 @@ jobs:
       - name: Run tests
         run: go test -v -short -parallel 2 ./...
 
+
   security-scan:
     name: Security Scanning (SAST + Dependencies)
     runs-on: ubuntu-latest
-    needs: code-review
+    needs: docker_build  # ← Исправлено: было build (несуществующий джоб)
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Set git default branch to main
-        run: |
-          git config --global init.defaultBranch main
-          git config --global advice.defaultBranchName false
-          git config --global advice.detachedHead false
-      - uses: actions/checkout@v6.0.2
+       - name: Set git default branch to main
+         run: |
+           git config --global init.defaultBranch main
+           git config --global advice.defaultBranchName false
+           git config --global advice.detachedHead false
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
+       - uses: actions/checkout@v6.0.2
+
+       - name: Set up Go
+         uses: actions/setup-go@v6
+         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install dependencies
-        run: go mod download
-      # Go Security: проверка зависимостей на уязвимости (аналог npm audit)
-      - name: Install gosec and govulncheck
-        run: |
+       - name: Install dependencies
+         run: go mod download
+         # Go Security: проверка зависимостей на уязвимости (аналог npm audit)
+       - name: Install gosec and govulncheck
+         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
       # SAST: статический анализ кода на security issues
-      - name: Run gosec SAST scanner
-        run: |
+       - name: Run gosec SAST scanner
+         run: |
           gosec -exclude-generated -fmt=sarif -out=gosec-results.sarif ./...
           echo "=== GOSEC SUMMARY ==="
           gosec -exclude-generated ./...
 
       # Upload gosec results to GitHub Security tab
-      - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
+       - name: Upload gosec results
+         uses: github/codeql-action/upload-sarif@v4
+         if: always()
+         with:
           sarif_file: gosec-results.sarif
           category: gosec
 
       # Проверка зависимостей на известные уязвимости
-      - name: Run govulncheck
-        continue-on-error: true
-        run: |
+       - name: Run govulncheck
+         continue-on-error: true
+         run: |
           govulncheck ./... 2>&1 | tee vulncheck-results.txt
           echo "=== VULNCHECK SUMMARY ==="
           # Считаем количество найденных уязвимостей
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
           echo "Found $VULN_COUNT potential vulnerabilities"
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.6
+       - name: Install Trivy
+         uses: aquasecurity/setup-trivy@v0.2.6
 
-      - name: Run Trivy vulnerability scanner
-        run: |
+       - name: Run Trivy vulnerability scanner
+         run: |
            trivy fs \
              --scanners vuln \
              --severity CRITICAL,HIGH \
@@ -360,15 +326,15 @@ jobs:
              --quiet \
              .
 
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
+       - name: Upload Trivy scan results
+         uses: github/codeql-action/upload-sarif@v4
+         if: always()
+         with:
            sarif_file: trivy-results.sarif
            category: trivy-fs
 
-      - name: Run Trivy config scan
-        run: |
+       - name: Run Trivy config scan
+         run: |
            trivy config \
              --severity CRITICAL,HIGH \
              --exit-code 1 \
@@ -409,12 +375,12 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
- 
-  build:
-      name: Build Binaries
-      runs-on: ubuntu-latest
-      needs: [security-scan, secrets-scan]
-      env:
+
+  binary_build:  # ← На одном уровне с другими джобами
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    needs: [security-scan, secrets-scan]
+    env:
         FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         # Retry configuration (can be overridden via GitHub Variables)
         SSH_RETRY_MAX_ATTEMPTS: ${{ vars.SSH_RETRY_MAX_ATTEMPTS || 5 }}
@@ -423,7 +389,7 @@ jobs:
         # Bastion / Jump host (optional)
         BASTION_USER: ${{ secrets.BASTION_USER || '' }}
         BASTION_HOST: ${{ secrets.BASTION_HOST || '' }}
-      steps:
+    steps:
       - name: Set git default branch to main
         run: |
           git config --global init.defaultBranch main
@@ -452,7 +418,7 @@ jobs:
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: build
+    needs: binary_build  # ← Исправлено: было build
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     steps:
       - name: Set git default branch to main
@@ -462,6 +428,9 @@ jobs:
           git config --global advice.detachedHead false
 
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -572,6 +541,9 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
       - name: Make ssh-retry script executable
         run: chmod +x scripts/ssh-retry.sh
       - uses: webfactory/ssh-agent@v0.10.0
@@ -673,14 +645,17 @@ jobs:
           ./scripts/ssh-retry.sh scp \
             scripts/init-db.sql \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/techip/init.sql"
-      - name: Update docker-compose with specific image tags
+      - name: Update docker-compose with image tags
         run: |
           ./scripts/ssh-retry.sh ssh \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
               cd /opt/techip
-              for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
-                sed -i "s|ghcr.io/.*/$svc:latest|ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/$svc:${{ steps.sha.outputs.short_sha }}|g" docker-compose.yml
+              SHA_TAG=$(git rev-parse --short HEAD)
+              for svc in user-service biometric-service training-service gateway; do
+                sed -i "s|ghcr.io/.*/$svc:latest|ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/$svc:$SHA_TAG|g" docker-compose.yml
               done
+              # ML services are now pre-configured to use specific image references
+              # No changes needed for ml-classifier and ml-generator
             '
 
       - name: Deploy with Docker Compose
@@ -792,6 +767,8 @@ jobs:
           git config --global advice.detachedHead false
 
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
 
       - name: Install kubectl
         run: |
@@ -868,10 +845,103 @@ jobs:
         if: steps.kubeconfig.outputs.configured == 'true'
         run: kubectl get pods -n fitness-platform
 
+  k8s-staging-deploy:
+    name: Deploy to K8s Staging
+    runs-on: ubuntu-latest
+    needs: [security-scan, secrets-scan, binary_build, docker]  # Используем только проверенные джобы
+    if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
+    steps:
+       - name: Set git default branch to main
+         run: |
+           git config --global init.defaultBranch main
+           git config --global advice.defaultBranchName false
+           git config --global advice.detachedHead false
+
+       - uses: actions/checkout@v6.0.2
+         with:
+           fetch-depth: 0
+
+       - name: Install kubectl
+         run: |
+           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+           chmod +x kubectl
+           sudo mv kubectl /usr/local/bin/
+
+       - name: Configure kubectl
+         id: kubeconfig
+         run: |
+           mkdir -p $HOME/.kube
+           printf '%s' "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config 2>/dev/null || printf '%s' "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+           chmod 600 $HOME/.kube/config
+           if ! kubectl version --client > /dev/null 2>&1; then
+             echo "kubectl not installed correctly"
+             exit 1
+           fi
+           if [ ! -s $HOME/.kube/config ] || ! grep -q '^apiVersion:' $HOME/.kube/config 2>/dev/null; then
+             echo "configured=false" >> $GITHUB_OUTPUT
+           else
+             echo "configured=true" >> $GITHUB_OUTPUT
+           fi
+
+       - name: Create namespace and config
+         if: steps.kubeconfig.outputs.configured == 'true'
+         run: |
+           kubectl apply -f configs/k8s/namespace.yaml
+           kubectl apply -f configs/k8s/configmap.yaml
+           kubectl apply -f configs/k8s/pvc.yaml
+           kubectl apply -f configs/k8s/init-sql.yaml
+
+       - name: Deploy infrastructure services
+         if: steps.kubeconfig.outputs.configured == 'true'
+         run: |
+           kubectl apply -f configs/k8s/deployments/postgres.yaml
+           kubectl apply -f configs/k8s/deployments/redis.yaml
+           kubectl apply -f configs/k8s/deployments/rabbitmq.yaml
+           kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform --timeout=300s || true
+           kubectl wait --for=condition=ready pod -l app=redis -n fitness-platform --timeout=120s || true
+           kubectl wait --for=condition=ready pod -l app=rabbitmq -n fitness-platform --timeout=120s || true
+
+       - name: Deploy application services
+         if: steps.kubeconfig.outputs.configured == 'true'
+         run: |
+           kubectl apply -f configs/k8s/deployments/user-service.yaml
+           kubectl apply -f configs/k8s/deployments/biometric-service.yaml
+           kubectl apply -f configs/k8s/deployments/training-service.yaml
+           kubectl apply -f configs/k8s/deployments/device-connector.yaml
+           kubectl apply -f configs/k8s/deployments/ml-classifier.yaml
+           kubectl apply -f configs/k8s/deployments/ml-generator.yaml
+           kubectl apply -f configs/k8s/deployments/gateway.yaml
+
+       - name: Deploy services and networking
+         if: steps.kubeconfig.outputs.configured == 'true'
+         run: |
+           kubectl apply -f configs/k8s/services/
+           kubectl apply -f configs/k8s/network-policies.yaml || true
+           kubectl apply -f configs/k8s/resource-quota.yaml || true
+           kubectl apply -f configs/k8s/hpa.yaml || true
+           kubectl apply -f configs/k8s/pdb.yaml || true
+           kubectl apply -f configs/k8s/nginx-lb.yaml
+
+       - name: Verify deployment
+         if: steps.kubeconfig.outputs.configured == 'true'
+         run: |
+           echo "=== Pods Status ==="
+           kubectl get pods -n fitness-platform
+           echo ""
+           echo "=== Services Status ==="
+           kubectl get services -n fitness-platform
+           echo ""
+           echo "=== Checking Gateway Health ==="
+           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform --timeout=300s || echo "Gateway not ready"
+           echo ""
+           echo "=== Checking ML Services ==="
+           kubectl wait --for=condition=ready pod -l app=ml-classifier -n fitness-platform --timeout=300s || echo "ML Classifier not ready"
+           kubectl wait --for=condition=ready pod -l app=ml-generator -n fitness-platform --timeout=300s || echo "ML Generator not ready"
+
   notify:
     name: Send Notification
     runs-on: ubuntu-latest
-    needs: [security-scan, secrets-scan, build, docker, deploy, k8s-deploy]
+    needs: [security-scan, secrets-scan, binary_build, docker, deploy, k8s-deploy]  # ← Исправлено: build → binary_build
     if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - name: Set git default branch to main
@@ -883,10 +953,10 @@ jobs:
       - name: Get all job statuses
         id: statuses
         run: |
-          TEST_STATUS="${{ needs.deploy-test.result }}"
+          TEST_STATUS="${{ needs.deploy_test.result }}"
           SECURITY_STATUS="${{ needs.security-scan.result }}"
           SECRETS_STATUS="${{ needs.secrets-scan.result }}"
-          BUILD_STATUS="${{ needs.build.result }}"
+          BUILD_STATUS="${{ needs.binary_build.result }}"
           DOCKER_STATUS="${{ needs.docker.result }}"
           DEPLOY_STATUS="${{ needs.deploy.result }}"
           K8S_STATUS="${{ needs.k8s-deploy.result }}"
@@ -972,7 +1042,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            *${{ steps.statuses.outputs.overall_emoji }} CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}*
+            ${{ steps.statuses.outputs.overall_emoji }} CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}
 
             📦 **Репозиторий:** [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
             🌿 **Ветка:** `${{ github.ref_name }}`

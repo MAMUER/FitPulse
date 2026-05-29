@@ -58,9 +58,7 @@ services:
 
   # ML сервисы (уже обучены, просто запускаем API)
   ml-classifier:
-    build:
-      context: ..
-      dockerfile: cmd/ml-classifier/Dockerfile
+    image: ghcr.io/mamuer/project/ml-classifier:latest
     container_name: fitness-ml-classifier
     ports:
       - "${ML_CLASSIFIER_PORT:-8001}:8001"
@@ -83,9 +81,7 @@ services:
     restart: unless-stopped
 
   ml-generator:
-    build:
-      context: ..
-      dockerfile: cmd/ml-generator/Dockerfile
+    image: ghcr.io/mamuer/project/ml-generator:latest
     container_name: fitness-ml-generator
     ports:
       - "${ML_GENERATOR_PORT:-8002}:8002"
