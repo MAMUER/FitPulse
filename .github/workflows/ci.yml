@@ -20,52 +20,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  docker_build:
-    name: Build and Push Docker Images (Multi-arch)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set git default branch to main
-        run: |
-          git config --global init.defaultBranch main
-          git config --global advice.defaultBranchName false
-          git config --global advice.detachedHead false
-
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4.1.0
-        with:
-           registry: ${{ env.REGISTRY }}
-           username: ${{ github.actor }}
-           password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Get lowercase repo name
-        id: repo-lower
-        run: |
-              REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-              echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
-      - name: Multi-arch build
-        run: |
-             docker buildx create --use
-              for service in gateway user-service biometric-service training-service device-emulator; do
-               echo "Building $service..."
-               for i in {1..3}; do
-                 if docker buildx build --push --platform linux/amd64,linux/arm64 -t $REGISTRY/${{ steps.repo-lower.outputs.repo_lower }}/$service:latest --file ./cmd/$service/Dockerfile .; then
-                   echo "Successfully built $service on attempt $i"
-                   break
-                 else
-                   echo "Build attempt $i failed for $service, retrying in $((5 * i)) seconds..."
-                   sleep $((5 * i))
-                 fi
-               done
-               done
-
-  deploy-test:  # ← Теперь на одном уровне с docker_build
+  deploy-test:
     name: Deploy to Test
     runs-on: ubuntu-latest
-    needs: docker_build  # ← Исправлено: было docker_build (верно)
+    needs: binary_build
     steps:  # ← 4 пробела
       - name: Set git default branch to main  # ← 6 пробелей
         run: |  # ← 8 пробелов
