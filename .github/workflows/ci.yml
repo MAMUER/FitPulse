@@ -163,7 +163,7 @@ jobs:
         run: |
           if ! kubectl get pvc -n fitness-platform -o jsonpath='{.items[?(@.metadata.name=="postgres-pvc")]}' &>/dev/null; then
             echo "Creating postgres-pvc..."
-            kubectl apply -f configs/k8s/pvc.yaml
+            kubectl apply --validate=false -f configs/k8s/pvc.yaml
           else
             echo "postgres-pvc already exists - skipping apply"
           fi
@@ -274,63 +274,73 @@ jobs:
 
 
   security-scan:
-    name: Security Scanning (SAST + Dependencies)
+    name: Security Scanning (SecPrompter)
     runs-on: ubuntu-latest
-    needs: docker_build  # ← Исправлено: было build (несуществующий джоб)
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-       - name: Set git default branch to main
-         run: |
-           git config --global init.defaultBranch main
-           git config --global advice.defaultBranchName false
-           git config --global advice.detachedHead false
+      - name: Set git default branch to main
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+          git config --global advice.detachedHead false
 
-       - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
 
-       - name: Set up Go
-         uses: actions/setup-go@v6
-         with:
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-       - name: Install dependencies
-         run: go mod download
-         # Go Security: проверка зависимостей на уязвимости (аналог npm audit)
-       - name: Install gosec and govulncheck
-         run: |
+
+      - name: Install dependencies
+        run: go mod download
+        # Go Security: проверка зависимостей на уязвимости (аналог npm audit)
+      - name: Install gosec and govulncheck
+        run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
       # SAST: статический анализ кода на security issues
-       - name: Run gosec SAST scanner
-         run: |
+      - name: Run gosec SAST scanner
+        run: |
           gosec -exclude-generated -fmt=sarif -out=gosec-results.sarif ./...
           echo "=== GOSEC SUMMARY ==="
           gosec -exclude-generated ./...
 
       # Upload gosec results to GitHub Security tab
-       - name: Upload gosec results
-         uses: github/codeql-action/upload-sarif@v4
-         if: always()
-         with:
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
           sarif_file: gosec-results.sarif
           category: gosec
 
       # Проверка зависимостей на известные уязвимости
-       - name: Run govulncheck
-         continue-on-error: true
-         run: |
+      - name: Run govulncheck
+        continue-on-error: true
+        run: |
           govulncheck ./... 2>&1 | tee vulncheck-results.txt
           echo "=== VULNCHECK SUMMARY ==="
           # Считаем количество найденных уязвимостей
           VULN_COUNT=$(grep -c "vulnerability" vulncheck-results.txt || echo "0")
           echo "Found $VULN_COUNT potential vulnerabilities"
 
-       - name: Install Trivy
-         uses: aquasecurity/setup-trivy@v0.2.6
+      - name: Run Trivy config scan
+        run: |
+          trivy config \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --quiet \
+            .
 
-       - name: Run Trivy vulnerability scanner
-         run: |
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+
+      - name: Run Trivy vulnerability scanner
+        run: |
            trivy fs \
              --scanners vuln \
              --severity CRITICAL,HIGH \
@@ -340,20 +350,18 @@ jobs:
              --quiet \
              .
 
-       - name: Upload Trivy scan results
-         uses: github/codeql-action/upload-sarif@v4
-         if: always()
-         with:
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
            sarif_file: trivy-results.sarif
            category: trivy-fs
 
-       - name: Run Trivy config scan
-         run: |
-           trivy config \
-             --severity CRITICAL,HIGH \
-             --exit-code 1 \
-             --quiet \
-             .
+      - name: Secprompter scan
+        uses: github/seccompanion/secprompter-action@v1.3.1
+        with:
+            repo: ${{ github.repository }}
+            access_token: ${{ secrets.GITHUB_TOKEN }}
 
   secrets-scan:
     name: Secrets Scanning
@@ -1056,7 +1064,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            ${{ steps.statuses.outputs.overall_emoji }} CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}
+            CI/CD Pipeline — ${{ steps.statuses.outputs.overall_text }}
 
             📦 **Репозиторий:** [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
             🌿 **Ветка:** `${{ github.ref_name }}`

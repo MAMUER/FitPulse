@@ -58,7 +58,7 @@ services:
 
   # ML сервисы (уже обучены, просто запускаем API)
   ml-classifier:
-    image: ghcr.io/mamuer/project/ml-classifier:latest
+    image: ghcr.io/MAMUER/Project/ml-classifier:latest
     container_name: fitness-ml-classifier
     ports:
       - "${ML_CLASSIFIER_PORT:-8001}:8001"
@@ -101,11 +101,9 @@ services:
       - fitness-network
     restart: unless-stopped
 
-  # Go микросервисы
-  user-service:
-    build:
-      context: ..
-      dockerfile: cmd/user-service/Dockerfile
+   # Go микросервисы
+   user-service:
+     image: ghcr.io/MAMUER/Project/user-service:latest
     container_name: fitness-user-service
     env_file:
       - .env
@@ -153,9 +151,7 @@ services:
     restart: unless-stopped
 
   biometric-service:
-    build:
-      context: ..
-      dockerfile: cmd/biometric-service/Dockerfile
+   image: ghcr.io/MAMUER/Project/biometric-service:latest
     container_name: fitness-biometric-service
     ports:
       - "${BIOMETRIC_SERVICE_PORT:-50052}:50052"
@@ -178,9 +174,7 @@ services:
     restart: unless-stopped
 
   device-connector:
-    build:
-      context: ..
-      dockerfile: cmd/device-connector/Dockerfile
+   image: ghcr.io/MAMUER/Project/device-connector:latest
     container_name: fitness-device-connector
     ports:
       - "${DEVICE_CONNECTOR_PORT:-8082}:8082"
@@ -202,9 +196,7 @@ services:
     restart: unless-stopped
 
   training-service:
-    build:
-      context: ..
-      dockerfile: cmd/training-service/Dockerfile
+   image: ghcr.io/MAMUER/Project/training-service:latest
     container_name: fitness-training-service
     ports:
       - "${TRAINING_SERVICE_PORT:-50053}:50053"
@@ -234,9 +226,7 @@ services:
     restart: unless-stopped
 
   gateway:
-    build:
-      context: ..
-      dockerfile: cmd/gateway/Dockerfile
+   image: ghcr.io/MAMUER/Project/gateway:latest
     container_name: fitness-gateway
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
@@ -421,4 +411,4 @@ volumes:
   rabbitmq-data:
   elasticsearch-data:
   prometheus-data:
-  grafana-data:
+  grafana-data::

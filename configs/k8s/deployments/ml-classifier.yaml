@@ -18,7 +18,7 @@ spec:
         runAsUser: 1001
       containers:
       - name: ml-classifier
-        image: ghcr.io/mamuer/technology_2_sem/ml-classifier:latest
+        image: ghcr.io/MAMUER/Project/ml-classifier:latest
         imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true

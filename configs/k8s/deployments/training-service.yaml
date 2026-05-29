@@ -18,7 +18,7 @@ spec:
         runAsUser: 1001
       containers:
       - name: training-service
-        image: ghcr.io/mamuer/technology_2_sem/training-service:latest
+        image: ghcr.io/MAMUER/Project/training-service:latest
         imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true
