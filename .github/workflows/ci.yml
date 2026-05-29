@@ -358,7 +358,7 @@ jobs:
            category: trivy-fs
 
       - name: Secprompter scan
-        uses: github/seccompanion/secprompter-action@v1.3.1
+        uses: github/secprompter-action@v1.3.1
         with:
             repo: ${{ github.repository }}
             access_token: ${{ secrets.GITHUB_TOKEN }}
