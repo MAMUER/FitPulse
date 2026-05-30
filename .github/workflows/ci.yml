@@ -343,14 +343,17 @@ jobs:
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         run: |
-           trivy fs \
-             --scanners vuln \
-             --severity CRITICAL,HIGH \
-             --format sarif \
-             --output trivy-results.sarif \
-             --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**' \
-             --quiet \
-             .
+          # Создаём директорию для результатов (если нет)
+          mkdir -p sarif-results
+    
+          trivy fs \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --format sarif \
+            --output sarif-results/trivy-fs.sarif \  # ← ИСПРАВЛЕНО: путь в нужную папку
+            --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**' \
+            --quiet \
+            .
 
       - name: Upload Trivy results
         if: always()
