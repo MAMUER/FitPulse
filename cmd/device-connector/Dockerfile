@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/device-connector
 
 # ========== Runtime stage ==========
-FROM alpine:3.21
+FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0 && \
     addgroup -g 1001 -S appgroup && \
