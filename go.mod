@@ -14,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.51.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.1
