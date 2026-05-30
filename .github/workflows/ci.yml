@@ -346,14 +346,15 @@ jobs:
           # Создаём директорию для результатов (если нет)
           mkdir -p sarif-results
     
-          trivy fs \
-            --scanners vuln \
-            --severity CRITICAL,HIGH \
-            --format sarif \
-            --output sarif-results/trivy-fs.sarif \  # ← ИСПРАВЛЕНО: путь в нужную папку
-            --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**,datasets/**' \
-            --quiet \
-            .
+           trivy fs \
+             --scanners vuln \
+             --severity CRITICAL,HIGH \
+             --format sarif \
+             --output sarif-results/trivy-fs.sarif \  # ← ИСПРАВЛЕНО: путь в нужную папку
+             --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**,datasets/**' \
+             --skip-files datasets/** \
+             --quiet \
+             .
 
       - name: Upload Trivy results
         if: always()
