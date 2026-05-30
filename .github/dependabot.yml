@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Go modules
+  # Go модули
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -9,9 +9,16 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
+      prefix: "deps(go)"
       include: "scope"
+
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -24,3 +31,18 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+
+  # Docker (обязательно для вашего проекта)
+  - package-ecosystem: "docker"
+    directory: "/cmd"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      # Не ломать сборку на мажорных версиях базовых образов без теста
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
