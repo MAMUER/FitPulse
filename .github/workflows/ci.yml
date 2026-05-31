@@ -93,7 +93,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [deploy, k8s-staging-deploy]  # ← Добавлено: ждем также k8s-staging-deploy
     env:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
@@ -898,9 +898,15 @@ jobs:
 
       - name: Set image tag to short SHA
         run: |
-            SHA=$(git rev-parse --short HEAD)
-            echo "Setting image tag to $SHA"
-            find configs/k8s/deployments -name "*.yaml" -exec sed -i "s|:latest|:$SHA|" {} \;
+             SHA=$(git rev-parse --short HEAD)
+             echo "Setting image tag to $SHA"
+             find configs/k8s/deployments -name "*.yaml" -exec sed -i "s|:latest|:$SHA|" {} \;
+      - name: Verify image tag update
+        run: |
+             echo "Verifying image tag update for user-service:"
+             grep "image:" configs/k8s/deployments/user-service.yaml
+             echo "Verifying image tag update for gateway:"
+             grep "image:" configs/k8s/deployments/gateway.yaml
 
       - name: Create namespace and config
         if: steps.kubeconfig.outputs.configured == 'true'
