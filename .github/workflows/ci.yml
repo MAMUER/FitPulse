@@ -343,14 +343,17 @@ jobs:
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         run: |
-           trivy fs \
-             --scanners vuln \
-             --severity CRITICAL,HIGH \
-             --format sarif \
-             --output trivy-results.sarif \
-             --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**' \
-             --quiet \
-             .
+          # Создаём директорию для результатов (если нет)
+          mkdir -p sarif-results
+    
+            trivy fs \
+              --scanners vuln \
+              --severity CRITICAL,HIGH \
+              --format sarif \
+              --output sarif-results/trivy-fs.sarif \
+              --skip-dirs '**/site-packages/**,**/dist-packages/**,**/.venv/**,**/venv/**,**/datasets/**' \
+              --quiet \
+              .
 
       - name: Upload Trivy results
         if: always()
@@ -449,13 +452,13 @@ jobs:
           fetch-depth: 0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4.1.0
+        uses: docker/login-action@v4.2.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
       - name: Log in to Docker Hub
-        uses: docker/login-action@v4.1.0
+        uses: docker/login-action@v4.2.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -861,25 +864,25 @@ jobs:
     needs: [security-scan, secrets-scan, binary_build, docker]  # Используем только проверенные джобы
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     steps:
-       - name: Set git default branch to main
-         run: |
+      - name: Set git default branch to main
+        run: |
            git config --global init.defaultBranch main
            git config --global advice.defaultBranchName false
            git config --global advice.detachedHead false
 
-       - uses: actions/checkout@v6.0.2
-         with:
+      - uses: actions/checkout@v6.0.2
+        with:
            fetch-depth: 0
 
-       - name: Install kubectl
-         run: |
+      - name: Install kubectl
+        run: |
            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
            chmod +x kubectl
            sudo mv kubectl /usr/local/bin/
 
-       - name: Configure kubectl
-         id: kubeconfig
-         run: |
+      - name: Configure kubectl
+        id: kubeconfig
+        run: |
            mkdir -p $HOME/.kube
            printf '%s' "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config 2>/dev/null || printf '%s' "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
            chmod 600 $HOME/.kube/config
@@ -887,23 +890,29 @@ jobs:
              echo "kubectl not installed correctly"
              exit 1
            fi
-           if [ ! -s $HOME/.kube/config ] || ! grep -q '^apiVersion:' $HOME/.kube/config 2>/dev/null; then
-             echo "configured=false" >> $GITHUB_OUTPUT
-           else
-             echo "configured=true" >> $GITHUB_OUTPUT
-           fi
+            if [ ! -s $HOME/.kube/config ] || ! grep -q '^apiVersion:' $HOME/.kube/config 2>/dev/null; then
+              echo "configured=false" >> $GITHUB_OUTPUT
+            else
+              echo "configured=true" >> $GITHUB_OUTPUT
+            fi
 
-       - name: Create namespace and config
-         if: steps.kubeconfig.outputs.configured == 'true'
-         run: |
+      - name: Set image tag to short SHA
+        run: |
+            SHA=$(git rev-parse --short HEAD)
+            echo "Setting image tag to $SHA"
+            find configs/k8s/deployments -name "*.yaml" -exec sed -i "s|:latest|:$SHA|" {} \;
+
+      - name: Create namespace and config
+        if: steps.kubeconfig.outputs.configured == 'true'
+        run: |
             kubectl apply -f configs/k8s/namespace.yaml || true
             kubectl apply -f configs/k8s/configmap.yaml || true
             kubectl apply -f configs/k8s/serviceaccount.yaml || true
             kubectl apply -f configs/k8s/init-sql.yaml || true
 
-       - name: Deploy infrastructure services
-         if: steps.kubeconfig.outputs.configured == 'true'
-         run: |
+      - name: Deploy infrastructure services
+        if: steps.kubeconfig.outputs.configured == 'true'
+        run: |
            kubectl apply -f configs/k8s/deployments/postgres.yaml
            kubectl apply -f configs/k8s/deployments/redis.yaml
            kubectl apply -f configs/k8s/deployments/rabbitmq.yaml
@@ -911,9 +920,9 @@ jobs:
            kubectl wait --for=condition=ready pod -l app=redis -n fitness-platform --timeout=120s || true
            kubectl wait --for=condition=ready pod -l app=rabbitmq -n fitness-platform --timeout=120s || true
 
-       - name: Deploy application services
-         if: steps.kubeconfig.outputs.configured == 'true'
-         run: |
+      - name: Deploy application services
+        if: steps.kubeconfig.outputs.configured == 'true'
+        run: |
            kubectl apply -f configs/k8s/deployments/user-service.yaml
            kubectl apply -f configs/k8s/deployments/biometric-service.yaml
            kubectl apply -f configs/k8s/deployments/training-service.yaml
@@ -922,9 +931,9 @@ jobs:
            kubectl apply -f configs/k8s/deployments/ml-generator.yaml
            kubectl apply -f configs/k8s/deployments/gateway.yaml
 
-       - name: Deploy services and networking
-         if: steps.kubeconfig.outputs.configured == 'true'
-         run: |
+      - name: Deploy services and networking
+        if: steps.kubeconfig.outputs.configured == 'true'
+        run: |
            kubectl apply -f configs/k8s/services/
            kubectl apply -f configs/k8s/network-policies.yaml || true
            kubectl apply -f configs/k8s/resource-quota.yaml || true
@@ -932,9 +941,9 @@ jobs:
            kubectl apply -f configs/k8s/pdb.yaml || true
            kubectl apply -f configs/k8s/nginx-lb.yaml
 
-       - name: Verify deployment
-         if: steps.kubeconfig.outputs.configured == 'true'
-         run: |
+      - name: Verify deployment
+        if: steps.kubeconfig.outputs.configured == 'true'
+        run: |
            echo "=== Pods Status ==="
            kubectl get pods -n fitness-platform
            echo ""
@@ -951,7 +960,7 @@ jobs:
   notify:
     name: Send Notification
     runs-on: ubuntu-latest
-    needs: [security-scan, secrets-scan, binary_build, docker, deploy, k8s-deploy]  # ← Исправлено: build → binary_build
+    needs: [security-scan, secrets-scan, binary_build, docker, deploy, k8s-deploy, k8s-staging-deploy, deploy-test]
     if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - name: Set git default branch to main
@@ -970,15 +979,16 @@ jobs:
           DOCKER_STATUS="${{ needs.docker.result }}"
           DEPLOY_STATUS="${{ needs.deploy.result }}"
           K8S_STATUS="${{ needs.k8s-deploy.result }}"
+          K8S_STAGING_STATUS="${{ needs.k8s-staging-deploy.result }}"
 
-          if [ "$K8S_STATUS" = "success" ] && [ "$DEPLOY_STATUS" = "success" ]; then
-            OVERALL="success"
-            OVERALL_EMOJI="✅"
-            OVERALL_TEXT="УСПЕШНО"
-          elif [ "$K8S_STATUS" = "failure" ] || [ "$DEPLOY_STATUS" = "failure" ]; then
-            OVERALL="failure"
-            OVERALL_EMOJI="❌"
-            OVERALL_TEXT="ОШИБКА ДЕПЛОЯ"
+           if [ "$K8S_STATUS" = "success" ] && [ "$DEPLOY_STATUS" = "success" ] && [ "$K8S_STAGING_STATUS" = "success" ]; then
+             OVERALL="success"
+             OVERALL_EMOJI="✅"
+             OVERALL_TEXT="УСПЕШНО"
+           elif [ "$K8S_STATUS" = "failure" ] || [ "$DEPLOY_STATUS" = "failure" ] || [ "$K8S_STAGING_STATUS" = "failure" ]; then
+             OVERALL="failure"
+             OVERALL_EMOJI="❌"
+             OVERALL_TEXT="ОШИБКА ДЕПЛОЯ"
           elif [ "$DOCKER_STATUS" = "failure" ]; then
             OVERALL="failure"
             OVERALL_EMOJI="❌"
@@ -1022,18 +1032,20 @@ jobs:
           echo "test_emoji=$(get_status_emoji $TEST_STATUS)" >> $GITHUB_OUTPUT
           echo "security_emoji=$(get_status_emoji $SECURITY_STATUS)" >> $GITHUB_OUTPUT
           echo "secrets_emoji=$(get_status_emoji $SECRETS_STATUS)" >> $GITHUB_OUTPUT
-          echo "build_emoji=$(get_status_emoji $BUILD_STATUS)" >> $GITHUB_OUTPUT
-          echo "docker_emoji=$(get_status_emoji $DOCKER_STATUS)" >> $GITHUB_OUTPUT
-          echo "deploy_emoji=$(get_status_emoji $DEPLOY_STATUS)" >> $GITHUB_OUTPUT
-          echo "k8s_emoji=$(get_status_emoji $K8S_STATUS)" >> $GITHUB_OUTPUT
+           echo "build_emoji=$(get_status_emoji $BUILD_STATUS)" >> $GITHUB_OUTPUT
+           echo "docker_emoji=$(get_status_emoji $DOCKER_STATUS)" >> $GITHUB_OUTPUT
+           echo "deploy_emoji=$(get_status_emoji $DEPLOY_STATUS)" >> $GITHUB_OUTPUT
+           echo "k8s_emoji=$(get_status_emoji $K8S_STATUS)" >> $GITHUB_OUTPUT
+           echo "k8s_staging_emoji=$(get_status_emoji $K8S_STAGING_STATUS)" >> $GITHUB_OUTPUT
 
-          echo "test_status=$TEST_STATUS" >> $GITHUB_OUTPUT
-          echo "security_status=$SECURITY_STATUS" >> $GITHUB_OUTPUT
-          echo "secrets_status=$SECRETS_STATUS" >> $GITHUB_OUTPUT
-          echo "build_status=$BUILD_STATUS" >> $GITHUB_OUTPUT
-          echo "docker_status=$DOCKER_STATUS" >> $GITHUB_OUTPUT
-          echo "deploy_status=$DEPLOY_STATUS" >> $GITHUB_OUTPUT
-          echo "k8s_status=$K8S_STATUS" >> $GITHUB_OUTPUT
+           echo "test_status=$TEST_STATUS" >> $GITHUB_OUTPUT
+           echo "security_status=$SECURITY_STATUS" >> $GITHUB_OUTPUT
+           echo "secrets_status=$SECRETS_STATUS" >> $GITHUB_OUTPUT
+           echo "build_status=$BUILD_STATUS" >> $GITHUB_OUTPUT
+           echo "docker_status=$DOCKER_STATUS" >> $GITHUB_OUTPUT
+           echo "deploy_status=$DEPLOY_STATUS" >> $GITHUB_OUTPUT
+           echo "k8s_status=$K8S_STATUS" >> $GITHUB_OUTPUT
+           echo "k8s_staging_status=$K8S_STAGING_STATUS" >> $GITHUB_OUTPUT
       - name: Get commit info
         id: commit
         run: |
@@ -1058,10 +1070,14 @@ jobs:
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="${{ steps.commit.outputs.commit_url }}">{{ github.sha }}</a>
 
-            <b>Статусы:</b>
-            ✅ Build: ${{ steps.statuses.outputs.build_status }}
-            ✅ Docker: ${{ steps.statuses.outputs.docker_status }}
-            ✅ Deploy: ${{ steps.statuses.outputs.deploy_status }}
-            ✅ K8s: ${{ steps.statuses.outputs.k8s_status }}
+             <b>Статусы:</b>
+             ${{ steps.statuses.outputs.test_emoji }} Test: ${{ steps.statuses.outputs.test_status }}
+             ${{ steps.statuses.outputs.security_emoji }} Security: ${{ steps.statuses.outputs.security_status }}
+             ${{ steps.statuses.outputs.secrets_emoji }} Secrets: ${{ steps.statuses.outputs.secrets_status }}
+             ${{ steps.statuses.outputs.build_emoji }} Build: ${{ steps.statuses.outputs.build_status }}
+             ${{ steps.statuses.outputs.docker_emoji }} Docker: ${{ steps.statuses.outputs.docker_status }}
+             ${{ steps.statuses.outputs.deploy_emoji }} Deploy: ${{ steps.statuses.outputs.deploy_status }}
+             ${{ steps.statuses.outputs.k8s_emoji }} K8s: ${{ steps.statuses.outputs.k8s_status }}
+             ${{ steps.statuses.outputs.k8s_staging_emoji }} K8s Staging: ${{ steps.statuses.outputs.k8s_staging_status }}
 
             <a href="${{ steps.commit.outputs.run_url }}">🔗 Открыть запуск</a>

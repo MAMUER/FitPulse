@@ -33,8 +33,9 @@ updates:
       include: "scope"
 
   # Docker (обязательно для вашего проекта)
+  # gateway
   - package-ecosystem: "docker"
-    directory: "/cmd"
+    directory: "/cmd/gateway"
     schedule:
       interval: "daily"
       time: "08:00"
@@ -43,6 +44,103 @@ updates:
       prefix: "deps(docker)"
       include: "scope"
     ignore:
-      # Не ломать сборку на мажорных версиях базовых образов без теста
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # user-service
+  - package-ecosystem: "docker"
+    directory: "/cmd/user-service"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # device-emulator
+  - package-ecosystem: "docker"
+    directory: "/cmd/device-emulator"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # training-service
+  - package-ecosystem: "docker"
+    directory: "/cmd/training-service"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # device-connector
+  - package-ecosystem: "docker"
+    directory: "/cmd/device-connector"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # biometric-service
+  - package-ecosystem: "docker"
+    directory: "/cmd/biometric-service"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # ml-classifier
+  - package-ecosystem: "docker"
+    directory: "/cmd/ml-classifier"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # ml-generator
+  - package-ecosystem: "docker"
+    directory: "/cmd/ml-generator"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
