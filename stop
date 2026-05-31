@@ -18,7 +18,7 @@ if exist "scripts\.pids.json" (
 
 echo.
 echo [2/3] Stopping Docker containers...
-docker-compose -f deployments/docker-compose.yml down 2>nul
+docker compose -f deployments/docker-compose.yml down 2>nul
 echo   Done.
 
 echo.

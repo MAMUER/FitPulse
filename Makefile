@@ -141,10 +141,10 @@ run: build
 	.\bin\gateway.exe
 
 docker-up:
-	docker-compose -f deployments/docker-compose.yml up -d
+	docker compose -f deployments/docker-compose.yml up -d
 
 docker-down:
-	docker-compose -f deployments/docker-compose.yml down
+	docker compose -f deployments/docker-compose.yml down
 
 # Создание combined init-db.sql из миграций
 combine-migrations:

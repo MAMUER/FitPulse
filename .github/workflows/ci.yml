@@ -576,7 +576,7 @@ jobs:
               if ! command -v docker &> /dev/null; then
                 curl -fsSL https://get.docker.com -o get-docker.sh
                 sh get-docker.sh
-                apt-get install -y docker-compose
+                apt-get install -y docker compose
                 systemctl enable docker
                 systemctl start docker
                 echo "Docker installed"
@@ -584,7 +584,7 @@ jobs:
                 echo "Docker already installed"
               fi
               docker --version
-              docker-compose --version
+              docker compose version
             '
       - name: Clean up old Docker data
         run: |
@@ -678,20 +678,20 @@ jobs:
               cd /opt/techip
 
               # Скачаем основные сервисы (обязательные)
-              docker-compose pull user-service biometric-service training-service gateway
+               docker compose pull user-service biometric-service training-service gateway
 
               # Попробуем скачать ML образы — если их нет, пропустим
               ML_SERVICES="user-service biometric-service training-service gateway"
-              docker-compose pull ml-classifier 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-classifier" || echo "Skipping ml-classifier — image not in registry"
-              docker-compose pull ml-generator 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-generator" || echo "Skipping ml-generator — image not in registry"
+               docker compose pull ml-classifier 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-classifier" || echo "Skipping ml-classifier — image not in registry"
+               docker compose pull ml-generator 2>/dev/null && ML_SERVICES="$ML_SERVICES ml-generator" || echo "Skipping ml-generator — image not in registry"
 
               # Остановим старые контейнеры
-              docker-compose down 2>/dev/null || true
+               docker compose down 2>/dev/null || true
 
               # Запустим только доступные сервисы
-              docker-compose up -d $ML_SERVICES
+               docker compose up -d $ML_SERVICES
               sleep 20
-              docker-compose ps
+               docker compose ps
              '
 
       - name: Wait for services healthy

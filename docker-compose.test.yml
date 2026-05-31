@@ -1,4 +1,3 @@
-# docker-compose.test.yml
 # Лёгкая тестовая среда для CI и локальной разработки
 
 services:
