@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Security: non-root user and venv setup in one RUN
 RUN groupadd -r mluser && \
