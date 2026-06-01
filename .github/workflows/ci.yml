@@ -5,6 +5,7 @@ on:
   push:
     branches: [main, master, Microservice_arc]
     paths:
+      - '.github/workflows/ci.yml'
       - 'go.mod'
       - 'go.sum'
       - 'cmd/**/*.go'
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches: [main, master, Microservice_arc]
     paths:
+      - '.github/workflows/ci.yml'
       - 'go.mod'
       - 'go.sum'
       - 'cmd/**/*.go'
