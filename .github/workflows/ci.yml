@@ -296,63 +296,45 @@ jobs:
       # ─────────────────────────────────────────────────────
       # 1. УСТАНОВКА K3S С ПРОД-НАСТРОЙКАМИ
       # ─────────────────────────────────────────────────────
+
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+
+      - name: Prepare k3s config (base64)
+        id: k3s-config
+        run: |
+          VPS_HOST="${{ secrets.VPS_HOST }}"
+          { echo 'tls-san:'; echo "  - ${VPS_HOST}"; echo 'disable:'; echo '  - traefik'; echo '  - servicelb'; echo '  - metrics-server'; echo 'flannel-backend: wireguard'; echo 'kubelet-arg:'; echo '  - "cloud-provider=external"'; echo 'cluster-init: true'; echo 'etcd-expose-metrics: true'; echo 'etcd-snapshot-schedule-cron: "0 */6 * * *"'; echo 'etcd-snapshot-retention: 24'; echo 'etcd-snapshot-dir: /var/lib/rancher/k3s/server/db/snapshots'; echo 'kube-apiserver-arg:'; echo '  - "anonymous-auth=false"'; echo '  - "profiling=false"'; } > /tmp/k3s-config.yaml
+          echo "config_b64=$(base64 -w0 /tmp/k3s-config.yaml)" >> "$GITHUB_OUTPUT"
+
+      # 🔹 Шаг 2: Отправить и применить конфиг на сервере
       - name: Install k3s with production settings
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "=== Installing k3s with production config ==="
             
-            # Создаём конфиг-файл для k3s
-            cat > /etc/rancher/k3s/config.yaml << "EOF"
-            # Server settings
-            tls-san:
-              - ${{ secrets.VPS_HOST }}
+            # 1. Create directory
+            mkdir -p /etc/rancher/k3s
             
-            # Disable unnecessary components
-            disable:
-              - traefik
-              - servicelb
-              - metrics-server  # Установим свой через Helm
+            # 2. Decode base64 config
+            echo "${{ steps.k3s-config.outputs.config_b64 }}" | base64 -d > /etc/rancher/k3s/config.yaml
             
-            # Network
-            flannel-backend: wireguard
-            kubelet-arg:
-              - "cloud-provider=external"
-            
-            # etcd backups (критично для прода!)
-            cluster-init: true
-            etcd-expose-metrics: true
-            etcd-snapshot-schedule-cron: "0 */6 * * *"
-            etcd-snapshot-retention: 24
-            etcd-snapshot-dir: /var/lib/rancher/k3s/server/db/snapshots
-            
-            # API server settings
-            kube-apiserver-arg:
-              - "anonymous-auth=false"
-              - "profiling=false"
-            EOF
-            
-            # Установка или обновление k3s
+            # 3. Install or update k3s
             if command -v k3s &> /dev/null; then
-              echo "k3s found, checking version..."
-              CURRENT_VER=$(k3s --version | head -1)
-              echo "Current: $CURRENT_VER"
-              # Обновляем если нужно (опционально)
-              # curl -sfL https://get.k3s.io | sh -
+              echo "k3s found: $(k3s --version | head -1)"
             else
               echo "Installing fresh k3s..."
               curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
             fi
             
-            # Перезапускаем сервис с новым конфигом
+            # 4. Restart service with new config
             systemctl daemon-reload
             systemctl restart k3s
             
-            # Ждём готовности
+            # 5. Wait for API readiness
             echo "Waiting for k3s API..."
-            for i in $(seq 1 60); do
+            for _ in $(seq 1 60); do
               if k3s kubectl cluster-info &> /dev/null; then
                 echo "✅ k3s is ready"
                 break
@@ -360,15 +342,11 @@ jobs:
               sleep 2
             done
             
-            # Проверяем etcd snapshot timer
-            echo "=== etcd snapshot status ==="
-            systemctl list-timers | grep k3s-etcd-snapshot || echo "⚠️ Timer not active"
-            ls -la /var/lib/rancher/k3s/server/db/snapshots/ 2>/dev/null || echo "⚠️ No snapshots yet"
-            
-            # Показываем ноду
+            # 6. Status check
+            echo "=== Cluster status ==="
             k3s kubectl get nodes -o wide
+            k3s kubectl get pods -A
           '
-
       # ─────────────────────────────────────────────────────
       # 2. НАСТРОЙКА АВТО-ОБНОВЛЕНИЙ K3S
       # ─────────────────────────────────────────────────────
