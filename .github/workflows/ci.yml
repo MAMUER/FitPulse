@@ -302,6 +302,7 @@ jobs:
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            set -x  # 🔥 Включить отладку — будет видно каждую выполняемую команду
             echo "→ Stopping k3s..."
             systemctl stop k3s 2>/dev/null || true
             pkill -9 -f "k3s server" 2>/dev/null || true

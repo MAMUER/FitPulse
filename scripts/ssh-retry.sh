@@ -57,11 +57,11 @@ while true; do
 
   if [[ "$MODE" == "ssh" ]]; then
     echo "-> Target : $TARGET"
-    echo "-> Command: ${COMMAND:0:200}..."  # Показать первые 200 символов для лога
+    echo "-> Command: ${COMMAND:0:200}..."
 
-    ESCAPED_COMMAND="${COMMAND//\"/\\\"}"
-    
-    if timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" "bash -c \"$ESCAPED_COMMAND\""; then
+    # 🔥 ИСПРАВЛЕНИЕ: передаём скрипт через stdin в bash -s
+    # Это работает с любыми командами: многострочными, с кавычками, пайпами и т.д.
+    if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" bash -s; then
       echo "Success on attempt $attempt"
       exit 0
     fi
