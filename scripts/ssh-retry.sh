@@ -3,17 +3,6 @@
 # scripts/ssh-retry.sh
 # Reusable SSH/SCP wrapper with retries, timeouts, and good logging.
 #
-# Usage:
-#   ./scripts/ssh-retry.sh ssh user@host "remote command"
-#   ./scripts/ssh-retry.sh scp /local/file user@host:/remote/path
-#
-# Environment variables (optional):
-#   SSH_RETRY_MAX_ATTEMPTS   (default: 5)
-#   SSH_RETRY_DELAY_SECONDS  (default: 10)
-#   SSH_RETRY_TIMEOUT        (default: 120)
-#   SSH_OPTS                 (additional ssh options, e.g. "-o StrictHostKeyChecking=accept-new")
-#
-
 set -euo pipefail
 
 MODE="${1:-}"
@@ -33,7 +22,7 @@ TIMEOUT="${SSH_RETRY_TIMEOUT:-120}"
 # Common safe options
 COMMON_OPTS="-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60"
 
-# Bastion / Jump host support via ProxyJump (recommended)
+# Bastion / Jump host support
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
   echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
   COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${BASTION_USER}@${BASTION_HOST}"
@@ -42,12 +31,12 @@ elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
   COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${SSH_JUMP_HOST}"
 fi
 
-# Merge with user-provided options if any
+# Merge with user-provided options
 if [[ -n "${SSH_OPTS:-}" ]]; then
   COMMON_OPTS="$COMMON_OPTS $SSH_OPTS"
 fi
 
-# Arguments for the current mode
+# Parse arguments
 TARGET=""
 COMMAND=""
 SRC=""
@@ -68,9 +57,11 @@ while true; do
 
   if [[ "$MODE" == "ssh" ]]; then
     echo "-> Target : $TARGET"
-    echo "-> Command: $COMMAND"
+    echo "-> Command: ${COMMAND:0:200}..."  # Показать первые 200 символов для лога
 
-    if timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" "$COMMAND"; then
+    ESCAPED_COMMAND="${COMMAND//\"/\\\"}"
+    
+    if timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" "bash -c \"$ESCAPED_COMMAND\""; then
       echo "Success on attempt $attempt"
       exit 0
     fi

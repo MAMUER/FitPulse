@@ -300,6 +300,7 @@ jobs:
       # 🔹 Шаг 1: Очистка старого k3s (отдельный SSH-вызов)
       - name: Clean up old k3s (safe)
         run: |
+          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "→ Stopping k3s..."
             systemctl stop k3s 2>/dev/null || true
@@ -335,6 +336,7 @@ jobs:
       # 🔹 Шаг 4: Запуск и проверка (отдельный SSH-вызов)
       - name: Start and verify k3s
         run: |
+          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "→ Starting k3s..."
             systemctl daemon-reload
