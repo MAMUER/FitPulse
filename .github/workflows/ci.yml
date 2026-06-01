@@ -514,8 +514,7 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-          timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null
-          if [ $? -eq 0 ]; then
+          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
             echo "cluster_connectivity=true" >> "$GITHUB_OUTPUT"
           else
             echo "cluster_connectivity=false" >> "$GITHUB_OUTPUT"
@@ -561,8 +560,7 @@ jobs:
       - name: Check cluster connectivity
         id: connectivity
         run: |
-          timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null
-          if [ $? -eq 0 ]; then
+          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
             echo "reachable=true" >> "$GITHUB_OUTPUT"
           else
             echo "reachable=false" >> "$GITHUB_OUTPUT"
