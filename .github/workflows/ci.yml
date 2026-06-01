@@ -289,6 +289,10 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       # ─────────────────────────────────────────────────────
       # 1. УСТАНОВКА K3S С ПРОД-НАСТРОЙКАМИ
       # ─────────────────────────────────────────────────────
@@ -738,7 +742,9 @@ jobs:
         run: |
           go vet ./...
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
-          export PATH="$(go env GOPATH)/bin:$PATH"
+          GO_BIN="$(go env GOPATH)"
+          PATH="${GO_BIN}/bin:${PATH}"
+          export PATH
           golangci-lint run --timeout=5m
           FILES="$(gofmt -l ./cmd ./internal ./pkg 2>/dev/null | grep -v "cmd/tools/tools.go" || true)"
           [ -z "$FILES" ] || { echo "Unformatted files: $FILES"; exit 1; }
