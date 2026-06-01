@@ -277,7 +277,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────
 
   provision-k8s-vps:
-    name: Provision k3s Cluster on VPS (Safe for Docker/VPN)
+    name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     outputs:
@@ -297,173 +297,67 @@ jobs:
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
 
-      # 🔹 Шаг 1: Подготовить конфиг (исправленный для single-node + Docker runtime)
-      - name: Prepare k3s config (base64)
-        id: k3s-config
+      # 🔹 Шаг 1: Очистка старого k3s (отдельный SSH-вызов)
+      - name: Clean up old k3s (safe)
         run: |
-          VPS_HOST="${{ secrets.VPS_HOST }}"
-          {
-            echo 'bind-address: 0.0.0.0'
-            echo 'tls-san:'
-            echo "  - ${VPS_HOST}"
-            echo 'disable:'
-            echo '  - traefik'
-            echo '  - servicelb'
-            echo '  - metrics-server'
-            echo 'flannel-backend: wireguard'
-            echo 'kubelet-arg:'
-            echo '  - "cloud-provider=external"'
-            echo 'write-kubeconfig-mode: 644'
-            # 🔥 Использовать Docker как runtime (чтобы не конфликтовать с containerd)
-            echo 'docker: true'
-          } > /tmp/k3s-config.yaml
-          echo "config_b64=$(base64 -w0 /tmp/k3s-config.yaml)" >> "$GITHUB_OUTPUT"
-
-      # 🔹 Шаг 2: Безопасная переустановка k3s (не затрагивает Docker/VPN)
-      - name: Install k3s (safe for Docker/VPN)
-        run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "=== Safe k3s reinstall (Docker/VPN friendly) ==="
-            
-            # 1. Очистка ТОЛЬКО k3s (не трогаем Docker/containerd!)
-            echo "→ Stopping old k3s..."
+            echo "→ Stopping k3s..."
             systemctl stop k3s 2>/dev/null || true
             pkill -9 -f "k3s server" 2>/dev/null || true
-            # ❌ НЕ делаем: pkill -9 containerd (это убьёт Docker!)
-            
             echo "→ Removing k3s files..."
-            rm -rf /var/lib/rancher/k3s
-            rm -rf /etc/rancher/k3s
-            rm -f /usr/local/bin/k3s
-            rm -f /etc/systemd/system/k3s.service
-            rm -f /etc/systemd/system/k3s*.timer
-            # ❌ НЕ делаем: ip link delete (может задеть VPN/Docker сети)
-            
+            rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
+            rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
             systemctl daemon-reload
-            
-            # 2. Создание директории и конфига
+            echo "✅ Cleanup done"
+          '
+
+      # 🔹 Шаг 2: Подготовка конфига (отдельный SSH-вызов)
+      - name: Prepare k3s config on VPS
+        run: |
+          VPS_HOST="${{ secrets.VPS_HOST }}"
+          printf '%s\n' 'bind-address: 0.0.0.0' 'tls-san:' "  - ${VPS_HOST}" 'disable:' '  - traefik' '  - servicelb' '  - metrics-server' 'flannel-backend: wireguard' 'kubelet-arg:' '  - "cloud-provider=external"' 'write-kubeconfig-mode: 644' 'docker: true' > /tmp/k3s-config-remote.yaml
+          ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
-            echo "'"${{ steps.k3s-config.outputs.config_b64 }}"'" | base64 -d > /etc/rancher/k3s/config.yaml
             echo "✅ Config written:"
             cat /etc/rancher/k3s/config.yaml
-            
-            # 3. Установка k3s с Docker runtime
-            echo "→ Installing k3s with Docker runtime..."
+          '
+
+      # 🔹 Шаг 3: Установка k3s (отдельный SSH-вызов)
+      - name: Install k3s with Docker runtime
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "→ Installing k3s..."
             curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--docker" sh -s - server --write-kubeconfig-mode 644
-            
-            # 4. Перезапуск ТОЛЬКО k3s сервиса
+            echo "✅ k3s installed"
+          '
+
+      # 🔹 Шаг 4: Запуск и проверка (отдельный SSH-вызов)
+      - name: Start and verify k3s
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "→ Starting k3s..."
             systemctl daemon-reload
             systemctl enable --now k3s
             
-            echo "→ Waiting for k3s to be ready..."
+            echo "→ Waiting for readiness..."
             for i in $(seq 1 120); do
               if k3s kubectl cluster-info &> /dev/null; then
-                echo "✅ k3s is ready after ${i}s"
+                echo "✅ k3s ready after ${i}s"
                 break
               fi
-              if [ $i -eq 120 ]; then
-                echo "❌ k3s failed to start in time"
-                echo "=== k3s logs (last 50 lines) ==="
-                journalctl -u k3s -n 50 --no-pager
-                exit 1
-              fi
+              [ $i -eq 120 ] && { echo "❌ Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
               sleep 2
             done
             
-            # 5. Финальная проверка
             echo "=== Cluster status ==="
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
-            
-            # 6. Проверка, что Docker/VPN не пострадали
-            echo "=== Docker status (should still be running) ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}" | head -10 || echo "⚠️ Docker check failed"
+            echo "=== Docker check ==="
+            docker ps --format "table {{.Names}}\t{{.Status}}" | head -5 || true
           '
 
-      # 🔹 Шаг 3: Настройка авто-обновлений (опционально)
-      - name: Configure k3s auto-upgrade
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "=== Setting up k3s auto-upgrade ==="
-            
-            cat > /etc/systemd/system/k3s-upgrade.service << "EOF"
-            [Unit]
-            Description=Auto-upgrade k3s
-            After=k3s.service
-            ConditionPathExists=/usr/local/bin/k3s-upgrade
-            
-            [Service]
-            Type=oneshot
-            ExecStart=/usr/local/bin/k3s-upgrade
-            StandardOutput=journal+console
-            StandardError=journal+console
-            
-            [Install]
-            WantedBy=multi-user.target
-            EOF
-            
-            cat > /etc/systemd/system/k3s-upgrade.timer << "EOF"
-            [Unit]
-            Description=Daily k3s upgrade check
-            Requires=k3s-upgrade.service
-            
-            [Timer]
-            OnCalendar=*-*-* 03:00:00
-            Persistent=true
-            RandomizedDelaySec=300
-            
-            [Install]
-            WantedBy=timers.target
-            EOF
-            
-            systemctl daemon-reload
-            systemctl enable --now k3s-upgrade.timer
-            echo "✅ Auto-upgrade timer enabled (won'\''t affect Docker/VPN)"
-          '
-
-      # 🔹 Шаг 4: Установка Helm + мониторинг (с безопасным kubeconfig)
-      - name: Install Helm and monitoring stack
-        run: |
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "=== Installing Helm (safe mode) ==="
-            
-            if ! command -v helm &> /dev/null; then
-              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-            fi
-            helm version
-            
-            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-            helm repo add grafana https://grafana.github.io/helm-charts
-            helm repo update
-            
-            # Создаём namespace с --validate=false (безопаснее при возможных проблемах с API)
-            k3s kubectl create namespace monitoring --dry-run=client -o yaml | k3s kubectl apply -f - --validate=false
-            
-            echo "=== Installing kube-prometheus-stack ==="
-            helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
-              --namespace monitoring \
-              --create-namespace \
-              --set prometheus.prometheusSpec.resources.requests.cpu=100m \
-              --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
-              --set prometheus.prometheusSpec.resources.limits.cpu=500m \
-              --set prometheus.prometheusSpec.resources.limits.memory=1Gi \
-              --set grafana.resources.requests.cpu=50m \
-              --set grafana.resources.requests.memory=128Mi \
-              --set grafana.adminPassword="${GRAFANA_PASSWORD:-admin123}" \
-              --set alertmanager.enabled=false \
-              --set kubeStateMetrics.enabled=true \
-              --set nodeExporter.enabled=true \
-              --wait --timeout 10m || echo "⚠️ Monitoring install had issues (continuing...)"
-            
-            echo "=== Monitoring pods ==="
-            k3s kubectl get pods -n monitoring -o wide --request-timeout=10s || echo "⚠️ Could not list pods"
-          '
-        env:
-          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-
-      # 🔹 Шаг 5: Скачивание и подготовка kubeconfig (с заменой 0.0.0.0!)
+      # 🔹 Шаг 5: Скачивание и фикс kubeconfig
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
@@ -471,20 +365,16 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/k3s.yaml" \
             ./k3s-config.yaml
           
-          # 🔥 Заменяем ВСЕ "неподключаемые" адреса на реальный VPS_HOST
+          # 🔥 Заменяем ВСЕ "неподключаемые" адреса
           sed -i "s|127.0.0.1|${{ secrets.VPS_HOST }}|g; s|localhost|${{ secrets.VPS_HOST }}|g; s|0.0.0.0|${{ secrets.VPS_HOST }}|g" ./k3s-config.yaml
           
-          # Проверка
-          echo "=== Fixed kubeconfig server line ==="
-          grep "server:" ./k3s-config.yaml || echo "⚠️ No server line found"
+          echo "=== Fixed kubeconfig ==="
+          grep "server:" ./k3s-config.yaml
           
           if grep -q "server: https://${{ secrets.VPS_HOST }}:6443" ./k3s-config.yaml; then
             echo "available=true" >> "$GITHUB_OUTPUT"
-            echo "✅ kubeconfig is ready"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "❌ kubeconfig may still have invalid server address"
-            cat ./k3s-config.yaml
           fi
 
       - name: Upload kubeconfig artifact
