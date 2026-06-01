@@ -35,10 +35,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
-        run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@latest
-          actionlint .github/workflows/ci.yml
-
+        uses: rhysd/actionlint@v1.7.12
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
