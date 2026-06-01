@@ -32,7 +32,7 @@ class DatasetExplorer:
         print(f"Directory exists: {os.path.exists(self.raw_data_dir)}")
         
         if not os.path.exists(self.raw_data_dir):
-            print("❌ ERROR: Raw data directory not found!")
+            print("ERROR: Raw data directory not found!")
             return self.report
         
         available_folders = []
@@ -119,7 +119,7 @@ class DatasetExplorer:
                 self.report['datasets'][folder] = dataset_info
                 
             except Exception as e:
-                print(f"❌ Ошибка при исследовании {folder}: {e}")
+                print(f"Ошибка при исследовании {folder}: {e}")
                 dataset_info['error'] = str(e)
                 self.report['datasets'][folder] = dataset_info
     

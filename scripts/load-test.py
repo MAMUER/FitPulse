@@ -90,13 +90,13 @@ Examples:
                 break
 
     if not k6_path:
-        print(f"{RED}❌ k6 not found in PATH or common locations!{RESET}")
+        print(f"{RED}k6 not found in PATH or common locations!{RESET}")
         print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}")
         print(f"Or download and place in one of: {', '.join(common_paths)}{RESET}\n")
         sys.exit(1)
 
     if not LOAD_TEST_K6.exists():
-        print(f"{RED}❌ Load test script not found: {LOAD_TEST_K6}{RESET}")
+        print(f"{RED}Load test script not found: {LOAD_TEST_K6}{RESET}")
         sys.exit(1)
 
     print(f"\n{BOLD}{CYAN}{'=' * 55}{RESET}")
@@ -136,7 +136,7 @@ Examples:
                 print_results(args.output)
             print()
         else:
-            print(f"\n{RED}{BOLD}❌  LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
+            print(f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
             sys.exit(result.returncode)
             
     except subprocess.TimeoutExpired:
@@ -148,7 +148,7 @@ Examples:
         sys.exit(130)
         
     except FileNotFoundError:
-        print(f"\n{RED}❌ Error: k6 executable not found{RESET}\n")
+        print(f"\n{RED}Error: k6 executable not found{RESET}\n")
         sys.exit(1)
 
 

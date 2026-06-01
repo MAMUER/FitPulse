@@ -17,7 +17,7 @@ trufflehog git file://. --since-commit HEAD --only-verified --fail
 
 if [ $? -ne 0 ]; then
     echo ""
-    echo "❌ POTENTIAL SECRETS DETECTED!"
+    echo "POTENTIAL SECRETS DETECTED!"
     echo "   Remove sensitive data from your changes before committing."
     echo "   Use .env.example as a template — never commit real credentials."
     echo ""

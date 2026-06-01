@@ -754,7 +754,7 @@ class DataPreprocessor:
             try:
                 processor()
             except Exception as e:
-                print(f"❌ Ошибка {name}: {str(e)}")
+                print(f"Ошибка {name}: {str(e)}")
                 self.stats['errors'].append(f'{name}: {str(e)}')
         
         self.balance_classes(target_per_class=100000)
