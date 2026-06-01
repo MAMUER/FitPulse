@@ -63,5 +63,5 @@ jobs:
         run: |
           GOBIN=$HOME/go/bin go install github.com/google/osv-scanner/cmd/osv-scanner@latest
       - name: Run osv-scanner
-        run: $HOME/go/bin/osv-scanner -r ./...
+        run: "$HOME/go/bin/osv-scanner" -r ./...
         # The job will fail if any vulnerabilities are found.

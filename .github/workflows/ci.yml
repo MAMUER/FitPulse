@@ -58,6 +58,7 @@ jobs:
           mkdir -p sarif-results
           gosec -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
           if [ ! -s sarif-results/gosec.sarif ]; then
+            # shellcheck disable=SC2016
             echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"gosec"}},"results":[]}]}' > sarif-results/gosec.sarif
           fi
       - name: Upload gosec results
@@ -155,9 +156,10 @@ jobs:
       - name: Build Go services (parallel)
         run: |
           mkdir -p bin
-          export GOMAXPROCS=$(nproc)
+          GOMAXPROCS=$(nproc)
+          export GOMAXPROCS
           for svc in user-service biometric-service training-service gateway device-emulator; do
-            go build -ldflags="-s -w" -o bin/$svc ./cmd/$svc &
+            go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
           done
           wait
       - uses: actions/upload-artifact@v7
@@ -188,33 +190,33 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Get short SHA
         id: sha
-        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Build and push Go services
         run: |
           services="user-service biometric-service training-service gateway device-connector device-emulator"
           for svc in $services; do
             echo "Building $svc..."
-            docker build -t ${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/mamuer/project/$svc:latest \
-              -f cmd/$svc/Dockerfile .
-            docker push ${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/mamuer/project/$svc:latest
+            docker build -t "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}" \
+              -t "${{ env.REGISTRY }}/mamuer/project/$svc:latest" \
+              -f "cmd/$svc/Dockerfile" .
+            docker push "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
+            docker push "${{ env.REGISTRY }}/mamuer/project/$svc:latest"
           done
       - name: Build and push ML images (if models exist)
         run: |
           if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
-            docker build -t ${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest \
+            docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}" \
+              -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest" \
               -f cmd/ml-classifier/Dockerfile .
-            docker push ${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest
+            docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}"
+            docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest"
           fi
           if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
-            docker build -t ${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }} \
-              -t ${{ env.REGISTRY }}/mamuer/project/ml-generator:latest \
+            docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}" \
+              -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest" \
               -f cmd/ml-generator/Dockerfile .
-            docker push ${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}
-            docker push ${{ env.REGISTRY }}/mamuer/project/ml-generator:latest
+            docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}"
+            docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest"
           fi
       - name: Scan gateway image with Trivy
         id: trivy-image
@@ -253,16 +255,17 @@ jobs:
         run: |
           set -euo pipefail
           GATEWAY_URL="http://localhost:8081"
-          for i in $(seq 1 36); do
+          for _ in {1..36}; do
             curl -f --silent --max-time 3 "$GATEWAY_URL/health" > /dev/null && break
             sleep 5
           done
           curl -f --silent --max-time 5 "$GATEWAY_URL/health" || {
             docker compose -f docker-compose.test.yml logs --tail=150 gateway-test; exit 1
           }
+          TIMESTAMP=$(date +%s)
           REGISTER_RESPONSE=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/api/v1/register" \
             -H "Content-Type: application/json" \
-            -d '{"email":"smoke'$(date +%s)'@test.com","password":"Test123!","full_name":"Smoke","role":"client"}')
+            -d '{"email":"smoke'"$TIMESTAMP"'@test.com","password":"Test123!","full_name":"Smoke","role":"client"}')
           HTTP_CODE="${REGISTER_RESPONSE: -3}"
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "✅ Smoke tests passed"
@@ -289,6 +292,7 @@ jobs:
       # ─────────────────────────────────────────────────────
       - name: Install k3s with production settings
         run: |
+          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "=== Installing k3s with production config ==="
             
@@ -411,6 +415,7 @@ jobs:
       # ─────────────────────────────────────────────────────
       - name: Install Helm and monitoring stack
         run: |
+          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "=== Installing Helm ==="
             
@@ -457,6 +462,7 @@ jobs:
       # ─────────────────────────────────────────────────────
       - name: Configure etcd snapshot backup sync
         run: |
+          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "=== Configuring snapshot backup sync ==="
             
@@ -532,10 +538,10 @@ jobs:
           
           # Проверяем, что файл валидный
           if grep -q "server: https://" ./k3s-config.yaml; then
-            echo "available=true" >> $GITHUB_OUTPUT
+            echo "available=true" >> "$GITHUB_OUTPUT"
             echo "✅ kubeconfig is ready"
           else
-            echo "available=false" >> $GITHUB_OUTPUT
+            echo "available=false" >> "$GITHUB_OUTPUT"
             echo "❌ kubeconfig may be invalid"
           fi
 
@@ -569,14 +575,14 @@ jobs:
       - name: Configure kubectl
         id: kubeconfig
         run: |
-          mkdir -p $HOME/.kube
-          cp ./kubeconfig/k3s-config.yaml $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$HOME/.kube"
+          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
           if kubectl cluster-info &> /dev/null; then
-            echo "configured=true" >> $GITHUB_OUTPUT
+            echo "configured=true" >> "$GITHUB_OUTPUT"
             kubectl config set-context --current --namespace=fitness-platform-staging
           else
-            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "configured=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Update image tags to SHA
         if: steps.kubeconfig.outputs.configured == 'true'
@@ -625,7 +631,7 @@ jobs:
         run: |
           URL="${{ secrets.VPS_HOST }}"
           [[ "$URL" == http* ]] || URL="http://$URL"
-          echo "target=$URL" >> $GITHUB_OUTPUT
+          echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
           curl -sf --max-time 10 "${{ steps.target.outputs.target }}/health" || {
@@ -665,9 +671,9 @@ jobs:
       - name: Configure kubectl
         id: kubeconfig
         run: |
-          mkdir -p $HOME/.kube
-          cp ./kubeconfig/k3s-config.yaml $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$HOME/.kube"
+          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
           if ! kubectl cluster-info &> /dev/null; then
             echo "❌ Cannot connect to cluster"; exit 1
           fi
@@ -748,6 +754,7 @@ jobs:
       - name: Collect job statuses
         id: statuses
         run: |
+          # shellcheck disable=SC2016
           get_emoji() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "❓";; esac; }
           
           TEST="$(get_emoji '${{ needs['deploy-test'].result }}')"
@@ -759,7 +766,6 @@ jobs:
           E2E="$(get_emoji '${{ needs['test-staging'].result }}')"
           PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           
-          # Determine overall status
           if [[ "$PROD" == "✅" ]]; then
             OVERALL="✅ УСПЕШНО"; STATUS="success"
           elif [[ "$PROD" == "❌" || "$STAGING" == "❌" ]]; then
@@ -772,16 +778,18 @@ jobs:
             OVERALL="✅ УСПЕШНО"; STATUS="success"
           fi
           
-          echo "overall=$OVERALL" >> $GITHUB_OUTPUT
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
-          echo "test=$TEST" >> $GITHUB_OUTPUT
-          echo "sec=$SEC" >> $GITHUB_OUTPUT
-          echo "secret=$SECRET" >> $GITHUB_OUTPUT
-          echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "docker=$DOCKER" >> $GITHUB_OUTPUT
-          echo "staging=$STAGING" >> $GITHUB_OUTPUT
-          echo "e2e=$E2E" >> $GITHUB_OUTPUT
-          echo "prod=$PROD" >> $GITHUB_OUTPUT
+          {
+            echo "overall=$OVERALL"
+            echo "status=$STATUS"
+            echo "test=$TEST"
+            echo "sec=$SEC"
+            echo "secret=$SECRET"
+            echo "build=$BUILD"
+            echo "docker=$DOCKER"
+            echo "staging=$STAGING"
+            echo "e2e=$E2E"
+            echo "prod=$PROD"
+          } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@v1.0.1
         with:
