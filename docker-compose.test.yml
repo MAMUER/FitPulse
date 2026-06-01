@@ -74,6 +74,8 @@ services:
     environment:
       USER_SERVICE_ADDR: user-service-test:50051
       JWT_SECRET: test_jwt_secret_for_smoke_tests_only
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
       DATABASE_URL: postgres://testuser:testpass@postgres-test:5432/testdb?sslmode=disable
       # Biometric and Training services are not started in this minimal test env
       # BIOMETRIC_SERVICE_ADDR: biometric-service-test:50052
@@ -81,6 +83,8 @@ services:
     depends_on:
       user-service-test:
         condition: service_started
+      redis-test:
+        condition: service_healthy
     ports:
       - "8081:8080"
     healthcheck:

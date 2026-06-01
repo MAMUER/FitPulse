@@ -33,6 +33,7 @@ env/
 *.tmp
 
 # Environment files
+secrets/
 .env
 .env.local
 .env.*.local
@@ -111,3 +112,4 @@ results.json
 *.docx
 bin/
 coverage.html
+config/production.json

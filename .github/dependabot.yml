@@ -1,4 +1,8 @@
 version: 2
+# Чеклист для поддержания безопасности
+# Раз в месяц: go get -u ./... && go mod tidy
+# Раз в квартал: govulncheck ./... с флагом -show verbose
+# При добавлении новых зависимостей: проверять их через go dev audit или osv-scanner
 updates:
   # Go модули
   - package-ecosystem: "gomod"

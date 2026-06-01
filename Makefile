@@ -79,10 +79,21 @@ yaml-check:
 	go run tools/validate_yaml.go
 	@echo "YAML check complete."
 
-# Проверка Docker файлов с помощью hadolint
+# Проверка Docker файлов с помощью hadolint (кросс-платформенная)
 docker-lint:
 	@echo "Running hadolint..."
-	@powershell -Command "if (Get-Command docker -ErrorAction SilentlyContinue) { docker info > $$null 2>&1; if ($$LASTEXITCODE -eq 0) { Get-ChildItem './cmd/*/Dockerfile' | ForEach-Object { Write-Host 'Linting' $$_.FullName; Get-Content $$_.FullName | docker run --rm -i hadolint/hadolint } } else { Write-Host 'Docker daemon unavailable, skipping docker-lint.' } } else { Write-Host 'Docker CLI not installed, skipping docker-lint.' }"
+	@if command -v docker >/dev/null 2>&1; then \
+		if docker info >/dev/null 2>&1; then \
+			for f in cmd/*/Dockerfile; do \
+				echo "Linting $$f"; \
+				cat $$f | docker run --rm -i hadolint/hadolint; \
+			done; \
+		else \
+			echo "Docker daemon unavailable, skipping docker-lint."; \
+		fi; \
+	else \
+		echo "Docker CLI not installed, skipping docker-lint."; \
+	fi
 	@echo "Docker lint complete."
 
 # Запуск integration тестов
@@ -91,8 +102,8 @@ test-integration:
 	go test -v -tags=integration ./...
 	@echo "Integration tests complete."
 
-# Запуск всех проверок
-check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration build test-cover
+# Запуск всех проверок (без build и test-cover, они есть в CI отдельно)
+check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -100,13 +111,13 @@ check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration build
 # Сборка всех Go-сервисов
 build:
 	@echo "Building Go services..."
-	go build -o bin/gateway ./cmd/gateway
-	go build -o bin/user-service ./cmd/user-service
-	go build -o bin/biometric-service ./cmd/biometric-service
-	go build -o bin/training-service ./cmd/training-service
-	go build -o bin/data-processor ./cmd/data-processor
-	go build -o bin/device-connector ./cmd/device-connector
-	go build -o bin/device-emulator ./cmd/device-emulator
+	go build -ldflags="-s -w" -o bin/gateway ./cmd/gateway
+	go build -ldflags="-s -w" -o bin/user-service ./cmd/user-service
+	go build -ldflags="-s -w" -o bin/biometric-service ./cmd/biometric-service
+	go build -ldflags="-s -w" -o bin/training-service ./cmd/training-service
+	go build -ldflags="-s -w" -o bin/data-processor ./cmd/data-processor
+	go build -ldflags="-s -w" -o bin/device-connector ./cmd/device-connector
+	go build -ldflags="-s -w" -o bin/device-emulator ./cmd/device-emulator
 	@echo "Skipping Python-based ML services for Go build target: cmd/ml-classifier, cmd/ml-generator"
 	@echo "Build complete."
 

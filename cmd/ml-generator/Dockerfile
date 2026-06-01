@@ -16,10 +16,10 @@ RUN mkdir -p /app/models && chown -R mluser:mluser /app/models
 USER mluser
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies
-COPY --chown=mluser:mluser cmd/ml-generator/requirements.txt /app/cmd/ml-generator/requirements.txt
+# Install dependencies (cached layer)
+COPY --chown=mluser:mluser cmd/ml-generator/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade pip==25.2 setuptools==81.0 wheel==0.45.1 && \
-    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r /app/cmd/ml-generator/requirements.txt
+    python -m pip install --no-cache-dir --retries 5 --timeout 120 -r /tmp/requirements.txt
 
 # Copy code (preserves project structure)
 COPY --chown=mluser:mluser cmd /app/cmd

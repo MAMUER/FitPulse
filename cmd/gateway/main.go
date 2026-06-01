@@ -149,9 +149,13 @@ func main() {
 		rabbitmqURL = "amqp://localhost:5672/"
 	}
 
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisHost := os.Getenv("REDIS_HOST")
+		if redisHost == "" {
+			redisHost = "redis"
+		}
+		redisAddr = redisHost + ":6379"
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -185,26 +189,26 @@ func main() {
 	var rdb *redis.Client
 	if mlAsync {
 		rdb = redis.NewClient(&redis.Options{
-			Addr: redisHost + ":6379",
+			Addr: redisAddr,
 		})
 		if pingErr := rdb.Ping(context.Background()).Err(); pingErr != nil {
 			log.Warn("Redis unavailable, async ML mode disabled", zap.Error(pingErr))
 			mlAsync = false
 		} else {
-			log.Info("Redis connected for async job results", zap.String("host", redisHost))
+			log.Info("Redis connected for async job results", zap.String("addr", redisAddr))
 		}
 	}
 
 	// Redis client for session management (Security #1, #3) — always required
 	var sessionStore *cache.SessionStore
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisHost + ":6379",
+		Addr: redisAddr,
 	})
 	if pingErr := redisClient.Ping(context.Background()).Err(); pingErr != nil {
 		log.Warn("Redis unavailable for session management", zap.Error(pingErr))
 	} else {
 		sessionStore = cache.NewSessionStoreFromRedis(redisClient)
-		log.Info("Redis connected for session management", zap.String("host", redisHost))
+		log.Info("Redis connected for session management", zap.String("addr", redisAddr))
 	}
 
 	// RabbitMQ channel for publishing ML jobs (used in async mode)
