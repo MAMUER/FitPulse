@@ -31,7 +31,7 @@ jobs:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-workflow]
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-workflow]
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Verify .env not tracked
@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-workflow]
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [security-scan, secrets-scan, check]
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -172,7 +172,7 @@ jobs:
     needs: [binary_build]
     if: github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Login to GHCR
@@ -242,7 +242,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [binary_build]
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
       - name: Start test environment
         run: docker compose -f docker-compose.test.yml up -d
       - name: Wait for services
@@ -278,7 +278,7 @@ jobs:
     outputs:
       kubeconfig_available: ${{ steps.kubeconfig.outputs.available }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
       
       - uses: webfactory/ssh-agent@v0.10.0
         with:
@@ -558,11 +558,11 @@ jobs:
     outputs:
       configured: ${{ steps.kubeconfig.outputs.configured }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -619,7 +619,7 @@ jobs:
     env:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
       - name: Prepare target URL
         id: target
         run: |
@@ -654,11 +654,11 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: production  # ← Требует ручного апрува в UI GitHub!
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -716,7 +716,7 @@ jobs:
     needs: [deploy-production]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -744,7 +744,7 @@ jobs:
     needs: [security-scan, secrets-scan, binary_build, docker, deploy-test, deploy-staging, test-staging, deploy-production]
     if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
       - name: Collect job statuses
         id: statuses
         run: |
