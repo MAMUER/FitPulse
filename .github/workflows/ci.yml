@@ -151,7 +151,7 @@ jobs:
       - name: Install osv-scanner
         run: GOBIN="$HOME/go/bin" go install github.com/google/osv-scanner/cmd/osv-scanner@latest
       - name: Run osv-scanner
-        run: "$HOME/go/bin/osv-scanner -r ./..."
+        run: $HOME/go/bin/osv-scanner -r ./...
 
   # ─────────────────────────────────────────────────────────────
   # 2. СБОРКА (только при обычных триггерах, не Maintenance)
