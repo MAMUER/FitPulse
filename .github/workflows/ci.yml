@@ -244,7 +244,7 @@ jobs:
   deploy-test:
     name: Deploy to Test (Docker Compose)
     runs-on: ubuntu-latest
-    needs: [binary_build]
+    needs: [binary_build, provision-k8s-vps]
     steps:
       - uses: actions/checkout@v6
       - name: Start test environment
@@ -318,6 +318,9 @@ jobs:
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
           printf '%s\n' 'bind-address: 0.0.0.0' 'tls-san:' "  - ${VPS_HOST}" 'disable:' '  - traefik' '  - servicelb' '  - metrics-server' 'flannel-backend: wireguard' 'kubelet-arg:' '  - "cloud-provider=external"' 'write-kubeconfig-mode: 644' 'docker: true' > /tmp/k3s-config-remote.yaml
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          mkdir -p /etc/rancher/k3s
+          echo "✅ Directory ready"
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
