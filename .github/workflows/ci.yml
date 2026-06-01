@@ -318,9 +318,12 @@ jobs:
         run: |
            VPS_HOST="${{ secrets.VPS_HOST }}"
            printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
-           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
              mkdir -p /etc/rancher/k3s
+             echo "✅ Directory /etc/rancher/k3s created"
+           '
+           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
+           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
              echo "✅ Config written:"
              cat /etc/rancher/k3s/config.yaml
            '
