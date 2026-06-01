@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
-        uses: rhysd/actionlint@v1
+        uses: rhysd/actionlint@v1.7.12
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
