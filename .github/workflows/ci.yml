@@ -448,7 +448,7 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
@@ -562,9 +562,12 @@ jobs:
       - name: Check cluster connectivity
         id: connectivity
         run: |
+          echo "🔍 Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
           if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
+            echo "✅ Cluster reachable"
             echo "reachable=true" >> "$GITHUB_OUTPUT"
           else
+            echo "❌ Cluster NOT reachable (timeout 10s)"
             echo "reachable=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Update image tags to SHA
