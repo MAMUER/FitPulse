@@ -64,7 +64,8 @@ test-cover:
 # Запуск линтера
 lint:
 	@echo "Running golangci-lint..."
-	golangci-lint run --max-issues-per-linter=0
+	@command -v golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+	@PATH="$(shell go env GOPATH)/bin:$(PATH)" golangci-lint run --max-issues-per-linter=0
 	@echo "Lint complete."
 
 # SAST: govulncheck — проверка зависимостей на известные уязвимости
