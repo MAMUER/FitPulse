@@ -71,7 +71,8 @@ lint:
 # SAST: govulncheck — проверка зависимостей на известные уязвимости
 vulncheck:
 	@echo "Running govulncheck..."
-	@govulncheck ./...
+	@command -v govulncheck >/dev/null 2>&1 || go install golang.org/x/vuln/cmd/govulncheck@latest
+	@PATH="$$(go env GOPATH)/bin:$$PATH" govulncheck ./...
 	@echo "Govulncheck complete."
 
 # Проверка YAML файлов на синтаксис
