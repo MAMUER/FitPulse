@@ -158,7 +158,7 @@ def load_models():
                 shutil.copy2(latest_model, stable_model)
                 print(f"🔄 Updated stable model: classifier.keras ← {latest_model.name}")
             except Exception as e:
-                print(f"⚠️  Could not sync classifier.keras: {e}")
+                print(f" Could not sync classifier.keras: {e}")
 
         # Clean up older timestamped models (keep only the newest one)
         for old_model in timestamped_models[:-1]:
@@ -166,7 +166,7 @@ def load_models():
                 old_model.unlink()
                 print(f"🗑️  Removed old model: {old_model.name}")
             except Exception as e:
-                print(f"⚠️  Could not remove {old_model.name}: {e}")
+                print(f" Could not remove {old_model.name}: {e}")
 
         model_path = str(stable_model)
     else:

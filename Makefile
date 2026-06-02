@@ -88,7 +88,7 @@ docker-lint:
 			cat "$$f" | docker run --rm -i hadolint/hadolint || true; \
 		done; \
 	else \
-		echo "⚠️ Docker unavailable, skipping docker-lint"; \
+		echo "Docker unavailable, skipping docker-lint"; \
 	fi
 	@echo "Docker lint complete."
 
