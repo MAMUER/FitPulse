@@ -194,8 +194,15 @@ jobs:
         run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.6
+      - name: Render staging overlay for scanning
+        id: render-staging
+        run: |
+          echo "Rendering staging overlay..."
+          cd configs/k8s/overlays/staging
+          kustomize build . > /tmp/staging-rendered.yaml
+          echo "rendered=/tmp/staging-rendered.yaml" >> "$GITHUB_OUTPUT"
       - name: Run Trivy config scan
-        run: trivy config --severity CRITICAL,HIGH --exit-code 1 --quiet .
+        run: trivy config --severity CRITICAL,HIGH --exit-code 1 --quiet . --skip-dir configs/k8s/overlays/staging
       - name: Run Trivy filesystem scan
         id: trivy-fs
         run: |

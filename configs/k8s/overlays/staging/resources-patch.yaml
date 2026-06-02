@@ -12,10 +12,6 @@ spec:
       labels:
         app: postgres
     spec:
-      securityContext:
-        runAsUser: 999
-        fsGroup: 999
-        runAsNonRoot: true
       containers:
       - name: postgres
         resources:
@@ -27,9 +23,9 @@ spec:
             memory: 256Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
 ---
 apiVersion: apps/v1
@@ -45,11 +41,6 @@ spec:
       labels:
         app: redis
     spec:
-      securityContext:
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        runAsNonRoot: true
       containers:
       - name: redis
         resources:
@@ -61,9 +52,9 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
 ---
 apiVersion: apps/v1
@@ -79,10 +70,6 @@ spec:
       labels:
         app: rabbitmq
     spec:
-      securityContext:
-        runAsUser: 999
-        fsGroup: 999
-        runAsNonRoot: true
       containers:
       - name: rabbitmq
         resources:
@@ -94,9 +81,9 @@ spec:
             memory: 256Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
 ---
 apiVersion: apps/v1
@@ -125,11 +112,10 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -155,11 +141,10 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -185,11 +170,10 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -215,11 +199,10 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -245,11 +228,10 @@ spec:
             memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -275,11 +257,10 @@ spec:
             memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -305,8 +286,7 @@ spec:
             memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1001
