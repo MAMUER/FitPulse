@@ -322,4 +322,4 @@ PR будет принят, если:
 - [Runbooks](docs/runbooks/)
 - [Swagger спецификация](api/rest/swagger.yaml)
 
-Спасибо за ваш вклад в развитие FitPulse! 🎯
+Спасибо за ваш вклад в развитие FitPulse!
