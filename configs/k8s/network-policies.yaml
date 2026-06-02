@@ -2,7 +2,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: deny-all-ingress
-  namespace: fitness-platform
 spec:
   podSelector: {}
   policyTypes:
@@ -12,7 +11,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: deny-all-egress
-  namespace: fitness-platform
 spec:
   podSelector: {}
   policyTypes:
@@ -25,7 +23,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-egress
-  namespace: fitness-platform
 spec:
   podSelector: {}
   policyTypes:
@@ -43,7 +40,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-nginx-to-gateway
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -64,7 +60,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-user
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -85,7 +80,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-biometric
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -106,7 +100,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-training
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -127,7 +120,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-ml-classifier
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -148,7 +140,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-ml-generator
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -169,7 +160,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-device-connector
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -190,7 +180,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-services-to-postgres
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -211,7 +200,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-services-to-rabbitmq
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -237,7 +225,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-services-to-redis
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -258,7 +245,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-external-to-nginx
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:

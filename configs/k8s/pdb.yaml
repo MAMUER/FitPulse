@@ -2,7 +2,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: postgres-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -13,7 +12,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: redis-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -24,7 +22,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: rabbitmq-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -35,7 +32,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: user-service-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -46,7 +42,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: biometric-service-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -57,7 +52,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: training-service-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 1
   selector:
@@ -68,7 +62,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: ml-classifier-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 0
   selector:
@@ -79,7 +72,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: ml-generator-pdb
-  namespace: fitness-platform
 spec:
   minAvailable: 0
   selector:

@@ -113,3 +113,4 @@ results.json
 bin/
 coverage.html
 config/production.json
+.kilo

@@ -4,7 +4,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: dmz-zone
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -33,7 +32,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: app-zone
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -84,7 +82,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: data-zone
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:
@@ -113,7 +110,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: monitoring-zone
-  namespace: fitness-platform
 spec:
   podSelector:
     matchLabels:

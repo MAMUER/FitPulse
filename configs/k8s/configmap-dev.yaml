@@ -2,7 +2,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fitness-config-dev
-  namespace: fitness-platform
 data:
   # Environment matrix: Dev
   K8S_PODS_PER_SERVICE: "1"
