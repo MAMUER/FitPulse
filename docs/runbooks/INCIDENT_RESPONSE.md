@@ -169,7 +169,7 @@ Status: Investigating
 RESOLVED: Service API Degradation
 ⏰ Duration: 45 minutes
 🔍 Cause: Database connection pool exhausted due to memory leak in biometric-service
-📋 Fix: Patched and redeployed biometric-service v2.1.1
+Fix: Patched and redeployed biometric-service v2.1.1
 🛡️ Monitoring: All metrics normal, no data loss
 ```
 

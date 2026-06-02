@@ -659,7 +659,7 @@ jobs:
         run: |
           echo "🔍 Checking pod status..."
           kubectl get pods -n fitness-platform-staging -o wide || true
-          echo "📋 Events for failing pods (if any):"
+          echo "Events for failing pods (if any):"
           kubectl get pods -n fitness-platform-staging --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-staging 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
 
       - name: Verify staging deployment
