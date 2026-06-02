@@ -202,7 +202,7 @@ jobs:
           mkdir -p sarif-results
           trivy fs --scanners vuln --severity CRITICAL,HIGH --format sarif \
             --output sarif-results/trivy-fs.sarif \
-            --skip-dirs '**/site-packages/**,**/.venv/**,**/venv/**' --quiet .
+            .
       - name: Upload Trivy results
         if: always()
         uses: github/codeql-action/upload-sarif@v4
