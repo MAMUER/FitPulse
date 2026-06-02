@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-generator
+  template:
+    metadata:
+      labels:
+        app: ml-generator
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+      - name: ml-generator
+        image: ghcr.io/mamuer/project/ml-generator:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: ML_GENERATOR_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ML_GENERATOR_PORT
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

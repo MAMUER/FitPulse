@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: device-connector-service
+  labels:
+    app: device-connector
+    tier: backend
+    component: device-connector
+spec:
+  type: ClusterIP
+  selector:
+    app: device-connector
+  ports:
+  - port: 8082
+    targetPort: 8082
+    name: http

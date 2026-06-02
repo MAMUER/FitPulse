@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-canary-service
+  labels:
+    app: gateway-canary
+    tier: frontend
+spec:
+  selector:
+    app: gateway-canary
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP

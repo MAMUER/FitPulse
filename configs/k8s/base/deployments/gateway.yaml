@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 1  # Dev environment, adjust per environment matrix
+  selector:
+    matchLabels:
+      app: gateway
+      tier: api
+  template:
+    metadata:
+      labels:
+        app: gateway
+        tier: api
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
+        prometheus.io/path: '/metrics'
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+      - name: gateway
+        image: ghcr.io/mamuer/project/gateway:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: GATEWAY_PORT
+          value: '8080'
+        - name: USER_SERVICE_ADDR
+          value: "user-service:50051"
+        - name: BIOMETRIC_SERVICE_ADDR
+          value: "biometric-service:50052"
+        - name: TRAINING_SERVICE_ADDR
+          value: "training-service:50053"
+        - name: PROMETHEUS_ENABLED
+          value: 'true'
+        - name: ML_CLASSIFIER_URL
+          value: "http://ml-classifier:8001"
+        - name: ML_GENERATOR_URL
+          value: "http://ml-generator:8002"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

@@ -1,0 +1,124 @@
+---
+# ServiceAccount for gateway
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway-sa
+
+---
+# ServiceAccount for user-service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user-service-sa
+
+---
+# ServiceAccount for biometric-service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: biometric-service-sa
+
+---
+# ServiceAccount for training-service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: training-service-sa
+
+---
+# ServiceAccount for monitoring stack
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-sa
+
+---
+# Role for gateway service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-role
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list"]
+
+---
+# RoleBinding for gateway
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: gateway-sa
+roleRef:
+  kind: Role
+  name: gateway-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Role for app services (user, biometric, training)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-service-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get"]
+
+---
+# RoleBinding for app services
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-service-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: user-service-sa
+- kind: ServiceAccount
+  name: biometric-service-sa
+- kind: ServiceAccount
+  name: training-service-sa
+roleRef:
+  kind: Role
+  name: app-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Role for monitoring (read-only access)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitoring-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list"]
+
+---
+# RoleBinding for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitoring-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: monitoring-sa
+roleRef:
+  kind: Role
+  name: monitoring-role
+  apiGroup: rbac.authorization.k8s.io
+
+
