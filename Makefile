@@ -79,17 +79,11 @@ yaml-check:
 	go run tools/validate_yaml.go
 	@echo "YAML check complete."
 
-# Проверка Docker файлов (кросс-платформенная)
+# Проверка Docker файлов (кросс-платформенная: Windows + Linux)
+DOCKER_LINT_SKIP := $(if $(filter Windows_NT,$(OS)),1,)
 docker-lint:
 	@echo "Running hadolint..."
-	@if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-		for f in cmd/*/Dockerfile; do \
-			echo "Linting $$f"; \
-			cat "$$f" | docker run --rm -i hadolint/hadolint || true; \
-		done; \
-	else \
-		echo "Docker unavailable, skipping docker-lint"; \
-	fi
+	$(if $(DOCKER_LINT_SKIP),@echo "Skipping docker-lint on Windows (runs in GitHub Actions CI/CD)",@for f in cmd/*/Dockerfile; do echo "Linting $$f" && docker run --rm -i hadolint/hadolint < "$$f" || true; done)
 	@echo "Docker lint complete."
 
 # Запуск integration тестов

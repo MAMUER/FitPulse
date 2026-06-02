@@ -636,12 +636,18 @@ jobs:
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
 
-      - name: Deploy staging with Kustomize
+      - name: Apply staging overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "🚀 Applying staging overlay with Kustomize..."
           cd configs/k8s/overlays/staging
-          kustomize build . | kubectl apply --validate=false -f -
+          
+          if kustomize build . | kubectl apply --validate=false -f -; then
+            echo "✅ Staging overlay applied successfully"
+          else
+            echo "❌ Failed to apply staging overlay"
+            exit 1
+          fi
 
       # НОВЫЙ ШАГ: Отладка подов после деплоя
       - name: Debug pod status after deploy
