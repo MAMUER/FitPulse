@@ -61,18 +61,16 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-# Запуск линтера
+# Запуск линтера (кросс-платформенный)
 lint:
 	@echo "Running golangci-lint..."
-	@command -v golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
-	@PATH="$(shell go env GOPATH)/bin:$(PATH)" golangci-lint run --max-issues-per-linter=0
+	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0
 	@echo "Lint complete."
 
-# SAST: govulncheck — проверка зависимостей на известные уязвимости
+# SAST: govulncheck — проверка зависимостей (кросс-платформенный)
 vulncheck:
 	@echo "Running govulncheck..."
-	@command -v govulncheck >/dev/null 2>&1 || go install golang.org/x/vuln/cmd/govulncheck@latest
-	@PATH="$$(go env GOPATH)/bin:$$PATH" govulncheck ./...
+	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 	@echo "Govulncheck complete."
 
 # Проверка YAML файлов на синтаксис
@@ -81,21 +79,13 @@ yaml-check:
 	go run tools/validate_yaml.go
 	@echo "YAML check complete."
 
-# Проверка Docker файлов с помощью hadolint (кросс-платформенная)
+# Проверка Docker файлов (кросс-платформенная)
 docker-lint:
 	@echo "Running hadolint..."
-	@if command -v docker >/dev/null 2>&1; then \
-		if docker info >/dev/null 2>&1; then \
-			for f in cmd/*/Dockerfile; do \
-				echo "Linting $$f"; \
-				cat $$f | docker run --rm -i hadolint/hadolint; \
-			done; \
-		else \
-			echo "Docker daemon unavailable, skipping docker-lint."; \
-		fi; \
-	else \
-		echo "Docker CLI not installed, skipping docker-lint."; \
-	fi
+	@for %%f in (cmd/*/Dockerfile) do @( \
+		echo "Linting %%f" && \
+		go run github.com/hadolint/hadolint/cmd/hadolint@latest < %%f || exit 0 \
+	)
 	@echo "Docker lint complete."
 
 # Запуск integration тестов

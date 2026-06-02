@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: gateway
 spec:
-  replicas: 1  # Dev environment, adjust per environment matrix
+  replicas: 1
   selector:
     matchLabels:
       app: gateway
@@ -17,14 +17,14 @@ spec:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '8080'
         prometheus.io/path: '/metrics'
-      spec:
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1001
-        imagePullSecrets:
-          - name: ghcr-pull-secret
-        serviceAccountName: app-service-account
-        containers:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
+      containers:
       - name: gateway
         image: ghcr.io/mamuer/project/gateway:latest
         imagePullPolicy: Always

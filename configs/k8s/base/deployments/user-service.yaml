@@ -11,14 +11,14 @@ spec:
     metadata:
       labels:
         app: user-service
-      spec:
-        serviceAccountName: app-service-account
-        imagePullSecrets:
-          - name: ghcr-pull-secret
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1001
-        containers:
+    spec:
+      serviceAccountName: app-service-account
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
       - name: user-service
         image: ghcr.io/mamuer/project/user-service:latest
         imagePullPolicy: Always
