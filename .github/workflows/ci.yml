@@ -321,16 +321,21 @@ jobs:
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build and push Go services
         run: |
           services="user-service biometric-service training-service gateway device-connector device-emulator"
           for svc in $services; do
             echo "Building $svc..."
-            docker build -t "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}" \
+            docker buildx build \
+              --build-arg GOPROXY=https://proxy.golang.org,direct \
+              --cache-from=type=gha \
+              --cache-to=type=gha,mode=max \
+              -t "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}" \
               -t "${{ env.REGISTRY }}/mamuer/project/$svc:latest" \
-              -f "cmd/$svc/Dockerfile" .
-            docker push "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
-            docker push "${{ env.REGISTRY }}/mamuer/project/$svc:latest"
+              -f "cmd/$svc/Dockerfile" . \
+              --push
           done
       - name: Build and push ML images (if models exist)
         run: |

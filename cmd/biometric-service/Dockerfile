@@ -4,7 +4,7 @@
 FROM golang:1.26-alpine AS builder
 
 # Set Go environment for module downloading
-ENV GOPROXY=direct
+ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
 
 WORKDIR /app
