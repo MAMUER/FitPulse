@@ -112,7 +112,7 @@ const AppModules = (() => {
                 } finally {
                     if (btn) {
                         btn.disabled = false;
-                        btn.textContent = '🔗 Подключить устройство';
+                        btn.textContent = 'Подключить устройство';
                     }
                 }
             });
@@ -232,7 +232,7 @@ const AppModules = (() => {
                     'strength': '💪 Силовая',
                     'recovery': '🧘 Восстановление',
                     'endurance': '🏃 Выносливость',
-                    'hiit': '🔥 HIIT'
+                    'hiit': 'HIIT'
                 };
 
                 let allPlansHtml = '';
@@ -652,7 +652,7 @@ const AppModules = (() => {
                     </div>
 
                     <div style="text-align: center; padding: 12px; color: var(--text-secondary); font-size: 13px;">
-                        📊 Итого: ${breakfast.kcal + snack1.kcal + lunch.kcal + snack2.kcal + dinner.kcal} ккал • 
+                        Итого: ${breakfast.kcal + snack1.kcal + lunch.kcal + snack2.kcal + dinner.kcal} ккал • 
                         ${breakfast.protein + snack1.protein + lunch.protein + snack2.protein + dinner.protein}г белка • 
                         ${breakfast.carbs + snack1.carbs + lunch.carbs + snack2.carbs + dinner.carbs}г углеводов • 
                         ${breakfast.fat + snack1.fat + lunch.fat + snack2.fat + dinner.fat}г жиров

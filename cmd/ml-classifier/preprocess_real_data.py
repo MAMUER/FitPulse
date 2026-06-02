@@ -723,10 +723,10 @@ class DataPreprocessor:
     def process_all(self):
         """Обработка всех доступных датасетов"""
         print("=" * 70)
-        print("🚀 ОБРАБОТКА ВСЕХ ДАТАСЕТОВ v2.0")
+        print("ОБРАБОТКА ВСЕХ ДАТАСЕТОВ v2.0")
         print("=" * 70)
-        print(f"📁 Raw data: {RAW_DATA_DIR}")
-        print(f"📁 Output: {OUTPUT_DIR}")
+        print(f"Raw data: {RAW_DATA_DIR}")
+        print(f"Output: {OUTPUT_DIR}")
         print("=" * 70)
         
         processors = [
@@ -749,7 +749,7 @@ class DataPreprocessor:
         
         for name, processor in processors:
             print(f"\n{'='*70}")
-            print(f"📊 {name}")
+            print(f"{name}")
             print('='*70)
             try:
                 processor()

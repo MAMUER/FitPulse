@@ -92,7 +92,7 @@ def scan_dataset(name: str, path: Path) -> dict:
     return info
 
 def main():
-    print("🔍 RAW DATASET QUALITY REPORT")
+    print("RAW DATASET QUALITY REPORT")
     print("=" * 70)
     print(f"Scanning: {RAW_DIR.resolve()}")
     print()

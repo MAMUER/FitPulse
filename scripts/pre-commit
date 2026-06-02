@@ -2,7 +2,7 @@
 # Pre-commit hook for secret scanning
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
-echo "🔍 Running secret scan with TruffleHog..."
+echo "Running secret scan with TruffleHog..."
 
 # Check if trufflehog is installed
 if ! command -v trufflehog &> /dev/null; then

@@ -60,7 +60,7 @@ def load_real_data():
         df[col] = df[col].replace([np.inf, -np.inf], np.nan)
         df[col] = df[col].fillna(df[col].median())
     
-    print(f"\n📊 Распределение классов:")
+    print(f"\nРаспределение классов:")
     print(df['label'].value_counts())
     
     X = df[required_cols[:-1]].values
@@ -106,7 +106,7 @@ def create_classifier_model(input_shape=7, num_classes=4):
 def train_model():
     """Main training function"""
     print("=" * 70)
-    print("🧠 ОБУЧЕНИЕ КЛАССИФИКАТОРА v3 (v3 data + strong reg)")
+    print("ОБУЧЕНИЕ КЛАССИФИКАТОРА v3 (v3 data + strong reg)")
     print("=" * 70)
     
     print("\n[1/5] Загрузка данных...")
@@ -155,7 +155,7 @@ def train_model():
     )
     
     print("\n" + "=" * 70)
-    print("📊 РЕЗУЛЬТАТЫ")
+    print("РЕЗУЛЬТАТЫ")
     print("=" * 70)
     
     y_pred = np.argmax(model.predict(X_test_scaled, verbose=0), axis=1)

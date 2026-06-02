@@ -5,7 +5,7 @@ resources:
   - ../../base
   - ingress.yaml
   - hpa.yaml
-  - pdb.yaml
+  - biometric-service-hpa.yaml
 
 namespace: fitness-platform-production
 
@@ -17,5 +17,15 @@ patches:
   - path: replicas-patch.yaml
 
 images:
+  - name: ghcr.io/mamuer/project/user-service
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/biometric-service
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/training-service
+    newTag: ${IMAGE_TAG:-latest}
   - name: ghcr.io/mamuer/project/gateway
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/ml-classifier
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/ml-generator
     newTag: ${IMAGE_TAG:-latest}

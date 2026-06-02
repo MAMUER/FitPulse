@@ -45,7 +45,7 @@ def print_results(results_file):
         # Get last line with metrics
         last_metric = json.loads(lines[-1])
         if last_metric.get('type') == 'Point' and last_metric.get('metric'):
-            print(f"\n{CYAN}📊 Key Metrics:{RESET}")
+            print(f"\n{CYAN}Key Metrics:{RESET}")
             print(f"  • HTTP requests: 200 OK")
             print(f"  • Error rate: < 10%")
             print(f"  • P95 response time: < 500ms")
@@ -132,7 +132,7 @@ Examples:
         if result.returncode == 0:
             print(f"\n{GREEN}{BOLD} LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
             if Path(args.output).exists():
-                print(f"{CYAN}📄 Results saved to: {args.output}{RESET}")
+                print(f"{CYAN}Results saved to: {args.output}{RESET}")
                 print_results(args.output)
             print()
         else:
@@ -140,7 +140,7 @@ Examples:
             sys.exit(result.returncode)
             
     except subprocess.TimeoutExpired:
-        print(f"\n{RED}⏱️  Load test timed out (20 min)!{RESET}\n")
+        print(f"\n{RED}Load test timed out (20 min)!{RESET}\n")
         sys.exit(1)
         
     except KeyboardInterrupt:

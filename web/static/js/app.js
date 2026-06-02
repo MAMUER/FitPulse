@@ -817,7 +817,7 @@ function showMainApp() {
                                     'strength': '💪 Силовая',
                                     'recovery': '🧘 Восстановление',
                                     'endurance': '🏃 Выносливость',
-                                    'hiit': '🔥 HIIT'
+                                    'hiit': 'HIIT'
                                 };
                                 
                                 const exercises = todayWorkout.exercises || [];
@@ -839,7 +839,7 @@ function showMainApp() {
                                     <div class="workout-content">
                                         <h4>${typeLabel}</h4>
                                         ${exercisesHtml}
-                                        ${todayWorkout.duration ? `<p>⏱️ Длительность: ${todayWorkout.duration} мин</p>` : ''}
+                                        ${todayWorkout.duration ? `<p> Длительность: ${todayWorkout.duration} мин</p>` : ''}
                                         ${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
                                     </div>
                                 `;
@@ -1170,7 +1170,7 @@ function showMainApp() {
                 </div>
                 <div class="competition-desc">${c.desc}</div>
                 <div class="competition-meta">
-                    <span>👥 ${c.participants} участников</span>
+                    <span>${c.participants} участников</span>
                     ${c.rank ? `<span class="competition-rank">🏅 Место: ${c.rank}</span>` : ''}
                 </div>
             </div>

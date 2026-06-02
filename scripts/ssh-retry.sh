@@ -59,7 +59,7 @@ while true; do
     echo "-> Target : $TARGET"
     echo "-> Command: ${COMMAND:0:200}..."
 
-    # 🔥 ИСПРАВЛЕНИЕ: передаём скрипт через stdin в bash -s
+    # ИСПРАВЛЕНИЕ: передаём скрипт через stdin в bash -s
     # Это работает с любыми командами: многострочными, с кавычками, пайпами и т.д.
     if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" bash -s; then
       echo "Success on attempt $attempt"

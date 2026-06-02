@@ -569,7 +569,7 @@ jobs:
       - name: Check cluster connectivity
         id: connectivity
         run: |
-          echo "🔍 Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
+          echo "Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
           if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
             echo "✅ Cluster reachable"
             echo "reachable=true" >> "$GITHUB_OUTPUT"
@@ -579,13 +579,13 @@ jobs:
             exit 1
           fi
 
-      # 🔥 НОВЫЙ ШАГ: Создать imagePullSecret для GHCR (с созданием namespace)
+      # НОВЫЙ ШАГ: Создать imagePullSecret для GHCR (с созданием namespace)
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "🔐 Creating imagePullSecret for ghcr.io..."
     
-          # 🔥 Сначала гарантируем, что namespace существует
+          # Сначала гарантируем, что namespace существует
           kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply -f -
     
           # Теперь создаём секрет
@@ -598,7 +598,7 @@ jobs:
     
           echo "✅ imagePullSecret created/updated"
 
-      # 🔥 НОВЫЙ ШАГ: Создать ServiceAccount если не существует
+      # НОВЫЙ ШАГ: Создать ServiceAccount если не существует
       - name: Ensure service account exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -614,12 +614,12 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f - || true
           echo "✅ ServiceAccount ready"
 
-      # 🔥 НОВЫЙ ШАГ: Создать ConfigMap init-sql если файл есть
+      # НОВЫЙ ШАГ: Создать ConfigMap init-sql если файл есть
       - name: Apply init-sql configmap if exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           if [ -f "configs/k8s/init-sql.yaml" ]; then
-            echo "📄 Applying init-sql ConfigMap..."
+            echo "Applying init-sql ConfigMap..."
             kubectl apply -f configs/k8s/init-sql.yaml -n fitness-platform-staging
             echo "✅ init-sql ConfigMap applied"
           else
@@ -631,39 +631,23 @@ jobs:
         run: |
           SHA=$(git rev-parse --short HEAD)
           echo "🏷️ Updating image tags to :$SHA"
-          find configs/k8s/deployments -name "*.yaml" -exec sed -i "s|:latest|:$SHA|g" {} \;
-
-      - name: Deploy infrastructure (staging namespace)
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "🚀 Deploying infrastructure..."
-          # Namespace уже создан выше, просто применяем манифесты
-          kubectl apply --validate=false -f configs/k8s/namespace.yaml || true
-          kubectl apply --validate=false -f configs/k8s/configmap.yaml -n fitness-platform-staging || true
-          kubectl apply --validate=false -f configs/k8s/deployments/postgres.yaml -n fitness-platform-staging
-          kubectl apply --validate=false -f configs/k8s/deployments/redis.yaml -n fitness-platform-staging
-          kubectl apply --validate=false -f configs/k8s/deployments/rabbitmq.yaml -n fitness-platform-staging
-          echo "⏳ Waiting for postgres to be ready (up to 300s)..."
-          kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-staging --timeout=300s || echo "⚠️ Postgres not ready yet"
-
-      - name: Deploy application services (staging)
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "🚀 Deploying application services..."
-          for f in configs/k8s/deployments/{user-service,biometric-service,training-service,gateway,ml-classifier,ml-generator}.yaml; do
-            if [ -f "$f" ]; then
-              echo "→ Applying $f"
-              kubectl apply --validate=false -f "$f" -n fitness-platform-staging
-            fi
+          cd configs/k8s/overlays/staging
+          for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
+            kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
-          kubectl apply --validate=false -f configs/k8s/services/ -n fitness-platform-staging || true
-          kubectl apply --validate=false -f configs/k8s/nginx-lb.yaml -n fitness-platform-staging || true
 
-      # 🔥 НОВЫЙ ШАГ: Отладка подов после деплоя
+      - name: Deploy staging with Kustomize
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "🚀 Applying staging overlay with Kustomize..."
+          cd configs/k8s/overlays/staging
+          kustomize build . | kubectl apply --validate=false -f -
+
+      # НОВЫЙ ШАГ: Отладка подов после деплоя
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "🔍 Checking pod status..."
+          echo "Checking pod status..."
           kubectl get pods -n fitness-platform-staging -o wide || true
           echo "Events for failing pods (if any):"
           kubectl get pods -n fitness-platform-staging --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-staging 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
@@ -754,23 +738,11 @@ jobs:
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
             --dry-run=client -o yaml | kubectl apply -f -
-      - name: Deploy infrastructure (production)
+      - name: Deploy production with Kustomize
         run: |
-          kubectl apply -f configs/k8s/pvc.yaml -n fitness-platform-production || true
-          kubectl apply -f configs/k8s/deployments/postgres.yaml -n fitness-platform-production
-          kubectl apply -f configs/k8s/deployments/redis.yaml -n fitness-platform-production
-          kubectl apply -f configs/k8s/deployments/rabbitmq.yaml -n fitness-platform-production
-          kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-production --timeout=300s || true
-      - name: Deploy application services (production)
-        run: |
-          for f in configs/k8s/deployments/{user-service,biometric-service,training-service,gateway,ml-classifier,ml-generator}.yaml; do
-            [ -f "$f" ] && kubectl apply -f "$f" -n fitness-platform-production
-          done
-          kubectl apply -f configs/k8s/services/ -n fitness-platform-production || true
-          kubectl apply -f configs/k8s/nginx-lb.yaml -n fitness-platform-production || true
-          kubectl apply -f configs/k8s/network-policies.yaml -n fitness-platform-production || true
-          kubectl apply -f configs/k8s/hpa.yaml -n fitness-platform-production || true
-          kubectl apply -f configs/k8s/pdb.yaml -n fitness-platform-production || true
+          echo "🚀 Applying production overlay with Kustomize..."
+          cd configs/k8s/overlays/production
+          kustomize build . | kubectl apply --validate=false -f -
       - name: Verify production deployment
         run: |
           kubectl get pods -n fitness-platform-production
@@ -866,7 +838,7 @@ jobs:
           format: html
           disable_web_page_preview: true
           message: |
-            <b>🚀 CI/CD — ${{ steps.statuses.outputs.overall }}</b>
+            <b>CI/CD — ${{ steps.statuses.outputs.overall }}</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
 
@@ -880,4 +852,4 @@ jobs:
             ${{ steps.statuses.outputs.e2e }} E2E Tests
             ${{ steps.statuses.outputs.prod }} Deploy Production
 
-            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔗 Открыть запуск</a>
+            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>

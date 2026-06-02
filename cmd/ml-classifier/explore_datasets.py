@@ -26,7 +26,7 @@ class DatasetExplorer:
     
     def explore_all(self):
         print("=" * 80)
-        print("🔍 DATASET EXPLORATION — ЧЕРЕЗ СИМЛИНКИ")
+        print("DATASET EXPLORATION — ЧЕРЕЗ СИМЛИНКИ")
         print("=" * 80)
         print(f"Raw data directory: {self.raw_data_dir}")
         print(f"Directory exists: {os.path.exists(self.raw_data_dir)}")
@@ -41,7 +41,7 @@ class DatasetExplorer:
             if os.path.isdir(item_path):
                 available_folders.append(item)
         
-        print(f"\n📁 НАЙДЕНО {len(available_folders)} папок через симлинки:")
+        print(f"\nНАЙДЕНО {len(available_folders)} папок через симлинки:")
         for folder in sorted(available_folders):
             print(f"  • {folder}")
         
@@ -58,7 +58,7 @@ class DatasetExplorer:
         for folder in folders:
             folder_path = os.path.join(self.raw_data_dir, folder)
             print(f"\n{'=' * 80}")
-            print(f"📁 {folder.upper()}")
+            print(f"{folder.upper()}")
             print(f"{'=' * 80}")
             
             dataset_info = {
@@ -129,7 +129,7 @@ class DatasetExplorer:
         numerics = [f for f in files if 'Numerics.csv' in f]
         info['subjects'] = len(numerics)
         info['files'] = numerics[:5]
-        print(f"📊 BIDMC: {len(numerics)} субъектов (Numerics файлы)")
+        print(f"BIDMC: {len(numerics)} субъектов (Numerics файлы)")
         
         if numerics:
             sample = os.path.join(path, numerics[0])
@@ -141,7 +141,7 @@ class DatasetExplorer:
         """WESAD: S2, S3... с .pkl"""
         subjects = [d for d in os.listdir(path) if d.startswith('S') and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 WESAD: {len(subjects)} субъектов")
+        print(f"WESAD: {len(subjects)} субъектов")
         
         if subjects:
             subj_path = os.path.join(path, subjects[0])
@@ -161,7 +161,7 @@ class DatasetExplorer:
         """SPD: S01-S35 с CSV"""
         subjects = [d for d in os.listdir(path) if d.startswith('S') and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 SPD: {len(subjects)} субъектов")
+        print(f"SPD: {len(subjects)} субъектов")
         
         if subjects:
             subj_path = os.path.join(path, subjects[0])
@@ -174,7 +174,7 @@ class DatasetExplorer:
         """WESD: S1-S10 с сессиями"""
         subjects = [d for d in os.listdir(path) if d.startswith('S') and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 WESD: {len(subjects)} субъектов")
+        print(f"WESD: {len(subjects)} субъектов")
         
         if subjects:
             subj_path = os.path.join(path, subjects[0])
@@ -192,7 +192,7 @@ class DatasetExplorer:
         """CapnoBase: meta.csv, param.csv"""
         files = [f for f in os.listdir(path) if f.endswith(('.csv', '.tab'))]
         info['files'] = len(files)
-        print(f"📊 {name}: {len(files)} файлов")
+        print(f"{name}: {len(files)} файлов")
         
         if files:
             sample = os.path.join(path, files[0])
@@ -209,12 +209,12 @@ class DatasetExplorer:
     def _explore_ppg_dalia(self, path, info):
         subjects = [d for d in os.listdir(path) if d.startswith('S') and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 PPG DaLiA: {len(subjects)} субъектов")
+        print(f"PPG DaLiA: {len(subjects)} субъектов")
     
     def _explore_sleep_edf(self, path, info):
         records = [f for f in os.listdir(path) if f.endswith('.rec')]
         info['records'] = len(records)
-        print(f"📊 Sleep EDF: {len(records)} записей")
+        print(f"Sleep EDF: {len(records)} записей")
     
     def _explore_stress_nurses(self, path, info):
         subjects = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
@@ -224,50 +224,50 @@ class DatasetExplorer:
             zips = [f for f in os.listdir(os.path.join(path, subj)) if f.endswith('.zip')]
             total_zips += len(zips)
         info['samples'] = total_zips
-        print(f"📊 Stress Nurses: {len(subjects)} субъектов, {total_zips} сэмплов")
+        print(f"Stress Nurses: {len(subjects)} субъектов, {total_zips} сэмплов")
     
     def _explore_e4selflearning(self, path, info):
         wearable_path = os.path.join(path, 'class_wearable_data')
         if os.path.exists(wearable_path):
             classes = [d for d in os.listdir(wearable_path) if os.path.isdir(os.path.join(wearable_path, d))]
             info['participants'] = len(classes)
-            print(f"📊 E4 Self-Learning: {len(classes)} классов")
+            print(f"E4 Self-Learning: {len(classes)} классов")
     
     def _explore_big_ideas_lab(self, path, info):
         subjects = [d for d in os.listdir(path) if d.isdigit() and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 Big Ideas Lab: {len(subjects)} субъектов")
+        print(f"Big Ideas Lab: {len(subjects)} субъектов")
     
     def _explore_adarp(self, path, info):
         parts = [d for d in os.listdir(path) if d.startswith('Part') and os.path.isdir(os.path.join(path, d))]
         info['parts'] = len(parts)
-        print(f"📊 ADARP: {len(parts)} частей")
+        print(f"ADARP: {len(parts)} частей")
     
     def _explore_weee(self, path, info):
         subjects = [d for d in os.listdir(path) if d.startswith('P') and os.path.isdir(os.path.join(path, d))]
         info['subjects'] = len(subjects)
-        print(f"📊 WEEE: {len(subjects)} субъектов")
+        print(f"WEEE: {len(subjects)} субъектов")
     
     def _explore_toadstool(self, path, info):
         participants_path = os.path.join(path, 'participants')
         if os.path.exists(participants_path):
             participants = [d for d in os.listdir(participants_path) if d.startswith('participant_')]
             info['participants'] = len(participants)
-            print(f"📊 Toadstool: {len(participants)} участников")
+            print(f"Toadstool: {len(participants)} участников")
     
     def _explore_ue4w(self, path, info):
         sessions = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
         info['sessions'] = len(sessions)
-        print(f"📊 UE4W: {len(sessions)} сессий")
+        print(f"UE4W: {len(sessions)} сессий")
     
     def _explore_csl(self, path, info):
         files = [f for f in os.listdir(path) if f.endswith('.mat')]
         info['files'] = len(files)
-        print(f"📊 CSL: {len(files)} MAT файлов")
+        print(f"CSL: {len(files)} MAT файлов")
     
     def generate_summary(self):
         print(f"\n{'=' * 80}")
-        print("📊 SUMMARY")
+        print("SUMMARY")
         print(f"{'=' * 80}")
         
         total_datasets = len(self.report['datasets'])
@@ -318,7 +318,7 @@ class DatasetExplorer:
         
         df = pd.DataFrame(summary_data)
         df.to_csv(f'{OUTPUT_DIR}/dataset_summary.csv', index=False)
-        print(f"📊 CSV: {OUTPUT_DIR}/dataset_summary.csv")
+        print(f"CSV: {OUTPUT_DIR}/dataset_summary.csv")
 
 
 def main():
