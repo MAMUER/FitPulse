@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+  K8S_PODS_PER_SERVICE: "5+ (HPA: min=2, max=10)"
+  POSTGRESQL_TOPOLOGY: "1 primary + replicas"
+  REDIS_TOPOLOGY: "Cluster mode"
+  GPU_RESOURCES: "NVIDIA A10 (ML inference)"
+  MONITORING_STACK: "Полный + on-call ротация + PagerDuty"
+  BACKUP_STRATEGY: "Каждые 6 часов (WAL) + PITR"
+  SSL_TLS: "Corporate CA + HSM"
+  ACCESS_CONTROL: "2FA + IP whitelist + Hardware token"
+  POSTGRES_USER: "fitness_prod"
+  POSTGRES_DB: "fitness_prod"
+  RABBITMQ_DEFAULT_USER: "fitness_prod"
+  READINESS_ENABLED: "true"

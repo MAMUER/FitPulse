@@ -1,19 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: gateway-canary-ingress
+  name: gateway-ingress
   annotations:
-    nginx.ingress.kubernetes.io/canary: "true"
-    nginx.ingress.kubernetes.io/canary-weight: "10"
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-  - host: fitness-platform.local
+  - host: fitness-platform.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: gateway-canary-service
+            name: gateway-service
             port:
               number: 8080

@@ -18,6 +18,9 @@ spec:
         fsGroup: 999
         runAsNonRoot: true
       terminationGracePeriodSeconds: 60
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
       containers:
       - name: postgres
         image: postgres:15-alpine

@@ -19,6 +19,8 @@ spec:
         component: device-connector
     spec:
       serviceAccountName: app-service-account
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

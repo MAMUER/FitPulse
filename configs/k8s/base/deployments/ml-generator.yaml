@@ -15,6 +15,9 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
       containers:
       - name: ml-generator
         image: ghcr.io/mamuer/project/ml-generator:latest

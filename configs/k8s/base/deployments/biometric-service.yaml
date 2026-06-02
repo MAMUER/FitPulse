@@ -11,11 +11,14 @@ spec:
     metadata:
       labels:
         app: biometric-service
-    spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-      containers:
+      spec:
+        serviceAccountName: app-service-account
+        imagePullSecrets:
+          - name: ghcr-pull-secret
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+        containers:
       - name: biometric-service
         image: ghcr.io/mamuer/project/biometric-service:latest
         imagePullPolicy: Always

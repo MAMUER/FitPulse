@@ -16,6 +16,8 @@ spec:
         app: rabbitmq
     spec:
       serviceAccountName: app-service-account
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       terminationGracePeriodSeconds: 60
       securityContext:
         runAsUser: 999

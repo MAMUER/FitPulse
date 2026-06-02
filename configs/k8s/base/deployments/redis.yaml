@@ -16,6 +16,8 @@ spec:
         app: redis
     spec:
       serviceAccountName: app-service-account
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsUser: 999
