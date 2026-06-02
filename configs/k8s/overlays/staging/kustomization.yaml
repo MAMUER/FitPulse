@@ -12,6 +12,7 @@ commonLabels:
 
 patches:
   - path: replicas-patch.yaml
+  - path: resources-patch.yaml
 
 images:
   - name: ghcr.io/mamuer/project/user-service

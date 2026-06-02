@@ -452,7 +452,7 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
@@ -663,8 +663,10 @@ jobs:
         run: |
           echo "✅ Verifying deployment..."
           kubectl get pods -n fitness-platform-staging
-          echo "⏳ Waiting for gateway to be ready (up to 120s)..."
-          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=120s || echo "Gateway not ready yet"
+          echo "⏳ Waiting for gateway to be ready (up to 300s)..."
+          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
+          # 🔥 Дополнительно: подождём, пока поды начнут скачивать образы
+          sleep 30
 
   # ─────────────────────────────────────────────────────────────
   # 6. E2E TESTS ON STAGING
