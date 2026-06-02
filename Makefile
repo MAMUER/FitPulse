@@ -82,10 +82,14 @@ yaml-check:
 # Проверка Docker файлов (кросс-платформенная)
 docker-lint:
 	@echo "Running hadolint..."
-	@for %%f in (cmd/*/Dockerfile) do @( \
-		echo "Linting %%f" && \
-		go run github.com/hadolint/hadolint/cmd/hadolint@latest < %%f || exit 0 \
-	)
+	@if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
+		for f in cmd/*/Dockerfile; do \
+			echo "Linting $$f"; \
+			cat "$$f" | docker run --rm -i hadolint/hadolint || true; \
+		done; \
+	else \
+		echo "⚠️ Docker unavailable, skipping docker-lint"; \
+	fi
 	@echo "Docker lint complete."
 
 # Запуск integration тестов
