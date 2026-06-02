@@ -441,7 +441,7 @@ jobs:
             rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
             rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
             systemctl daemon-reload
-            echo "✅ Cleanup done"
+            echo "Cleanup done"
           '
 
       # Step 2: Prepare k3s config
@@ -452,12 +452,12 @@ jobs:
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
-            echo "✅ Directory /etc/rancher/k3s created"
+            echo "Directory /etc/rancher/k3s created"
           '
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "✅ Config written:"
+            echo "Config written:"
             cat /etc/rancher/k3s/config.yaml
           '
 
@@ -468,7 +468,7 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Installing k3s..."
             curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--docker" sh -s - server --write-kubeconfig-mode 644
-            echo "✅ k3s installed"
+            echo "k3s installed"
           '
 
       # Step 4: Start and verify k3s
@@ -483,7 +483,7 @@ jobs:
             echo "-> Waiting for readiness..."
             for i in $(seq 1 120); do
               if k3s kubectl cluster-info &> /dev/null; then
-                echo "✅ k3s ready after ${i}s"
+                echo "k3s ready after ${i}s"
                 break
               fi
               [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
@@ -564,7 +564,7 @@ jobs:
         run: |
           echo "🔍 Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
           if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
-            echo "✅ Cluster reachable"
+            echo "Cluster reachable"
             echo "reachable=true" >> "$GITHUB_OUTPUT"
           else
             echo "❌ Cluster NOT reachable (timeout 10s)"
@@ -758,7 +758,7 @@ jobs:
           PROD="$(get_emoji '${{ needs.deploy-production.result }}')"
 
           if [[ "$PROD" == "✅" ]]; then
-            OVERALL="✅ УСПЕШНО"; STATUS="success"
+            OVERALL="УСПЕШНО"; STATUS="success"
           elif [[ "$PROD" == "❌" || "$STAGING" == "❌" ]]; then
             OVERALL="ОШИБКА ДЕПЛОЯ"; STATUS="failure"
           elif [[ "$DOCKER" == "❌" ]]; then
@@ -766,7 +766,7 @@ jobs:
           elif [[ "$E2E" == "❌" ]]; then
             OVERALL="ОШИБКА ТЕСТОВ"; STATUS="failure"
           else
-            OVERALL="✅ УСПЕШНО"; STATUS="success"
+            OVERALL="УСПЕШНО"; STATUS="success"
           fi
 
           {

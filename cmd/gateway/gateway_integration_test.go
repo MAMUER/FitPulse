@@ -100,5 +100,5 @@ func TestGateway_Integration_AuthMiddleware(t *testing.T) {
 	// Middleware returns 404 when no token (no route match in test setup)
 	require.Contains(t, []int{http.StatusUnauthorized, http.StatusNotFound}, rr2.Code)
 
-	t.Log("✅ Gateway AuthMiddleware integration test passed")
+	t.Log("Gateway AuthMiddleware integration test passed")
 }

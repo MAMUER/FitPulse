@@ -114,7 +114,7 @@ func TestTrainingService_Integration_GenerateAndCompletePlan(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, completeResp.Success)
 
-	t.Log("✅ Training service integration test passed: GeneratePlan → CompleteWorkout")
+	t.Log("Training service integration test passed: GeneratePlan → CompleteWorkout")
 }
 
 // mockPublisher для тестов

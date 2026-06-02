@@ -102,7 +102,7 @@ func TestDeviceConnector_Integration_RegisterAndIngest(t *testing.T) {
 	handler.ingestData(rr2, req2)
 	require.Equal(t, http.StatusOK, rr2.Code)
 
-	t.Log("✅ Device Connector integration test passed: Register → Ingest")
+	t.Log("Device Connector integration test passed: Register → Ingest")
 }
 
 // Простая структура handler'а для теста

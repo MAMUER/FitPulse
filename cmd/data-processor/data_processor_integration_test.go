@@ -55,5 +55,5 @@ func TestDataProcessor_Integration_DatabaseConnection(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, result)
 
-	t.Logf("✅ Data Processor successfully connected to PostgreSQL at %s:%s", host, port.Port())
+	t.Logf("Data Processor successfully connected to PostgreSQL at %s:%s", host, port.Port())
 }

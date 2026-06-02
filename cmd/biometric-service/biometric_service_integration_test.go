@@ -81,5 +81,5 @@ func TestBiometricService_Integration_AddAndGetRecords(t *testing.T) {
 	require.NotEmpty(t, addResp.Id)
 
 	// GetRecords path tested in unit tests; integration focuses on Add + DB write
-	t.Log("✅ Biometric Service integration test passed: AddRecord")
+	t.Log("Biometric Service integration test passed: AddRecord")
 }

@@ -121,7 +121,7 @@ func TestUserService_Integration_FullFlow(t *testing.T) {
 	_, err = server.UpdateProfile(ctx, updateReq)
 	require.NoError(t, err)
 
-	t.Log("✅ Full integration flow passed: Register → Login → GetProfile → UpdateProfile")
+	t.Log("Full integration flow passed: Register → Login → GetProfile → UpdateProfile")
 }
 
 // Вспомогательные функции
