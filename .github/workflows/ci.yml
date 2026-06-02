@@ -579,17 +579,23 @@ jobs:
             exit 1
           fi
 
-      # 🔥 НОВЫЙ ШАГ: Создать imagePullSecret для GHCR
+      # 🔥 НОВЫЙ ШАГ: Создать imagePullSecret для GHCR (с созданием namespace)
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "🔐 Creating imagePullSecret for ghcr.io..."
+    
+          # 🔥 Сначала гарантируем, что namespace существует
+          kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply -f -
+    
+          # Теперь создаём секрет
           kubectl create secret docker-registry ghcr-pull-secret \
             --docker-server=ghcr.io \
             --docker-username=${{ github.actor }} \
             --docker-password=${{ secrets.GHCR_TOKEN }} \
             -n fitness-platform-staging \
             --dry-run=client -o yaml | kubectl apply -f -
+    
           echo "✅ imagePullSecret created/updated"
 
       # 🔥 НОВЫЙ ШАГ: Создать ServiceAccount если не существует
@@ -631,14 +637,14 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "🚀 Deploying infrastructure..."
+          # Namespace уже создан выше, просто применяем манифесты
           kubectl apply --validate=false -f configs/k8s/namespace.yaml || true
-          kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply --validate=false -f -
           kubectl apply --validate=false -f configs/k8s/configmap.yaml -n fitness-platform-staging || true
           kubectl apply --validate=false -f configs/k8s/deployments/postgres.yaml -n fitness-platform-staging
           kubectl apply --validate=false -f configs/k8s/deployments/redis.yaml -n fitness-platform-staging
           kubectl apply --validate=false -f configs/k8s/deployments/rabbitmq.yaml -n fitness-platform-staging
           echo "⏳ Waiting for postgres to be ready (up to 300s)..."
-          kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-staging --timeout=300s || echo "Postgres not ready yet"
+          kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-staging --timeout=300s || echo "⚠️ Postgres not ready yet"
 
       - name: Deploy application services (staging)
         if: steps.connectivity.outputs.reachable == 'true'
