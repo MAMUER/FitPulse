@@ -1,4 +1,3 @@
-# .github/workflows/ci.yml
 name: CI/CD Pipeline
 
 on:
@@ -6,20 +5,38 @@ on:
     branches: [main, master, Microservice_arc]
     paths:
       - '.github/workflows/ci.yml'
+      - '.github/dependabot.yml'
       - 'go.mod'
       - 'go.sum'
-      - 'cmd/**/*.go'
+      - 'Makefile'
+      - 'api/**'
+      - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'
+      - 'configs/**'
+      - 'scripts/**'
+      - 'models/**'
+      - 'deployments/**'
+      - '.dockerignore'
+      - 'db/migrations/**'
   pull_request:
     branches: [main, master, Microservice_arc]
     paths:
       - '.github/workflows/ci.yml'
+      - '.github/dependabot.yml'
       - 'go.mod'
       - 'go.sum'
-      - 'cmd/**/*.go'
+      - 'Makefile'
+      - 'api/**'
+      - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'
+      - 'configs/**'
+      - 'scripts/**'
+      - 'models/**'
+      - 'deployments/**'
+      - '.dockerignore'
+      - 'db/migrations/**'
   schedule:
     - cron: '0 0 * * 1'
     - cron: '0 9 1 * *'
