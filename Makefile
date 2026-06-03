@@ -22,7 +22,7 @@ certs:
 	@echo "NOTE: These are self-signed — browsers will show a warning."
 
 BIN_DIR := bin
-GO_VERSION := 1.26.3
+GO_VERSION := 1.26.4
 
 # Зависимости
 tidy:
