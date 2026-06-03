@@ -13,10 +13,6 @@ import (
 )
 
 func TestDataProcessorMain_NoDatabase(t *testing.T) {
-	// Test that main doesn't panic when database is not available
-	// This should be fast since we don't have real connections
-
-	// Clear environment variables to simulate no database
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
 	oldUser := os.Getenv("DB_USER")
@@ -35,7 +31,6 @@ func TestDataProcessorMain_NoDatabase(t *testing.T) {
 		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
 	}()
 
-	// Set invalid database config
 	_ = os.Setenv("DB_HOST", "invalid-host")
 	_ = os.Setenv("DB_PORT", "invalid-port")
 	_ = os.Setenv("DB_USER", "invalid-user")
@@ -44,12 +39,7 @@ func TestDataProcessorMain_NoDatabase(t *testing.T) {
 	_ = os.Setenv("DB_SSLMODE", "invalid-ssl")
 	_ = os.Setenv("RABBITMQ_URL", "invalid-rabbit")
 
-	// This test verifies that main function can be called without panicking
-	// In a real scenario, we'd use a timeout or signal to stop the main function
-	// For now, just verify the function exists and can be called
 	assert.NotPanics(t, func() {
-		// We can't easily test main() directly since it runs forever
-		// So we test the setup logic that it uses
 
 		log := logger.New("test-data-processor")
 
@@ -62,25 +52,20 @@ func TestDataProcessorMain_NoDatabase(t *testing.T) {
 			SSLMode:  os.Getenv("DB_SSLMODE"),
 		}
 
-		// This should fail with invalid config
 		_, err := db.NewConnection(dbCfg)
 		assert.Error(t, err)
 
-		// Test RabbitMQ connection setup
 		rabbitURL := os.Getenv("RABBITMQ_URL")
 		assert.Equal(t, "invalid-rabbit", rabbitURL)
 
-		// If RabbitMQ URL is set, it should try to connect
 		if rabbitURL != "" {
 			_, err := queue.NewConsumer(rabbitURL, "test-queue", log.Logger)
-			assert.Error(t, err) // Should fail with invalid URL
+			assert.Error(t, err)
 		}
 	})
 }
 
 func TestDataProcessorMain_WithValidConfig(t *testing.T) {
-	// Test setup logic with valid-looking config
-	// Note: This won't actually connect since we don't have real services
 
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")

@@ -25,10 +25,9 @@ type biometricServer struct {
 	pb.UnimplementedBiometricServiceServer
 	db          *sql.DB
 	log         *logger.Logger
-	rabbitQueue queue.Publisher // ← ИНТЕРФЕЙС, не *queue.Publisher!
+	rabbitQueue queue.Publisher
 }
 
-// safeIntToInt32 safely converts int to int32
 func safeIntToInt32(v int) int32 {
 	if v > 2147483647 {
 		return 2147483647
@@ -46,8 +45,7 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		zap.Float64("value", req.Value),
 	)
 
-	// Валидация входных данных
-	if err := validator.ValidateBiometricRequest(req); err != nil { // ← Используем из пакета
+	if err := validator.ValidateBiometricRequest(req); err != nil {
 		s.log.Warn("Invalid biometric request", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -88,7 +86,6 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		return nil, status.Error(codes.InvalidArgument, "records cannot be empty")
 	}
 
-	// Валидируем КАЖДУЮ запись перед транзакцией
 	for i, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
 			return nil, status.Error(codes.Canceled, "request cancelled")
@@ -98,14 +95,12 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		}
 	}
 
-	// Начинаем транзакцию
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		s.log.Error("Failed to begin transaction", zap.Error(err))
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	defer func() {
-		// Rollback безопасен если транзакция уже закоммичена
 		_ = tx.Rollback()
 	}()
 
@@ -154,8 +149,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	from := req.From.AsTime()
 	to := req.To.AsTime()
 
-	// Use fixed parameter positions with COALESCE for optional filters
-	// This avoids SQL string concatenation while handling null time filters
 	var rows *sql.Rows
 	var err error
 	if from.IsZero() && to.IsZero() {
@@ -166,7 +159,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 			ORDER BY timestamp DESC LIMIT $3
 		`, req.UserId, req.MetricType, req.Limit)
 	} else if from.IsZero() {
-		// Only to filter
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 			FROM biometric_data
@@ -174,7 +166,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 			ORDER BY timestamp DESC LIMIT $4
 		`, req.UserId, req.MetricType, to, req.Limit)
 	} else if to.IsZero() {
-		// Only from filter
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 			FROM biometric_data
@@ -182,7 +173,6 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 			ORDER BY timestamp DESC LIMIT $4
 		`, req.UserId, req.MetricType, from, req.Limit)
 	} else {
-		// Both filters
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 			FROM biometric_data
@@ -289,7 +279,7 @@ func main() {
 
 	rabbitURL := os.Getenv("RABBITMQ_URL")
 	queueName := "biometric_events"
-	var rabbitQueue queue.Publisher // ← ИНТЕРФЕЙС
+	var rabbitQueue queue.Publisher
 	if rabbitURL != "" {
 		rabbitQueue, err = queue.NewPublisher(rabbitURL, queueName, log.Logger)
 		if err != nil {
@@ -309,7 +299,7 @@ func main() {
 	pb.RegisterBiometricServiceServer(grpcServer, &biometricServer{
 		db:          database,
 		log:         log,
-		rabbitQueue: rabbitQueue, // ← Передаём интерфейс
+		rabbitQueue: rabbitQueue,
 	})
 
 	log.Info("Biometric service starting", zap.String("port", port))

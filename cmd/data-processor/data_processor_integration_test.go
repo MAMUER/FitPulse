@@ -15,7 +15,6 @@ import (
 func TestDataProcessor_Integration_DatabaseConnection(t *testing.T) {
 	ctx := context.Background()
 
-	// Поднимаем PostgreSQL
 	pgContainer, err := postgres.Run(ctx, "postgres:15-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
@@ -34,7 +33,6 @@ func TestDataProcessor_Integration_DatabaseConnection(t *testing.T) {
 	host, _ := pgContainer.Host(ctx)
 	port, _ := pgContainer.MappedPort(ctx, "5432")
 
-	// Формируем конфигурацию
 	cfg := db.Config{
 		Host:     host,
 		Port:     port.Port(),
@@ -44,12 +42,10 @@ func TestDataProcessor_Integration_DatabaseConnection(t *testing.T) {
 		SSLMode:  "disable",
 	}
 
-	// Проверяем подключение
 	database, err := db.NewConnection(cfg)
 	require.NoError(t, err)
 	defer func() { _ = database.Close() }()
 
-	// Простая проверка — выполняем запрос
 	var result int
 	err = database.QueryRowContext(ctx, "SELECT 1").Scan(&result)
 	require.NoError(t, err)
