@@ -19,7 +19,6 @@ spec:
         prometheus.io/path: '/metrics'
     spec:
       securityContext:
-        runAsNonRoot: true
         runAsUser: 1001
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -29,7 +28,6 @@ spec:
         image: ghcr.io/mamuer/project/gateway:latest
         imagePullPolicy: Always
         securityContext:
-          runAsNonRoot: true
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:

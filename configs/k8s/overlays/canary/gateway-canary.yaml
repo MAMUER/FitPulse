@@ -13,14 +13,14 @@ spec:
         app: gateway-canary
     spec:
       securityContext:
-        runAsNonRoot: true
+        
         runAsUser: 1001
       containers:
       - name: gateway
         image: ghcr.io/mamuer/project/gateway:canary
         imagePullPolicy: Always
         securityContext:
-          runAsNonRoot: true
+          
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:

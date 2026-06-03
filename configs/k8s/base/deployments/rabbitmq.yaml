@@ -23,7 +23,7 @@ spec:
       securityContext:
         runAsUser: 999
         fsGroup: 999
-        runAsNonRoot: true
+        
       containers:
       - name: rabbitmq
         image: rabbitmq:3.13-management-alpine
