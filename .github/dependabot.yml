@@ -1,154 +1,222 @@
 version: 2
 # Чеклист для поддержания безопасности
 # Раз в месяц: go get -u ./... && go mod tidy
-# Раз в квартал: govulncheck ./... с флагом -show verbose
-# При добавлении новых зависимостей: проверять их через go dev audit или osv-scanner
+# Раз в квартал: govulncheck ./... -show verbose
+# При добавлении новых зависимостей: проверять через osv-scanner
+
+# Глобальные настройки
+
+
 updates:
-  # Go модули
+  # ═══════════════════════════════════════════════════════════════
+  # 1. GO МОДУЛИ (основной backend)
+  # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+      timezone: "Europe/Moscow"
     open-pull-requests-limit: 10
     commit-message:
       prefix: "deps(go)"
       include: "scope"
-
+    labels:
+      - "dependencies"
+      - "go"
+      - "automated"
+    assignees:
+      - "MAMUER"  # ← Замените на ваш GitHub username
     groups:
+      # Группируем minor/patch обновления в один PR
       go-dependencies:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+      # Major обновления — отдельными PR (требуют внимания)
+      go-major-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
-  # GitHub Actions
+  # ═══════════════════════════════════════════════════════════════
+  # 2. GITHUB ACTIONS (CI/CD)
+  # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+      timezone: "Europe/Moscow"
     open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
       include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci-cd"
+      - "automated"
+    assignees:
+      - "MAMUER"
+    groups:
+      # Все обновления actions в один PR
+      actions-updates:
+        patterns:
+          - "*"
 
-  # Docker (обязательно для вашего проекта)
-  # gateway
+  # ═══════════════════════════════════════════════════════════════
+  # 3. DOCKER — Go-сервисы
+  # ═══════════════════════════════════════════════════════════════
+  # Шаблон для всех Go-сервисов (одинаковая конфигурация)
   - package-ecosystem: "docker"
     directory: "/cmd/gateway"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/gateway)", include: "scope" }
+    labels: ["dependencies", "docker", "gateway"]
+    assignees: ["MAMUER"]
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
 
-  # user-service
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/user-service)", include: "scope" }
+    labels: ["dependencies", "docker", "user-service"]
+    assignees: ["MAMUER"]
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
 
-  # device-emulator
-  - package-ecosystem: "docker"
-    directory: "/cmd/device-emulator"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
-
-  # training-service
-  - package-ecosystem: "docker"
-    directory: "/cmd/training-service"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
-
-  # device-connector
-  - package-ecosystem: "docker"
-    directory: "/cmd/device-connector"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
-
-  # biometric-service
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/biometric-service)", include: "scope" }
+    labels: ["dependencies", "docker", "biometric-service"]
+    assignees: ["MAMUER"]
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
 
-  # ml-classifier
+  - package-ecosystem: "docker"
+    directory: "/cmd/training-service"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/training-service)", include: "scope" }
+    labels: ["dependencies", "docker", "training-service"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "docker"
+    directory: "/cmd/device-connector"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/device-connector)", include: "scope" }
+    labels: ["dependencies", "docker", "device-connector"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "docker"
+    directory: "/cmd/device-emulator"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/device-emulator)", include: "scope" }
+    labels: ["dependencies", "docker", "device-emulator"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 4. PYTHON (pip) — ML-сервисы
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "pip"
+    directory: "/cmd/ml-classifier"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "deps(pip/ml-classifier)", include: "scope" }
+    labels: ["dependencies", "python", "ml-classifier"]
+    assignees: ["MAMUER"]
+    # Критические ML-библиотеки обновляем осторожно
+    ignore:
+      - dependency-name: "tensorflow"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "keras"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "scikit-learn"
+        update-types: ["version-update:semver-major"]
+    groups:
+      ml-dependencies:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "pydantic"
+          - "pandas"
+          - "matplotlib"
+          - "redis"
+          - "pika"
+
+  - package-ecosystem: "pip"
+    directory: "/cmd/ml-generator"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
+    labels: ["dependencies", "python", "ml-generator"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "tensorflow"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "keras"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
+    groups:
+      ml-dependencies:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "pydantic"
+          - "pandas"
+          - "matplotlib"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 5. DOCKER — ML-сервисы (Python-образы)
+  # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/cmd/ml-classifier"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/ml-classifier)", include: "scope" }
+    labels: ["dependencies", "docker", "ml-classifier"]
+    assignees: ["MAMUER"]
     ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "python"
-        versions: [">=3.13"]
+        update-types: ["version-update:semver-major"]
+        versions: [">=3.13"]  # TensorFlow может не поддерживать 3.13+
 
-  # ml-generator
   - package-ecosystem: "docker"
     directory: "/cmd/ml-generator"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(docker)"
-      include: "scope"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
+    labels: ["dependencies", "docker", "ml-generator"]
+    assignees: ["MAMUER"]
     ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
         versions: [">=3.13"]
