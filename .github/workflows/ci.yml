@@ -45,7 +45,7 @@ permissions:
   actions: read
 
 env:
-  GO_VERSION: "1.26.3"
+  GO_VERSION: "1.26.4"
   REGISTRY: ghcr.io
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
