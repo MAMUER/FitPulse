@@ -313,7 +313,7 @@ class DatasetExplorer:
             summary_data.append({
                 'dataset': name,
                 'subjects': info.get('subjects', info.get('participants', info.get('records', info.get('files', 0)))),
-                'accessible': '✅' if info.get('subjects', info.get('files', 0)) > 0 else 'no'
+                'accessible': 'yes' if info.get('subjects', info.get('files', 0)) > 0 else 'no'
             })
         
         df = pd.DataFrame(summary_data)

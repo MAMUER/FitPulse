@@ -98,7 +98,7 @@ const AppModules = (() => {
                 const btn = document.getElementById('connectDeviceBtn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳ Подключение...';
+                    btn.textContent = 'Подключение...';
                 }
                 try {
                     const profile = await getProfile();

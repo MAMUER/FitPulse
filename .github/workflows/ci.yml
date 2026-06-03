@@ -247,7 +247,7 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\": \"${TG_CHAT_ID}\", \"text\": \"🚨 <b>Secrets detected!</b>\nRepo: ${{ github.repository }}\nRun: <a href='${RUN_URL}'>Details</a>\", \"parse_mode\": \"HTML\"}"
+            -d "{\"chat_id\": \"${TG_CHAT_ID}\", \"text\": \"<b>Secrets detected!</b>\nRepo: ${{ github.repository }}\nRun: <a href='${RUN_URL}'>Details</a>\", \"parse_mode\": \"HTML\"}"
 
   check:
     name: Make Check (Lint + Test)
@@ -591,7 +591,7 @@ jobs:
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "🔐 Creating imagePullSecret for ghcr.io..."
+          echo "Creating imagePullSecret for ghcr.io..."
     
           # Сначала гарантируем, что namespace существует
           kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply -f -
@@ -610,7 +610,7 @@ jobs:
       - name: Ensure service account exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "👤 Checking service account app-service-account..."
+          echo "Checking service account app-service-account..."
           kubectl create serviceaccount app-service-account \
             -n fitness-platform-staging \
             --dry-run=client -o yaml | kubectl apply -f -
@@ -638,7 +638,7 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           SHA=$(git rev-parse --short HEAD)
-          echo "🏷️ Updating image tags to :$SHA"
+          echo "Updating image tags to :$SHA"
           cd configs/k8s/overlays/staging
           for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
@@ -647,7 +647,7 @@ jobs:
       - name: Apply staging overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "🚀 Applying staging overlay with Kustomize..."
+          echo "Applying staging overlay with Kustomize..."
           cd configs/k8s/overlays/staging
           
           if kustomize build . | kubectl apply --validate=false -f -; then
@@ -671,9 +671,9 @@ jobs:
         run: |
           echo "Verifying deployment..."
           kubectl get pods -n fitness-platform-staging
-          echo "⏳ Waiting for gateway to be ready (up to 300s)..."
+          echo "Waiting for gateway to be ready (up to 300s)..."
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
-          # 🔥 Дополнительно: подождём, пока поды начнут скачивать образы
+          # Дополнительно: подождём, пока поды начнут скачивать образы
           sleep 30
 
   # ─────────────────────────────────────────────────────────────
@@ -756,7 +756,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
       - name: Deploy production with Kustomize
         run: |
-          echo "🚀 Applying production overlay with Kustomize..."
+          echo "Applying production overlay with Kustomize..."
           cd configs/k8s/overlays/production
           kustomize build . | kubectl apply --validate=false -f -
       - name: Verify production deployment
