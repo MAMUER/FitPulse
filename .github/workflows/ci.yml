@@ -579,16 +579,11 @@ jobs:
             exit 1
           fi
 
-      # НОВЫЙ ШАГ: Создать imagePullSecret для GHCR (с созданием namespace)
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Creating imagePullSecret for ghcr.io..."
-    
-          # Сначала гарантируем, что namespace существует
           kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply -f -
-    
-          # Теперь создаём секрет
           kubectl create secret docker-registry ghcr-pull-secret \
             --docker-server=ghcr.io \
             --docker-username=${{ github.actor }} \
@@ -598,7 +593,6 @@ jobs:
     
           echo "imagePullSecret created/updated"
 
-      # НОВЫЙ ШАГ: Создать ServiceAccount если не существует
       - name: Ensure service account exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -606,15 +600,12 @@ jobs:
           kubectl create serviceaccount app-service-account \
             -n fitness-platform-staging \
             --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Добавить права (опционально, настройте под свои нужды)
           kubectl create clusterrolebinding app-service-account-binding \
             --clusterrole=edit \
             --serviceaccount=fitness-platform-staging:app-service-account \
             --dry-run=client -o yaml | kubectl apply -f - || true
           echo "ServiceAccount ready"
 
-      # Добавьте этот шаг после "Ensure service account exists"
       - name: Create staging secrets
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -662,7 +653,6 @@ jobs:
             exit 1
           fi
 
-      # НОВЫЙ ШАГ: Отладка подов после деплоя
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -678,7 +668,6 @@ jobs:
           kubectl get pods -n fitness-platform-staging
           echo "Waiting for gateway to be ready (up to 300s)..."
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
-          # Дополнительно: подождём, пока поды начнут скачивать образы
           sleep 30
 
   # ─────────────────────────────────────────────────────────────
