@@ -702,8 +702,8 @@ func TestBiometricServer_AddRecord_DeviceTypeValidation(t *testing.T) {
 		{"valid samsung_galaxy_watch", "samsung_galaxy_watch", false},
 		{"valid huawei_watch_d2", "huawei_watch_d2", false},
 		{"valid amazfit_trex3", "amazfit_trex3", false},
-		{"invalid empty", "", false},                 
-		{"invalid unknown", "unknown_device", false}, 
+		{"invalid empty", "", false},
+		{"invalid unknown", "unknown_device", false},
 	}
 
 	for _, tt := range tests {
@@ -747,7 +747,7 @@ func TestBiometricServer_GetRecords_LargeLimit(t *testing.T) {
 
 	now := time.Now()
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`)).
-		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(2000)). 
+		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(2000)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
 
 	resp, err := srv.GetRecords(context.Background(), &pb.GetRecordsRequest{
@@ -755,7 +755,7 @@ func TestBiometricServer_GetRecords_LargeLimit(t *testing.T) {
 		MetricType: "heart_rate",
 		From:       timestamppb.New(now.Add(-24 * time.Hour)),
 		To:         timestamppb.New(now),
-		Limit:      2000, 
+		Limit:      2000,
 	})
 
 	assert.NoError(t, err)
@@ -806,7 +806,7 @@ func TestBiometricServer_GetRecords_TimeRangeEdgeCases(t *testing.T) {
 	}{
 		{"valid range", timestamppb.New(time.Now().Add(-24 * time.Hour)), timestamppb.New(time.Now()), false},
 		{"from after to", timestamppb.New(time.Now()), timestamppb.New(time.Now().Add(-24 * time.Hour)), true},
-		{"future from", timestamppb.New(time.Now().Add(24 * time.Hour)), timestamppb.New(time.Now().Add(48 * time.Hour)), false}, 
+		{"future from", timestamppb.New(time.Now().Add(24 * time.Hour)), timestamppb.New(time.Now().Add(48 * time.Hour)), false},
 		{"very old dates", timestamppb.New(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)), timestamppb.New(time.Now()), false},
 	}
 
