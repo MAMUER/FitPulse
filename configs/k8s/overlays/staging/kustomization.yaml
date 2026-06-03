@@ -7,8 +7,9 @@ resources:
 
 namespace: fitness-platform-staging
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging
 
 patches:
   - path: replicas-patch.yaml

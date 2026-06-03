@@ -9,8 +9,9 @@ resources:
 
 namespace: fitness-platform-production
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production
 
 patches:
   - path: configmap-patch.yaml
