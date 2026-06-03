@@ -1,9 +1,8 @@
-# cmd/ml-generator/requirements.txt
-tensorflow>=2.21.0
-keras>=3.14.1
-numpy>=1.26.4
-pandas>=3.0.3
-uvicorn>=0.48.0
-fastapi>=0.136.3
-pydantic>=2.13.4
-python-multipart>=0.0.30
+tensorflow>=2.15.0
+keras>=3.0.0
+numpy>=1.26.0,<2.2.0      
+pandas>=2.0.0
+uvicorn>=0.29.0
+fastapi>=0.110.0
+pydantic>=2.7.0
+python-multipart>=0.0.9
