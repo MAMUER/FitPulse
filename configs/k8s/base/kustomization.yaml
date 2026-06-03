@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - resource-quota.yaml
-  - pvc.yaml
   - configmap.yaml
   - init-sql.yaml
   - serviceaccount.yaml

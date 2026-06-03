@@ -56,7 +56,6 @@ spec:
             cpu: "500m"
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
         livenessProbe:
           tcpSocket:
             port: 5672
