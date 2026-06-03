@@ -102,7 +102,11 @@ spec:
     - protocol: TCP
       port: 5672  # RabbitMQ
   egress:
-  - to: []  # No outbound traffic from data zone
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
 
 ---
 # Monitoring zone - ELK, Prometheus, Grafana

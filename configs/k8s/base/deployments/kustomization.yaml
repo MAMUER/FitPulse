@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   - postgres.yaml
   - redis.yaml
-  - rabbitmq.yaml
+  - rabbitmq-statefulset.yaml
   - user-service.yaml
   - biometric-service.yaml
   - training-service.yaml

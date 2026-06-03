@@ -622,7 +622,20 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f - || true
           echo "ServiceAccount ready"
 
-      # НОВЫЙ ШАГ: Создать ConfigMap init-sql если файл есть
+      # Добавьте этот шаг после "Ensure service account exists"
+      - name: Create staging secrets
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "🔐 Creating app-secrets..."
+          kubectl create secret generic app-secrets -n fitness-platform-staging \
+            --from-literal=POSTGRES_USER=fitness_admin \
+            --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
+            --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
+            --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "✅ app-secrets created"
       - name: Apply init-sql configmap if exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |

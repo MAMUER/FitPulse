@@ -7,7 +7,6 @@ metadata:
     nginx.ingress.kubernetes.io/canary-weight: "10"
 spec:
   rules:
-  - host: fitness-platform.local
     http:
       paths:
       - path: /

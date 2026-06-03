@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
+  labels:
+    app: postgres
+    zone: data-zone
 spec:
   serviceName: postgres
   replicas: 1
@@ -14,8 +17,9 @@ spec:
         app: postgres
     spec:
       securityContext:
-        runAsUser: 999
-        fsGroup: 999
+        fsGroup: 999        # ← ДОБАВИТЬ: UID пользователя postgres в контейнере
+        runAsUser: 999      # ← Опционально
+        runAsGroup: 999
         runAsNonRoot: true
       terminationGracePeriodSeconds: 60
       imagePullSecrets:

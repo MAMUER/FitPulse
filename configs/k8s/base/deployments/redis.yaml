@@ -5,6 +5,7 @@ metadata:
   labels:
     app: redis
     tier: infrastructure
+    zone: data-zone
 spec:
   replicas: 1
   selector:

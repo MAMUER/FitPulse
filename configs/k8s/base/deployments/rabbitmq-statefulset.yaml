@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: rabbitmq
   labels:
@@ -7,6 +7,7 @@ metadata:
     tier: infrastructure
     zone: data-zone
 spec:
+  serviceName: rabbitmq
   replicas: 1
   selector:
     matchLabels:
@@ -15,6 +16,8 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+        tier: infrastructure
+        zone: data-zone
     spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
@@ -66,3 +69,11 @@ spec:
             port: 5672
           initialDelaySeconds: 10
           periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 2Gi
