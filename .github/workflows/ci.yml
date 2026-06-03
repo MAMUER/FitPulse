@@ -192,18 +192,25 @@ jobs:
       - name: Run govulncheck
         continue-on-error: true
         run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.3.0
       - name: Run Trivy config scan
         continue-on-error: true
-        run: trivy config --severity CRITICAL,HIGH --quiet . --skip-dirs configs/k8s/overlays/staging
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+          skip-dirs: 'configs/k8s/overlays/staging'
+
       - name: Run Trivy filesystem scan
         id: trivy-fs
-        run: |
-          mkdir -p sarif-results
-          trivy fs --scanners vuln --severity CRITICAL,HIGH --format sarif \
-            --output sarif-results/trivy-fs.sarif \
-            .
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scanners: 'vuln'
+          severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'sarif-results/trivy-fs.sarif'
+          exit-code: '0'
       - name: Upload Trivy results
         if: always()
         uses: github/codeql-action/upload-sarif@v4
