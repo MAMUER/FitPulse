@@ -1,9 +1,3 @@
-# ==========================================
-# Fitness Platform - Docker Ignore
-# ==========================================
-# Исключает файлы из Docker build context.
-# НЕ влияет на ML-сервисы (у них свой .dockerignore).
-
 # Git
 .git
 .gitignore
@@ -36,8 +30,6 @@ logs/
 !.env.example
 
 # ML models и датасеты — большие файлы
-# models/ НЕ исключён из корневого .dockerignore, т.к. ML Dockerfile
-# нуждается в COPY models/. CI пропускает ML-сборку если файлов нет.
 datasets/
 
 # Documentation

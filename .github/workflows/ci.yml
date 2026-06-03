@@ -440,7 +440,6 @@ jobs:
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
 
-      # Step 1: Clean up old k3s
       - name: Clean up old k3s (safe)
         run: |
           # shellcheck disable=SC2016
@@ -455,8 +454,6 @@ jobs:
             systemctl daemon-reload
             echo "Cleanup done"
           '
-
-      # Step 2: Prepare k3s config
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
@@ -472,8 +469,6 @@ jobs:
             echo "Config written:"
             cat /etc/rancher/k3s/config.yaml
           '
-
-      # Step 3: Install k3s
       - name: Install k3s with Docker runtime
         run: |
           # shellcheck disable=SC2016
@@ -483,7 +478,6 @@ jobs:
             echo "k3s installed"
           '
 
-      # Step 4: Start and verify k3s
       - name: Start and verify k3s
         run: |
           # shellcheck disable=SC2016
@@ -508,8 +502,6 @@ jobs:
             echo "=== Docker check ==="
             docker ps --format "table {{.Names}}\t{{.Status}}" | head -5 || true
           '
-
-      # Step 5: Download and fix kubeconfig
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
