@@ -193,7 +193,7 @@ jobs:
         continue-on-error: true
         run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
       - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.6
+        uses: aquasecurity/setup-trivy@v0.3.0
       - name: Run Trivy config scan
         continue-on-error: true
         run: trivy config --severity CRITICAL,HIGH --quiet . --skip-dirs configs/k8s/overlays/staging
