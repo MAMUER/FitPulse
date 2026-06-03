@@ -57,8 +57,6 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
         livenessProbe:
           tcpSocket:
             port: 5672
