@@ -474,7 +474,7 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - servicelb\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s

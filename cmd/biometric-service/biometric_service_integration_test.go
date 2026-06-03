@@ -20,7 +20,6 @@ import (
 func TestBiometricService_Integration_AddAndGetRecords(t *testing.T) {
 	ctx := context.Background()
 
-	// Поднимаем PostgreSQL
 	pgContainer, err := postgres.Run(ctx, "postgres:15-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
@@ -46,7 +45,6 @@ func TestBiometricService_Integration_AddAndGetRecords(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	// Создаём таблицу biometric_data
 	_, err = db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS biometric_data (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

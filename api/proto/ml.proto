@@ -9,7 +9,6 @@ import "google/protobuf/struct.proto";
 service MLService {
     rpc Classify(ClassifyRequest) returns (ClassifyResponse);
     rpc Generate(GenerateRequest) returns (GenerateResponse);
-    // Новые методы для комплексной логики
     rpc ClassifyUserState(ClassifyUserStateRequest) returns (ClassifyUserStateResponse);
     rpc GenerateTrainingPlan(GenerateTrainingPlanRequest) returns (GenerateTrainingPlanResponse);
     rpc GenerateDietPlan(GenerateDietPlanRequest) returns (GenerateDietPlanResponse);

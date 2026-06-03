@@ -33,4 +33,5 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
 
-CMD ["python", "-m", "uvicorn", "cmd.ml-generator.main:app", "--host", "0.0.0.0", "--port", "8002"]
+WORKDIR /app/cmd/ml-generator
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]

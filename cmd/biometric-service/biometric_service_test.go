@@ -1,4 +1,3 @@
-// cmd/biometric-service/biometric_service_test.go
 package main
 
 import (
@@ -153,7 +152,6 @@ func TestBiometricServer_AddRecord_ValidationError(t *testing.T) {
 	server := &biometricServer{
 		log:         mockLog,
 		rabbitQueue: mockQueue,
-		// db не нужен для тестов валидации
 	}
 
 	tests := []struct {
@@ -248,7 +246,6 @@ func TestBiometricServer_AddRecord_Success(t *testing.T) {
 	srv := &biometricServer{
 		db:  db,
 		log: logger.New("test"),
-		// rabbitQueue можно замокать или оставить nil для этого теста
 	}
 
 	resp, err := srv.AddRecord(context.Background(), &pb.AddRecordRequest{
@@ -269,11 +266,7 @@ func TestBiometricServer_AddRecord_Success(t *testing.T) {
 
 func TestBatchAddRecords_Validation(t *testing.T) {
 	mockLog := logger.New("test")
-	// Используем мокаемый интерфейс, а не конкретный тип
 	mockQueue := new(mockPublisher)
-	// Не ожидаем Close - сервер не вызывает Close на очереди при валидации
-
-	// Создаём сервер с nil db - валидация происходит раньше обращения к БД
 	server := &biometricServer{
 		db:          nil,
 		log:         mockLog,
@@ -311,7 +304,7 @@ func TestBatchAddRecords_Validation(t *testing.T) {
 			req: &pb.BatchAddRecordsRequest{
 				UserId: "user-123",
 				Records: []*pb.AddRecordRequest{
-					{Value: 98.0}, // Missing MetricType
+					{Value: 98.0},
 				},
 			},
 			wantCode:   codes.InvalidArgument,
@@ -468,7 +461,6 @@ func TestBiometricServer_GetRecords(t *testing.T) {
 		"rec-1", "user-123", "heart_rate", 75.0, from, "device-1", now,
 	)
 
-	// Use AnyArg for timestamps to avoid timezone issues
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`)).
 		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(100)).
 		WillReturnRows(rows)
@@ -637,9 +629,8 @@ func TestBatchAddRecords_ContextCancelled(t *testing.T) {
 	srv := &biometricServer{db: db, log: logger.New("test")}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Отменяем сразу
+	cancel()
 
-	// Валидация должна пройти, поэтому добавляем корректные данные
 	req := &pb.BatchAddRecordsRequest{
 		UserId: "user-123",
 		Records: []*pb.AddRecordRequest{
@@ -648,14 +639,11 @@ func TestBatchAddRecords_ContextCancelled(t *testing.T) {
 	}
 
 	resp, err := srv.BatchAddRecords(ctx, req)
-	// Ошибка может быть context.Canceled или ошибка БД из-за отмены
-	// Проверяем, что ответ nil при ошибке
 	if err != nil {
 		assert.Nil(t, resp)
 	}
 }
 
-// Edge Case Tests
 func TestBiometricServer_GetLatest_EmptyResult(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -672,7 +660,7 @@ func TestBiometricServer_GetLatest_EmptyResult(t *testing.T) {
 		MetricType: "",
 	})
 
-	assert.Error(t, err) // Should return NotFound error for empty result
+	assert.Error(t, err)
 	assert.Nil(t, resp)
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
