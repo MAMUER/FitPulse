@@ -702,8 +702,8 @@ func TestBiometricServer_AddRecord_DeviceTypeValidation(t *testing.T) {
 		{"valid samsung_galaxy_watch", "samsung_galaxy_watch", false},
 		{"valid huawei_watch_d2", "huawei_watch_d2", false},
 		{"valid amazfit_trex3", "amazfit_trex3", false},
-		{"invalid empty", "", false},                 // Empty is allowed
-		{"invalid unknown", "unknown_device", false}, // Unknown is allowed, just logged
+		{"invalid empty", "", false},                 
+		{"invalid unknown", "unknown_device", false}, 
 	}
 
 	for _, tt := range tests {
@@ -745,10 +745,9 @@ func TestBiometricServer_GetRecords_LargeLimit(t *testing.T) {
 
 	srv := &biometricServer{db: db, log: logger.New("test")}
 
-	// Test with limit larger than default max (not capped)
 	now := time.Now()
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at`)).
-		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(2000)). // Actual limit, not capped
+		WithArgs("user-123", "heart_rate", sqlmock.AnyArg(), sqlmock.AnyArg(), int32(2000)). 
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}))
 
 	resp, err := srv.GetRecords(context.Background(), &pb.GetRecordsRequest{
@@ -756,7 +755,7 @@ func TestBiometricServer_GetRecords_LargeLimit(t *testing.T) {
 		MetricType: "heart_rate",
 		From:       timestamppb.New(now.Add(-24 * time.Hour)),
 		To:         timestamppb.New(now),
-		Limit:      2000, // Larger than max
+		Limit:      2000, 
 	})
 
 	assert.NoError(t, err)
@@ -773,12 +772,10 @@ func TestBiometricServer_BatchAddRecords_PartialFailure(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	// First record succeeds
 	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
 		WithArgs(sqlmock.AnyArg(), "user-123", "heart_rate", 75.0, sqlmock.AnyArg(), "device-1", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	// Second record fails
 	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO biometric_data`)).
 		WithArgs(sqlmock.AnyArg(), "user-123", "heart_rate", 80.0, sqlmock.AnyArg(), "device-1", sqlmock.AnyArg()).
 		WillReturnError(errors.New("simulated DB error"))
@@ -789,13 +786,12 @@ func TestBiometricServer_BatchAddRecords_PartialFailure(t *testing.T) {
 		UserId: "user-123",
 		Records: []*pb.AddRecordRequest{
 			{MetricType: "heart_rate", Value: 75.0, DeviceType: "device-1", Timestamp: timestamppb.Now()},
-			{MetricType: "heart_rate", Value: 80.0, DeviceType: "device-1", Timestamp: timestamppb.Now()}, // Valid value but DB will error
+			{MetricType: "heart_rate", Value: 80.0, DeviceType: "device-1", Timestamp: timestamppb.Now()},
 		},
 	}
 
 	resp, err := srv.BatchAddRecords(context.Background(), req)
 
-	// Should return error due to invalid second record
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -810,7 +806,7 @@ func TestBiometricServer_GetRecords_TimeRangeEdgeCases(t *testing.T) {
 	}{
 		{"valid range", timestamppb.New(time.Now().Add(-24 * time.Hour)), timestamppb.New(time.Now()), false},
 		{"from after to", timestamppb.New(time.Now()), timestamppb.New(time.Now().Add(-24 * time.Hour)), true},
-		{"future from", timestamppb.New(time.Now().Add(24 * time.Hour)), timestamppb.New(time.Now().Add(48 * time.Hour)), false}, // Allowed, just no data
+		{"future from", timestamppb.New(time.Now().Add(24 * time.Hour)), timestamppb.New(time.Now().Add(48 * time.Hour)), false}, 
 		{"very old dates", timestamppb.New(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)), timestamppb.New(time.Now()), false},
 	}
 
