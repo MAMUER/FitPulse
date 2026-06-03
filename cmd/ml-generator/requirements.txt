@@ -1,6 +1,6 @@
 # cmd/ml-generator/requirements.txt
 tensorflow>=2.15.0
-keras>=3.0.0
+keras>=3.14.1
 numpy>=1.26.0
 pandas>=2.0.0
 uvicorn>=0.29.0
