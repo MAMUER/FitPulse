@@ -404,7 +404,7 @@ jobs:
             -d '{"email":"smoke'"$TIMESTAMP"'@test.com","password":"Test123!","full_name":"Smoke","role":"client"}')
           HTTP_CODE="${REGISTER_RESPONSE: -3}"
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
-          echo "⭕ Smoke tests passed"
+          echo "Smoke tests passed"
 
   # ─────────────────────────────────────────────────────────────
   # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
@@ -575,7 +575,7 @@ jobs:
             echo "Cluster reachable"
             echo "reachable=true" >> "$GITHUB_OUTPUT"
           else
-            echo "❌ Cluster NOT reachable (timeout 10s)"
+            echo "Cluster NOT reachable (timeout 10s)"
             echo "reachable=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -646,7 +646,7 @@ jobs:
           if kustomize build . | kubectl apply --validate=false -f -; then
             echo "Staging overlay applied successfully"
           else
-            echo "❌ Failed to apply staging overlay"
+            echo "Failed to apply staging overlay"
             exit 1
           fi
 

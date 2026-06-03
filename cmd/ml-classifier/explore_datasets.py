@@ -135,7 +135,7 @@ class DatasetExplorer:
             sample = os.path.join(path, numerics[0])
             df = pd.read_csv(sample, nrows=3)
             info['signals'] = list(df.columns)[:10]
-            print(f"📡 Сигналы: {info['signals'][:5]}...")
+            print(f"Сигналы: {info['signals'][:5]}...")
     
     def _explore_wesad(self, path, info):
         """WESAD: S2, S3... с .pkl"""
@@ -155,7 +155,7 @@ class DatasetExplorer:
                         if sensor in data['signal']:
                             signals = list(data['signal'][sensor].keys())
                             info['signals'].extend(signals)
-                            print(f"📡 {sensor}: {signals[:5]}")
+                            print(f"{sensor}: {signals[:5]}")
     
     def _explore_spd(self, path, info):
         """SPD: S01-S35 с CSV"""
@@ -168,7 +168,7 @@ class DatasetExplorer:
             csv_files = [f for f in os.listdir(subj_path) if f.endswith('.csv')]
             info['files'] = csv_files
             info['signals'] = [f.split('.')[0] for f in csv_files]
-            print(f"📡 Сигналы: {info['signals']}")
+            print(f"Сигналы: {info['signals']}")
     
     def _explore_wesd(self, path, info):
         """WESD: S1-S10 с сессиями"""
@@ -180,13 +180,13 @@ class DatasetExplorer:
             subj_path = os.path.join(path, subjects[0])
             sessions = [d for d in os.listdir(subj_path) if os.path.isdir(os.path.join(subj_path, d))]
             info['sessions'] = sessions
-            print(f"📚 Сессии: {sessions}")
+            print(f"Сессии: {sessions}")
             
             if sessions:
                 session_path = os.path.join(subj_path, sessions[0])
                 csv_files = [f for f in os.listdir(session_path) if f.endswith('.csv')]
                 info['signals'] = [f.split('.')[0] for f in csv_files]
-                print(f"📡 Сигналы: {info['signals']}")
+                print(f"Сигналы: {info['signals']}")
     
     def _explore_capnobase(self, name, path, info):
         """CapnoBase: meta.csv, param.csv"""
@@ -202,7 +202,7 @@ class DatasetExplorer:
                 else:
                     df = pd.read_csv(sample, nrows=3)
                 info['signals'] = list(df.columns)[:10]
-                print(f"📡 Колонки: {info['signals'][:5]}...")
+                print(f"Колонки: {info['signals'][:5]}...")
             except:
                 pass
     
@@ -285,17 +285,17 @@ class DatasetExplorer:
             'all_signals': list(all_signals)[:20]
         }
         
-        print(f"📈 Всего датасетов: {total_datasets}")
+        print(f"Всего датасетов: {total_datasets}")
         print(f"Доступно: {accessible}")
-        print(f"📡 Сигналы: {list(all_signals)[:10]}...")
+        print(f"Сигналы: {list(all_signals)[:10]}...")
         
         self.report['recommendations'] = [
             "BIDMC: HR, SpO2 (53 субъекта)",
             "WESAD: ECG, EDA, TEMP (15 субъектов)",
             "SPD: HR, IBI, EDA (35 субъектов)",
             "ADARP: HR, EDA (75+ сессий)",
-            "💡 Для классификатора: BIDMC + WESAD + SPD",
-            "💡 Для GAN: WESAD + WESD + SPD"
+            "Для классификатора: BIDMC + WESAD + SPD",
+            "Для GAN: WESAD + WESD + SPD"
         ]
         
         for rec in self.report['recommendations']:
@@ -306,14 +306,14 @@ class DatasetExplorer:
         
         with open(REPORT_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.report, f, indent=2, ensure_ascii=False, default=str)
-        print(f"\n💾 Отчёт: {REPORT_FILE}")
+        print(f"\nОтчёт: {REPORT_FILE}")
         
         summary_data = []
         for name, info in self.report['datasets'].items():
             summary_data.append({
                 'dataset': name,
                 'subjects': info.get('subjects', info.get('participants', info.get('records', info.get('files', 0)))),
-                'accessible': '✅' if info.get('subjects', info.get('files', 0)) > 0 else '❌'
+                'accessible': '✅' if info.get('subjects', info.get('files', 0)) > 0 else 'no'
             })
         
         df = pd.DataFrame(summary_data)

@@ -763,8 +763,8 @@ class DataPreprocessor:
         print("\n" + "=" * 70)
         print("ПРЕПРОЦЕССИНГ ЗАВЕРШЁН")
         print("=" * 70)
-        print(f"📈 Всего сэмплов: {self.stats['total_samples']}")
-        print(f"📈 Датасетов обработано: {len(self.stats['datasets_processed'])}")
+        print(f"Всего сэмплов: {self.stats['total_samples']}")
+        print(f"Датасетов обработано: {len(self.stats['datasets_processed'])}")
         print(f"Ошибок: {len(self.stats['errors'])}")
         print("=" * 70)
 
