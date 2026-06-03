@@ -626,7 +626,7 @@ jobs:
       - name: Create staging secrets
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "🔐 Creating app-secrets..."
+          echo "Creating app-secrets..."
           kubectl create secret generic app-secrets -n fitness-platform-staging \
             --from-literal=POSTGRES_USER=fitness_admin \
             --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
@@ -635,7 +635,7 @@ jobs:
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
             --dry-run=client -o yaml | kubectl apply -f -
-          echo "✅ app-secrets created"
+          echo "app-secrets created"
       - name: Apply init-sql configmap if exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
