@@ -16,11 +16,6 @@ spec:
       labels:
         app: postgres
     spec:
-      securityContext:
-        fsGroup: 70
-        runAsUser: 70
-        runAsGroup: 70
-        runAsNonRoot: true
       terminationGracePeriodSeconds: 60
       imagePullSecrets:
         - name: ghcr-pull-secret

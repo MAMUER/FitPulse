@@ -207,10 +207,8 @@ jobs:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
       - name: Run govulncheck
-        continue-on-error: true
         run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
       - name: Run Trivy config scan
-        continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
@@ -708,15 +706,20 @@ jobs:
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
-          curl -sf --max-time 10 "${{ steps.target.outputs.target }}/health" || {
-            echo "Staging health check failed"; exit 1
-          }
+          echo "🔍 Checking staging health..."
+          RESPONSE=$(curl -sf --max-time 30 "${{ steps.target.outputs.target }}/health" || echo "")
+          echo "Response: $RESPONSE"
+    
+          if echo "$RESPONSE" | grep -q '"status":"healthy"'; then
+            echo "✅ Staging is healthy"
+          else
+            echo "❌ Staging is NOT healthy (status is degraded or failed)"
+            exit 1
+          fi
       - name: Run UAT tests
         run: |
-          python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}" || echo "UAT tests had issues"
+          python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
       - name: Performance test (k6) — optional
-        if: always()
-        continue-on-error: true
         uses: k6io/action@v0.3.1
         with:
           filename: load-test.k6
@@ -732,7 +735,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-staging]
     if: >-
-      github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
+      needs.test-staging.result == 'success'
+      && github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
       && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     environment: production
     steps:
@@ -754,6 +758,22 @@ jobs:
             echo "Cannot connect to cluster"; exit 1
           fi
           kubectl config set-context --current --namespace=fitness-platform-production
+      - name: Verify staging is fully healthy
+        run: |
+          for i in {1..30}; do
+            RESPONSE=$(curl -sf http://2.27.32.242/health || echo "")
+            if echo "$RESPONSE" | grep -q '"status":"healthy"' && \
+               echo "$RESPONSE" | grep -q '"user":"up"' && \
+               echo "$RESPONSE" | grep -q '"biometric":"up"' && \
+               echo "$RESPONSE" | grep -q '"training":"up"'; then
+              echo "✅ All services are healthy"
+              exit 0
+            fi
+            echo "⏳ Waiting for all services... ($i/30)"
+            sleep 10
+          done
+          echo "❌ Timeout waiting for healthy staging"
+          exit 1
       - name: Create production secrets
         run: |
           kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f -
