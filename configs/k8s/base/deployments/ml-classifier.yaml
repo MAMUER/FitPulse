@@ -16,7 +16,7 @@ spec:
       securityContext:
         runAsUser: 1001
       imagePullSecrets:
-        - name: ghcr-pull-secret
+      - name: ghcr-pull-secret
       serviceAccountName: app-service-account
       volumes:
       - name: tmp
@@ -24,7 +24,7 @@ spec:
       containers:
       - name: ml-classifier
         image: ghcr.io/mamuer/project/ml-classifier:latest
-         imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
