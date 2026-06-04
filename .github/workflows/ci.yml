@@ -758,7 +758,7 @@ jobs:
         run: |
           echo "🔍 Checking staging health via NodePort..."
           NODE_PORT=30080
-          for i in {1..36}; do
+          for i in {1..15}; do
             RESPONSE=$(curl -sf --max-time 5 "http://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"

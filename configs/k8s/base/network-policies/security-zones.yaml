@@ -65,6 +65,17 @@ spec:
   - to:
     - podSelector:
         matchLabels:
+          zone: data-zone
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 5672
+  - to:
+    - podSelector:
+        matchLabels:
           zone: app-zone
     ports:
     - protocol: TCP
