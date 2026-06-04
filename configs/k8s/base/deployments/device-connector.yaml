@@ -66,10 +66,7 @@ spec:
               name: app-config
               key: DB_NAME
         - name: BIOMETRIC_SERVICE_ADDR
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: BIOMETRIC_SERVICE_PORT
+          value: "biometric-service:50052"
         - name: DB_HOST
           valueFrom:
             configMapKeyRef:

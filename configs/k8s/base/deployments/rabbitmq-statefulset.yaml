@@ -36,6 +36,9 @@ spec:
           name: amqp
         - containerPort: 15672
           name: management
+        volumeMounts:
+        - name: rabbitmq-storage
+          mountPath: /var/lib/rabbitmq
         env:
         - name: RABBITMQ_DEFAULT_USER
           valueFrom:
@@ -56,6 +59,7 @@ spec:
             cpu: "500m"
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
         livenessProbe:
           tcpSocket:
             port: 5672

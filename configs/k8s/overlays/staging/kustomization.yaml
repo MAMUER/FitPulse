@@ -12,6 +12,7 @@ labels:
       environment: staging
 
 patches:
+  - path: configmap-patch.yaml
   - path: replicas-patch.yaml
   - path: resources-patch.yaml
 

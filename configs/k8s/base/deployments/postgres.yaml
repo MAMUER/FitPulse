@@ -28,8 +28,8 @@ spec:
         env:
         - name: POSTGRES_USER
           valueFrom:
-            secretKeyRef:
-              name: app-secrets
+            configMapKeyRef:
+              name: app-config
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
@@ -40,7 +40,9 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: DB_NAME
+              key: POSTGRES_DB
+        - name: POSTGRES_INITDB_ARGS
+          value: "--locale=C"
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
