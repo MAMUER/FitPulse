@@ -24,7 +24,7 @@ spec:
       containers:
       - name: ml-generator
         image: ghcr.io/mamuer/project/ml-generator:latest
-        imagePullPolicy: Never
+         imagePullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false

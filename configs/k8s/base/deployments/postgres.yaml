@@ -42,8 +42,6 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: POSTGRES_DB
-        - name: POSTGRES_INITDB_ARGS
-          value: "--locale=C"
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data

@@ -24,7 +24,7 @@ spec:
       containers:
       - name: ml-classifier
         image: ghcr.io/mamuer/project/ml-classifier:latest
-        imagePullPolicy: Never
+         imagePullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
