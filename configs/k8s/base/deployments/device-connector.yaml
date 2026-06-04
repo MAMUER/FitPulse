@@ -17,6 +17,7 @@ spec:
         app: device-connector
         tier: backend
         component: device-connector
+        zone: app-zone
     spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
@@ -50,12 +51,12 @@ spec:
         - containerPort: 8082
           name: http
         env:
-        - name: POSTGRES_USER
+        - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: POSTGRES_USER
-        - name: POSTGRES_PASSWORD
+        - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: app-secrets

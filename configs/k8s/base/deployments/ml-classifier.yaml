@@ -11,12 +11,16 @@ spec:
     metadata:
       labels:
         app: ml-classifier
+        zone: app-zone
     spec:
       securityContext:
         runAsUser: 1001
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
+      volumes:
+      - name: tmp
+        emptyDir: {}
       containers:
       - name: ml-classifier
         image: ghcr.io/mamuer/project/ml-classifier:latest
@@ -30,6 +34,9 @@ spec:
         ports:
         - containerPort: 8001
           name: http
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         env:
         - name: ML_CLASSIFIER_PORT
           valueFrom:

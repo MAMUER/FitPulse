@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: biometric-service
+        zone: app-zone
     spec:
       serviceAccountName: app-service-account
       imagePullSecrets:

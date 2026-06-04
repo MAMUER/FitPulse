@@ -15,6 +15,8 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+        tier: infrastructure
+        zone: data-zone
     spec:
       serviceAccountName: app-service-account
       imagePullSecrets:

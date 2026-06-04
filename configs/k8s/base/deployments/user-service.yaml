@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: user-service
+        zone: app-zone
     spec:
       securityContext:
         runAsUser: 1001

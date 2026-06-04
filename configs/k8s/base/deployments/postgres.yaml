@@ -15,6 +15,7 @@ spec:
     metadata:
       labels:
         app: postgres
+        zone: data-zone
     spec:
       terminationGracePeriodSeconds: 60
       imagePullSecrets:
@@ -28,8 +29,8 @@ spec:
         env:
         - name: POSTGRES_USER
           valueFrom:
-            configMapKeyRef:
-              name: app-config
+            secretKeyRef:
+              name: app-secrets
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
@@ -38,8 +39,8 @@ spec:
               key: POSTGRES_PASSWORD
         - name: POSTGRES_DB
           valueFrom:
-            configMapKeyRef:
-              name: app-config
+            secretKeyRef:
+              name: app-secrets
               key: POSTGRES_DB
         - name: POSTGRES_INITDB_ARGS
           value: "--locale=C"
