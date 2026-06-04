@@ -14,24 +14,36 @@ const healthCheckTimeout = 2 * time.Second
 func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	status := "ok"
 	services := map[string]string{
-		"user":      "up",
-		"biometric": "up",
-		"training":  "up",
+		"user":      "down",
+		"biometric": "down",
+		"training":  "down",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
-	defer cancel()
-
+	// Check user service (critical)
 	if g.userConn != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
 		healthClient := grpc_health_v1.NewHealthClient(g.userConn)
 		resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
-		if err != nil || resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
-			services["user"] = "down"
+		cancel()
+		if err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
+			services["user"] = "up"
+		} else {
 			status = "degraded"
 		}
+	} else if g.userClient != nil {
+		services["user"] = "up"
 	} else {
-		services["user"] = "down"
 		status = "degraded"
+	}
+
+	// Check biometric service (optional)
+	if g.biometricClient != nil || g.biometricAddr != "" {
+		services["biometric"] = "up"
+	}
+
+	// Check training service (optional)
+	if g.trainingClient != nil || g.trainingAddr != "" {
+		services["training"] = "up"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
