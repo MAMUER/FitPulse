@@ -16,8 +16,8 @@ if [[ -z "$MODE" || ( "$MODE" != "ssh" && "$MODE" != "scp" ) ]]; then
 fi
 
 MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
-DELAY="${SSH_RETRY_DELAY_SECONDS:-10}"
-TIMEOUT="${SSH_RETRY_TIMEOUT:-120}"
+DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
+TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
 
 # Common safe options
 COMMON_OPTS="-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60"
