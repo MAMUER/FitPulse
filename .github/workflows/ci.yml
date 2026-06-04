@@ -634,16 +634,6 @@ jobs:
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "app-secrets created"
-      - name: Apply init-sql configmap if exists
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          if [ -f "configs/k8s/init-sql.yaml" ]; then
-            echo "Applying init-sql ConfigMap..."
-            kubectl apply -f configs/k8s/init-sql.yaml -n fitness-platform-staging
-            echo "init-sql ConfigMap applied"
-          else
-            echo "init-sql.yaml not found, skipping"
-          fi
 
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'

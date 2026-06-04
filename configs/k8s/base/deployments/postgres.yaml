@@ -44,8 +44,6 @@ spec:
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
-        - name: init-script
-          mountPath: /docker-entrypoint-initdb.d
         resources:
           requests:
             memory: "128Mi"
@@ -69,10 +67,6 @@ spec:
             - $(POSTGRES_USER)
           initialDelaySeconds: 5
           periodSeconds: 5
-      volumes:
-      - name: init-script
-        configMap:
-          name: init-sql
   volumeClaimTemplates:
   - metadata:
       name: postgres-storage

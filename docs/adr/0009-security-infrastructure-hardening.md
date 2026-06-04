@@ -27,7 +27,6 @@ Implement the following hardening measures:
 
 - Updated Network Policies in configs/k8s/network-policies/security-zones.yaml
 - Enhanced RBAC in configs/k8s/rbac/rbac.yaml
-- Added pgcrypto to init-sql.yaml
 - Created backup-wal.sh script
 - Extended metrics in internal/metrics/metrics.go
 - Expanded CI/CD pipeline in .github/workflows/ci.yml
