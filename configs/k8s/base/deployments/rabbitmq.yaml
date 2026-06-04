@@ -2,11 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rabbitmq
-  labels:
-    app: rabbitmq
-    tier: infrastructure
-    zone: data-zone
 spec:
+  revisionHistoryLimit: 1
   replicas: 1
   selector:
     matchLabels:

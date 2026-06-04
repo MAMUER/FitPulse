@@ -7,6 +7,7 @@ metadata:
     tier: backend
     component: device-connector
 spec:
+  revisionHistoryLimit: 1
   replicas: 2
   selector:
     matchLabels:
