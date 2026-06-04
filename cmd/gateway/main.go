@@ -30,27 +30,25 @@ import (
 
 type gateway struct {
 	userClient         userpb.UserServiceClient
-	biometricClient    biometricpb.BiometricServiceClient
-	trainingClient     trainingpb.TrainingServiceClient
+	userConn           *grpc.ClientConn
 	biometricAddr      string
+	biometricClient    biometricpb.BiometricServiceClient
 	trainingAddr       string
+	trainingClient     trainingpb.TrainingServiceClient
 	mlClassifierURL    string
 	mlGeneratorURL     string
 	deviceConnectorURL string
 	log                *logger.Logger
 	jwtSecret          string
-	db                 *sql.DB             // For server-side role re-verification
-	sessionStore       *cache.SessionStore // For session management (Security #1, #3)
-	// Async ML processing
-	rdb     *redis.Client
-	rmqCh   *amqp.Channel
-	mlAsync bool
-	// Metrics
-	requestDuration *prometheus.HistogramVec
-	requestTotal    *prometheus.CounterVec
-	errorTotal      *prometheus.CounterVec
+	db                 *sql.DB
+	sessionStore       *cache.SessionStore
+	rdb                *redis.Client
+	rmqCh              *amqp.Channel
+	mlAsync            bool
+	requestDuration    *prometheus.HistogramVec
+	requestTotal       *prometheus.CounterVec
+	errorTotal         *prometheus.CounterVec
 
-	// Lazy client initialization (advanced decoupling)
 	biometricMu sync.Mutex
 	trainingMu  sync.Mutex
 }
@@ -263,6 +261,7 @@ func main() {
 
 	g := &gateway{
 		userClient:         userpb.NewUserServiceClient(userConn),
+		userConn:           userConn,
 		biometricAddr:      biometricServiceAddr,
 		trainingAddr:       trainingServiceAddr,
 		mlClassifierURL:    mlClassifierURL,

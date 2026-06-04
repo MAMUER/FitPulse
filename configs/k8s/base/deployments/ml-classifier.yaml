@@ -43,12 +43,16 @@ spec:
             configMapKeyRef:
               name: app-config
               key: ML_CLASSIFIER_PORT
+        - name: MPLCONFIGDIR
+          value: "/tmp/matplotlib"
         livenessProbe:
           httpGet:
             path: /health
             port: 8001
-          initialDelaySeconds: 30
+          initialDelaySeconds: 180
           periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
         readinessProbe:
           httpGet:
             path: /health

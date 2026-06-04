@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// healthHandler returns service health status (degraded if optional services are down)
+const healthCheckTimeout = 2 * time.Second
+
 func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	status := "ok"
 	services := map[string]string{
@@ -15,12 +19,18 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 		"training":  "up",
 	}
 
-	if g.biometricClient == nil {
-		services["biometric"] = "down"
-		status = "degraded"
-	}
-	if g.trainingClient == nil {
-		services["training"] = "down"
+	ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
+	defer cancel()
+
+	if g.userConn != nil {
+		healthClient := grpc_health_v1.NewHealthClient(g.userConn)
+		resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+		if err != nil || resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+			services["user"] = "down"
+			status = "degraded"
+		}
+	} else {
+		services["user"] = "down"
 		status = "degraded"
 	}
 

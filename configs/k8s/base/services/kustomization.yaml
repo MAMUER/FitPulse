@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - postgres-service.yaml
+  - postgres-service-clusterip.yaml
   - redis-service.yaml
   - rabbitmq-service.yaml
   - user-service.yaml

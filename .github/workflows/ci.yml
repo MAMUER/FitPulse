@@ -414,11 +414,24 @@ jobs:
           set -euo pipefail
           GATEWAY_URL="http://localhost:8081"
           for _ in {1..36}; do
-            curl -f --silent --max-time 3 "$GATEWAY_URL/health" > /dev/null && break
+            RESPONSE=$(curl -s --max-time 3 "$GATEWAY_URL/health" 2>/dev/null || echo "")
+            if echo "$RESPONSE" | grep -q '"status":"ok"'; then
+              break
+            fi
             sleep 5
           done
-          curl -f --silent --max-time 5 "$GATEWAY_URL/health" || {
-            docker compose -f docker-compose.test.yml logs --tail=150 gateway-test; exit 1
+          RESPONSE=$(curl -s --max-time 5 "$GATEWAY_URL/health")
+          echo "Health response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"status":"ok"' || {
+            echo "Health check failed or degraded"
+            docker compose -f docker-compose.test.yml logs --tail=150 user-service-test || true
+            docker compose -f docker-compose.test.yml logs --tail=150 gateway-test || true
+            exit 1
+          }
+          echo "$RESPONSE" | grep -q '"user":"up"' || {
+            echo "User service not healthy"
+            docker compose -f docker-compose.test.yml logs --tail=150 user-service-test || true
+            exit 1
           }
           TIMESTAMP=$(date +%s)
           REGISTER_RESPONSE=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/api/v1/register" \
@@ -428,7 +441,6 @@ jobs:
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "Smoke tests passed"
 
-  # ─────────────────────────────────────────────────────────────
   # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
   # ─────────────────────────────────────────────────────────────
 
@@ -700,8 +712,9 @@ jobs:
           echo "🔍 Checking staging health..."
           RESPONSE=$(curl -sf --max-time 30 "${{ steps.target.outputs.target }}/health" || echo "")
           echo "Response: $RESPONSE"
-    
-          if echo "$RESPONSE" | grep -q '"status":"healthy"'; then
+
+          if echo "$RESPONSE" | grep -q '"status":"ok"' && \
+             echo "$RESPONSE" | grep -q '"user":"up"'; then
             echo "✅ Staging is healthy"
           else
             echo "❌ Staging is NOT healthy (status is degraded or failed)"
@@ -753,7 +766,7 @@ jobs:
         run: |
           for i in {1..30}; do
             RESPONSE=$(curl -sf http://2.27.32.242/health || echo "")
-            if echo "$RESPONSE" | grep -q '"status":"healthy"' && \
+            if echo "$RESPONSE" | grep -q '"status":"ok"' && \
                echo "$RESPONSE" | grep -q '"user":"up"' && \
                echo "$RESPONSE" | grep -q '"biometric":"up"' && \
                echo "$RESPONSE" | grep -q '"training":"up"'; then

@@ -49,8 +49,8 @@ services:
     environment:
       DB_HOST: postgres-test
       DB_PORT: 5432
-      DB_USER: testuser
-      DB_PASSWORD: testpass
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
       DB_NAME: testdb
       DB_SSLMODE: disable
       REDIS_HOST: redis-test
