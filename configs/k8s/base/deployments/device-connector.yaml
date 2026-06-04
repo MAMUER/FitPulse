@@ -22,7 +22,7 @@ spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
-      securityContext:        
+      securityContext:
         runAsUser: 1000
       affinity:
         podAntiAffinity:
@@ -51,12 +51,12 @@ spec:
         - containerPort: 8082
           name: http
         env:
-        - name: DB_USER
+        - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: POSTGRES_USER
-        - name: DB_PASSWORD
+        - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: app-secrets
@@ -97,4 +97,3 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "250m"
-# End of device-connector deployment

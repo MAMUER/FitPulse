@@ -7,6 +7,7 @@ data:
   DB_PORT: "5432"
   DB_NAME: "fitness"
   DB_SSLMODE: "disable"
+  POSTGRES_USER: "postgres"
   REDIS_ADDR: "redis-service:6379"
   REDIS_DB: "0"
   RABBITMQ_URL: "amqp://rabbitmq-service:5672/"
