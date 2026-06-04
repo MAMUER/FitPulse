@@ -413,7 +413,7 @@ jobs:
         run: |
           set -euo pipefail
           GATEWAY_URL="http://localhost:8081"
-          for _ in {1..36}; do
+          for _ in {1..15}; do
             RESPONSE=$(curl -s --max-time 3 "$GATEWAY_URL/health" 2>/dev/null || echo "")
             if echo "$RESPONSE" | grep -q '"status":"ok"'; then
               break
@@ -725,10 +725,9 @@ jobs:
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
           sleep 30
 
-  # ─────────────────────────────────────────────────────────────
-  # 6. E2E TESTS ON STAGING
-  # ─────────────────────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────
+# 6. E2E TESTS ON STAGING
+# ─────────────────────────────────────────────────────────────
   test-staging:
     name: Test Staging (E2E)
     runs-on: ubuntu-latest
@@ -737,54 +736,56 @@ jobs:
     env:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
-      - uses: actions/checkout@v6
-      - name: Download kubeconfig artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: kubeconfig
-          path: ./kubeconfig
-      - name: Configure kubectl
-        run: |
-          mkdir -p "$HOME/.kube"
-          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-      - name: Prepare target URL
-        id: target
-        run: |
-          URL="${{ secrets.VPS_HOST }}"
-          [[ "$URL" == http* ]] || URL="http://$URL"
-          echo "target=$URL" >> "$GITHUB_OUTPUT"
-      - name: Health check
-        run: |
-          echo "🔍 Checking staging health via NodePort..."
-          NODE_PORT=30080
-          for i in {1..15}; do
-            RESPONSE=$(curl -sf --max-time 5 "http://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
-            if [ -n "$RESPONSE" ]; then
-              echo "Health response: $RESPONSE"
-              break
-            fi
-            echo "Attempt $i/36: waiting..."
-            sleep 5
-          done
-          if [ -z "$RESPONSE" ]; then
-            echo "❌ Health endpoint unreachable"
-            kubectl --kubeconfig="$HOME/.kube/config" get pods -n fitness-platform-staging -o wide || true
-            kubectl --kubeconfig="$HOME/.kube/config" get svc -n fitness-platform-staging || true
-            exit 1
+    - uses: actions/checkout@v6
+    - name: Download kubeconfig artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: kubeconfig
+        path: ./kubeconfig
+    - name: Configure kubectl
+      run: |
+        mkdir -p "$HOME/.kube"
+        cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+        chmod 600 "$HOME/.kube/config"
+    - name: Prepare target URL
+      id: target
+      run: |
+        URL="${{ secrets.VPS_HOST }}"
+        [[ "$URL" == http* ]] || URL="http://$URL"
+        echo "target=$URL" >> "$GITHUB_OUTPUT"
+    - name: Health check
+      run: |
+        echo "🔍 Checking staging health via NodePort..."
+        NODE_PORT=30080
+        # Увеличено время ожидания до 5 минут (30 попыток по 10 секунд) 
+        # для гарантированной инициализации Postgres и перезапуска Go-сервисов
+        for i in {1..30}; do
+          RESPONSE=$(curl -sf --max-time 5 "http://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
+          if [ -n "$RESPONSE" ]; then
+            echo "Health response: $RESPONSE"
+            break
           fi
-          echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "❌ Status not ok"; echo "$RESPONSE"; exit 1; }
-          echo "$RESPONSE" | grep -q '"user":"up"' || { echo "❌ User service not healthy"; exit 1; }
-          echo "✅ Staging is healthy"
-      - name: Run UAT tests
-        run: |
-          python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
-      - name: Performance test (k6) — optional
-        uses: k6io/action@v0.3.1
-        with:
-          filename: load-test.k6
-        env:
-          BASE_URL: ${{ steps.target.outputs.target }}
+          echo "Attempt $i/30: waiting..."
+          sleep 10
+        done
+        if [ -z "$RESPONSE" ]; then
+          echo "❌ Health endpoint unreachable"
+          kubectl --kubeconfig="$HOME/.kube/config" get pods -n fitness-platform-staging -o wide || true
+          kubectl --kubeconfig="$HOME/.kube/config" get svc -n fitness-platform-staging || true
+          exit 1
+        fi
+        echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "❌ Status not ok"; echo "$RESPONSE"; exit 1; }
+        echo "$RESPONSE" | grep -q '"user":"up"' || { echo "❌ User service not healthy"; exit 1; }
+        echo "✅ Staging is healthy"
+    - name: Run UAT tests
+      run: |
+        python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
+    - name: Performance test (k6) — optional
+      uses: k6io/action@v0.3.1
+      with:
+        filename: load-test.k6
+      env:
+        BASE_URL: ${{ steps.target.outputs.target }}
 
   # ─────────────────────────────────────────────────────────────
   # 7. PRODUCTION DEPLOY (только после успешных тестов)
