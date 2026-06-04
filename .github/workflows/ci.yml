@@ -723,22 +723,28 @@ jobs:
       - name: Health check
         run: |
           echo "🔍 Checking staging health via port-forward..."
-          kubectl -n fitness-platform-staging port-forward service/gateway-service 8080:8080 --timeout=180s &
+          kubectl --kubeconfig="$HOME/.kube/config" port-forward -n fitness-platform-staging service/gateway-service 8080:8080 &
           PF_PID=$!
-          sleep 5
-          RESPONSE=$(curl -sf --max-time 30 http://127.0.0.1:8080/health 2>/dev/null || echo "")
-          echo "Response: $RESPONSE"
+          sleep 8
+          for i in {1..15}; do
+            RESPONSE=$(curl -sf --max-time 5 http://127.0.0.1:8080/health 2>/dev/null || echo "")
+            if [ -n "$RESPONSE" ]; then
+              echo "Health response: $RESPONSE"
+              break
+            fi
+            echo "Attempt $i/15: waiting..."
+            sleep 5
+          done
           kill ${PF_PID} 2>/dev/null || true
-
-          if echo "$RESPONSE" | grep -q '"status":"ok"' && \
-             echo "$RESPONSE" | grep -q '"user":"up"'; then
-            echo "✅ Staging is healthy"
-          else
-            echo "❌ Staging is NOT healthy (status is degraded or failed)"
+          if [ -z "$RESPONSE" ]; then
+            echo "❌ Health endpoint unreachable"
             kubectl get pods -n fitness-platform-staging -o wide || true
             kubectl get svc -n fitness-platform-staging || true
             exit 1
           fi
+          echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "❌ Status not ok"; echo "$RESPONSE"; exit 1; }
+          echo "$RESPONSE" | grep -q '"user":"up"' || { echo "❌ User service not healthy"; exit 1; }
+          echo "✅ Staging is healthy"
       - name: Run UAT tests
         run: |
           python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
