@@ -6,7 +6,7 @@ metadata:
     app: postgres
     zone: data-zone
 spec:
-  serviceName: postgres
+  serviceName: postgres-service
   replicas: 1
   selector:
     matchLabels:

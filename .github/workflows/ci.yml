@@ -687,8 +687,8 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "-> Clearing DNS caches and rolling restarts..."
-          kubectl rollout restart deployment -n fitness-platform-staging --all || true
-          kubectl rollout status deployment -n fitness-platform-staging --all --timeout=180s || true
+          kubectl rollout restart deployment -n fitness-platform-staging || true
+          kubectl rollout status deployment -n fitness-platform-staging --timeout=180s || true
           kubectl get pods -n fitness-platform-staging -o wide
           sleep 10
 
@@ -714,6 +714,16 @@ jobs:
       STAGING_URL: ${{ secrets.VPS_HOST }}
     steps:
       - uses: actions/checkout@v6
+      - name: Download kubeconfig artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: kubeconfig
+          path: ./kubeconfig
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
       - name: Prepare target URL
         id: target
         run: |
