@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -301,6 +303,10 @@ func main() {
 		log:         log,
 		rabbitQueue: rabbitQueue,
 	})
+
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("biometric.BiometricService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	log.Info("Biometric service starting", zap.String("port", port))
 	if err := grpcServer.Serve(lis); err != nil { // ← grpcServer, не `s`

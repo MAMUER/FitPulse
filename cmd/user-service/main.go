@@ -24,6 +24,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
 
@@ -931,6 +934,12 @@ func main() {
 		emailSender: emailSender,
 		baseURL:     baseURL,
 	})
+
+	// Register gRPC health server
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+	healthServer.SetServingStatus("user.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
+	reflection.Register(s)
 
 	log.Info("User service starting", zap.String("port", port))
 	if err := s.Serve(lis); err != nil {

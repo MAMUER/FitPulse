@@ -12,14 +12,13 @@ import (
 const healthCheckTimeout = 2 * time.Second
 
 func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
-	status := "ok"
 	services := map[string]string{
 		"user":      "down",
 		"biometric": "down",
 		"training":  "down",
 	}
 
-	// Check user service (critical)
+	// Check user service (critical) - uses gRPC health check if connection exists
 	if g.userConn != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
 		healthClient := grpc_health_v1.NewHealthClient(g.userConn)
@@ -27,23 +26,26 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 		cancel()
 		if err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
 			services["user"] = "up"
-		} else {
-			status = "degraded"
 		}
 	} else if g.userClient != nil {
+		// Fallback: client is set but no connection for health check (e.g., in tests)
 		services["user"] = "up"
-	} else {
-		status = "degraded"
 	}
 
-	// Check biometric service (optional)
-	if g.biometricClient != nil || g.biometricAddr != "" {
+	// Check biometric service (optional) - show as up only if connection was established
+	if g.biometricClient != nil {
 		services["biometric"] = "up"
 	}
 
-	// Check training service (optional)
-	if g.trainingClient != nil || g.trainingAddr != "" {
+	// Check training service (optional) - show as up only if connection was established
+	if g.trainingClient != nil {
 		services["training"] = "up"
+	}
+
+	// Status is "ok" only if user service is healthy (biometric/training are optional)
+	status := "ok"
+	if services["user"] != "up" {
+		status = "degraded"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
