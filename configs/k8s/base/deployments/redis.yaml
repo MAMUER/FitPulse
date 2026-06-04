@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
-   labels:
+  labels:
     app: redis
     tier: infrastructure
     zone: data-zone

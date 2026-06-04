@@ -681,15 +681,23 @@ jobs:
       - name: Apply staging overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Applying staging overlay with Kustomize..."
-          cd configs/k8s/overlays/staging
-          
-          if kustomize build . | kubectl apply --validate=false -f -; then
-            echo "Staging overlay applied successfully"
-          else
-            echo "Failed to apply staging overlay"
-            exit 1
-          fi
+           echo "Applying staging overlay with Kustomize..."
+           cd configs/k8s/overlays/staging
+           
+           if kustomize build . | kubectl apply --validate=false -f -; then
+             echo "Staging overlay applied successfully"
+           else
+             echo "Failed to apply staging overlay"
+             exit 1
+           fi
+
+      - name: Cleanup unused Docker images on VPS
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+           echo "-> Pruning unused Docker images and containers..."
+           docker system prune -f --volumes || true
+           echo "-> Current disk usage:"
+           df -h /
 
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
