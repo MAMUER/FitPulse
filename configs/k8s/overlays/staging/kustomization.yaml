@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ingress.yaml
+  - gateway-nodeport.yaml
 
 namespace: fitness-platform-staging
 

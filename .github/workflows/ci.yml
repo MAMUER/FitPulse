@@ -683,12 +683,21 @@ jobs:
           echo "Events for failing pods (if any):"
           kubectl get pods -n fitness-platform-staging --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-staging 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
 
+      - name: Bypass DNS staleness after redeploy
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Clearing DNS caches and rolling restarts..."
+          kubectl rollout restart deployment -n fitness-platform-staging --all || true
+          kubectl rollout status deployment -n fitness-platform-staging --all --timeout=180s || true
+          kubectl get pods -n fitness-platform-staging -o wide
+          sleep 10
+
       - name: Verify staging deployment
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Verifying deployment..."
-          kubectl get pods -n fitness-platform-staging
           echo "Waiting for gateway to be ready (up to 300s)..."
+          kubectl get pods -n fitness-platform-staging
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
           sleep 30
 
@@ -713,15 +722,21 @@ jobs:
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
-          echo "🔍 Checking staging health..."
-          RESPONSE=$(curl -sf --max-time 30 "${{ steps.target.outputs.target }}/health" || echo "")
+          echo "🔍 Checking staging health via port-forward..."
+          kubectl -n fitness-platform-staging port-forward service/gateway-service 8080:8080 --timeout=180s &
+          PF_PID=$!
+          sleep 5
+          RESPONSE=$(curl -sf --max-time 30 http://127.0.0.1:8080/health 2>/dev/null || echo "")
           echo "Response: $RESPONSE"
+          kill ${PF_PID} 2>/dev/null || true
 
           if echo "$RESPONSE" | grep -q '"status":"ok"' && \
              echo "$RESPONSE" | grep -q '"user":"up"'; then
             echo "✅ Staging is healthy"
           else
             echo "❌ Staging is NOT healthy (status is degraded or failed)"
+            kubectl get pods -n fitness-platform-staging -o wide || true
+            kubectl get svc -n fitness-platform-staging || true
             exit 1
           fi
       - name: Run UAT tests

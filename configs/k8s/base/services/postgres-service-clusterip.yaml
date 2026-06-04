@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: postgres-service
 spec:
+  clusterIP: 10.43.200.200
   selector:
     app: postgres
   ports:

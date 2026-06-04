@@ -11,6 +11,12 @@ spec:
       labels:
         app: redis
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: redis
         resources:
@@ -41,6 +47,12 @@ spec:
         app: gateway
         tier: api
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: gateway
         resources:
@@ -69,6 +81,12 @@ spec:
       labels:
         app: user-service
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: user-service
         resources:
@@ -97,6 +115,12 @@ spec:
       labels:
         app: biometric-service
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: biometric-service
         resources:
@@ -125,6 +149,12 @@ spec:
       labels:
         app: training-service
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: training-service
         resources:
@@ -153,6 +183,12 @@ spec:
       labels:
         app: device-connector
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: device-connector
         resources:
@@ -181,15 +217,21 @@ spec:
       labels:
         app: ml-classifier
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: ml-classifier
         resources:
           requests:
-            cpu: 50m      # ← Уменьшено для staging
-            memory: 128Mi # ← Уменьшено для staging
+            cpu: 50m
+            memory: 128Mi
           limits:
-            cpu: 200m     # ← Уменьшено для staging
-            memory: 256Mi # ← Уменьшено для staging
+            cpu: 200m
+            memory: 256Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -209,15 +251,21 @@ spec:
       labels:
         app: ml-generator
     spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: single-request-reopen
       containers:
       - name: ml-generator
         resources:
           requests:
-            cpu: 50m      # ← Уменьшено для staging
-            memory: 128Mi # ← Уменьшено для staging
+            cpu: 50m
+            memory: 128Mi
           limits:
-            cpu: 200m     # ← Уменьшено для staging
-            memory: 256Mi # ← Уменьшено для staging
+            cpu: 200m
+            memory: 256Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
