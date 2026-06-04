@@ -626,8 +626,9 @@ jobs:
         run: |
           echo "Creating app-secrets..."
           kubectl create secret generic app-secrets -n fitness-platform-staging \
-            --from-literal=POSTGRES_USER=fitness_admin \
+            --from-literal=POSTGRES_USER=postgres \
             --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            --from-literal=POSTGRES_DB=fitness \
             --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
@@ -770,6 +771,7 @@ jobs:
           kubectl create secret generic app-secrets -n fitness-platform-production \
             --from-literal=POSTGRES_USER=${{ vars.POSTGRES_USER || 'fitness_admin' }} \
             --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            --from-literal=POSTGRES_DB=${{ vars.POSTGRES_DB || 'fitness' }} \
             --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \

@@ -56,25 +56,19 @@ spec:
       port: 8080
   egress:
   - to:
-    - podSelector:
-        matchLabels:
-          zone: data-zone
+    - namespaceSelector: {}
     ports:
+    - protocol: UDP
+      port: 53
     - protocol: TCP
-      port: 5432  # PostgreSQL
-    - protocol: TCP
-      port: 6379  # Redis
-    - protocol: TCP
-      port: 5672  # RabbitMQ
+      port: 53
   - to:
     - podSelector:
         matchLabels:
-          zone: monitoring-zone
+          zone: app-zone
     ports:
     - protocol: TCP
-      port: 9090  # Prometheus
-    - protocol: TCP
-      port: 5044  # Logstash
+      port: 8080
 
 ---
 # Data zone - databases, cache, queues
@@ -106,6 +100,8 @@ spec:
     - namespaceSelector: {}
     ports:
     - protocol: UDP
+      port: 53
+    - protocol: TCP
       port: 53
 
 ---
