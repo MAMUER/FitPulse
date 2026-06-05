@@ -19,6 +19,8 @@ spec:
           port: 8080
         - protocol: TCP
           port: 8443
+        - protocol: TCP
+          port: 30080  # NodePort for external access
   egress:
     # DNS resolution
     - to:

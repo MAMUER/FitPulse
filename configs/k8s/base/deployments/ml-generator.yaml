@@ -22,6 +22,8 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}
+      - name: models         
+        emptyDir: {}
       containers:
       - name: ml-generator
         image: ghcr.io/mamuer/project/ml-generator:latest
