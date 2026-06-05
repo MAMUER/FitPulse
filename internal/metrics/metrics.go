@@ -52,7 +52,7 @@ var (
 			Name: "db_connection_pool_usage",
 			Help: "Current database connection pool usage",
 		},
-		[]string{"db_name"},
+		[]string{"POSTGRES_DB"},
 	)
 
 	NotificationQueueDepth = promauto.NewGauge(

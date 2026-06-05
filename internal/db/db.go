@@ -30,7 +30,7 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 		cfg.User = "postgres"
 	}
 	if cfg.Password == "" {
-		return nil, fmt.Errorf("DB_PASSWORD environment variable is required")
+		return nil, fmt.Errorf("POSTGRES_PASSWORD environment variable is required")
 	}
 	connStr := cfg.ConnectionString()
 	fmt.Println("Connecting with:", connStr)

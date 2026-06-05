@@ -77,13 +77,13 @@ def main():
     # Environment variables take precedence over .env file
     for key, value in os.environ.items():
         if key.startswith("SEED_") or key in (
-            "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"
+            "DB_HOST", "DB_PORT", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"
         ):
             env_vars[key] = value
 
     # Configuration from .env (with fallback defaults — no secrets here)
-    db_user = env_vars.get("DB_USER", "fitness_admin")
-    db_name = env_vars.get("DB_NAME", "fitness")
+    POSTGRES_USER = env_vars.get("POSTGRES_USER", "fitness_admin")
+    POSTGRES_DB = env_vars.get("POSTGRES_DB", "fitness")
     admin_email = env_vars.get("SEED_ADMIN_EMAIL", "admin@fitpulse.local")
     admin_password = env_vars.get("SEED_ADMIN_PASSWORD", "")
     admin_name = "System Administrator"
@@ -113,7 +113,7 @@ def main():
     print("=" * 40)
     print()
     print(f"  Email:    {admin_email}")
-    print(f"  DB:       {db_name}")
+    print(f"  DB:       {POSTGRES_DB}")
     print()
 
     # Check Docker is running
@@ -200,7 +200,7 @@ WHERE email = '{escaped_email}';
             [
                 "docker", "compose", "-f", str(compose_file), "--env-file", str(env_path),
                 "exec", "-T", "postgres",
-                "psql", "-U", db_user, "-d", db_name,
+                "psql", "-U", POSTGRES_USER, "-d", POSTGRES_DB,
             ],
             input=full_sql,
             capture_output=True,

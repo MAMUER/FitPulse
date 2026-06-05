@@ -112,9 +112,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-fitness_admin}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      - DB_NAME=${POSTGRES_DB:-fitness}
+      - POSTGRES_USER=${POSTGRES_USER:-fitness_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-fitness}
       - DB_SSLMODE=disable
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - REDIS_HOST=redis
@@ -157,9 +157,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-fitness_admin}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      - DB_NAME=${POSTGRES_DB:-fitness}
+      - POSTGRES_USER=${POSTGRES_USER:-fitness_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-fitness}
       - DB_SSLMODE=disable
       - REDIS_HOST=redis
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS required}@rabbitmq:5672/
@@ -180,9 +180,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-fitness_admin}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      - DB_NAME=${POSTGRES_DB:-fitness}
+      - POSTGRES_USER=${POSTGRES_USER:-fitness_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-fitness}
       - DB_SSLMODE=disable
       - BIOMETRIC_SERVICE_ADDR=biometric-service:50052
     depends_on:
@@ -202,9 +202,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-fitness_admin}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      - DB_NAME=${POSTGRES_DB:-fitness}
+      - POSTGRES_USER=${POSTGRES_USER:-fitness_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-fitness}
       - DB_SSLMODE=disable
       - REDIS_HOST=redis
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS required}@rabbitmq:5672/

@@ -25,6 +25,9 @@ spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: gateway
           image: ghcr.io/mamuer/project/gateway:latest
@@ -38,6 +41,9 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
             - name: GATEWAY_PORT
               value: '8080'

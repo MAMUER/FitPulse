@@ -37,6 +37,9 @@ spec:
                       values:
                         - device-connector
                 topologyKey: kubernetes.io/hostname
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: device-connector
           image: ghcr.io/mamuer/project/device-connector:latest
@@ -51,22 +54,25 @@ spec:
           ports:
             - containerPort: 8082
               name: http
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
-            - name: DB_USER
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
                   key: POSTGRES_USER
-            - name: DB_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
                   key: POSTGRES_PASSWORD
-            - name: DB_NAME
+            - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
                   name: app-config
-                  key: DB_NAME
+                  key: POSTGRES_DB
             - name: BIOMETRIC_SERVICE_ADDR
               value: "biometric-service:50052"
             - name: DB_HOST

@@ -25,57 +25,63 @@ spec:
         runAsUser: 999
         runAsGroup: 999
         fsGroup: 999
-        
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
       containers:
-      - name: redis
-        image: redis:7-alpine
-        imagePullPolicy: Always
-        command:
-          - redis-server
-          - --appendonly
-          - "yes"
-          - --requirepass
-          - $(REDIS_PASSWORD)
-          - --maxmemory
-          - 256mb
-          - --maxmemory-policy
-          - allkeys-lru
-        ports:
-        - containerPort: 6379
-          name: redis
-        env:
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: REDIS_PASSWORD
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: ["ALL"]
-          readOnlyRootFilesystem: true
-        livenessProbe:
-          exec:
-            command:
-            - redis-cli
-            - -a
-            - $(REDIS_PASSWORD)
-            - ping
-          initialDelaySeconds: 15
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-            - redis-cli
-            - -a
-            - $(REDIS_PASSWORD)
-            - ping
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              exec redis-server \
+                --appendonly yes \
+                --requirepass "$REDIS_PASSWORD" \
+                --maxmemory 256mb \
+                --maxmemory-policy allkeys-lru
+          ports:
+            - containerPort: 6379
+              name: redis
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
+            initialDelaySeconds: 5
+            periodSeconds: 5

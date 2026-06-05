@@ -16,12 +16,12 @@ from pathlib import Path
 # === Configuration ===
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-if not DB_PASSWORD:
-    print("WARNING: DB_PASSWORD not set. Using default 'postgres' (dev only).")
-    DB_PASSWORD = "postgres"
-DB_NAME = os.getenv("DB_NAME", "fitness")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
+if not POSTGRES_PASSWORD:
+    print("WARNING: POSTGRES_PASSWORD not set. Using default 'postgres' (dev only).")
+    POSTGRES_PASSWORD = "postgres"
+POSTGRES_DB = os.getenv("POSTGRES_DB", "fitness")
 
 MIGRATIONS_DIR = Path("db/migrations")
 DOCKER_COMPOSE_FILE = Path("deployments/docker-compose.yml")
@@ -55,13 +55,13 @@ def error(text):
 def run_psql(args, check=True):
     """Run psql command."""
     env = os.environ.copy()
-    env["PGPASSWORD"] = DB_PASSWORD
+    env["PGPASSWORD"] = POSTGRES_PASSWORD
     cmd = [
         "psql",
         "-h", DB_HOST,
         "-p", str(DB_PORT),
-        "-U", DB_USER,
-        "-d", DB_NAME,
+        "-U", POSTGRES_USER,
+        "-d", POSTGRES_DB,
         *args,
     ]
     result = subprocess.run(cmd, env=env, capture_output=True, text=True)
@@ -76,7 +76,7 @@ def docker_compose_exec():
         "docker", "compose",
         "-f", str(DOCKER_COMPOSE_FILE),
         "exec", "-T", "postgres",
-        "psql", "-U", DB_USER, "-d", DB_NAME,
+        "psql", "-U", POSTGRES_USER, "-d", POSTGRES_DB,
         "-f", "/docker-entrypoint-initdb.d/init.sql",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -98,8 +98,8 @@ def main():
     info("Configuration:")
     print(f"  Host:     {DB_HOST}")
     print(f"  Port:     {DB_PORT}")
-    print(f"  Database: {DB_NAME}")
-    print(f"  User:     {DB_USER}")
+    print(f"  Database: {POSTGRES_DB}")
+    print(f"  User:     {POSTGRES_USER}")
     print()
 
     # Check if migrations directory exists
@@ -149,7 +149,7 @@ def main():
             "docker", "compose",
             "-f", str(DOCKER_COMPOSE_FILE),
             "exec", "-T", "postgres",
-            "psql", "-U", DB_USER, "-d", DB_NAME,
+            "psql", "-U", POSTGRES_USER, "-d", POSTGRES_DB,
             "-f", "/docker-entrypoint-initdb.d/init.sql",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)

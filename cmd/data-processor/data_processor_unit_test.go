@@ -15,27 +15,27 @@ import (
 func TestDataProcessorMain_NoDatabase(t *testing.T) {
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
-	oldUser := os.Getenv("DB_USER")
-	oldPass := os.Getenv("DB_PASSWORD")
-	oldDB := os.Getenv("DB_NAME")
+	oldUser := os.Getenv("POSTGRES_USER")
+	oldPass := os.Getenv("POSTGRES_PASSWORD")
+	oldDB := os.Getenv("POSTGRES_DB")
 	oldSSL := os.Getenv("DB_SSLMODE")
 	oldRabbit := os.Getenv("RABBITMQ_URL")
 
 	defer func() {
 		_ = os.Setenv("DB_HOST", oldHost)
 		_ = os.Setenv("DB_PORT", oldPort)
-		_ = os.Setenv("DB_USER", oldUser)
-		_ = os.Setenv("DB_PASSWORD", oldPass)
-		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("POSTGRES_USER", oldUser)
+		_ = os.Setenv("POSTGRES_PASSWORD", oldPass)
+		_ = os.Setenv("POSTGRES_DB", oldDB)
 		_ = os.Setenv("DB_SSLMODE", oldSSL)
 		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
 	}()
 
 	_ = os.Setenv("DB_HOST", "invalid-host")
 	_ = os.Setenv("DB_PORT", "invalid-port")
-	_ = os.Setenv("DB_USER", "invalid-user")
-	_ = os.Setenv("DB_PASSWORD", "invalid-pass")
-	_ = os.Setenv("DB_NAME", "invalid-db")
+	_ = os.Setenv("POSTGRES_USER", "invalid-user")
+	_ = os.Setenv("POSTGRES_PASSWORD", "invalid-pass")
+	_ = os.Setenv("POSTGRES_DB", "invalid-db")
 	_ = os.Setenv("DB_SSLMODE", "invalid-ssl")
 	_ = os.Setenv("RABBITMQ_URL", "invalid-rabbit")
 
@@ -46,9 +46,9 @@ func TestDataProcessorMain_NoDatabase(t *testing.T) {
 		dbCfg := db.Config{
 			Host:     os.Getenv("DB_HOST"),
 			Port:     os.Getenv("DB_PORT"),
-			User:     os.Getenv("DB_USER"),
-			Password: os.Getenv("DB_PASSWORD"),
-			DBName:   os.Getenv("DB_NAME"),
+			User:     os.Getenv("POSTGRES_USER"),
+			Password: os.Getenv("POSTGRES_PASSWORD"),
+			DBName:   os.Getenv("POSTGRES_DB"),
 			SSLMode:  os.Getenv("DB_SSLMODE"),
 		}
 
@@ -69,35 +69,35 @@ func TestDataProcessorMain_WithValidConfig(t *testing.T) {
 
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
-	oldUser := os.Getenv("DB_USER")
-	oldPass := os.Getenv("DB_PASSWORD")
-	oldDB := os.Getenv("DB_NAME")
+	oldUser := os.Getenv("POSTGRES_USER")
+	oldPass := os.Getenv("POSTGRES_PASSWORD")
+	oldDB := os.Getenv("POSTGRES_DB")
 	oldSSL := os.Getenv("DB_SSLMODE")
 
 	defer func() {
 		_ = os.Setenv("DB_HOST", oldHost)
 		_ = os.Setenv("DB_PORT", oldPort)
-		_ = os.Setenv("DB_USER", oldUser)
-		_ = os.Setenv("DB_PASSWORD", oldPass)
-		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("POSTGRES_USER", oldUser)
+		_ = os.Setenv("POSTGRES_PASSWORD", oldPass)
+		_ = os.Setenv("POSTGRES_DB", oldDB)
 		_ = os.Setenv("DB_SSLMODE", oldSSL)
 	}()
 
 	// Set valid-looking config (but services don't exist)
 	_ = os.Setenv("DB_HOST", "localhost")
 	_ = os.Setenv("DB_PORT", "5432")
-	_ = os.Setenv("DB_USER", "testuser")
-	_ = os.Setenv("DB_PASSWORD", "testpass")
-	_ = os.Setenv("DB_NAME", "testdb")
+	_ = os.Setenv("POSTGRES_USER", "testuser")
+	_ = os.Setenv("POSTGRES_PASSWORD", "testpass")
+	_ = os.Setenv("POSTGRES_DB", "testdb")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 
 	assert.NotPanics(t, func() {
 		dbCfg := db.Config{
 			Host:     os.Getenv("DB_HOST"),
 			Port:     os.Getenv("DB_PORT"),
-			User:     os.Getenv("DB_USER"),
-			Password: os.Getenv("DB_PASSWORD"),
-			DBName:   os.Getenv("DB_NAME"),
+			User:     os.Getenv("POSTGRES_USER"),
+			Password: os.Getenv("POSTGRES_PASSWORD"),
+			DBName:   os.Getenv("POSTGRES_DB"),
 			SSLMode:  os.Getenv("DB_SSLMODE"),
 		}
 
@@ -156,9 +156,9 @@ func TestDataProcessorMain_EnvironmentHandling(t *testing.T) {
 	}{
 		{"DB_HOST", "DB_HOST", "testhost", "testhost"},
 		{"DB_PORT", "DB_PORT", "5433", "5433"},
-		{"DB_USER", "DB_USER", "testuser", "testuser"},
-		{"DB_PASSWORD", "DB_PASSWORD", "secret123", "secret123"},
-		{"DB_NAME", "DB_NAME", "testdb", "testdb"},
+		{"POSTGRES_USER", "POSTGRES_USER", "testuser", "testuser"},
+		{"POSTGRES_PASSWORD", "POSTGRES_PASSWORD", "secret123", "secret123"},
+		{"POSTGRES_DB", "POSTGRES_DB", "testdb", "testdb"},
 		{"DB_SSLMODE", "DB_SSLMODE", "require", "require"},
 		{"RABBITMQ_URL", "RABBITMQ_URL", "amqp://guest:guest@localhost:5672/", "amqp://guest:guest@localhost:5672/"},
 	}
@@ -248,9 +248,9 @@ func TestRun_InvalidDBConfig(t *testing.T) {
 
 	_ = os.Setenv("DB_HOST", "")
 	_ = os.Setenv("DB_PORT", "5432")
-	_ = os.Setenv("DB_USER", "u")
-	_ = os.Setenv("DB_PASSWORD", "p")
-	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("POSTGRES_USER", "u")
+	_ = os.Setenv("POSTGRES_PASSWORD", "p")
+	_ = os.Setenv("POSTGRES_DB", "d")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 
 	// run() should return error when DB connection fails
@@ -290,9 +290,9 @@ func TestRun_RabbitMQInvalidURL(t *testing.T) {
 func TestRun_GracefulShutdown(t *testing.T) {
 	_ = os.Setenv("DB_HOST", "invalid-host")
 	_ = os.Setenv("DB_PORT", "5432")
-	_ = os.Setenv("DB_USER", "u")
-	_ = os.Setenv("DB_PASSWORD", "p")
-	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("POSTGRES_USER", "u")
+	_ = os.Setenv("POSTGRES_PASSWORD", "p")
+	_ = os.Setenv("POSTGRES_DB", "d")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 	_ = os.Setenv("RABBITMQ_URL", "")
 
@@ -314,27 +314,27 @@ func TestRun_GracefulShutdown(t *testing.T) {
 func TestDataProcessorMain_MoreCoverage(t *testing.T) {
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
-	oldUser := os.Getenv("DB_USER")
-	oldPass := os.Getenv("DB_PASSWORD")
-	oldDB := os.Getenv("DB_NAME")
+	oldUser := os.Getenv("POSTGRES_USER")
+	oldPass := os.Getenv("POSTGRES_PASSWORD")
+	oldDB := os.Getenv("POSTGRES_DB")
 	oldSSL := os.Getenv("DB_SSLMODE")
 	oldRabbit := os.Getenv("RABBITMQ_URL")
 
 	defer func() {
 		_ = os.Setenv("DB_HOST", oldHost)
 		_ = os.Setenv("DB_PORT", oldPort)
-		_ = os.Setenv("DB_USER", oldUser)
-		_ = os.Setenv("DB_PASSWORD", oldPass)
-		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("POSTGRES_USER", oldUser)
+		_ = os.Setenv("POSTGRES_PASSWORD", oldPass)
+		_ = os.Setenv("POSTGRES_DB", oldDB)
 		_ = os.Setenv("DB_SSLMODE", oldSSL)
 		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
 	}()
 
 	_ = os.Setenv("DB_HOST", "")
 	_ = os.Setenv("DB_PORT", "5432")
-	_ = os.Setenv("DB_USER", "u")
-	_ = os.Setenv("DB_PASSWORD", "p")
-	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("POSTGRES_USER", "u")
+	_ = os.Setenv("POSTGRES_PASSWORD", "p")
+	_ = os.Setenv("POSTGRES_DB", "d")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 	_ = os.Setenv("RABBITMQ_URL", "amqp://localhost")
 
@@ -352,27 +352,27 @@ func TestDataProcessorMain_MoreCoverage(t *testing.T) {
 func TestDataProcessorMain_AdditionalCoverage(t *testing.T) {
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
-	oldUser := os.Getenv("DB_USER")
-	oldPass := os.Getenv("DB_PASSWORD")
-	oldDB := os.Getenv("DB_NAME")
+	oldUser := os.Getenv("POSTGRES_USER")
+	oldPass := os.Getenv("POSTGRES_PASSWORD")
+	oldDB := os.Getenv("POSTGRES_DB")
 	oldSSL := os.Getenv("DB_SSLMODE")
 	oldRabbit := os.Getenv("RABBITMQ_URL")
 
 	defer func() {
 		_ = os.Setenv("DB_HOST", oldHost)
 		_ = os.Setenv("DB_PORT", oldPort)
-		_ = os.Setenv("DB_USER", oldUser)
-		_ = os.Setenv("DB_PASSWORD", oldPass)
-		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("POSTGRES_USER", oldUser)
+		_ = os.Setenv("POSTGRES_PASSWORD", oldPass)
+		_ = os.Setenv("POSTGRES_DB", oldDB)
 		_ = os.Setenv("DB_SSLMODE", oldSSL)
 		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
 	}()
 
 	_ = os.Setenv("DB_HOST", "localhost")
 	_ = os.Setenv("DB_PORT", "")
-	_ = os.Setenv("DB_USER", "u")
-	_ = os.Setenv("DB_PASSWORD", "p")
-	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("POSTGRES_USER", "u")
+	_ = os.Setenv("POSTGRES_PASSWORD", "p")
+	_ = os.Setenv("POSTGRES_DB", "d")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 	_ = os.Setenv("RABBITMQ_URL", "amqp://localhost")
 
@@ -390,27 +390,27 @@ func TestDataProcessorMain_AdditionalCoverage(t *testing.T) {
 func TestDataProcessorMain_MoreEnvCoverage(t *testing.T) {
 	oldHost := os.Getenv("DB_HOST")
 	oldPort := os.Getenv("DB_PORT")
-	oldUser := os.Getenv("DB_USER")
-	oldPass := os.Getenv("DB_PASSWORD")
-	oldDB := os.Getenv("DB_NAME")
+	oldUser := os.Getenv("POSTGRES_USER")
+	oldPass := os.Getenv("POSTGRES_PASSWORD")
+	oldDB := os.Getenv("POSTGRES_DB")
 	oldSSL := os.Getenv("DB_SSLMODE")
 	oldRabbit := os.Getenv("RABBITMQ_URL")
 
 	defer func() {
 		_ = os.Setenv("DB_HOST", oldHost)
 		_ = os.Setenv("DB_PORT", oldPort)
-		_ = os.Setenv("DB_USER", oldUser)
-		_ = os.Setenv("DB_PASSWORD", oldPass)
-		_ = os.Setenv("DB_NAME", oldDB)
+		_ = os.Setenv("POSTGRES_USER", oldUser)
+		_ = os.Setenv("POSTGRES_PASSWORD", oldPass)
+		_ = os.Setenv("POSTGRES_DB", oldDB)
 		_ = os.Setenv("DB_SSLMODE", oldSSL)
 		_ = os.Setenv("RABBITMQ_URL", oldRabbit)
 	}()
 
 	_ = os.Setenv("DB_HOST", "h")
 	_ = os.Setenv("DB_PORT", "1234")
-	_ = os.Setenv("DB_USER", "u")
-	_ = os.Setenv("DB_PASSWORD", "p")
-	_ = os.Setenv("DB_NAME", "d")
+	_ = os.Setenv("POSTGRES_USER", "u")
+	_ = os.Setenv("POSTGRES_PASSWORD", "p")
+	_ = os.Setenv("POSTGRES_DB", "d")
 	_ = os.Setenv("DB_SSLMODE", "disable")
 	_ = os.Setenv("RABBITMQ_URL", "")
 

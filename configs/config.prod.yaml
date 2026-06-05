@@ -2,7 +2,7 @@ database:
   host: postgres-service
   port: 5432
   user: postgres
-  password: ${DB_PASSWORD}
+  password: ${POSTGRES_PASSWORD}
   dbname: fitness
   sslmode: disable
 

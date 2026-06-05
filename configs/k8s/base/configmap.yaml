@@ -5,7 +5,7 @@ metadata:
 data:
   DB_HOST: "postgres-service"
   DB_PORT: "5432"
-  DB_NAME: "fitness"
+  POSTGRES_DB: "fitness"
   DB_SSLMODE: "disable"
   POSTGRES_USER: "postgres"
   REDIS_ADDR: "redis:6379"

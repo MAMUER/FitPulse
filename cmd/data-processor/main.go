@@ -32,7 +32,7 @@ func run(stopCh <-chan os.Signal) error {
 		Port:     os.Getenv("DB_PORT"),
 		User:     os.Getenv("POSTGRES_USER"),
 		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("DB_NAME"),
+		DBName:   os.Getenv("POSTGRES_DB"),
 		SSLMode:  os.Getenv("DB_SSLMODE"),
 	}
 	database, err := db.NewConnection(dbCfg)
