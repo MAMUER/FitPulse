@@ -1,5 +1,5 @@
 ---
-# DMZ zone - ingress traffic
+# DMZ zone - ingress traffic (Gateway)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -9,23 +9,57 @@ spec:
     matchLabels:
       zone: dmz
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - namespaceSelector: {}  # internet/external traffic
-    ports:
-    - protocol: TCP
-      port: 8443
+    - from:
+        - namespaceSelector: {}  # internet/external traffic
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
   egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          zone: app-zone
-    ports:
-    - protocol: TCP
-      port: 8080
-
+    # DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Access to App Zone (gRPC services + ML)
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: app-zone
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8082   # device-connector
+        - protocol: TCP
+          port: 50051  # user-service
+        - protocol: TCP
+          port: 50052  # biometric-service
+        - protocol: TCP
+          port: 50053  # training-service
+        - protocol: TCP
+          port: 8001   # ml-classifier
+        - protocol: TCP
+          port: 8002   # ml-generator
+    # Access to Data Zone (Redis, RabbitMQ)
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: data-zone
+      ports:
+        - protocol: TCP
+          port: 6379   # Redis
+        - protocol: TCP
+          port: 5672   # RabbitMQ AMQP
+        - protocol: TCP
+          port: 15672  # RabbitMQ Mgmt
 ---
 # App zone - microservices
 apiVersion: networking.k8s.io/v1
@@ -37,50 +71,71 @@ spec:
     matchLabels:
       zone: app-zone
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          zone: dmz
-    ports:
-    - protocol: TCP
-      port: 8080
-  - from:
-    - podSelector:
-        matchLabels:
-          zone: monitoring-zone
-    ports:
-    - protocol: TCP
-      port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              zone: dmz
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 50051
+        - protocol: TCP
+          port: 50052
+        - protocol: TCP
+          port: 50053
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 8002
+        - protocol: TCP
+          port: 8082
+    - from:
+        - podSelector:
+            matchLabels:
+              zone: monitoring-zone
+      ports:
+        - protocol: TCP
+          port: 8080
   egress:
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  - to:
-    - podSelector:
-        matchLabels:
-          zone: data-zone
-    ports:
-    - protocol: TCP
-      port: 5432
-    - protocol: TCP
-      port: 6379
-    - protocol: TCP
-      port: 5672
-  - to:
-    - podSelector:
-        matchLabels:
-          zone: app-zone
-    ports:
-    - protocol: TCP
-      port: 8080
-
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: data-zone
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 5672
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: app-zone
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 50051
+        - protocol: TCP
+          port: 50052
+        - protocol: TCP
+          port: 50053
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 8002
 ---
 # Data zone - databases, cache, queues
 apiVersion: networking.k8s.io/v1
@@ -92,29 +147,31 @@ spec:
     matchLabels:
       zone: data-zone
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          zone: app-zone
-    ports:
-    - protocol: TCP
-      port: 5432  # PostgreSQL
-    - protocol: TCP
-      port: 6379  # Redis
-    - protocol: TCP
-      port: 5672  # RabbitMQ
+    - from:
+        - podSelector:
+            matchLabels:
+              zone: app-zone
+        - podSelector:
+            matchLabels:
+              zone: dmz
+      ports:
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+        - protocol: TCP
+          port: 6379  # Redis
+        - protocol: TCP
+          port: 5672  # RabbitMQ
   egress:
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
 ---
 # Monitoring zone - ELK, Prometheus, Grafana
 apiVersion: networking.k8s.io/v1
@@ -126,63 +183,49 @@ spec:
     matchLabels:
       zone: monitoring-zone
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          zone: app-zone
-    ports:
-    - protocol: TCP
-      port: 9090  # Prometheus
-    - protocol: TCP
-      port: 5044  # Logstash
-    - protocol: TCP
-      port: 5601  # Kibana
-    - protocol: TCP
-      port: 3000  # Grafana
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: kube-system  # Allow kubelet metrics
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: vpn-users  # Only from VPN
-    ports:
-    - protocol: TCP
-      port: 5601  # Kibana
-    - protocol: TCP
-      port: 3000  # Grafana
-    - protocol: TCP
-      port: 9090  # Prometheus
+    - from:
+        - podSelector:
+            matchLabels:
+              zone: app-zone
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 5044
+        - protocol: TCP
+          port: 5601
+        - protocol: TCP
+          port: 3000
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
   egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          zone: app-zone
-    ports:
-    - protocol: TCP
-      port: 8080
-  - to:
-    - podSelector:
-        matchLabels:
-          zone: data-zone
-    ports:
-    - protocol: TCP
-      port: 5432  # PostgreSQL
-    - protocol: TCP
-      port: 6379  # Redis
-    - protocol: TCP
-      port: 5672  # RabbitMQ
-    - protocol: TCP
-      port: 9200  # Elasticsearch
-  - to:
-    - namespaceSelector: {}
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    ports:
-    - protocol: UDP
-      port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: app-zone
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              zone: data-zone
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 5672
+        - protocol: TCP
+          port: 9200
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
