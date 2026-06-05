@@ -227,11 +227,11 @@ spec:
       - name: ml-classifier
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
-          limits:
-            cpu: 200m
+            cpu: 100m
             memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -261,11 +261,11 @@ spec:
       - name: ml-generator
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
-          limits:
-            cpu: 200m
+            cpu: 100m
             memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

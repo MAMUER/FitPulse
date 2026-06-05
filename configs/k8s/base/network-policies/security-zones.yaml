@@ -12,15 +12,14 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - from:
-        - namespaceSelector: {}  # internet/external traffic
-      ports:
+    # Разрешаем ВЕСЬ входящий трафик на порты Gateway (включая NodePort из интернета)
+    - ports:
         - protocol: TCP
           port: 8080
         - protocol: TCP
           port: 8443
         - protocol: TCP
-          port: 30080  # NodePort for external access
+          port: 30080
   egress:
     # DNS resolution
     - to:

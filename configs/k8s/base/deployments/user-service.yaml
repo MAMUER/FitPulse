@@ -83,8 +83,8 @@ spec:
               value: "redis"
             - name: RABBITMQ_URL
               valueFrom:
-                configMapKeyRef:
-                  name: app-config
+                secretKeyRef:
+                  name: app-secrets
                   key: RABBITMQ_URL
           livenessProbe:
             tcpSocket:

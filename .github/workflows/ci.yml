@@ -633,6 +633,8 @@ jobs:
       if: steps.connectivity.outputs.reachable == 'true'
       run: |
         echo "Creating app-secrets..."
+        # Формируем полный RABBITMQ_URL с credentials
+        RABBITMQ_URL="amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASS }}@rabbitmq:5672/"
         kubectl create secret generic app-secrets -n fitness-platform-staging \
           --from-literal=POSTGRES_USER=postgres \
           --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
@@ -641,8 +643,9 @@ jobs:
           --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
           --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
           --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+          --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
           --dry-run=client -o yaml | kubectl apply -f -
-        echo "app-secrets created"
+        echo "app-secrets created with RABBITMQ_URL"
     - name: Update image tags to SHA
       if: steps.connectivity.outputs.reachable == 'true'
       run: |
