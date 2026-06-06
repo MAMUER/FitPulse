@@ -586,173 +586,201 @@ jobs:
 # 5. STAGING DEPLOY (K8s namespace: fitness-platform-staging)
 # ─────────────────────────────────────────────────────────────
   deploy-staging:
-   name: Deploy to K8s Staging
-   runs-on: ubuntu-latest
-   needs: [docker, provision-k8s-vps]
-   if: >-
-     github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
-     && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
-   outputs:
-    reachable: ${{ steps.connectivity.outputs.reachable }}
-   steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-    - name: Download kubeconfig artifact
-      uses: actions/download-artifact@v8
-      with:
-        name: kubeconfig
-        path: ./kubeconfig
-    - name: Configure kubectl
-      id: kubeconfig
-      run: |
-        mkdir -p "$HOME/.kube"
-        cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
-        chmod 600 "$HOME/.kube/config"
-        kubectl config set-context --current --namespace=fitness-platform-staging
-    - name: Check cluster connectivity
-      id: connectivity
-      run: |
-        echo "Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
-        if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
-          echo "Cluster reachable"
-          echo "reachable=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "Cluster NOT reachable (timeout 10s)"
-          echo "reachable=false" >> "$GITHUB_OUTPUT"
-          exit 1
-        fi
-    - name: Create image pull secret for GHCR
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Creating imagePullSecret for ghcr.io..."
-        kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply -f -
-        kubectl create secret docker-registry ghcr-pull-secret \
-          --docker-server=ghcr.io \
-          --docker-username=${{ github.actor }} \
-          --docker-password=${{ secrets.GHCR_TOKEN }} \
-          -n fitness-platform-staging \
-          --dry-run=client -o yaml | kubectl apply -f -
-        echo "imagePullSecret created/updated"
-    - name: Ensure service account exists
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Checking service account app-service-account..."
-        kubectl create serviceaccount app-service-account \
-          -n fitness-platform-staging \
-          --dry-run=client -o yaml | kubectl apply -f -
-        kubectl create clusterrolebinding app-service-account-binding \
-          --clusterrole=edit \
-          --serviceaccount=fitness-platform-staging:app-service-account \
-          --dry-run=client -o yaml | kubectl apply -f - || true
-        echo "ServiceAccount ready"
-    - name: Create staging secrets
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Creating app-secrets..."
-        # Формируем полный RABBITMQ_URL с credentials
-        RABBITMQ_URL="amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASS }}@rabbitmq:5672/"
-        kubectl create secret generic app-secrets -n fitness-platform-staging \
-          --from-literal=POSTGRES_USER=postgres \
-          --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-          --from-literal=POSTGRES_DB=fitness \
-          --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
-          --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
-          --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
-          --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-          --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
-          --dry-run=client -o yaml | kubectl apply -f -
-        echo "app-secrets created with RABBITMQ_URL"
-    - name: Update image tags to SHA
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        SHA=$(git rev-parse --short HEAD)
-        echo "Updating image tags to :$SHA"
-        cd configs/k8s/overlays/staging
-        for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
-          kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
-        done
-    - name: Cleanup old and failed pods before deploy
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "-> Cleaning up failed, evicted, and succeeded pods..."
-        kubectl delete pods -n fitness-platform-staging \
-          --field-selector=status.phase=Failed,status.phase=Succeeded,status.phase=Unknown \
-          --ignore-not-found=true || true
-        echo "-> Cleaning up old ReplicaSets..."
-        kubectl get rs -n fitness-platform-staging -o json | \
-          jq -r '.items[] | select(.status.replicas == 0) | .metadata.name' | \
-          xargs -r -n1 kubectl delete rs -n fitness-platform-staging || true
-        echo "-> Cleanup complete"
-        kubectl get pods -n fitness-platform-staging -o wide
-    - name: Apply staging overlay with Kustomize
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Applying staging overlay with Kustomize..."
-        cd configs/k8s/overlays/staging
-        if kustomize build . | kubectl apply --validate=false -f -; then
-          echo "Staging overlay applied successfully"
-        else
-          echo "Failed to apply staging overlay"
-          exit 1
-        fi
-    - name: Wait for Postgres to be ready
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Waiting for Postgres to be ready..."
-        kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-staging --timeout=120s || echo "Postgres not ready yet"
-        sleep 5
-    - name: Run database migrations
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Running database migrations..."
-        # Удаляем предыдущий Job миграций (если был)
-        kubectl delete job migrate-db-run -n fitness-platform-staging --ignore-not-found=true
-        # Создаём и запускаем Job миграций из шаблона
-        kubectl create job --from=job/migrate-db migrate-db-run -n fitness-platform-staging
-        # Ждём завершения миграций (максимум 2 минуты)
-        echo "Waiting for migrations to complete..."
-        if kubectl wait --for=condition=complete job/migrate-db-run -n fitness-platform-staging --timeout=120s; then
-          echo "✅ Database migrations completed successfully"
-          kubectl logs job/migrate-db-run -n fitness-platform-staging
-        else
-          echo "❌ Database migrations failed or timed out"
-          kubectl logs job/migrate-db-run -n fitness-platform-staging || true
-          kubectl describe job migrate-db-run -n fitness-platform-staging || true
-          exit 1
-        fi
-    - name: Cleanup unused images on VPS (Docker + Containerd)
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "-> Pruning unused Docker images and containers..."
-        docker system prune -f --volumes || true
-        echo "-> Pruning unused k3s (containerd) images..."
-        k3s crictl rmi --prune || true
-        echo "-> Current disk usage:"
-        df -h /
-    - name: Debug pod status after deploy
-      if: always() && steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Checking pod status..."
-        kubectl get pods -n fitness-platform-staging -o wide || true
-        echo "Events for failing pods (if any):"
-        kubectl get pods -n fitness-platform-staging --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-staging 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
-    - name: Bypass DNS staleness after redeploy
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "-> Clearing DNS caches and rolling restarts..."
-        kubectl rollout restart deployment -n fitness-platform-staging || true
-        kubectl rollout status deployment -n fitness-platform-staging --timeout=300s || true
-        kubectl get pods -n fitness-platform-staging -o wide
-        sleep 10
-    - name: Verify staging deployment
-      if: steps.connectivity.outputs.reachable == 'true'
-      run: |
-        echo "Verifying deployment..."
-        echo "Waiting for gateway to be ready (up to 300s)..."
-        kubectl get pods -n fitness-platform-staging
-        kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
-        sleep 30
+    name: Deploy to K8s Staging
+    runs-on: ubuntu-latest
+    needs: [docker, provision-k8s-vps]
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.run_mode != 'maintenance'
+      && (github.ref == 'refs/heads/Microservice_arc'
+      || github.ref == 'refs/heads/main')
+    outputs:
+      reachable: ${{ steps.connectivity.outputs.reachable }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download kubeconfig artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: kubeconfig
+          path: ./kubeconfig
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl config set-context --current --namespace=fitness-platform-staging
+
+      - name: Wait for k3s API to be fully ready
+        run: |
+          echo "Waiting for k3s API server to be fully initialized..."
+          for i in {1..30}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              echo "✅ k3s API server is ready after ${i}0 seconds"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ k3s API server not ready after 5 minutes"
+              kubectl cluster-info dump || true
+              exit 1
+            fi
+            echo "Attempt $i/30: API not ready, waiting 10s..."
+            sleep 10
+          done
+          
+          echo "Verifying API endpoints..."
+          kubectl api-resources --api-group=apps &>/dev/null || {
+            echo "API resources not available, waiting 30s more..."
+            sleep 30
+          }
+
+      - name: Check cluster connectivity
+        id: connectivity
+        run: |
+          echo "Testing connectivity to ${{ secrets.VPS_HOST }}:6443..."
+          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
+            echo "Cluster reachable"
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Cluster NOT reachable (timeout 10s)"
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Create image pull secret for GHCR
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Creating imagePullSecret for ghcr.io..."
+          kubectl create namespace fitness-platform-staging --dry-run=client -o yaml | kubectl apply --validate=false -f -
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            -n fitness-platform-staging \
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
+          echo "imagePullSecret created/updated"
+      - name: Ensure service account exists
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Checking service account app-service-account..."
+          kubectl create serviceaccount app-service-account \
+            -n fitness-platform-staging \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create clusterrolebinding app-service-account-binding \
+            --clusterrole=edit \
+            --serviceaccount=fitness-platform-staging:app-service-account \
+            --dry-run=client -o yaml | kubectl apply -f - || true
+          echo "ServiceAccount ready"
+      - name: Create staging secrets
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Creating app-secrets..."
+          # Формируем полный RABBITMQ_URL с credentials
+          RABBITMQ_URL="amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASS }}@rabbitmq:5672/"
+          kubectl create secret generic app-secrets -n fitness-platform-staging \
+            --from-literal=POSTGRES_USER=postgres \
+            --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            --from-literal=POSTGRES_DB=fitness \
+            --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
+            --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
+            --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "app-secrets created with RABBITMQ_URL"
+      - name: Update image tags to SHA
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          echo "Updating image tags to :$SHA"
+          cd configs/k8s/overlays/staging
+          for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
+            kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
+          done
+      - name: Cleanup old and failed pods before deploy
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Cleaning up failed, evicted, and succeeded pods..."
+          kubectl delete pods -n fitness-platform-staging \
+            --field-selector=status.phase=Failed,status.phase=Succeeded,status.phase=Unknown \
+            --ignore-not-found=true || true
+          echo "-> Cleaning up old ReplicaSets..."
+          kubectl get rs -n fitness-platform-staging -o json | \
+            jq -r '.items[] | select(.status.replicas == 0) | .metadata.name' | \
+            xargs -r -n1 kubectl delete rs -n fitness-platform-staging || true
+          echo "-> Cleanup complete"
+          kubectl get pods -n fitness-platform-staging -o wide
+      - name: Apply staging overlay with Kustomize
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Applying staging overlay with Kustomize..."
+          cd configs/k8s/overlays/staging
+          if kustomize build . | kubectl apply --validate=false -f -; then
+            echo "Staging overlay applied successfully"
+          else
+            echo "Failed to apply staging overlay"
+            exit 1
+          fi
+      - name: Wait for Postgres to be ready
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Waiting for Postgres to be ready..."
+          kubectl wait --for=condition=ready pod -l app=postgres -n fitness-platform-staging --timeout=120s || echo "Postgres not ready yet"
+          sleep 5
+      - name: Run database migrations
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Running database migrations..."
+          # Удаляем предыдущий Job миграций (если был)
+          kubectl delete job migrate-db-run -n fitness-platform-staging --ignore-not-found=true
+          # Создаём и запускаем Job миграций из шаблона
+          kubectl create job --from=job/migrate-db migrate-db-run -n fitness-platform-staging
+          # Ждём завершения миграций (максимум 2 минуты)
+          echo "Waiting for migrations to complete..."
+          if kubectl wait --for=condition=complete job/migrate-db-run -n fitness-platform-staging --timeout=120s; then
+            echo "✅ Database migrations completed successfully"
+            kubectl logs job/migrate-db-run -n fitness-platform-staging
+          else
+            echo "❌ Database migrations failed or timed out"
+            kubectl logs job/migrate-db-run -n fitness-platform-staging || true
+            kubectl describe job migrate-db-run -n fitness-platform-staging || true
+            exit 1
+          fi
+      - name: Cleanup unused images on VPS (Docker + Containerd)
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Pruning unused Docker images and containers..."
+          docker system prune -f --volumes || true
+          echo "-> Pruning unused k3s (containerd) images..."
+          k3s crictl rmi --prune || true
+          echo "-> Current disk usage:"
+          df -h /
+      - name: Debug pod status after deploy
+        if: always() && steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Checking pod status..."
+          kubectl get pods -n fitness-platform-staging -o wide || true
+          echo "Events for failing pods (if any):"
+          kubectl get pods -n fitness-platform-staging --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-staging 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
+      - name: Bypass DNS staleness after redeploy
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Clearing DNS caches and rolling restarts..."
+          kubectl rollout restart deployment -n fitness-platform-staging || true
+          kubectl rollout status deployment -n fitness-platform-staging --timeout=300s || true
+          kubectl get pods -n fitness-platform-staging -o wide
+          sleep 10
+      - name: Verify staging deployment
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Verifying deployment..."
+          echo "Waiting for gateway to be ready (up to 300s)..."
+          kubectl get pods -n fitness-platform-staging
+          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
+          sleep 30
 
 # ─────────────────────────────────────────────────────────────
 # 6. E2E TESTS ON STAGING
