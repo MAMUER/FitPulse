@@ -742,8 +742,19 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Running database migrations..."
+          
+          # Удаляем предыдущий Job миграций (если был)
           kubectl delete job migrate-db-run -n fitness-platform-staging --ignore-not-found=true
-          kubectl create job --from=job/migrate-db migrate-db-run -n fitness-platform-staging
+          
+          # Создаём новый Job из шаблона через JSON transform
+          kubectl get job migrate-db -n fitness-platform-staging -o json \
+            | jq '
+                del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .status, .spec.selector, .spec.template.metadata.labels."controller-uid", .spec.template.metadata.labels."batch.kubernetes.io/controller-uid") 
+                | .metadata.name="migrate-db-run"
+                | .spec.template.metadata.labels["job-name"]="migrate-db-run"
+              ' \
+            | kubectl apply -f -
+          
           echo "Waiting for migrations to complete..."
           if kubectl wait --for=condition=complete job/migrate-db-run -n fitness-platform-staging --timeout=120s; then
             echo "✅ Database migrations completed successfully"

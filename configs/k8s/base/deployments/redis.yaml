@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         app: redis
+        zone: data-zone
     spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
@@ -39,6 +40,7 @@ spec:
             - -c
             - |
               exec redis-server \
+                --bind 0.0.0.0 \
                 --appendonly yes \
                 --requirepass "$REDIS_PASSWORD" \
                 --maxmemory 256mb \
@@ -74,7 +76,7 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -a "$REDIS_PASSWORD" ping
+                - redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 15
             periodSeconds: 10
           readinessProbe:
@@ -82,6 +84,6 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -a "$REDIS_PASSWORD" ping
+                - redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 5
             periodSeconds: 5
