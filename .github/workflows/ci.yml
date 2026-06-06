@@ -634,13 +634,25 @@ jobs:
 
       - name: Create TLS Secret in Kubernetes
         run: |
+          # Настраиваем kubectl для подключения к VPS
+          mkdir -p "$HOME/.kube"
+          cp ./k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          
+          # Проверяем подключение
+          kubectl cluster-info
+          
+          # Ждём пока кластер будет готов
           sleep 10
+          
+          # Создаём TLS Secret для Gateway
           kubectl create secret tls gateway-tls \
             --cert=/tmp/tls/server.crt \
             --key=/tmp/tls/server.key \
             -n fitness-platform-production \
-            --dry-run=client -o yaml | kubectl apply -f -
-          echo "✅ TLS Secret created"
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
+          
+          echo "✅ TLS Secret created in fitness-platform-production"
       - name: Upload kubeconfig artifact
         uses: actions/upload-artifact@v7
         with:

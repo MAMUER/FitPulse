@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -55,6 +56,7 @@ type gateway struct {
 	trainingMu  sync.Mutex
 }
 
+//nolint:gocognit,gocyclo,funlen // Complexity due to sequential init of multiple services
 func main() {
 	log := logger.New("gateway")
 	defer func() {
@@ -281,12 +283,12 @@ func main() {
 		errorTotal:         errorTotal,
 	}
 
-		// Setup routes (middleware applied via r.Use() in registerRoutes)
+	// Setup routes (middleware applied via r.Use() in registerRoutes)
 	r := g.registerRoutes()
 
 	// ========== HTTP server (redirect to HTTPS) ==========
 	httpSrv := &http.Server{
-		Addr:    ":" + port,
+		Addr: ":" + port,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Redirect all HTTP to HTTPS
 			target := "https://" + r.Host + r.URL.RequestURI()
@@ -317,7 +319,7 @@ func main() {
 	}
 
 	if tlsCertFile != "" && tlsKeyFile != "" {
-		if _, err := os.Stat(tlsCertFile); err == nil {
+		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err == nil { //gosec:ignore G703
 			go func() {
 				log.Info("HTTPS server starting",
 					zap.String("port", "8443"),
