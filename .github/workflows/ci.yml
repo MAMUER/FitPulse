@@ -622,7 +622,7 @@ jobs:
               echo "✅ k3s API server is ready after ${i}0 seconds"
               break
             fi
-            if [ $i -eq 30 ]; then
+            if [ "$i" -eq 30 ]; then
               echo "❌ k3s API server not ready after 5 minutes"
               kubectl cluster-info dump || true
               exit 1
