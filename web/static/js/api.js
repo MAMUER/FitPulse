@@ -14,16 +14,6 @@ function setAuthToken(token) {
     }
 }
 
-// ========== Security #11: Response Signature Verification ==========
-// Сервер подписывает ответы HMAC-SHA256 своим секретом.
-// Клиент не может проверить HMAC без секрета (это невозможно в SPA),
-// но наличие подписи обеспечивает:
-// 1. Integrity: подпись фиксируется в логах для аудита
-// 2. Accountability: сервер не может отрицать отправку ответа
-// 3. В production: можно использовать публичный ключ (Ed25519) для проверки
-//
-// Пока подпись логируется. Для полной проверки нужен бэкенд-прокси,
-// который проверяет HMAC и передаёт только валидные данные SPA.
 function logResponseSignature(endpoint, signature, algorithm) {
     if (signature) {
         console.log(
@@ -76,7 +66,6 @@ async function apiRequest(endpoint, options = {}) {
         data = rawBody;
     }
 
-    // Требование #11: Логирование подписи ответа для аудита целостности
     const signature = response.headers.get('X-Response-Signature');
     const algorithm = response.headers.get('X-Signature-Algorithm');
     if (signature && rawBody) {
@@ -201,7 +190,6 @@ async function getAchievements() {
     return apiRequest('/achievements');
 }
 
-// Logout — требование #1: серверная инвалидация сессии
 async function logout() {
     try {
         await apiRequest('/logout', { method: 'POST' });

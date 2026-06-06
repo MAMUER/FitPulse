@@ -1,12 +1,7 @@
-# Fitness Platform - Stop All Services
-# Usage: .\stop-local.ps1           — stop, keep data
-#        .\stop-local.ps1 --full    — stop + delete volumes (reset DB)
-
 param(
     [switch]$Full
 )
 
-# Fix: PowerShell 7 may not have Docker in PATH
 $dockerPath = "C:\Program Files\Docker\Docker\resources\bin"
 if (-not ($env:PATH -split ";" | Where-Object { $_ -eq $dockerPath })) {
     $env:PATH = "$dockerPath;$env:PATH"
@@ -14,7 +9,6 @@ if (-not ($env:PATH -split ";" | Where-Object { $_ -eq $dockerPath })) {
 
 $ErrorActionPreference = "Continue"
 
-# Load .env so docker-compose can interpolate variables
 $envFile = Join-Path $PSScriptRoot "..\.env"
 if (Test-Path $envFile) {
     Get-Content $envFile | Where-Object { $_ -match '^\s*([^#][^=]+)=(.*)$' } | ForEach-Object {
@@ -31,7 +25,6 @@ Write-Host "   STOPPING ALL SERVICES"
 Write-Host "========================================"
 Write-Host ""
 
-# Check if Docker containers are running
 $composeFile = Join-Path $PSScriptRoot "..\deployments\docker-compose.yml"
 $runningContainers = docker compose --env-file $envFile -f $composeFile ps -q 2>$null
 if ($runningContainers) {
@@ -54,7 +47,6 @@ if ($runningContainers) {
     exit 0
 }
 
-# If no containers, stop local processes
 Write-Host "[1/3] No Docker containers found. Stopping local processes..."
 $pidFile = Join-Path $PSScriptRoot ".pids.json"
 if (Test-Path $pidFile) {
@@ -84,7 +76,6 @@ if (Test-Path $pidFile) {
     }
 }
 
-# Cleanup
 Write-Host ""
 Write-Host "[2/3] Cleaning up..."
 Remove-Item $pidFile -Force -ErrorAction SilentlyContinue

@@ -1,8 +1,3 @@
-#!/bin/bash
-#
-# scripts/ssh-retry.sh
-# Reusable SSH/SCP wrapper with retries, timeouts, and good logging.
-#
 set -euo pipefail
 
 MODE="${1:-}"
@@ -19,10 +14,8 @@ MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
 DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
 TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
 
-# Common safe options
 COMMON_OPTS="-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60"
 
-# Bastion / Jump host support
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
   echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
   COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${BASTION_USER}@${BASTION_HOST}"
@@ -31,12 +24,10 @@ elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
   COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${SSH_JUMP_HOST}"
 fi
 
-# Merge with user-provided options
 if [[ -n "${SSH_OPTS:-}" ]]; then
   COMMON_OPTS="$COMMON_OPTS $SSH_OPTS"
 fi
 
-# Parse arguments
 TARGET=""
 COMMAND=""
 SRC=""
@@ -59,8 +50,6 @@ while true; do
     echo "-> Target : $TARGET"
     echo "-> Command: ${COMMAND:0:200}..."
 
-    # ИСПРАВЛЕНИЕ: передаём скрипт через stdin в bash -s
-    # Это работает с любыми командами: многострочными, с кавычками, пайпами и т.д.
     if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" bash -s; then
       echo "Success on attempt $attempt"
       exit 0
