@@ -484,19 +484,19 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf 'bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\nflannel-backend: wireguard-native\nkubelet-arg:\n  - "cloud-provider=external"\nwrite-kubeconfig-mode: 644\ndocker: true\n' "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            mkdir -p /etc/rancher/k3s
-            echo "Directory /etc/rancher/k3s created"
+          mkdir -p /etc/rancher/k3s
+          echo "Directory /etc/rancher/k3s created"
           '
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "Config written:"
-            cat /etc/rancher/k3s/config.yaml
+          echo "Config written:"
+          cat /etc/rancher/k3s/config.yaml
           '
-      - name: Install k3s with Docker runtime
+      - name: Install k3s
         env:
           SSH_RETRY_TIMEOUT: 600
           SSH_RETRY_MAX_ATTEMPTS: 5
@@ -504,34 +504,55 @@ jobs:
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Installing k3s..."
-            curl --retry 5 --retry-delay 5 --connect-timeout 20 --max-time 600 -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--docker" sh -s - server --write-kubeconfig-mode 644
-            echo "k3s installed"
+          set -euo pipefail
+          echo "-> Installing k3s v1.31.6+k3s1..."
+          # Фиксируем стабильную версию вместо "stable" channel
+          export INSTALL_K3S_VERSION="v1.31.6+k3s1"
+          curl --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 600 -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
+    
+          # Проверяем что бинарник реально установлен
+          if [ ! -f /usr/local/bin/k3s ]; then
+            echo "ERROR: k3s binary not found after install"
+            exit 1
+          fi
+    
+          # Проверяем что systemd unit создан
+          if [ ! -f /etc/systemd/system/k3s.service ]; then
+            echo "ERROR: k3s.service not found after install"
+            exit 1
+          fi
+    
+          echo "k3s installed and verified"
+          /usr/local/bin/k3s --version
           '
 
       - name: Start and verify k3s
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Starting k3s..."
-            systemctl daemon-reload
-            systemctl enable --now k3s
-
-            echo "-> Waiting for readiness..."
-            for i in $(seq 1 120); do
-              if k3s kubectl cluster-info &> /dev/null; then
-                echo "k3s ready after ${i}s"
-                break
-              fi
-              [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
-              sleep 2
-            done
-
-            echo "=== Cluster status ==="
-            k3s kubectl get nodes -o wide
-            k3s kubectl get pods -A
-            echo "=== Docker check ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}" | head -5 || true
+          set -euo pipefail
+          echo "-> Starting k3s..."
+          systemctl daemon-reload
+          systemctl enable --now k3s
+    
+          echo "-> Waiting for readiness (up to 180s)..."
+          for i in $(seq 1 90); do
+            if k3s kubectl cluster-info &> /dev/null; then
+              echo "k3s ready after $((i*2))s"
+              break
+            fi
+            if [ $i -eq 90 ]; then
+              echo "Timeout waiting for k3s"
+              systemctl status k3s --no-pager || true
+              journalctl -u k3s -n 30 --no-pager
+              exit 1
+            fi
+            sleep 2
+          done
+    
+          echo "=== Cluster status ==="
+          k3s kubectl get nodes -o wide
+          k3s kubectl get pods -A
           '
       - name: Download and fix kubeconfig
         id: kubeconfig
