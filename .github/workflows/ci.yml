@@ -441,9 +441,8 @@ jobs:
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "Smoke tests passed"
 
-  # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
+    # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
   # ─────────────────────────────────────────────────────────────
-
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
     runs-on: ubuntu-latest
@@ -471,16 +470,17 @@ jobs:
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            set -x
-            echo "-> Stopping k3s..."
-            systemctl stop k3s 2>/dev/null || true
-            pkill -9 -f "k3s server" 2>/dev/null || true
-            echo "-> Removing k3s files..."
-            rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
-            rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
-            systemctl daemon-reload
-            echo "Cleanup done"
+          set -x
+          echo "-> Stopping k3s..."
+          systemctl stop k3s 2>/dev/null || true
+          pkill -9 -f "k3s server" 2>/dev/null || true
+          echo "-> Removing k3s files..."
+          rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
+          rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
+          systemctl daemon-reload
+          echo "Cleanup done"
           '
+
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
@@ -496,7 +496,22 @@ jobs:
           echo "Config written:"
           cat /etc/rancher/k3s/config.yaml
           '
-      - name: Install k3s
+
+      - name: Download k3s binary and install script on runner
+        run: |
+          echo "-> Downloading k3s binary and install script on GitHub runner..."
+          curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.31.6%2Bk3s1/k3s
+          chmod +x /tmp/k3s
+          curl -sfL -o /tmp/install.sh https://get.k3s.io
+          chmod +x /tmp/install.sh
+          echo "Download complete."
+
+      - name: Upload k3s files to VPS
+        run: |
+          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s"
+          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install.sh"
+
+      - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
           SSH_RETRY_MAX_ATTEMPTS: 5
@@ -505,73 +520,54 @@ jobs:
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
           set -euo pipefail
-          echo "-> Installing k3s v1.31.6+k3s1..."
-          # Фиксируем стабильную версию вместо "stable" channel
-          export INSTALL_K3S_VERSION="v1.31.6+k3s1"
-          curl --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 600 -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
-    
-          # Проверяем что бинарник реально установлен
-          if [ ! -f /usr/local/bin/k3s ]; then
-            echo "ERROR: k3s binary not found after install"
-            exit 1
-          fi
-    
-          # Проверяем что systemd unit создан
-          if [ ! -f /etc/systemd/system/k3s.service ]; then
-            echo "ERROR: k3s.service not found after install"
-            exit 1
-          fi
-    
-          echo "k3s installed and verified"
-          /usr/local/bin/k3s --version
+          echo "-> Moving k3s binary to /usr/local/bin..."
+          mv /tmp/k3s /usr/local/bin/k3s
+          chmod +x /usr/local/bin/k3s
+          
+          echo "-> Running k3s install script..."
+          export INSTALL_K3S_SKIP_DOWNLOAD=true
+          chmod +x /tmp/install.sh
+          /tmp/install.sh server --write-kubeconfig-mode 644
+          echo "k3s installed successfully"
           '
 
       - name: Start and verify k3s
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          set -euo pipefail
           echo "-> Starting k3s..."
           systemctl daemon-reload
           systemctl enable --now k3s
-    
-          echo "-> Waiting for readiness (up to 180s)..."
-          for i in $(seq 1 90); do
+          echo "-> Waiting for readiness..."
+          for i in $(seq 1 120); do
             if k3s kubectl cluster-info &> /dev/null; then
-              echo "k3s ready after $((i*2))s"
+              echo "k3s ready after ${i}s"
               break
             fi
-            if [ $i -eq 90 ]; then
-              echo "Timeout waiting for k3s"
-              systemctl status k3s --no-pager || true
-              journalctl -u k3s -n 30 --no-pager
-              exit 1
-            fi
+            [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
             sleep 2
           done
-    
           echo "=== Cluster status ==="
           k3s kubectl get nodes -o wide
           k3s kubectl get pods -A
+          echo "=== Docker check ==="
+          docker ps --format "table {{.Names}}\t{{.Status}}" | head -5 || true
           '
+
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
           ./scripts/ssh-retry.sh scp \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/k3s.yaml" \
             ./k3s-config.yaml
-
           sed -i "s|127.0.0.1|${{ secrets.VPS_HOST }}|g; s|localhost|${{ secrets.VPS_HOST }}|g; s|0.0.0.0|${{ secrets.VPS_HOST }}|g" ./k3s-config.yaml
-
           echo "=== Fixed kubeconfig ==="
           grep "server:" ./k3s-config.yaml
-
           if grep -q "server: https://${{ secrets.VPS_HOST }}:6443" ./k3s-config.yaml; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
-
           if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
             echo "cluster_connectivity=true" >> "$GITHUB_OUTPUT"
           else
