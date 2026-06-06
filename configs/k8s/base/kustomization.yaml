@@ -8,5 +8,6 @@ resources:
   - serviceaccount.yaml
   - rbac
   - network-policies
+  - jobs
   - deployments
   - services
