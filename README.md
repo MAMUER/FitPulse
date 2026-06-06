@@ -394,7 +394,7 @@ go run ./cmd/device-emulator \
 - описание программы;
 - README.md (данный файл);
 - Swagger-спецификация (`api/rest/swagger.yaml`);
-- схема базы данных (`scripts/init-db.sql`, `scripts/migrations/`);
+- схема базы данных (`configs/k8s/base/jobs/init-db.sql`, `scripts/migrations/`);
 - Security Policy (`SECURITY.md`).
 
 ### 6. Технико-экономические показатели

@@ -135,7 +135,7 @@ def main():
             sys.exit(1)
 
         # For Docker, combine migrations into a single file and run
-        combined_sql = Path("scripts/init-db.sql")
+        combined_sql = Path("configs/k8s/base/jobs/init-db.sql")
         info("[2/3] Combining migrations for Docker...")
         with open(combined_sql, 'w') as outfile:
             for mig_file in migration_files:

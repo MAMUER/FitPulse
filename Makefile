@@ -149,7 +149,7 @@ docker-down:
 
 # Создание combined init-db.sql из миграций
 combine-migrations:
-	python -c "from pathlib import Path; migrations_dir=Path('db/migrations'); init_file=Path('scripts/init-db.sql'); [init_file.write_text(''.join(f'-- {f.name}\n{f.read_text()}\n\n' for f in sorted(migrations_dir.glob('V*.sql'))))]; print('Combined init-db.sql created')"
+	python -c "from pathlib import Path; migrations_dir=Path('db/migrations'); init_file=Path('configs/k8s/base/jobs/init-db.sql'); [init_file.write_text(''.join(f'-- {f.name}\n{f.read_text()}\n\n' for f in sorted(migrations_dir.glob('V*.sql'))))]; print('Combined init-db.sql created')"
 
 # Миграция БД (кроссплатформенный)
 migrate: combine-migrations
