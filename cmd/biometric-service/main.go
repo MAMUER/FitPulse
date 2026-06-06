@@ -306,10 +306,14 @@ func main() {
 
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+
+	// Устанавливаем статус для overall health (пустой service name)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	// И для конкретного сервиса
 	healthServer.SetServingStatus("biometric.BiometricService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	log.Info("Biometric service starting", zap.String("port", port))
-	if err := grpcServer.Serve(lis); err != nil { // ← grpcServer, не `s`
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatal("Failed to serve", zap.Error(err))
 	}
 }

@@ -736,7 +736,6 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Waiting for Postgres pod to be scheduled and running..."
-          # Ждём, пока Pod postgres-0 появится и станет Running (до 3 минут)
           for i in {1..36}; do
             STATUS=$(kubectl get pod postgres-0 -n fitness-platform-staging -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             if [ "$STATUS" = "Running" ]; then
@@ -752,8 +751,6 @@ jobs:
             echo "Attempt $i/36: Postgres status=$STATUS, waiting 5s..."
             sleep 5
           done
-          
-          # Ждём готовности к приёму соединений (проверяем через pg_isready)
           echo "Verifying Postgres accepts connections..."
           for i in {1..30}; do
             if kubectl exec -n fitness-platform-staging postgres-0 -- pg_isready -U postgres &>/dev/null; then
@@ -856,6 +853,7 @@ jobs:
         run: |
           URL="${{ secrets.VPS_HOST }}"
           [[ "$URL" == http* ]] || URL="http://$URL"
+          URL="${URL}:30080"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |

@@ -914,6 +914,10 @@ func main() {
 
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	// Устанавливаем статус для overall health (пустой service name)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	// И для конкретного сервиса
 	healthServer.SetServingStatus("training.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	log.Info("Training service starting", zap.String("port", port))

@@ -1,4 +1,3 @@
-# cmd/ml-classifier/analyze_hr_distribution.py
 """
 Анализ распределения пульса по всем датасетам
 """

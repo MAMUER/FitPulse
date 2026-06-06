@@ -3,10 +3,6 @@ version: 2
 # Раз в месяц: go get -u ./... && go mod tidy
 # Раз в квартал: govulncheck ./... -show verbose
 # При добавлении новых зависимостей: проверять через osv-scanner
-
-# Глобальные настройки
-
-
 updates:
   # ═══════════════════════════════════════════════════════════════
   # 1. GO МОДУЛИ (основной backend)
@@ -27,16 +23,14 @@ updates:
       - "go"
       - "automated"
     assignees:
-      - "MAMUER"  # ← Замените на ваш GitHub username
+      - "MAMUER" 
     groups:
-      # Группируем minor/patch обновления в один PR
       go-dependencies:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-      # Major обновления — отдельными PR (требуют внимания)
       go-major-updates:
         patterns:
           - "*"
@@ -207,7 +201,7 @@ updates:
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-major"]
-        versions: [">=3.13"]  # TensorFlow может не поддерживать 3.13+
+        versions: [">=3.13"] 
 
   - package-ecosystem: "docker"
     directory: "/cmd/ml-generator"
