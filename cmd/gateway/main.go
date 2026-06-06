@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -279,8 +281,78 @@ func main() {
 		errorTotal:         errorTotal,
 	}
 
-	// Setup routes (middleware applied via r.Use() in registerRoutes)
+		// Setup routes (middleware applied via r.Use() in registerRoutes)
 	r := g.registerRoutes()
+
+	// ========== HTTP server (redirect to HTTPS) ==========
+	httpSrv := &http.Server{
+		Addr:    ":" + port,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Redirect all HTTP to HTTPS
+			target := "https://" + r.Host + r.URL.RequestURI()
+			if port != "" && port != "80" {
+				target = "https://" + r.Host + ":8443" + r.URL.RequestURI()
+			}
+			http.Redirect(w, r, target, http.StatusMovedPermanently)
+		}),
+	}
+
+	go func() {
+		log.Info("HTTP redirect server starting", zap.String("port", port))
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("HTTP redirect server failed", zap.Error(err))
+		}
+	}()
+
+	// ========== HTTPS server (main) ==========
+	tlsCertFile := os.Getenv("TLS_CERT_FILE")
+	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
+
+	httpsSrv := &http.Server{
+		Addr:         ":8443",
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	if tlsCertFile != "" && tlsKeyFile != "" {
+		if _, err := os.Stat(tlsCertFile); err == nil {
+			go func() {
+				log.Info("HTTPS server starting",
+					zap.String("port", "8443"),
+					zap.String("cert", tlsCertFile),
+					zap.String("ml_classifier", mlClassifierURL),
+					zap.String("ml_generator", mlGeneratorURL))
+				if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
+					log.Fatal("Failed to start HTTPS server", zap.Error(err))
+				}
+			}()
+		} else {
+			log.Warn("TLS certificate not found, starting HTTPS without TLS (will fail)",
+				zap.String("cert_file", tlsCertFile))
+			go func() {
+				if err := httpsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					log.Fatal("Failed to start HTTPS server", zap.Error(err))
+				}
+			}()
+		}
+	} else {
+		log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE environment variables are required")
+	}
+
+	// ========== Graceful shutdown ==========
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Info("Shutting down servers...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_ = httpSrv.Shutdown(ctx)
+	_ = httpsSrv.Shutdown(ctx)
+	log.Info("Servers stopped")
 
 	srv := &http.Server{
 		Addr:         ":" + port,

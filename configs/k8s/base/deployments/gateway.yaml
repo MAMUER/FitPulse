@@ -28,6 +28,10 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: tls-certs
+          secret:
+            secretName: gateway-tls
+            optional: true
       containers:
         - name: gateway
           image: ghcr.io/mamuer/project/gateway:latest
@@ -41,9 +45,14 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+            - containerPort: 8443
+              name: https
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: tls-certs
+              mountPath: /etc/tls
+              readOnly: true
           env:
             - name: GATEWAY_PORT
               value: '8080'
@@ -66,6 +75,10 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: JWT_SECRET
+            - name: TLS_CERT_FILE
+              value: "/etc/tls/tls.crt"
+            - name: TLS_KEY_FILE
+              value: "/etc/tls/tls.key"
             - name: REDIS_HOST
               value: "redis"
             - name: RABBITMQ_URL

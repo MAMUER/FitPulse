@@ -90,8 +90,8 @@ kubectl set image deployment/gateway-test \
 # Wait 5 minutes, verify health
 kubectl get pods -n fitness-platform -l deployment=gateway-test
 
-# Stage 5: Deploy to Staging
-kubectl set image deployment/gateway-staging \
+# Stage 5: Deploy to Production
+kubectl set image deployment/gateway-production \
   gateway=fitness-gateway:sha256:abc123 \
   -n fitness-platform
 

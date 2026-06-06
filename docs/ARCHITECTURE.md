@@ -313,8 +313,8 @@ verification:
   - Smoke tests: health checks, basic flows
   - API contract validation
 
-#### Этап 5: Deploy Staging
-- Environment: `staging`
+#### Этап 5: Deploy Production
+- Environment: `production`
 - Действия:
   - UAT: тестирование продуктовой командой
   - Performance tests: k6 (p95 < 3s)

@@ -4,9 +4,9 @@ kind: Kustomization
 resources:
   - ../../base
   - ingress.yaml
+  - gateway-nodeport.yaml
   - hpa.yaml
-  - biometric-service-hpa.yaml
-
+  
 namespace: fitness-platform-production
 
 labels:
@@ -16,6 +16,7 @@ labels:
 patches:
   - path: configmap-patch.yaml
   - path: replicas-patch.yaml
+  - path: resources-patch.yaml
 
 images:
   - name: ghcr.io/mamuer/project/user-service

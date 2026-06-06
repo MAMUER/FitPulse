@@ -45,6 +45,6 @@ COPY --from=builder --chown=appuser:appgroup /app/web ./web
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8080 8443
 
 ENTRYPOINT ["./gateway"]
