@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
+func (g *gateway) mlClassifyHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
@@ -30,7 +30,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	for _, metricType := range metricTypes {
 		client, err := g.getBiometricClient()
 		if err != nil {
-			http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+			http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -165,5 +165,60 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 		"status": "pending",
 	}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
+	}
+}
+
+func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
+
+	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") {
+		g.log.Error("Invalid ML generator URL", zap.String("url", g.mlGeneratorURL))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		g.log.Error("Failed to read request body", zap.Error(err))
+		http.Error(w, "Ошибка чтения запроса", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		g.mlGeneratorURL+"/generate",
+		bytes.NewReader(body))
+	if err != nil {
+		g.log.Error("Failed to create ML generator request", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		g.log.Error("ML generator request failed", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			g.log.Error("Failed to close response body", zap.Error(closeErr))
+		}
+	}()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		g.log.Error("Failed to read generator response", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	if _, err := w.Write(respBody); err != nil {
+		g.log.Error("Failed to write response", zap.Error(err))
 	}
 }

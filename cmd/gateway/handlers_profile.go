@@ -13,7 +13,7 @@ import (
 
 // ========== Profile Handlers ==========
 
-func (g *gateway) profileHandler(w http.ResponseWriter, r *http.Request) {
+func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)

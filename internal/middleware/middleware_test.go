@@ -661,7 +661,7 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "not found")
+	assert.Contains(t, rr.Body.String(), "Не найдено")
 }
 
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {

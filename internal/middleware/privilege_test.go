@@ -34,7 +34,7 @@ func TestRequirePrivilege_MissingUserID(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "not found")
+	assert.Contains(t, rr.Body.String(), "Не найдено")
 	require.NoError(t, mock.ExpectationsWereMet())
 	assert.Zero(t, observed.Len(), "no logs expected for missing userID")
 }
@@ -63,7 +63,7 @@ func TestRequirePrivilege_UserNotFound(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "not found")
+	assert.Contains(t, rr.Body.String(), "Не найдено")
 	require.NoError(t, mock.ExpectationsWereMet())
 
 	logs := observed.All()
@@ -96,7 +96,7 @@ func TestRequirePrivilege_DBError(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "internal error")
+	assert.Contains(t, rr.Body.String(), "Внутренняя ошибка сервера")
 	require.NoError(t, mock.ExpectationsWereMet())
 
 	logs := observed.All()
@@ -128,7 +128,7 @@ func TestRequirePrivilege_RoleMismatch(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "not found")
+	assert.Contains(t, rr.Body.String(), "Не найдено")
 	require.NoError(t, mock.ExpectationsWereMet())
 
 	logs := observed.All()

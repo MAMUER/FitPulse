@@ -809,7 +809,7 @@ func TestRegisterHandlerInvalidJSON(t *testing.T) {
 	handler.RegisterHandler(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid request")
+	assert.Contains(t, rr.Body.String(), "Некорректный запрос")
 }
 
 func TestRegisterHandlerUnsupportedDevice(t *testing.T) {
@@ -823,7 +823,7 @@ func TestRegisterHandlerUnsupportedDevice(t *testing.T) {
 	handler.RegisterHandler(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "unsupported device type")
+	assert.Contains(t, rr.Body.String(), "Неподдерживаемый тип устройства")
 }
 
 func TestRegisterHandlerEmptyDeviceType(t *testing.T) {
@@ -899,7 +899,7 @@ func TestSyncHandlerMissingDeviceID(t *testing.T) {
 	handler.SyncHandler(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "device_id required")
+	assert.Contains(t, rr.Body.String(), "device_id обязателен")
 }
 
 func TestSyncHandlerEmptyDeviceID(t *testing.T) {
@@ -920,7 +920,7 @@ func TestSyncHandlerDeviceNotFound(t *testing.T) {
 	handler.SyncHandler(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "device not found")
+	assert.Contains(t, rr.Body.String(), "Устройство не найдено")
 }
 
 // --- HTTP Handlers: UpdateStateHandler ---
@@ -971,7 +971,7 @@ func TestUpdateStateHandlerInvalidJSON(t *testing.T) {
 	handler.UpdateStateHandler(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid request")
+	assert.Contains(t, rr.Body.String(), "Некорректный запрос")
 }
 
 func TestUpdateStateHandlerEmptyBody(t *testing.T) {

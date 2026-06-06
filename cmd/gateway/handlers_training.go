@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
+
+	trainingpb "github.com/MAMUER/project/api/gen/training"
 )
 
 type completeWorkoutRequest struct {
@@ -48,7 +50,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -103,7 +105,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
+func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
@@ -125,7 +127,7 @@ func (g *gateway) getPlansHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -202,7 +204,7 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -236,7 +238,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Training service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -254,5 +256,65 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
+	}
+}
+
+func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	planID := vars["plan_id"]
+	if planID == "" {
+		http.Error(w, "plan_id требуется", http.StatusBadRequest)
+		return
+	}
+
+	client, err := g.getTrainingClient()
+	if err != nil {
+		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	resp, err := client.GetPlan(r.Context(), &trainingpb.GetPlanRequest{
+		PlanId: planID,
+	})
+	if err != nil {
+		g.log.Error("Failed to get plan", zap.Error(err))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	planDataJSON, err := json.Marshal(resp.GetPlanData())
+	if err != nil {
+		g.log.Error("Failed to marshal plan data", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+	planData := make(map[string]interface{})
+	if len(planDataJSON) > 0 && string(planDataJSON) != "null" {
+		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	planData["plan_id"] = resp.GetId()
+	planData["user_id"] = resp.GetUserId()
+	planData["status"] = resp.GetStatus()
+
+	if resp.GetStartDate() != nil {
+		planData["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
+	}
+	if resp.GetEndDate() != nil {
+		planData["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"plan_id":   resp.GetId(),
+		"plan_data": planData,
+	}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

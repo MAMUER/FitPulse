@@ -55,7 +55,7 @@ func RateLimit(next http.Handler) http.Handler {
 		vis := v.(*visitor)
 		vis.lastSeen = time.Now()
 		if !vis.limiter.Allow() {
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			http.Error(w, "Превышен лимит запросов", http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)

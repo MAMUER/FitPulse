@@ -9,16 +9,12 @@ import (
 )
 
 // ErrorHandler — единая точка обработки ошибок для всех ответов
-// Требование #6: Кастомизация страниц ошибок
-// Требование #7: Немедленное завершение после отправки ошибки
 func ErrorHandler(log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Перехватываем статус код через response writer wrapper
 			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			next.ServeHTTP(rw, r)
 
-			// Если статус — ошибка, логируем
 			if rw.statusCode >= 400 {
 				log.Warn("Error response",
 					zap.Int("status", rw.statusCode),
@@ -54,13 +50,10 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 // JSONError отправляет стандартизированный JSON ответ с ошибкой
-// Требование #4: 403 → 404
-// Требование #7: return после вызова
 func JSONError(w http.ResponseWriter, r *http.Request, code int, message string) {
-	// Требование #4: Заменяем 403 Forbidden на 404 Not Found
 	if code == http.StatusForbidden {
 		code = http.StatusNotFound
-		message = "not found"
+		message = "Не найдено"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -77,7 +70,6 @@ func JSONError(w http.ResponseWriter, r *http.Request, code int, message string)
 	}
 
 	_ = json.NewEncoder(w).Encode(body)
-	// Требование #7: вызывающий код должен сделать return
 }
 
 // GetRequestID безопасно получает correlation ID из контекста

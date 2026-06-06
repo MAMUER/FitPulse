@@ -93,7 +93,7 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
 		log.Error("Failed to marshal JSON for signing", zap.Error(err))
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return err
 	}
 

@@ -797,7 +797,7 @@ func (h *EmulatorHTTPHandler) RegisterHandler(w http.ResponseWriter, r *http.Req
 		UserID     string `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
@@ -806,7 +806,7 @@ func (h *EmulatorHTTPHandler) RegisterHandler(w http.ResponseWriter, r *http.Req
 		AppleWatch: true, SamsungGalaxyWatch: true,
 		HuaweiWatchD2: true, AmazfitTRex3: true,
 	}[deviceType]; !ok {
-		http.Error(w, "unsupported device type", http.StatusBadRequest)
+		http.Error(w, "Неподдерживаемый тип устройства", http.StatusBadRequest)
 		return
 	}
 
@@ -824,7 +824,7 @@ func (h *EmulatorHTTPHandler) RegisterHandler(w http.ResponseWriter, r *http.Req
 		"user_id":      req.UserID,
 		"emulated":     true,
 	}); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Ошибка кодирования ответа", http.StatusInternalServerError)
 	}
 }
 
@@ -832,13 +832,13 @@ func (h *EmulatorHTTPHandler) RegisterHandler(w http.ResponseWriter, r *http.Req
 func (h *EmulatorHTTPHandler) SyncHandler(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.URL.Query().Get("device_id")
 	if deviceID == "" {
-		http.Error(w, "device_id required", http.StatusBadRequest)
+		http.Error(w, "device_id обязателен", http.StatusBadRequest)
 		return
 	}
 
 	emulator, exists := h.SyncManager.GetEmulator(deviceID)
 	if !exists {
-		http.Error(w, "device not found", http.StatusNotFound)
+		http.Error(w, "Устройство не найдено", http.StatusNotFound)
 		return
 	}
 
@@ -851,7 +851,7 @@ func (h *EmulatorHTTPHandler) SyncHandler(w http.ResponseWriter, r *http.Request
 		"samples":   samples,
 		"count":     len(samples),
 	}); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Ошибка кодирования ответа", http.StatusInternalServerError)
 	}
 }
 
@@ -859,7 +859,7 @@ func (h *EmulatorHTTPHandler) SyncHandler(w http.ResponseWriter, r *http.Request
 func (h *EmulatorHTTPHandler) UpdateStateHandler(w http.ResponseWriter, r *http.Request) {
 	var newState UserPhysiologicalState
 	if err := json.NewDecoder(r.Body).Decode(&newState); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
@@ -869,6 +869,6 @@ func (h *EmulatorHTTPHandler) UpdateStateHandler(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Ошибка кодирования ответа", http.StatusInternalServerError)
 	}
 }

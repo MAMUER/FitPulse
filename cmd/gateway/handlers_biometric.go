@@ -39,7 +39,7 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 
 	client, err := g.getBiometricClient()
 	if err != nil {
-		http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 
 	client, err := g.getBiometricClient()
 	if err != nil {
-		http.Error(w, "Biometric service is currently unavailable", http.StatusServiceUnavailable)
+		http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 

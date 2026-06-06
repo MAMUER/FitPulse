@@ -924,7 +924,7 @@ func TestProfileHandler_Success(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/profile", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.profileHandler(w, req)
+	g.getProfileHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]interface{}
@@ -942,7 +942,7 @@ func TestProfileHandler_Unauthorized(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/profile", nil)
 	w := httptest.NewRecorder()
 
-	g.profileHandler(w, req)
+	g.getProfileHandler(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Contains(t, w.Body.String(), "Необходима авторизация")
@@ -957,7 +957,7 @@ func TestProfileHandler_GrpcError(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/profile", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.profileHandler(w, req)
+	g.getProfileHandler(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	mockUser.AssertExpectations(t)
@@ -1425,7 +1425,7 @@ func TestGetPlansHandler_Success(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/training/plans?page=1&page_size=10", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.getPlansHandler(w, req)
+	g.listPlansHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]interface{}
@@ -1439,7 +1439,7 @@ func TestGetPlansHandler_Unauthorized(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/training/plans", nil)
 	w := httptest.NewRecorder()
 
-	g.getPlansHandler(w, req)
+	g.listPlansHandler(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -1453,7 +1453,7 @@ func TestGetPlansHandler_DefaultPagination(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/training/plans", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.getPlansHandler(w, req)
+	g.listPlansHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	mockTraining.AssertExpectations(t)
@@ -1468,7 +1468,7 @@ func TestGetPlansHandler_InvalidPage(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/training/plans?page=-1&page_size=-5", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.getPlansHandler(w, req)
+	g.listPlansHandler(w, req)
 
 	// Invalid page/page_size should fall back to defaults
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1484,7 +1484,7 @@ func TestGetPlansHandler_GrpcError(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/training/plans", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.getPlansHandler(w, req)
+	g.listPlansHandler(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	mockTraining.AssertExpectations(t)
@@ -1603,7 +1603,7 @@ func TestGetProgressHandler_GrpcError(t *testing.T) {
 }
 
 // ============================================================================
-// ML Handler Tests (classifyHandler)
+// ML Handler Tests (mlClassifyHandler)
 // ============================================================================
 
 func TestClassifyHandler_Unauthorized(t *testing.T) {
@@ -1611,7 +1611,7 @@ func TestClassifyHandler_Unauthorized(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/ml/classify", nil)
 	w := httptest.NewRecorder()
 
-	g.classifyHandler(w, req)
+	g.mlClassifyHandler(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -1621,7 +1621,7 @@ func TestClassifyHandler_InvalidMLURL(t *testing.T) {
 	g.mlAsync = false
 	g.mlClassifierURL = "http://evil.com/classify" // Invalid - not in allowed prefixes
 
-	// classifyHandler calls GetLatest for each metric type before checking ML URL
+	// mlClassifyHandler calls GetLatest for each metric type before checking ML URL
 	mockBio.On("GetLatest", mock.Anything, mock.AnythingOfType("*biometric.GetLatestRequest")).
 		Return(&biometricpb.BiometricRecord{MetricType: "heart_rate", Value: 75.0}, nil).Times(7)
 
@@ -1629,7 +1629,7 @@ func TestClassifyHandler_InvalidMLURL(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/ml/classify", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.classifyHandler(w, req)
+	g.mlClassifyHandler(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	assert.Contains(t, w.Body.String(), "ML-сервис временно недоступен")
@@ -1677,7 +1677,7 @@ func TestDeviceRegisterHandler_MissingURL(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	g.deviceRegisterHandler(w, req)
+	g.registerDeviceHandler(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	assert.Contains(t, w.Body.String(), "ML-сервис временно недоступен")
@@ -1690,7 +1690,7 @@ func TestDeviceRegisterHandler_InvalidURL(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	g.deviceRegisterHandler(w, req)
+	g.registerDeviceHandler(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -1702,7 +1702,7 @@ func TestDeviceRegisterHandler_ValidURL_ButUnreachable(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	g.deviceRegisterHandler(w, req)
+	g.registerDeviceHandler(w, req)
 
 	// Will timeout or fail connecting to unreachable service
 	assert.True(t, w.Code == http.StatusServiceUnavailable || w.Code == http.StatusGatewayTimeout,

@@ -304,7 +304,6 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r := mux.NewRouter()
 
 	// ========== Security middleware (applied to ALL routes) ==========
-	// Требование #5, #8, #12: Security headers на уровне роутера
 	r.Use(middleware.RemoveServerHeader)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
@@ -312,7 +311,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 
-	// Public routes
+	// ========== Public routes (без авторизации) ==========
 	r.HandleFunc("/api/v1/register", g.registerHandler).Methods("POST")
 	r.HandleFunc("/api/v1/register/invite", g.registerWithInviteHandler).Methods("POST")
 	r.HandleFunc("/api/v1/invite/validate", g.validateInviteCodeHandler).Methods("POST")
@@ -327,12 +326,44 @@ func (g *gateway) registerRoutes() *mux.Router {
 	// Email confirmation page
 	r.HandleFunc("/confirm", g.emailConfirmPageHandler).Methods("GET")
 
-	// Admin routes (protected by RequireRole)
+	authMiddleware := middleware.AuthMiddleware(g.jwtSecret, g.log.Logger)
+
+	protected := r.PathPrefix("/api/v1").Subrouter()
+	protected.Use(authMiddleware)
+
+	// Profile
+	protected.HandleFunc("/profile", g.getProfileHandler).Methods("GET")
+	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
+
+	// Biometrics
+	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
+	protected.HandleFunc("/biometrics", g.getBiometricRecordsHandler).Methods("GET")
+
+	// Training
+	protected.HandleFunc("/training/plans", g.listPlansHandler).Methods("GET")
+	protected.HandleFunc("/training/plans/generate", g.generatePlanHandler).Methods("POST")
+	protected.HandleFunc("/training/plans/{plan_id}", g.getPlanHandler).Methods("GET")
+	protected.HandleFunc("/training/progress", g.getProgressHandler).Methods("GET")
+	protected.HandleFunc("/training/workouts/{workout_id}/complete", g.completeWorkoutHandler).Methods("POST")
+
+	// ML
+	protected.HandleFunc("/ml/classify", g.mlClassifyHandler).Methods("POST")
+	protected.HandleFunc("/ml/generate", g.mlGenerateHandler).Methods("POST")
+
+	// Devices
+	protected.HandleFunc("/devices", g.listDevicesHandler).Methods("GET")
+	protected.HandleFunc("/devices", g.registerDeviceHandler).Methods("POST")
+
+	// Logout
+	protected.HandleFunc("/logout", g.logoutHandler).Methods("POST")
+
+	// ========== Admin routes (требуют роль admin) ==========
 	admin := r.PathPrefix("/api/v1/admin").Subrouter()
+	admin.Use(authMiddleware)
 	admin.Use(middleware.RequireRole("admin"))
 	admin.HandleFunc("/users", g.adminListUsersHandler).Methods("GET")
 
-	// Static files
+	// ========== Static files ==========
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
 

@@ -30,30 +30,27 @@ func RequestID(next http.Handler) http.Handler {
 }
 
 // AuthMiddleware проверяет JWT токен и добавляет пользователя в контекст
-// Требование #4: Заменяем 403 → 404 Not Found
-// Требование #8: Middleware блокирует запрос до вызова обработчика
-// Требование #7: return после http.Error прекращает выполнение
 func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				log.Debug("Missing authorization header", zap.String("path", r.URL.Path))
-				http.Error(w, "not found", http.StatusNotFound)
-				return // Требование #7: немедленное завершение
+				http.Error(w, "Не найдено", http.StatusNotFound)
+				return
 			}
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 				log.Debug("Invalid authorization format", zap.String("header", authHeader))
-				http.Error(w, "not found", http.StatusNotFound)
-				return // Требование #7
+				http.Error(w, "Не найдено", http.StatusNotFound)
+				return
 			}
 			token := parts[1]
 			claims, err := auth.ValidateJWT(token, secret)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", r.URL.Path))
-				http.Error(w, "not found", http.StatusNotFound)
-				return // Требование #7
+				http.Error(w, "Не найдено", http.StatusNotFound)
+				return
 			}
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, RoleKey, claims.Role)
@@ -63,15 +60,13 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 }
 
 // RequireRole проверяет роль пользователя
-// Требование #4: Возвращает 404 вместо 403
-// Требование #7: return после ошибки
 func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			role, ok := r.Context().Value(RoleKey).(string)
 			if !ok {
-				http.Error(w, "not found", http.StatusNotFound)
-				return // Требование #7
+				http.Error(w, "Не найдено", http.StatusNotFound)
+				return
 			}
 			for _, allowed := range allowedRoles {
 				if role == allowed {
@@ -79,8 +74,7 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 					return
 				}
 			}
-			// Требование #4: 404 вместо 403
-			http.Error(w, "not found", http.StatusNotFound)
+			http.Error(w, "Не найдено", http.StatusNotFound)
 		})
 	}
 }
@@ -154,7 +148,6 @@ func getClientIP(r *http.Request) string {
 }
 
 // RecoveryMiddleware перехватывает паники
-// Требование #7: Блокирует генерацию контента после паники
 func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +161,6 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 					w.Header().Set("Content-Type", "text/plain")
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte("Internal Server Error"))
-					// Требование #7: после паники — возврат, без дальнейшего выполнения
 				}
 			}()
 			next.ServeHTTP(w, r)
@@ -177,7 +169,6 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 }
 
 // SecurityHeadersMiddleware добавляет заголовки безопасности
-// Требование #12: Content Security Policy
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Content Security Policy

@@ -139,7 +139,7 @@ func TestJSONError_ForbiddenConvertedToNotFound(t *testing.T) {
 	errObj, ok := body["error"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "Not Found", errObj["code"])
-	assert.Equal(t, "not found", errObj["message"])
+	assert.Equal(t, "Не найдено", errObj["message"])
 
 	assert.NotEmpty(t, body["timestamp"])
 	// GetRequestID receives context.Context but tries to cast to string,
@@ -385,7 +385,7 @@ func TestJSONError_ForbiddenWithCustomMessageStillConverted(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/secret", nil)
 
-	// Even with a custom message, 403 gets converted to 404 with "not found"
+	// Even with a custom message, 403 gets converted to 404 with "Не найдено"
 	JSONError(rr, req, http.StatusForbidden, "you shall not pass")
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -394,6 +394,7 @@ func TestJSONError_ForbiddenWithCustomMessageStillConverted(t *testing.T) {
 	err := json.Unmarshal(rr.Body.Bytes(), &body)
 	require.NoError(t, err)
 
-	errObj := body["error"].(map[string]interface{})
-	assert.Equal(t, "not found", errObj["message"])
+	errObj, ok := body["error"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Не найдено", errObj["message"])
 }

@@ -134,24 +134,24 @@ func (s *deviceConnector) healthHandler(w http.ResponseWriter, r *http.Request) 
 func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	var req DeviceRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Warn("Invalid register request body", zap.Error(err))
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		s.log.Warn("Некорректное тело запроса регистрации", zap.Error(err))
+		http.Error(w, "Некорректное тело запроса", http.StatusBadRequest)
 		return
 	}
 
 	// Validate device type
 	if req.DeviceType == "" {
-		http.Error(w, "device_type is required", http.StatusBadRequest)
+		http.Error(w, "device_type обязателен", http.StatusBadRequest)
 		return
 	}
 	if !isValidDeviceType(req.DeviceType) {
-		s.log.Warn("Unsupported device type", zap.String("device_type", req.DeviceType))
-		http.Error(w, fmt.Sprintf("unsupported device_type: %s", req.DeviceType), http.StatusBadRequest)
+		s.log.Warn("Неподдерживаемый тип устройства", zap.String("device_type", req.DeviceType))
+		http.Error(w, fmt.Sprintf("Неподдерживаемый тип устройства: %s", req.DeviceType), http.StatusBadRequest)
 		return
 	}
 
 	if req.UserID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
+		http.Error(w, "user_id обязателен", http.StatusBadRequest)
 		return
 	}
 
@@ -160,11 +160,11 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 	checkErr := s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM devices WHERE user_id = $1`, req.UserID).Scan(&count)
 	if checkErr != nil {
 		s.log.Error("Failed to check existing devices", zap.Error(checkErr))
-		http.Error(w, "failed to register device", http.StatusInternalServerError)
+		http.Error(w, "Ошибка регистрации устройства", http.StatusInternalServerError)
 		return
 	}
 	if count > 0 {
-		http.Error(w, "user already has a connected device", http.StatusConflict)
+		http.Error(w, "У вас уже есть подключённое устройство", http.StatusConflict)
 		return
 	}
 
@@ -178,7 +178,7 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 	`, deviceID, req.UserID, req.DeviceType, token, time.Now().UTC())
 	if err != nil {
 		s.log.Error("Failed to register device", zap.Error(err))
-		http.Error(w, "failed to register device", http.StatusInternalServerError)
+		http.Error(w, "Ошибка регистрации устройства", http.StatusInternalServerError)
 		return
 	}
 
@@ -207,14 +207,14 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	deviceID := vars["device_id"]
 
 	if deviceID == "" {
-		http.Error(w, "device_id is required", http.StatusBadRequest)
+		http.Error(w, "device_id обязателен", http.StatusBadRequest)
 		return
 	}
 
 	var req IngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.log.Warn("Invalid ingest request body", zap.Error(err))
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Некорректное тело запроса", http.StatusBadRequest)
 		return
 	}
 
@@ -225,13 +225,13 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 			zap.String("device_id", deviceID),
 			zap.Error(err),
 		)
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Неверные учётные данные устройства", http.StatusUnauthorized)
 		return
 	}
 
 	// Validate records
 	if len(req.Records) == 0 {
-		http.Error(w, "records cannot be empty", http.StatusBadRequest)
+		http.Error(w, "Записи не могут быть пустыми", http.StatusBadRequest)
 		return
 	}
 
@@ -241,7 +241,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	tx, err := s.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		s.log.Error("Failed to begin transaction", zap.Error(err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -327,7 +327,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 	if err := tx.Commit(); err != nil {
 		s.log.Error("Failed to commit transaction", zap.Error(err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return
 	}
 
