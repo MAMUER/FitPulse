@@ -198,7 +198,7 @@ jobs:
           mkdir -p sarif-results
           gosec -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
           if [ ! -s sarif-results/gosec.sarif ]; then
-            echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
+            echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@v4
@@ -215,7 +215,6 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
           skip-dirs: 'configs/k8s/overlays/staging'
-
       - name: Run Trivy filesystem scan
         id: trivy-fs
         uses: aquasecurity/trivy-action@master
@@ -323,7 +322,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [binary_build]
     if: >-
-      github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
       && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v6
@@ -393,6 +392,164 @@ jobs:
           category: trivy-docker
 
   # ─────────────────────────────────────────────────────────────
+  # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
+  # ─────────────────────────────────────────────────────────────
+  provision-k8s-vps:
+    name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+    outputs:
+      kubeconfig_available: ${{ steps.kubeconfig.outputs.available }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+      - name: Make retry script executable
+        run: chmod +x scripts/ssh-retry.sh
+      - name: Clean up old k3s (safe)
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          set -x
+          echo "-> Stopping k3s..."
+          systemctl stop k3s 2>/dev/null || true
+          pkill -9 -f "k3s server" 2>/dev/null || true
+          echo "-> Removing k3s files..."
+          rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
+          rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
+          systemctl daemon-reload
+          echo "Cleanup done"
+          '
+      - name: Fix DNS resolv.conf
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          echo "-> Fixing /etc/resolv.conf (remove duplicate nameservers)..."
+          if [ -f /etc/resolv.conf ]; then
+            cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
+            {
+              grep -v "^nameserver" /etc/resolv.conf || true
+              echo "nameserver 8.8.8.8"
+              echo "nameserver 1.1.1.1"
+            } > /tmp/resolv.conf.new
+            mv /tmp/resolv.conf.new /etc/resolv.conf
+            echo "New /etc/resolv.conf:"
+            cat /etc/resolv.conf
+          fi
+          '
+      - name: Prepare k3s config on VPS
+        run: |
+          VPS_HOST="${{ secrets.VPS_HOST }}"
+          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          mkdir -p /etc/rancher/k3s
+          echo "Directory /etc/rancher/k3s created"
+          '
+          ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          echo "Config written:"
+          cat /etc/rancher/k3s/config.yaml
+          '
+      - name: Download k3s binary and install script on runner
+        run: |
+          echo "-> Downloading k3s binary and install script on GitHub runner..."
+          curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.31.6%2Bk3s1/k3s
+          chmod +x /tmp/k3s
+          curl -sfL -o /tmp/install.sh https://get.k3s.io
+          chmod +x /tmp/install.sh
+          echo "Download complete."
+      - name: Upload k3s files to VPS
+        run: |
+          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s"
+          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install.sh"
+      - name: Install k3s on VPS (with Docker runtime)
+        env:
+          SSH_RETRY_TIMEOUT: 600
+          SSH_RETRY_MAX_ATTEMPTS: 5
+          SSH_RETRY_DELAY_SECONDS: 15
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          set -euo pipefail
+          echo "-> Moving k3s binary to /usr/local/bin..."
+          mv /tmp/k3s /usr/local/bin/k3s
+          chmod +x /usr/local/bin/k3s
+          
+          echo "-> Running k3s install script with Docker runtime..."
+          export INSTALL_K3S_SKIP_DOWNLOAD=true
+          chmod +x /tmp/install.sh
+          /tmp/install.sh server --write-kubeconfig-mode 644 --docker
+          echo "k3s installed successfully"
+          '
+      - name: Pre-pull system images via Docker
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          echo "-> Pre-pulling system images via Docker..."
+          docker pull rancher/mirrored-pause:3.6 || echo "pause image pull failed, continuing"
+          docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo "coredns pull failed"
+          docker pull rancher/mirrored-library-traefik:2.9.10 || echo "traefik pull failed"
+          docker pull rancher/local-path-provisioner:v0.0.26 || echo "local-path pull failed"
+          echo "Docker images:"
+          docker images | head -10
+          '
+      - name: Start and verify k3s
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          echo "-> Starting k3s..."
+          systemctl daemon-reload
+          systemctl enable --now k3s
+          echo "-> Waiting for readiness..."
+          for i in $(seq 1 120); do
+            if k3s kubectl cluster-info &> /dev/null; then
+              echo "k3s ready after ${i}s"
+              break
+            fi
+            [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
+            sleep 2
+          done
+          echo "=== Cluster status ==="
+          k3s kubectl get nodes -o wide
+          k3s kubectl get pods -A
+          '
+      - name: Download and fix kubeconfig
+        id: kubeconfig
+        run: |
+          ./scripts/ssh-retry.sh scp \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/k3s.yaml" \
+            ./k3s-config.yaml
+          sed -i "s|127.0.0.1|${{ secrets.VPS_HOST }}|g; s|localhost|${{ secrets.VPS_HOST }}|g; s|0.0.0.0|${{ secrets.VPS_HOST }}|g" ./k3s-config.yaml
+          echo "=== Fixed kubeconfig ==="
+          grep "server:" ./k3s-config.yaml
+          if grep -q "server: https://${{ secrets.VPS_HOST }}:6443" ./k3s-config.yaml; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
+            echo "cluster_connectivity=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cluster_connectivity=false" >> "$GITHUB_OUTPUT"
+            echo "K8s API not reachable from runner"
+          fi
+      - name: Upload kubeconfig artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kubeconfig
+          path: ./k3s-config.yaml
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────
   # 3. ТЕСТОВОЕ ОКРУЖЕНИЕ (Docker Compose на runner)
   # ─────────────────────────────────────────────────────────────
 
@@ -441,179 +598,33 @@ jobs:
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "Smoke tests passed"
 
-    # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
   # ─────────────────────────────────────────────────────────────
-  provision-k8s-vps:
-    name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
-    runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
-      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
-    outputs:
-      kubeconfig_available: ${{ steps.kubeconfig.outputs.available }}
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: webfactory/ssh-agent@v0.10.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add VPS to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Make retry script executable
-        run: chmod +x scripts/ssh-retry.sh
-
-      - name: Clean up old k3s (safe)
-        run: |
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          set -x
-          echo "-> Stopping k3s..."
-          systemctl stop k3s 2>/dev/null || true
-          pkill -9 -f "k3s server" 2>/dev/null || true
-          echo "-> Removing k3s files..."
-          rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
-          rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
-          systemctl daemon-reload
-          echo "Cleanup done"
-          '
-
-      - name: Prepare k3s config on VPS
-        run: |
-          VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          mkdir -p /etc/rancher/k3s
-          echo "Directory /etc/rancher/k3s created"
-          '
-          ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          echo "Config written:"
-          cat /etc/rancher/k3s/config.yaml
-          '
-
-      - name: Download k3s binary and install script on runner
-        run: |
-          echo "-> Downloading k3s binary and install script on GitHub runner..."
-          curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.31.6%2Bk3s1/k3s
-          chmod +x /tmp/k3s
-          curl -sfL -o /tmp/install.sh https://get.k3s.io
-          chmod +x /tmp/install.sh
-          echo "Download complete."
-
-      - name: Upload k3s files to VPS
-        run: |
-          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s"
-          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install.sh"
-
-      - name: Install k3s on VPS
-        env:
-          SSH_RETRY_TIMEOUT: 600
-          SSH_RETRY_MAX_ATTEMPTS: 5
-          SSH_RETRY_DELAY_SECONDS: 15
-        run: |
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          set -euo pipefail
-          echo "-> Moving k3s binary to /usr/local/bin..."
-          mv /tmp/k3s /usr/local/bin/k3s
-          chmod +x /usr/local/bin/k3s
-          
-          echo "-> Running k3s install script..."
-          export INSTALL_K3S_SKIP_DOWNLOAD=true
-          chmod +x /tmp/install.sh
-          /tmp/install.sh server --write-kubeconfig-mode 644
-          echo "k3s installed successfully"
-          '
-
-      - name: Start and verify k3s
-        run: |
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-          echo "-> Starting k3s..."
-          systemctl daemon-reload
-          systemctl enable --now k3s
-          echo "-> Waiting for readiness..."
-          for i in $(seq 1 120); do
-            if k3s kubectl cluster-info &> /dev/null; then
-              echo "k3s ready after ${i}s"
-              break
-            fi
-            [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
-            sleep 2
-          done
-          echo "=== Cluster status ==="
-          k3s kubectl get nodes -o wide
-          k3s kubectl get pods -A
-          echo "=== Docker check ==="
-          docker ps --format "table {{.Names}}\t{{.Status}}" | head -5 || true
-          '
-
-      - name: Download and fix kubeconfig
-        id: kubeconfig
-        run: |
-          ./scripts/ssh-retry.sh scp \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/k3s.yaml" \
-            ./k3s-config.yaml
-          sed -i "s|127.0.0.1|${{ secrets.VPS_HOST }}|g; s|localhost|${{ secrets.VPS_HOST }}|g; s|0.0.0.0|${{ secrets.VPS_HOST }}|g" ./k3s-config.yaml
-          echo "=== Fixed kubeconfig ==="
-          grep "server:" ./k3s-config.yaml
-          if grep -q "server: https://${{ secrets.VPS_HOST }}:6443" ./k3s-config.yaml; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
-            echo "cluster_connectivity=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cluster_connectivity=false" >> "$GITHUB_OUTPUT"
-            echo "K8s API not reachable from runner"
-          fi
-
-      - name: Upload kubeconfig artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: kubeconfig
-          path: ./k3s-config.yaml
-          retention-days: 1
-
+  # 5. STAGING DEPLOY (K8s namespace: fitness-platform-staging)
   # ─────────────────────────────────────────────────────────────
-# 5. STAGING DEPLOY (K8s namespace: fitness-platform-staging)
-# ─────────────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to K8s Staging
     runs-on: ubuntu-latest
     needs: [docker, provision-k8s-vps]
     if: >-
-      github.event_name != 'workflow_dispatch'
-      || inputs.run_mode != 'maintenance'
-      && (github.ref == 'refs/heads/Microservice_arc'
-      || github.ref == 'refs/heads/main')
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@v8
         with:
           name: kubeconfig
           path: ./kubeconfig
-
       - name: Configure kubectl
         run: |
           mkdir -p "$HOME/.kube"
           cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
           kubectl config set-context --current --namespace=fitness-platform-staging
-
       - name: Wait for k3s API to be fully ready
         run: |
           echo "Waiting for k3s API server to be fully initialized..."
@@ -636,7 +647,6 @@ jobs:
             echo "API resources not available, waiting 30s more..."
             sleep 30
           }
-
       - name: Check cluster connectivity
         id: connectivity
         run: |
@@ -649,7 +659,6 @@ jobs:
             echo "reachable=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
-
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -678,7 +687,6 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Creating app-secrets..."
-          # Формируем полный RABBITMQ_URL с credentials
           RABBITMQ_URL="amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASS }}@rabbitmq:5672/"
           kubectl create secret generic app-secrets -n fitness-platform-staging \
             --from-literal=POSTGRES_USER=postgres \
@@ -734,11 +742,8 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Running database migrations..."
-          # Удаляем предыдущий Job миграций (если был)
           kubectl delete job migrate-db-run -n fitness-platform-staging --ignore-not-found=true
-          # Создаём и запускаем Job миграций из шаблона
           kubectl create job --from=job/migrate-db migrate-db-run -n fitness-platform-staging
-          # Ждём завершения миграций (максимум 2 минуты)
           echo "Waiting for migrations to complete..."
           if kubectl wait --for=condition=complete job/migrate-db-run -n fitness-platform-staging --timeout=120s; then
             echo "✅ Database migrations completed successfully"
@@ -782,79 +787,76 @@ jobs:
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-staging --timeout=300s || echo "Gateway not ready yet"
           sleep 30
 
-# ─────────────────────────────────────────────────────────────
-# 6. E2E TESTS ON STAGING
-# ─────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────
+  # 6. E2E TESTS ON STAGING
+  # ─────────────────────────────────────────────────────────────
   test-staging:
-   name: Test Staging (E2E)
-   runs-on: ubuntu-latest
-   needs: [deploy-staging]
-   if: needs.deploy-staging.outputs.reachable == 'true'
-   env:
-    STAGING_URL: ${{ secrets.VPS_HOST }}
-   steps:
-    - uses: actions/checkout@v6
-    - name: Download kubeconfig artifact
-      uses: actions/download-artifact@v8
-      with:
-        name: kubeconfig
-        path: ./kubeconfig
-    - name: Configure kubectl
-      run: |
-        mkdir -p "$HOME/.kube"
-        cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
-        chmod 600 "$HOME/.kube/config"
-    - name: Prepare target URL
-      id: target
-      run: |
-        URL="${{ secrets.VPS_HOST }}"
-        [[ "$URL" == http* ]] || URL="http://$URL"
-        echo "target=$URL" >> "$GITHUB_OUTPUT"
-    - name: Health check
-      run: |
-        echo "🔍 Checking staging health via NodePort..."
-        NODE_PORT=30080
-        # Увеличено время ожидания до 7 минут (42 попытки по 10 секунд)
-        # для гарантированной инициализации Postgres, Redis и перезапуска Go-сервисов
-        for i in {1..42}; do
-          RESPONSE=$(curl -sf --max-time 5 "http://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
-          if [ -n "$RESPONSE" ]; then
-            echo "Health response: $RESPONSE"
-            break
+    name: Test Staging (E2E)
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: needs.deploy-staging.outputs.reachable == 'true'
+    env:
+      STAGING_URL: ${{ secrets.VPS_HOST }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download kubeconfig artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: kubeconfig
+          path: ./kubeconfig
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          cp ./kubeconfig/k3s-config.yaml "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+      - name: Prepare target URL
+        id: target
+        run: |
+          URL="${{ secrets.VPS_HOST }}"
+          [[ "$URL" == http* ]] || URL="http://$URL"
+          echo "target=$URL" >> "$GITHUB_OUTPUT"
+      - name: Health check
+        run: |
+          echo "🔍 Checking staging health via NodePort..."
+          NODE_PORT=30080
+          for i in {1..42}; do
+            RESPONSE=$(curl -sf --max-time 5 "http://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
+            if [ -n "$RESPONSE" ]; then
+              echo "Health response: $RESPONSE"
+              break
+            fi
+            echo "Attempt $i/42: waiting..."
+            sleep 10
+          done
+          if [ -z "$RESPONSE" ]; then
+            echo "❌ Health endpoint unreachable"
+            kubectl --kubeconfig="$HOME/.kube/config" get pods -n fitness-platform-staging -o wide || true
+            kubectl --kubeconfig="$HOME/.kube/config" get svc -n fitness-platform-staging || true
+            exit 1
           fi
-          echo "Attempt $i/42: waiting..."
-          sleep 10
-        done
-        if [ -z "$RESPONSE" ]; then
-          echo "❌ Health endpoint unreachable"
-          kubectl --kubeconfig="$HOME/.kube/config" get pods -n fitness-platform-staging -o wide || true
-          kubectl --kubeconfig="$HOME/.kube/config" get svc -n fitness-platform-staging || true
-          exit 1
-        fi
-        echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "❌ Status not ok"; echo "$RESPONSE"; exit 1; }
-        echo "$RESPONSE" | grep -q '"user":"up"' || { echo "❌ User service not healthy"; exit 1; }
-        echo "✅ Staging is healthy"
-    - name: Run UAT tests
-      run: |
-        python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
-    - name: Performance test (k6) — optional
-      uses: k6io/action@v0.3.1
-      with:
-        filename: load-test.k6
-      env:
-        BASE_URL: ${{ steps.target.outputs.target }}
+          echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "❌ Status not ok"; echo "$RESPONSE"; exit 1; }
+          echo "$RESPONSE" | grep -q '"user":"up"' || { echo "❌ User service not healthy"; exit 1; }
+          echo "✅ Staging is healthy"
+      - name: Run UAT tests
+        run: |
+          python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
+      - name: Performance test (k6) — optional
+        uses: k6io/action@v0.3.1
+        with:
+          filename: load-test.k6
+        env:
+          BASE_URL: ${{ steps.target.outputs.target }}
 
   # ─────────────────────────────────────────────────────────────
   # 7. PRODUCTION DEPLOY (только после успешных тестов)
   # ─────────────────────────────────────────────────────────────
-
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
     needs: [test-staging]
     if: >-
       needs.test-staging.result == 'success'
-      && github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
+      && (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
       && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     environment: production
     steps:
@@ -917,13 +919,12 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   # 8. RELEASE CANDIDATE CHECKS (после всех деплоев)
   # ─────────────────────────────────────────────────────────────
-
   release-candidate:
     name: Release Candidate Checks
     runs-on: ubuntu-latest
     needs: [deploy-production]
     if: >-
-      github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance'
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
       && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v6
@@ -950,7 +951,6 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   # 9. NOTIFICATIONS (всегда, в конце)
   # ─────────────────────────────────────────────────────────────
-
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
@@ -1025,15 +1025,14 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
-       - name: Enable auto-merge for Dependabot PRs
-         run: gh pr merge --auto --squash "$PR_URL"
-         env:
-           PR_URL: ${{ github.event.pull_request.html_url }}
-           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-       
-       - name: Auto-approve minor/patch updates
-         if: contains(github.event.pull_request.title, 'minor') || contains(github.event.pull_request.title, 'patch')
-         run: gh pr review --approve "$PR_URL"
-         env:
-           PR_URL: ${{ github.event.pull_request.html_url }}
-           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge for Dependabot PRs
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Auto-approve minor/patch updates
+        if: contains(github.event.pull_request.title, 'minor') || contains(github.event.pull_request.title, 'patch')
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
