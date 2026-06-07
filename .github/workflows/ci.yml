@@ -642,6 +642,9 @@ jobs:
           # Проверяем подключение
           kubectl cluster-info
           
+          # Создаём namespace (если не существует)
+          kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply --validate=false -f -
+          
           # Ждём пока кластер будет готов
           sleep 10
           
