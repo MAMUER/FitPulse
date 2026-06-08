@@ -11,7 +11,7 @@ matplotlib==3.10.0        # Совместимо
 uvicorn==0.34.0           # Стабильная версия
 fastapi==0.115.6          # Стабильная версия
 pydantic==2.10.3          # Совместимо с FastAPI
-python-multipart==0.0.20  # Совместимо
+python-multipart==0.0.32  # Совместимо
 
 # Utils
 joblib==1.5.3
