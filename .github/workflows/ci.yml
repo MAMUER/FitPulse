@@ -695,7 +695,7 @@ jobs:
             docker compose -f deployments/docker-compose.mlflow.yml up -d
             
             # Ждём готовности
-            for i in {1..30}; do
+            for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
                 echo "✅ MLflow is healthy"
                 break
@@ -1176,8 +1176,7 @@ jobs:
       - name: Health check
         run: |
           echo "🔍 Checking production health via HTTPS..."
-          NODE_PORT=30443
-          for i in {1..42}; do
+           for _ in {1..42}; do
             RESPONSE=$(curl -skf --max-time 5 "https://fittpulse.duckdns.org/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"
