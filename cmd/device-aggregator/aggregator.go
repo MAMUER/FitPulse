@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/MAMUER/project/cmd/device-aggregator/providers"
 	"github.com/MAMUER/project/internal/logger"
@@ -32,6 +34,23 @@ func (a *aggregator) healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func isAllowedRedirect(log *logger.Logger, target string) bool {
+	parsed, err := url.Parse(target)
+	if err != nil {
+		log.Warn("invalid redirect target", zap.String("target", target), zap.Error(err))
+		return false
+	}
+	if parsed.Scheme != "" && parsed.Scheme != "https" {
+		log.Warn("redirect scheme not allowed", zap.String("scheme", parsed.Scheme))
+		return false
+	}
+	if parsed.Host != "" && !strings.HasSuffix(parsed.Host, "duckdns.org") {
+		log.Warn("redirect host not allowed", zap.String("host", parsed.Host))
+		return false
+	}
+	return true
+}
+
 // fitbitAuthHandler starts the Fitbit OAuth flow.
 func (a *aggregator) fitbitAuthHandler(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
@@ -44,6 +63,11 @@ func (a *aggregator) fitbitAuthHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Failed to get auth URL", zap.Error(err))
 		http.Error(w, "Ошибка авторизации", http.StatusInternalServerError)
+		return
+	}
+
+	if !isAllowedRedirect(a.log, authURL) {
+		http.Error(w, "Invalid redirect target", http.StatusBadRequest)
 		return
 	}
 

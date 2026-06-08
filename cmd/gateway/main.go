@@ -167,6 +167,15 @@ func main() {
 		log.Fatal("JWT_SECRET environment variable is required")
 	}
 
+	appBaseURL := os.Getenv("APP_BASE_URL")
+	publicHost := ""
+	if appBaseURL != "" {
+		parsedAppURL, appURLErr := url.Parse(appBaseURL)
+		if appURLErr == nil {
+			publicHost = parsedAppURL.Host
+		}
+	}
+
 	// Database connection for server-side role re-verification (Security #10)
 	dbURL := os.Getenv("DATABASE_URL")
 	var db *sql.DB
@@ -321,9 +330,16 @@ func main() {
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 15 * time.Second,
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				host := r.Host
-				if h, _, err := net.SplitHostPort(r.Host); err == nil {
-					host = h
+				host := publicHost
+				if host == "" {
+					host = r.Host
+					if h, _, err := net.SplitHostPort(host); err == nil {
+						host = h
+					}
+					if host == "" || net.ParseIP(host) != nil {
+						http.Error(w, "Invalid Host", http.StatusBadRequest)
+						return
+					}
 				}
 				target := "https://" + host + r.URL.RequestURI()
 				if port != "" && port != "80" && port != "443" {

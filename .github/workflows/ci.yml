@@ -584,6 +584,10 @@ jobs:
           '
       - name: Setup Nginx with SSL fallback and production config
         run: |
+          # 1. Копируем конфиг с GitHub Runner на VPS через scp
+          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
+          
+          # 2. Выполняем настройку на VPS
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Installing Nginx and Certbot..."
@@ -623,17 +627,28 @@ jobs:
                 -out /etc/nginx/certs/server.crt \
                 -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fittpulse.duckdns.org" \
                 -addext "subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}"
-              echo "✅ Self-signed certificate generated"
+              
+              # === Копируем конфиг и ЗАМЕНЯЕМ пути на self-signed ===
+              echo "-> Copying and patching production.conf for self-signed..."
+              sudo mkdir -p /etc/nginx/sites-available
+              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
+              
+              # Ключевое исправление: заменяем пути к сертификатам
+              sudo sed -i "s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g" /etc/nginx/sites-available/fitpulse
+              sudo sed -i "s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g" /etc/nginx/sites-available/fitpulse
+              
+              echo "✅ Self-signed certificate generated and config patched"
             else
-              # Если сертификат получен, создаём симлинки
+              # Если сертификат получен, создаём симлинки для совместимости
+              echo "-> Creating symlinks for Let'\''s Encrypt certificates..."
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem /etc/nginx/certs/server.crt
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
+              
+              # === Копируем конфиг без изменений (пути уже правильные) ===
+              echo "-> Copying production.conf..."
+              sudo mkdir -p /etc/nginx/sites-available
+              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
             fi
-            
-            # === Копируем production.conf напрямую из репозитория ===
-            echo "-> Copying production Nginx config..."
-            sudo mkdir -p /etc/nginx/sites-available
-            sudo cp /home/${{ secrets.VPS_USER }}/fitpulse/deploy/lb/production.conf /etc/nginx/sites-available/fitpulse
             
             # === Активируем сайт ===
             sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
