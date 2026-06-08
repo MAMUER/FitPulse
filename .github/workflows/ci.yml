@@ -1106,23 +1106,32 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Running seed-admin job..."
-          # Удаляем старый job если есть
-          kubectl delete job seed-admin-run -n fitness-platform-production --ignore-not-found=true
           
-          # Создаём новый job из шаблона
-          kubectl get job seed-admin -n fitness-platform-production -o json | \
-            jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .status, .spec.selector, .spec.template.metadata.labels."controller-uid", .spec.template.metadata.labels."batch.kubernetes.io/controller-uid") | .metadata.name="seed-admin-run" | .spec.template.metadata.labels["job-name"]="seed-admin-run"' | \
-            kubectl apply --validate=false -f -
+          # === Вариант 1: Создаём Job напрямую из YAML (надёжнее) ===
+          echo "-> Applying seed-admin Job definition..."
+          kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production
           
-          echo "Waiting for seed-admin to complete..."
-          if kubectl wait --for=condition=complete job/seed-admin-run -n fitness-platform-production --timeout=120s; then
+          # Ждём завершения (с таймаутом)
+          echo "-> Waiting for seed-admin job to complete..."
+          if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=180s; then
             echo "✅ Admin user seeded successfully"
-            kubectl logs job/seed-admin-run -n fitness-platform-production
+            kubectl logs job/seed-admin -n fitness-platform-production
           else
-            echo "❌ seed-admin job failed"
-            kubectl logs job/seed-admin-run -n fitness-platform-production || true
-            exit 1
+            echo "⚠️ Job timed out or failed, checking logs..."
+            kubectl logs job/seed-admin -n fitness-platform-production || true
+            
+            # Проверяем, может админ уже существует (идемпотентность)
+            if kubectl exec -n fitness-platform-production postgres-0 -- \
+              psql -U postgres -d fitness -tAc "SELECT COUNT(*) FROM users WHERE email='${{ secrets.SEED_ADMIN_EMAIL }}'" | grep -q "1"; then
+              echo "✅ Admin user already exists (idempotent check passed)"
+            else
+              echo "❌ seed-admin job failed and admin not found"
+              exit 1
+            fi
           fi
+          
+          # Очищаем завершённый Job
+          kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true || true
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
