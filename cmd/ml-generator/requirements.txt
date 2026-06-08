@@ -12,7 +12,7 @@ pydantic==2.10.3
 python-multipart==0.0.20
 
 # MLOps
-mlflow==2.20.2
+mlflow==3.11.1
 dvc[s3]==3.58.0
 prometheus-client==0.21.1
 
