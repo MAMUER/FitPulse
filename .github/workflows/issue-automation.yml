@@ -15,7 +15,7 @@ jobs:
     if: github.event.action == 'opened'
     steps:
       - name: Add triage label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.addLabels({
@@ -26,7 +26,7 @@ jobs:
             });
 
       - name: Add component labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
             script: |
                 const body = context.payload.issue.body || '';
@@ -54,7 +54,7 @@ jobs:
                 });
                 }
       - name: Assign based on component
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const body = context.payload.issue.body || '';
@@ -89,7 +89,7 @@ jobs:
 
       - name: Welcome new contributors
         if: github.event.action == 'opened'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
             script: |
                 const author = context.payload.issue.user.login;
@@ -111,7 +111,7 @@ jobs:
 
       - name: Security issue handling
         if: contains(github.event.issue.labels.*.name, 'security')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             console.log('Security issue detected:', context.issue.number);
