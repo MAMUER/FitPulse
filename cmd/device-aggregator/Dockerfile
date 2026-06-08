@@ -10,7 +10,8 @@ COPY internal/ ./internal/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/device-aggregator ./cmd/device-aggregator
 
 FROM alpine:3.23
-RUN apk --no-cache add ca-certificates tzdata # hadolint ignore=DL3018
+# hadolint ignore=DL3018
+RUN apk --no-cache add ca-certificates tzdata
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app

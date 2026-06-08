@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -316,16 +317,17 @@ func main() {
 		// HTTPS mode: HTTP port redirects to HTTPS
 		httpSrv = &http.Server{
 			Addr:              ":" + port,
+			ReadTimeout:       15 * time.Second,
+			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 15 * time.Second,
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				target := "https://" + r.Host
-				// Заменяем порт 8080 на 8443 в редиректе
+				host := r.Host
+				if h, _, err := net.SplitHostPort(r.Host); err == nil {
+					host = h
+				}
+				target := "https://" + host + r.URL.RequestURI()
 				if port != "" && port != "80" && port != "443" {
-					host := r.Host
-					if idx := len(host) - len(":"+port); idx > 0 && host[idx:] == ":"+port {
-						host = host[:idx] + ":8443"
-					}
-					target = "https://" + host + r.URL.RequestURI()
+					target = "https://" + host + ":8443" + r.URL.RequestURI()
 				}
 				http.Redirect(w, r, target, http.StatusMovedPermanently)
 			}),
