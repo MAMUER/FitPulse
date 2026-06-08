@@ -582,7 +582,7 @@ jobs:
           k3s kubectl get nodes -o wide
           k3s kubectl get pods -A
           '
-      - name: Setup Nginx reverse proxy with SSL fallback
+      - name: Setup Nginx with SSL fallback and production config
         run: |
           # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
@@ -613,61 +613,38 @@ jobs:
               fi
             fi
             
+            # === Создаём директорию для сертификатов ===
+            sudo mkdir -p /etc/nginx/certs
+            
             if [ "$CERTBOT_SUCCESS" = false ]; then
               echo "⚠️ Let'\''s Encrypt failed, generating self-signed certificate as fallback..."
-              
-              # Создаём директорию для self-signed cert
-              sudo mkdir -p /etc/nginx/certs
-              
-              # Генерируем самоподписанный сертификат на 1 год
               sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /etc/nginx/certs/server.key \
                 -out /etc/nginx/certs/server.crt \
                 -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fittpulse.duckdns.org" \
                 -addext "subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}"
-              
               echo "✅ Self-signed certificate generated"
             else
-              # Если сертификат получен, создаём симлинки для совместимости
-              sudo mkdir -p /etc/nginx/certs
+              # Если сертификат получен, создаём симлинки
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem /etc/nginx/certs/server.crt
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
             fi
             
-            echo "-> Starting Nginx..."
-            sudo systemctl start nginx
-            sudo systemctl enable nginx
-            
-            echo "✅ Nginx and SSL configured (Let'\''s Encrypt or self-signed)"
-          '
-
-      - name: Upload Nginx production configuration
-        run: |
-          # shellcheck disable=SC2016
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            # === Копируем production.conf напрямую из репозитория ===
+            echo "-> Copying production Nginx config..."
             sudo mkdir -p /etc/nginx/sites-available
+            sudo cp /home/${{ secrets.VPS_USER }}/fitpulse/deploy/lb/production.conf /etc/nginx/sites-available/fitpulse
             
-            # Копируем конфиг
-            sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
-            
-            # Проверяем, какой сертификат используется, и корректируем конфиг при необходимости
-            if [ -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
-              echo "Using Let'\''s Encrypt certificates"
-            else
-              echo "Using self-signed certificates"
-              # Убеждаемся, что конфиг ссылается на правильные пути
-              sudo sed -i "s|/etc/letsencrypt/live/fittpulse.duckdns.org/|/etc/nginx/certs/|g" /etc/nginx/sites-available/fitpulse
-            fi
-            
-            # Активируем сайт
+            # === Активируем сайт ===
             sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
             sudo rm -f /etc/nginx/sites-enabled/default
             
             echo "-> Testing Nginx configuration..."
             if sudo nginx -t; then
-              echo "-> Reloading Nginx..."
-              sudo systemctl reload nginx
-              echo "✅ Nginx configuration applied"
+              echo "-> Starting Nginx..."
+              sudo systemctl start nginx
+              sudo systemctl enable nginx
+              echo "✅ Nginx configured and running"
             else
               echo "❌ Nginx config test failed"
               sudo nginx -t
