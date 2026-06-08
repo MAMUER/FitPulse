@@ -1,41 +1,41 @@
-# ADR 0004: Environment Matrix Configuration for Dev/Test/Staging/Prod
+# ADR 0004: Матрица окружений — Dev/Test/Staging/Prod
 
-## Context
+## Контекст
 
-The project needs consistent configuration across multiple environments to ensure proper scaling, security, and monitoring as the system moves from development to production. Each environment has different requirements for resources, redundancy, and access controls.
+Проект требует единообразной конфигурации для нескольких окружений, чтобы обеспечить правильное масштабирование, безопасность и мониторинг по мере продвижения системы от разработки к продакшену. Каждое окружение имеет различные требования к ресурсам, избыточности и контролю доступа.
 
-## Decision
+## Решение
 
-Implement a matrix of configurations for all components across environments:
+Реализовать матрицу конфигураций для всех компонентов в разных окружениях:
 
-- **Dev**: Minimal setup for development, local access, no backups.
-- **Test**: Automated testing environment with basic redundancy and monitoring.
-- **Staging**: Pre-production environment with full monitoring and security.
-- **Prod**: Production environment with high availability, security, and compliance.
+- **Dev**: минимальная конфигурация для локальной разработки, локальный доступ, без бэкапов.
+- **Test**: автоматизированное тестовое окружение с базовой избыточностью и мониторингом.
+- **Staging**: пре-продакшен с полным мониторингом и безопасностью.
+- **Prod**: production с высокой доступностью, безопасностью и соответствием требованиям.
 
-Key parameters include:
-- K8s pods per service (1 → 2 → 3 → 5+ with HPA)
-- PostgreSQL topology (single instance → primary+replica → primary+2 replicas → primary+3 replicas with sync/async)
-- Redis topology (single node → Sentinel → Cluster mode)
-- GPU resources (CPU only → T4 → A10 for ML inference)
-- Monitoring stack (basic → full ELK+Prometheus → with alerts → on-call rotation)
-- Backup strategy (none → daily dumps → WAL archiving → PITR)
+Ключевые параметры:
+- K8s подов на сервис (1 → 2 → 3 → 5+ с HPA)
+- PostgreSQL топология (один инстанс → primary+replica → primary+2 replicas → primary+3 replicas с sync/async)
+- Redis топология (single node → Sentinel → Cluster mode)
+- GPU ресурсы (только CPU → T4 → A10 для ML-инференса)
+- Стек мониторинга (basic → полный ELK+Prometheus → с алертами → on-call rotation)
+- Стратегия бэкапов (нет → ежедневные дампы → WAL архивация → PITR)
 - SSL/TLS (self-signed → Let's Encrypt → Corporate CA → CA + HSM)
-- Access control (local → VPN → VPN+2FA → 2FA + IP whitelist + hardware token)
+- Контроль доступа (локальный → VPN → VPN+2FA → 2FA + IP whitelist + hardware token)
 
-## Consequences
+## Последствия
 
-- Ensures consistent scaling and security practices across environments.
-- Facilitates smooth transitions from dev to prod.
-- Provides clear guidelines for infrastructure provisioning.
+- обеспечивает единообразные практики масштабирования и безопасности во всех окружениях;
+- облегчает переход от dev к prod;
+- предоставляет чёткие руководства по provision инфраструктуры.
 
-## Implementation
+## Реализация
 
-- Document the matrix in architecture documentation.
-- Implement environment-specific configurations in Kubernetes manifests and deployment scripts.
-- Use Helm charts or Kustomize for environment-specific overlays.
+- задокументировать матрицу в архитектурной документации;
+- реализовать окружение-специфичные конфигурации в Kubernetes-манифестах и скриптах деплоя;
+- использовать Helm charts или Kustomize для окружение-специфичных оверлеев.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Single configuration with overrides: Less clear separation between environments.
-- Manual configuration per environment: Error-prone and inconsistent.
+- Единая конфигурация с оверрайдами: менее чёткое разделение окружений.
+- Ручная конфигурация под каждое окружение: подвержена ошибкам и неконсистентности.

@@ -1,0 +1,423 @@
+{
+  "timestamp": "2026-05-21T17:43:08.606692",
+  "total_size_gb": 111.39999999999999,
+  "datasets": [
+    {
+      "name": "adarp",
+      "path": "datasets\\raw\\adarp",
+      "exists": true,
+      "size_gb": 4.57,
+      "file_count": 1896,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "Part 101C",
+        "Part 102C",
+        "Part 104C",
+        "Part 105C",
+        "Part 106C",
+        "Part 107C",
+        "Part 108C",
+        "Part 109C"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "bidmc",
+      "path": "datasets\\raw\\bidmc",
+      "exists": true,
+      "size_gb": 0.14,
+      "file_count": 212,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "bidmc_01_Breaths.csv",
+        "bidmc_01_Fix.txt",
+        "bidmc_01_Numerics.csv",
+        "bidmc_01_Signals.csv",
+        "bidmc_02_Breaths.csv",
+        "bidmc_02_Fix.txt",
+        "bidmc_02_Numerics.csv",
+        "bidmc_02_Signals.csv"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "big_ideas_lab",
+      "path": "datasets\\raw\\big_ideas_lab",
+      "exists": true,
+      "size_gb": 34.13,
+      "file_count": 129,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "001",
+        "002",
+        "003",
+        "004",
+        "005",
+        "006",
+        "007",
+        "008"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "capnobase_event",
+      "path": "datasets\\raw\\capnobase_event",
+      "exists": true,
+      "size_gb": 0.0,
+      "file_count": 84,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "0005_B_meta.tab",
+        "0005_B_param.tab",
+        "0006_A_meta.tab",
+        "0006_A_param.tab",
+        "0006_E_meta.tab",
+        "0006_E_param.tab",
+        "0008_A_meta.tab",
+        "0008_A_param.tab"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "capnobase_ieee",
+      "path": "datasets\\raw\\capnobase_ieee",
+      "exists": true,
+      "size_gb": 0.1,
+      "file_count": 253,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": true,
+      "has_hr_csv": false,
+      "sample_files": [
+        "0009_8min_labels.csv",
+        "0009_8min_meta.csv",
+        "0009_8min_param.csv",
+        "0009_8min_reference.csv",
+        "0009_8min_SFresults.csv",
+        "0009_8min_signal.csv",
+        "0015_8min_labels.csv",
+        "0015_8min_meta.csv"
+      ],
+      "notes": "Has labels — potentially high value"
+    },
+    {
+      "name": "capnobase_invivo",
+      "path": "datasets\\raw\\capnobase_invivo",
+      "exists": true,
+      "size_gb": 0.0,
+      "file_count": 279,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "0004_A_meta.csv",
+        "0004_A_param.csv",
+        "0004_B_meta.csv",
+        "0004_B_param.csv",
+        "0004_C_meta.csv",
+        "0004_C_param.csv",
+        "0004_D_meta.csv",
+        "0004_D_param.csv"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "capnobase_long",
+      "path": "datasets\\raw\\capnobase_long",
+      "exists": true,
+      "size_gb": 0.0,
+      "file_count": 18,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "0009l",
+        "0015l",
+        "0018l",
+        "0023l",
+        "0028l",
+        "0030l",
+        "0032l",
+        "0035l"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "capnobase_sim",
+      "path": "datasets\\raw\\capnobase_sim",
+      "exists": true,
+      "size_gb": 0.0,
+      "file_count": 265,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "0501_A",
+        "0502_A",
+        "0503_A",
+        "0504_A",
+        "0505_A",
+        "0506_A",
+        "0507_A",
+        "0508_A"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "csl",
+      "path": "datasets\\raw\\csl",
+      "exists": true,
+      "size_gb": 0.0,
+      "file_count": 4,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "pox1_output.mat",
+        "pox1_param.mat",
+        "pox2_output.mat",
+        "pox2_param.mat"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "e4selflearning",
+      "path": "datasets\\raw\\e4selflearning",
+      "exists": true,
+      "size_gb": 18.33,
+      "file_count": 9150,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "class_wearable_data",
+        "longitudinal",
+        "participant_class_info",
+        "raw_wearable_data",
+        "README.txt",
+        "survey"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "ppg_dalia",
+      "path": "datasets\\raw\\ppg_dalia",
+      "exists": true,
+      "size_gb": 22.48,
+      "file_count": 76,
+      "has_bvp": true,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "PPG_FieldStudy_readme.pdf",
+        "S1",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "sleep_edf",
+      "path": "datasets\\raw\\sleep_edf",
+      "exists": true,
+      "size_gb": 0.28,
+      "file_count": 14,
+      "has_bvp": false,
+      "has_eda": false,
+      "has_labels": false,
+      "has_hr_csv": false,
+      "sample_files": [
+        "sc4002e0.hyp",
+        "sc4002e0.rec",
+        "sc4012e0.rec",
+        "sc4102e0.hyp",
+        "sc4102e0.rec",
+        "sc4112e0.hyp",
+        "sc4112e0.rec",
+        "st7022j0.hyp"
+      ],
+      "notes": "Likely low value for training zones"
+    },
+    {
+      "name": "spd",
+      "path": "datasets\\raw\\spd",
+      "exists": true,
+      "size_gb": 0.09,
+      "file_count": 281,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "Readme.docx",
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "stress_nurses",
+      "path": "datasets\\raw\\stress_nurses",
+      "exists": true,
+      "size_gb": 3.31,
+      "file_count": 4872,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "15",
+        "5C",
+        "6B",
+        "6D",
+        "7A",
+        "7E",
+        "83",
+        "8B"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "toadstool",
+      "path": "datasets\\raw\\toadstool",
+      "exists": true,
+      "size_gb": 7.6,
+      "file_count": 199,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "consent.pdf",
+        "participants",
+        "protocol.pdf",
+        "questionnaire.pdf",
+        "questionnaire_answers.csv",
+        "README.txt",
+        "scripts"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "ue4w",
+      "path": "datasets\\raw\\ue4w",
+      "exists": true,
+      "size_gb": 0.71,
+      "file_count": 235,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "1568381971_A01F11",
+        "1568436702_A01F11",
+        "1568636849_A01F11",
+        "1568692614_A01F11",
+        "1568780227_A01F11",
+        "1568810932_A01F11",
+        "1568865992_000000",
+        "1568898255_000000"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "weee",
+      "path": "datasets\\raw\\weee",
+      "exists": true,
+      "size_gb": 2.97,
+      "file_count": 1191,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "Apple watch",
+        "Demographics.csv",
+        "Fitbit",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "wesad",
+      "path": "datasets\\raw\\wesad",
+      "exists": true,
+      "size_gb": 16.38,
+      "file_count": 83,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "S10",
+        "S11",
+        "S13",
+        "S14",
+        "S15",
+        "S16",
+        "S17",
+        "S2"
+      ],
+      "notes": "Good — can compute real HRV"
+    },
+    {
+      "name": "wesd",
+      "path": "datasets\\raw\\wesd",
+      "exists": true,
+      "size_gb": 0.31,
+      "file_count": 241,
+      "has_bvp": true,
+      "has_eda": true,
+      "has_labels": false,
+      "has_hr_csv": true,
+      "sample_files": [
+        "S1",
+        "S10",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6",
+        "S7"
+      ],
+      "notes": "Good — can compute real HRV"
+    }
+  ],
+  "recommendations": [
+    "Keep (high value): wesad, ppg_dalia, adarp, e4selflearning, stress_nurses, toadstool, weee",
+    "Careful (huge): big_ideas_lab (34 GB) — subsample heavily or skip if glucose not needed",
+    "Low value / skip: all capnobase_*, csl, sleep_edf (respiration/sleep focused)",
+    "Medium: ue4w, wesd, spd, bidmc"
+  ]
+}

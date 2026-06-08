@@ -309,8 +309,8 @@ func TestLoggingMiddlewareWithoutCorrelationID(t *testing.T) {
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
-	// GetCorrelationID returns "" when key not found
-	assert.Equal(t, "", logs[0].ContextMap()["correlationId"])
+	// GetCorrelationID returns "unknown" when key not found
+	assert.Equal(t, "unknown", logs[0].ContextMap()["correlationId"])
 }
 
 func TestLoggingMiddlewareLogsDuration(t *testing.T) {
@@ -746,7 +746,7 @@ func TestCorrelationID(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := CorrelationID(next)
+	handler := CorrelationIDHTTP(next)
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	req.Header.Set("X-Correlation-ID", "test-cid-123")

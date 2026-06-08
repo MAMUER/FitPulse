@@ -79,7 +79,7 @@ deploy/tls/certs/
 kubeconfig
 
 # Large generated data
-datasets/
+datasets/raw/
 
 # Compressed files
 *.zip

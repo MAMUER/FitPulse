@@ -538,6 +538,7 @@ func main() {
 
 	// Apply middleware
 	handler := http.Handler(r)
+	handler = middleware.CorrelationIDHTTP(handler)
 	handler = middleware.RequestID(handler)
 	handler = middleware.LoggingMiddleware(log.Logger, nil, nil, nil)(handler)
 

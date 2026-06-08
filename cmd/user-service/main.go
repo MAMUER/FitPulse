@@ -16,6 +16,7 @@ import (
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/email"
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/google/uuid"
@@ -926,7 +927,9 @@ func main() {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
+	)
 	pb.RegisterUserServiceServer(s, &userServer{
 		db:          database,
 		log:         log,

@@ -12,6 +12,13 @@ import os
 import json
 import threading
 import logging
+from prometheus_client import Gauge
+
+classification_confidence = Gauge(
+    'classification_confidence',
+    'ML model confidence score for training type classification',
+    ['model_version', 'class']
+)
 
 # Async imports (loaded conditionally)
 try:
@@ -407,6 +414,11 @@ async def generate_plan(request: PlanGenerationRequest):
             request.user_profile,
             request.preferences
         )
+        classification_confidence.labels(
+            model_version=getattr(generator, 'name', 'unknown'),
+            class=training_class
+        ).set(1.0)
+
         return TrainingPlan(**plan)
 
     except RuntimeError as e:

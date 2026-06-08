@@ -224,6 +224,18 @@ services:
       - fitness-network
     restart: unless-stopped
 
+  device-aggregator:
+    build:
+      context: .
+      dockerfile: cmd/device-aggregator/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_HOST=postgres
+      - FITBIT_CLIENT_ID=${FITBIT_CLIENT_ID}
+      - FITBIT_CLIENT_SECRET=${FITBIT_CLIENT_SECRET}
+      - FITBIT_REDIRECT_URI=${FITBIT_REDIRECT_URI}
+
   gateway:
     image: ghcr.io/mamuer/project/gateway:latest
     container_name: fitness-gateway

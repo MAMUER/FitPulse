@@ -1,15 +1,18 @@
-// Package db provides database connection and utilities.
+// Package db provides database connection utilities.
 package db
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/MAMUER/project/internal/metrics"
 	_ "github.com/lib/pq"
 )
 
+// Config holds database connection settings.
 type Config struct {
 	Host     string
 	Port     string
@@ -19,12 +22,15 @@ type Config struct {
 	SSLMode  string
 }
 
-// ConnectionString возвращает строку подключения к БД
+// ConnectionString returns a PostgreSQL connection string.
 func (c Config) ConnectionString() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
+var poolMetricOnce sync.Once
+
+// NewConnection opens a new PostgreSQL connection and reports pool usage metrics.
 func NewConnection(cfg Config) (*sql.DB, error) {
 	if cfg.User == "" {
 		cfg.User = "postgres"
@@ -33,7 +39,6 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("POSTGRES_PASSWORD environment variable is required")
 	}
 	connStr := cfg.ConnectionString()
-	fmt.Println("Connecting with:", connStr)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -47,6 +52,21 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 	if err := db.PingContext(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+
+	poolMetricOnce.Do(func() {
+		go func(dbName string) {
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				if db == nil {
+					continue
+				}
+				stats := db.Stats()
+				usage := float64(stats.InUse) / float64(max(stats.MaxOpenConnections, 1))
+				metrics.DBConnectionPoolUsage.WithLabelValues(dbName, "main").Set(usage)
+			}
+		}(cfg.DBName)
+	})
 
 	return db, nil
 }

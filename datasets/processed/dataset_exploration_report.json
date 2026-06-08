@@ -1,0 +1,318 @@
+{
+  "timestamp": "2026-03-31T01:31:29.062955",
+  "datasets": {
+    "adarp": {
+      "name": "adarp",
+      "path": "../../datasets/raw\\adarp",
+      "subjects": 0,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 0,
+      "total_subdirs": 11,
+      "parts": 11
+    },
+    "bidmc": {
+      "name": "bidmc",
+      "path": "../../datasets/raw\\bidmc",
+      "subjects": 53,
+      "files": [
+        "bidmc_01_Numerics.csv",
+        "bidmc_02_Numerics.csv",
+        "bidmc_03_Numerics.csv",
+        "bidmc_04_Numerics.csv",
+        "bidmc_05_Numerics.csv"
+      ],
+      "signals": [
+        "Time [s]",
+        " HR",
+        " PULSE",
+        " RESP",
+        " SpO2"
+      ],
+      "sample_data": {},
+      "total_files": 212,
+      "total_subdirs": 0
+    },
+    "big_ideas_lab": {
+      "name": "big_ideas_lab",
+      "path": "../../datasets/raw\\big_ideas_lab",
+      "subjects": 16,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 16
+    },
+    "capnobase_event": {
+      "name": "capnobase_event",
+      "path": "../../datasets/raw\\capnobase_event",
+      "subjects": 0,
+      "files": 84,
+      "signals": [
+        "credits",
+        "rater",
+        "sensor_co2_type",
+        "sensor_co2_manufacturer",
+        "sensor_co2_model",
+        "sensor_co2_units",
+        "sensor_flow_model",
+        "sensor_flow_manufacturer",
+        "sensor_flow_type",
+        "sensor_flow_units"
+      ],
+      "sample_data": {},
+      "total_files": 84,
+      "total_subdirs": 0
+    },
+    "capnobase_ieee": {
+      "name": "capnobase_ieee",
+      "path": "../../datasets/raw\\capnobase_ieee",
+      "subjects": 0,
+      "files": 252,
+      "signals": [
+        "co2_artif_x",
+        "co2_startexp_x",
+        "co2_startinsp_x",
+        "pleth_artif_x",
+        "pleth_peak_x",
+        "ecg_peak_x",
+        "ecg_artif_x",
+        "units_x"
+      ],
+      "sample_data": {},
+      "total_files": 253,
+      "total_subdirs": 0
+    },
+    "capnobase_invivo": {
+      "name": "capnobase_invivo",
+      "path": "../../datasets/raw\\capnobase_invivo",
+      "subjects": 0,
+      "files": 279,
+      "signals": [
+        "credits",
+        "rater",
+        "sensor_co2_type",
+        "sensor_co2_manufacturer",
+        "sensor_co2_model",
+        "sensor_co2_units",
+        "sensor_flow_model",
+        "sensor_flow_manufacturer",
+        "sensor_flow_type",
+        "sensor_flow_units"
+      ],
+      "sample_data": {},
+      "total_files": 279,
+      "total_subdirs": 0
+    },
+    "capnobase_long": {
+      "name": "capnobase_long",
+      "path": "../../datasets/raw\\capnobase_long",
+      "subjects": 0,
+      "files": 0,
+      "signals": [],
+      "sample_data": {},
+      "total_files": 0,
+      "total_subdirs": 9
+    },
+    "capnobase_sim": {
+      "name": "capnobase_sim",
+      "path": "../../datasets/raw\\capnobase_sim",
+      "subjects": 0,
+      "files": 0,
+      "signals": [],
+      "sample_data": {},
+      "total_files": 0,
+      "total_subdirs": 53
+    },
+    "csl": {
+      "name": "csl",
+      "path": "../../datasets/raw\\csl",
+      "subjects": 0,
+      "files": 4,
+      "signals": [],
+      "sample_data": {},
+      "total_files": 4,
+      "total_subdirs": 0
+    },
+    "e4selflearning": {
+      "name": "e4selflearning",
+      "path": "../../datasets/raw\\e4selflearning",
+      "subjects": 0,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 5,
+      "participants": 222
+    },
+    "ppg_dalia": {
+      "name": "ppg_dalia",
+      "path": "../../datasets/raw\\ppg_dalia",
+      "subjects": 15,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 15
+    },
+    "sleep_edf": {
+      "name": "sleep_edf",
+      "path": "../../datasets/raw\\sleep_edf",
+      "subjects": 0,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 15,
+      "total_subdirs": 0,
+      "records": 7
+    },
+    "spd": {
+      "name": "spd",
+      "path": "../../datasets/raw\\spd",
+      "subjects": 35,
+      "files": [
+        "ACC.csv",
+        "BVP.csv",
+        "EDA.csv",
+        "HR.csv",
+        "IBI.csv",
+        "tags_S01.csv",
+        "TEMP.csv"
+      ],
+      "signals": [
+        "ACC",
+        "BVP",
+        "EDA",
+        "HR",
+        "IBI",
+        "tags_S01",
+        "TEMP"
+      ],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 35
+    },
+    "stress_nurses": {
+      "name": "stress_nurses",
+      "path": "../../datasets/raw\\stress_nurses",
+      "subjects": 15,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 0,
+      "total_subdirs": 15,
+      "samples": 609
+    },
+    "toadstool": {
+      "name": "toadstool",
+      "path": "../../datasets/raw\\toadstool",
+      "subjects": 0,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 5,
+      "total_subdirs": 2,
+      "participants": 10
+    },
+    "ue4w": {
+      "name": "ue4w",
+      "path": "../../datasets/raw\\ue4w",
+      "subjects": 0,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 3,
+      "total_subdirs": 29,
+      "sessions": 29
+    },
+    "weee": {
+      "name": "weee",
+      "path": "../../datasets/raw\\weee",
+      "subjects": 17,
+      "files": [],
+      "signals": [],
+      "sample_data": {},
+      "total_files": 2,
+      "total_subdirs": 20
+    },
+    "wesad": {
+      "name": "wesad",
+      "path": "../../datasets/raw\\wesad",
+      "subjects": 15,
+      "files": [],
+      "signals": [
+        "ACC",
+        "ECG",
+        "EMG",
+        "EDA",
+        "Temp",
+        "Resp",
+        "ACC",
+        "BVP",
+        "EDA",
+        "TEMP"
+      ],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 15
+    },
+    "wesd": {
+      "name": "wesd",
+      "path": "../../datasets/raw\\wesd",
+      "subjects": 10,
+      "files": [],
+      "signals": [
+        "ACC",
+        "BVP",
+        "EDA",
+        "HR",
+        "IBI",
+        "tags",
+        "TEMP"
+      ],
+      "sample_data": {},
+      "total_files": 1,
+      "total_subdirs": 10,
+      "sessions": [
+        "Final",
+        "Midterm 1",
+        "Midterm 2"
+      ]
+    }
+  },
+  "summary": {
+    "total_datasets": 19,
+    "accessible_datasets": 8,
+    "all_signals": [
+      " RESP",
+      "ecg_artif_x",
+      "EDA",
+      "TEMP",
+      "rater",
+      "pleth_artif_x",
+      "sensor_flow_units",
+      "IBI",
+      "co2_startexp_x",
+      " PULSE",
+      "ecg_peak_x",
+      "ACC",
+      "sensor_flow_model",
+      "BVP",
+      "sensor_co2_units",
+      "credits",
+      "HR",
+      "sensor_flow_manufacturer",
+      "tags_S01",
+      "co2_startinsp_x"
+    ]
+  },
+  "recommendations": [
+    "✅ BIDMC: HR, SpO2 (53 субъекта)",
+    "✅ WESAD: ECG, EDA, TEMP (15 субъектов)",
+    "✅ SPD: HR, IBI, EDA (35 субъектов)",
+    "✅ ADARP: HR, EDA (75+ сессий)",
+    "💡 Для классификатора: BIDMC + WESAD + SPD",
+    "💡 Для GAN: WESAD + WESD + SPD"
+  ]
+}

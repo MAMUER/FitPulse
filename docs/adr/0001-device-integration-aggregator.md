@@ -1,28 +1,27 @@
-# ADR 0001: Unified Wearable Device Integration and Biometric Data Aggregation
+# ADR 0001: Единый агрегатор интеграции с носимых устройств и нормализация биометрии
 
-## Context
+## Контекст
 
-The project requires robust integration with wearable devices while avoiding direct device-specific APIs. The architecture should support devices from multiple ecosystems and normalize biometric inputs for downstream ML and planning services.
+Проект требует надёжной интеграции с носимимы устройствами без использования прямых vendor-specific API. Архитектура должна поддерживать устройства из нескольких экосистем и нормализовать входные биометрические данные для последующих ML- и тренировочных сервисов.
 
-## Decision
+## Решение
 
-Use an adapter-based aggregation layer that:
+Использовать адаптерный слой-агрегатор, который:
 
-- abstracts vendor/platform-specific sources behind `BiometricSource`
-- supports both device-level adapters (`apple`, `samsung`, `huawei`, `amazfit`) and unified platform adapters (`rook`, `terra`, `health_connect`, `healthkit`)
-- aggregates data from multiple sources with graceful degradation
-- normalizes duplicate metrics by quality/confidence and attaches source metadata
+- абстрагирует источники данных за интерфейсом `BiometricSource`;
+- поддерживает как адаптеры уровня устройств (`apple`, `samsung`, `huawei`, `amazfit`), так и единые платформенные адаптеры (`rook`, `terra`, `health_connect`, `healthkit`);
+- агрегирует данные из нескольких источников с graceful degradation;
+- нормализует дублирующиеся метрики по качеству/уверенности и добавляет метаданные источника.
 
-## Consequences
+## Последствия
 
-- allows plug-and-play integration of new wearable platforms
-- supports the recommended strategy of aggregation through unified platforms
-- supports fallback to emulator/mock sources for testing
-- makes biometric ingestion resilient to partial source failures
+- позволяет добавлять новые платформы носимых устройств по принципу plug-and-play;
+- поддерживает рекомендованную стратегию агрегации через унифицированные платформы;
+- поддерживает fallback на эмулятор/mock-источники для тестирования;
+- делает приём биометрии устойчивым к частичным сбоям источников.
 
-## Implementation
+## Реализация
 
-- added `internal/biometric/adapters/aggregator.go`
-- added platform adapter stubs in `internal/biometric/adapters/vendor_adapters.go`
-- added unit tests in `internal/biometric/adapters/aggregator_test.go`
-
+- добавлен `internal/biometric/adapters/aggregator.go`;
+- добавлены заглушки платформенных адаптеров в `internal/biometric/adapters/vendor_adapters.go`;
+- добавлены unit-тесты в `internal/biometric/adapters/aggregator_test.go`.

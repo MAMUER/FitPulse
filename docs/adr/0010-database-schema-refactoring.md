@@ -1,46 +1,46 @@
-# ADR 0010: Database Schema and Service Layer Refactoring
+# ADR 0010: Рефакторинг схемы базы данных и service layer
 
-## Context
+## Контекст
 
-The biometric and training services required improvements to data consistency, test coverage, and service reliability. The existing repository patterns lacked proper timestamp tracking, and the test coverage was insufficient for critical path validation.
+Биометрический и тренировочный сервисы требовали улучшений в consistency данных, покрытии тестами и надёжности сервисов. Существующие репозиторные паттерны lacked proper timestamp tracking, а покрытие тестами было недостаточным для валидации критических путей.
 
-## Decision
+## Решение
 
-1. **Biometric Repository Enhancement**
-   - Added `created_at` timestamp field to the Save method in `biometric_repository.go`
-   - Ensures all stored biometric records have creation timestamps for audit and debugging
+1. **Усиление биометрического репозитория**
+   - добавлено поле `created_at` в метод Save в `biometric_repository.go`;
+   - гарантирует, что все сохранённые биометрические записи имеют timestamps для аудита и дебага.
 
-2. **Training Service Schema Expansion**
-   - Extended training service data models with additional fields and relationships
-   - Improved data representation for training plans and progress tracking
+2. **Расширение схемы тренировочного сервиса**
+   - расширены data models тренировочного сервиса дополнительными полями и связями;
+   - улучшено представление данных для тренировочных планов и трейкинга прогресса.
 
-3. **Test Coverage Improvement**
-   - Added comprehensive unit tests for data processor with environment variable handling
-   - Created integration tests for training service (GeneratePlan, GetProgress)
-   - Implemented mock database interactions for isolated unit testing
+3. **Улучшение покрытия тестами**
+   - добавлены комплексные unit-тесты для data processor с обработкой environment variables;
+   - созданы integration-тесты для training service (GeneratePlan, GetProgress);
+   - реализованы mock database interactions для изолированного unit-тестирования.
 
-4. **Dependency Cleanup**
-   - Removed unused `postgres` module dependency from `go.mod`
+4. **Очистка зависимостей**
+   - удалена неиспользуемая зависимость `postgres` из `go.mod`.
 
-## Consequences
+## Последствия
 
-- **Positive**: Better data consistency with automatic timestamp tracking
-- **Positive**: Comprehensive test coverage (unit + integration) improves reliability
-- **Positive**: Mock-based unit tests enable faster development cycles
-- **Positive**: Cleaner dependency graph reduces build times and security surface
-- **Neutral**: Database schema migration required for existing data
+- **Плюсы**: лучшая consistency данных с automatic timestamp tracking;
+- **Плюсы**: комплексное покрытие тестами (unit + integration) повышает надёжность;
+- **Плюсы**: mock-based unit-тесты ускоряют циклы разработки;
+- **Плюсы**: более чистый граф зависимостей снижает время сборки и security surface;
+- **Нейтрально**: требуется миграция схемы БД для существующих данных.
 
-## Implementation
+## Реализация
 
-- Modified `internal/repository/biometric_repository.go`
-- Updated `cmd/biometric-service/biometric_service_test.go`
-- Added `cmd/data-processor/data_processor_unit_test.go`
-- Created `cmd/training-service/training_service_integration_test.go`
-- Added `cmd/training-service/training_service_unit_test.go`
-- Updated `go.mod` to remove unused dependency
+- изменён `internal/repository/biometric_repository.go`;
+- обновлён `cmd/biometric-service/biometric_service_test.go`;
+- добавлен `cmd/data-processor/data_processor_unit_test.go`;
+- создан `cmd/training-service/training_service_integration_test.go`;
+- добавлен `cmd/training-service/training_service_unit_test.go`;
+- обновлён `go.mod` для удаления неиспользуемой зависимости.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Using database triggers for timestamps: Adds database coupling, less portable
-- Relying solely on integration tests: Slower feedback, harder to debug
-- Keeping unused dependencies: Increases binary size and vulnerability surface
+- Использование database triggers для timestamps: добавляет coupling с БД, менее portable.
+- Полное reliance на integration-тесты: более медленная обратная связь, сложнее дебажить.
+- Сохранение неиспользуемых зависимостей: увеличивает размер бинарника и поверхность уязвимостей.

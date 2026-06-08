@@ -1,41 +1,41 @@
-# ADR 0008: Architecture Acceptance Criteria (Definition of Done)
+# ADR 0008: Критерии приёмки архитектуры (Definition of Done)
 
-## Context
+## Контекст
 
-The architecture must meet specific criteria for availability, performance, scalability, resilience, security, compliance, and documentation to be considered production-ready.
+Архитектура должна соответствовать определённым критериям по доступности, производительности, масштабируемости, устойчивости, безопасности, compliance и документации, чтобы считаться production-ready.
 
-## Decision
+## Решение
 
-Define acceptance criteria as:
+Определить критерии приёмки:
 
-1. **Availability**: >99.9% uptime annually, monitored via Prometheus probes and synthetic transactions.
+1. **Доступность**: >99.9% uptime annually, мониторинг через Prometheus probes и синтетические транзакции.
 
-2. **Performance**: p95 latency <5s for 95% of user requests, measured via histograms and RUM. Exception for ML endpoints: <15s with user notification.
+2. **Производительность**: p95 latency <5s для 95% пользовательских запросов, измерение через гистограммы и RUM. Исключение для ML-эндпоинтов: <15s с уведомлением пользователя.
 
-3. **Scalability**: Auto-scaling 2x load → 2x pods within 3 minutes using HPA and Cluster Autoscaler. Tested with k6 load tests.
+3. **Масштабируемость**: автоскейлинг при 2x нагрузке → 2x подов за 3 минуты с помощью HPA и Cluster Autoscaler. Тестирование через k6 нагрузочные тесты.
 
-4. **Resilience**: Recovery from failure <5 minutes, verified through Chaos Engineering (pod kills, network partitions). Track MTTR in Grafana.
+4. **Устойчивость**: восстановление после сбоя <5 минут, проверка через Chaos Engineering (pod kills, network partitions). MTTR трекается в Grafana.
 
-5. **Security**: 0 critical vulnerabilities post-penetration testing. Quarterly external pentests, monthly internal scans, remediation SLA (critical: 24h, high: 7d).
+5. **Безопасность**: 0 критических уязвимостей после пентеста. Квартальные внешние пентесты, ежемесячные внутренние сканирования, SLA remediaton (critical: 24ч, high: 7д).
 
-6. **Compliance**: Full 152-ФЗ compliance for personal data handling. Storage in Russia (Yandex Cloud/Selectel), encryption at rest/transit, subject rights mechanisms, Roskomnadzor registration. Annual audits, DPIA for new features.
+6. **Compliance**: полное соответствие 152-ФЗ при обработке персональных данных. Хранение в России (Yandex Cloud/Selectel), шифрование at rest/transit, механизмы реализации субъективных прав, регистрация в Роскомнадзоре. Ежегодные аудиты, DPIA для новых фич.
 
-7. **Documentation**: Up-to-date repository docs including ADRs, runbooks, incident playbooks, OpenAPI specs. Docs updated in same PR as code.
+7. **Документация**: актуальная документация репозитория, включая ADRs, runbooks, incident playbooks, OpenAPI спецификации. Документация обновляется в том же PR, что и код.
 
-## Consequences
+## Последствия
 
-- Provides clear, measurable goals for architecture quality.
-- Ensures the system meets business and regulatory requirements.
-- Facilitates objective evaluation of architectural decisions.
+- предоставляет чёткие, измеримые цели для качества архитектуры;
+- обеспечивает соответствие системы бизнес- и регуляторным требованиям;
+- облегчает объективную оценку архитектурных решений.
 
-## Implementation
+## Реализация
 
-- Implement monitoring and alerting for all criteria.
-- Conduct regular testing (load, chaos, security) to validate criteria.
-- Maintain documentation standards and review processes.
+- реализовать мониторинг и алертинг для всех критериев;
+- регулярное тестирование (нагрузочное, chaos, security) для валидации критериев;
+- поддерживать стандарты документации и процессы review.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Fewer criteria: May lead to lower quality.
-- Subjective criteria: Harder to measure and enforce.
-- No formal acceptance: Risk of incomplete implementations.
+- Меньше критериев: может привести к низкому качеству.
+- Субъективные критерии: сложно измерить и применить.
+- Отсутствие формальной приёмки: риск неполных реализаций.

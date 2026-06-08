@@ -1,0 +1,124 @@
+name: Issue Automation
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  auto-label:
+    name: Auto-label issues
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Add triage label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['needs-triage']
+            });
+
+      - name: Add component labels
+        uses: actions/github-script@v7
+        with:
+            script: |
+                const body = context.payload.issue.body || '';
+                const labels = [];
+      
+                if (body.toLowerCase().includes('fitbit') || body.includes('withings')) {
+                labels.push('device-integration');
+                }
+                if (body.toLowerCase().includes('oauth') || body.includes('auth')) {
+                labels.push('authentication');
+                }
+                if (body.toLowerCase().includes('webhook')) {
+                labels.push('webhook');
+                }
+                if (body.toLowerCase().includes('smtp') || body.includes('email')) {
+                labels.push('email-service');
+                }
+      
+                if (labels.length > 0) {
+                await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: labels
+                });
+                }
+      - name: Assign based on component
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const title = context.payload.issue.title.toLowerCase();
+            
+            const assignments = {
+              'gateway': ['@MAMUER'],
+              'user service': ['@MAMUER'],
+              'biometric': ['@MAMUER'],
+              'training': ['@MAMUER'],
+              'device': ['@MAMUER'],
+              'ml ': ['@MAMUER'],
+              'frontend': ['@MAMUER'],
+              'k8s': ['@MAMUER'],
+              'docker': ['@MAMUER'],
+              'ci/cd': ['@MAMUER'],
+            };
+            
+            for (const [keyword, assignees] of Object.entries(assignments)) {
+              if (body.toLowerCase().includes(keyword) || title.includes(keyword)) {
+                for (const assignee of assignees) {
+                  await github.rest.issues.addAssignees({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    assignees: [assignee.replace('@', '')]
+                  });
+                }
+                break;
+              }
+            }
+
+      - name: Welcome new contributors
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+            script: |
+                const author = context.payload.issue.user.login;
+                const isFirst = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                creator: author,
+                per_page: 1
+                }).then(res => res.data.length === 1);
+        
+                if (isFirst) {
+                await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    body: `👋 Привет, @${author}! Спасибо за первое сообщение об ошибке/идею.\n\nМы проверим ваш репорт в ближайшее время. Если у вас есть дополнительные детали — добавляйте в комментарии.`
+                });
+                }
+
+      - name: Security issue handling
+        if: contains(github.event.issue.labels.*.name, 'security')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Security issue detected:', context.issue.number);
+
+      - name: Notify Telegram
+        if: contains(github.event.issue.labels.*.name, 'priority:critical')
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\\n${{ github.event.issue.title }}\\n${{ github.event.issue.html_url }}\"}"

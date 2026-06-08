@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -20,7 +21,7 @@ func ErrorHandler(log *zap.Logger) func(http.Handler) http.Handler {
 					zap.Int("status", rw.statusCode),
 					zap.String("path", r.URL.Path),
 					zap.String("method", r.Method),
-					zap.String("correlation_id", GetRequestID(r.Context())),
+					zap.String("correlationId", GetCorrelationID(r.Context())),
 				)
 			}
 		})
@@ -66,19 +67,19 @@ func JSONError(w http.ResponseWriter, r *http.Request, code int, message string)
 			"message": message,
 		},
 		"timestamp":     time.Now().UTC().Format(time.RFC3339),
-		"correlationId": GetRequestID(r.Context()),
+		"correlationId": GetCorrelationID(r.Context()),
 	}
 
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-// GetRequestID безопасно получает correlation ID из контекста
+// GetRequestID deprecated: compatibility wrapper around GetCorrelationID(ctx)
 func GetRequestID(ctx interface{}) string {
 	if ctx == nil {
 		return ""
 	}
-	if s, ok := ctx.(string); ok {
-		return s
+	if ctxValue, ok := ctx.(context.Context); ok {
+		return GetCorrelationID(ctxValue)
 	}
 	return ""
 }

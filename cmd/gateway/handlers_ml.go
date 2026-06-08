@@ -74,6 +74,7 @@ func (g *gateway) mlClassifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -132,6 +133,7 @@ func aggregateMLPayload(metrics map[string]*biometricpb.BiometricRecord) map[str
 
 func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, mlPayload map[string]interface{}) {
 	jobID := uuid.New().String()
+	correlationID := middleware.GetCorrelationID(r.Context())
 
 	body, err := json.Marshal(map[string]interface{}{
 		"job_id":             jobID,
@@ -151,6 +153,10 @@ func (g *gateway) handleAsyncClassify(w http.ResponseWriter, r *http.Request, ml
 			ContentType:  "application/json",
 			Body:         body,
 			DeliveryMode: amqp.Persistent,
+			Headers: amqp.Table{
+				"x-correlation-id": correlationID,
+				"x-job-id":         jobID,
+			},
 		})
 	if err != nil {
 		g.log.Error("Failed to publish classify job to RabbitMQ", zap.Error(err))
@@ -195,6 +201,7 @@ func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)

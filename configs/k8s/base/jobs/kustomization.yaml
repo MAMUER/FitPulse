@@ -4,7 +4,8 @@ kind: Kustomization
 configMapGenerator:
   - name: init-db-sql
     files:
-      - init.sql=init-db.sql    # ← Теперь путь относительно этой директории
+      - init.sql=init-db.sql
 
 resources:
   - migrate-db.yaml
+  - seed-admin.yaml

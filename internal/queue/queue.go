@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
+	"github.com/MAMUER/project/internal/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 )
 
 // Prometheus метрики для очереди
-//
-//nolint:gochecknoglobals
-var queueMessagesTotal *prometheus.CounterVec
-
-func init() {
+var (
 	queueMessagesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "queue_messages_total",
@@ -26,7 +24,40 @@ func init() {
 		},
 		[]string{"queue", "status"},
 	)
+)
+
+func init() {
 	prometheus.MustRegister(queueMessagesTotal)
+}
+
+// QueueMetrics ties queue/priority labels for depth reporting.
+type QueueMetrics struct {
+	queue    string
+	priority string
+}
+
+func (m *QueueMetrics) Set(depth int) {
+	if m == nil {
+		return
+	}
+	metrics.NotificationQueueDepth.WithLabelValues(m.queue, m.priority).Set(float64(depth))
+}
+
+var queueMetricsRegistry sync.Map
+
+func registerQueueMetrics(queue, priority string) *QueueMetrics {
+	key := queue + "|" + priority
+	if v, ok := queueMetricsRegistry.Load(key); ok {
+		return v.(*QueueMetrics)
+	}
+	m := &QueueMetrics{queue: queue, priority: priority}
+	queueMetricsRegistry.Store(key, m)
+	return m
+}
+
+// ExportQueueDepth exports queue depth for consumer-side tracking.
+func ExportQueueDepth(queue, priority string, depth int) {
+	registerQueueMetrics(queue, priority).Set(depth)
 }
 
 // rabbitPublisher — реализация Publisher
@@ -35,6 +66,7 @@ type rabbitPublisher struct {
 	channel *amqp.Channel
 	queue   string
 	log     *zap.Logger
+	metrics *QueueMetrics
 	mu      sync.RWMutex
 	closed  bool
 }
@@ -67,7 +99,7 @@ func NewPublisher(url, queueName string, logger *zap.Logger) (Publisher, error) 
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	_, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
+	err = DeclareQueueWithDLQ(ch, queueName)
 	if err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -79,6 +111,7 @@ func NewPublisher(url, queueName string, logger *zap.Logger) (Publisher, error) 
 		channel: ch,
 		queue:   queueName,
 		log:     logger,
+		metrics: registerQueueMetrics(queueName, "default"),
 	}, nil
 }
 
@@ -156,7 +189,7 @@ func NewConsumer(url, queueName string, logger *zap.Logger) (Consumer, error) {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	_, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
+	err = DeclareQueueWithDLQ(ch, queueName)
 	if err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -206,24 +239,44 @@ func (c *rabbitConsumer) Close() error {
 	c.closed = true
 	c.mu.Unlock()
 
-	var closeErr error
 	if c.channel != nil {
-		if err := c.channel.Close(); err != nil && !isClosedError(err) {
+		err := c.channel.Close()
+		if err != nil && !isClosedError(err) {
 			c.log.Error("Channel close failed", zap.Error(err))
-			closeErr = err
 		}
 	}
 	if c.conn != nil {
-		if err := c.conn.Close(); err != nil && !isClosedError(err) {
+		err := c.conn.Close()
+		if err != nil && !isClosedError(err) {
 			c.log.Error("Conn close failed", zap.Error(err))
-			if closeErr == nil {
-				closeErr = err
-			}
 		}
 	}
-	return closeErr
+	return nil
 }
 
 func isClosedError(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, amqp.ErrClosed)
+}
+
+// StartDepthReporter periodically updates NotificationQueueDepth for the consumer queue.
+func StartDepthReporter(ctx context.Context, ch *amqp.Channel, queueName string) {
+	if ch == nil || queueName == "" {
+		return
+	}
+	m := registerQueueMetrics(queueName, "default")
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if ctx.Err() != nil {
+				return
+			}
+			q, err := ch.QueueDeclarePassive(queueName, true, false, false, false, nil)
+			if err != nil {
+				continue
+			}
+			m.Set(int(q.Messages))
+		}
+	}()
 }

@@ -1,38 +1,38 @@
-# ADR 0007: Release Pipeline with 9-Stage Process and Canary Deployment
+# ADR 0007: Релизный пайплайн с 9-этапным процессом и канарным деплоем
 
-## Context
+## Контекст
 
-The project requires a robust release process to ensure quality, safety, and quick rollback capabilities for production deployments. The pipeline must support automated testing, gradual rollouts, and monitoring.
+Проект требует надёжного релизного процесса для обеспечения качества, безопасности и быстрого отката в production. Пайплайн должен поддерживать автоматизированное тестирование, постепенные rollout'ы и мониторинг.
 
-## Decision
+## Решение
 
-Implement a 9-stage release pipeline:
+Реализовать 9-этапный релизный пайплайн:
 
-1. **Development**: Feature branches with pre-commit hooks.
-2. **Code Review**: 2+ approvals, SAST, dependency scans.
-3. **CI Build**: Unit/integration/contract tests, container scanning, multi-arch builds.
-4. **Deploy Test**: Automated smoke tests.
-5. **Deploy Staging**: UAT, performance/security tests, chaos engineering.
+1. **Development**: feature-ветки с pre-commit хуками.
+2. **Code Review**: 2+ approve, SAST, dependency scans.
+3. **CI Build**: unit/integration/contract тесты, сканирование контейнеров, multi-arch сборка.
+4. **Deploy Test**: автоматические smoke-тесты.
+5. **Deploy Staging**: UAT, performance/security тесты, chaos engineering.
 6. **Release Candidate**: Git tags, changelogs, migration plans.
-7. **Deploy Production**: Canary (10% traffic, 1h) then rolling (30%→60%→100%, 30min intervals).
-8. **Post-Deploy Monitoring**: 24h watch with defined metrics.
-9. **Rollback Trigger**: Automatic rollback on error rate >5%, latency >10s, security issues, or data loss >0.1%.
+7. **Deploy Production**: canary (10% трафика, 1ч) затем rolling (30%→60%→100%, интервалы 30 мин).
+8. **Post-Deploy Monitoring**: 24ч наблюдение с определёнными метриками.
+9. **Rollback Trigger**: автоматический откат при error rate >5%, latency >10s, security issues или data loss >0.1%.
 
-## Consequences
+## Последствия
 
-- Ensures high-quality releases with comprehensive testing.
-- Minimizes production risks through gradual rollouts.
-- Provides fast recovery through automated rollbacks.
+- обеспечивает высокое качество релизов с комплексным тестированием;
+- минимизирует production-риски через постепенные rollout'ы;
+- предоставляет быстрое восстановление через автоматические откаты.
 
-## Implementation
+## Реализация
 
-- Configure CI/CD pipeline (GitHub Actions/Jenkins) with the 9 stages.
-- Implement canary deployment using Kubernetes ingress traffic splitting.
-- Set up monitoring dashboards for post-deploy observation.
-- Create rollback scripts for Kubernetes and database.
+- настройка CI/CD пайплайна (GitHub Actions/Jenkins) с 9 этапами;
+- реализация канарного деплоя через traffic splitting Kubernetes Ingress;
+- настройка мониторинговых дашбордов для пост-деплойного наблюдения;
+- создание скриптов отката для Kubernetes и базы данных.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Big bang deployments: Higher risk of outages.
-- Fewer stages: Reduced quality assurance.
-- Manual rollbacks: Slower recovery.
+- Big bang деплой: повышенный риск простоев.
+- Меньше этапов: снижение качества assurance.
+- Ручные откаты: более медленное восстановление.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -286,61 +287,92 @@ func main() {
 	// Setup routes (middleware applied via r.Use() in registerRoutes)
 	r := g.registerRoutes()
 
-	// ========== HTTP server (redirect to HTTPS) ==========
-	httpSrv := &http.Server{
-		Addr: ":" + port,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Redirect all HTTP to HTTPS
-			target := "https://" + r.Host + r.URL.RequestURI()
-			if port != "" && port != "80" {
-				target = "https://" + r.Host + ":8443" + r.URL.RequestURI()
-			}
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
-		}),
-	}
-
-	go func() {
-		log.Info("HTTP redirect server starting", zap.String("port", port))
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("HTTP redirect server failed", zap.Error(err))
-		}
-	}()
-
-	// ========== HTTPS server (main) ==========
+	// ========== Определяем режим работы ==========
 	tlsCertFile := os.Getenv("TLS_CERT_FILE")
 	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
-
-	httpsSrv := &http.Server{
-		Addr:         ":8443",
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	tlsAvailable := tlsCertFile != "" && tlsKeyFile != ""
+	if tlsAvailable {
+		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
+			log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
+				zap.String("cert_file", tlsCertFile),
+				zap.Error(err))
+			tlsAvailable = false
+		}
 	}
 
-	if tlsCertFile != "" && tlsKeyFile != "" {
-		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err == nil { //gosec:ignore G703
-			go func() {
-				log.Info("HTTPS server starting",
-					zap.String("port", "8443"),
-					zap.String("cert", tlsCertFile),
-					zap.String("ml_classifier", mlClassifierURL),
-					zap.String("ml_generator", mlGeneratorURL))
-				if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
-					log.Fatal("Failed to start HTTPS server", zap.Error(err))
+	// ========== HTTPS server (main) ==========
+	httpsSrv := &http.Server{
+		Addr:              ":8443",
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 15 * time.Second,
+	}
+
+	// ========== HTTP server ==========
+	var httpSrv *http.Server
+	if tlsAvailable {
+		// HTTPS mode: HTTP port redirects to HTTPS
+		httpSrv = &http.Server{
+			Addr:              ":" + port,
+			ReadHeaderTimeout: 15 * time.Second,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				target := "https://" + r.Host
+				// Заменяем порт 8080 на 8443 в редиректе
+				if port != "" && port != "80" && port != "443" {
+					host := r.Host
+					if idx := len(host) - len(":"+port); idx > 0 && host[idx:] == ":"+port {
+						host = host[:idx] + ":8443"
+					}
+					target = "https://" + host + r.URL.RequestURI()
 				}
-			}()
-		} else {
-			log.Warn("TLS certificate not found, starting HTTPS without TLS (will fail)",
-				zap.String("cert_file", tlsCertFile))
-			go func() {
-				if err := httpsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-					log.Fatal("Failed to start HTTPS server", zap.Error(err))
-				}
-			}()
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+			}),
 		}
 	} else {
-		log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE environment variables are required")
+		// HTTP-only mode (test/local): HTTP port serves directly
+		httpSrv = &http.Server{
+			Addr:              ":" + port,
+			Handler:           r,
+			ReadTimeout:       15 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       60 * time.Second,
+			ReadHeaderTimeout: 15 * time.Second,
+		}
+	}
+
+	// ========== Start servers ==========
+	if tlsAvailable {
+		// HTTPS mode
+		go func() {
+			log.Info("HTTP redirect server starting", zap.String("port", port))
+			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Error("HTTP redirect server failed", zap.Error(err))
+			}
+		}()
+
+		go func() {
+			log.Info("HTTPS server starting",
+				zap.String("port", "8443"),
+				zap.String("cert", tlsCertFile),
+				zap.String("ml_classifier", mlClassifierURL),
+				zap.String("ml_generator", mlGeneratorURL))
+			if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
+				log.Fatal("Failed to start HTTPS server", zap.Error(err))
+			}
+		}()
+	} else {
+		// HTTP-only mode
+		log.Info("Starting in HTTP-only mode (no TLS certificates)",
+			zap.String("port", port),
+			zap.String("ml_classifier", mlClassifierURL),
+			zap.String("ml_generator", mlGeneratorURL))
+		go func() {
+			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatal("Failed to start HTTP server", zap.Error(err))
+			}
+		}()
 	}
 
 	// ========== Graceful shutdown ==========
@@ -355,22 +387,6 @@ func main() {
 	_ = httpSrv.Shutdown(ctx)
 	_ = httpsSrv.Shutdown(ctx)
 	log.Info("Servers stopped")
-
-	srv := &http.Server{
-		Addr:         ":" + port,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-	log.Info("Gateway starting",
-		zap.String("port", port),
-		zap.String("ml_classifier", mlClassifierURL),
-		zap.String("ml_generator", mlGeneratorURL))
-
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal("Failed to start server", zap.Error(err))
-	}
 }
 
 // registerRoutes registers all HTTP routes on the router
@@ -384,7 +400,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.Use(middleware.RateLimit)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
-
+	r.Use(middleware.CorrelationIDHTTP)
 	// ========== Public routes (без авторизации) ==========
 	r.HandleFunc("/api/v1/register", g.registerHandler).Methods("POST")
 	r.HandleFunc("/api/v1/register/invite", g.registerWithInviteHandler).Methods("POST")
@@ -393,7 +409,8 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.HandleFunc("/api/v1/auth/confirm", g.confirmEmailHandler).Methods("POST")
 	r.HandleFunc("/api/v1/auth/verify-status", g.checkVerificationStatusHandler).Methods("GET")
 	r.HandleFunc("/health", g.healthHandler).Methods("GET")
-
+	// Webhook endpoint - БЕЗ authMiddleware
+	r.HandleFunc("/api/v1/devices/withings/webhook", g.proxyToDeviceAggregator).Methods("POST")
 	// Metrics endpoint
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
@@ -431,11 +448,23 @@ func (g *gateway) registerRoutes() *mux.Router {
 	// Logout
 	protected.HandleFunc("/logout", g.logoutHandler).Methods("POST")
 
+	// Device aggregator proxy
+	protected.HandleFunc("/devices/fitbit/auth", g.proxyToDeviceAggregator).Methods("GET")
+	protected.HandleFunc("/devices/fitbit/callback", g.proxyToDeviceAggregator).Methods("GET")
+	protected.HandleFunc("/devices/fitbit/disconnect", g.proxyToDeviceAggregator).Methods("POST")
+	protected.HandleFunc("/devices/providers", g.proxyToDeviceAggregator).Methods("GET")
+
+	protected.HandleFunc("/devices/withings/auth", g.proxyToDeviceAggregator).Methods("GET")
+	protected.HandleFunc("/devices/withings/callback", g.proxyToDeviceAggregator).Methods("GET")
+	protected.HandleFunc("/devices/withings/disconnect", g.proxyToDeviceAggregator).Methods("POST")
 	// ========== Admin routes (требуют роль admin) ==========
 	admin := r.PathPrefix("/api/v1/admin").Subrouter()
 	admin.Use(authMiddleware)
 	admin.Use(middleware.RequireRole("admin"))
 	admin.HandleFunc("/users", g.adminListUsersHandler).Methods("GET")
+	admin.HandleFunc("/invites", g.adminListInvitesHandler).Methods("GET")                 // ← НОВОЕ
+	admin.HandleFunc("/invites", g.adminCreateInviteHandler).Methods("POST")               // ← НОВОЕ
+	admin.HandleFunc("/invites/{code}/revoke", g.adminRevokeInviteHandler).Methods("POST") // ← НОВОЕ
 
 	// ========== Static files ==========
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
@@ -461,6 +490,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 	conn, err := grpc.NewClient(g.biometricAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+		grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()),
 	)
 	if err != nil {
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
@@ -487,6 +517,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	conn, err := grpc.NewClient(g.trainingAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+		grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()),
 	)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
@@ -496,4 +527,31 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)
 	g.log.Info("Training client initialized on first use", zap.String("addr", g.trainingAddr))
 	return g.trainingClient, nil
+}
+
+func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request) {
+	// SSRF protection: construct target from fixed internal service + validated path
+	// Path is already validated to point to device-aggregator endpoints via route registration
+	target, _ := url.JoinPath("http://device-aggregator:8083", r.URL.Path)
+
+	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) // #nosec G704
+	outReq.Header = r.Header.Clone()
+	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
+	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, _ := client.Do(outReq) // #nosec G704
+	if resp == nil {
+		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }

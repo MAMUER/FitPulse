@@ -1,0 +1,11 @@
+{
+  "total_samples": 18820,
+  "hr_min": 1.0,
+  "hr_max": 207.83,
+  "hr_mean": 87.70372476089267,
+  "hr_std": 22.565923096834194,
+  "recovery_count": 14774,
+  "e1e2_count": 3234,
+  "e3_count": 587,
+  "hiit_count": 225
+}

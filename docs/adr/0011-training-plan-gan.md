@@ -1,55 +1,55 @@
-# ADR 0011: Training Plan Generation with GAN
+# ADR 0011: Генерация тренировочных планов с использованием GAN
 
-## Status
+## Статус
 
-Accepted
+Принято
 
-## Context
+## Контекст
 
-The ML Generator service needed to produce personalized training plans based on user profiles and biometric data. The initial implementation used a placeholder model with synthetic data. Real exercise data from `exercisedb_v1_sample` was available on D:\ drive.
+ML Generator service должен был производить персонализированные тренировочные планы на основе профилей пользователей и биометрических данных. Начальная реализация использовала placeholder-модель с синтетическими данными. Реальные данные об упражнениях из `exercisedb_v1_sample` были доступны на диске D:\.
 
-Requirements:
-- Generate 19-dimensional training plan vectors
-- Support 10,000+ training samples
-- Train in Docker container
-- Use Keras 3 with TensorFlow backend
+Требования:
+- генерировать 19-мерные векторы тренировочных планов;
+- поддерживать 10,000+ тренировочных семплов;
+- обучаться в Docker-контейнере;
+- использовать Keras 3 с TensorFlow backend.
 
-## Decision
+## Решение
 
-Implemented a GAN-based training plan generator with the following architecture:
+Реализован GAN-based генератор тренировочных планов со следующей архитектурой:
 
-1. **Data Preprocessing**
-   - Converted exercise data from `datasets/raw/exercisedb` to training plan vectors
-   - Generated 10,000 training plans with 19 features
-   - Features: duration, intensity, rest_ratio, weekly_freq, equipment (8 dims), warmup, cooldown, progression, age/fitness/health/goal factors
+1. **Предобработка данных**
+   - конвертация данных об упражнениях из `datasets/raw/exercisedb` в векторы тренировочных планов;
+   - генерация 10,000 тренировочных планов с 19 признаками;
+   - признаки: duration, intensity, rest_ratio, weekly_freq, equipment (8 dims), warmup, cooldown, progression, age/fitness/health/goal факторы.
 
-2. **Model Architecture**
+2. **Архитектура модели**
    - Generator: 64-dim latent → 256 → 512 → 256 → 19 (sigmoid)
    - Discriminator: 19 → 512 → 256 → 128 → 1 (sigmoid)
-   - Loss: MSE for generator, binary_crossentropy for discriminator
+   - Loss: MSE для generator, binary_crossentropy для discriminator
    - Optimizer: Adam (lr=0.0002, beta_1=0.5)
 
-3. **Training Configuration**
+3. **Конфигурация обучения**
    - 500 epochs, batch size 64
-   - Docker-based training with TensorFlow backend
-   - Model saved to `models/generator.keras`
+   - Docker-based обучение с TensorFlow backend
+   - Модель сохранена в `models/generator.keras`
 
-## Consequences
+## Последствия
 
-- **Positive**: Real exercise data used for training
-- **Positive**: Keras 3 compatibility ensures future-proof implementation
-- **Positive**: 19-dimensional output supports rich training plan features
-- **Neutral**: Training requires ~5 minutes on CPU
-- **Neutral**: Model generates normalized vectors (0-1) requiring post-processing
+- **Плюсы**: использованы реальные данные об упражнениях для обучения;
+- **Плюсы**: совместимость с Keras 3 обеспечивает future-proof реализацию;
+- **Плюсы**: 19-мерный выход поддерживает богатые признаки тренировочного плана;
+- **Нейтрально**: обучение требует ~5 минут на CPU;
+- **Нейтрально**: модель генерирует нормализованные векторы (0-1), требующие пост-обработки.
 
-## Implementation
+## Реализация
 
-- `cmd/ml-generator/preprocess_exercises.py` - Data preprocessing
-- `cmd/ml-generator/train_gan.py` - GAN training script
-- `cmd/ml-generator/main.py` - FastAPI service with simplified generation
-- `models/generator.keras` - Trained model (1.2MB)
+- `cmd/ml-generator/preprocess_exercises.py` — предобработка данных;
+- `cmd/ml-generator/train_gan.py` — скрипт обучения GAN;
+- `cmd/ml-generator/main.py` — FastAPI сервис с упрощённой генерацией;
+- `models/generator.keras` — обученная модель (1.2MB).
 
-## Usage
+## Использование
 
 ```python
 import tensorflow as tf

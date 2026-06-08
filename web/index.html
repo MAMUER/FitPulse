@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
@@ -10,6 +12,7 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/modules.css">
 </head>
+
 <body>
     <div id="app">
         <!-- Экран авторизации -->
@@ -23,11 +26,13 @@
 
                 <form id="loginForm" class="auth-form" novalidate>
                     <div class="field">
-                        <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required maxlength="254" inputmode="email">
+                        <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required
+                            maxlength="254" inputmode="email">
                         <div class="field-error" id="loginEmailError"></div>
                     </div>
                     <div class="field">
-                        <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required maxlength="128">
+                        <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password"
+                            required maxlength="128">
                         <div class="field-error" id="loginPasswordError"></div>
                     </div>
                     <div class="auth-error hidden" id="loginError"></div>
@@ -37,15 +42,18 @@
 
                 <form id="registerForm" class="auth-form hidden" novalidate>
                     <div class="field">
-                        <input type="text" id="regName" placeholder="Имя" autocomplete="name" required maxlength="100" minlength="2" pattern="[A-Za-zА-Яа-яЁё\s\-]+">
+                        <input type="text" id="regName" placeholder="Имя" autocomplete="name" required maxlength="100"
+                            minlength="2" pattern="[A-Za-zА-Яа-яЁё\s\-]+">
                         <div class="field-error" id="regNameError"></div>
                     </div>
                     <div class="field">
-                        <input type="email" id="regEmail" placeholder="Email" autocomplete="email" required maxlength="254" inputmode="email">
+                        <input type="email" id="regEmail" placeholder="Email" autocomplete="email" required
+                            maxlength="254" inputmode="email">
                         <div class="field-error" id="regEmailError"></div>
                     </div>
                     <div class="field">
-                        <input type="password" id="regPassword" placeholder="Пароль (мин. 8 символов)" autocomplete="new-password" required maxlength="128" minlength="8">
+                        <input type="password" id="regPassword" placeholder="Пароль (мин. 8 символов)"
+                            autocomplete="new-password" required maxlength="128" minlength="8">
                         <div class="field-error" id="regPasswordError"></div>
                         <div class="password-hint hidden" id="passwordHint">
                             <span class="hint-item" id="hintLength">✗ 8+ символов</span>
@@ -87,9 +95,9 @@
                 <h2 id="pageTitle">Обзор</h2>
                 <button id="logoutBtn" class="btn-icon" aria-label="Выйти">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                        <polyline points="16 17 21 12 16 7"/>
-                        <line x1="21" y1="12" x2="9" y2="12"/>
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
                     </svg>
                 </button>
             </header>
@@ -173,7 +181,8 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Возраст</label>
-                                    <input type="number" id="profAge" placeholder="30" min="18" max="100" inputmode="numeric">
+                                    <input type="number" id="profAge" placeholder="30" min="18" max="100"
+                                        inputmode="numeric">
                                     <div class="field-error" id="profAgeError"></div>
                                 </div>
                                 <div class="form-group">
@@ -192,12 +201,14 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Рост, см</label>
-                                    <input type="number" id="profHeight" placeholder="175" min="50" max="300" inputmode="numeric">
+                                    <input type="number" id="profHeight" placeholder="175" min="50" max="300"
+                                        inputmode="numeric">
                                     <div class="field-error" id="profHeightError"></div>
                                 </div>
                                 <div class="form-group">
                                     <label>Вес, кг</label>
-                                    <input type="number" id="profWeight" placeholder="70" min="20" max="500" step="0.1" inputmode="decimal">
+                                    <input type="number" id="profWeight" placeholder="70" min="20" max="500" step="0.1"
+                                        inputmode="decimal">
                                     <div class="field-error" id="profWeightError"></div>
                                 </div>
                             </div>
@@ -232,10 +243,14 @@
                         <div class="form-section">
                             <h3>Основная цель</h3>
                             <div class="goals-grid">
-                                <label class="goal-chip"><input type="radio" name="goal" value="weight_loss"> Похудение</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="muscle_gain"> Набор мышц</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="endurance"> Выносливость</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="flexibility"> Гибкость</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="weight_loss">
+                                    Похудение</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="muscle_gain"> Набор
+                                    мышц</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="endurance">
+                                    Выносливость</label>
+                                <label class="goal-chip"><input type="radio" name="goal" value="flexibility">
+                                    Гибкость</label>
                             </div>
                         </div>
 
@@ -254,7 +269,8 @@
                         </button>
 
                         <!-- Форма смены почты (скрыта по умолчанию) -->
-                        <form id="changeEmailForm" class="hidden" style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                        <form id="changeEmailForm" class="hidden"
+                            style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
                             <div class="form-group">
                                 <label>Новый email</label>
                                 <input type="email" id="newEmail" placeholder="example@mail.ru" required>
@@ -262,7 +278,8 @@
                             </div>
                             <div class="form-group">
                                 <label>Текущий пароль</label>
-                                <input type="password" id="emailConfirmPassword" placeholder="Введите пароль для подтверждения" required>
+                                <input type="password" id="emailConfirmPassword"
+                                    placeholder="Введите пароль для подтверждения" required>
                                 <div class="field-error" id="emailConfirmPasswordError"></div>
                             </div>
                             <div style="display: flex; gap: 8px;">
@@ -272,15 +289,18 @@
                         </form>
 
                         <!-- Форма смены пароля (скрыта по умолчанию) -->
-                        <form id="changePasswordForm" class="hidden" style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                        <form id="changePasswordForm" class="hidden"
+                            style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
                             <div class="form-group">
                                 <label>Текущий пароль</label>
-                                <input type="password" id="currentPassword" placeholder="Введите текущий пароль" required>
+                                <input type="password" id="currentPassword" placeholder="Введите текущий пароль"
+                                    required>
                                 <div class="field-error" id="currentPasswordError"></div>
                             </div>
                             <div class="form-group">
                                 <label>Новый пароль</label>
-                                <input type="password" id="newPassword" placeholder="Минимум 8 символов, буквы и цифры" required minlength="8">
+                                <input type="password" id="newPassword" placeholder="Минимум 8 символов, буквы и цифры"
+                                    required minlength="8">
                                 <div class="field-error" id="newPasswordError"></div>
                                 <div id="passwordHint" class="password-hint hidden">
                                     <span id="hintLength">✗ Минимум 8 символов</span>
@@ -291,7 +311,8 @@
                             </div>
                             <div class="form-group">
                                 <label>Подтверждение пароля</label>
-                                <input type="password" id="confirmPassword" placeholder="Повторите новый пароль" required>
+                                <input type="password" id="confirmPassword" placeholder="Повторите новый пароль"
+                                    required>
                                 <div class="field-error" id="confirmPasswordError"></div>
                             </div>
                             <div style="display: flex; gap: 8px;">
@@ -323,9 +344,10 @@
                         </div>
                     </div>
                     <button id="generatePlanBtn" class="btn-floating" aria-label="Сгенерировать план">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                     </button>
                 </div>
@@ -336,6 +358,21 @@
                     <div id="connectedDevicesList"></div>
                     <div id="deviceSelector" class="device-selector"></div>
                     <button class="action-btn" id="connectDeviceBtn">Подключить устройство</button>
+
+                    <!-- OAuth провайдеры -->
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Интеграции</h4>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button onclick="window.connectFitbit()" class="btn-secondary"
+                                style="padding: 8px 12px; font-size: 13px;">
+                                ⌚ Fitbit
+                            </button>
+                            <button onclick="window.connectWithings()" class="btn-secondary"
+                                style="padding: 8px 12px; font-size: 13px;">
+                                ⚖️ Withings
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Достижения и Соревнования -->
@@ -363,12 +400,40 @@
                         </div>
                     </div>
                     <button id="mlClassifyBtn" class="btn-floating" aria-label="Анализировать">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 16v-4"/>
-                            <path d="M12 8h.01"/>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4" />
+                            <path d="M12 8h.01" />
                         </svg>
                     </button>
+                </div>
+
+                <!-- Админка -->
+                <div id="adminView" class="view">
+                    <h3>🔐 Панель администратора</h3>
+
+                    <section class="admin-section" style="margin-bottom: 24px;">
+                        <h4>Создать инвайт</h4>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <select id="newInviteRole"
+                                style="flex: 1; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                <option value="client">Клиент</option>
+                                <option value="admin">Администратор</option>
+                            </select>
+                            <input type="number" id="newInviteMaxUses" value="1" min="1" max="100"
+                                style="width: 80px; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                            <button class="btn-primary" onclick="window.createNewInvite()" style="flex: 1;">
+                                Создать
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="admin-section">
+                        <h4>Активные инвайты</h4>
+                        <div id="invitesList" class="invites-list"
+                            style="display: flex; flex-direction: column; gap: 12px;"></div>
+                    </section>
                 </div>
             </main>
 
@@ -376,49 +441,55 @@
             <nav class="tab-bar">
                 <button class="tab active" data-view="dashboard">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7" rx="1"/>
-                        <rect x="14" y="3" width="7" height="7" rx="1"/>
-                        <rect x="3" y="14" width="7" height="7" rx="1"/>
-                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
                     </svg>
                     <span>Обзор</span>
                 </button>
                 <button class="tab" data-view="profile">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
                     </svg>
                     <span>Профиль</span>
                 </button>
                 <button class="tab" data-view="training">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                     </svg>
                     <span>Тренировки</span>
                 </button>
                 <button class="tab" data-view="devices">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="5" y="2" width="14" height="20" rx="2"/>
-                        <line x1="12" y1="18" x2="12" y2="18.01"/>
+                        <rect x="5" y="2" width="14" height="20" rx="2" />
+                        <line x1="12" y1="18" x2="12" y2="18.01" />
                     </svg>
                     <span>Устройства</span>
                 </button>
                 <button class="tab" data-view="achievements">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="8" r="7"/>
-                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+                        <circle cx="12" cy="8" r="7" />
+                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
                     </svg>
                     <span>Достижения</span>
                 </button>
                 <button class="tab" data-view="diet">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 8h1a4 4 0 010 8h-1"/>
-                        <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/>
-                        <line x1="6" y1="1" x2="6" y2="4"/>
-                        <line x1="10" y1="1" x2="10" y2="4"/>
-                        <line x1="14" y1="1" x2="14" y2="4"/>
+                        <path d="M18 8h1a4 4 0 010 8h-1" />
+                        <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
+                        <line x1="6" y1="1" x2="6" y2="4" />
+                        <line x1="10" y1="1" x2="10" y2="4" />
+                        <line x1="14" y1="1" x2="14" y2="4" />
                     </svg>
                     <span>Диета</span>
+                </button>
+                <button class="tab" data-view="admin" id="adminTab" style="display: none;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    <span>Админка</span>
                 </button>
             </nav>
         </div>
@@ -429,4 +500,5 @@
     <script src="/static/js/app.js"></script>
     <script src="/static/js/modules.js"></script>
 </body>
+
 </html>

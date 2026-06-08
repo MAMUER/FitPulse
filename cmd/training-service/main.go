@@ -13,6 +13,7 @@ import (
 	pb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
@@ -905,7 +906,9 @@ func main() {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
+	)
 	pb.RegisterTrainingServiceServer(s, &trainingServer{
 		db:          database,
 		log:         log,

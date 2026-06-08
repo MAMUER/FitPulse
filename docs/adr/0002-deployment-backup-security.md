@@ -1,27 +1,26 @@
-# ADR 0002: Canary Deployment, Encrypted Backups, and Observability
+# ADR 0002: Канарный деплой, шифрованные бэкапы и наблюдаемость
 
-## Context
+## Контекст
 
-The project must support canary deployment and rollback, secure encrypted backups, and clear operational guidance for observability.
+Проект должен поддерживать канарный деплой с откатом, защищённые шифрованные бэкапы и понятные операционные инструкции по наблюдаемости.
 
-## Decision
+## Решение
 
-- add a dedicated canary gateway deployment and service
-- add a canary ingress resource with NGINX ingress annotations for traffic splitting
-- provide encrypted backup and restore scripts for PostgreSQL dumps
-- document the strategy for production-grade rollout and restore testing
+- добавить выделенный canary-шлюз (gateway) Deployment и Service;
+- добавить canary Ingress с аннотациями NGINX для сплита трафика;
+- предоставить скрипты шифрованного бэкапа и восстановления PostgreSQL;
+- задокументировать стратегию production-развёртывания и тестирования восстановления.
 
-## Consequences
+## Последствия
 
-- production rollout becomes incremental and safer
-- backup data is preserved encrypted with AES-256
-- restore can be tested regularly using the provided scripts
-- the architecture is aligned with release gates and monitoring strategy
+- production-развёртывание становится постепенным и безопаснее;
+- резервные данные сохраняются в зашифрованном виде (AES-256);
+- восстановление можно регулярно тестировать с помощью предоставленных скриптов;
+- архитектура согласована с релизными гейтами и стратегией мониторинга.
 
-## Implementation
+## Реализация
 
-- added `configs/k8s/deployments/gateway-canary.yaml`
-- added `configs/k8s/services/gateway-canary-service.yaml`
-- added `configs/k8s/ingress-canary.yaml`
-- added `scripts/backup-db.sh` and `scripts/restore-db.sh`
-
+- добавлен `configs/k8s/deployments/gateway-canary.yaml`;
+- добавлен `configs/k8s/services/gateway-canary-service.yaml`;
+- добавлен `configs/k8s/ingress-canary.yaml`;
+- добавлены `scripts/backup-db.sh` и `scripts/restore-db.sh`.

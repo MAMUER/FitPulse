@@ -1,14 +1,27 @@
 # cmd/ml-classifier/requirements.txt
+# Core ML
 tensorflow==2.21.0
 keras==3.14.1
-numpy==2.1.3              # ← Понижено с 2.4.6 до 2.1.3 (<2.2.0)
-pandas==3.0.3             # ← Понижено с 3.0.3 до 2.2.3 (совместимо с numpy 2.1.x)
-scikit-learn==1.9.0       # ← Понижено с 1.9.0 до 1.6.1 (совместимо)
-matplotlib==3.10.9        # ← Понижено с 3.10.9 до 3.10.0 (совместимо)
-uvicorn==0.49.0           # ← Понижено для стабильности
-fastapi==0.136.3          # ← Понижено для стабильности
-pydantic==2.13.4          # ← Понижено для стабильности
-python-multipart==0.0.32  # ← Понижено для стабильности
-joblib==1.5.0
-pika==1.4.1               # ← Понижено для стабильности
-redis==8.0.0 
+numpy==2.1.3              # Совместимо с TF 2.21
+pandas==2.2.3             # Совместимо с numpy 2.1.x
+scikit-learn==1.6.1       # Совместимо
+matplotlib==3.10.0        # Совместимо
+
+# API
+uvicorn==0.34.0           # Стабильная версия
+fastapi==0.115.6          # Стабильная версия
+pydantic==2.10.3          # Совместимо с FastAPI
+python-multipart==0.0.20  # Совместимо
+
+# Utils
+joblib==1.4.2
+pika==1.3.2               # RabbitMQ client
+redis==5.2.1              # Redis client
+
+# MLOps
+mlflow==2.20.2            # Эксперименты и модели
+dvc[s3]==3.58.0           # Версионирование данных (или dvc[gs] для GCP)
+prometheus-client==0.21.1 # Метрики
+
+# Security (опционально)
+cryptography==44.0.0

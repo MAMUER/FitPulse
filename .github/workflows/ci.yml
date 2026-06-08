@@ -582,6 +582,150 @@ jobs:
           k3s kubectl get nodes -o wide
           k3s kubectl get pods -A
           '
+      - name: Setup Nginx reverse proxy
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Installing Nginx and Certbot..."
+            sudo apt update
+            sudo apt install -y nginx certbot python3-certbot-nginx
+            
+            echo "-> Configuring firewall for HTTP/HTTPS..."
+            sudo ufw allow "Nginx Full" || true
+            sudo ufw reload || true
+            
+            echo "-> Stopping Nginx for certbot..."
+            sudo systemctl stop nginx
+            
+            echo "-> Obtaining SSL certificate..."
+            sudo certbot certonly --standalone -d fittpulse.duckdns.org --non-interactive --agree-tos --email admin@fittpulse.duckdns.org || {
+              echo "⚠️ Certificate already exists or failed, continuing..."
+            }
+            
+            echo "-> Starting Nginx..."
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            
+            echo "✅ Nginx and SSL configured"
+          '
+
+      - name: Upload Nginx configuration
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            sudo mkdir -p /etc/nginx/sites-available
+          '
+          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            sudo mv /tmp/production.conf /etc/nginx/sites-available/fitpulse
+            sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
+            sudo rm -f /etc/nginx/sites-enabled/default
+            
+            echo "-> Testing Nginx configuration..."
+            sudo nginx -t || { echo "❌ Nginx config test failed"; exit 1; }
+            
+            echo "-> Reloading Nginx..."
+            sudo systemctl reload nginx
+            
+            echo "✅ Nginx configuration applied"
+          '
+
+      - name: Setup auto-renewal for SSL certificates
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Setting up certificate auto-renewal..."
+            (sudo crontab -l 2>/dev/null | grep -v certbot; echo "0 3 * * * certbot renew --quiet --deploy-hook '\''systemctl reload nginx'\''") | sudo crontab -
+            echo "✅ Auto-renewal configured"
+          '
+      - name: Setup ML infrastructure directories on VPS
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Creating directories for ML storage..."
+            sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
+            sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
+            echo "✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}"
+          '
+
+      - name: Deploy MLflow service on VPS
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Deploying MLflow via Docker Compose..."
+            
+            # Копируем docker-compose файл на VPS
+            mkdir -p ~/fitpulse/deployments
+            cd ~/fitpulse
+            
+            # Создаём docker-compose.mlflow.yml на лету (локальное хранилище, без S3)
+            cat > deployments/docker-compose.mlflow.yml << '\''EOFMLFLOW'\''
+          version: '3.8'
+
+          services:
+            mlflow:
+              image: ghcr.io/mlflow/mlflow:v2.20.2
+              container_name: fitpulse-mlflow
+              ports:
+                - "5000:5000"
+              command: >
+                mlflow server
+                --host 0.0.0.0
+                --port 5000
+                --backend-store-uri sqlite:////mlflow/mlflow.db
+                --default-artifact-root /mlflow/artifacts
+              volumes:
+                - /opt/fitpulse/mlflow-data:/mlflow
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              networks:
+                - fitness-network
+
+          networks:
+            fitness-network:
+              external: true
+            EOFMLFLOW
+
+            # Запускаем (или перезапускаем) MLflow
+            docker compose -f deployments/docker-compose.mlflow.yml up -d
+            
+            # Ждём готовности
+            for i in {1..30}; do
+              if curl -sf http://localhost:5000/health &>/dev/null; then
+                echo "✅ MLflow is healthy"
+                break
+              fi
+              sleep 2
+            done
+            
+            echo "✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000"
+          '
+
+      - name: Configure DVC local remote on VPS
+        run: |
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Configuring DVC for local storage..."
+            
+            cd ~/fitpulse
+            
+            # Создаём/обновляем .dvc/config
+            mkdir -p .dvc
+            cat > .dvc/config << '\''EOFDVC'\''
+          [core]
+          remote = local
+
+          ['\''remote "local"'\'']
+          url = /opt/fitpulse/dvc-storage
+          EOFDVC
+            
+            echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
+          '
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
@@ -810,8 +954,23 @@ jobs:
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
             --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
+            --from-literal=SMTP_HOST=${{ vars.SMTP_HOST }} \
+            --from-literal=SMTP_PORT=${{ vars.SMTP_PORT }} \
+            --from-literal=SMTP_USER=${{ secrets.SMTP_USER }} \
+            --from-literal=SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+            --from-literal=SMTP_FROM=${{ secrets.SMTP_FROM }} \
+            --from-literal=APP_BASE_URL=${{ vars.APP_BASE_URL }} \
+            --from-literal=SEED_ADMIN_EMAIL=${{ secrets.SEED_ADMIN_EMAIL }} \
+            --from-literal=SEED_ADMIN_PASSWORD=${{ secrets.SEED_ADMIN_PASSWORD }} \
+            --from-literal=FITBIT_CLIENT_ID=${{ secrets.FITBIT_CLIENT_ID }} \
+            --from-literal=FITBIT_CLIENT_SECRET=${{ secrets.FITBIT_CLIENT_SECRET }} \
+            --from-literal=FITBIT_REDIRECT_URI=${{ vars.FITBIT_REDIRECT_URI }} \
+            --from-literal=FITBIT_VERIFIER_SECRET=${{ secrets.FITBIT_VERIFIER_SECRET }} \
+            --from-literal=WITHINGS_CLIENT_ID=${{ secrets.WITHINGS_CLIENT_ID }} \
+            --from-literal=WITHINGS_CLIENT_SECRET=${{ secrets.WITHINGS_CLIENT_SECRET }} \
+            --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
             --dry-run=client -o yaml | kubectl apply -f -
-          echo "app-secrets created with RABBITMQ_URL"
+          echo "✅ app-secrets created"
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -906,6 +1065,28 @@ jobs:
           echo "Verifying tables were created..."
           kubectl exec -n fitness-platform-production postgres-0 -- \
             psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
+          
+      - name: Run seed-admin job (create admin user)
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Running seed-admin job..."
+          # Удаляем старый job если есть
+          kubectl delete job seed-admin-run -n fitness-platform-production --ignore-not-found=true
+          
+          # Создаём новый job из шаблона
+          kubectl get job seed-admin -n fitness-platform-production -o json | \
+            jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .status, .spec.selector, .spec.template.metadata.labels."controller-uid", .spec.template.metadata.labels."batch.kubernetes.io/controller-uid") | .metadata.name="seed-admin-run" | .spec.template.metadata.labels["job-name"]="seed-admin-run"' | \
+            kubectl apply --validate=false -f -
+          
+          echo "Waiting for seed-admin to complete..."
+          if kubectl wait --for=condition=complete job/seed-admin-run -n fitness-platform-production --timeout=120s; then
+            echo "✅ Admin user seeded successfully"
+            kubectl logs job/seed-admin-run -n fitness-platform-production
+          else
+            echo "❌ seed-admin job failed"
+            kubectl logs job/seed-admin-run -n fitness-platform-production || true
+            exit 1
+          fi
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -933,11 +1114,37 @@ jobs:
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Verifying deployment..."
-          echo "Waiting for gateway to be ready (up to 300s)..."
-          kubectl get pods -n fitness-platform-production
-          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=300s || echo "Gateway not ready yet"
-          sleep 30
+           echo "Verifying deployment..."
+           echo "Waiting for gateway to be ready (up to 300s)..."
+           kubectl get pods -n fitness-platform-production
+           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=300s || echo "Gateway not ready yet"
+           sleep 30
+
+      - name: Canary Health Check & Auto-Rollback
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+           echo "⏳ Monitoring production deployment for 5 minutes..."
+           ROLLBACK_TRIGGERED=false
+
+           for i in {1..30}; do
+             ERRORS=$(kubectl logs -n fitness-platform-production -l app=gateway --since=2m 2>/dev/null | grep -c '"statusCode":5[0-9][0-9]' || true)
+
+             if [ "$ERRORS" -gt 50 ]; then
+               echo " High error rate detected ($ERRORS 5xx errors). Triggering auto-rollback..."
+               kubectl rollout undo deployment/gateway -n fitness-platform-production || true
+               kubectl rollout undo deployment/gateway-canary -n fitness-platform-production || true
+               ROLLBACK_TRIGGERED=true
+               break
+             fi
+             sleep 10
+           done
+
+           if [ "$ROLLBACK_TRIGGERED" = true ]; then
+             echo " Deployment failed health check. Rollback executed."
+             exit 1
+           fi
+
+           echo " Production metrics stable. Deployment proceeding."
 
   # ─────────────────────────────────────────────────────────────
   # 6. E2E TESTS ON PRODUCTION
@@ -964,14 +1171,14 @@ jobs:
       - name: Prepare target URL
         id: target
         run: |
-          URL="https://${{ secrets.VPS_HOST }}:30443"
+          URL="https://fittpulse.duckdns.org"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
           echo "🔍 Checking production health via HTTPS..."
           NODE_PORT=30443
           for i in {1..42}; do
-            RESPONSE=$(curl -skf --max-time 5 "https://${{ secrets.VPS_HOST }}:${NODE_PORT}/health" 2>/dev/null || echo "")
+            RESPONSE=$(curl -skf --max-time 5 "https://fittpulse.duckdns.org/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"
               break
@@ -1065,7 +1272,7 @@ jobs:
             ${{ steps.statuses.outputs.production }} Deploy Production
             ${{ steps.statuses.outputs.e2e }} E2E Tests
 
-            🌐 <b>Сайт:</b> https://2.27.32.242:30443
+            🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
 
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 

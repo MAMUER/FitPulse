@@ -11,6 +11,7 @@ import (
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
+	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/google/uuid"
@@ -41,6 +42,7 @@ func safeIntToInt32(v int) int32 {
 }
 
 func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordRequest) (*pb.AddRecordResponse, error) {
+	start := time.Now()
 	s.log.Info("AddRecord",
 		zap.String("user_id", req.UserId),
 		zap.String("metric_type", req.MetricType),
@@ -63,6 +65,9 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		s.log.Error("Failed to insert record", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to insert record")
 	}
+
+	lag := time.Since(start).Seconds()
+	metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(lag)
 
 	event := map[string]interface{}{
 		"user_id":     req.UserId,
@@ -266,7 +271,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor("biometric-service")),
+		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
 	)
 
 	database, err := db.NewConnection(dbCfg)

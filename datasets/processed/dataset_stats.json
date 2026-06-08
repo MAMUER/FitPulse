@@ -1,0 +1,71 @@
+{
+  "total": 17370432,
+  "classes": {
+    "0": 13146225,
+    "1": 3499712,
+    "2": 514664,
+    "3": 209831
+  },
+  "datasets": [
+    {
+      "name": "adarp",
+      "samples": 6084398
+    },
+    {
+      "name": "bidmc",
+      "samples": 25489
+    },
+    {
+      "name": "wesad",
+      "samples": 86868
+    },
+    {
+      "name": "spd",
+      "samples": 115720
+    },
+    {
+      "name": "wesd",
+      "samples": 442735
+    },
+    {
+      "name": "big_ideas_lab",
+      "samples": 0
+    },
+    {
+      "name": "capnobase",
+      "samples": 0
+    },
+    {
+      "name": "csl",
+      "samples": 0
+    },
+    {
+      "name": "stress_nurses",
+      "samples": 4500166
+    },
+    {
+      "name": "ppg_dalia",
+      "samples": 129489
+    },
+    {
+      "name": "e4selflearning",
+      "samples": 3717344
+    },
+    {
+      "name": "toadstool",
+      "samples": 1253089
+    },
+    {
+      "name": "ue4w",
+      "samples": 955363
+    },
+    {
+      "name": "weee",
+      "samples": 59071
+    },
+    {
+      "name": "sleep_edf",
+      "samples": 700
+    }
+  ]
+}

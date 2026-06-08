@@ -1,60 +1,61 @@
-# Runbook: FitPulse Platform Operations
+# Runbook: Операции платформы FitPulse
 
-## Table of Contents
-1. [Emergency Response](#emergency-response)
-2. [Deployment Procedures](#deployment-procedures)
-3. [Incident Response](#incident-response)
-4. [Monitoring and Alerts](#monitoring-and-alerts)
-5. [Data Recovery](#data-recovery)
+## Содержание
+
+1. [Экстренное реагирование](#экстренное-реагирование)
+2. [Процедуры деплоя](#процедуры-деплоя)
+3. [Индивидуальный ответ на инциденты](#индивидуальный-ответ-на-инциденты)
+4. [Мониторинг и алерты](#мониторинг-и-алерты)
+5. [Восстановление данных](#восстановление-данных)
 
 ---
 
-## Emergency Response
+## Экстренное реагирование
 
-### SEV-1: Service Down (< 5 minutes recovery SLA)
+### SEV-1: Сервис недоступен (SLA восстановления < 5 минут)
 
-**Symptoms**: Service responds with 503, health check fails, high error rate
+**Симптомы**: сервис возвращает 503, health-check падает, высокий error rate.
 
-**Steps**:
-1. **Acknowledge Alert** (Slack/PagerDuty)
+**Шаги**:
+1. **Подтвердить алерт** (Slack/PagerDuty)
    ```bash
-   # Slack reaction :ack: or PagerDuty acknowledge
+   # Реакция :ack: в Slack или подтверждение в PagerDuty
    ```
 
-2. **Check Service Status**
+2. **Проверить статус сервисов**
    ```bash
    kubectl get pods -n fitness-platform
    kubectl describe pod <pod-name> -n fitness-platform
    ```
 
-3. **Check Logs**
+3. **Проверить логи**
    ```bash
    kubectl logs <pod-name> -n fitness-platform --tail=100
-   # Or via Kibana: index "fitness-logs-*", filter service="gateway"
+   # Или через Kibana: индекс "fitness-logs-*", фильтр service="gateway"
    ```
 
-4. **Restart Pod (if OOMKilled or CrashLoopBackOff)**
+4. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
    ```bash
    kubectl delete pod <pod-name> -n fitness-platform
-   # Pod will be recreated by deployment controller
+   # Pod будет пересоздан deployment controller'ом
    ```
 
-5. **Rollback if Recent Deployment**
+5. **Откат** если проблема появилась после недавнего деплоя
    ```bash
    kubectl rollout undo deployment/gateway -n fitness-platform
    ```
 
-6. **Escalate to Tech Lead** if issue persists after 5 minutes
+6. **Эскалировать Tech Lead**, если проблема не решена за 5 минут.
 
 ---
 
-### SEV-2: High Error Rate (15-30 minutes investigation)
+### SEV-2: Высокий error rate (15–30 минут расследования)
 
-**Symptoms**: Error rate > 5%, latency p95 > 5s
+**Симптомы**: error rate > 5%, p95 latency > 5s.
 
-**Steps**:
-1. Check Grafana dashboard "FitPulse Service Overview"
-2. Review logs in Kibana for patterns
+**Шаги**:
+1. Открыть Grafana дашборд «FitPulse Service Overview».
+2. Изучить логи в Kibana на паттерны:
    ```json
    {
      "level": "ERROR",
@@ -62,187 +63,209 @@
      "timestamp": "2026-05-06T*"
    }
    ```
-
-3. Scale up if DB connection pool exhausted
+3. Масштабировать сервис, если исчерпан пул соединений к БД:
    ```bash
    kubectl scale deployment biometric-service --replicas=3 -n fitness-platform
    ```
-
-4. Check database replication lag
+4. Проверить репликацию БД:
    ```bash
    psql -h postgres -U postgres -d fitness -c "SELECT slot_name, restart_lsn FROM pg_replication_slots;"
    ```
 
 ---
 
-## Deployment Procedures
+## Процедуры деплоя
 
-### Canary Deployment (9-Stage Pipeline)
+### Канарный деплой (9-этапный пайплайн)
 
 ```bash
-# Stage 1-3: Development, Code Review, CI Build (automated)
+# Этапы 1–3: Development, Code Review, CI Build (автоматически)
 
-# Stage 4: Deploy to Test
+# Этап 4: Деплой в Test
 kubectl set image deployment/gateway-test \
-  gateway=fitness-gateway:sha256:abc123 \
+  gateway=fitness-gateway:<IMAGE_SHA> \
   -n fitness-platform
 
-# Wait 5 minutes, verify health
-kubectl get pods -n fitness-platform -l deployment=gateway-test
+# Подождать 5 минут, проверить health
+kubectl get pods -n fitness-platform -l app=gateway-test
 
-# Stage 5: Deploy to Production
-kubectl set image deployment/gateway-production \
-  gateway=fitness-gateway:sha256:abc123 \
+# Этап 5: Деплой в Staging (UAT, perf/security тесты)
+kubectl set image deployment/gateway-staging \
+  gateway=fitness-gateway:<IMAGE_SHA> \
   -n fitness-platform
 
-# Run UAT and performance tests: k6, OWASP ZAP, chaos tests
+# Запустить нагрузочные и security-тесты
 make k6-load-test
 make owasp-scan
 
-# Stage 6: Create Release Candidate
+# Этап 6: Создание Release Candidate
 git tag v2.1.0-rc1
 git push origin v2.1.0-rc1
 
-# Stage 7: Canary Deploy to Production
+# Этап 7: Канарный деплой в Production (10% трафика, 1 час)
 kubectl patch service gateway-canary -p \
   '{"spec":{"selector":{"version":"canary"}}}'
 
-# Monitor for 1 hour
+# Мониторить в течение 1 часа
 kubectl get hpa -n fitness-platform -w
 
-# Success criteria:
+# Критерии успеха:
 # - Error rate < 1%
 # - p95 latency < 3s
-# - No critical logs
+# - Нет критических логов
 
-# Stage 7b: Rolling Deploy
+# Этап 7b: Rolling Deploy (30% → 60% → 100%, интервалы 30 мин)
 kubectl set image deployment/gateway \
-  gateway=fitness-gateway:sha256:abc123 \
+  gateway=fitness-gateway:<IMAGE_SHA> \
   -n fitness-platform
 
-# Stage 8: Post-Deploy Monitoring (24 hours)
-# Dashboards: Error Rate, Latency, ML Confidence, DB Pool, Backup Status
+# Этап 8: Пост-деплойный мониторинг (24 часа)
+# Дашборды: Error Rate, Latency, ML Confidence, DB Pool, Backup Status
 
-# Stage 9: Auto-Rollback Trigger
-# Automatically triggered if:
-# - error_rate > 5% for 15 minutes
-# - latency p95 > 10s for 15 minutes
-# - CRITICAL security issue detected
+# Этап 9: Автоматический откат при нарушении критериев:
+# - error_rate > 5% в течение 15 минут
+# - latency p95 > 10s в течение 15 минут
+# - КРИТИЧЕСКАЯ security-проблема
 kubectl rollout undo deployment/gateway -n fitness-platform
 ```
 
-### Manual Rollback
+### Ручной откат
 
 ```bash
-# View rollout history
+# Просмотреть историю rollout
 kubectl rollout history deployment/gateway -n fitness-platform
 
-# Rollback to previous version
+# Откатиться на предыдущую версию
 kubectl rollout undo deployment/gateway -n fitness-platform
 
-# Rollback to specific revision
+# Откатиться на определённую ревизию
 kubectl rollout undo deployment/gateway --to-revision=5 -n fitness-platform
 
-# Verify rollback
+# Проверить результат отката
 kubectl get pods -n fitness-platform -l app=gateway
 kubectl logs -f deployment/gateway -n fitness-platform
 ```
 
 ---
 
-## Incident Response
+## Индивидуальный ответ на инциденты
 
-### Database Connection Pool Exhausted (SEV-1)
+### Исчерпан пул соединений к PostgreSQL (SEV-1)
 
-**Alert**: `db_connection_pool_usage > 0.9`
+**Алерт**: `db_connection_pool_usage > 0.9`
 
-**Steps**:
-1. **Check active connections**
+**Шаги**:
+1. **Проверить активные соединения**
    ```sql
    SELECT datname, count(*) FROM pg_stat_activity GROUP BY datname;
    ```
 
-2. **Identify long-running queries**
+2. **Найти долгие запросы**
    ```sql
    SELECT query, duration FROM pg_stat_statements 
    ORDER BY duration DESC LIMIT 5;
    ```
 
-3. **Scale up service replicas**
+3. **Масштабировать реплики сервиса**
    ```bash
    kubectl scale deployment user-service --replicas=5 -n fitness-platform
    ```
 
-4. **Monitor pool recovery**
+4. **Мониторить восстановление пула**
    ```bash
-   # Watch Grafana: db_connection_pool_usage metric
+   # Следить за метрикой db_connection_pool_usage в Grafana
    ```
 
-### Backup Failed (SEV-1)
+### Неудачный бэкап (SEV-1)
 
-**Alert**: `backup_success{type='full'} == 0`
+**Алерт**: `backup_success{type='full'} == 0`
 
-**Steps**:
-1. **Check backup job logs**
+**Шаги**:
+1. **Проверить логи job'ы бэкапа**
    ```bash
    kubectl get pods -n fitness-platform -l job-name=backup
    kubectl logs -f backup-job -n fitness-platform
    ```
 
-2. **Verify disk space**
+2. **Проверить свободное место**
    ```bash
    df -h /var/lib/postgresql/data
    ```
 
-3. **Manually trigger backup**
+3. **Запустить бэкап вручную**
    ```bash
-   # Via backup script
+   # Через скрипт
    scripts/backup-db.sh --encrypted --s3-upload
 
-   # Verify
+   # Проверить
    aws s3 ls s3://fitness-backups/
    ```
 
-### Low ML Model Confidence (SEV-4)
+### Низкая уверенность ML-модели (SEV-4)
 
-**Alert**: `classification_confidence < 0.7`
+**Алерт**: `classification_confidence < 0.7`
 
-**Steps**:
-1. **Check model versions**
+**Шаги**:
+1. **Проверить версии моделей**
    ```bash
    curl http://ml-classifier:8001/model-info
    ```
 
-2. **Review recent predictions**
+2. **Изучить последние предсказания**
    ```bash
-   # Kibana query: service="ml-classifier" AND action="CLASSIFY" AND confidence < 0.7
+   # Kibana: service="ml-classifier" AND action="CLASSIFY" AND confidence < 0.7
    ```
 
-3. **Trigger model retraining**
+3. **Запустить переобучение модели**
    ```bash
-   # Via ML service admin endpoint
+   # Через admin endpoint ML-сервиса
    curl -X POST http://ml-classifier:8001/retrain \
      -H "Authorization: Bearer $ML_ADMIN_TOKEN"
    ```
 
-4. **Create incident ticket** for ML team to investigate drift
+4. **Создать тикет** для ML-команды для расследования дрифта.
+
+### Device Aggregator: OAuth/webhook сбои (SEV-2)
+
+**Симптомы**: пользователи не могут подключить Fitbit/Garmin/Withings, webhook'и не доставляются.
+
+**Шаги**:
+1. **Проверить logs device-aggregator**
+   ```bash
+   kubectl logs -f deployment/device-aggregator -n fitness-platform | grep -i "error\|panic"
+   ```
+
+2. **Проверить health**
+   ```bash
+   curl http://device-aggregator:8083/health
+   ```
+
+3. **Проверить токены в БД**
+   ```sql
+   SELECT provider, is_active, last_sync_at 
+   FROM device_provider_accounts 
+   WHERE is_active = FALSE 
+   ORDER BY updated_at DESC LIMIT 10;
+   ```
+
+4. **Переавторизовать проблемного пользователя** через `/api/v1/devices/fitbit/auth`.
 
 ---
 
-## Monitoring and Alerts
+## Мониторинг и алерты
 
-### Key Metrics to Watch
+### Ключевые метрики
 
-| Metric | Threshold | Check Frequency |
-|--------|-----------|-----------------|
-| Error Rate | < 5% | Continuous (1m) |
-| p95 Latency | < 5s | Continuous (1m) |
-| Uptime | > 99.9% | Daily |
-| DB Pool Usage | < 80% | Every 5m |
-| Backup Success | 100% | Every 6h |
-| ML Confidence | > 0.7 | Every 15m |
+| Метрика | Порог | Частота проверки |
+|----------|-------|------------------|
+| Error Rate | < 5% | Непрерывно (1 мин) |
+| p95 Latency | < 5s | Непрерывно (1 мин) |
+| Uptime | > 99.9% | Ежедневно |
+| DB Pool Usage | < 80% | Каждые 5 мин |
+| Backup Success | 100% | Каждые 6 ч |
+| ML Confidence | > 0.7 | Каждые 15 мин |
 
-### Grafana Dashboard Access
+### Доступ к Grafana
 
 ```
 URL: https://grafana.fitpulse.app:3000
@@ -250,15 +273,15 @@ Username: admin
 Password: ${GRAFANA_ADMIN_PASSWORD}
 ```
 
-**Default Dashboards**:
-- `FitPulse Service Overview`: Request rate, error rate, latency, ML metrics
-- `Database Performance`: Connections, query time, replication lag
-- `ELK Stack Health`: Elasticsearch indices, Logstash throughput
+**Стандартные дашборды**:
+- `FitPulse Service Overview`: request rate, error rate, latency, ML метрики
+- `Database Performance`: соединения, время запросов, репликация
+- `ELK Stack Health`: индексы Elasticsearch, пропускная способность Logstash
 
-### Elasticsearch Snapshot for 90-day Rotation
+### Elasticsearch Snapshot и 90-дневная ротация
 
 ```bash
-# Create snapshot repository (one-time setup)
+# Создать snapshot repository (единоразовая настройка)
 curl -X PUT "elasticsearch:9200/_snapshot/s3-backup" \
   -H "Content-Type: application/json" \
   -d '{
@@ -269,49 +292,49 @@ curl -X PUT "elasticsearch:9200/_snapshot/s3-backup" \
     }
   }'
 
-# Create daily snapshot
+# Создать ежедневный snapshot
 curl -X PUT "elasticsearch:9200/_snapshot/s3-backup/snapshot-$(date +%Y-%m-%d)" \
   -H "Content-Type: application/json" \
   -d '{"indices": "fitness-logs-*"}'
 
-# Archive old indices to cold storage (> 90 days)
+# Архивировать старые индексы (> 90 дней) в холодное хранилище
 curl -X POST "elasticsearch:9200/fitness-logs-2026.01.01/_close"
 aws s3 cp elasticsearch-snapshot-2026.01.01.tar.gz s3://fitness-logs-archive/
 ```
 
 ---
 
-## Data Recovery
+## Восстановление данных
 
 ### PostgreSQL Point-in-Time Recovery (PITR)
 
 ```bash
-# 1. Stop current PostgreSQL instance
-kubectl scale deployment postgres --replicas=0 -n fitness-platform
+# 1. Остановить текущий инстанс PostgreSQL
+kubectl scale deployment/postgres --replicas=0 -n fitness-platform
 
-# 2. Restore from backup
+# 2. Восстановить из бэкапа
 scripts/restore-db.sh --backup-file=fitness-backup-2026-05-05.sql.enc \
   --target-time="2026-05-05T14:30:00Z" \
   --use-wal-archive
 
-# 3. Verify data integrity
+# 3. Проверить целостность данных
 psql -h localhost -U postgres -d fitness \
   -c "SELECT COUNT(*) FROM users; SELECT MAX(created_at) FROM biometric_data;"
 
-# 4. Restart PostgreSQL
-kubectl scale deployment postgres --replicas=1 -n fitness-platform
+# 4. Запустить PostgreSQL
+kubectl scale deployment/postgres --replicas=1 -n fitness-platform
 
-# 5. Monitor replication to replicas
+# 5. Мониторить репликацию на реплики
 kubectl logs -f postgres-replica-0 -n fitness-platform
 ```
 
-### Elasticsearch Data Recovery
+### Восстановление Elasticsearch
 
 ```bash
-# 1. List available snapshots
+# 1. Список доступных snapshots
 curl "elasticsearch:9200/_snapshot/s3-backup/_all"
 
-# 2. Restore specific indices
+# 2. Восстановить конкретные индексы
 curl -X POST "elasticsearch:9200/_snapshot/s3-backup/snapshot-2026-05-05/_restore" \
   -H "Content-Type: application/json" \
   -d '{
@@ -320,21 +343,36 @@ curl -X POST "elasticsearch:9200/_snapshot/s3-backup/snapshot-2026-05-05/_restor
     "rename_replacement": "$1-restored"
   }'
 
-# 3. Verify restored indices
+# 3. Проверить восстановленные индексы
 curl "elasticsearch:9200/_cat/indices?v" | grep restored
 
-# 4. Merge back into live indices (if needed)
+# 4. При необходимости объединить с живыми индексами
 ```
 
 ---
 
-## Contact & Escalation
+## Контакты и эскалация
 
-- **On-Call Engineer**: See PagerDuty schedule
+- **Дежурный инженер**: расписание в PagerDuty
 - **Tech Lead**: tech-lead@fitpulse.app
-- **CTO**: cto@fitpulse.app (SEV-1 only, escalate after 15 min)
+- **CTO**: cto@fitpulse.app (только SEV-1, эскалация после 15 мин)
 
 ---
 
-**Last Updated**: 2026-05-06  
-**Maintained By**: Platform Team
+## Справочник сервисов
+
+| Сервис | Namespace label | Health endpoint | Логи |
+|--------|----------------|-----------------|------|
+| Gateway | `app=gateway` | `https://<host>:8443/health` | `kubectl logs -f deployment/gateway` |
+| User Service | `app=user-service` | gRPC health | `kubectl logs -f deployment/user-service` |
+| Biometric Service | `app=biometric-service` | gRPC health | `kubectl logs -f deployment/biometric-service` |
+| Training Service | `app=training-service` | gRPC health | `kubectl logs -f deployment/training-service` |
+| Device Connector | `app=device-connector` | `http://device-connector:8082/health` | `kubectl logs -f deployment/device-connector` |
+| Device Aggregator | `app=device-aggregator` | `http://device-aggregator:8083/health` | `kubectl logs -f deployment/device-aggregator` |
+| ML Classifier | `app=ml-classifier` | `http://ml-classifier:8001/health` | `kubectl logs -f deployment/ml-classifier` |
+| ML Generator | `app=ml-generator` | `http://ml-generator:8002/health` | `kubectl logs -f deployment/ml-generator` |
+
+---
+
+**Последнее обновление**: 2026-06-07  
+**Ведёт**: Platform Team

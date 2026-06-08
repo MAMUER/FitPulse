@@ -111,12 +111,12 @@ type deviceConnectorHandler struct {
 	log *logger.Logger
 }
 
-func (h *deviceConnectorHandler) registerDevice(w http.ResponseWriter, r *http.Request) {
+func (h *deviceConnectorHandler) registerDevice(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"device_id":"dev-123"}`))
 }
 
-func (h *deviceConnectorHandler) ingestData(w http.ResponseWriter, r *http.Request) {
+func (h *deviceConnectorHandler) ingestData(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }

@@ -1,50 +1,50 @@
-# ADR 0005: Observability Implementation - Structured Logging, Prometheus Metrics, and Alerting
+# ADR 0005: Реализация наблюдаемости — структурированное логирование, метрики Prometheus и алертинг
 
-## Context
+## Контекст
 
-The system requires comprehensive observability to monitor health, performance, and security across microservices. This includes structured logging, metrics collection, and automated alerting to ensure reliability and quick incident response.
+Система требует всесторонней наблюдаемости для мониторинга здоровья, производительности и безопасности микросервисов. Включает структурированное логирование, сбор метрик и автоматизированный алертинг для обеспечения надёжности и быстрого реагирования на инциденты.
 
-## Decision
+## Решение
 
-Implement observability with:
+Реализовать наблюдаемость с:
 
-1. **Structured JSON Logging**: All services must log in JSON format with mandatory fields:
+1. **Структурированное JSON-логирование**: все сервисы должны логировать в JSON с обязательными полями:
    - timestamp (ISO8601 UTC)
    - level (DEBUG/INFO/WARN/ERROR/FATAL)
-   - service (microservice name)
-   - correlationId (UUID for request tracing)
+   - service (имя микросервиса)
+   - correlationId (UUID для трейсинга запросов)
    - userId (string|null)
-   - action (UPPER_SNAKE_CASE semantic name)
-   - Additional context fields as needed.
+   - action (семантическое имя в UPPER_SNAKE_CASE)
+   - дополнительные контекстные поля по необходимости.
 
-2. **Prometheus Metrics**: Required metrics set including:
+2. **Метрики Prometheus**: обязательный набор метрик:
    - request_duration_seconds (Histogram)
    - error_total (Counter)
-   - classification_confidence (Gauge for ML)
+   - classification_confidence (Gauge для ML)
    - db_connection_pool_usage (Gauge)
    - notification_queue_depth (Gauge)
    - biometric_sync_lag_seconds (Gauge)
 
-3. **Alerting Rules**: Critical and warning alerts with escalation policies:
+3. **Правила алертинга**: критические и предупреждающие алерты с политиками эскалации:
    - SEV-1: ServiceDown, DBConnectionPoolExhausted, BackupFailed
    - SEV-3: HighErrorRate, HighLatency, LowMLConfidence
-   - Escalation: Immediate PagerDuty for SEV-1, Slack notifications with delays for others.
+   - Эскалация: немедленный PagerDuty для SEV-1, Slack-уведомления с задержкой для остальных.
 
-## Consequences
+## Последствия
 
-- Provides full visibility into system behavior and performance.
-- Enables proactive monitoring and quick incident response.
-- Supports compliance and operational requirements.
+- Provides полную видимость в поведение и производительность системы.
+- Позволяет проактивный мониторинг и быстрое реагирование на инциденты.
+- Поддерживает compliance и операционные требования.
 
-## Implementation
+## Реализация
 
-- Integrate structured logging libraries in Go and Python services.
-- Configure Prometheus exporters and Grafana dashboards.
-- Set up Alertmanager with Slack and PagerDuty integrations.
-- Implement correlation ID propagation across services.
+- Интеграция библиотек структурированного логирования в Go- и Python-сервисы.
+- Настройка Prometheus-экспортёров и Grafana-дашбордов.
+- Настройка Alertmanager со Slack- и PagerDuty-интеграциями.
+- Реализация propagation correlation ID через сервисы.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Unstructured logging: Harder to search and analyze.
-- Fewer metrics: Reduced observability.
-- Manual alerting: Slower response times.
+- Неструктурированное логирование: сложнее для поиска и анализа.
+- Меньше метрик: сниженная наблюдаемость.
+- Ручной алертинг: более медленное реагирование.

@@ -1,229 +1,270 @@
-# Incident Response Playbook
+# Playbook: Ответ на инциденты FitPulse
 
-## Overview
+## Обзор
 
-This document defines the process for responding to security incidents, service outages, and data breaches.
-
----
-
-## Incident Classification
-
-### Severity Levels
-
-| Level | Impact | Resolution Time | Escalation |
-|-------|--------|-----------------|------------|
-| **SEV-1** | Service completely down, data loss risk | 15 min | Immediate PagerDuty → Tech Lead → CTO |
-| **SEV-2** | Service degraded, partial functionality loss | 1 hour | Slack → On-Call Engineer → Tech Lead |
-| **SEV-3** | Minor issues, user experience impact | 4 hours | Slack → On-Call Engineer |
-| **SEV-4** | No immediate user impact | 24 hours | Ticket queue |
+Данный документ определяет процесс реагирования на security-инциденты, простои сервисов и утечки данных. Playbook регулярно обновляется по мере добавления новых компонентов (Device Aggregator, Device Connector, ML-сервисы).
 
 ---
 
-## SEV-1 Response: Critical Incident
+## Классификация инцидентов
 
-### Phase 1: Triage (0-5 minutes)
+### Уровни серьёзности
 
-1. **Alert Acknowledgment**
-   - PagerDuty: Click "Acknowledge" immediately
-   - Slack: React with `:ack:` to #alerts channel
+| Уровень | Влияние | Время реакции | Время исправления | Эскалация |
+|---------|---------|--------------|------------------|-----------|
+| **SEV-1** | Полный downtime сервиса, риск потери данных | 15 мин | 1 час | Немедленный PagerDuty → Tech Lead → CTO |
+| **SEV-2** | Сервис деградирован, частичная потеря функциональности | 1 час | 4 часа | Slack → дежурный инженер → Tech Lead |
+| **SEV-3** | Мелкие проблемы, влияние на UX | 4 часа | 2 недели | Slack → дежурный инженер |
+| **SEV-4** | Нет непосредственного влияния на пользователей | 24 часа | Следующий релиз | Очередь тикетов |
 
-2. **Declare Incident**
+---
+
+## SEV-1 Response: Критический инцидент
+
+### Фаза 1: Триаж (0–5 минут)
+
+1. **Подтверждение алерта**
+   - PagerDuty: нажать «Acknowledge» немедленно.
+   - Slack: поставить реакцию `:ack:` в канал `#alerts`.
+
+2. **Объявление инцидента**
    ```bash
-   # Start incident in Slack
+   # Создать инцидент в Slack
    /incident declare
-   # Auto-creates channel: #incident-2026-05-06-1
+   # Автоматически создаётся канал: #incident-YYYY-MM-DD-N
    ```
 
-3. **Identify Incident Commander (IC)**
-   - Usually: On-call engineer
-   - If unavailable: Next in rotation
+3. **Назначить Incident Commander (IC)**
+   - Обычно: дежурный инженер.
+   - При недоступности: следующий в ротации.
 
-4. **Initial Assessment**
-   - What is affected? (Service, region, users?)
-   - How many users impacted?
-   - Is there data loss?
+4. **Первичная оценка**
+   - Что затронуто? (сервис, регион, пользователи?)
+   - Сколько пользователей затронуто?
+   - Есть ли риск потери данных?
 
-### Phase 2: Stabilization (5-15 minutes)
+### Фаза 2: Стабилизация (5–15 минут)
 
-**IC Coordinates**:
-- Assign **Responder** (fix the issue)
-- Assign **Communications** (update customers)
-- Assign **Doc Writer** (keep timeline updated)
+**IC распределяет роли**:
+- **Responder** — устраняет проблему.
+- **Communications** — обновляет статус-страницу и оповещает пользователей.
+- **Doc Writer** — ведёт хронологию инцидента.
 
-**Responder Actions** (use [Operations Runbook](./OPERATIONS_RUNBOOK.md)):
-- Check service health: `kubectl get pods -n fitness-platform`
-- Review recent deployments: `kubectl rollout history deployment/gateway`
-- Check logs: Kibana, `kubectl logs`
-- Consider rollback if recent deployment
+**Действия Responder** (используйте [Operations Runbook](./OPERATIONS_RUNBOOK.md)):
 
-**Communications**:
-- Update status page: [status.fitpulse.app](https://status.fitpulse.app)
-- Notify customers in #general-incidents
-- Prepare statement: "We are investigating a service issue..."
+```bash
+# 1. Проверить статус подов по namespace
+kubectl get pods -n fitness-platform
 
-### Phase 3: Resolution (15+ minutes)
+# 2. Посмотреть последние deployment'ы
+kubectlectl rollout history deployment/gateway -n fitness-platform
 
-- **Implement fix** (code patch, scale-up, rollback, etc.)
-- **Verify fix**: Run smoke tests, check metrics
-- **Monitor for regression**: Watch error rate, latency for 15 minutes
+# 3. Быстрый перезапуск подозрительного пода (OOMKilled / CrashLoopBackOff)
+kubectl delete pod <pod-name> -n fitness-platform
 
-### Phase 4: Recovery (Post-Incident)
+# 4. Если проблема после недавнего деплоя — откат
+kubectl rollout undo deployment/gateway -n fitness-platform
 
-1. **Restore Normal Operations**
-   - Confirm service stable for 24 hours
-   - Remove incident label from status page
+# 5. Логи по сервисам (Kibana или kubectl)
+kubectl logs -f deployment/gateway -n fitness-platform --tail=200
+```
 
-2. **Communication**
-   - Public post-mortem: [status.fitpulse.app](https://status.fitpulse.app)
-   - Team debrief: Schedule within 48 hours
+**Проверка новых сервисов**:
 
-3. **Root Cause Analysis (RCA)**
-   - Document what happened
-   - Identify why it happened
-   - Propose preventive measures
+```bash
+# Device Aggregator (OAuth, Fitbit/Garmin/Withings)
+kubectl get pods -n fitness-platform -l app=device-aggregator
+kubectl logs -f deployment/device-aggregator -n fitness-platform | grep -i "error\|panic"
+
+# Проверить health endpoints
+curl -k https://<gateway-host>:8443/health
+curl http://device-aggregator:8083/health
+```
+
+**Действия Communications**:
+- Обновить статус-страницу: https://status.fitpulse.app
+- Оповестить в `#general-incidents`
+- Подготовить заявление: «Идёт работа над восстановлением сервиса...»
+
+### Фаза 3: Разрешение (15+ минут)
+
+- **Внедрить fix**: код-патч, увеличить масштаб, откат и т.д.
+- **Проверить fix**: запустить smoke-тесты, убедиться в норме метрик.
+- **Мониторить регрессию**: следить за error rate и latency 15 минут.
+
+### Фаза 4: Восстановление (пост-инцидент)
+
+1. **Подтвердить нормальную работу**: сервис стабилен в течение 24 часов.
+2. **Убрать labels инцидента** со статус-страницы.
+3. **Коммуникация**: публичный post-mortem.
+4. **Root Cause Analysis (RCA)**:
+   - Задокументировать что произошло.
+   - Объяснить почему это произошло.
+   - Предложить превентивные меры.
+
+5. **Провести разбор (debrief)**: в течение 48 часов после инцидента.
 
 ---
 
-## SEV-2 Response: Service Degradation
+## SEV-2 Response: Деградация сервиса
 
-### Timeline
+### Хронология
 
-- **0-15 min**: Alert → Acknowledge → Triage
-- **15-60 min**: Investigation → Mitigation (scale-up, optimization)
-- **60+ min**: Resolution → Communication
+- **0–15 мин**: Алерт → Подтверждение → Триаж.
+- **15–60 мин**: Расследование → Митигация (масштабирование, оптимизация).
+- **60+ мин**: Разрешение → Коммуникация.
 
-### Example: High Error Rate
+### Пример: Высокий error rate
 
 ```bash
-# 1. Check error rates by endpoint
-curl "prometheus:9090/api/v1/query" \
+# 1. Посмотреть error rate по сервисам
+curl "http://prometheus:9090/api/v1/query" \
   --data-urlencode 'query=rate(error_total[5m])' | jq .
 
-# 2. Identify service with highest errors
+# 2. Определить сервис с наибольшим числом ошибок
 kubectl get pods -n fitness-platform -l app=biometric-service
-kubectl logs -f deployment/biometric-service -n fitness-platform | grep ERROR
+kubectl logs -f deployment/biometric-service -n fitness-platform | grep -i "error"
 
-# 3. Check database connections
-psql -h postgres -U postgres -c "SELECT count(*) FROM pg_stat_activity;"
+# 3. Проверить соединения с БД
+kubectl exec -it deploy/postgres -n fitness-platform -- \
+  psql -U postgres -c "SELECT count(*) FROM pg_stat_activity;"
 
-# 4. Scale up if needed
+# 4. Масштабировать при необходимости
 kubectl scale deployment biometric-service --replicas=5 -n fitness-platform
 
-# 5. Monitor recovery
+# 5. Мониторить восстановление
 kubectl top pod -n fitness-platform --containers
 
-# 6. Alert team in #incidents channel
+# 6. Оповестить команду в #incidents
 ```
 
 ---
 
 ## Security Incident Response
 
-### Data Breach (SEV-1+)
+### Утечка данных (SEV-1+)
 
-1. **Immediate Actions** (0-1 hour)
-   - Rotate compromised credentials immediately
-   - Revoke user tokens if authentication compromised
-   - Isolate affected service from network if needed
-   - Take forensic snapshots: `kubectl cp`, `kubectl exec ... tar`
+1. **Немедленные действия** (0–1 час)
+   - Ротация скомпрометированных учётных данных.
+   - Отзыв токенов пользователей, если взломана auth-система.
+   - Изоляция затронутого сервиса (Network Policy) при необходимости.
+   - Сделать forensic-снапшоты: `kubectl cp`, `kubectl exec ... tar`.
 
-2. **Investigation** (1-4 hours)
-   - Review audit logs: Kibana query `level="AUDIT_*"`
-   - Check for lateral movement: Network policies in effect?
-   - Identify scope: Which data was accessed?
+2. **Расследование** (1–4 часа)
+   - Просмотр audit-логов: Kibana запрос `level="AUDIT_*"`.
+   - Проверка lateral movement: активны ли Network Policies?
+   - Определение scope: какие данные были доступны?
 
-3. **Notification** (4-24 hours)
-   - Notify affected users (email template in security team)
-   - File incident report with legal
-   - Notify Roskomnadzor if required (152-ФЗ)
+3. **Уведомление** (4–24 часа)
+   - Уведомить затронутых пользователей (email-шаблон у security-команды).
+   - Подать инцидент-репорт вLegal.
+   - Уведомить Роскомнадзор при необходимости (152-ФЗ).
 
-4. **Remediation** (24+ hours)
-   - Implement security patch
-   - Re-encrypt potentially exposed data
-   - Deploy WAF rules if attack detected
+4. **Ремедиация** (24+ часов)
+   - Внедрить security-патч.
+   - Перешифровать потенциально скомпрометированные данные.
+   - Развернуть WAF-правила, если обнаружена атака.
 
-### Code Vulnerability (SEV-1 if critical)
+### Уязвимость в коде (SEV-1, если критична)
 
-1. **Immediate**: Patch code, build new container image
-2. **Test**: Run security scans (Snyk, trivy)
-3. **Deploy**: Use canary deployment (Stage 7 of pipeline)
-4. **Monitor**: Watch for exploitation attempts in logs
+1. **Немедленно**: исправить код, собрать новый контейнерный образ.
+2. **Тестирование**: запустить security-сканы (Snyk, Trivy).
+3. **Деплой**: использовать canary-деплой (Этап 7 пайплайна).
+4. **Мониторинг**: следить за попытками эксплуатации в логах.
 
 ---
 
-## Communication Templates
+## Коммуникационные шаблоны
 
-### Initial Status
-
-```
-INCIDENT: Service API Degradation
-Started: 2026-05-06T14:30Z
-Impact: ~10% of users experiencing timeouts
-Status: Investigating
-Updates: https://status.fitpulse.app
-```
-
-### Resolution
+### Начальный статус
 
 ```
-RESOLVED: Service API Degradation
-Duration: 45 minutes
-Cause: Database connection pool exhausted due to memory leak in biometric-service
-Fix: Patched and redeployed biometric-service v2.1.1
-Monitoring: All metrics normal, no data loss
+ИНЦИДЕНТ: Деградация API сервиса
+Начало: 2026-05-06T14:30Z
+Влияние: ~10% пользователей испытывают таймауты
+Статус: Идёт расследование
+Обновления: https://status.fitpulse.app
+```
+
+### Разрешение
+
+```
+РЕШЕНО: Деградация API сервиса
+Длительность: 45 минут
+Причина: Исчерпан пул соединений к БД из-за memory leak в biometric-service
+Fix: Выпущен и развёрнут патч biometric-service v2.1.1
+Мониторинг: Все метрики в норме, потеря данных отсутствует
 ```
 
 ### Post-Mortem
 
 ```
-Post-Mortem: Service API Degradation (2026-05-06)
+Post-Mortem: Деградация API сервиса (2026-05-06)
 
-**Timeline**:
-- 14:30 UTC: Alert triggered (error rate > 5%)
-- 14:32 UTC: IC engaged, investigation started
-- 14:40 UTC: Root cause identified (memory leak)
-- 14:50 UTC: Patched version deployed
-- 15:00 UTC: Service recovered
+Хронология:
+- 14:30 UTC: Сработал алерт (error rate > 5%)
+- 14:32 UTC: IC подключился, начато расследование
+- 14:40 UTC: Определена root cause (memory leak)
+- 14:50 UTC: Развёрнут патч v2.1.1
+- 15:00 UTC: Сервис восстановлен
 
-**Root Cause**: Memory leak in connection pooling logic
+Root Cause: Memory leak в логике connection pooling
 
-**Action Items**:
-1. [DONE] Deploy memory leak fix v2.1.1
-2. [TODO] Implement memory profiling in CI/CD
-3. [TODO] Add memory threshold alerting (> 80% usage)
-4. [TODO] Review connection pooling configuration
+Action Items:
+1. [DONE] Деплой фикса memory leak v2.1.1
+2. [TODO] Добавить memory profiling в CI/CD
+3. [TODO] Добавить алерт на память (> 80% utilisation)
+4. [TODO] Пересмотреть конфигурацию connection pooling
 
-**Attendees**: Platform Team
-**Date**: 2026-05-08 10:00 UTC
+Участники: Platform Team
+Дата: 2026-05-08 10:00 UTC
 ```
 
 ---
 
-## Tools & Access
+## Инструменты и доступы
 
-| Tool | URL | Purpose |
-|------|-----|---------|
-| PagerDuty | https://fitpulse.pagerduty.com | Incident tracking & on-call |
-| Slack | #incidents, #alerts | Communication |
-| Grafana | https://grafana.fitpulse.app:3000 | Dashboards & metrics |
-| Kibana | https://kibana.fitpulse.app:5601 | Logs & analysis |
-| Kubernetes | `kubectl` | Container orchestration |
-
----
-
-## Incident Checklist
-
-- [ ] Acknowledge alert in PagerDuty/Slack
-- [ ] Declare incident, assign IC
-- [ ] Gather initial information (What? When? Impact?)
-- [ ] Assign Responder, Communications, Doc Writer
-- [ ] Implement fix (rollback, scale, patch, etc.)
-- [ ] Verify resolution (smoke tests, metrics)
-- [ ] Update status page
-- [ ] Schedule RCA within 48 hours
-- [ ] Document lessons learned
+| Инструмент | URL / Путь | Назначение |
+|-----------|-----------|-----------|
+| PagerDuty | https://fitpulse.pagerduty.com | Трекинг инцидентов and on-call |
+| Slack | `#incidents`, `#alerts`, `#general-incidents` | Коммуникация |
+| Grafana | https://grafana.fitpulse.app:3000 | Дашборды and метрики |
+| Kibana | https://kibana.fitpulse.app:5601 | Логи и анализ |
+| Kubernetes | `kubectl` | Оркестрация контейнеров |
+| Status Page | https://status.fitpulse.app | Публичный статус сервисов |
 
 ---
 
-**Last Updated**: 2026-05-06  
-**Maintained By**: Security & Platform Teams
+## Чек-лист инцидента
+
+- [ ] Подтвердить алерт в PagerDuty/Slack
+- [ ] Объявить инцидент, назначить IC
+- [ ] Собрать первичную информацию (Что? Когда? Количество затронутых?)
+- [ ] Назначить Responder, Communications, Doc Writer
+- [ ] Внедрить fix (откат, масштабирование, патч и т.д.)
+- [ ] Проверить разрешение (smoke-тесты, метрики)
+- [ ] Обновить статус-страницу
+- [ ] Запланировать RCA в течение 48 часов
+- [ ] Документировать lessons learned
+
+---
+
+## Работа с новыми сервисами
+
+При расследовании учитывать все активные компоненты проекта:
+
+| Сервис | Namespace label | Health endpoint | Логи |
+|--------|----------------|-----------------|------|
+| Gateway | `app=gateway` | `https://<host>:8443/health` | `kubectl logs -f deployment/gateway` |
+| User Service | `app=user-service` | gRPC health | `kubectl logs -f deployment/user-service` |
+| Biometric Service | `app=biometric-service` | gRPC health | `kubectl logs -f deployment/biometric-service` |
+| Training Service | `app=training-service` | gRPC health | `kubectl logs -f deployment/training-service` |
+| Device Connector | `app=device-connector` | `http://device-connector:8082/health` | `kubectl logs -f deployment/device-connector` |
+| Device Aggregator | `app=device-aggregator` | `http://device-aggregator:8083/health` | `kubectl logs -f deployment/device-aggregator` |
+| ML Classifier | `app=ml-classifier` | `http://ml-classifier:8001/health` | `kubectl logs -f deployment/ml-classifier` |
+| ML Generator | `app=ml-generator` | `http://ml-generator:8002/health` | `kubectl logs -f deployment/ml-generator` |
+
+---
+
+**Последнее обновление**: 2026-06-07  
+**Ведёт**: Security & Platform Teams

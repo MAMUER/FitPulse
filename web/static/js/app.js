@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         achievements: 'Достижения',
         diet: 'Диета',
         ml: 'AI Анализ',
+        admin: 'Админка',
     };
 
     // ===== Init =====
@@ -104,6 +105,122 @@ document.addEventListener('DOMContentLoaded', () => {
         clearErrors();
         console.log('[APP] Auth screen shown');
     }
+
+    async function connectFitbit() {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showToast('Необходима авторизация', 'error');
+            return;
+        }
+
+        // Проксируем через Gateway
+        window.location.href = '/api/v1/devices/fitbit/auth';
+    }
+
+    async function loadConnectedProviders() {
+        try {
+            const response = await apiRequest('/api/v1/devices/providers', {
+                method: 'GET'
+            });
+
+            const container = document.getElementById('connectedDevicesList');
+            if (!container) return;
+
+            if (!response.providers || response.providers.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary);">Нет подключённых устройств</p>';
+                return;
+            }
+
+            const providerNames = {
+                fitbit: 'Fitbit',
+                withings: 'Withings',
+                garmin: 'Garmin'
+            };
+            const providerIcons = {
+                fitbit: '⌚',
+                withings: '⚖️',
+                garmin: '🏃'
+            };
+
+            container.innerHTML = response.providers.map(p => `
+            <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 8px 0;">${providerIcons[p.provider] || '📱'} ${providerNames[p.provider] || p.provider}</h4>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+                            ID: ${p.provider_user_id}
+                            ${p.last_sync_at ? `<br>Последняя синхронизация: ${new Date(p.last_sync_at).toLocaleString('ru-RU')}` : ''}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <span style="padding: 4px 8px; background: ${p.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
+                            ${p.is_active ? 'Активен' : 'Отключён'}
+                        </span>
+                        ${p.is_active ? `<button onclick="disconnectProvider('${p.provider}')" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
+                            Отключить
+                        </button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        } catch (err) {
+            console.error('Failed to load providers:', err);
+        }
+    }
+
+    // Универсальная функция отключения провайдера
+    async function disconnectProvider(provider) {
+        if (!confirm(`Отключить ${provider}?`)) return;
+        try {
+            await apiRequest(`/api/v1/devices/${provider}/disconnect`, {
+                method: 'POST'
+            });
+            showToast(`${provider} отключён`, 'success');
+            loadConnectedProviders();
+        } catch (err) {
+            showToast(`Ошибка отключения: ${err.message}`, 'error');
+        }
+    }
+
+    async function disconnectFitbit() {
+        if (!confirm('Отключить Fitbit?')) return;
+
+        try {
+            await apiRequest('/api/v1/devices/fitbit/disconnect', {
+                method: 'POST'
+            });
+            showToast('Fitbit отключён', 'success');
+            loadConnectedProviders();
+        } catch (err) {
+            showToast('Ошибка отключения: ' + err.message, 'error');
+        }
+    }
+
+    window.connectFitbit = connectFitbit;
+    window.disconnectFitbit = disconnectFitbit;
+
+    async function connectWithings() {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showToast('Необходима авторизация', 'error');
+            return;
+        }
+        window.location.href = '/api/v1/devices/withings/auth';
+    }
+
+    async function disconnectWithings() {
+        if (!confirm('Отключить Withings?')) return;
+        try {
+            await apiRequest('/api/v1/devices/withings/disconnect', { method: 'POST' });
+            showToast('Withings отключён', 'success');
+            loadConnectedProviders();
+        } catch (err) {
+            showToast('Ошибка: ' + err.message, 'error');
+        }
+    }
+
+    window.connectWithings = connectWithings;
+    window.disconnectWithings = disconnectWithings;
 
     function showVerification(email, message, userId) {
         console.log('[APP] Show verification for:', email);
@@ -183,16 +300,157 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-function showMainApp() {
+    // ===== Admin Functions =====
+
+    // После логина показываем вкладку админа для админов
+    async function checkAdminRole() {
+        try {
+            const profile = await apiRequest('/api/v1/profile', {
+                method: 'GET'
+            });
+            if (profile && (profile.role === 'admin' || (profile.profile && profile.profile.role === 'admin'))) {
+                state.isAdmin = true;
+                const adminTab = document.getElementById('adminTab');
+                if (adminTab) adminTab.style.display = 'flex';
+                console.log('[APP] Admin role detected, admin tab shown');
+            }
+        } catch (e) {
+            console.error('Failed to check admin role:', e);
+        }
+    }
+
+    // Функции админки — экспортируем в window для onclick
+    async function loadAdminPanel() {
+        try {
+            const response = await apiRequest('/api/v1/admin/invites', {
+                method: 'GET'
+            });
+            renderInvitesList(response.invites || []);
+        } catch (e) {
+            console.error('Failed to load invites:', e);
+            const container = document.getElementById('invitesList');
+            if (container) {
+                container.innerHTML = '<p style="color: var(--accent); text-align: center;">Ошибка загрузки инвайтов</p>';
+            }
+        }
+    }
+
+    function renderInvitesList(invites) {
+        const container = document.getElementById('invitesList');
+        if (!container) return;
+        if (!invites || !invites.length) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Нет инвайтов</p>';
+            return;
+        }
+        container.innerHTML = invites.map(inv => `
+            <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <code style="font-family: monospace; color: var(--accent); font-size: 14px;">${inv.code}</code>
+                    <span style="padding: 4px 8px; background: ${inv.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
+                        ${inv.is_active ? 'Активен' : 'Отозван'}
+                    </span>
+                </div>
+                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+                    Роль: <strong>${inv.role}</strong> · Использований: ${inv.used_count}/${inv.max_uses}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="window._copyToClipboard('${inv.invite_url}')" class="btn-secondary" style="flex: 1; font-size: 13px;">
+                        📋 Копировать ссылку
+                    </button>
+                    ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="btn-secondary" style="flex: 1; color: var(--accent); font-size: 13px;">
+                        ❌ Отозвать
+                    </button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function _createNewInvite() {
+        const role = document.getElementById('newInviteRole')?.value || 'client';
+        const maxUses = parseInt(document.getElementById('newInviteMaxUses')?.value || '1', 10);
+
+        try {
+            const result = await apiRequest('/api/v1/admin/invites', {
+                method: 'POST',
+                body: JSON.stringify({ role: role, max_uses: maxUses })
+            });
+            showToast(`Инвайт создан: ${result.code}`, 'success');
+            _copyToClipboard(result.invite_url);
+            loadAdminPanel();
+        } catch (e) {
+            console.error('Failed to create invite:', e);
+            showToast('Ошибка создания инвайта: ' + (e.message || 'неизвестная ошибка'), 'error');
+        }
+    }
+
+    async function _revokeInvite(code) {
+        if (!confirm('Отозвать этот инвайт?')) return;
+        try {
+            await apiRequest(`/api/v1/admin/invites/${code}/revoke`, {
+                method: 'POST'
+            });
+            showToast('Инвайт отозван', 'success');
+            loadAdminPanel();
+        } catch (e) {
+            console.error('Failed to revoke invite:', e);
+            showToast('Ошибка отзыва: ' + (e.message || 'неизвестная ошибка'), 'error');
+        }
+    }
+
+    function _copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Ссылка скопирована', 'success');
+            }).catch(() => {
+                // Fallback для старых браузеров
+                _fallbackCopy(text);
+            });
+        } else {
+            _fallbackCopy(text);
+        }
+    }
+
+    function _fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showToast('Ссылка скопирована', 'success');
+        } catch (err) {
+            showToast('Не удалось скопировать', 'error');
+        }
+        document.body.removeChild(textarea);
+    }
+
+    // Экспортируем функции в window для использования в onclick
+    window.createNewInvite = _createNewInvite;
+    window.revokeInvite = _revokeInvite;
+    window.copyToClipboard = _copyToClipboard;
+
+    // Обработчик переключения на админку
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('[data-view="admin"]')) {
+            loadAdminPanel();
+        }
+    });
+
+    function showMainApp() {
         authScreen.classList.remove('active');
         mainScreen.classList.add('active');
         mainScreen.classList.remove('hidden');
         switchView('dashboard');
-        
+
+        // Проверяем роль админа после входа
+        checkAdminRole();
+
         if (window.AppModules && window.AppModules.TrainingModule) {
             window.AppModules.TrainingModule.loadPlans();
         }
-        
+
         console.log('[APP] Main app shown');
     }
 
@@ -787,18 +1045,18 @@ function showMainApp() {
                 if (plans.length > 0) {
                     const plan = plans[0];
                     let todayWorkoutHtml = '';
-                    
+
                     // Try to load full plan details
                     try {
                         const fullPlan = await fetch(`/api/v1/training/plan/${plan.plan_id}`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
                         }).then(r => r.json());
-                        
+
                         const planData = fullPlan?.plan?.plan_data;
                         if (planData?.weeks && planData.weeks.length > 0) {
                             // Get today's day of week (0 = Sunday, 1 = Monday, etc)
                             const today = new Date().getDay();
-                            
+
                             // Search for today's workout in the first week
                             let todayWorkout = null;
                             for (const week of planData.weeks) {
@@ -810,7 +1068,7 @@ function showMainApp() {
                                 }
                                 if (todayWorkout) break;
                             }
-                            
+
                             if (todayWorkout) {
                                 const trainingTypes = {
                                     'cardio': '🏃 Кардио',
@@ -819,10 +1077,10 @@ function showMainApp() {
                                     'endurance': '🏃 Выносливость',
                                     'hiit': 'HIIT'
                                 };
-                                
+
                                 const exercises = todayWorkout.exercises || [];
                                 const typeLabel = trainingTypes[todayWorkout.training_type] || '';
-                                
+
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {
                                     exercisesHtml = '<ul style="margin: 10px 0; padding-left: 20px;">' +
@@ -834,7 +1092,7 @@ function showMainApp() {
                                         }).join('') +
                                         '</ul>';
                                 }
-                                
+
                                 todayWorkoutHtml = `
                                     <div class="workout-content">
                                         <h4>${typeLabel}</h4>
@@ -848,17 +1106,17 @@ function showMainApp() {
                     } catch (e) {
                         console.warn('Could not load full plan details:', e);
                     }
-                    
-                     // Fallback if no today's workout found
-                     if (!todayWorkoutHtml) {
-                         todayWorkoutHtml = `
+
+                    // Fallback if no today's workout found
+                    if (!todayWorkoutHtml) {
+                        todayWorkoutHtml = `
                              <div class="workout-content">
                                  <h4>😴 Отдых</h4>
                                  <p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
                              </div>
                          `;
-                     }
-                    
+                    }
+
                     document.getElementById('todayWorkout').innerHTML = todayWorkoutHtml;
                 }
             } catch (err) {
@@ -1109,7 +1367,7 @@ function showMainApp() {
     }
 
     // ===== ML =====
-    async function loadMLView() {}
+    async function loadMLView() { }
 
     async function mlClassify() {
         try {
@@ -1177,11 +1435,12 @@ function showMainApp() {
         `).join('');
     }
 
-    // ===== Devices View =====
     function initDevicesView() {
         if (window.AppModules) {
             window.AppModules.DeviceModule.init();
         }
+        // Загружаем список подключённых провайдеров при открытии вкладки
+        loadConnectedProviders();
     }
 
     // ===== Diet View =====
@@ -1201,7 +1460,8 @@ function showMainApp() {
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
-
+    // В конце файла, после других экспортов:
+    window.disconnectProvider = disconnectProvider;
     // ===== Start =====
     init();
 });

@@ -1,49 +1,49 @@
-# ADR 0006: Security Deployment and Update Management
+# ADR 0006: Безопасное развёртывание и управление обновлениями
 
-## Context
+## Контекст
 
-The system handles sensitive biometric and personal data, requiring robust security measures for network segmentation, access control, encryption, and compliance with regulations like 152-ФЗ.
+Система обрабатывает чувствительные биометрические и персональные данные, что требует надёжных мер безопасности для сетевой сегментации, контроля доступа, шифрования и соответствия регуляторным требованиям, включая 152-ФЗ.
 
-## Decision
+## Решение
 
-Implement comprehensive security measures:
+Реализовать комплексные меры безопасности:
 
-1. **Network Segmentation**: Kubernetes Network Policies dividing into zones:
-   - dmz: External traffic (Ingress, WAF)
-   - app-zone: Application microservices
-   - data-zone: Databases, cache, queues
+1. **Сетевая сегментация**: Kubernetes Network Policies, делящие кластер на зоны:
+   - dmz: внешний трафик (Ingress, WAF)
+   - app-zone: микросервисы приложения
+   - data-zone: базы данных, кэш, очереди
    - monitoring-zone: ELK, Prometheus, Grafana
 
-2. **RBAC and Privileges**: Kubernetes RBAC with ServiceAccount per service, principle of least privilege, separate accounts for CI/CD and runtime.
+2. **RBAC и привилегии**: Kubernetes RBAC с отдельным ServiceAccount на сервис, принцип минимальных привилегий, отдельные аккаунты для CI/CD и runtime.
 
-3. **Encryption**:
-   - At rest: TDE for PostgreSQL, KMS for volumes, Vault for secrets
-   - In transit: TLS 1.3, mTLS for gRPC, certificate pinning
+3. **Шифрование**:
+   - At rest: TDE для PostgreSQL, KMS для volumes, Vault для секретов
+   - In transit: TLS 1.3, mTLS для gRPC, certificate pinning
 
-4. **Dependency Management**: Dependabot and Snyk for vulnerability scanning, policies for CVE remediation.
+4. **Управление зависимостями**: Dependabot и Snyk для сканирования уязвимостей, политики remediaton CVE.
 
-5. **Admin Audit**: Audit logging for sensitive actions, 1-year retention for 152-ФЗ compliance.
+5. **Аудит администратора**: аудит критически важных действий, 1 год retention для соответствия 152-ФЗ.
 
-6. **WAF**: Nginx + ModSecurity or managed WAF with SQL injection, XSS protection, rate limiting.
+6. **WAF**: Nginx + ModSecurity или managed WAF с защитой от SQL-инъекций, XSS, rate limiting.
 
-7. **Secrets Rotation**: 90-day automatic rotation via Vault, dynamic DB credentials.
+7. **Ротация секретов**: 90-дневная автоматическая ротация через Vault, динамические учётные данные БД.
 
-## Consequences
+## Последствия
 
-- Ensures data protection and regulatory compliance.
-- Reduces attack surface through segmentation and encryption.
-- Provides audit trail for security incidents.
+- обеспечивает защиту данных и регуляторное соответствие;
+- уменьшает attack surface через сегментацию и шифрование;
+- предоставляет аудит-трейл для инцидентов безопасности.
 
-## Implementation
+## Реализация
 
-- Configure Network Policies in Kubernetes.
-- Set up RBAC roles and ServiceAccounts.
-- Implement encryption at storage and transport layers.
-- Integrate security scanning in CI/CD pipelines.
-- Deploy WAF and configure rules.
+- настройка Network Policies в Kubernetes;
+- создание RBAC-ролей и ServiceAccounts;
+- реализация шифрования на уровне хранилища и транспорта;
+- интеграция security-сканирования в CI/CD пайплайны;
+- развёртывание WAF и настройка правил.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Less restrictive network policies: Higher security risk.
-- Manual secret management: More prone to breaches.
-- No WAF: Vulnerable to common web attacks.
+- Менее restrictive network policies: повышенный риск безопасности.
+- Ручное управление секретами: больше рисков утечек.
+- Отсутствие WAF: уязвимость к распространённым веб-атакам.

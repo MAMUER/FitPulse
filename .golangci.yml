@@ -61,7 +61,7 @@ linters:
         path: "_test\\.go"
       - linters:
           - gochecknoglobals
-        path: "internal/metrics|internal/logger"
+        path: "internal/metrics|internal/logger|internal/db|internal/queue"
       # Тесты могут быть длинными, сложными и содержать шаблонные дубликаты
       - linters:
           - funlen

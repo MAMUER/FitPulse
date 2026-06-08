@@ -1,70 +1,62 @@
 groups:
-  - name: fitness.alerts
+  - name: fitpulse-alerts
     rules:
-      # Critical alerts (SEV-1)
-      - alert: ServiceDown
-        expr: up{job=~'fitness-.*'} == 0
-        for: 2m
+      - alert: LowMLConfidence
+        expr: classification_confidence < 0.7
+        for: 15m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "ML model confidence dropped below 70%"
+          description: "Model {{ $labels.class }} confidence is {{ $value }} for version {{ $labels.model_version }}"
+
+      - alert: BackupFailed
+        expr: backup_success{type='full'} == 0
+        for: 5m
         labels:
           severity: critical
+          team: database
         annotations:
-          summary: "Service {{ $labels.service }} is down"
-          description: "Service {{ $labels.service }} has been down for more than 2 minutes."
+          summary: "Database full backup failed"
+          description: "Last full backup attempt failed. Check pg_dump or WAL archiving."
+
+      - alert: BackupSuccess
+        expr: backup_success{type='full'} == 1
+        for: 0m
+        labels:
+          severity: info
+          team: database
+        annotations:
+          summary: "Database full backup succeeded"
+          description: "Latest backup job succeeded for {{ $labels.job }} (type={{ $labels.type }})."
+
+      - alert: BiometricSyncLagHigh
+        expr: biometric_sync_lag_seconds > 300
+        for: 10m
+        labels:
+          severity: warning
+          team: device-integration
+        annotations:
+          summary: "Biometric data sync lag > 5 minutes"
+          description: "Sync lag is {{ $value }}s for {{ $labels.device_type }}"
 
       - alert: DBConnectionPoolExhausted
         expr: db_connection_pool_usage > 0.9
         for: 1m
         labels:
           severity: critical
+          team: backend
         annotations:
-          summary: "Database connection pool exhausted"
-          description: "Database connection pool usage is above 90% for {{ $labels.service }}."
+          summary: "Database connection pool near exhaustion"
+          description: "Pool usage is {{ $value }} for {{ $labels.service }}"
 
-      - alert: BackupFailed
-        expr: backup_success{type='full'} == 0
-        labels:
-          severity: critical
-        annotations:
-          summary: "Backup failed"
-          description: "Full backup has failed."
-
-      # Warning alerts (SEV-3)
-      - alert: HighErrorRate
-        expr: rate(error_total[5m]) / rate(request_total[5m]) > 0.05
+      - alert: NotificationQueueDepthHigh
+        expr: notification_queue_depth > 1000
         for: 5m
         labels:
           severity: warning
+          team: platform
         annotations:
-          summary: "High error rate for {{ $labels.service }}"
-          description: "Error rate is {{ $value }}% which is above 5% threshold."
-
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, rate(request_duration_seconds_bucket[10m])) > 5
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High latency for {{ $labels.service }}"
-          description: "95th percentile latency is {{ $value }}s which is above 5s threshold."
-
-      - alert: LowMLConfidence
-        expr: classification_confidence < 0.7
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Low ML model confidence"
-          description: "ML model confidence is below 0.7 for {{ $labels.model_version }} class {{ $labels.class }}."
-
-      # Recording rules for pre-aggregated metrics
-      - record: job:http_requests_total:rate5m
-        expr: sum(rate(http_requests_total[5m])) by (job)
-
-      - record: job:http_requests_total:rate1h
-        expr: sum(rate(http_requests_total[1h])) by (job)
-
-      - record: job:http_request_duration_seconds:95p5m
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job))
-
-      - record: job:http_request_duration_seconds:50p5m
-        expr: histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job))
+          summary: "RabbitMQ queue depth too high"
+          description: "Queue {{ $labels.queue_name }} (priority={{ $labels.priority }}) depth is {{ $value }}"

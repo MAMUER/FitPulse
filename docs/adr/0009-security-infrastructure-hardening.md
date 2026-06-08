@@ -1,39 +1,39 @@
-# ADR 0009: Security and Infrastructure Hardening
+# ADR 0009: Усиление безопасности и инфраструктуры
 
-## Context
+## Контекст
 
-Following the comprehensive audit requirements, the system needs hardening across security, infrastructure, observability, CI/CD, and ML pipeline to meet production-ready standards.
+Согласно требованиям комплексного аудита, система требует hardening по безопасности, инфраструктуре, наблюдаемости, CI/CD и ML-пайплайну для соответствия production-ready стандартам.
 
-## Decision
+## Решение
 
-Implement the following hardening measures:
+Реализовать следующие меры усиления:
 
-1. **Security Zones**: Complete Network Policies for dmz, app-zone, data-zone, monitoring-zone
-2. **RBAC**: Principle of least privilege with dedicated ServiceAccounts and minimal roles
-3. **Encryption**: pgcrypto extension for PostgreSQL TDE-like functionality
-4. **Backups**: WAL-based incremental backups with PITR support
-5. **Metrics**: Additional Prometheus metrics for error tracking, ML confidence, DB pools, queues, sync lag
-6. **CI/CD**: 9-stage pipeline with canary deployment, rollback triggers, security gates
-7. **OpenAPI**: Updated to 3.0.3 with comprehensive API documentation
+1. **Зоны безопасности**: Полные Network Policies для dmz, app-zone, data-zone, monitoring-zone.
+2. **RBAC**: Принцип минимальных привилегий с выделенными ServiceAccounts и минимальными ролями.
+3. **Шифрование**: расширение pgcrypto для PostgreSQL для функциональности, аналогичной TDE.
+4. **Бэкапы**: WAL-based инкрементальные бэкапы с поддержкой PITR.
+5. **Метрики**: дополнительные Prometheus-метрики для трейкинга ошибок, ML-уверенности, пулов БД, очередей, sync lag.
+6. **CI/CD**: 9-этапный пайплайн с canary-деплоем, триггерами отката, security gates.
+7. **OpenAPI**: обновление до 3.0.3 с исчерпывающей API-документацией.
 
-## Consequences
+## Последствия
 
-- Enhanced security posture with zero-trust networking
-- Improved observability with detailed metrics and alerting
-- Robust deployment pipeline with automated rollbacks
-- Production-ready infrastructure configuration
+- усиленная security posture с zero-trust networking;
+- улучшенная наблюдаемость с детальными метриками и алертингом;
+- надёжный deployment pipeline с автоматическими откатами;
+- production-ready инфраструктурная конфигурация.
 
-## Implementation
+## Реализация
 
-- Updated Network Policies in configs/k8s/network-policies/security-zones.yaml
-- Enhanced RBAC in configs/k8s/rbac/rbac.yaml
-- Created backup-wal.sh script
-- Extended metrics in internal/metrics/metrics.go
-- Expanded CI/CD pipeline in .github/workflows/ci.yml
-- Updated OpenAPI to 3.0.3 in api/rest/swagger.yaml
+- обновлены Network Policies в `configs/k8s/network-policies/security-zones.yaml`;
+- усиленный RBAC в `configs/k8s/rbac/rbac.yaml`;
+- создан скрипт `backup-wal.sh`;
+- расширены метрики в `internal/metrics/metrics.go`;
+- расширен CI/CD пайплайн в `.github/workflows/ci.yml`;
+- обновлён OpenAPI до 3.0.3 в `api/rest/swagger.yaml`.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Commercial backup solutions: Higher cost, vendor lock-in
-- Manual security reviews: Slower, error-prone
-- Basic CI/CD: Insufficient for production reliability
+- Коммерческие решения для бэкапов: более высокая стоимость, вендор-лок-ин.
+- Ручные security reviews: медленнее, более error-prone.
+- Базовый CI/CD: недостаточный для production надёжности.

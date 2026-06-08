@@ -16,6 +16,14 @@ import threading
 import uuid
 import logging
 from pathlib import Path
+from prometheus_client import Gauge
+from fastapi.responses import Response  # ← для /metrics endpoint
+
+classification_confidence = Gauge(
+    'classification_confidence',
+    'ML model confidence score for training type classification',
+    ['model_version', 'class']
+)
 
 # Async imports (loaded conditionally)
 try:
@@ -428,6 +436,8 @@ async def classify_training(request: ClassificationRequest):
 
         result = _do_classify(physio_dict, user_profile_dict)
 
+        classification_confidence.labels(model_version=getattr(model, 'name', 'unknown'),class_name=result['predicted_class']).set(result['confidence'])
+
         return ClassificationResponse(**result)
 
     except RuntimeError as e:
@@ -435,6 +445,28 @@ async def classify_training(request: ClassificationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# === MLflow metrics export endpoint ===
+@app.get("/metrics")
+async def get_metrics():
+    """Prometheus-style metrics endpoint for MLflow/Prometheus scraping"""
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+# === Model info endpoint ===
+@app.get("/model-info")
+async def model_info():
+    """Get current model metadata"""
+    if model is None:
+        return {"error": "Model not loaded"}
+    
+    return {
+        "model_name": getattr(model, 'name', 'unknown'),
+        "input_shape": model.input_shape,
+        "output_shape": model.output_shape,
+        "total_params": model.count_params(),
+        "training_classes": TRAINING_CLASSES,
+        "loaded_at": datetime.now().isoformat()
+    }
 
 if __name__ == "__main__":
     import uvicorn

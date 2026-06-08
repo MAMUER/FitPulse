@@ -1,40 +1,40 @@
-# ADR 0003: Infrastructure Components Selection - RabbitMQ, ELK Stack, and Prometheus
+# ADR 0003: Выбор инфраструктурных компонентов — RabbitMQ, ELK Stack и Prometheus
 
-## Context
+## Контекст
 
-The project requires reliable asynchronous messaging, centralized logging, and metrics collection to support microservices architecture with high observability and resilience. We need to choose components that are production-ready, scalable, and integrate well with Kubernetes.
+Проект требует надёжного асинхронного обмена сообщениями, централизованного логирования и сбора метрик для микросервисной архитектуры с высокой наблюдаемостью и отказоустойчивостью. Необходимо выбрать компоненты, которые production-ready, масштабируемы и хорошо интегрируются с Kubernetes.
 
-## Decision
+## Решение
 
-We will use:
+Будем использовать:
 
-1. **RabbitMQ** as the message broker for asynchronous communication between microservices.
-   - Purpose: Handle queues for notifications, background biometric data processing, and inter-service synchronization.
-   - Requirements: Persistent queues, mirrored queues for durability, dead letter queues for failed messages, and monitoring of queue depth, consumer lag, and message rates.
+1. **RabbitMQ** — брокер сообщений для асинхронного взаимодействия микросервисов.
+   - Назначение: очереди уведомлений, фоновой обработки биометрии, межсервисной синхронизации.
+   - Требования: persistent queues, mirrored queues для durability, DLQ для неудачных сообщений, мониторинг глубины очередей, лага консьюмеров и скорости сообщений.
 
-2. **ELK Stack (Elasticsearch, Logstash, Kibana)** for centralized logging and analysis.
-   - Purpose: Store and analyze logs from all services.
-   - Retention: 90 days hot storage + archiving to S3.
-   - Requirements: Structured JSON logging with mandatory fields (timestamp, level, correlationId, userId, action), indexing by service, action, error_code, and role-based access in Kibana (dev: read-only, security: full access).
+2. **ELK Stack (Elasticsearch, Logstash, Kibana)** — централизованное логирование и анализ.
+   - Назначение: хранение и анализ логов всех сервисов.
+   - Retention: 90 дней горячего хранилища + архивация в S3.
+   - Требования: структурированное JSON-логирование с обязательными полями (timestamp, level, correlationId, userId, action), индексация по сервису/действию/error_code, RBAC в Kibana (dev: read-only, security: full access).
 
-3. **Prometheus + Grafana** for metrics collection, storage, and visualization.
-   - Purpose: Monitor service health, performance, and business metrics.
-   - Requirements: Service discovery via Kubernetes annotations, recording rules for pre-aggregated metrics, and Alertmanager integration with Slack/PagerDuty.
+3. **Prometheus + Grafana** — сбор, хранение и визуализация метрик.
+   - Назначение: мониторинг здоровья сервисов, производительности и бизнес-метрик.
+   - Требования: service discovery через Kubernetes annotations, recording rules для преагрегированных метрик, интеграция Alertmanager со Slack/PagerDuty.
 
-## Consequences
+## Последствия
 
-- **Positive**: Provides robust, scalable infrastructure for messaging, logging, and monitoring that supports the microservices architecture.
-- **Negative**: Adds complexity in deployment and maintenance, requires expertise in these tools.
-- **Risks**: Potential vendor lock-in, but all chosen tools are open-source and widely adopted.
+- **Плюсы**: предоставляет надёжную, масштабируемую инфраструктуру для messaging, логирования и мониторинга, поддерживающую микросервисную архитектуру.
+- **Минусы**: увеличивает сложность деплоя и поддержки, требуется экспертиза в этих инструментах.
+- **Риски**: потенциальный вендор-лок-ин, но все выбранные инструменты являются open-source и широко распространены.
 
-## Implementation
+## Реализация
 
-- RabbitMQ: Deploy as Kubernetes StatefulSet with persistent volumes and mirroring policies.
-- ELK: Deploy Elasticsearch cluster, Logstash for ingestion, Kibana for visualization, with appropriate security configurations.
-- Prometheus: Deploy with service discovery, configure recording rules and alerting rules as specified.
+- RabbitMQ: Deploy как StatefulSet с persistent volumes и политиками репликации очередей.
+- ELK: Развёртывание кластера Elasticsearch, Logstash для инжеста, Kibana для визуализации с соответствующими конфигурациями безопасности.
+- Prometheus: Развёртывание с service discovery, настройка recording и alerting правил согласно спецификации.
 
-## Alternatives Considered
+## Рассмотренные альтернативы
 
-- Kafka instead of RabbitMQ: More scalable for high-throughput, but RabbitMQ is simpler for our use case.
-- Loki + Grafana instead of ELK: Lighter for logs, but ELK provides better search and analysis capabilities.
-- Other monitoring stacks: Datadog, New Relic - but Prometheus is open-source and integrates well with Kubernetes.
+- Kafka вместо RabbitMQ: более масштабируема для high-throughput, но RabbitMQ проще для нашего сценария.
+- Loki + Grafana вместо ELK: легче для логов, но ELK предоставляет лучшие возможности поиска и анализа.
+- Другие стеки мониторинга: Datadog, New Relic — но Prometheus является open-source и хорошо интегрируется с Kubernetes.

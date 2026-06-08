@@ -134,6 +134,17 @@ updates:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
 
+  - package-ecosystem: "docker"
+    directory: "/cmd/device-aggregator"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/device-aggregator)", include: "scope" }
+    labels: ["dependencies", "docker", "device-aggregator"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+
   # ═══════════════════════════════════════════════════════════════
   # 4. PYTHON (pip) — ML-сервисы
   # ═══════════════════════════════════════════════════════════════

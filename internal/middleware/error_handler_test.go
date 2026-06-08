@@ -39,9 +39,8 @@ func TestErrorHandler_LogsErrors(t *testing.T) {
 	assert.Equal(t, int64(http.StatusInternalServerError), logs[0].ContextMap()["status"])
 	assert.Equal(t, "/test", logs[0].ContextMap()["path"])
 	assert.Equal(t, "GET", logs[0].ContextMap()["method"])
-	// GetRequestID receives context.Context but tries to cast it to string,
-	// which fails — so correlation_id will be empty in the log
-	assert.Equal(t, "", logs[0].ContextMap()["correlation_id"])
+	// GetCorrelationID returns "unknown" when CorrelationIDKey is missing
+	assert.Equal(t, "unknown", logs[0].ContextMap()["correlationId"])
 }
 
 func TestErrorHandler_DoesNotLogSuccess(t *testing.T) {
@@ -142,9 +141,8 @@ func TestJSONError_ForbiddenConvertedToNotFound(t *testing.T) {
 	assert.Equal(t, "Не найдено", errObj["message"])
 
 	assert.NotEmpty(t, body["timestamp"])
-	// GetRequestID receives context.Context but tries to cast to string,
-	// which fails — so correlationId will be empty
-	assert.Equal(t, "", body["correlationId"])
+	// GetCorrelationID returns "unknown" when CorrelationIDKey is missing
+	assert.Equal(t, "unknown", body["correlationId"])
 }
 
 func TestJSONError_NotFound(t *testing.T) {
@@ -236,40 +234,24 @@ func TestJSONError_EmptyCorrelationId(t *testing.T) {
 	err := json.Unmarshal(rr.Body.Bytes(), &body)
 	require.NoError(t, err)
 
-	assert.Equal(t, "", body["correlationId"])
+	assert.Equal(t, "unknown", body["correlationId"])
 }
 
-func TestGetRequestID(t *testing.T) {
-	t.Run("returns string when context is string", func(t *testing.T) {
-		result := GetRequestID("test-id-123")
-		assert.Equal(t, "test-id-123", result)
+func TestGetCorrelationID(t *testing.T) {
+	t.Run("returns value when CorrelationIDKey is set", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
+		result := GetCorrelationID(ctx)
+		assert.Equal(t, "corr-123", result)
 	})
 
-	t.Run("returns empty string when context is nil", func(t *testing.T) {
-		result := GetRequestID(nil)
-		assert.Equal(t, "", result)
+	t.Run("returns unknown when CorrelationIDKey is missing", func(t *testing.T) {
+		result := GetCorrelationID(context.Background())
+		assert.Equal(t, "unknown", result)
 	})
 
-	t.Run("returns empty string when context is not string", func(t *testing.T) {
-		result := GetRequestID(12345)
-		assert.Equal(t, "", result)
-	})
-
-	t.Run("returns empty string when context is context.Context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), RequestIDKey, "some-id")
-		result := GetRequestID(ctx)
-		// GetRequestID expects a string, not a context.Context
-		assert.Equal(t, "", result)
-	})
-
-	t.Run("returns empty string for map", func(t *testing.T) {
-		result := GetRequestID(map[string]string{"key": "value"})
-		assert.Equal(t, "", result)
-	})
-
-	t.Run("returns string for empty string", func(t *testing.T) {
-		result := GetRequestID("")
-		assert.Equal(t, "", result)
+	t.Run("returns unknown when context is nil", func(t *testing.T) {
+		result := GetCorrelationID(context.TODO())
+		assert.Equal(t, "unknown", result)
 	})
 }
 

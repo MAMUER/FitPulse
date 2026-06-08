@@ -35,7 +35,11 @@ from datetime import datetime
 from pathlib import Path
 import keras
 from keras import layers, models
-
+# === MLflow setup ===
+import mlflow
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+mlflow.set_experiment("fitpulse-generator")
+# === конец ===
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -99,58 +103,90 @@ class TrainingPlanGAN:
         return plans
     
     def train(self, epochs=500, batch_size=64, save_interval=50):
-        print("=" * 60)
-        print("STARTING GAN TRAINING")
-        print("=" * 60)
-        
-        print("\n[1/4] Loading training data...")
-        real_plans = self.load_real_data()
-        print(f"Loaded {len(real_plans)} training plans with {real_plans.shape[1]} features")
-        
-        valid = np.ones((batch_size, 1))
-        fake = np.zeros((batch_size, 1))
-        history = {'d_loss': [], 'g_loss': [], 'd_acc': []}
-        
-        print("\n[2/4] Training GAN...")
-        for epoch in range(epochs):
-            idx = np.random.randint(0, real_plans.shape[0], batch_size)
-            real_batch = real_plans[idx]
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-            generated = self.generator.predict(noise, verbose=0)
+        with mlflow.start_run(run_name=f"gan_v1_{datetime.now().strftime('%Y%m%d_%H%M')}") as run:
+            mlflow.log_params({
+                "latent_dim": self.latent_dim,
+                "plan_dim": self.plan_dim,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "optimizer": "Adam",
+                "learning_rate": 0.0002,
+                "beta_1": 0.5,
+            })
+            # === конец setup ===
             
-            d_loss_real = self.discriminator.train_on_batch(real_batch, valid)
-            d_loss_fake = self.discriminator.train_on_batch(generated, fake)
-            d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
-            d_acc = 0.5 * (d_loss_real[1] + d_loss_fake[1])
+            print("=" * 60)
+            print("STARTING GAN TRAINING")
+            print("=" * 60)
             
-            self.discriminator.trainable = False
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-            g_loss = self.discriminator.train_on_batch(self.generator.predict(noise, verbose=0), valid)
-            self.discriminator.trainable = True
+            print("\n[1/4] Loading training data...")
+            real_plans = self.load_real_data()
+            print(f"Loaded {len(real_plans)} training plans with {real_plans.shape[1]} features")
             
-            history['d_loss'].append(float(d_loss))
-            history['g_loss'].append(float(g_loss[0]) if isinstance(g_loss, list) else float(g_loss))
-            history['d_acc'].append(float(d_acc))
+            mlflow.log_param("training_samples", len(real_plans))
+            mlflow.log_param("feature_dim", real_plans.shape[1])
             
-            if epoch % save_interval == 0:
-                print(f"Epoch {epoch}: D loss: {history['d_loss'][-1]:.4f}, "
-                      f"G loss: {history['g_loss'][-1]:.4f}, D acc: {history['d_acc'][-1]:.4f}")
-        
-        print("\n[3/4] Saving models...")
-        model_dir = SCRIPT_DIR / "models"
-        os.makedirs(model_dir, exist_ok=True)
-        self.generator.save(str(model_dir / "generator.keras"))
-        print("Generator saved to models/generator.keras")
-        
-        history['timestamp'] = datetime.now().isoformat()
-        history['plan_dim'] = self.plan_dim
-        
-        with open(model_dir / "gan_training_history.json", 'w', encoding='utf-8') as f:
-            json.dump(history, f, indent=2, ensure_ascii=False)
-        
-        print("\n[4/4] Training Complete!")
-        print("=" * 60)
-        return self.generator, history
+            valid = np.ones((batch_size, 1))
+            fake = np.zeros((batch_size, 1))
+            history = {'d_loss': [], 'g_loss': [], 'd_acc': []}
+            
+            print("\n[2/4] Training GAN...")
+            for epoch in range(epochs):
+                idx = np.random.randint(0, real_plans.shape[0], batch_size)
+                real_batch = real_plans[idx]
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                generated = self.generator.predict(noise, verbose=0)
+                
+                d_loss_real = self.discriminator.train_on_batch(real_batch, valid)
+                d_loss_fake = self.discriminator.train_on_batch(generated, fake)
+                d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
+                d_acc = 0.5 * (d_loss_real[1] + d_loss_fake[1])
+                
+                self.discriminator.trainable = False
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                g_loss = self.discriminator.train_on_batch(self.generator.predict(noise, verbose=0), valid)
+                self.discriminator.trainable = True
+                
+                history['d_loss'].append(float(d_loss))
+                history['g_loss'].append(float(g_loss[0]) if isinstance(g_loss, list) else float(g_loss))
+                history['d_acc'].append(float(d_acc))
+                
+                # Логируем метрики каждые 10 эпох
+                if epoch % 10 == 0:
+                    mlflow.log_metrics({
+                        "d_loss": d_loss,
+                        "g_loss": history['g_loss'][-1],
+                        "d_accuracy": d_acc,
+                    }, step=epoch)
+                
+                if epoch % save_interval == 0:
+                    print(f"Epoch {epoch}: D loss: {history['d_loss'][-1]:.4f}, "
+                          f"G loss: {history['g_loss'][-1]:.4f}, D acc: {history['d_acc'][-1]:.4f}")
+            
+            print("\n[3/4] Saving models...")
+            model_dir = SCRIPT_DIR / "models"
+            os.makedirs(model_dir, exist_ok=True)
+            
+            # Сохраняем в MLflow
+            mlflow.keras.log_model(self.generator, artifact_path="generator")
+            
+            # Локально тоже
+            self.generator.save(str(model_dir / "generator.keras"))
+            mlflow.log_artifact(str(model_dir / "generator.keras"), "models")
+            
+            history['timestamp'] = datetime.now().isoformat()
+            history['run_id'] = run.info.run_id
+            
+            history_path = model_dir / "gan_training_history.json"
+            with open(history_path, 'w', encoding='utf-8') as f:
+                json.dump(history, f, indent=2, ensure_ascii=False)
+            mlflow.log_artifact(str(history_path), "metadata")
+            
+            print("\n[4/4] Training Complete!")
+            print("=" * 60)
+            print(f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}")
+            
+            return self.generator, history
     
     def generate_plan(self, seed=None):
         """
