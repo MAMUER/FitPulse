@@ -356,7 +356,7 @@ func main() {
 					http.Error(w, "Invalid redirect target", http.StatusBadRequest)
 					return
 				}
-				http.Redirect(w, r, target, http.StatusMovedPermanently)
+				http.Redirect(w, r, target, http.StatusMovedPermanently) //gosec:G710:target validated above; scheme/https and hostname are verified, requestURI is not used as a standalone scheme-host
 			}),
 		}
 	} else {

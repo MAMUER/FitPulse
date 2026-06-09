@@ -1107,11 +1107,15 @@ jobs:
         run: |
           echo "Running seed-admin job..."
           
-          # === ПРЯМОЕ ПРИМЕНЕНИЕ ИЗ YAML (надёжно) ===
+          # === 1. Удаляем старый Job, если есть (решает "field is immutable") ===
+          echo "-> Cleaning up existing seed-admin job..."
+          kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true --wait=true || true
+          
+          # === 2. Применяем Job из YAML ===
           echo "-> Applying seed-admin Job from YAML..."
           kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production
           
-          # Ждём завершения
+          # === 3. Ждём завершения ===
           echo "-> Waiting for job to complete (timeout: 180s)..."
           if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=180s; then
             echo "✅ Admin user seeded successfully"
@@ -1131,7 +1135,7 @@ jobs:
             fi
           fi
           
-          # Чистим завершённый Job
+          # === 4. Чистим завершённый Job ===
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true || true
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
