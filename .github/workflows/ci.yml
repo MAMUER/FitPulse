@@ -1101,7 +1101,19 @@ jobs:
           echo "Verifying tables were created..."
           kubectl exec -n fitness-platform-production postgres-0 -- \
             psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
-          
+      
+      - name: Wait for postgres-service to be fully ready
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Waiting for postgres-service endpoint..."
+          for i in {1..20}; do
+            if kubectl get endpoints postgres-service -n fitness-platform-production -o jsonpath='{.subsets[*].addresses[*].ip}' | grep -q .; then
+              echo "✅ postgres-service has endpoints"
+            break
+            fi
+          echo "Attempt $i/20: waiting for postgres-service endpoints..."
+          sleep 5
+          done
       - name: Run seed-admin job (create admin user)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
