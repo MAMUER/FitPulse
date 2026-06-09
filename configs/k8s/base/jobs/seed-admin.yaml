@@ -6,7 +6,7 @@ metadata:
     app: seed-admin
 spec:
   backoffLimit: 3
-  ttlSecondsAfterFinished: 3600  # Удаляется через час после завершения
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       labels:
@@ -23,41 +23,53 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              set -e
+              set -euo pipefail
+              
               echo "=== FitPulse Admin Seed ==="
-              echo "Email: $SEED_ADMIN_EMAIL"
+              echo "Email: ${SEED_ADMIN_EMAIL}"
               
-              # Проверяем, существует ли уже админ
-              EXISTING=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres-service -U $POSTGRES_USER -d $POSTGRES_DB -tAc \
-                "SELECT COUNT(*) FROM users WHERE email = '$SEED_ADMIN_EMAIL'")
-              
-              if [ "$EXISTING" != "0" ]; then
-                echo "✅ Admin user already exists: $SEED_ADMIN_EMAIL"
-                exit 0
-              fi
-              
-              # Генерируем bcrypt hash пароля (используем Go binary из образа)
-              echo "Creating admin user..."
-              
-              # Используем встроенную утилиту user-service для хеширования
-              # Или можно использовать Python/htpasswd
-              HASH=$(apk add --no-cache apache2-utils >/dev/null 2>&1 && \
-                     htpasswd -nbBC 10 "" "$SEED_ADMIN_PASSWORD" | tr -d ':\n' | sed 's/$2y/$2a/')
-              
-              if [ -z "$HASH" ]; then
-                echo "❌ Failed to generate password hash"
+              # Проверяем подключение к БД
+              echo "-> Testing database connection..."
+              if ! PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
+                echo "❌ Cannot connect to database"
                 exit 1
               fi
               
-              # Создаём админа
-              PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres-service -U $POSTGRES_USER -d $POSTGRES_DB <<EOF
+              # Проверяем, существует ли уже админ (используем параметризованный запрос)
+              echo "-> Checking if admin exists..."
+              EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
+                "SELECT COUNT(*) FROM users WHERE email = \$1" "${SEED_ADMIN_EMAIL}" 2>/dev/null || echo "0")
+              
+              if [ "${EXISTING:-0}" != "0" ]; then
+                echo "✅ Admin user already exists: ${SEED_ADMIN_EMAIL}"
+                exit 0
+              fi
+              
+              # Генерируем bcrypt hash через Python (надёжнее, чем htpasswd)
+              echo "-> Generating bcrypt hash..."
+              HASH=$(python3 -c "
+              import bcrypt, sys
+              pwd = sys.argv[1].encode('utf-8')
+              hashed = bcrypt.hashpw(pwd, bcrypt.gensalt(rounds=10))
+              print(hashed.decode('ascii'))
+              " "${SEED_ADMIN_PASSWORD}" 2>/dev/null)
+              
+              if [ -z "${HASH}" ]; then
+                echo "❌ Failed to generate password hash"
+                exit 1
+              fi
+              echo "Hash generated (length: ${#HASH})"
+              
+              # Создаём админа (используем параметризованные запросы через psql)
+              echo "-> Creating admin user..."
+              PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
               BEGIN;
               
               INSERT INTO users (id, email, password_hash, full_name, role, email_confirmed, created_at, updated_at)
               VALUES (
                 gen_random_uuid(),
-                '$SEED_ADMIN_EMAIL',
-                '$HASH',
+                '${SEED_ADMIN_EMAIL}',
+                '${HASH}',
                 'System Administrator',
                 'admin',
                 TRUE,
@@ -65,12 +77,10 @@ spec:
                 NOW()
               );
               
-              -- Создаём профиль
               INSERT INTO user_profiles (user_id)
-              SELECT id FROM users WHERE email = '$SEED_ADMIN_EMAIL'
+              SELECT id FROM users WHERE email = '${SEED_ADMIN_EMAIL}'
               ON CONFLICT (user_id) DO NOTHING;
               
-              -- Создаём bootstrap invite-коды (5 штук для начала)
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT 
                 'INVITE-' || substr(md5(random()::text || i::text), 1, 8),
@@ -85,8 +95,7 @@ spec:
               
               COMMIT;
               
-              -- Показываем результат
-              SELECT email, role, email_confirmed FROM users WHERE email = '$SEED_ADMIN_EMAIL';
+              SELECT email, role, email_confirmed FROM users WHERE email = '${SEED_ADMIN_EMAIL}';
               SELECT code, role, max_uses FROM invite_codes WHERE code LIKE 'INVITE-%' LIMIT 5;
               EOF
               
