@@ -16,7 +16,6 @@ spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
-      # Add DNS config to ensure cluster DNS resolution works reliably
       dnsPolicy: ClusterFirst
       dnsConfig:
         options:
@@ -25,8 +24,8 @@ spec:
           - name: single-request-reopen
       containers:
         - name: seed-admin
-          # Use image tag from environment (set by CI via kustomize or direct substitution)
-          image: ghcr.io/mamuer/project/user-service:${IMAGE_TAG:-latest}
+          # FIX: Использовать фиксированный тег вместо ${IMAGE_TAG:-latest}
+          image: ghcr.io/mamuer/project/user-service:latest
           imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
@@ -181,7 +180,6 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: SEED_ADMIN_PASSWORD
-            # Add explicit DB connection params for flexibility
             - name: DB_HOST
               value: "postgres-service"
             - name: DB_PORT
