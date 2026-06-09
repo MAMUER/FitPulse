@@ -1137,7 +1137,7 @@ jobs:
             POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
             if [ -n "$POD_NAME" ]; then
               echo "✅ Pod found: $POD_NAME"
-              echo "-> Pod status: $(kubectl get pod $POD_NAME -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo 'unknown')"
+              echo "-> Pod status: $(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo 'unknown')"
               break
             fi
             echo "  Attempt $i/30: waiting for pod... (5s)"

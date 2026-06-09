@@ -146,7 +146,6 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		g.log.Error("Login failed", zap.Error(err), zap.String("email", req.Email))
-		// Требование #3: Обработка ошибки неподтверждённого email
 		if httpCode == http.StatusUnauthorized && strings.Contains(errMsg, "Email not confirmed") {
 			http.Error(w, "Email не подтверждён. Проверьте вашу почту.", httpCode)
 			return
@@ -155,8 +154,6 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Требование #11: HMAC-SHA256 подпись критического ответа
-	// SignAndSendJSON сериализует → подписывает → отправляет одни и те же байты
 	loginResp := map[string]interface{}{
 		"status":       "ok",
 		"access_token": resp.GetAccessToken(),
@@ -170,22 +167,14 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logoutHandler — принудительная инвалидация сессии
-// Требование #1: Явное указание браузеру на удаление cookies (session, refresh_token)
-// Требование #1: Серверная инвалидация сессии в Redis
-// Требование #7: return после отправки заголовков
 func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	// Требование #1: Получаем userID из контекста (после AuthMiddleware)
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if ok && g.sessionStore != nil {
-		// Требование #1: Инвалидация серверной сессии в Redis
 		if err := g.sessionStore.InvalidateUserSession(r.Context(), userID); err != nil {
 			g.log.Warn("Failed to invalidate server session", zap.String("user_id", userID), zap.Error(err))
-			// Не прерываем — всё равно удаляем cookies на клиенте
 		}
 	}
 
-	// Требование #1: Заголовки для удаления cookies на клиенте
 	logoutHeaders := middleware.LogoutHeaders()
 	for key, values := range logoutHeaders {
 		for _, value := range values {
@@ -198,13 +187,10 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"}); err != nil {
 		g.log.Error("Failed to encode logout response", zap.Error(err))
-		// Требование #7: После ошибки — возврат без дальнейшего выполнения
 		return
 	}
-	// Требование #7: Немедленное прекращение выполнения
 }
 
-// confirmEmailHandler handles email confirmation via token.
 func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Token string `json:"token"`
@@ -239,8 +225,6 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// emailConfirmPageHandler serves the email confirmation page from a template file.
-// The user lands here when clicking the link in the verification email.
 func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
