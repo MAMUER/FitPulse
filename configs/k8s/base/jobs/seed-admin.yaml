@@ -16,9 +16,17 @@ spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
+      # Add DNS config to ensure cluster DNS resolution works reliably
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+          - name: single-request-reopen
       containers:
         - name: seed-admin
-          image: ghcr.io/mamuer/project/user-service:latest
+          # Use image tag from environment (set by CI via kustomize or direct substitution)
+          image: ghcr.io/mamuer/project/user-service:${IMAGE_TAG:-latest}
           imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
@@ -26,18 +34,57 @@ spec:
               set -euo pipefail
               
               echo "=== FitPulse Admin Seed ==="
+              echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               echo "Email: ${SEED_ADMIN_EMAIL}"
+              echo "DB Host: ${DB_HOST:-postgres-service}"
+              echo "DB Port: ${DB_PORT:-5432}"
+              echo "DB Name: ${POSTGRES_DB}"
               
-              # Проверяем подключение к БД
-              echo "-> Testing database connection..."
-              if ! PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
-                echo "❌ Cannot connect to database"
+              # === Wait for database connectivity with retry ===
+              echo "-> Waiting for database connectivity..."
+              MAX_RETRIES=30
+              RETRY_DELAY=5
+              for i in $(seq 1 $MAX_RETRIES); do
+                echo "  Attempt $i/$MAX_RETRIES: Testing connection to ${DB_HOST:-postgres-service}:${DB_PORT:-5432}..."
+                
+                # Test 1: DNS resolution
+                if ! nslookup "${DB_HOST:-postgres-service}" >/dev/null 2>&1; then
+                  echo "  ⚠️  DNS resolution failed, waiting..."
+                  sleep $RETRY_DELAY
+                  continue
+                fi
+                
+                # Test 2: TCP connectivity
+                if ! timeout 3 bash -c "</dev/tcp/${DB_HOST:-postgres-service}/${DB_PORT:-5432}" 2>/dev/null; then
+                  echo "  ⚠️  TCP connection failed, waiting..."
+                  sleep $RETRY_DELAY
+                  continue
+                fi
+                
+                # Test 3: PostgreSQL ready check
+                if PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
+                  echo "✅ Database connection successful"
+                  break
+                else
+                  echo "  ⚠️  PostgreSQL not ready yet, waiting..."
+                  sleep $RETRY_DELAY
+                  continue
+                fi
+              done
+              
+              # Final connection test
+              if ! PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
+                echo "❌ Cannot connect to database after $MAX_RETRIES attempts"
+                echo "-> Debug: nslookup ${DB_HOST:-postgres-service}"
+                nslookup "${DB_HOST:-postgres-service}" 2>&1 || true
+                echo "-> Debug: psql connection attempt with verbose output:"
+                PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" -v ON_ERROR_STOP=1 2>&1 || true
                 exit 1
               fi
               
               # Проверяем, существует ли уже админ (используем параметризованный запрос)
               echo "-> Checking if admin exists..."
-              EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
+              EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
                 "SELECT COUNT(*) FROM users WHERE email = \$1" "${SEED_ADMIN_EMAIL}" 2>/dev/null || echo "0")
               
               if [ "${EXISTING:-0}" != "0" ]; then
@@ -47,22 +94,30 @@ spec:
               
               # Генерируем bcrypt hash через Python (надёжнее, чем htpasswd)
               echo "-> Generating bcrypt hash..."
+              if ! command -v python3 &>/dev/null; then
+                echo "❌ python3 not found in container"
+                exit 1
+              fi
+              
               HASH=$(python3 -c "
               import bcrypt, sys
               pwd = sys.argv[1].encode('utf-8')
               hashed = bcrypt.hashpw(pwd, bcrypt.gensalt(rounds=10))
               print(hashed.decode('ascii'))
-              " "${SEED_ADMIN_PASSWORD}" 2>/dev/null)
+              " "${SEED_ADMIN_PASSWORD}" 2>/dev/null) || {
+                echo "❌ Failed to generate password hash (python/bcrypt error)"
+                exit 1
+              }
               
               if [ -z "${HASH}" ]; then
-                echo "❌ Failed to generate password hash"
+                echo "❌ Failed to generate password hash (empty result)"
                 exit 1
               fi
               echo "Hash generated (length: ${#HASH})"
               
               # Создаём админа (используем параметризованные запросы через psql)
               echo "-> Creating admin user..."
-              PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
+              PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
               BEGIN;
               
               INSERT INTO users (id, email, password_hash, full_name, role, email_confirmed, created_at, updated_at)
@@ -126,6 +181,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: SEED_ADMIN_PASSWORD
+            # Add explicit DB connection params for flexibility
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
           resources:
             requests:
               memory: "64Mi"
