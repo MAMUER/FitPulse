@@ -1107,12 +1107,12 @@ jobs:
         run: |
           echo "Running seed-admin job..."
           
-          # === Вариант 1: Создаём Job напрямую из YAML (надёжнее) ===
-          echo "-> Applying seed-admin Job definition..."
+          # === ПРЯМОЕ ПРИМЕНЕНИЕ ИЗ YAML (надёжно) ===
+          echo "-> Applying seed-admin Job from YAML..."
           kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production
           
-          # Ждём завершения (с таймаутом)
-          echo "-> Waiting for seed-admin job to complete..."
+          # Ждём завершения
+          echo "-> Waiting for job to complete (timeout: 180s)..."
           if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=180s; then
             echo "✅ Admin user seeded successfully"
             kubectl logs job/seed-admin -n fitness-platform-production
@@ -1120,9 +1120,10 @@ jobs:
             echo "⚠️ Job timed out or failed, checking logs..."
             kubectl logs job/seed-admin -n fitness-platform-production || true
             
-            # Проверяем, может админ уже существует (идемпотентность)
+            # Идемпотентность: если админ уже есть — это ОК
             if kubectl exec -n fitness-platform-production postgres-0 -- \
-              psql -U postgres -d fitness -tAc "SELECT COUNT(*) FROM users WHERE email='${{ secrets.SEED_ADMIN_EMAIL }}'" | grep -q "1"; then
+              psql -U postgres -d fitness -tAc \
+              "SELECT COUNT(*) FROM users WHERE email='${{ secrets.SEED_ADMIN_EMAIL }}'" 2>/dev/null | grep -q "1"; then
               echo "✅ Admin user already exists (idempotent check passed)"
             else
               echo "❌ seed-admin job failed and admin not found"
@@ -1130,7 +1131,7 @@ jobs:
             fi
           fi
           
-          # Очищаем завершённый Job
+          # Чистим завершённый Job
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true || true
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'

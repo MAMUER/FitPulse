@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -341,9 +342,19 @@ func main() {
 						return
 					}
 				}
+				requestURI := r.URL.RequestURI()
+				if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
+					http.Error(w, "Invalid request URI", http.StatusBadRequest)
+					return
+				}
 				target := "https://" + host + r.URL.RequestURI()
 				if port != "" && port != "80" && port != "443" {
 					target = "https://" + host + ":8443" + r.URL.RequestURI()
+				}
+				parsed, err := url.Parse(target)
+				if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
+					http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+					return
 				}
 				http.Redirect(w, r, target, http.StatusMovedPermanently)
 			}),
