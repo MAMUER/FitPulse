@@ -50,22 +50,20 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "200m"
+          # postgres.yaml — обновить секции probes
           livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - pg_isready -U "$$POSTGRES_USER"
+            tcpSocket:  # ← заменить exec на tcpSocket для надёжности
+              port: 5432
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - pg_isready -U "$$POSTGRES_USER"
-            initialDelaySeconds: 5
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 5
   volumeClaimTemplates:
     - metadata:
         name: postgres-storage

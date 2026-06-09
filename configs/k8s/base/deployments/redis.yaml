@@ -72,18 +72,13 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping
+            tcpSocket:  # ← tcp надежнее, чем exec с паролем
+              port: 6379
             initialDelaySeconds: 15
             periodSeconds: 10
+            timeoutSeconds: 5
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping
+            tcpSocket:
+              port: 6379
             initialDelaySeconds: 5
             periodSeconds: 5

@@ -96,8 +96,11 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              httpHeaders:          # ← добавить заголовки если нужно
+              - name: User-Agent
+                value: kube-probe/1.26
+            initialDelaySeconds: 30  # ← увеличить, чтобы дождались старта зависимостей
+            periodSeconds: 10
           resources:
             requests:
               memory: "64Mi"
