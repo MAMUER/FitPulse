@@ -1107,7 +1107,7 @@ jobs:
         run: |
           echo "Running seed-admin job..."
           
-          # === 1. Удаляем старый Job, если есть (решает "field is immutable") ===
+          # === 1. Удаляем старый Job, если есть ===
           echo "-> Cleaning up existing seed-admin job..."
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true --wait=true || true
           
@@ -1115,14 +1115,41 @@ jobs:
           echo "-> Applying seed-admin Job from YAML..."
           kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production
           
-          # === 3. Ждём завершения ===
-          echo "-> Waiting for job to complete (timeout: 180s)..."
-          if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=180s; then
+          # === 3. Диагностика: ждём, пока Pod появится ===
+          echo "-> Waiting for seed-admin pod to be scheduled..."
+          for i in {1..30}; do
+            POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+            if [ -n "$POD_NAME" ]; then
+              echo "✅ Pod found: $POD_NAME"
+              break
+            fi
+            echo "  Attempt $i/30: waiting for pod..."
+            sleep 5
+          done
+          
+          # === 4. Ждём завершения с увеличенным таймаутом ===
+          echo "-> Waiting for job to complete (timeout: 300s)..."
+          if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=300s; then
             echo "✅ Admin user seeded successfully"
             kubectl logs job/seed-admin -n fitness-platform-production
           else
-            echo "⚠️ Job timed out or failed, checking logs..."
-            kubectl logs job/seed-admin -n fitness-platform-production || true
+            echo "⚠️ Job timed out or failed, detailed diagnostics..."
+            
+            # Показываем статус пода
+            POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
+            echo "Pod name: $POD_NAME"
+            
+            if [ "$POD_NAME" != "unknown" ] && [ -n "$POD_NAME" ]; then
+              echo "→ Pod describe:"
+              kubectl describe pod "$POD_NAME" -n fitness-platform-production || true
+              echo "→ Pod logs:"
+              kubectl logs "$POD_NAME" -n fitness-platform-production || true
+              echo "→ Pod events:"
+              kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" || true
+            else
+              echo "→ No seed-admin pod found, checking all events:"
+              kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | tail -20 || true
+            fi
             
             # Идемпотентность: если админ уже есть — это ОК
             if kubectl exec -n fitness-platform-production postgres-0 -- \
@@ -1135,7 +1162,7 @@ jobs:
             fi
           fi
           
-          # === 4. Чистим завершённый Job ===
+          # === 5. Чистим завершённый Job ===
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true || true
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
