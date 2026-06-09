@@ -342,21 +342,22 @@ func main() {
 						return
 					}
 				}
-				requestURI := r.URL.RequestURI()
-				if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
-					http.Error(w, "Invalid request URI", http.StatusBadRequest)
-					return
-				}
-				target := "https://" + host + r.URL.RequestURI()
-				if port != "" && port != "80" && port != "443" {
-					target = "https://" + host + ":8443" + r.URL.RequestURI()
-				}
-				parsed, err := url.Parse(target)
-				if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
-					http.Error(w, "Invalid redirect target", http.StatusBadRequest)
-					return
-				}
-				http.Redirect(w, r, target, http.StatusMovedPermanently) //nolint:gosec:G710 - target is rebuilt from a validated host and path only; scheme is forced to https and hostname is verified
+			requestURI := r.URL.RequestURI()
+			if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
+				http.Error(w, "Invalid request URI", http.StatusBadRequest)
+				return
+			}
+			redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
+			if port != "" && port != "80" && port != "443" {
+				redirectURL.Host = host + ":8443"
+			}
+			target := redirectURL.String()
+			parsed, err := url.Parse(target)
+			if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
+				http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+				return
+			}
+			http.Redirect(w, r, target, http.StatusMovedPermanently)
 			}),
 		}
 	} else {
