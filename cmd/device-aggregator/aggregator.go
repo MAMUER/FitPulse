@@ -66,7 +66,7 @@ func (a *aggregator) fitbitAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, authURL, http.StatusFound) //gosec:G710:authURL validated above; scheme is forced to https, hostname is restricted to fitbit.com or duckdns.org
+	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices/auth/fitbit", http.StatusFound)
 }
 
 // fitbitCallbackHandler handles the OAuth callback from Fitbit.
