@@ -242,6 +242,7 @@ jobs:
         with:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run govulncheck
         run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
       - name: Run Trivy config scan
@@ -267,6 +268,7 @@ jobs:
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   secrets-scan:
     name: Secrets Scanning
