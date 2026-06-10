@@ -474,7 +474,7 @@ jobs:
             set -x
             echo "-> Stopping k3s..."
             systemctl stop k3s 2>/dev/null || true
-            pkill -9 -f "k3s server" 2>/dev/null || true
+            pkill -9 -f "k3s server" 2>/<think>/null || true
             echo "-> Removing k3s files..."
             rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
             rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
@@ -868,6 +868,13 @@ jobs:
           fetch-depth: 0
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@v8
         with:
@@ -1240,12 +1247,15 @@ jobs:
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "-> Pruning unused Docker images and containers..."
-          docker system prune -f --volumes || true
-          echo "-> Pruning unused k3s (containerd) images..."
-          k3s crictl rmi --prune || true
-          echo "-> Current disk usage:"
-          df -h /
+          # shellcheck disable=SC2016
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "-> Pruning unused Docker images and containers..."
+            docker system prune -f --volumes || true
+            echo "-> Pruning unused k3s (containerd) images..."
+            k3s crictl rmi --prune || true
+            echo "-> Current disk usage:"
+            df -h /
+          '
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
