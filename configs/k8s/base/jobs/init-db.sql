@@ -1,10 +1,25 @@
 -- V1__create_extensions.sql
--- V1__create_extensions.sql
 -- Create necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- V2__create_users_and_auth.sql
+-- Cleanup orphaned composite types that prevent CREATE TABLE IF NOT EXISTS
+-- This resolves: ERROR: duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT t.typname 
+              FROM pg_type t 
+              JOIN pg_namespace n ON n.oid = t.typnamespace 
+              WHERE n.nspname = 'public' 
+                AND t.typtype = 'c' 
+                AND NOT EXISTS (SELECT 1 FROM pg_class c WHERE c.relname = t.typname AND c.relkind IN ('r', 'p')))
+    LOOP
+        EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(r.typname) || ' CASCADE';
+    END LOOP;
+END $$;
+
 -- V2__create_users_and_auth.sql
 -- Core users and authentication tables
 -- Users table
@@ -64,7 +79,6 @@ CREATE INDEX IF NOT EXISTS idx_invite_code_uses_code ON invite_code_uses(invite_
 CREATE INDEX IF NOT EXISTS idx_invite_code_uses_user ON invite_code_uses(user_id);
 
 -- V3__create_user_profiles.sql
--- V3__create_user_profiles.sql
 -- User profiles and related data
 -- User profiles
 CREATE TABLE IF NOT EXISTS user_profiles (
@@ -97,7 +111,6 @@ CREATE TABLE IF NOT EXISTS user_contraindications (
 );
 
 -- V4__create_devices.sql
--- V4__create_devices.sql
 -- Devices registered by device-connector
 -- Devices
 CREATE TABLE IF NOT EXISTS devices (
@@ -114,7 +127,6 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 
 -- V5__create_biometric_data.sql
--- V4__create_biometric_data.sql
 -- Biometric data and device ingestion
 -- Biometric data
 CREATE TABLE IF NOT EXISTS biometric_data (
@@ -142,7 +154,6 @@ CREATE TABLE IF NOT EXISTS device_ingest_log (
 
 CREATE INDEX IF NOT EXISTS idx_ingest_log_device_time ON device_ingest_log(device_id, timestamp);
 
--- V6__create_training_plans.sql
 -- V6__create_training_plans.sql
 -- Training plans and related data
 -- Training plans
@@ -226,7 +237,6 @@ CREATE INDEX IF NOT EXISTS idx_workout_completions_user ON workout_completions(u
 CREATE INDEX IF NOT EXISTS idx_workout_completions_plan ON workout_completions(training_plan_id);
 
 -- V7__create_achievements.sql
--- V7__create_achievements.sql
 -- Achievements system
 -- Achievements
 CREATE TABLE IF NOT EXISTS achievements (
@@ -255,7 +265,6 @@ INSERT INTO achievements (name, description, criteria) VALUES
     ('Мастер спорта', '1000 завершенных тренировок', '{"type": "workout_count", "threshold": 1000}')
 ON CONFLICT DO NOTHING;
 
--- V8__create_views.sql
 -- V8__create_views.sql
 -- Views for backward compatibility and derived data
 -- Invite code statistics (replaces invite_codes.used_count)
@@ -293,7 +302,6 @@ LEFT JOIN user_goals ug ON ug.user_id = up.user_id
 GROUP BY up.user_id, up.age, up.gender, up.height_cm, up.weight_kg, up.fitness_level,
          up.nutrition, up.sleep_hours, up.created_at, up.updated_at;
 
--- V9__create_functions.sql
 -- V9__create_functions.sql
 -- Functions for invite code management
 -- Create a new invite code
@@ -391,7 +399,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- V10__add_classification_class_column.sql
 -- V10__add_classification_class_column.sql
 -- Add classification_class column to training_plans (was missing from V6)
 ALTER TABLE training_plans
