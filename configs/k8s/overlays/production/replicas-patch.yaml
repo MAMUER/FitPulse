@@ -62,17 +62,23 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: JWT_SECRET
+            # FIX: Добавляем пароль для Redis
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 5
           resources:
             requests:
@@ -178,3 +184,25 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
+---
+# FIX: Уменьшаем реплики до 1 для экономии RAM на 2GB VPS
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biometric-service
+  spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training-service
+  spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: device-connector
+  spec:
+  replicas: 1

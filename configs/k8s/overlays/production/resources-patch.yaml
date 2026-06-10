@@ -22,10 +22,10 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 64Mi
+              memory: 32Mi
             limits:
               cpu: 100m
-              memory: 128Mi
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -61,7 +61,7 @@ spec:
               memory: 64Mi
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 128Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -92,7 +92,7 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
+              memory: 64Mi
             limits:
               cpu: 100m
               memory: 128Mi
@@ -126,7 +126,7 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
+              memory: 64Mi
             limits:
               cpu: 100m
               memory: 128Mi
@@ -160,7 +160,7 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
+              memory: 64Mi
             limits:
               cpu: 100m
               memory: 128Mi
@@ -194,7 +194,7 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
+              memory: 64Mi
             limits:
               cpu: 100m
               memory: 128Mi
@@ -204,6 +204,7 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
 ---
+# FIX: Уменьшаем requests для ML-сервисов, чтобы они поместились на 2GB VPS
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -227,11 +228,11 @@ spec:
         - name: ml-classifier
           resources:
             requests:
-              cpu: 200m
-              memory: 1Gi
+              cpu: 100m
+              memory: 256Mi
             limits:
-              cpu: "1"
-              memory: 2Gi
+              cpu: 500m
+              memory: 768Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -261,11 +262,11 @@ spec:
         - name: ml-generator
           resources:
             requests:
-              cpu: 200m
-              memory: 1Gi
+              cpu: 100m
+              memory: 256Mi
             limits:
-              cpu: "1"
-              memory: 2Gi
+              cpu: 500m
+              memory: 768Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
