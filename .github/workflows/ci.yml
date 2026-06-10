@@ -209,7 +209,7 @@ jobs:
         run: GOBIN="$HOME/go/bin" go install github.com/google/osv-scanner/cmd/osv-scanner@latest
       - name: Run osv-scanner
         run: |
-          $HOME/go/bin/osv-scanner -r ./...
+          "$HOME/go/bin/osv-scanner" -r ./...
 
   security-scan:
     name: Security Scanning
@@ -444,47 +444,46 @@ jobs:
         run: chmod +x scripts/ssh-retry.sh
       - name: Clean up old k3s (safe)
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -x
-            echo "-> Stopping k3s..."
+            echo \"-> Stopping k3s...\"
             systemctl stop k3s 2>/dev/null || true
-            pkill -9 -f "k3s server" 2>/dev/null || true
-            echo "-> Removing k3s files..."
+            pkill -9 -f \"k3s server\" 2>/dev/null || true
+            echo \"-> Removing k3s files...\"
             rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
             rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
             systemctl daemon-reload
-            echo "Cleanup done"
-          '
+            echo \"Cleanup done\"
+          "
       - name: Fix DNS resolv.conf
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Fixing /etc/resolv.conf (remove duplicate nameservers)..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Fixing /etc/resolv.conf (remove duplicate nameservers)...\"
             if [ -f /etc/resolv.conf ]; then
               cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
               {
-                grep -v "^nameserver" /etc/resolv.conf || true
-                echo "nameserver 8.8.8.8"
-                echo "nameserver 1.1.1.1"
+                grep -v \"^nameserver\" /etc/resolv.conf || true
+                echo \"nameserver 8.8.8.8\"
+                echo \"nameserver 1.1.1.1\"
               } > /tmp/resolv.conf.new
               mv /tmp/resolv.conf.new /etc/resolv.conf
-              echo "New /etc/resolv.conf:"
+              echo \"New /etc/resolv.conf:\"
               cat /etc/resolv.conf
             fi
-          '
+          "
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          # FIX: Включаем metrics-server для работы HPA
           printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s
-            echo "Directory /etc/rancher/k3s created"
-          '
+            echo \"Directory /etc/rancher/k3s created\"
+          "
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "Config written:"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"Config written:\"
             cat /etc/rancher/k3s/config.yaml
-          '
+          "
       - name: Download k3s binary and install script on runner
         run: |
           echo "-> Downloading k3s binary and install script on GitHub runner..."
@@ -503,139 +502,139 @@ jobs:
           SSH_RETRY_MAX_ATTEMPTS: 5
           SSH_RETRY_DELAY_SECONDS: 15
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -euo pipefail
-            echo "-> Moving k3s binary to /usr/local/bin..."
+            echo \"-> Moving k3s binary to /usr/local/bin...\"
             mv /tmp/k3s /usr/local/bin/k3s
             chmod +x /usr/local/bin/k3s
-            echo "-> Running k3s install script with Docker runtime..."
+            echo \"-> Running k3s install script with Docker runtime...\"
             export INSTALL_K3S_SKIP_DOWNLOAD=true
             chmod +x /tmp/install.sh
             /tmp/install.sh server --write-kubeconfig-mode 644 --docker
-            echo "k3s installed successfully"
-          '
+            echo \"k3s installed successfully\"
+          "
       - name: Pre-pull system images via Docker
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Pre-pulling system images via Docker..."
-            docker pull rancher/mirrored-pause:3.6 || echo "pause image pull failed, continuing"
-            docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo "coredns pull failed"
-            docker pull rancher/mirrored-library-traefik:2.9.10 || echo "traefik pull failed"
-            docker pull rancher/local-path-provisioner:v0.0.26 || echo "local-path pull failed"
-            echo "Docker images:"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Pre-pulling system images via Docker...\"
+            docker pull rancher/mirrored-pause:3.6 || echo \"pause image pull failed, continuing\"
+            docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo \"coredns pull failed\"
+            docker pull rancher/mirrored-library-traefik:2.9.10 || echo \"traefik pull failed\"
+            docker pull rancher/local-path-provisioner:v0.0.26 || echo \"local-path pull failed\"
+            echo \"Docker images:\"
             docker images | head -10
-          '
+          "
       - name: Start and verify k3s
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Starting k3s..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Starting k3s...\"
             systemctl daemon-reload
             systemctl enable --now k3s
-            echo "-> Waiting for readiness..."
-            for i in $(seq 1 120); do
+            echo \"-> Waiting for readiness...\"
+            for i in \$(seq 1 120); do
               if k3s kubectl cluster-info &> /dev/null; then
-                echo "k3s ready after ${i}s"
+                echo \"k3s ready after \${i}s\"
                 break
               fi
-              [ $i -eq 120 ] && { echo "Timeout"; journalctl -u k3s -n 20 --no-pager; exit 1; }
+              [ \$i -eq 120 ] && { echo \"Timeout\"; journalctl -u k3s -n 20 --no-pager; exit 1; }
               sleep 2
             done
-            echo "=== Cluster status ==="
+            echo \"=== Cluster status ===\"
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
-          '
+          "
       - name: Setup Nginx with SSL fallback and production config
         run: |
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Installing Nginx and Certbot..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Installing Nginx and Certbot...\"
             sudo apt update
             sudo apt install -y nginx certbot python3-certbot-nginx
-            echo "-> Configuring firewall for HTTP/HTTPS..."
-            sudo ufw allow "Nginx Full" || true
+            echo \"-> Configuring firewall for HTTP/HTTPS...\"
+            sudo ufw allow \"Nginx Full\" || true
             sudo ufw reload || true
-            echo "-> Stopping Nginx for certbot..."
+            echo \"-> Stopping Nginx for certbot...\"
             sudo systemctl stop nginx || true
-            echo "-> Attempting to obtain Let'\''s Encrypt certificate for fitpulse.ru..."
+            echo \"-> Attempting to obtain Let's Encrypt certificate...\"
             CERTBOT_SUCCESS=false
             if sudo certbot certonly --standalone \
-              -d fitpulse.ru \
+              -d fittpulse.duckdns.org \
               --non-interactive \
               --agree-tos \
-              --email admin@fitpulse.ru \
+              --email admin@fittpulse.duckdns.org \
               --http-01-port 80 \
               --preferred-challenges http \
               2>&1 | tee /tmp/certbot.log; then
-              if grep -q "Congratulations" /tmp/certbot.log; then
+              if grep -q \"Congratulations\" /tmp/certbot.log; then
                 CERTBOT_SUCCESS=true
-                echo "✅ Let'\''s Encrypt certificate obtained for fitpulse.ru"
+                echo \"✅ Let's Encrypt certificate obtained\"
               fi
             fi
             sudo mkdir -p /etc/nginx/certs
-            if [ "$CERTBOT_SUCCESS" = false ]; then
-              echo "⚠️ Let'\''s Encrypt failed, generating self-signed certificate as fallback..."
+            if [ \"\$CERTBOT_SUCCESS\" = false ]; then
+              echo \"⚠️ Let's Encrypt failed, generating self-signed certificate as fallback...\"
               sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /etc/nginx/certs/server.key \
                 -out /etc/nginx/certs/server.crt \
-                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fitpulse.ru" \
-                -addext "subjectAltName=DNS:fitpulse.ru,IP:${{ secrets.VPS_HOST }}"
-              echo "-> Copying and patching production.conf for self-signed..."
+                -subj \"/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fittpulse.duckdns.org\" \
+                -addext \"subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}\"
+              echo \"-> Copying and patching production.conf for self-signed...\"
               sudo mkdir -p /etc/nginx/sites-available
               sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
-              sudo sed -i "s|/etc/letsencrypt/live/fitpulse.ru/fullchain.pem|/etc/nginx/certs/server.crt|g" /etc/nginx/sites-available/fitpulse
-              sudo sed -i "s|/etc/letsencrypt/live/fitpulse.ru/privkey.pem|/etc/nginx/certs/server.key|g" /etc/nginx/sites-available/fitpulse
-              echo "✅ Self-signed certificate generated and config patched"
+              sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g\" /etc/nginx/sites-available/fitpulse
+              sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g\" /etc/nginx/sites-available/fitpulse
+              echo \"✅ Self-signed certificate generated and config patched\"
             else
-              echo "-> Creating symlinks for Let'\''s Encrypt certificates..."
-              sudo ln -sf /etc/letsencrypt/live/fitpulse.ru/fullchain.pem /etc/nginx/certs/server.crt
-              sudo ln -sf /etc/letsencrypt/live/fitpulse.ru/privkey.pem /etc/nginx/certs/server.key
-              echo "-> Copying production.conf..."
+              echo \"-> Creating symlinks for Let's Encrypt certificates...\"
+              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem /etc/nginx/certs/server.crt
+              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
+              echo \"-> Copying production.conf...\"
               sudo mkdir -p /etc/nginx/sites-available
               sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
             fi
             sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
             sudo rm -f /etc/nginx/sites-enabled/default
-            echo "-> Testing Nginx configuration..."
+            echo \"-> Testing Nginx configuration...\"
             if sudo nginx -t; then
-              echo "-> Starting Nginx..."
+              echo \"-> Starting Nginx...\"
               sudo systemctl start nginx
               sudo systemctl enable nginx
-              echo "✅ Nginx configured and running"
+              echo \"✅ Nginx configured and running\"
             else
-              echo "❌ Nginx config test failed"
+              echo \"❌ Nginx config test failed\"
               sudo nginx -t
               exit 1
             fi
-          '
+          "
       - name: Setup auto-renewal for SSL certificates
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Setting up certificate auto-renewal..."
-            (sudo crontab -l 2>/dev/null | grep -v certbot; echo "0 3 * * * certbot renew --quiet --deploy-hook '\''systemctl reload nginx'\''") | sudo crontab -
-            echo "✅ Auto-renewal configured"
-          '
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Setting up certificate auto-renewal...\"
+            (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
+            echo \"✅ Auto-renewal configured\"
+          "
       - name: Setup ML infrastructure directories on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Creating directories for ML storage..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Creating directories for ML storage...\"
             sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
             sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
-            echo "✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}"
-          '
+            echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
+          "
       - name: Deploy MLflow service on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Deploying MLflow via Docker Compose..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Deploying MLflow via Docker Compose...\"
             mkdir -p ~/fitpulse/deployments
             cd ~/fitpulse
-            cat > deployments/docker-compose.mlflow.yml << '\''EOFMLFLOW'\''
-            version: '\''3.8'\''
+            cat > deployments/docker-compose.mlflow.yml << 'EOFMLFLOW'
+            version: '3.8'
             services:
               mlflow:
                 image: ghcr.io/mlflow/mlflow:v2.20.2
                 container_name: fitpulse-mlflow
                 ports:
-                  - "5000:5000"
+                  - \"5000:5000\"
                 command: >
                   mlflow server
                   --host 0.0.0.0
@@ -646,7 +645,7 @@ jobs:
                   - /opt/fitpulse/mlflow-data:/mlflow
                 restart: unless-stopped
                 healthcheck:
-                  test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+                  test: [\"CMD\", \"curl\", \"-f\", \"http://localhost:5000/health\"]
                   interval: 30s
                   timeout: 10s
                   retries: 3
@@ -659,27 +658,27 @@ jobs:
             docker compose -f deployments/docker-compose.mlflow.yml up -d
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
-                echo "✅ MLflow is healthy"
+                echo \"✅ MLflow is healthy\"
                 break
               fi
               sleep 2
             done
-            echo "✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000"
-          '
+            echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
+          "
       - name: Configure DVC local remote on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Configuring DVC for local storage..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Configuring DVC for local storage...\"
             cd ~/fitpulse
             mkdir -p .dvc
-            cat > .dvc/config << '\''EOFDVC'\''
+            cat > .dvc/config << 'EOFDVC'
             [core]
             remote = local
-            ['\''remote "local"'\'']
+            ['remote \"local\"']
             url = /opt/fitpulse/dvc-storage
             EOFDVC
-            echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
-          '
+            echo \"✅ DVC configured with local remote: /opt/fitpulse/dvc-storage\"
+          "
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
@@ -702,23 +701,23 @@ jobs:
           fi
       - name: Upload TLS certificates to VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s/tls
-          '
+          "
           if [ -f "deploy/tls/certs/server.crt" ] && [ -f "deploy/tls/certs/server.key" ]; then
             echo "Uploading TLS certificates..."
             ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt"
             ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key"
             echo "TLS certificates uploaded"
           else
-            echo "⚠️ TLS certificates not found, generating self-signed for fitpulse.ru..."
-            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            echo "⚠️ TLS certificates not found, generating self-signed..."
+            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /etc/rancher/k3s/tls/server.key \
                 -out /etc/rancher/k3s/tls/server.crt \
-                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fitpulse.ru" \
-                -addext "subjectAltName=DNS:fitpulse.ru,IP:${{ secrets.VPS_HOST }}"
-            '
+                -subj \"/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=2.27.32.242\" \
+                -addext \"subjectAltName=IP:2.27.32.242\"
+            "
             echo "Self-signed certificates generated"
           fi
       - name: Download TLS certificates from VPS
@@ -1161,14 +1160,14 @@ jobs:
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-            echo "-> Pruning unused Docker images and containers..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Pruning unused Docker images and containers...\"
             docker system prune -f --volumes || true
-            echo "-> Pruning unused k3s (containerd) images..."
+            echo \"-> Pruning unused k3s (containerd) images...\"
             k3s crictl rmi --prune || true
-            echo "-> Current disk usage:"
+            echo \"-> Current disk usage:\"
             df -h /
-          '
+          "
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1236,19 +1235,18 @@ jobs:
       - name: Prepare target URL
         id: target
         run: |
-          # FIX: Используем основной домен
-          URL="https://fitpulse.ru"
+          URL="https://fittpulse.duckdns.org"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
-          echo "🔍 Checking production health via HTTPS (fitpulse.ru)..."
+          echo "🔍 Checking production health via HTTPS..."
           for _ in {1..42}; do
-            RESPONSE=$(curl -skf --max-time 5 "https://fitpulse.ru/health" 2>/dev/null || echo "")
+            RESPONSE=$(curl -skf --max-time 5 "https://fittpulse.duckdns.org/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"
               break
             fi
-            echo "Attempt $_/42: waiting..."
+            echo "Attempt $i/42: waiting..."
             sleep 10
           done
           if [ -z "$RESPONSE" ]; then
@@ -1329,7 +1327,7 @@ jobs:
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.production }} Deploy Production
             ${{ steps.statuses.outputs.e2e }} E2E Tests
-            🌐 <b>Сайт:</b> https://fitpulse.ru
+            🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
   dependabot-auto-merge:
