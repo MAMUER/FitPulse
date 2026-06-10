@@ -4,6 +4,7 @@ metadata:
   name: migrate-db
   labels:
     app: migrate-db
+    zone: app-zone
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
@@ -11,6 +12,7 @@ spec:
     metadata:
       labels:
         app: migrate-db
+        zone: app-zone
     spec:
       restartPolicy: OnFailure
       serviceAccountName: app-service-account

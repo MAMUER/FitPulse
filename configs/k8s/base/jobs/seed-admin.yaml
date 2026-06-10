@@ -1,10 +1,10 @@
-# configs/k8s/base/jobs/seed-admin.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: seed-admin
   labels:
     app: seed-admin
+    zone: app-zone
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 3600
@@ -12,12 +12,13 @@ spec:
     metadata:
       labels:
         app: seed-admin
+        zone: app-zone
     spec:
       restartPolicy: OnFailure
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
-      # FIX: Использовать postgres образ с psql и nslookup
+      # FIX: Использовать postgres образ с psql
       containers:
         - name: seed-admin
           image: postgres:15-alpine
@@ -32,28 +33,6 @@ spec:
               echo "DB Host: ${DB_HOST:-postgres-service}"
               echo "DB Port: ${DB_PORT:-5432}"
               echo "DB Name: ${POSTGRES_DB}"
-              
-              # === Wait for postgres-service DNS resolution ===
-              echo "-> Waiting for postgres-service DNS..."
-              for i in $(seq 1 30); do
-                if nslookup "${DB_HOST:-postgres-service}" >/dev/null 2>&1; then
-                  echo "✅ DNS resolved: ${DB_HOST:-postgres-service}"
-                  break
-                fi
-                echo "  Attempt $i/30: DNS not resolved yet, waiting 5s..."
-                sleep 5
-              done
-              
-              # === Wait for TCP connectivity ===
-              echo "-> Waiting for TCP connection to ${DB_HOST:-postgres-service}:${DB_PORT:-5432}..."
-              for i in $(seq 1 30); do
-                if timeout 3 bash -c "</dev/tcp/${DB_HOST:-postgres-service}/${DB_PORT:-5432}" 2>/dev/null; then
-                  echo "✅ TCP connection established"
-                  break
-                fi
-                echo "  Attempt $i/30: TCP connection failed, waiting 5s..."
-                sleep 5
-              done
               
               # === Wait for PostgreSQL ready ===
               echo "-> Waiting for PostgreSQL to accept connections..."
@@ -87,15 +66,14 @@ spec:
                 exit 0
               fi
               
-              # Generate bcrypt hash using Python (if available) or use pgcrypto
+              # Generate bcrypt hash using pgcrypto
               echo "-> Generating password hash..."
-              # Using pgcrypto extension for bcrypt-like hashing
               HASH=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
                 "SELECT crypt('${SEED_ADMIN_PASSWORD}', gen_salt('bf', 10))" 2>/dev/null)
               
               if [ -z "${HASH}" ]; then
-                echo "❌ Failed to generate password hash"
+                echo "❌ Failed to generate password hash (is pgcrypto extension installed?)"
                 exit 1
               fi
               echo "Hash generated"
