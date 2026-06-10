@@ -866,6 +866,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Make retry script executable
+        run: chmod +x scripts/ssh-retry.sh
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@v8
         with:
