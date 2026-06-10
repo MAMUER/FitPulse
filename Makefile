@@ -6,8 +6,6 @@ endif
 
 .PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint certs
 
-# ... (existing targets)
-
 # Generate self-signed TLS certificates for local development
 certs:
 	@echo "Generating self-signed TLS certificates..."

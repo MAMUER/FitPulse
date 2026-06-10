@@ -1,4 +1,3 @@
-# Hadolint configuration
 ignored: []
 trustedRegistries:
   - docker.io

@@ -1,5 +1,3 @@
-# .dvcignore
-# Игнорируемые файлы для DVC
 __pycache__/
 *.pyc
 *.pyo
