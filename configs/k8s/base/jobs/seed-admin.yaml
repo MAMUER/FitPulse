@@ -18,7 +18,6 @@ spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
-      # FIX: Использовать postgres образ с psql
       containers:
         - name: seed-admin
           image: postgres:15-alpine
