@@ -980,6 +980,8 @@ jobs:
             done
             echo 'Docker images after pre-pull:'
             docker images | grep mamuer || true
+            echo '-> Waiting 60s to let node recover from disk I/O...'
+            sleep 60
           "
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
@@ -1023,14 +1025,14 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Waiting for Postgres pod to be scheduled and running..."
-          # FIX: Increased timeout to 60 attempts (5 minutes) to allow PVC binding and API server stabilization
-          for i in {1..60}; do
+          # FIX: Increased timeout to 120 attempts (10 minutes) to allow PVC binding and node recovery from heavy I/O
+          for i in {1..120}; do
             STATUS=$(kubectl get pod postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             if [ "$STATUS" = "Running" ]; then
               echo "✅ Postgres pod is Running after ${i}x5 seconds"
               break
             fi
-            if [ "$i" -eq 60 ]; then
+            if [ "$i" -eq 120 ]; then
               echo "❌ Timeout waiting for Postgres pod"
               echo "-> PVC Status:"
               kubectl get pvc -n fitness-platform-production || true
@@ -1040,7 +1042,7 @@ jobs:
               kubectl describe pod postgres-0 -n fitness-platform-production || true
               exit 1
             fi
-            echo "Attempt $i/60: Postgres status=$STATUS, waiting 5s..."
+            echo "Attempt $i/120: Postgres status=$STATUS, waiting 5s..."
             sleep 5
           done
           echo "Verifying Postgres accepts connections..."
