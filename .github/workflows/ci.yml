@@ -968,32 +968,48 @@ jobs:
           sleep 30
           echo "-> Checking for stuck pods in ContainerCreating state..."
           STUCK_PODS=$(kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running,status.phase!=Succeeded,status.phase!=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
-          if [ -n "$STUCK_PODS" ]; then
-            echo "⚠️ Found stuck pods: $STUCK_PODS"
+          
+          # FIX: Exclude StatefulSet pods (postgres, rabbitmq) as they may be legitimately waiting for PVC binding
+          FILTERED_PODS=""
+          for pod in $STUCK_PODS; do
+            if [[ "$pod" != postgres-* && "$pod" != rabbitmq-* ]]; then
+              FILTERED_PODS="$FILTERED_PODS $pod"
+            fi
+          done
+          
+          if [ -n "$FILTERED_PODS" ]; then
+            echo "⚠️ Found stuck pods: $FILTERED_PODS"
             echo "-> Deleting stuck pods to trigger recreation..."
-            for pod in $STUCK_PODS; do
+            for pod in $FILTERED_PODS; do
               kubectl delete pod "$pod" -n fitness-platform-production --grace-period=0 --force || true
             done
             echo "-> Waiting 30s for pods to be recreated..."
             sleep 30
+          else
+            echo "✅ No stuck Deployment pods found (StatefulSets excluded)"
           fi
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Waiting for Postgres pod to be scheduled and running..."
-          for i in {1..36}; do
+          # FIX: Increased timeout to 60 attempts (5 minutes) to allow PVC binding and API server stabilization
+          for i in {1..60}; do
             STATUS=$(kubectl get pod postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             if [ "$STATUS" = "Running" ]; then
               echo "✅ Postgres pod is Running after ${i}x5 seconds"
               break
             fi
-            if [ "$i" -eq 36 ]; then
+            if [ "$i" -eq 60 ]; then
               echo "❌ Timeout waiting for Postgres pod"
+              echo "-> PVC Status:"
+              kubectl get pvc -n fitness-platform-production || true
+              kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
+              echo "-> Pod Status:"
               kubectl get pods -n fitness-platform-production -o wide
               kubectl describe pod postgres-0 -n fitness-platform-production || true
               exit 1
             fi
-            echo "Attempt $i/36: Postgres status=$STATUS, waiting 5s..."
+            echo "Attempt $i/60: Postgres status=$STATUS, waiting 5s..."
             sleep 5
           done
           echo "Verifying Postgres accepts connections..."
