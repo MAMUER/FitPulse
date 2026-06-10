@@ -76,6 +76,12 @@ spec:
                   key: BIOMETRIC_SERVICE_PORT
             - name: REDIS_HOST
               value: "redis"
+            # FIX: Добавляем пароль для Redis
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:

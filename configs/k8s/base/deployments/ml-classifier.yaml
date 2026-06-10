@@ -17,55 +17,55 @@ spec:
       securityContext:
         runAsUser: 1001
       imagePullSecrets:
-      - name: ghcr-pull-secret
+        - name: ghcr-pull-secret
       serviceAccountName: app-service-account
       volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: models          
-        emptyDir: {}
-      containers:
-      - name: ml-classifier
-        image: ghcr.io/mamuer/project/ml-classifier:latest
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-        ports:
-        - containerPort: 8001
-          name: http
-        volumeMounts:
         - name: tmp
-          mountPath: /tmp
-        env:
-        - name: ML_CLASSIFIER_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: ML_CLASSIFIER_PORT
-        - name: MPLCONFIGDIR
-          value: "/tmp/matplotlib"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 300  # ← 5 минут для загрузки моделей
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 10      # ← больше попыток
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 180  # ← 3 минуты
-          periodSeconds: 5
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "500m"
+          emptyDir: {}
+        # FIX: Убираем emptyDir для models, чтобы не затирало модели из Docker-образа
+      containers:
+        - name: ml-classifier
+          image: ghcr.io/mamuer/project/ml-classifier:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 8001
+              name: http
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # FIX: Убираем mountPath для models
+          env:
+            - name: ML_CLASSIFIER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ML_CLASSIFIER_PORT
+            - name: MPLCONFIGDIR
+              value: "/tmp/matplotlib"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 300
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 180
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"

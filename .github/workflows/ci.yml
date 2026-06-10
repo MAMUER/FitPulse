@@ -66,9 +66,6 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # 0. DETECT CHANGES — определяет, какие части пересобирать
-  # ═══════════════════════════════════════════════════════════
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
@@ -127,9 +124,6 @@ jobs:
               - 'go.mod'
               - 'go.sum'
 
-  # ─────────────────────────────────────────────────────────────
-  # 1. ВАЛИДАЦИЯ И ПРОВЕРКИ (запускаются всегда, параллельно)
-  # ─────────────────────────────────────────────────────────────
   validate-workflow:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
@@ -153,9 +147,6 @@ jobs:
             docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint hadolint -c .hadolint.yaml "$dockerfile"
           done
 
-  # ─────────────────────────────────────────────────────────────
-  # 1.1. MONTHLY DEPENDENCY UPDATE (schedule)
-  # ─────────────────────────────────────────────────────────────
   monthly-dependency-update:
     name: Monthly Dependency Update
     runs-on: ubuntu-latest
@@ -184,9 +175,6 @@ jobs:
             This PR updates all Go dependencies to their latest versions.
             Scheduled run on the 1st of each month.
 
-  # ─────────────────────────────────────────────────────────────
-  # 1.2. QUARTERLY VULNCHECK (schedule)
-  # ─────────────────────────────────────────────────────────────
   quarterly-vulncheck:
     name: Quarterly Vulnerability Check
     runs-on: ubuntu-latest
@@ -203,9 +191,6 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./... -show verbose
 
-  # ─────────────────────────────────────────────────────────────
-  # 1.3. OSV DEPENDENCY AUDIT (при push go.mod/go.sum или manual)
-  # ─────────────────────────────────────────────────────────────
   osv-audit:
     name: OSV Dependency Audit
     runs-on: ubuntu-latest
@@ -224,12 +209,8 @@ jobs:
         run: GOBIN="$HOME/go/bin" go install github.com/google/osv-scanner/cmd/osv-scanner@latest
       - name: Run osv-scanner
         run: |
-          # shellcheck disable=SC2086
           $HOME/go/bin/osv-scanner -r ./...
 
-  # ─────────────────────────────────────────────────────────────
-  # 2. СБОРКА (только при обычных триггерах, не Maintenance)
-  # ─────────────────────────────────────────────────────────────
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
@@ -339,9 +320,6 @@ jobs:
         env:
           DOCKER_HOST: ""
 
-  # ─────────────────────────────────────────────────────────────
-  # 2. СБОРКА (после успешных проверок)
-  # ─────────────────────────────────────────────────────────────
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
@@ -445,9 +423,6 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-docker
 
-  # ─────────────────────────────────────────────────────────────
-  # 4. K8S INFRASTRUCTURE: Provision k3s on VPS
-  # ─────────────────────────────────────────────────────────────
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
     runs-on: ubuntu-latest
@@ -469,12 +444,11 @@ jobs:
         run: chmod +x scripts/ssh-retry.sh
       - name: Clean up old k3s (safe)
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             set -x
             echo "-> Stopping k3s..."
             systemctl stop k3s 2>/dev/null || true
-            pkill -9 -f "k3s server" 2>/<think>/null || true
+            pkill -9 -f "k3s server" 2>/dev/null || true
             echo "-> Removing k3s files..."
             rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
             rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
@@ -483,7 +457,6 @@ jobs:
           '
       - name: Fix DNS resolv.conf
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Fixing /etc/resolv.conf (remove duplicate nameservers)..."
             if [ -f /etc/resolv.conf ]; then
@@ -501,14 +474,13 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - metrics-server\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
-          # shellcheck disable=SC2016
+          # FIX: Включаем metrics-server для работы HPA
+          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             mkdir -p /etc/rancher/k3s
             echo "Directory /etc/rancher/k3s created"
           '
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "Config written:"
             cat /etc/rancher/k3s/config.yaml
@@ -531,7 +503,6 @@ jobs:
           SSH_RETRY_MAX_ATTEMPTS: 5
           SSH_RETRY_DELAY_SECONDS: 15
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             set -euo pipefail
             echo "-> Moving k3s binary to /usr/local/bin..."
@@ -545,7 +516,6 @@ jobs:
           '
       - name: Pre-pull system images via Docker
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Pre-pulling system images via Docker..."
             docker pull rancher/mirrored-pause:3.6 || echo "pause image pull failed, continuing"
@@ -557,7 +527,6 @@ jobs:
           '
       - name: Start and verify k3s
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Starting k3s..."
             systemctl daemon-reload
@@ -577,10 +546,7 @@ jobs:
           '
       - name: Setup Nginx with SSL fallback and production config
         run: |
-          # 1. Копируем конфиг с GitHub Runner на VPS через scp
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
-          # 2. Выполняем настройку на VPS
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Installing Nginx and Certbot..."
             sudo apt update
@@ -590,49 +556,43 @@ jobs:
             sudo ufw reload || true
             echo "-> Stopping Nginx for certbot..."
             sudo systemctl stop nginx || true
-            echo "-> Attempting to obtain Let'\''s Encrypt certificate..."
+            echo "-> Attempting to obtain Let'\''s Encrypt certificate for fitpulse.ru..."
             CERTBOT_SUCCESS=false
             if sudo certbot certonly --standalone \
-              -d fittpulse.duckdns.org \
+              -d fitpulse.ru \
               --non-interactive \
               --agree-tos \
-              --email admin@fittpulse.duckdns.org \
+              --email admin@fitpulse.ru \
               --http-01-port 80 \
               --preferred-challenges http \
               2>&1 | tee /tmp/certbot.log; then
               if grep -q "Congratulations" /tmp/certbot.log; then
                 CERTBOT_SUCCESS=true
-                echo "✅ Let'\''s Encrypt certificate obtained"
+                echo "✅ Let'\''s Encrypt certificate obtained for fitpulse.ru"
               fi
             fi
-            # === Создаём директорию для сертификатов ===
             sudo mkdir -p /etc/nginx/certs
             if [ "$CERTBOT_SUCCESS" = false ]; then
               echo "⚠️ Let'\''s Encrypt failed, generating self-signed certificate as fallback..."
               sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /etc/nginx/certs/server.key \
                 -out /etc/nginx/certs/server.crt \
-                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fittpulse.duckdns.org" \
-                -addext "subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}"
-              # === Копируем конфиг и ЗАМЕНЯЕМ пути на self-signed ===
+                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fitpulse.ru" \
+                -addext "subjectAltName=DNS:fitpulse.ru,IP:${{ secrets.VPS_HOST }}"
               echo "-> Copying and patching production.conf for self-signed..."
               sudo mkdir -p /etc/nginx/sites-available
               sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
-              # Ключевое исправление: заменяем пути к сертификатам
-              sudo sed -i "s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g" /etc/nginx/sites-available/fitpulse
-              sudo sed -i "s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g" /etc/nginx/sites-available/fitpulse
+              sudo sed -i "s|/etc/letsencrypt/live/fitpulse.ru/fullchain.pem|/etc/nginx/certs/server.crt|g" /etc/nginx/sites-available/fitpulse
+              sudo sed -i "s|/etc/letsencrypt/live/fitpulse.ru/privkey.pem|/etc/nginx/certs/server.key|g" /etc/nginx/sites-available/fitpulse
               echo "✅ Self-signed certificate generated and config patched"
             else
-              # Если сертификат получен, создаём симлинки для совместимости
               echo "-> Creating symlinks for Let'\''s Encrypt certificates..."
-              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem /etc/nginx/certs/server.crt
-              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
-              # === Копируем конфиг без изменений (пути уже правильные) ===
+              sudo ln -sf /etc/letsencrypt/live/fitpulse.ru/fullchain.pem /etc/nginx/certs/server.crt
+              sudo ln -sf /etc/letsencrypt/live/fitpulse.ru/privkey.pem /etc/nginx/certs/server.key
               echo "-> Copying production.conf..."
               sudo mkdir -p /etc/nginx/sites-available
               sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
             fi
-            # === Активируем сайт ===
             sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
             sudo rm -f /etc/nginx/sites-enabled/default
             echo "-> Testing Nginx configuration..."
@@ -649,7 +609,6 @@ jobs:
           '
       - name: Setup auto-renewal for SSL certificates
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Setting up certificate auto-renewal..."
             (sudo crontab -l 2>/dev/null | grep -v certbot; echo "0 3 * * * certbot renew --quiet --deploy-hook '\''systemctl reload nginx'\''") | sudo crontab -
@@ -657,7 +616,6 @@ jobs:
           '
       - name: Setup ML infrastructure directories on VPS
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Creating directories for ML storage..."
             sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
@@ -666,13 +624,10 @@ jobs:
           '
       - name: Deploy MLflow service on VPS
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Deploying MLflow via Docker Compose..."
-            # Копируем docker-compose файл на VPS
             mkdir -p ~/fitpulse/deployments
             cd ~/fitpulse
-            # Создаём docker-compose.mlflow.yml на лету (локальное хранилище, без S3)
             cat > deployments/docker-compose.mlflow.yml << '\''EOFMLFLOW'\''
             version: '\''3.8'\''
             services:
@@ -701,9 +656,7 @@ jobs:
               fitness-network:
                 external: true
             EOFMLFLOW
-            # Запускаем (или перезапускаем) MLflow
             docker compose -f deployments/docker-compose.mlflow.yml up -d
-            # Ждём готовности
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
                 echo "✅ MLflow is healthy"
@@ -715,11 +668,9 @@ jobs:
           '
       - name: Configure DVC local remote on VPS
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Configuring DVC for local storage..."
             cd ~/fitpulse
-            # Создаём/обновляем .dvc/config
             mkdir -p .dvc
             cat > .dvc/config << '\''EOFDVC'\''
             [core]
@@ -760,13 +711,13 @@ jobs:
             ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key"
             echo "TLS certificates uploaded"
           else
-            echo "⚠️ TLS certificates not found, generating self-signed..."
+            echo "⚠️ TLS certificates not found, generating self-signed for fitpulse.ru..."
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /etc/rancher/k3s/tls/server.key \
                 -out /etc/rancher/k3s/tls/server.crt \
-                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=2.27.32.242" \
-                -addext "subjectAltName=IP:2.27.32.242"
+                -subj "/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fitpulse.ru" \
+                -addext "subjectAltName=DNS:fitpulse.ru,IP:${{ secrets.VPS_HOST }}"
             '
             echo "Self-signed certificates generated"
           fi
@@ -778,17 +729,12 @@ jobs:
           chmod 600 /tmp/tls/server.key
       - name: Create TLS Secret in Kubernetes
         run: |
-          # Настраиваем kubectl для подключения к VPS
           mkdir -p "$HOME/.kube"
           cp ./k3s-config.yaml "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
-          # Проверяем подключение
           kubectl cluster-info
-          # Создаём namespace (если не существует)
           kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply --validate=false -f -
-          # Ждём пока кластер будет готов
           sleep 10
-          # Создаём TLS Secret для Gateway
           kubectl create secret tls gateway-tls \
             --cert=/tmp/tls/server.crt \
             --key=/tmp/tls/server.key \
@@ -802,9 +748,6 @@ jobs:
           path: ./k3s-config.yaml
           retention-days: 1
 
-  # ─────────────────────────────────────────────────────────────
-  # 3. ТЕСТОВОЕ ОКРУЖЕНИЕ (Docker Compose на runner)
-  # ─────────────────────────────────────────────────────────────
   deploy-test:
     name: Deploy to Test (Docker Compose)
     runs-on: ubuntu-latest
@@ -850,9 +793,6 @@ jobs:
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "Smoke tests passed"
 
-  # ─────────────────────────────────────────────────────────────
-  # 5. PRODUCTION DEPLOY (K8s namespace: fitness-platform-production)
-  # ─────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
@@ -996,16 +936,11 @@ jobs:
             xargs -r -n1 kubectl delete rs -n fitness-platform-production || true
           echo "-> Cleanup complete"
           kubectl get pods -n fitness-platform-production -o wide
-
-      # ═══════════════════════════════════════════════════════════
-      # FIX: Pre-pull images to prevent CNI overwhelm
-      # ═══════════════════════════════════════════════════════════
       - name: Pre-pull application images on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           SHA=$(git rev-parse --short HEAD)
           echo "-> Pre-pulling application images with tag $SHA on VPS..."
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo 'Logging in to GHCR on VPS...'
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
@@ -1016,7 +951,6 @@ jobs:
             echo 'Docker images after pre-pull:'
             docker images | grep mamuer || true
           "
-
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1028,10 +962,6 @@ jobs:
             echo "Failed to apply production overlay"
             exit 1
           fi
-
-      # ═══════════════════════════════════════════════════════════
-      # FIX: Auto-recover stuck pods (CNI race condition workaround)
-      # ═══════════════════════════════════════════════════════════
       - name: Fix stuck pods (CNI workaround)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1048,7 +978,6 @@ jobs:
             echo "-> Waiting 30s for pods to be recreated..."
             sleep 30
           fi
-
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1122,7 +1051,6 @@ jobs:
         run: |
           echo "=== Running seed-admin job ==="
           echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          # === 0. Проверка секретов перед запуском ===
           echo "-> Checking required secrets..."
           if [ -z "${{ secrets.SEED_ADMIN_EMAIL }}" ]; then
             echo "❌ SEED_ADMIN_EMAIL is empty!"
@@ -1133,15 +1061,11 @@ jobs:
             exit 1
           fi
           echo "✅ Secrets present (values hidden)"
-          # === 1. Удаляем старый Job, если есть ===
           echo "-> Cleaning up existing seed-admin job..."
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true --wait=true 2>&1 || true
-          # Ждём немного, чтобы поды успели удалиться
           sleep 5
-          # === 2. Применяем Job из YAML ===
           echo "-> Applying seed-admin Job from YAML..."
           kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production 2>&1
-          # === 3. Ждём появления пода и начинаем стримить логи ===
           echo "-> Waiting for seed-admin pod to be scheduled..."
           POD_NAME=""
           for i in {1..30}; do
@@ -1160,18 +1084,15 @@ jobs:
             kubectl get pods -n fitness-platform-production -o wide 2>&1 || true
             exit 1
           fi
-          # === 3.1. Начинаем фоновый стрим логов ===
           echo "-> Starting background log streaming for pod $POD_NAME..."
           kubectl logs -f -n fitness-platform-production "$POD_NAME" --tail=100 2>&1 &
           LOG_STREAM_PID=$!
-          # === 4. Мониторим статус пода в реальном времени ===
           echo "-> Monitoring pod status..."
           MONITOR_START=$(date +%s)
           while true; do
             CURRENT_PHASE=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             RESTART_COUNT=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
             echo "  [$(date +%H:%M:%S)] Phase: $CURRENT_PHASE, Restarts: $RESTART_COUNT"
-            # Если под в состоянии ошибки — сразу показываем детали
             if [[ "$CURRENT_PHASE" == "Failed" || "$CURRENT_PHASE" == "CrashLoopBackOff" || "$RESTART_COUNT" -gt 2 ]]; then
               echo "⚠️ Pod is in error state, fetching diagnostics..."
               echo "→ Pod describe:"
@@ -1182,12 +1103,10 @@ jobs:
               kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by='.lastTimestamp' 2>&1 | tail -20 || true
               break
             fi
-            # Проверяем, завершился ли job успешно
             if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=10s 2>/dev/null; then
               echo "✅ Job completed successfully"
               break
             fi
-            # Таймаут 300 секунд
             ELAPSED=$(($(date +%s) - MONITOR_START))
             if [ "$ELAPSED" -ge 300 ]; then
               echo "⏱️  Monitoring timeout reached (300s)"
@@ -1195,12 +1114,10 @@ jobs:
             fi
             sleep 10
           done
-          # Останавливаем фоновый стрим логов
           if [ -n "$LOG_STREAM_PID" ]; then
             kill $LOG_STREAM_PID 2>/dev/null || true
             wait $LOG_STREAM_PID 2>/dev/null || true
           fi
-          # === 5. Финальная проверка результата ===
           echo "-> Final job status check..."
           if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=30s 2>/dev/null; then
             echo "✅ Admin user seeded successfully"
@@ -1208,7 +1125,6 @@ jobs:
             kubectl logs job/seed-admin -n fitness-platform-production --tail=100 2>&1 || true
           else
             echo "⚠️ Job did not complete successfully, detailed diagnostics..."
-            # Пробуем найти под ещё раз (мог перезапуститься)
             POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
             echo "Current pod name: $POD_NAME"
             if [ "$POD_NAME" != "unknown" ] && [ -n "$POD_NAME" ]; then
@@ -1227,7 +1143,6 @@ jobs:
             fi
             echo "→ Job describe:"
             kubectl describe job seed-admin -n fitness-platform-production 2>&1 || true
-            # Идемпотентность: проверяем, создан ли админ в БД
             echo "→ Checking if admin exists in database (idempotent check)..."
             DB_CHECK=$(kubectl exec -n fitness-platform-production postgres-0 -- \
               psql -U postgres -d fitness -tAc \
@@ -1240,14 +1155,12 @@ jobs:
               exit 1
             fi
           fi
-          # === 6. Чистим завершённый Job ===
           echo "-> Cleaning up completed job..."
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true 2>&1 || true
           echo "✅ seed-admin step completed"
       - name: Cleanup unused images on VPS (Docker + Containerd)
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          # shellcheck disable=SC2016
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             echo "-> Pruning unused Docker images and containers..."
             docker system prune -f --volumes || true
@@ -1301,9 +1214,6 @@ jobs:
           fi
           echo " Production metrics stable. Deployment proceeding."
 
-  # ─────────────────────────────────────────────────────────────
-  # 6. E2E TESTS ON PRODUCTION
-  # ─────────────────────────────────────────────────────────────
   test-production:
     name: Test Production (E2E)
     runs-on: ubuntu-latest
@@ -1326,18 +1236,19 @@ jobs:
       - name: Prepare target URL
         id: target
         run: |
-          URL="https://fittpulse.duckdns.org"
+          # FIX: Используем основной домен
+          URL="https://fitpulse.ru"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Health check
         run: |
-          echo "🔍 Checking production health via HTTPS..."
+          echo "🔍 Checking production health via HTTPS (fitpulse.ru)..."
           for _ in {1..42}; do
-            RESPONSE=$(curl -skf --max-time 5 "https://fittpulse.duckdns.org/health" 2>/dev/null || echo "")
+            RESPONSE=$(curl -skf --max-time 5 "https://fitpulse.ru/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"
               break
             fi
-            echo "Attempt $i/42: waiting..."
+            echo "Attempt $_/42: waiting..."
             sleep 10
           done
           if [ -z "$RESPONSE" ]; then
@@ -1359,9 +1270,6 @@ jobs:
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
 
-  # ─────────────────────────────────────────────────────────────
-  # 9. NOTIFICATIONS (всегда, в конце)
-  # ─────────────────────────────────────────────────────────────
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
@@ -1421,7 +1329,7 @@ jobs:
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.production }} Deploy Production
             ${{ steps.statuses.outputs.e2e }} E2E Tests
-            🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
+            🌐 <b>Сайт:</b> https://fitpulse.ru
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
   dependabot-auto-merge:

@@ -147,7 +147,7 @@ func (g *gateway) adminListInvitesHandler(w http.ResponseWriter, r *http.Request
 	var invites []inviteInfo
 	baseURL := os.Getenv("APP_BASE_URL")
 	if baseURL == "" {
-		baseURL = "https://fittpulse.duckdns.org"
+		baseURL = "https://fitpulse.ru"
 	}
 	for rows.Next() {
 		var inv inviteInfo

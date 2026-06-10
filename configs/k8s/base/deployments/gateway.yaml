@@ -81,6 +81,12 @@ spec:
               value: "/etc/tls/tls.key"
             - name: REDIS_HOST
               value: "redis"
+            # FIX: Добавляем пароль для Redis
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:
@@ -96,10 +102,10 @@ spec:
             httpGet:
               path: /health
               port: 8080
-              httpHeaders:          # ← добавить заголовки если нужно
-              - name: User-Agent
-                value: kube-probe/1.26
-            initialDelaySeconds: 30  # ← увеличить, чтобы дождались старта зависимостей
+              httpHeaders:
+                - name: User-Agent
+                  value: kube-probe/1.26
+            initialDelaySeconds: 30
             periodSeconds: 10
           resources:
             requests:

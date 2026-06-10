@@ -66,7 +66,7 @@ func (a *aggregator) fitbitAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices/auth/fitbit", http.StatusFound)
+	http.Redirect(w, r, "https://fitpulse.ru:30443/#devices/auth/fitbit", http.StatusFound)
 }
 
 // fitbitCallbackHandler handles the OAuth callback from Fitbit.
@@ -85,7 +85,7 @@ func (a *aggregator) fitbitCallbackHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices", http.StatusFound)
+	http.Redirect(w, r, "https://fitpulse.ru:30443/#devices", http.StatusFound)
 }
 
 // fitbitDisconnectHandler disconnects a Fitbit account for the user.
