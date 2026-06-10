@@ -444,6 +444,35 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+
+      - name: Configure swap on VPS
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          echo '-> Checking existing swap...'
+          FREE_OUTPUT=\$(free -m | grep Swap || true)
+          echo \"Current swap: \$FREE_OUTPUT\"
+          
+          SWAP_SIZE=\$(free -m | awk '/Swap/ {print \$2}')
+          if [ \"\$SWAP_SIZE\" -lt 3000 ] 2>/dev/null || [ -z \"\$SWAP_SIZE\" ]; then
+            echo '-> Creating 4GB swap file...'
+            if [ ! -f /swapfile ]; then
+              sudo fallocate -l 4G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+            fi
+            sudo swapon /swapfile || true
+            echo '-> Swap configured:'
+            free -h | grep Swap
+          else
+            echo '✅ Swap already configured (>= 3GB)'
+          fi
+          
+          # Оптимизация swappiness — использовать swap только при необходимости
+          echo '-> Setting vm.swappiness=10...'
+          echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
+          sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
+          "
       - name: Clean up old k3s (safe)
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
