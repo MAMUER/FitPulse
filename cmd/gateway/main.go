@@ -299,21 +299,21 @@ func main() {
 	// Setup routes (middleware applied via r.Use() in registerRoutes)
 	mainRouter := g.registerRoutes()
 
-	// ========== TLS is REQUIRED in production ==========
+	// ========== TLS mode detection ==========
 	tlsCertFile := os.Getenv("TLS_CERT_FILE")
 	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
-	if tlsCertFile == "" || tlsKeyFile == "" {
-		log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE environment variables are required")
-	}
-	if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
-		log.Fatal("TLS certificate file not found or inaccessible",
-			zap.String("cert_file", tlsCertFile),
-			zap.Error(err))
-	}
-	if _, err := os.Stat(filepath.Clean(tlsKeyFile)); err != nil { //gosec:G703
-		log.Fatal("TLS key file not found or inaccessible",
-			zap.String("key_file", tlsKeyFile),
-			zap.Error(err))
+	tlsAvailable := tlsCertFile != "" && tlsKeyFile != ""
+	if tlsAvailable {
+		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
+			log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
+				zap.String("cert_file", tlsCertFile), zap.Error(err))
+			tlsAvailable = false
+		}
+		if _, err := os.Stat(filepath.Clean(tlsKeyFile)); err != nil { //gosec:G703
+			log.Warn("TLS key file not found, falling back to HTTP-only mode",
+				zap.String("key_file", tlsKeyFile), zap.Error(err))
+			tlsAvailable = false
+		}
 	}
 
 	// ========== HTTPS server (main) ==========
@@ -329,50 +329,43 @@ func main() {
 	// ========== HTTP redirect server ==========
 	// Always redirect HTTP to HTTPS with correct URL (no :8443 suffix)
 	httpRedirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If already behind HTTPS proxy, serve directly via main router
-		if r.Header.Get("X-Forwarded-Proto") == "https" {
-			mainRouter.ServeHTTP(w, r)
+		// Health check endpoint — return 200 directly (no redirect)
+		// This is critical for Kubernetes liveness/readiness probes which
+		// follow redirects and fail on TLS certificate validation errors.
+		if r.URL.Path == "/health" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`))
 			return
 		}
 
-		// Determine target host
 		host := publicHost
 		if host == "" {
 			host = r.Host
-			// Strip port if present
 			if h, _, err := net.SplitHostPort(host); err == nil {
 				host = h
 			}
+			if host == "" || net.ParseIP(host) != nil {
+				http.Error(w, "Invalid Host", http.StatusBadRequest)
+				return
+			}
 		}
-		if host == "" {
-			http.Error(w, "Invalid Host", http.StatusBadRequest)
-			return
-		}
-
-		// Validate request URI
 		requestURI := r.URL.RequestURI()
 		if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
 			http.Error(w, "Invalid request URI", http.StatusBadRequest)
 			return
 		}
-
-		// Build redirect URL — always use standard HTTPS port (no :8443)
-		target := &url.URL{
-			Scheme:   "https",
-			Host:     host,
-			Path:     r.URL.Path,
-			RawQuery: r.URL.RawQuery,
-			Fragment: r.URL.Fragment,
+		redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
+		if port != "" && port != "80" && port != "443" {
+			redirectURL.Host = host + ":8443"
 		}
-
-		// Security: validate redirect target
-		parsed, err := url.Parse(target.String())
+		target := redirectURL.String()
+		parsed, err := url.Parse(target)
 		if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
 			http.Error(w, "Invalid redirect target", http.StatusBadRequest)
 			return
 		}
-
-		http.Redirect(w, r, target.String(), http.StatusMovedPermanently)
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	})
 
 	httpSrv := &http.Server{
