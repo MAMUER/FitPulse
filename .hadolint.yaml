@@ -1,4 +1,23 @@
-ignored: []
+# Hadolint configuration for FitPulse project
+
+ignored:
+  # DL3018: Pin versions in apk add.
+  # We intentionally skip version pinning for Alpine packages because:
+  # 1. The Alpine version is already pinned via the base image (e.g., golang:1.26-alpine)
+  # 2. apk installs from that specific Alpine release's repository, so "incompatible versions"
+  #    cannot arrive unexpectedly.
+  # 3. Hard-pinning (e.g., git=2.52.0-r0) breaks builds whenever Alpine updates its repo,
+  #    requiring constant manual maintenance.
+  - DL3018
+
+  # DL3008: Pin versions in apt get install.
+  # Same reasoning as DL3018, but for Debian/Ubuntu-based images (if any).
+  - DL3008
+
+  # DL3059: Multiple consecutive RUN instructions.
+  # We prefer readability and layer clarity over minimal layer count.
+  - DL3059
+
 trustedRegistries:
   - docker.io
   - ghcr.io
