@@ -4,9 +4,14 @@ metadata:
   name: gateway-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
+  tls:
+    - hosts:
+        - fittpulse.duckdns.org
+      secretName: gateway-tls
   rules:
-    # FIX: Используем основной домен
     - host: fittpulse.duckdns.org
       http:
         paths:
@@ -16,4 +21,4 @@ spec:
               service:
                 name: gateway-service
                 port:
-                  number: 8080
+                  number: 8443

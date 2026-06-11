@@ -213,10 +213,11 @@ func main() {
 		}
 	}
 
-	// Redis client for session management (Security #1, #3) — always required
 	var sessionStore *cache.SessionStore
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
+		Addr:     redisAddr,
+		Password: os.Getenv("REDIS_PASSWORD"), // ← ДОБАВИТЬ ЭТУ СТРОКУ
+		DB:       0,
 	})
 	if pingErr := redisClient.Ping(context.Background()).Err(); pingErr != nil {
 		log.Warn("Redis unavailable for session management", zap.Error(pingErr))
@@ -296,114 +297,110 @@ func main() {
 	}
 
 	// Setup routes (middleware applied via r.Use() in registerRoutes)
-	r := g.registerRoutes()
+	mainRouter := g.registerRoutes()
 
-	// ========== Определяем режим работы ==========
+	// ========== TLS is REQUIRED in production ==========
 	tlsCertFile := os.Getenv("TLS_CERT_FILE")
 	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
-	tlsAvailable := tlsCertFile != "" && tlsKeyFile != ""
-	if tlsAvailable {
-		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
-			log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
-				zap.String("cert_file", tlsCertFile),
-				zap.Error(err))
-			tlsAvailable = false
-		}
+	if tlsCertFile == "" || tlsKeyFile == "" {
+		log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE environment variables are required")
+	}
+	if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
+		log.Fatal("TLS certificate file not found or inaccessible",
+			zap.String("cert_file", tlsCertFile),
+			zap.Error(err))
+	}
+	if _, err := os.Stat(filepath.Clean(tlsKeyFile)); err != nil { //gosec:G703
+		log.Fatal("TLS key file not found or inaccessible",
+			zap.String("key_file", tlsKeyFile),
+			zap.Error(err))
 	}
 
 	// ========== HTTPS server (main) ==========
 	httpsSrv := &http.Server{
 		Addr:              ":8443",
-		Handler:           r,
+		Handler:           mainRouter,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
-	// ========== HTTP server ==========
-	var httpSrv *http.Server
-	if tlsAvailable {
-		// HTTPS mode: HTTP port redirects to HTTPS
-		httpSrv = &http.Server{
-			Addr:              ":" + port,
-			ReadTimeout:       15 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			ReadHeaderTimeout: 15 * time.Second,
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				host := publicHost
-				if host == "" {
-					host = r.Host
-					if h, _, err := net.SplitHostPort(host); err == nil {
-						host = h
-					}
-					if host == "" || net.ParseIP(host) != nil {
-						http.Error(w, "Invalid Host", http.StatusBadRequest)
-						return
-					}
-				}
-				requestURI := r.URL.RequestURI()
-				if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
-					http.Error(w, "Invalid request URI", http.StatusBadRequest)
-					return
-				}
-				redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
-				if port != "" && port != "80" && port != "443" {
-					redirectURL.Host = host + ":8443"
-				}
-				target := redirectURL.String()
-				parsed, err := url.Parse(target)
-				if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
-					http.Error(w, "Invalid redirect target", http.StatusBadRequest)
-					return
-				}
-				http.Redirect(w, r, target, http.StatusMovedPermanently)
-			}),
+	// ========== HTTP redirect server ==========
+	// Always redirect HTTP to HTTPS with correct URL (no :8443 suffix)
+	httpRedirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If already behind HTTPS proxy, serve directly via main router
+		if r.Header.Get("X-Forwarded-Proto") == "https" {
+			mainRouter.ServeHTTP(w, r)
+			return
 		}
-	} else {
-		// HTTP-only mode (test/local): HTTP port serves directly
-		httpSrv = &http.Server{
-			Addr:              ":" + port,
-			Handler:           r,
-			ReadTimeout:       15 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			IdleTimeout:       60 * time.Second,
-			ReadHeaderTimeout: 15 * time.Second,
+
+		// Determine target host
+		host := publicHost
+		if host == "" {
+			host = r.Host
+			// Strip port if present
+			if h, _, err := net.SplitHostPort(host); err == nil {
+				host = h
+			}
 		}
+		if host == "" {
+			http.Error(w, "Invalid Host", http.StatusBadRequest)
+			return
+		}
+
+		// Validate request URI
+		requestURI := r.URL.RequestURI()
+		if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
+			http.Error(w, "Invalid request URI", http.StatusBadRequest)
+			return
+		}
+
+		// Build redirect URL — always use standard HTTPS port (no :8443)
+		target := &url.URL{
+			Scheme:   "https",
+			Host:     host,
+			Path:     r.URL.Path,
+			RawQuery: r.URL.RawQuery,
+			Fragment: r.URL.Fragment,
+		}
+
+		// Security: validate redirect target
+		parsed, err := url.Parse(target.String())
+		if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
+			http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+			return
+		}
+
+		http.Redirect(w, r, target.String(), http.StatusMovedPermanently)
+	})
+
+	httpSrv := &http.Server{
+		Addr:              ":" + port,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		ReadHeaderTimeout: 15 * time.Second,
+		Handler:           httpRedirectHandler,
 	}
 
 	// ========== Start servers ==========
-	if tlsAvailable {
-		// HTTPS mode
-		go func() {
-			log.Info("HTTP redirect server starting", zap.String("port", port))
-			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Error("HTTP redirect server failed", zap.Error(err))
-			}
-		}()
+	go func() {
+		log.Info("HTTP redirect server starting", zap.String("port", port))
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("HTTP redirect server failed", zap.Error(err))
+		}
+	}()
 
-		go func() {
-			log.Info("HTTPS server starting",
-				zap.String("port", "8443"),
-				zap.String("cert", tlsCertFile),
-				zap.String("ml_classifier", mlClassifierURL),
-				zap.String("ml_generator", mlGeneratorURL))
-			if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
-				log.Fatal("Failed to start HTTPS server", zap.Error(err))
-			}
-		}()
-	} else {
-		// HTTP-only mode
-		log.Info("Starting in HTTP-only mode (no TLS certificates)",
-			zap.String("port", port),
+	go func() {
+		log.Info("HTTPS server starting",
+			zap.String("port", "8443"),
+			zap.String("cert", tlsCertFile),
 			zap.String("ml_classifier", mlClassifierURL),
 			zap.String("ml_generator", mlGeneratorURL))
-		go func() {
-			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatal("Failed to start HTTP server", zap.Error(err))
-			}
-		}()
-	}
+		if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
+			log.Fatal("Failed to start HTTPS server", zap.Error(err))
+		}
+	}()
 
 	// ========== Graceful shutdown ==========
 	quit := make(chan os.Signal, 1)

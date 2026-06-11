@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,55 +18,68 @@ spec:
         prometheus.io/port: '8080'
         prometheus.io/path: '/metrics'
     spec:
-      # volumes мерджатся по name — tls-certs из base сохранится, но на всякий случай укажем явно
+      securityContext:
+        runAsUser: 1001
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
       volumes:
+        - name: tmp
+          emptyDir: {}
+        # FIX: Добавляем TLS volume (терялся при patch)
         - name: tls-certs
           secret:
             secretName: gateway-tls
             optional: true
       containers:
         - name: gateway
-          # volumeMounts мерджатся по name — tls-certs из base сохранится
+          image: ghcr.io/mamuer/project/gateway:latest
+          imagePullPolicy: Always
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8443
+              name: https
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # FIX: Добавляем TLS mount (терялся при patch)
             - name: tls-certs
               mountPath: /etc/tls
               readOnly: true
-          # env мерджатся по name — все env из base сохранятся, добавляем только недостающие
           env:
-            # Эти env уже есть в base, но на всякий случай укажем явно
-            - name: REDIS_HOST
-              value: "redis"
-            - name: RABBITMQ_URL
+            - name: GATEWAY_PORT
+              value: '8080'
+            - name: USER_SERVICE_ADDR
+              value: "user-service:50051"
+            - name: BIOMETRIC_SERVICE_ADDR
+              value: "biometric-service:50052"
+            - name: TRAINING_SERVICE_ADDR
+              value: "training-service:50053"
+            # FIX: Добавляем недостающие env (терялись при patch)
+            - name: DEVICE_CONNECTOR_URL
+              value: "http://device-connector-service:8082"
+            - name: PROMETHEUS_ENABLED
+              value: 'true'
+            - name: ML_CLASSIFIER_URL
+              value: "http://ml-classifier:8001"
+            - name: ML_GENERATOR_URL
+              value: "http://ml-generator:8002"
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
-                  key: RABBITMQ_URL
+                  key: JWT_SECRET
             - name: TLS_CERT_FILE
               value: "/etc/tls/tls.crt"
             - name: TLS_KEY_FILE
               value: "/etc/tls/tls.key"
-            - name: DEVICE_CONNECTOR_URL
-              value: "http://device-connector-service:8082"
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: user-service
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: user-service
-  template:
-    metadata:
-      labels:
-        app: user-service
-    spec:
-      containers:
-        - name: user-service
-          env:
-            # Эти env уже есть в base, но на всякий случай укажем явно
             - name: REDIS_HOST
               value: "redis"
             - name: REDIS_PASSWORD
@@ -80,29 +92,22 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: RABBITMQ_URL
-            - name: SMTP_TLS
-              value: "true"
-
----
-# FIX: Уменьшаем реплики до 1 для экономии RAM на 2GB VPS
-# Для этих сервисов не меняем env/volumes — только replicas
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: biometric-service
-spec:
-  replicas: 1
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: training-service
-spec:
-  replicas: 1
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: device-connector
-spec:
-  replicas: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
