@@ -1,0 +1,32 @@
+name: Go Fuzz Tests
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  push:
+    branches: [main, master, Microservice_arc]
+    paths:
+      - 'internal/sanitize/**'
+  pull_request:
+    branches: [main, master, Microservice_arc]
+    paths:
+      - 'internal/sanitize/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz-sanitize:
+    name: Fuzz internal/sanitize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Run fuzz tests
+        run: |
+          go test -fuzz=FuzzString -fuzztime=60s ./internal/sanitize/

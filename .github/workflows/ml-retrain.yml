@@ -1,5 +1,9 @@
 name: ML Model Retraining
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   schedule:
     - cron: '0 2 * * 1'  # Каждый понедельник в 2 ночи

@@ -57,7 +57,6 @@ on:
 permissions:
   contents: read
   packages: write
-  security-events: write
   actions: read
 
 env:
@@ -187,7 +186,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
       - name: Run govulncheck
         run: govulncheck ./... -show verbose
 
@@ -214,6 +213,9 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
     needs: [validate-workflow, dockerfile-lint]
     steps:
@@ -270,6 +272,57 @@ jobs:
           category: trivy-fs
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ========== Security Gate — блокирует pipeline при критических уязвимостях ==========
+      - name: Security Gate — enforce quality thresholds
+        run: |
+          echo "============================================"
+          echo "  Security Gate — Checking scan results"
+          echo "============================================"
+          
+          FAIL=0
+          
+          # 1. Check gosec SARIF for CRITICAL/HIGH findings
+          if [ -f sarif-results/gosec.sarif ]; then
+            GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
+            GOSEC_HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
+            echo "gosec: $GOSEC_CRITICAL critical, $GOSEC_HIGH high"
+            if [ "$GOSEC_CRITICAL" -gt 0 ]; then
+              echo "❌ FAIL: gosec found $GOSEC_CRITICAL critical issues"
+              jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gosec.sarif 2>/dev/null || true
+              FAIL=1
+            fi
+          fi
+          
+          # 2. Check govulncheck results for known vulnerabilities
+          if [ -f vulncheck-results.txt ]; then
+            VULN_COUNT=$(grep -c "^GO-" vulncheck-results.txt 2>/dev/null || echo 0)
+            echo "govulncheck: $VULN_COUNT vulnerabilities found"
+            if [ "$VULN_COUNT" -gt 0 ]; then
+              echo "❌ FAIL: govulncheck found $VULN_COUNT known vulnerabilities"
+              grep "^GO-" vulncheck-results.txt | head -10
+              FAIL=1
+            fi
+          fi
+          
+          # 3. Check Trivy filesystem SARIF for CRITICAL CVEs with CVSS > 7
+          if [ -f sarif-results/trivy-fs.sarif ]; then
+            TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null || echo 0)
+            echo "trivy-fs: $TRIVY_CRITICAL critical CVEs"
+            if [ "$TRIVY_CRITICAL" -gt 0 ]; then
+              echo "❌ FAIL: Trivy found $TRIVY_CRITICAL critical vulnerabilities in dependencies"
+              jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' sarif-results/trivy-fs.sarif 2>/dev/null | head -10 || true
+              FAIL=1
+            fi
+          fi
+          
+          echo "============================================"
+          if [ "$FAIL" -eq 1 ]; then
+            echo "❌ Security Gate FAILED — pipeline blocked"
+            echo "   Fix the issues above before merging."
+            exit 1
+          else
+            echo "✅ Security Gate PASSED — no critical issues found"
+          fi
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
@@ -645,6 +698,46 @@ jobs:
             echo \"-> Setting up certificate auto-renewal...\"
             (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
             echo \"✅ Auto-renewal configured\"
+          "
+      - name: Setup DuckDNS auto-updater on VPS
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Setting up DuckDNS auto-updater...'
+            
+            # Save token securely
+            echo '${{ secrets.DUCKDNS_TOKEN }}' | sudo tee /etc/duckdns/token > /dev/null
+            sudo chmod 600 /etc/duckdns/token
+            sudo mkdir -p /etc/duckdns
+            
+            # Create updater script
+            sudo tee /usr/local/bin/duckdns-update.sh > /dev/null << 'EOFSCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          DUCKDNS_TOKEN=\$(cat /etc/duckdns/token)
+          DUCKDNS_DOMAIN='fittpulse'
+          CURRENT_IP=\$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null || curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || echo '')
+          if [ -z \"\$CURRENT_IP\" ]; then
+            echo \"\$(date): Failed to determine public IP\"
+            exit 1
+          fi
+          RESPONSE=\$(curl -sf --max-time 10 \"https://www.duckdns.org/update?domains=\${DUCKDNS_DOMAIN}&token=\${DUCKDNS_TOKEN}&ip=\${CURRENT_IP}\" 2>/dev/null || echo 'ERROR')
+          if [ \"\$RESPONSE\" = \"OK\" ]; then
+            echo \"\$(date): DuckDNS OK — \${DUCKDNS_DOMAIN}.duckdns.org → \${CURRENT_IP}\"
+          else
+            echo \"\$(date): DuckDNS FAILED — \${RESPONSE}\"
+            exit 1
+          fi
+          EOFSCRIPT
+            
+            sudo chmod +x /usr/local/bin/duckdns-update.sh
+            
+            # Add to cron — every 5 minutes
+            (sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
+            
+            # Run immediately
+            sudo /usr/local/bin/duckdns-update.sh
+            
+            echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
           "
       - name: Setup ML infrastructure directories on VPS
         run: |

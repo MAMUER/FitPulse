@@ -1,7 +1,16 @@
 -- V1__create_extensions.sql
--- Create necessary extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Create necessary extensions with explicit existence checks
+-- CREATE EXTENSION IF NOT EXISTS can fail with "duplicate key value violates unique constraint"
+-- when the extension catalog is in an inconsistent state. Using DO block with pg_extension check.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') THEN
+        CREATE EXTENSION "uuid-ossp";
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
+        CREATE EXTENSION "pgcrypto";
+    END IF;
+END $$;
 
 -- Cleanup orphaned composite types that prevent CREATE TABLE IF NOT EXISTS
 -- This resolves: ERROR: duplicate key value violates unique constraint "pg_type_typname_nsp_index"

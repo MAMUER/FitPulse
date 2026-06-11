@@ -41,7 +41,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 			}
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				log.Debug("Invalid authorization format", zap.String("header", authHeader))
+				log.Debug("Invalid authorization format")
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}

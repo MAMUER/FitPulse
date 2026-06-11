@@ -1,0 +1,17 @@
+# Global owners
+* @MAMUER
+
+# Go code
+*.go @MAMUER
+cmd/** @MAMUER
+internal/** @MAMUER
+
+# Kubernetes configs
+configs/k8s/** @MAMUER
+
+# CI/CD
+.github/workflows/** @MAMUER
+
+# Security-sensitive files
+go.mod @MAMUER
+go.sum @MAMUER
