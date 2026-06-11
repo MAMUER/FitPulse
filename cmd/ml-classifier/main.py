@@ -16,13 +16,14 @@ import threading
 import uuid
 import logging
 from pathlib import Path
+from datetime import datetime
 from prometheus_client import Gauge
-from fastapi.responses import Response  # ← для /metrics endpoint
+from fastapi.responses import Response
 
 classification_confidence = Gauge(
     'classification_confidence',
     'ML model confidence score for training type classification',
-    ['model_version', 'class']
+    ['model_version', 'class_name']
 )
 
 # Async imports (loaded conditionally)

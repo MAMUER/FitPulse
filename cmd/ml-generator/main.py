@@ -17,7 +17,7 @@ from prometheus_client import Gauge
 classification_confidence = Gauge(
     'classification_confidence',
     'ML model confidence score for training type classification',
-    ['model_version', 'class']
+    ['model_version', 'class_name']
 )
 
 # Async imports (loaded conditionally)
@@ -416,7 +416,7 @@ async def generate_plan(request: PlanGenerationRequest):
         )
         classification_confidence.labels(
             model_version=getattr(generator, 'name', 'unknown'),
-            class=training_class
+            class_name=request.training_class
         ).set(1.0)
 
         return TrainingPlan(**plan)

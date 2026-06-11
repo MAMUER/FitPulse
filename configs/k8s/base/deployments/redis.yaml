@@ -39,12 +39,22 @@ spec:
             - sh
             - -c
             - |
-              exec redis-server \
-                --bind 0.0.0.0 \
-                --appendonly yes \
-                --requirepass "$REDIS_PASSWORD" \
-                --maxmemory 256mb \
-                --maxmemory-policy allkeys-lru
+              if [ -z "$REDIS_PASSWORD" ]; then
+                echo "Starting Redis WITHOUT password..."
+                exec redis-server \
+                  --bind 0.0.0.0 \
+                  --appendonly yes \
+                  --maxmemory 256mb \
+                  --maxmemory-policy allkeys-lru
+              else
+                echo "Starting Redis WITH password..."
+                exec redis-server \
+                  --bind 0.0.0.0 \
+                  --appendonly yes \
+                  --requirepass "$REDIS_PASSWORD" \
+                  --maxmemory 256mb \
+                  --maxmemory-policy allkeys-lru
+              fi
           ports:
             - containerPort: 6379
               name: redis
