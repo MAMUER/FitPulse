@@ -368,32 +368,43 @@ func main() {
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	})
 
+	// Determine HTTP handler based on TLS availability
+	var httpHandler http.Handler
+	if tlsAvailable {
+		httpHandler = httpRedirectHandler
+	} else {
+		log.Info("TLS is not available, serving application directly over HTTP")
+		httpHandler = mainRouter
+	}
+
 	httpSrv := &http.Server{
 		Addr:              ":" + port,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
-		Handler:           httpRedirectHandler,
+		Handler:           httpHandler,
 	}
 
 	// ========== Start servers ==========
 	go func() {
-		log.Info("HTTP redirect server starting", zap.String("port", port))
+		log.Info("HTTP server starting", zap.String("port", port), zap.Bool("redirect_to_https", tlsAvailable))
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("HTTP redirect server failed", zap.Error(err))
+			log.Error("HTTP server failed", zap.Error(err))
 		}
 	}()
 
-	go func() {
-		log.Info("HTTPS server starting",
-			zap.String("port", "8443"),
-			zap.String("cert", tlsCertFile),
-			zap.String("ml_classifier", mlClassifierURL),
-			zap.String("ml_generator", mlGeneratorURL))
-		if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start HTTPS server", zap.Error(err))
-		}
-	}()
+	if tlsAvailable {
+		go func() {
+			log.Info("HTTPS server starting",
+				zap.String("port", "8443"),
+				zap.String("cert", tlsCertFile),
+				zap.String("ml_classifier", mlClassifierURL),
+				zap.String("ml_generator", mlGeneratorURL))
+			if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
+				log.Fatal("Failed to start HTTPS server", zap.Error(err))
+			}
+		}()
+	}
 
 	// ========== Graceful shutdown ==========
 	quit := make(chan os.Signal, 1)
@@ -405,7 +416,9 @@ func main() {
 	defer cancel()
 
 	_ = httpSrv.Shutdown(ctx)
-	_ = httpsSrv.Shutdown(ctx)
+	if tlsAvailable {
+		_ = httpsSrv.Shutdown(ctx)
+	}
 	log.Info("Servers stopped")
 }
 
