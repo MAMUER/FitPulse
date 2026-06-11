@@ -7,7 +7,7 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
 
-RUN apk add --no-cache git=2.52.0-r0 ca-certificates=20260413-r0
+RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ========== Runtime stage ==========
 FROM alpine:3.23
 
-RUN apk --no-cache add ca-certificates=20260413-r0 tzdata=2026b-r0 && \
+RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
