@@ -5,6 +5,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Cleanup orphaned composite types that prevent CREATE TABLE IF NOT EXISTS
 -- This resolves: ERROR: duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+-- FIX: Exclude types associated with views ('v') and materialized views ('m') to avoid
+-- "cannot drop type ... because view ... requires it" errors.
 DO $$
 DECLARE
     r RECORD;
@@ -14,7 +16,11 @@ BEGIN
               JOIN pg_namespace n ON n.oid = t.typnamespace 
               WHERE n.nspname = 'public' 
                 AND t.typtype = 'c' 
-                AND NOT EXISTS (SELECT 1 FROM pg_class c WHERE c.relname = t.typname AND c.relkind IN ('r', 'p')))
+                AND NOT EXISTS (
+                    SELECT 1 FROM pg_class c 
+                    WHERE c.relname = t.typname 
+                    AND c.relkind IN ('r', 'p', 'v', 'm')
+                ))
     LOOP
         EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(r.typname) || ' CASCADE';
     END LOOP;
