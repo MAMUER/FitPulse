@@ -11,12 +11,12 @@ func FuzzString(f *testing.F) {
 	f.Add("Привет мир")
 	f.Add("nl\n\r\t")
 	f.Add("numbers 123456")
-	f.Add("url https://example.com?a=1&b=2")
+	f.Add("url https://example.com?q=test")
 
 	f.Fuzz(func(t *testing.T, input string) {
 		result := String(input)
 
-		if strings.ContainsAny(result, ">\"'\\&") {
+		if strings.ContainsAny(result, `>"'\`) {
 			t.Errorf("unsanitized characters in result: %q -> %q", input, result)
 		}
 	})

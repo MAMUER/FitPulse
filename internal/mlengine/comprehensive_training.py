@@ -605,7 +605,7 @@ class TrainingPlanGenerator:
                 description_ru=f"Заминка: {ex['name_ru']}"
             ))
         
-        total_duration = sum(ex.duration_minutes for ex in exercises if ex.duration_minutes else 0)
+        total_duration = sum(ex.duration_minutes or 0 for ex in exercises)
         
         day_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
         
