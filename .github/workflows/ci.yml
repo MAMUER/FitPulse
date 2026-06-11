@@ -411,7 +411,7 @@ jobs:
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}'
           format: sarif
