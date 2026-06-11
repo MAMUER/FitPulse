@@ -95,7 +95,7 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 50052
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
           resources:
             requests:

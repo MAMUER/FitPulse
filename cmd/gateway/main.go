@@ -198,32 +198,66 @@ func main() {
 			}
 		}()
 	}
-
-	// Redis client for job result storage (used in async mode)
+	const redisMaxRetries = 10
+	const redisRetryDelay = 3 * time.Second
 	var rdb *redis.Client
 	if mlAsync {
 		rdb = redis.NewClient(&redis.Options{
-			Addr: redisAddr,
+			Addr:     redisAddr,
+			Password: os.Getenv("REDIS_PASSWORD"),
 		})
-		if pingErr := rdb.Ping(context.Background()).Err(); pingErr != nil {
-			log.Warn("Redis unavailable, async ML mode disabled", zap.Error(pingErr))
+		// Retry Redis connection for async mode
+		var redisAsyncConnected bool
+		for attempt := 1; attempt <= redisMaxRetries; attempt++ {
+			if pingErr := rdb.Ping(context.Background()).Err(); pingErr == nil {
+				redisAsyncConnected = true
+				log.Info("Redis connected for async job results", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
+				break
+			}
+			if attempt < redisMaxRetries {
+				time.Sleep(redisRetryDelay)
+			}
+		}
+		if !redisAsyncConnected {
+			log.Warn("Redis unavailable for async ML mode, disabling async")
 			mlAsync = false
-		} else {
-			log.Info("Redis connected for async job results", zap.String("addr", redisAddr))
+			rdb = nil
 		}
 	}
 
 	var sessionStore *cache.SessionStore
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
-		Password: os.Getenv("REDIS_PASSWORD"), // ← ДОБАВИТЬ ЭТУ СТРОКУ
+		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
 	})
-	if pingErr := redisClient.Ping(context.Background()).Err(); pingErr != nil {
-		log.Warn("Redis unavailable for session management", zap.Error(pingErr))
-	} else {
+
+	// Retry Redis connection with backoff — Redis may start after gateway in Kubernetes
+
+	var redisConnected bool
+	for attempt := 1; attempt <= redisMaxRetries; attempt++ {
+		pingErr := redisClient.Ping(context.Background()).Err()
+		if pingErr == nil {
+			redisConnected = true
+			log.Info("Redis connected for session management", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
+			break
+		}
+		if attempt < redisMaxRetries {
+			log.Warn("Redis unavailable, retrying",
+				zap.Int("attempt", attempt),
+				zap.Int("max_retries", redisMaxRetries),
+				zap.Duration("retry_delay", redisRetryDelay),
+				zap.Error(pingErr))
+			time.Sleep(redisRetryDelay)
+		} else {
+			log.Warn("Redis unavailable after all retries, session management disabled",
+				zap.Int("attempts", redisMaxRetries),
+				zap.Error(pingErr))
+		}
+	}
+
+	if redisConnected {
 		sessionStore = cache.NewSessionStoreFromRedis(redisClient)
-		log.Info("Redis connected for session management", zap.String("addr", redisAddr))
 	}
 
 	// RabbitMQ channel for publishing ML jobs (used in async mode)

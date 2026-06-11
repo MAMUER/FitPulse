@@ -10,8 +10,12 @@ COPY internal/ ./internal/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/device-aggregator ./cmd/device-aggregator
 
 FROM alpine:3.23
+
+# Update libssl3 to fix CVE-2026-45447 (use-after-free in PKCS#7 verification)
+# Fixed in libssl3 3.5.7-r0; alpine:3.23 ships 3.5.6-r0 by default
 # hadolint ignore=DL3018
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk upgrade --no-cache && \
+    apk --no-cache add ca-certificates tzdata
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app

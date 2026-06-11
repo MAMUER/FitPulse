@@ -941,6 +941,10 @@ func main() {
 	// Register gRPC health server
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
+	// Set overall serving status (empty service name) so gateway health check
+	// can verify availability without knowing the specific service name.
+	// Also set the named service for compatibility with standard gRPC health probes.
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus("user.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
 	reflection.Register(s)
 
