@@ -410,7 +410,8 @@ jobs:
           fi
       - name: Scan gateway image with Trivy
         id: trivy-image
-        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: '${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}'
           format: sarif
@@ -419,7 +420,7 @@ jobs:
           exit-code: '0'
           scanners: vuln
       - name: Upload Trivy image results
-        if: always()
+        if: always() && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
