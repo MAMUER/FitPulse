@@ -599,6 +599,54 @@ jobs:
             /tmp/install.sh server --write-kubeconfig-mode 644 --docker
             echo \"k3s installed successfully\"
           "
+      - name: Cleanup disk space on VPS
+        run: |
+          echo "-> Cleaning up disk space on VPS..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '=== Disk usage before cleanup ==='
+            df -h /
+            echo ''
+            echo '=== Docker disk usage ==='
+            docker system df || true
+            echo ''
+            echo '-> Removing dangling Docker images...'
+            docker image prune -f
+            echo '-> Removing unused Docker volumes...'
+            docker volume prune -f || true
+            echo '-> Removing unused Docker networks...'
+            docker network prune -f || true
+            echo '-> Removing stopped containers...'
+            docker container prune -f || true
+            echo '-> Cleaning Docker build cache...'
+            docker builder prune -f --filter 'until=24h' || true
+            echo ''
+            echo '-> Cleaning containerd cache (k3s internal)...'
+            k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
+            echo ''
+            echo '-> Removing old application images (keep only last 3 versions)...'
+            for svc in user-service biometric-service training-service gateway device-connector device-emulator ml-classifier ml-generator; do
+              echo \"Cleaning \$svc...\"
+              docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
+                sort -k2 -r | \
+                tail -n +4 | \
+                awk '{print \$1}' | \
+                xargs -r docker rmi || true
+            done
+            echo ''
+            echo '-> Cleaning system logs older than 7 days...'
+            sudo journalctl --vacuum-time=7d || true
+            echo ''
+            echo '-> Cleaning /tmp files older than 1 day...'
+            sudo find /tmp -type f -mtime +1 -delete || true
+            echo ''
+            echo '=== Disk usage after cleanup ==='
+            df -h /
+            echo ''
+            echo '=== Docker disk usage after cleanup ==='
+            docker system df || true
+            echo ''
+            echo '✅ Disk cleanup completed'
+          "
       - name: Pre-pull system images via Docker
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1048,19 +1096,52 @@ jobs:
           for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
-      - name: Cleanup old and failed pods before deploy
+      - name: Cleanup disk space on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "-> Cleaning up failed, evicted, and succeeded pods..."
-          kubectl delete pods -n fitness-platform-production \
-            --field-selector=status.phase=Failed,status.phase=Succeeded,status.phase=Unknown \
-            --ignore-not-found=true || true
-          echo "-> Cleaning up old ReplicaSets..."
-          kubectl get rs -n fitness-platform-production -o json | \
-            jq -r '.items[] | select(.status.replicas == 0) | .metadata.name' | \
-            xargs -r -n1 kubectl delete rs -n fitness-platform-production || true
-          echo "-> Cleanup complete"
-          kubectl get pods -n fitness-platform-production -o wide
+          echo "-> Cleaning up disk space on VPS..."
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '=== Disk usage before cleanup ==='
+            df -h /
+            echo ''
+            echo '=== Docker disk usage ==='
+            docker system df || true
+            echo ''
+            echo '-> Removing dangling Docker images...'
+            docker image prune -f
+            echo '-> Removing unused Docker volumes...'
+            docker volume prune -f || true
+            echo '-> Removing unused Docker networks...'
+            docker network prune -f || true
+            echo '-> Removing stopped containers...'
+            docker container prune -f || true
+            echo '-> Cleaning Docker build cache...'
+            docker builder prune -f --filter 'until=24h' || true
+            echo ''
+            echo '-> Removing old application images (keep only last 3 versions)...'
+            for svc in user-service biometric-service training-service gateway device-connector device-emulator ml-classifier ml-generator; do
+              echo \"Cleaning \$svc...\"
+              docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
+                sort -k2 -r | \
+                tail -n +4 | \
+                awk '{print \$1}' | \
+                xargs -r docker rmi || true
+            done
+            echo ''
+            echo '-> Cleaning system logs older than 7 days...'
+            sudo journalctl --vacuum-time=7d || true
+            echo ''
+            echo '-> Cleaning /tmp files older than 1 day...'
+            sudo find /tmp -type f -mtime +1 -delete || true
+            echo ''
+            echo '=== Disk usage after cleanup ==='
+            df -h /
+            echo ''
+            echo '=== Docker disk usage after cleanup ==='
+            docker system df || true
+            echo ''
+            echo '✅ Disk cleanup completed'
+          "
       - name: Pre-pull application images on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         run: |

@@ -3,12 +3,12 @@ ML Comprehensive Training Engine
 Комплексная логика генерации тренировок, диеты и адаптивных программ
 """
 
-from enum import Enum
-from typing import List, Dict, Optional, Any
-from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
 import random
-import math
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 # ==========================================
@@ -71,7 +71,7 @@ class UserHealthProfile(BaseModel):
     age: int = Field(..., ge=10, le=100, description="Возраст")
     weight: float = Field(..., gt=20, le=300, description="Вес (кг)")
     height: int = Field(..., gt=100, le=250, description="Рост (см)")
-    
+
     # Биометрия с устройств
     heart_rate: Optional[float] = Field(None, description="Пульс (BPM)")
     ecg_data: Optional[List[float]] = Field(None, description="ЭКГ данные")
@@ -81,21 +81,21 @@ class UserHealthProfile(BaseModel):
     temperature: Optional[float] = Field(None, description="Температура (°C)")
     sleep_hours: Optional[float] = Field(None, description="Часы сна")
     hrv: Optional[float] = Field(None, description="HRV (мс)")
-    
+
     # Здоровье
     diseases: Optional[str] = Field(None, description="Заболевания (текстовое поле)")
     contraindications: Optional[List[str]] = Field(None, description="Противопоказания")
     injuries: Optional[List[str]] = Field(None, description="Травмы")
-    
+
     # Цели и предпочтения
     training_goal: TrainingGoal = Field(TrainingGoal.GENERAL_FITNESS, description="Цель тренировок")
     training_location: TrainingLocation = Field(TrainingLocation.GYM, description="Место тренировок")
     available_days: List[int] = Field([1, 3, 5], description="Доступные дни недели (0=Пн, 6=Вс)")
     available_time: TimeOfDay = Field(TimeOfDay.EVENING, description="Доступное время суток")
-    
+
     # Подключенные устройства
     connected_devices: List[str] = Field([], description="Подключенные устройства")
-    
+
     def has_device_capability(self, capability: str) -> bool:
         """Проверяет, есть ли у устройств определённая возможность"""
         device_capabilities = {
@@ -104,22 +104,22 @@ class UserHealthProfile(BaseModel):
             'huawei_watch_d2': ['heart_rate', 'ecg', 'blood_pressure', 'spo2', 'temperature', 'sleep', 'hrv'],
             'amazfit_trex3': ['heart_rate', 'spo2', 'sleep', 'hrv'],
         }
-        
+
         for device in self.connected_devices:
             if device in device_capabilities:
                 if capability in device_capabilities[device]:
                     return True
         return False
-    
+
     def calculate_bmi(self) -> float:
         """Рассчитывает BMI"""
         height_m = self.height / 100.0
         return self.weight / (height_m ** 2)
-    
+
     def calculate_max_heart_rate(self) -> float:
         """Рассчитывает максимальный пульс по формуле: 220 - возраст"""
         return 220 - self.age
-    
+
     def has_health_risk(self) -> bool:
         """Проверяет наличие рисков для здоровья"""
         if self.diseases and len(self.diseases.strip()) > 0:
@@ -232,7 +232,7 @@ class TrainingStateClassifier:
     Классификатор состояния пользователя на основе биометрии.
     Определяет оптимальный тип тренировки в реальном времени.
     """
-    
+
     @staticmethod
     def classify_state(profile: UserHealthProfile) -> Dict[str, Any]:
         """
@@ -247,33 +247,33 @@ class TrainingStateClassifier:
             UserState.OVERTRAINING: 0.0,
             UserState.ILLNESS: 0.0,
         }
-        
+
         # Проверка на болезнь (температура)
         if profile.temperature:
             if profile.temperature > 37.5:
                 scores[UserState.ILLNESS] += 0.8
             elif profile.temperature > 37.0:
                 scores[UserState.ILLNESS] += 0.4
-        
+
         # Проверка на перетренированность (низкий HRV + высокий пульс покоя)
         if profile.hrv and profile.heart_rate:
             if profile.hrv < 20 and profile.heart_rate > 80:
                 scores[UserState.OVERTRAINING] += 0.7
             elif profile.hrv < 30:
                 scores[UserState.RECOVERY] += 0.4
-        
+
         # Оценка готовности к нагрузке
         if profile.sleep_hours:
             if profile.sleep_hours < 6:
                 scores[UserState.RECOVERY] += 0.5
             elif profile.sleep_hours >= 7:
                 scores[UserState.ENDURANCE_E1E2] += 0.3
-        
+
         # Пульс и готовность к интенсивности
         if profile.heart_rate:
             max_hr = profile.calculate_max_heart_rate()
             hr_percentage = profile.heart_rate / max_hr
-            
+
             if hr_percentage < 0.6:
                 scores[UserState.RECOVERY] += 0.4
             elif hr_percentage < 0.75:
@@ -282,29 +282,29 @@ class TrainingStateClassifier:
                 scores[UserState.THRESHOLD_E3] += 0.5
             else:
                 scores[UserState.STRENGTH_HIIT] += 0.5
-        
+
         # SpO2
         if profile.spo2:
             if profile.spo2 < 94:
                 scores[UserState.RECOVERY] += 0.6
             elif profile.spo2 < 96:
                 scores[UserState.ENDURANCE_E1E2] += 0.3
-        
+
         # Если есть заболевания — снижаем интенсивность
         if profile.has_health_risk():
             scores[UserState.RECOVERY] += 0.4
             scores[UserState.ENDURANCE_E1E2] += 0.2
-        
+
         # Находим класс с максимальным score
-        best_class = max(scores, key=scores.get)
+        best_class = max(scores, key=lambda k: scores[k])
         max_score = scores[best_class]
-        
+
         # Нормализуем confidence
         total_score = sum(scores.values())
         confidence = max_score / total_score if total_score > 0 else 0.5
-        
+
         recommendations = TrainingStateClassifier._get_recommendations(best_class, profile)
-        
+
         return {
             "state": best_class.value,
             "state_ru": TrainingStateClassifier._state_to_russian(best_class),
@@ -312,7 +312,7 @@ class TrainingStateClassifier:
             "scores": {k.value: round(v, 2) for k, v in scores.items()},
             "recommendations": recommendations
         }
-    
+
     @staticmethod
     def _get_recommendations(state: UserState, profile: UserHealthProfile) -> List[str]:
         """Возвращает рекомендации для состояния"""
@@ -356,7 +356,7 @@ class TrainingStateClassifier:
             ]
         }
         return recs.get(state, [])
-    
+
     @staticmethod
     def _state_to_russian(state: UserState) -> str:
         mapping = {
@@ -384,7 +384,7 @@ class TrainingPlanGenerator:
     - Доступных дней
     - Устройств (возможностей биометрии)
     """
-    
+
     # Библиотека упражнений по месту тренировок
     EXERCISES_BY_LOCATION = {
         TrainingLocation.HOME: {
@@ -399,7 +399,14 @@ class TrainingPlanGenerator:
                 {"name": "plank", "name_ru": "Планка", "sets": 3, "duration": 60, "rest": 45, "intensity": 0.5},
                 {"name": "lunges", "name_ru": "Выпады", "sets": 3, "reps": 12, "rest": 60, "intensity": 0.6},
                 {"name": "burpees", "name_ru": "Бёрпи", "sets": 3, "reps": 10, "rest": 90, "intensity": 0.8},
-                {"name": "mountain_climbers", "name_ru": "Альпинист", "sets": 3, "duration": 45, "rest": 60, "intensity": 0.7},
+                {
+                    "name": "mountain_climbers",
+                    "name_ru": "Альпинист",
+                    "sets": 3,
+                    "duration": 45,
+                    "rest": 60,
+                    "intensity": 0.7,
+                },
             ],
             "cooldown": [
                 {"name": "stretching", "name_ru": "Растяжка", "duration": 10},
@@ -429,7 +436,14 @@ class TrainingPlanGenerator:
                 {"name": "easy_swim", "name_ru": "Лёгкое плавание", "duration": 10},
             ],
             "main": [
-                {"name": "freestyle_intervals", "name_ru": "Интервалы вольным стилем", "sets": 8, "duration": 120, "rest": 30, "intensity": 0.7},
+                {
+                    "name": "freestyle_intervals",
+                    "name_ru": "Интервалы вольным стилем",
+                    "sets": 8,
+                    "duration": 120,
+                    "rest": 30,
+                    "intensity": 0.7,
+                },
                 {"name": "breaststroke", "name_ru": "Брасс", "duration": 20, "intensity": 0.5},
                 {"name": "backstroke", "name_ru": "На спине", "duration": 15, "intensity": 0.6},
                 {"name": "kickboard_drills", "name_ru": "Работа с доской", "sets": 6, "duration": 60, "rest": 30, "intensity": 0.6},
@@ -456,7 +470,7 @@ class TrainingPlanGenerator:
             ]
         }
     }
-    
+
     @staticmethod
     def generate_plan(
         user_id: str,
@@ -465,28 +479,28 @@ class TrainingPlanGenerator:
         duration_weeks: int = 4
     ) -> TrainingPlan:
         """Генерирует полный тренировочный план"""
-        
+
         state = UserState(state_classification["state"])
         weeks = []
-        
+
         for week_num in range(duration_weeks):
             week_plan = TrainingPlanGenerator._generate_week(
                 week_num, profile, state, duration_weeks
             )
             weeks.append(week_plan)
-            
+
             # Прогрессия: увеличиваем интенсивность каждую неделю
             if state == UserState.ENDURANCE_E1E2:
                 state = UserState.THRESHOLD_E3 if week_num > duration_weeks // 2 else state
             elif state == UserState.RECOVERY:
                 state = UserState.ENDURANCE_E1E2 if week_num > 1 else state
-        
+
         warnings = []
         if profile.has_health_risk():
             warnings.append("У вас есть факторы риска. Проконсультируйтесь с врачом перед тренировками.")
-        
+
         recommendations = TrainingPlanGenerator._get_plan_recommendations(profile, state)
-        
+
         return TrainingPlan(
             user_id=user_id,
             generated_at=datetime.utcnow().isoformat(),
@@ -495,7 +509,7 @@ class TrainingPlanGenerator:
             recommendations=recommendations,
             warnings=warnings
         )
-    
+
     @staticmethod
     def _generate_week(
         week_num: int,
@@ -504,16 +518,16 @@ class TrainingPlanGenerator:
         total_weeks: int
     ) -> WeeklyPlan:
         """Генерирует план на одну неделю"""
-        
+
         days = []
         total_duration = 0
         training_days = 0
-        
+
         intensity_multiplier = 1.0 + (week_num * 0.05)  # +5% каждую неделю
-        
+
         for day in range(7):
             is_training_day = day in profile.available_days
-            
+
             if is_training_day:
                 daily = TrainingPlanGenerator._generate_training_day(
                     day, profile, state, intensity_multiplier
@@ -521,10 +535,10 @@ class TrainingPlanGenerator:
                 training_days += 1
             else:
                 daily = TrainingPlanGenerator._generate_rest_day(day)
-            
+
             total_duration += daily.total_duration_minutes
             days.append(daily)
-        
+
         return WeeklyPlan(
             week_number=week_num + 1,
             days=days,
@@ -532,7 +546,7 @@ class TrainingPlanGenerator:
             total_duration_minutes=total_duration,
             average_intensity=round(total_duration / (training_days * 60) if training_days > 0 else 0, 2)
         )
-    
+
     @staticmethod
     def _generate_training_day(
         day: int,
@@ -541,10 +555,10 @@ class TrainingPlanGenerator:
         intensity_multiplier: float
     ) -> DailyPlan:
         """Генерирует тренировочный день"""
-        
+
         location = profile.training_location
         exercises_db = TrainingPlanGenerator.EXERCISES_BY_LOCATION.get(location, {})
-        
+
         # Определяем тип тренировки по состоянию
         training_type_map = {
             UserState.RECOVERY: ("recovery", "Восстановление"),
@@ -552,11 +566,11 @@ class TrainingPlanGenerator:
             UserState.THRESHOLD_E3: ("threshold", "Пороговая"),
             UserState.STRENGTH_HIIT: ("hiit", "HIIT/Силовая"),
         }
-        
+
         train_type, train_type_ru = training_type_map.get(state, ("general", "Общая"))
-        
+
         exercises = []
-        
+
         # Warmup
         warmups = exercises_db.get("warmup", [])
         for ex in warmups:
@@ -568,7 +582,7 @@ class TrainingPlanGenerator:
                 rest_seconds=30,
                 description_ru=f"Разминка: {ex['name_ru']}"
             ))
-        
+
         # Main workout
         mains = exercises_db.get("main", [])
         intensity_base = 0.5
@@ -578,10 +592,10 @@ class TrainingPlanGenerator:
             intensity_base = 0.75
         elif state == UserState.STRENGTH_HIIT:
             intensity_base = 0.85
-        
+
         for ex in mains[:3]:  # 3 основных упражнения
-            ex_intensity = min(1.0, ex.get("intensity", 0.6) * intensity_multiplier * intensity_base)
-            
+            ex_intensity = min(1.0, float(ex.get("intensity", 0.6)) * intensity_multiplier * intensity_base)
+
             exercises.append(Exercise(
                 name=ex["name"],
                 name_ru=ex["name_ru"],
@@ -592,7 +606,7 @@ class TrainingPlanGenerator:
                 rest_seconds=ex.get("rest", 60),
                 description_ru=f"Основное упражнение: {ex['name_ru']}"
             ))
-        
+
         # Cooldown
         cooldowns = exercises_db.get("cooldown", [])
         for ex in cooldowns:
@@ -604,11 +618,9 @@ class TrainingPlanGenerator:
                 rest_seconds=30,
                 description_ru=f"Заминка: {ex['name_ru']}"
             ))
-        
-        total_duration = sum(ex.duration_minutes or 0 for ex in exercises)
-        
-        day_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-        
+
+        total_duration = sum(ex.duration_minutes for ex in exercises)
+
         return DailyPlan(
             date=(datetime.utcnow() + timedelta(days=day)).strftime("%Y-%m-%d"),
             day_of_week=day,
@@ -618,15 +630,13 @@ class TrainingPlanGenerator:
             exercises=exercises,
             total_duration_minutes=total_duration,
             intensity_level=round(intensity_base * intensity_multiplier, 2),
-            notes_ru=f"Тренировка: {train_type_ru}. Следите за пульсом."
+            notes_ru=f"Тренировка: {train_type_ru}. Следите за пульсом.",
         )
-    
+
     @staticmethod
     def _generate_rest_day(day: int) -> DailyPlan:
         """Генерирует день отдыха"""
-        
-        day_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-        
+
         return DailyPlan(
             date=(datetime.utcnow() + timedelta(days=day)).strftime("%Y-%m-%d"),
             day_of_week=day,
@@ -639,7 +649,7 @@ class TrainingPlanGenerator:
             is_rest_day=True,
             notes_ru="День отдыха. Лёгкая прогулка или растяжка по желанию."
         )
-    
+
     @staticmethod
     def _get_plan_recommendations(profile: UserHealthProfile, state: UserState) -> List[str]:
         """Возвращает рекомендации для плана"""
@@ -648,14 +658,14 @@ class TrainingPlanGenerator:
             "Пейте воду во время тренировки",
             "Следите за техникой выполнения упражнений"
         ]
-        
+
         if profile.age > 50:
             recs.append("После 50 лет увеличьте время разминки и заминки")
-        
+
         if profile.has_health_risk():
             recs.append("Контролируйте пульс во время тренировки")
             recs.append("При головокрусти или боли остановитесь")
-        
+
         return recs
 
 
@@ -665,7 +675,7 @@ class TrainingPlanGenerator:
 
 class DietPlanGenerator:
     """Генератор планов питания"""
-    
+
     # Шаблоны диет
     DIET_TEMPLATES = {
         DietType.BALANCED: {
@@ -701,7 +711,7 @@ class DietPlanGenerator:
             ]
         },
     }
-    
+
     # Примеры блюд
     MEAL_EXAMPLES = {
         "breakfast": [
@@ -721,20 +731,24 @@ class DietPlanGenerator:
             {"name": "yogurt", "name_ru": "Греческий йогурт", "cal": 150, "protein": 15, "carbs": 12, "fat": 5},
         ]
     }
-    
+
     @staticmethod
     def generate_diet(profile: UserHealthProfile) -> DietPlan:
         """Генерирует план питания"""
-        
+
         # Определяем тип диеты
         diet_type = DietPlanGenerator._select_diet_type(profile)
-        template = DietPlanGenerator.DIET_TEMPLATES.get(diet_type, DietPlanGenerator.DIET_TEMPLATES[DietType.BALANCED])
-        
+        template = DietPlanGenerator.DIET_TEMPLATES.get(
+            diet_type, DietPlanGenerator.DIET_TEMPLATES[DietType.BALANCED]
+        )
+
         # Рассчитываем калории
         bmr = DietPlanGenerator._calculate_bmr(profile)
-        activity_multiplier = 1.3 + (profile.training_goal == TrainingGoal.ENDURANCE) * 0.3
+        activity_multiplier = (
+            1.3 + (profile.training_goal == TrainingGoal.ENDURANCE) * 0.3
+        )
         daily_calories = bmr * activity_multiplier
-        
+
         # Генерируем дни
         days = []
         for day in range(7):
@@ -742,11 +756,11 @@ class DietPlanGenerator:
                 day, template, daily_calories, profile
             )
             days.append(daily_diet)
-        
+
         contraindications = []
         if profile.diseases:
             contraindications.append("Учтите ваши заболевания при выборе продуктов")
-        
+
         return DietPlan(
             diet_type=diet_type,
             diet_type_ru=template["name_ru"],
@@ -754,13 +768,13 @@ class DietPlanGenerator:
             macros_ratio=template["macros"],
             days=days,
             recommendations=[
-                f"Пейте минимум 2 литра воды в день",
-                f"Ешьте каждые 3-4 часа",
-                f"Избегайте обработанных продуктов"
+                "Пейте минимум 2 литра воды в день",
+                "Ешьте каждые 3-4 часа",
+                "Избегайте обработанных продуктов",
             ],
-            contraindications=contraindications
+            contraindications=contraindications,
         )
-    
+
     @staticmethod
     def _select_diet_type(profile: UserHealthProfile) -> DietType:
         """Выбирает тип диеты на основе профиля"""
@@ -774,16 +788,16 @@ class DietPlanGenerator:
             return DietType.WEIGHT_LOSS
         else:
             return DietType.BALANCED
-    
+
     @staticmethod
     def _calculate_bmr(profile: UserHealthProfile) -> float:
         """Рассчитывает базовый метаболизм (формула Миффлина-Сан Жеора)"""
-        if profile.gender if hasattr(profile, 'gender') else True:  # male
+        if profile.gender if hasattr(profile, "gender") else True:  # male
             bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5
         else:
             bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161
         return max(1200, bmr)
-    
+
     @staticmethod
     def _generate_day_diet(
         day: int,
@@ -792,44 +806,46 @@ class DietPlanGenerator:
         profile: UserHealthProfile
     ) -> DailyDiet:
         """Генерирует диету на один день"""
-        
+
         meals = []
         total_cal = 0
         total_protein = 0
         total_carbs = 0
         total_fat = 0
-        
+
         for meal_template in template["meals"]:
             meal_cal = daily_calories * meal_template["cal_pct"]
-            
+
             # Выбираем случайное блюдо из категории
             meal_category = meal_template["name"]
             if "snack" in meal_category:
                 options = DietPlanGenerator.MEAL_EXAMPLES["snack"]
             else:
                 options = DietPlanGenerator.MEAL_EXAMPLES.get(meal_category, [])
-            
+
             if options:
                 dish = random.choice(options)
                 # Масштабируем под нужные калории
                 scale = meal_cal / dish["cal"]
-                
-                meals.append(MealItem(
-                    name=dish["name"],
-                    name_ru=dish["name_ru"],
-                    portion_grams=int(200 * scale),
-                    calories=round(meal_cal),
-                    protein_g=round(dish["protein"] * scale, 1),
-                    carbs_g=round(dish["carbs"] * scale, 1),
-                    fat_g=round(dish["fat"] * scale, 1),
-                    time=meal_template["time"]
-                ))
-                
+
+                meals.append(
+                    MealItem(
+                        name=dish["name"],
+                        name_ru=dish["name_ru"],
+                        portion_grams=int(200 * scale),
+                        calories=round(meal_cal),
+                        protein_g=round(dish["protein"] * scale, 1),
+                        carbs_g=round(dish["carbs"] * scale, 1),
+                        fat_g=round(dish["fat"] * scale, 1),
+                        time=meal_template["time"],
+                    )
+                )
+
                 total_cal += meal_cal
                 total_protein += dish["protein"] * scale
                 total_carbs += dish["carbs"] * scale
                 total_fat += dish["fat"] * scale
-        
+
         return DailyDiet(
             day_of_week=day,
             meals=meals,
@@ -838,7 +854,7 @@ class DietPlanGenerator:
             total_carbs_g=round(total_carbs, 1),
             total_fat_g=round(total_fat, 1),
             water_liters=2.0 + profile.weight * 0.01,
-            notes_ru=f"День {day + 1}. Следите за балансом макронутриентов."
+            notes_ru=f"День {day + 1}. Следите за балансом макронутриентов.",
         )
 
 
@@ -850,7 +866,7 @@ class AdaptivePlanModifier:
     """
     Ежедневно адаптирует план тренировок на основе отклонений показателей.
     """
-    
+
     @staticmethod
     def adapt_plan(
         original_plan: TrainingPlan,
@@ -863,34 +879,34 @@ class AdaptivePlanModifier:
         """
         changes = []
         warnings = []
-        
+
         # Проверка пульса
         if "heart_rate" in current_biometrics:
             hr = current_biometrics["heart_rate"]
             max_hr = profile.calculate_max_heart_rate()
-            
+
             if hr > max_hr * 0.9:
                 changes.append("Снизить интенсивность today — пульс выше нормы")
                 warnings.append("Пульс слишком высокий. Отдохните или снизьте нагрузку.")
             elif hr < 50:
                 changes.append("Пульс ниже нормы — проверьте датчик")
-        
+
         # Проверка SpO2
         if "spo2" in current_biometrics:
             if current_biometrics["spo2"] < 92:
                 changes.append("SpO2 низкий — прекратите тренировку")
                 warnings.append("Низкая сатурация! Остановитесь и обратитесь к врачу.")
-        
+
         # Проверка температуры
         if "temperature" in current_biometrics:
             if current_biometrics["temperature"] > 37.5:
                 changes.append("Температура повышена — пропустите тренировку")
                 warnings.append("При температуре тренироваться нельзя!")
-        
+
         # Проверка сна
         if profile.sleep_hours and profile.sleep_hours < 5:
             changes.append("Недосып — замените интенсивную тренировку на лёгкую")
-        
+
         return {
             "original_plan": original_plan.dict(),
             "changes": changes,
