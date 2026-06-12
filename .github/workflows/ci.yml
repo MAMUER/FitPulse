@@ -327,23 +327,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Exclude GitHub Actions workflows from linting
           FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$)'
-          # Enable only Python linters — everything else is disabled by default in v8
+          # Super Linter v8: ONLY use VALIDATE=true. NEVER mix true and false.
+          # All linters are disabled by default — only enable what you need.
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
           VALIDATE_PYTHON_MYPY: true
-          # CRITICAL: Disable all Jupyter/NBQA linters — they conflict with PYTHON_MYPY_CONFIG_FILE
-          # Super Linter v8 tries to apply mypy.ini to JUPYTER_NBQA_MYPY but the internal
-          # rules file doesn't exist in the container, causing FATAL error.
-          VALIDATE_JUPYTER_NBQA_BLACK: false
-          VALIDATE_JUPYTER_NBQA_FLAKE8: false
-          VALIDATE_JUPYTER_NBQA_ISORT: false
-          VALIDATE_JUPYTER_NBQA_MYPY: false
-          VALIDATE_JUPYTER_NBQA_PYLINT: false
-          VALIDATE_JUPYTER_NBQA_RUFF: false
-          # Config files
-          PYTHON_FLAKE8_CONFIG_FILE: .flake8
-          PYTHON_MYPY_CONFIG_FILE: mypy.ini
+          # DO NOT set PYTHON_FLAKE8_CONFIG_FILE or PYTHON_MYPY_CONFIG_FILE
+          # They cause Jupyter NBQA linters to FATAL on missing internal rules.
+          # Super Linter will use its built-in default configs instead.
 
   # ============================================================================
   # CODEQL ANALYSIS
