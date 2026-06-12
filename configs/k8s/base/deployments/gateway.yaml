@@ -64,6 +64,13 @@ spec:
               value: "training-service:50053"
             - name: DEVICE_CONNECTOR_URL
               value: "http://device-connector-service:8082"
+            - name: DATABASE_URL
+              value: "postgres://postgres:$(POSTGRES_PASSWORD)@postgres-service:5432/fitness?sslmode=disable"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
             - name: PROMETHEUS_ENABLED
               value: 'true'
             - name: ML_CLASSIFIER_URL

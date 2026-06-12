@@ -1,12 +1,10 @@
 // FitPulse Modules — Devices, Training, Diet
 // Mobile web app UI logic
-
 const AppModules = (() => {
     // ===== State =====
     let currentUser = null;
     let selectedDevice = null;
     let emulationInterval = null;
-
     // ===== Device Module =====
     // Mapping from exercise identifiers to Russian display names
     const EXERCISE_NAME_MAP = {
@@ -48,7 +46,6 @@ const AppModules = (() => {
         "light_warmup": "Лёгкая разминка",
         "breathing_exercises": "Дыхательные упражнения"
     };
-
     const DeviceModule = {
         devices: [
             { type: 'apple_watch', name: 'Apple Watch', icon: '⌚', capabilities: 'Пульс, ЭКГ, SpO₂, Сон' },
@@ -56,26 +53,42 @@ const AppModules = (() => {
             { type: 'huawei_watch_d2', name: 'Huawei Watch D2', icon: '⌚', capabilities: 'Пульс, Давление, ЭКГ, SpO₂' },
             { type: 'amazfit_trex3', name: 'Amazfit T-Rex 3', icon: '⌚', capabilities: 'Пульс, SpO₂, Сон' }
         ],
-
         init() {
             this.renderDeviceSelector();
             this.bindEvents();
             this.renderConnectedDevices();
+            this.showEmulatorInstructions();
         },
-
         renderDeviceSelector() {
             const container = document.getElementById('deviceSelector');
             if (!container) return;
-
             container.innerHTML = this.devices.map(d => `
-                <div class="device-option" data-type="${d.type}">
-                    <div class="device-icon">${d.icon}</div>
-                    <div class="device-name">${d.name}</div>
-                    <div class="device-capabilities">${d.capabilities}</div>
-                </div>
-            `).join('');
+<div class="device-option" data-type="${d.type}">
+<div class="device-icon">${d.icon}</div>
+<div class="device-name">${d.name}</div>
+<div class="device-capabilities">${d.capabilities}</div>
+</div>
+`).join('');
         },
+        showEmulatorInstructions() {
+            const container = document.getElementById('deviceSelector');
+            if (!container || document.getElementById('emulatorInstructions')) return; // Уже добавлено
 
+            const info = document.createElement('div');
+            info.id = 'emulatorInstructions';
+            info.style.cssText = 'grid-column: 1 / -1; background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;';
+            info.innerHTML = `
+        <strong>💡 Как подключить эмулятор устройства:</strong><br>
+        1. Выберите тип устройства выше и нажмите "Подключить устройство".<br>
+        2. После успешного подключения скопируйте <code>device_id</code> и <code>device_token</code> из ответа сервера (они отобразятся ниже).<br>
+        3. Запустите эмулятор на вашем компьютере (требуется Go и доступ к серверу):<br>
+        <code style="display:block; background:var(--bg-input); padding:8px; margin-top:4px; border-radius:4px; font-size:11px; word-break: break-all;">
+        go run ./cmd/device-emulator --user-id=ВАШ_USER_ID --device-type=ТИП_УСТРОЙСТВА --connector-url=http://localhost:8082
+        </code>
+        <span style="color: var(--orange);">⚠️ Убедитесь, что ML-сервисы запущены, иначе генерация планов будет недоступна.</span>
+    `;
+            container.parentNode.insertBefore(info, container);
+        },
         bindEvents() {
             document.addEventListener('click', (e) => {
                 const deviceOption = e.target.closest('.device-option');
@@ -88,7 +101,6 @@ const AppModules = (() => {
                     window.AppModules.showToast(`${deviceName} выбрано. Нажмите "Подключить устройство"`, 'info');
                 }
             });
-
             // Кнопка "Подключить устройство"
             document.getElementById('connectDeviceBtn')?.addEventListener('click', async () => {
                 if (!selectedDevice) {
@@ -103,8 +115,22 @@ const AppModules = (() => {
                 try {
                     const profile = await getProfile();
                     const userId = profile.profile?.user_id || profile.user_id;
-                    await this.connectDevice(selectedDevice, userId);
+                    const result = await this.connectDevice(selectedDevice, userId);
                     showToast(`${this.devices.find(d => d.type === selectedDevice)?.name} подключено!`, 'success');
+
+                    // Отображаем device_id и device_token для эмулятора
+                    const container = document.getElementById('connectedDevicesList');
+                    if (container && result) {
+                        const credsDiv = document.createElement('div');
+                        credsDiv.style.cssText = 'margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 12px;';
+                        credsDiv.innerHTML = `
+        <strong>Данные для эмулятора:</strong><br>
+        <code>device_id: ${result.device_id || 'N/A'}</code><br>
+        <code>device_token: ${result.device_token || 'N/A'}</code>
+    `;
+                        container.appendChild(credsDiv);
+                    }
+
                     // Обновляем список устройств
                     this.renderConnectedDevices();
                 } catch (err) {
@@ -117,54 +143,39 @@ const AppModules = (() => {
                 }
             });
         },
-
         async connectDevice(deviceType, userId) {
-            const resp = await fetch('/api/v1/devices/register', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ device_type: deviceType, user_id: userId })
-            });
-            if (!resp.ok) {
-                const text = await resp.text();
-                throw new Error(text || 'Ошибка сервера');
+            // FIX: Используем apiRequest вместо fetch, путь без /api/v1
+            try {
+                const data = await window.apiRequest('/devices/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ device_type: deviceType, user_id: userId })
+                });
+                return data;
+            } catch (err) {
+                throw new Error(err.message || 'Ошибка регистрации устройства');
             }
-            return resp.json();
         },
-
         async renderConnectedDevices() {
             const container = document.getElementById('connectedDevicesList');
             if (!container) return;
-
             try {
-                const resp = await fetch('/api/v1/devices', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-                if (!resp.ok) {
-                    throw new Error('Failed to fetch devices');
-                }
-                const data = await resp.json();
+                // FIX: Используем apiRequest вместо fetch, путь без /api/v1
+                const data = await window.apiRequest('/devices', { method: 'GET' });
                 const devices = data.devices || [];
-
                 if (devices.length === 0) {
                     container.innerHTML = `
-                        <div style="text-align:center; padding:24px 16px; color:var(--text-secondary);">
-                            <div style="font-size:48px; margin-bottom:12px;">⌚</div>
-                            <div style="font-size:15px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">
-                                Нет подключённых устройств
-                            </div>
-                            <div style="font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;">
-                                Выберите устройство из списка ниже и нажмите «Подключить устройство»
-                            </div>
-                        </div>
-                    `;
+<div style="text-align:center; padding:24px 16px; color:var(--text-secondary);">
+<div style="font-size:48px; margin-bottom:12px;">⌚</div>
+<div style="font-size:15px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">
+Нет подключённых устройств
+</div>
+<div style="font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;">
+Выберите устройство из списка ниже и нажмите «Подключить устройство»
+</div>
+</div>
+`;
                     return;
                 }
-
                 const deviceNames = {
                     apple_watch: 'Apple Watch',
                     samsung_galaxy_watch: 'Samsung Galaxy Watch',
@@ -177,55 +188,47 @@ const AppModules = (() => {
                     huawei_watch_d2: '⌚',
                     amazfit_trex3: '⌚'
                 };
-
                 container.innerHTML = devices.map(d => `
-                    <div class="device-item">
-                        <div class="device-icon">${deviceIcons[d.device_type] || '⌚'}</div>
-                        <div class="device-info">
-                            <div class="device-name">${deviceNames[d.device_type] || d.device_type}</div>
-                            <div class="device-date">Подключено: ${new Date(d.created_at).toLocaleDateString('ru-RU')}</div>
-                        </div>
-                    </div>
-                `).join('');
+<div class="device-item">
+<div class="device-icon">${deviceIcons[d.device_type] || '⌚'}</div>
+<div class="device-info">
+<div class="device-name">${deviceNames[d.device_type] || d.device_type}</div>
+<div class="device-date">Подключено: ${new Date(d.created_at).toLocaleDateString('ru-RU')}</div>
+</div>
+</div>
+`).join('');
             } catch (err) {
                 console.error('Failed to load devices:', err);
                 container.innerHTML = `<div class="error">Не удалось загрузить устройства</div>`;
             }
         }
     };
-
     // ===== Training Module =====
     const TrainingModule = {
         dayNames: ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'],
         shortDay: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
-
         async loadPlans() {
             const container = document.getElementById('plansList');
             if (!container) {
                 return;
             }
-
             try {
                 let data = await getTrainingPlans();
                 if (typeof data === 'string') {
                     data = JSON.parse(data);
                 }
-
                 const plans = (data && data.plans) || [];
-
                 if (plans.length === 0) {
                     container.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-icon">🏃</div>
-                            <h3>Нет активных программ</h3>
-                            <p>AI создаст персональный план на основе ваших данных</p>
-                        </div>
-                    `;
+<div class="empty-state">
+<div class="empty-icon">🏃</div>
+<h3>Нет активных программ</h3>
+<p>AI создаст персональный план на основе ваших данных</p>
+</div>
+`;
                     return;
                 }
-
                 container.innerHTML = `<div class="loading">Загрузка программ...</div>`;
-
                 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
                 const trainingTypes = {
                     'cardio': '🏃 Кардио',
@@ -234,9 +237,7 @@ const AppModules = (() => {
                     'endurance': '🏃 Выносливость',
                     'hiit': 'HIIT'
                 };
-
                 let allPlansHtml = '';
-
                 for (const plan of plans) {
                     let planDetails;
                     try {
@@ -249,11 +250,9 @@ const AppModules = (() => {
                         console.error('Failed to get plan details:', e);
                         planDetails = null;
                     }
-
                     const planData = plan?.plan_data || {};
                     const fullData = planDetails?.plan_data || planData;
                     const weeks = fullData?.weeks || [];
-
                     let weeksHtml = '';
                     if (weeks.length > 0) {
                         weeks.forEach(week => {
@@ -264,70 +263,64 @@ const AppModules = (() => {
                                 const exercises = day.exercises || [];
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {
-                                     exercisesHtml = '<ul class="exercise-list">' + 
-                                         exercises.map(ex => `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${ex.sets ? `${ex.sets}x${ex.reps}` : ''} ${ex.duration ? `${ex.duration}мін` : ''}</li>`).join('') + 
-                                         '</ul>';
+                                    exercisesHtml = '<ul class="exercise-list">' +
+                                        exercises.map(ex => `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${ex.sets ? `${ex.sets}x${ex.reps}` : ''} ${ex.duration ? `${ex.duration}мін` : ''}</li>`).join('') +
+                                        '</ul>';
                                 }
                                 daysHtml += `
-                                    <div class="day-card ${day.is_rest_day ? 'rest-day' : ''}">
-                                        <div class="day-header">
-                                            <span class="day-name">${dayNames[day.day_of_week] || ''}</span>
-                                            <span class="day-type">${day.is_rest_day ? '😴 Отдых' : typeLabel}</span>
-                                        </div>
-                                        ${exercisesHtml}
-                                        ${day.notes ? `<p class="day-notes">${day.notes}</p>` : ''}
-                                    </div>
-                                `;
+<div class="day-card ${day.is_rest_day ? 'rest-day' : ''}">
+<div class="day-header">
+<span class="day-name">${dayNames[day.day_of_week] || ''}</span>
+<span class="day-type">${day.is_rest_day ? '😴 Отдых' : typeLabel}</span>
+</div>
+${exercisesHtml}
+${day.notes ? `<p class="day-notes">${day.notes}</p>` : ''}
+</div>
+`;
                             });
-                            
                             weeksHtml += `
-                                <div class="week-section">
-                                    <h4>Неделя ${week.week_number}</h4>
-                                    <div class="days-grid">${daysHtml}</div>
-                                </div>
-                            `;
+<div class="week-section">
+<h4>Неделя ${week.week_number}</h4>
+<div class="days-grid">${daysHtml}</div>
+</div>
+`;
                         });
                     } else {
                         weeksHtml = `
-                            <div class="week-section">
-                                <p>Программа: ${planData.name || 'Персонализированная программа'}</p>
-                                <p>Цель: ${plan.training_goal || 'Общая тренировка'}</p>
-                                <p>Длительность: ${plan.duration_weeks || 4} недель</p>
-                            </div>
-                        `;
+<div class="week-section">
+<p>Программа: ${planData.name || 'Персонализированная программа'}</p>
+<p>Цель: ${plan.training_goal || 'Общая тренировка'}</p>
+<p>Длительность: ${plan.duration_weeks || 4} недель</p>
+</div>
+`;
                     }
-
                     allPlansHtml += `
-                        <div class="plan-full">
-                            <div class="plan-header">
-                                <h3>${fullData.name || 'Персонализированная программа'}</h3>
-                                <span class="plan-status">${status}</span>
-                            </div>
-                            <p class="plan-dates">📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
-                            ${weeksHtml}
-                        </div>
-                    `;
+<div class="plan-full">
+<div class="plan-header">
+<h3>${fullData.name || 'Персонализированная программа'}</h3>
+<span class="plan-status">${status}</span>
+</div>
+<p class="plan-dates">📅 ${plan.start_date ? new Date(plan.start_date).toLocaleDateString('ru-RU') : '—'} — ${plan.end_date ? new Date(plan.end_date).toLocaleDateString('ru-RU') : '—'}</p>
+${weeksHtml}
+</div>
+`;
                 }
-
                 container.innerHTML = allPlansHtml;
             } catch (err) {
                 console.error('Failed to load plans:', err);
                 container.innerHTML = `<div class="empty-state"><p>Не удалось загрузить планы</p></div>`;
             }
         },
-
         async generatePlan() {
             const container = document.getElementById('plansList');
             if (!container) return;
-
             // Show loading
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="spinner"></div>
-                    <p>AI генерирует персональный план...</p>
-                </div>
-            `;
-
+<div class="empty-state">
+<div class="spinner"></div>
+<p>AI генерирует персональный план...</p>
+</div>
+`;
             try {
                 // First, classify current state
                 let trainingClass = '';
@@ -339,7 +332,6 @@ const AppModules = (() => {
                 } catch {
                     trainingClass = 'recovery';
                 }
-
                 // Get profile for context
                 let profile;
                 try {
@@ -351,7 +343,6 @@ const AppModules = (() => {
                     throw err;
                 }
                 const p = profile.profile || profile;
-
                 // Build user_profile object matching backend expectations
                 const userProfile = {};
                 if (p.age) userProfile.age = p.age;
@@ -362,7 +353,6 @@ const AppModules = (() => {
                 if (p.goals && Array.isArray(p.goals)) userProfile.goals = p.goals;
                 if (p.sleep_hours) userProfile.sleep_hours = p.sleep_hours;
                 if (p.nutrition) userProfile.nutrition = p.nutrition;
-
                 // Use the Training service endpoint to generate and save a plan
                 const plan = await window.apiRequest('/training/generate', {
                     method: 'POST',
@@ -373,29 +363,25 @@ const AppModules = (() => {
                         available_days: [1, 3, 5]
                     })
                 });
-
                 showToast('Тренировочный план сгенерирован!', 'success');
                 await this.loadPlans();
             } catch (err) {
                 console.error('Failed to generate plan:', err);
                 container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">⚠️</div>
-                        <h3>Ошибка генерации</h3>
-                        <p>${err.message}</p>
-                        <p style="margin-top:8px; font-size:13px; color:var(--text-tertiary);">
-                            Убедитесь, что ML-сервис запущен
-                        </p>
-                    </div>
-                `;
+<div class="empty-state">
+<div class="empty-icon">⚠️</div>
+<h3>Ошибка генерации</h3>
+<p>${err.message}</p>
+<p style="margin-top:8px; font-size:13px; color:var(--text-tertiary);">
+Убедитесь, что ML-сервис запущен
+</p>
+</div>
+`;
             }
         },
-
         renderPlanDetail(plan) {
             if (!plan || !plan.weeks) return;
-
             let html = `<h3>${plan.name || 'Тренировочный план'}</h3>`;
-
             for (const week of plan.weeks) {
                 html += `<h4>Неделя ${week.week_number}</h4>`;
                 for (const day of week.days || []) {
@@ -405,7 +391,6 @@ const AppModules = (() => {
                     html += `<div class="plan-day-name">${dayName}</div>`;
                     html += `<div class="plan-day-type">${day.training_type || (day.is_rest_day ? 'Отдых' : 'Тренировка')}</div>`;
                     html += `</div>`;
-
                     if (day.is_rest_day) {
                         html += `<p style="color: var(--text-secondary); text-align: center; padding: 16px;">😴 День отдыха</p>`;
                     } else if (day.exercises && day.exercises.length > 0) {
@@ -414,27 +399,23 @@ const AppModules = (() => {
                             if (ex.sets && ex.reps) metaParts.push(`${ex.sets}×${ex.reps}`);
                             if (ex.duration_minutes) metaParts.push(`${ex.duration_minutes} мин`);
                             if (ex.rest_seconds) metaParts.push(`${ex.rest_seconds}с отдых`);
-
                             html += `
-                                <div class="exercise-item">
-                                    <div class="exercise-number">${i + 1}</div>
-                                    <div class="exercise-details">
-                                        <div class="exercise-name">${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ex.name || 'Упражнение'}</div>
-                                        <div class="exercise-meta">${metaParts.join(' • ')}</div>
-                                    </div>
-                                </div>
-                            `;
+<div class="exercise-item">
+<div class="exercise-number">${i + 1}</div>
+<div class="exercise-details">
+<div class="exercise-name">${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ex.name || 'Упражнение'}</div>
+<div class="exercise-meta">${metaParts.join(' • ')}</div>
+</div>
+</div>
+`;
                         });
                     }
-
                     html += `</div>`;
                 }
             }
-
             return html;
         }
     };
-
     // ===== Diet Module =====
     const DietModule = {
         mealTemplates: {
@@ -499,17 +480,15 @@ const AppModules = (() => {
                 ],
             }
         },
-
         /**
-         * Mifflin-St Jeor formula
-         * Men: 10*weight + 6.25*height - 5*age + 5
-         * Women: 10*weight + 6.25*height - 5*age - 161
-         */
+        * Mifflin-St Jeor formula
+        * Men: 10*weight + 6.25*height - 5*age + 5
+        * Women: 10*weight + 6.25*height - 5*age - 161
+        */
         calculateBMR(weightKg, heightCm, age, gender) {
             const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age;
             return gender === 'male' ? bmr + 5 : bmr - 161;
         },
-
         calculate(profile) {
             const age = profile.age || 30;
             const gender = profile.gender || 'male';
@@ -517,23 +496,18 @@ const AppModules = (() => {
             const weightKg = profile.weight_kg || 75;
             const fitnessLevel = profile.fitness_level || 'intermediate';
             const goals = profile.goals || [];
-
             // Activity multiplier based on fitness level
             const multipliers = { beginner: 1.375, intermediate: 1.55, advanced: 1.725 };
             const activityFactor = multipliers[fitnessLevel] || 1.55;
-
             // Goal adjustment
             let goalAdjust = 0;
             if (goals.includes('weight_loss')) goalAdjust = -400;
             if (goals.includes('muscle_gain')) goalAdjust = 300;
             if (goals.includes('endurance')) goalAdjust = 100;
-
             const bmr = this.calculateBMR(weightKg, heightCm, age, gender);
             let tdee = Math.round(bmr * activityFactor + goalAdjust);
-
             // Ensure minimum calories
             tdee = Math.max(tdee, 1200);
-
             // Macro split based on goal
             let proteinRatio, fatRatio, carbsRatio;
             if (goals.includes('weight_loss')) {
@@ -543,46 +517,53 @@ const AppModules = (() => {
             } else {
                 proteinRatio = 0.25; fatRatio = 0.30; carbsRatio = 0.45;
             }
-
             const proteinGrams = Math.round((tdee * proteinRatio) / 4);
             const fatGrams = Math.round((tdee * fatRatio) / 9);
             const carbsGrams = Math.round((tdee * carbsRatio) / 4);
-
             // Pick diet type
             let dietType = 'balanced';
             if (goals.includes('weight_loss')) dietType = 'weight_loss';
             else if (goals.includes('muscle_gain')) dietType = 'high_protein';
-
             return { tdee, bmr: Math.round(bmr), proteinGrams, fatGrams, carbsGrams, dietType, goals, fitnessLevel };
         },
-
         async loadDietPlan() {
             const container = document.getElementById('dietPlanContainer');
             if (!container) return;
-
             try {
                 const profile = await getProfile();
                 const p = profile.profile || profile;
-
                 // Проверяем, заполнен ли профиль
                 const hasProfile = p.age && p.height_cm && p.weight_kg && p.gender;
-
                 if (!hasProfile) {
                     container.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-icon">🍽️</div>
-                            <h3>Заполните профиль</h3>
-                            <p>Укажите возраст, рост, вес и пол во вкладке «Профиль» для расчёта плана питания</p>
-                        </div>
-                    `;
+<div class="empty-state">
+<div class="empty-icon">🍽️</div>
+<h3>Заполните профиль</h3>
+<p>Укажите возраст, рост, вес и пол во вкладке «Профиль» для расчёта плана питания</p>
+</div>
+`;
                     return;
                 }
-
                 const diet = this.calculate(p);
+
+                // FIX: Получаем настройки диеты из UI
+                const allergies = (document.getElementById('dietAllergies')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+                const dislikes = (document.getElementById('dietDislikes')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+                const mealsCount = parseInt(document.getElementById('dietMealsCount')?.value || '4', 10);
+                const firstMealTime = document.getElementById('dietFirstMealTime')?.value || '08:00';
 
                 // Pick meals based on diet type
                 const meals = this.mealTemplates[diet.dietType] || this.mealTemplates.balanced;
-                const randomMeal = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+                // FIX: Фильтруем блюда по аллергиям и нелюбимым продуктам
+                const randomMeal = (arr) => {
+                    const filtered = arr.filter(meal => {
+                        const name = meal.name.toLowerCase();
+                        return !allergies.some(a => name.includes(a)) && !dislikes.some(d => name.includes(d));
+                    });
+                    if (filtered.length === 0) return arr[Math.floor(Math.random() * arr.length)]; // Fallback, если все блюда исключены
+                    return filtered[Math.floor(Math.random() * filtered.length)];
+                };
 
                 const breakfast = randomMeal(meals.breakfast);
                 const snack1 = randomMeal(meals.snack1);
@@ -590,105 +571,108 @@ const AppModules = (() => {
                 const snack2 = randomMeal(meals.snack2);
                 const dinner = randomMeal(meals.dinner);
 
+                // FIX: Генерируем расписание на основе количества приемов пищи и времени начала
+                const mealSchedule = this.generateMealSchedule(mealsCount, firstMealTime);
+                const mealNames = ['Завтрак', 'Перекус', 'Обед', 'Полдник', 'Ужин', 'Поздний перекус'];
+                const mealIcons = ['🌅', '🍎', '☀️', '🥜', '🌙', '🌌'];
+                const selectedMeals = [breakfast, snack1, lunch, snack2, dinner];
+
+                let mealsHtml = '';
+                for (let i = 0; i < Math.min(mealsCount, selectedMeals.length); i++) {
+                    const meal = selectedMeals[i];
+                    const time = mealSchedule[i] || '--:--';
+                    mealsHtml += `
+    <div class="meal-card">
+        <div class="meal-time">${mealIcons[i]} ${time} — ${mealNames[i]}</div>
+        <div class="meal-name">${meal.name}</div>
+        <div class="meal-details">${meal.kcal} ккал • ${meal.protein}г белка • ${meal.carbs}г углеводов • ${meal.fat}г жиров</div>
+    </div>
+    `;
+                }
+
+                // Подсчет итогов только для выбранных приемов пищи
+                const totalKcal = selectedMeals.slice(0, mealsCount).reduce((sum, m) => sum + m.kcal, 0);
+                const totalProtein = selectedMeals.slice(0, mealsCount).reduce((sum, m) => sum + m.protein, 0);
+                const totalCarbs = selectedMeals.slice(0, mealsCount).reduce((sum, m) => sum + m.carbs, 0);
+                const totalFat = selectedMeals.slice(0, mealsCount).reduce((sum, m) => sum + m.fat, 0);
+
                 container.innerHTML = `
-                    <div class="diet-summary">
-                        <div class="diet-calories">${diet.tdee.toLocaleString()}</div>
-                        <div class="diet-label">калорий в день (расчёт по Миффлину-Сан Жеору)</div>
-                        <div class="diet-macros">
-                            <div class="macro-item">
-                                <div class="macro-value">${diet.proteinGrams}г</div>
-                                <div class="macro-label">Белки</div>
-                            </div>
-                            <div class="macro-item">
-                                <div class="macro-value">${diet.carbsGrams}г</div>
-                                <div class="macro-label">Углеводы</div>
-                            </div>
-                            <div class="macro-item">
-                                <div class="macro-value">${diet.fatGrams}г</div>
-                                <div class="macro-label">Жиры</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; padding: 0 4px;">
-                        <div style="background: var(--bg-card); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
-                            <div style="font-size: 12px; color: var(--text-secondary);">Базовый обмен</div>
-                            <div style="font-size: 18px; font-weight: 700; color: var(--blue);">${diet.bmr} ккал</div>
-                        </div>
-                        <div style="background: var(--bg-card); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
-                            <div style="font-size: 12px; color: var(--text-secondary);">Уровень</div>
-                            <div style="font-size: 18px; font-weight: 700; color: var(--green);">${diet.fitnessLevel}</div>
-                        </div>
-                    </div>
-
-                    <div class="meal-card">
-                        <div class="meal-time">🌅 08:00 — Завтрак</div>
-                        <div class="meal-name">${breakfast.name}</div>
-                        <div class="meal-details">${breakfast.kcal} ккал • ${breakfast.protein}г белка • ${breakfast.carbs}г углеводов • ${breakfast.fat}г жиров</div>
-                    </div>
-
-                    <div class="meal-card">
-                        <div class="meal-time">🍎 11:00 — Перекус</div>
-                        <div class="meal-name">${snack1.name}</div>
-                        <div class="meal-details">${snack1.kcal} ккал • ${snack1.protein}г белка • ${snack1.carbs}г углеводов • ${snack1.fat}г жиров</div>
-                    </div>
-
-                    <div class="meal-card">
-                        <div class="meal-time">☀️ 13:00 — Обед</div>
-                        <div class="meal-name">${lunch.name}</div>
-                        <div class="meal-details">${lunch.kcal} ккал • ${lunch.protein}г белка • ${lunch.carbs}г углеводов • ${lunch.fat}г жиров</div>
-                    </div>
-
-                    <div class="meal-card">
-                        <div class="meal-time">🥜 16:00 — Перекус</div>
-                        <div class="meal-name">${snack2.name}</div>
-                        <div class="meal-details">${snack2.kcal} ккал • ${snack2.protein}г белка • ${snack2.carbs}г углеводов • ${snack2.fat}г жиров</div>
-                    </div>
-
-                    <div class="meal-card">
-                        <div class="meal-time">🌙 19:00 — Ужин</div>
-                        <div class="meal-name">${dinner.name}</div>
-                        <div class="meal-details">${dinner.kcal} ккал • ${dinner.protein}г белка • ${dinner.carbs}г углеводов • ${dinner.fat}г жиров</div>
-                    </div>
-
-                    <div style="text-align: center; padding: 12px; color: var(--text-secondary); font-size: 13px;">
-                        Итого: ${breakfast.kcal + snack1.kcal + lunch.kcal + snack2.kcal + dinner.kcal} ккал • 
-                        ${breakfast.protein + snack1.protein + lunch.protein + snack2.protein + dinner.protein}г белка • 
-                        ${breakfast.carbs + snack1.carbs + lunch.carbs + snack2.carbs + dinner.carbs}г углеводов • 
-                        ${breakfast.fat + snack1.fat + lunch.fat + snack2.fat + dinner.fat}г жиров
-                    </div>
-                `;
+<div class="diet-summary">
+<div class="diet-calories">${diet.tdee.toLocaleString()}</div>
+<div class="diet-label">калорий в день (расчёт по Миффлину-Сан Жеору)</div>
+<div class="diet-macros">
+<div class="macro-item">
+<div class="macro-value">${diet.proteinGrams}г</div>
+<div class="macro-label">Белки</div>
+</div>
+<div class="macro-item">
+<div class="macro-value">${diet.carbsGrams}г</div>
+<div class="macro-label">Углеводы</div>
+</div>
+<div class="macro-item">
+<div class="macro-value">${diet.fatGrams}г</div>
+<div class="macro-label">Жиры</div>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; padding: 0 4px;">
+<div style="background: var(--bg-card); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
+<div style="font-size: 12px; color: var(--text-secondary);">Базовый обмен</div>
+<div style="font-size: 18px; font-weight: 700; color: var(--blue);">${diet.bmr} ккал</div>
+</div>
+<div style="background: var(--bg-card); border-radius: var(--radius-sm); padding: 10px; text-align: center;">
+<div style="font-size: 12px; color: var(--text-secondary);">Уровень</div>
+<div style="font-size: 18px; font-weight: 700; color: var(--green);">${diet.fitnessLevel}</div>
+</div>
+</div>
+${mealsHtml}
+<div style="text-align: center; padding: 12px; color: var(--text-secondary); font-size: 13px;">
+Итого: ${totalKcal} ккал •
+${totalProtein}г белка •
+${totalCarbs}г углеводов •
+${totalFat}г жиров
+</div>
+`;
             } catch (err) {
                 console.error('Failed to load diet plan:', err);
                 container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">🍽️</div>
-                        <h3>Не удалось загрузить диету</h3>
-                        <p>Заполните профиль для расчёта питания</p>
-                    </div>
-                `;
+<div class="empty-state">
+<div class="empty-icon">🍽️</div>
+<h3>Не удалось загрузить диету</h3>
+<p>Заполните профиль для расчёта питания</p>
+</div>
+`;
             }
+        },
+        // FIX: Генерация расписания приемов пищи
+        generateMealSchedule(count, startTime) {
+            const [startHour, startMinute] = startTime.split(':').map(Number);
+            const intervalMinutes = Math.floor((14 * 60) / (count - 1 || 1)); // 14 часов активности
+            const schedule = [];
+            for (let i = 0; i < count; i++) {
+                const totalMinutes = startHour * 60 + startMinute + i * intervalMinutes;
+                const hour = Math.floor(totalMinutes / 60) % 24;
+                const minute = totalMinutes % 60;
+                schedule.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+            }
+            return schedule;
         }
     };
-
     // ===== Toast Notifications =====
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `module-toast ${type}`;
         toast.textContent = message;
         document.body.appendChild(toast);
-
         setTimeout(() => {
             toast.remove();
         }, 3000);
     }
-
     // ===== Init =====
     function init(user) {
         currentUser = user;
         DeviceModule.init();
     }
-
     return {
         init,
         DeviceModule,
@@ -697,6 +681,5 @@ const AppModules = (() => {
         showToast
     };
 })();
-
 // Export to global scope
 window.AppModules = AppModules;

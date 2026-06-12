@@ -1,13 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - namespace.yaml
-  - resource-quota.yaml
-  - configmap.yaml
-  - serviceaccount.yaml
-  - rbac
-  - network-policies
-  - deployments
-  - services
-  - jobs  # ← ЭТА СТРОКА ДОЛЖНА БЫТЬ!
+- namespace.yaml
+- resource-quota.yaml
+- configmap.yaml
+- serviceaccount.yaml
+- rbac
+- network-policies
+- deployments
+- services
+- jobs
+- ../../monitoring

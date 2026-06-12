@@ -23,7 +23,6 @@
                     <h1>FitPulse</h1>
                     <p>Ваш персональный AI-тренер</p>
                 </div>
-
                 <form id="loginForm" class="auth-form" novalidate>
                     <div class="field">
                         <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required
@@ -39,7 +38,6 @@
                     <button type="submit" class="btn-primary" id="loginBtn">Войти</button>
                     <p class="auth-switch">Нет аккаунта? <a href="#" id="toRegister">Создать</a></p>
                 </form>
-
                 <form id="registerForm" class="auth-form hidden" novalidate>
                     <div class="field">
                         <input type="text" id="regName" placeholder="Имя" autocomplete="name" required maxlength="100"
@@ -66,7 +64,6 @@
                     <button type="submit" class="btn-primary" id="registerBtn" disabled>Создать аккаунт</button>
                     <p class="auth-switch">Уже есть? <a href="#" id="toLogin">Войти</a></p>
                 </form>
-
                 <form id="verifyForm" class="auth-form hidden" novalidate>
                     <div class="verify-icon">📧</div>
                     <h2>Проверьте почту</h2>
@@ -83,11 +80,9 @@
                     <div class="auth-success hidden" id="confirmSuccess">Email подтверждён!</div>
                     <p class="auth-switch"><a href="#" id="backToLogin">← Вернуться ко входу</a></p>
                 </form>
-
                 <div id="authError" class="auth-error hidden"></div>
             </div>
         </div>
-
         <!-- Главное приложение (скрыто до авторизации) -->
         <div id="mainScreen" class="screen">
             <!-- Верхняя панель -->
@@ -101,7 +96,6 @@
                     </svg>
                 </button>
             </header>
-
             <!-- Контент -->
             <main class="content">
                 <!-- Дашборд -->
@@ -140,14 +134,12 @@
                             </div>
                         </div>
                     </section>
-
                     <section class="chart-section">
                         <h3>Динамика пульса</h3>
                         <div class="chart-container">
                             <canvas id="heartChart"></canvas>
                         </div>
                     </section>
-
                     <section class="ai-section">
                         <div class="ai-card">
                             <div class="ai-header">
@@ -157,7 +149,6 @@
                             <p id="aiDescription">Анализируем ваши биометрические данные</p>
                         </div>
                     </section>
-
                     <section class="today-section">
                         <h3>🏋️ Тренировка на сегодня</h3>
                         <div id="todayWorkout" class="workout-card">
@@ -167,7 +158,6 @@
                         </div>
                     </section>
                 </div>
-
                 <!-- Профиль -->
                 <div id="profileView" class="view">
                     <form id="profileForm" class="profile-form" novalidate>
@@ -195,7 +185,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="form-section">
                             <h3>Параметры тела</h3>
                             <div class="form-row">
@@ -212,17 +201,23 @@
                                     <div class="field-error" id="profWeightError"></div>
                                 </div>
                             </div>
+                            <!-- ИМТ подсказка -->
+                            <div id="bmiHint"
+                                style="margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); display: none;">
+                                <strong>ИМТ:</strong> <span id="bmiValue">--</span> (<span
+                                    id="bmiCategory">--</span>)<br>
+                                <span id="bmiRecommendation" style="color: var(--blue);"></span>
+                            </div>
                         </div>
-
                         <div class="form-section">
                             <h3>Образ жизни</h3>
                             <div class="form-group">
                                 <label>Уровень подготовки</label>
                                 <select id="profFitness">
                                     <option value="">—</option>
-                                    <option value="beginner">Начинающий</option>
-                                    <option value="intermediate">Средний</option>
-                                    <option value="advanced">Продвинутый</option>
+                                    <option value="beginner">Начинающий (менее 1 тренировки в неделю)</option>
+                                    <option value="intermediate">Средний (1-3 тренировки в неделю)</option>
+                                    <option value="advanced">Продвинутый (более 3 тренировок в неделю)</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -239,7 +234,18 @@
                                 <div class="field-error" id="profNutritionError"></div>
                             </div>
                         </div>
-
+                        <div class="form-section">
+                            <h3>Здоровье и предпочтения</h3>
+                            <div class="form-group">
+                                <label>Аллергии или непереносимость продуктов (через запятую)</label>
+                                <input type="text" id="profAllergies" placeholder="Например: орехи, лактоза, глютен">
+                            </div>
+                            <div class="form-group">
+                                <label>Медицинские противопоказания (для тренировок)</label>
+                                <input type="text" id="profContraindications"
+                                    placeholder="Например: проблемы с коленями, астма">
+                            </div>
+                        </div>
                         <div class="form-section">
                             <h3>Основная цель</h3>
                             <div class="goals-grid">
@@ -253,21 +259,17 @@
                                     Гибкость</label>
                             </div>
                         </div>
-
                         <button type="submit" class="btn-primary">Сохранить</button>
                     </form>
-
                     <!-- Смена пароля -->
                     <div class="form-section" style="margin-top: 24px;">
                         <h3>Безопасность</h3>
                         <button type="button" class="btn-secondary" id="changePasswordBtn" style="margin-bottom: 12px;">
                             Сменить пароль
                         </button>
-
                         <button type="button" class="btn-secondary" id="changeEmailBtn" style="margin-bottom: 12px;">
                             Сменить почту
                         </button>
-
                         <!-- Форма смены почты (скрыта по умолчанию) -->
                         <form id="changeEmailForm" class="hidden"
                             style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
@@ -287,7 +289,6 @@
                                 <button type="button" class="btn-secondary" id="cancelChangeEmail">Отмена</button>
                             </div>
                         </form>
-
                         <!-- Форма смены пароля (скрыта по умолчанию) -->
                         <form id="changePasswordForm" class="hidden"
                             style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
@@ -321,7 +322,6 @@
                             </div>
                         </form>
                     </div>
-
                     <!-- Удаление профиля -->
                     <div class="form-section danger-zone" style="margin-top: 24px;">
                         <h3 style="color: var(--red);">Опасная зона</h3>
@@ -333,7 +333,6 @@
                         </button>
                     </div>
                 </div>
-
                 <!-- Тренировки -->
                 <div id="trainingView" class="view">
                     <div id="plansList" class="plans-list">
@@ -351,45 +350,73 @@
                         </svg>
                     </button>
                 </div>
-
                 <!-- Устройства -->
                 <div id="devicesView" class="view">
                     <h3>Подключённые устройства</h3>
                     <div id="connectedDevicesList"></div>
                     <div id="deviceSelector" class="device-selector"></div>
                     <button class="action-btn" id="connectDeviceBtn">Подключить устройство</button>
-
                     <!-- OAuth провайдеры -->
                     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
                         <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Интеграции</h4>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button onclick="window.connectFitbit()" class="btn-secondary"
+                            <button id="connectFitbitBtn" class="btn-secondary"
                                 style="padding: 8px 12px; font-size: 13px;">
                                 ⌚ Fitbit
                             </button>
-                            <button onclick="window.connectWithings()" class="btn-secondary"
+                            <button id="connectWithingsBtn" class="btn-secondary"
                                 style="padding: 8px 12px; font-size: 13px;">
                                 ⚖️ Withings
                             </button>
                         </div>
                     </div>
                 </div>
-
                 <!-- Достижения и Соревнования -->
                 <div id="achievementsView" class="view">
                     <h3>🏆 Достижения</h3>
                     <div id="achievementsList" class="achievements-grid"></div>
-
-                    <h3 style="margin-top: 24px;">🏅 Соревнования</h3>
+                    <h3 style="margin-top: 24px;">🏅 Персональные челленджи</h3>
                     <div id="competitionsList" class="competitions-list"></div>
                 </div>
-
                 <!-- Диета -->
                 <div id="dietView" class="view">
                     <h3>План питания</h3>
+                    <!-- Настройки диеты -->
+                    <div id="dietSettings" class="diet-settings"
+                        style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px;">⚙️ Настройки питания</h3>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label>Аллергии/непереносимость (через запятую)</label>
+                            <input type="text" id="dietAllergies" placeholder="Например: орехи, молоко"
+                                style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label>Нелюбимые продукты (через запятую)</label>
+                            <input type="text" id="dietDislikes" placeholder="Например: рыба, лук"
+                                style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                        </div>
+                        <div class="form-row" style="gap: 12px;">
+                            <div class="form-group">
+                                <label>Количество приемов пищи в день</label>
+                                <select id="dietMealsCount"
+                                    style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                    <option value="3">3 приема</option>
+                                    <option value="4" selected>4 приема</option>
+                                    <option value="5">5 приемов</option>
+                                    <option value="6">6 приемов</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Время первого приема пищи</label>
+                                <input type="time" id="dietFirstMealTime" value="08:00"
+                                    style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                            </div>
+                        </div>
+                        <button type="button" class="btn-primary" id="applyDietSettingsBtn"
+                            style="margin-top: 12px;">Применить и обновить план</button>
+                    </div>
                     <div id="dietPlanContainer"></div>
                 </div>
-
                 <!-- ML Анализ -->
                 <div id="mlView" class="view">
                     <div id="mlResult" class="ml-result">
@@ -408,11 +435,9 @@
                         </svg>
                     </button>
                 </div>
-
                 <!-- Админка -->
                 <div id="adminView" class="view">
                     <h3>🔐 Панель администратора</h3>
-
                     <section class="admin-section" style="margin-bottom: 24px;">
                         <h4>Создать инвайт</h4>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -428,7 +453,6 @@
                             </button>
                         </div>
                     </section>
-
                     <section class="admin-section">
                         <h4>Активные инвайты</h4>
                         <div id="invitesList" class="invites-list"
@@ -436,7 +460,6 @@
                     </section>
                 </div>
             </main>
-
             <!-- Нижний таб-бар -->
             <nav class="tab-bar">
                 <button class="tab active" data-view="dashboard">
@@ -494,7 +517,6 @@
             </nav>
         </div>
     </div>
-
     <script src="/static/js/chart.umd.min.js"></script>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/app.js"></script>

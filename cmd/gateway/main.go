@@ -508,7 +508,9 @@ func (g *gateway) registerRoutes() *mux.Router {
 	protected.HandleFunc("/ml/classify", g.mlClassifyHandler).Methods("POST")
 	protected.HandleFunc("/ml/generate", g.mlGenerateHandler).Methods("POST")
 
-	// Devices
+	// Devices — проксирование на device-connector
+	protected.HandleFunc("/devices/register", g.proxyToDeviceConnector).Methods("POST")
+	protected.HandleFunc("/devices/{device_id}/ingest", g.proxyToDeviceConnector).Methods("POST")
 	protected.HandleFunc("/devices", g.listDevicesHandler).Methods("GET")
 	protected.HandleFunc("/devices", g.registerDeviceHandler).Methods("POST")
 
@@ -610,6 +612,33 @@ func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request
 	resp, _ := client.Do(outReq) // #nosec G704
 	if resp == nil {
 		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
+}
+
+func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request) {
+	// SSRF protection: construct target from fixed internal service + validated path
+	target, _ := url.JoinPath(g.deviceConnectorURL, r.URL.Path)
+
+	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) // #nosec G704
+	outReq.Header = r.Header.Clone()
+	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
+	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(outReq) // #nosec G704
+	if err != nil || resp == nil {
+		g.log.Error("Failed to proxy to device-connector", zap.Error(err))
+		http.Error(w, "Сервис device-connector недоступен", http.StatusServiceUnavailable)
 		return
 	}
 	defer func() {

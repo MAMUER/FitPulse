@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    app: grafana
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'fitness'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+
+  fitness-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "text": "DOWN" }, "1": { "color": "green", "text": "UP" } }, "type": "value" }
+              ],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+            }
+          },
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "id": 1,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Service Uptime",
+          "type": "stat",
+          "targets": [{ "expr": "up{namespace=\"fitness-platform-production\"}", "legendFormat": "{{service}}", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 5, "showPoints": "auto" } } },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 2,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+          "title": "Pod Memory Usage",
+          "type": "timeseries",
+          "targets": [{ "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"fitness-platform-production\"})", "legendFormat": "{{pod}}", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } } },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "id": 3,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "Pod CPU Usage",
+          "type": "timeseries",
+          "targets": [{ "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}}", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "id": 4,
+          "title": "Network I/O",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}} RX", "refId": "A" },
+            { "expr": "sum by (pod) (rate(container_network_transmit_bytes_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}} TX", "refId": "B" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] },
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 14 },
+          "id": 5,
+          "options": { "showHeader": true },
+          "title": "Pod Status",
+          "type": "table",
+          "targets": [{ "expr": "kube_pod_status_phase{namespace=\"fitness-platform-production\"} > 0", "legendFormat": "{{pod}} - {{phase}}", "refId": "A", "format": "table", "instant": true }]
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["fitness", "kubernetes"],
+      "templating": { "list": [] },
+      "time": { "from": "now-1h", "to": "now" },
+      "title": "FitPulse K8s Overview",
+      "uid": "fitpulse-k8s",
+      "version": 1
+    }

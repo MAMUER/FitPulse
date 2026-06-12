@@ -1639,6 +1639,12 @@ jobs:
             --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ app-secrets created"
+    
+          echo "Creating monitoring-secrets..."
+          kubectl create secret generic monitoring-secrets -n fitness-platform-production \
+            --from-literal=grafana-admin-password=${{ secrets.GRAFANA_ADMIN_PASSWORD }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "✅ monitoring-secrets created"
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1721,30 +1727,6 @@ jobs:
           else
             echo "Failed to apply production overlay"
             exit 1
-          fi
-      - name: Fix stuck pods (CNI workaround)
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "-> Waiting 30s for pods to stabilize..."
-          sleep 30
-          echo "-> Checking for stuck pods in ContainerCreating state..."
-          STUCK_PODS=$(kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running,status.phase!=Succeeded,status.phase!=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
-          FILTERED_PODS=""
-          for pod in $STUCK_PODS; do
-            if [[ "$pod" != postgres-* && "$pod" != rabbitmq-* ]]; then
-              FILTERED_PODS="$FILTERED_PODS $pod"
-            fi
-          done
-          if [ -n "$FILTERED_PODS" ]; then
-            echo "⚠️ Found stuck pods: $FILTERED_PODS"
-            echo "-> Deleting stuck pods to trigger recreation..."
-            for pod in $FILTERED_PODS; do
-              kubectl delete pod "$pod" -n fitness-platform-production --grace-period=0 --force || true
-            done
-            echo "-> Waiting 30s for pods to be recreated..."
-            sleep 30
-          else
-            echo "✅ No stuck Deployment pods found (StatefulSets excluded)"
           fi
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'

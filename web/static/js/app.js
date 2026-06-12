@@ -1,13 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[APP] Loaded');
-
     // ===== State =====
     const state = {
         currentView: 'dashboard',
         heartChart: null,
         isAdmin: false,
     };
-
     // Mapping from exercise identifiers to Russian display names
     const EXERCISE_NAME_MAP = {
         "jumping_jacks": "Прыжки на месте",
@@ -48,7 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
         "light_warmup": "Лёгкая разминка",
         "breathing_exercises": "Дыхательные упражнения"
     };
-
     // ===== DOM Elements =====
     const authScreen = document.getElementById('authScreen');
     const mainScreen = document.getElementById('mainScreen');
@@ -56,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerForm = document.getElementById('registerForm');
     const verifyForm = document.getElementById('verifyForm');
     const pageTitle = document.getElementById('pageTitle');
-
     const viewTitles = {
         dashboard: 'Обзор',
         profile: 'Профиль',
@@ -67,11 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ml: 'AI Анализ',
         admin: 'Админка',
     };
-
     // ===== Init =====
     function init() {
         console.log('[APP] Init, authToken:', authToken ? 'present' : 'null');
-
         const urlParams = new URLSearchParams(window.location.search);
         const confirmToken = urlParams.get('token');
         if (confirmToken) {
@@ -86,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-
         if (authToken) {
             showMainApp();
         } else {
@@ -94,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         bindEvents();
     }
-
     function showAuthScreen() {
         authScreen.classList.add('active');
         mainScreen.classList.remove('active');
@@ -105,32 +97,27 @@ document.addEventListener('DOMContentLoaded', () => {
         clearErrors();
         console.log('[APP] Auth screen shown');
     }
-
     async function connectFitbit() {
         const token = localStorage.getItem('authToken');
         if (!token) {
             showToast('Необходима авторизация', 'error');
             return;
         }
-
         // Проксируем через Gateway
         window.location.href = '/api/v1/devices/fitbit/auth';
     }
-
     async function loadConnectedProviders() {
         try {
-            const response = await apiRequest('/api/v1/devices/providers', {
+            // FIX: Убрано дублирование /api/v1
+            const response = await apiRequest('/devices/providers', {
                 method: 'GET'
             });
-
             const container = document.getElementById('connectedDevicesList');
             if (!container) return;
-
             if (!response.providers || response.providers.length === 0) {
                 container.innerHTML = '<p style="color: var(--text-secondary);">Нет подключённых устройств</p>';
                 return;
             }
-
             const providerNames = {
                 fitbit: 'Fitbit',
                 withings: 'Withings',
@@ -141,38 +128,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 withings: '⚖️',
                 garmin: '🏃'
             };
-
             container.innerHTML = response.providers.map(p => `
-            <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h4 style="margin: 0 0 8px 0;">${providerIcons[p.provider] || '📱'} ${providerNames[p.provider] || p.provider}</h4>
-                        <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
-                            ID: ${p.provider_user_id}
-                            ${p.last_sync_at ? `<br>Последняя синхронизация: ${new Date(p.last_sync_at).toLocaleString('ru-RU')}` : ''}
-                        </p>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <span style="padding: 4px 8px; background: ${p.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
-                            ${p.is_active ? 'Активен' : 'Отключён'}
-                        </span>
-                        ${p.is_active ? `<button onclick="disconnectProvider('${p.provider}')" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
-                            Отключить
-                        </button>` : ''}
-                    </div>
-                </div>
-            </div>
-        `).join('');
+<div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); margin-bottom: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h4 style="margin: 0 0 8px 0;">${providerIcons[p.provider] || '📱'} ${providerNames[p.provider] || p.provider}</h4>
+<p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+ID: ${p.provider_user_id}
+${p.last_sync_at ? `<br>Последняя синхронизация: ${new Date(p.last_sync_at).toLocaleString('ru-RU')}` : ''}
+</p>
+</div>
+<div style="display: flex; gap: 8px;">
+<span style="padding: 4px 8px; background: ${p.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
+${p.is_active ? 'Активен' : 'Отключён'}
+</span>
+${p.is_active ? `<button onclick="disconnectProvider('${p.provider}')" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
+Отключить
+</button>` : ''}
+</div>
+</div>
+</div>
+`).join('');
         } catch (err) {
             console.error('Failed to load providers:', err);
         }
     }
-
     // Универсальная функция отключения провайдера
     async function disconnectProvider(provider) {
         if (!confirm(`Отключить ${provider}?`)) return;
         try {
-            await apiRequest(`/api/v1/devices/${provider}/disconnect`, {
+            await apiRequest(`/devices/${provider}/disconnect`, {
                 method: 'POST'
             });
             showToast(`${provider} отключён`, 'success');
@@ -181,12 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Ошибка отключения: ${err.message}`, 'error');
         }
     }
-
     async function disconnectFitbit() {
         if (!confirm('Отключить Fitbit?')) return;
-
         try {
-            await apiRequest('/api/v1/devices/fitbit/disconnect', {
+            await apiRequest('/devices/fitbit/disconnect', {
                 method: 'POST'
             });
             showToast('Fitbit отключён', 'success');
@@ -195,10 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка отключения: ' + err.message, 'error');
         }
     }
-
     window.connectFitbit = connectFitbit;
     window.disconnectFitbit = disconnectFitbit;
-
     async function connectWithings() {
         const token = localStorage.getItem('authToken');
         if (!token) {
@@ -207,29 +188,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.location.href = '/api/v1/devices/withings/auth';
     }
-
     async function disconnectWithings() {
         if (!confirm('Отключить Withings?')) return;
         try {
-            await apiRequest('/api/v1/devices/withings/disconnect', { method: 'POST' });
+            await apiRequest('/devices/withings/disconnect', { method: 'POST' });
             showToast('Withings отключён', 'success');
             loadConnectedProviders();
         } catch (err) {
             showToast('Ошибка: ' + err.message, 'error');
         }
     }
-
     window.connectWithings = connectWithings;
     window.disconnectWithings = disconnectWithings;
-
     function showVerification(email, message, userId) {
         console.log('[APP] Show verification for:', email);
         loginForm.classList.add('hidden');
         registerForm.classList.add('hidden');
         if (verifyForm) verifyForm.classList.remove('hidden');
-
         document.getElementById('verifyEmail').textContent = email;
-
         const tokenMatch = message.match(/token \(dev only\):\s*([a-f0-9]+)/i);
         const devSection = document.getElementById('devTokenSection');
         if (tokenMatch && devSection) {
@@ -238,7 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (devSection) {
             devSection.classList.add('hidden');
         }
-
         const confirmErr = document.getElementById('confirmError');
         const confirmOk = document.getElementById('confirmSuccess');
         if (confirmErr) { confirmErr.textContent = ''; confirmErr.classList.add('hidden'); }
@@ -246,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const tokenInput = document.getElementById('verifyToken');
         if (tokenInput) tokenInput.value = '';
     }
-
     function copyToken() {
         const token = document.getElementById('devToken')?.textContent;
         if (token) {
@@ -256,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     window.copyToken = copyToken;
-
     async function confirmEmail(token) {
         console.log('[AUTH] Confirming email with token:', token);
         const response = await fetch('/api/v1/auth/confirm', {
@@ -264,23 +237,19 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token })
         });
-
         const data = await response.json();
         if (!response.ok) {
             throw new Error(data.message || data.error || 'Ошибка подтверждения');
         }
         return data;
     }
-
     async function autoConfirmEmail(token) {
         const confirmErr = document.getElementById('confirmError');
         const confirmOk = document.getElementById('confirmSuccess');
         const btn = document.getElementById('confirmBtn');
-
         if (btn) { btn.disabled = true; btn.textContent = 'Подтверждение...'; }
         if (confirmErr) confirmErr.classList.add('hidden');
         if (confirmOk) confirmOk.classList.add('hidden');
-
         try {
             await confirmEmail(token);
             if (confirmOk) confirmOk.classList.remove('hidden');
@@ -299,13 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btn) { btn.disabled = false; btn.textContent = 'Подтвердить email'; }
         }
     }
-
     // ===== Admin Functions =====
-
     // После логина показываем вкладку админа для админов
     async function checkAdminRole() {
         try {
-            const profile = await apiRequest('/api/v1/profile', {
+            // FIX: Убрано дублирование /api/v1
+            const profile = await apiRequest('/profile', {
                 method: 'GET'
             });
             if (profile && (profile.role === 'admin' || (profile.profile && profile.profile.role === 'admin'))) {
@@ -318,11 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Failed to check admin role:', e);
         }
     }
-
     // Функции админки — экспортируем в window для onclick
     async function loadAdminPanel() {
         try {
-            const response = await apiRequest('/api/v1/admin/invites', {
+            const response = await apiRequest('/admin/invites', {
                 method: 'GET'
             });
             renderInvitesList(response.invites || []);
@@ -334,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
     function renderInvitesList(invites) {
         const container = document.getElementById('invitesList');
         if (!container) return;
@@ -343,34 +309,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         container.innerHTML = invites.map(inv => `
-            <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <code style="font-family: monospace; color: var(--accent); font-size: 14px;">${inv.code}</code>
-                    <span style="padding: 4px 8px; background: ${inv.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
-                        ${inv.is_active ? 'Активен' : 'Отозван'}
-                    </span>
-                </div>
-                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
-                    Роль: <strong>${inv.role}</strong> · Использований: ${inv.used_count}/${inv.max_uses}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="window._copyToClipboard('${inv.invite_url}')" class="btn-secondary" style="flex: 1; font-size: 13px;">
-                        📋 Копировать ссылку
-                    </button>
-                    ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="btn-secondary" style="flex: 1; color: var(--accent); font-size: 13px;">
-                        ❌ Отозвать
-                    </button>` : ''}
-                </div>
-            </div>
-        `).join('');
+<div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+<code style="font-family: monospace; color: var(--accent); font-size: 14px;">${inv.code}</code>
+<span style="padding: 4px 8px; background: ${inv.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
+${inv.is_active ? 'Активен' : 'Отозван'}
+</span>
+</div>
+<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+Роль: <strong>${inv.role}</strong> · Использований: ${inv.used_count}/${inv.max_uses}
+</div>
+<div style="display: flex; gap: 8px;">
+<button onclick="window._copyToClipboard('${inv.invite_url}')" class="btn-secondary" style="flex: 1; font-size: 13px;">
+📋 Копировать ссылку
+</button>
+${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="btn-secondary" style="flex: 1; color: var(--accent); font-size: 13px;">
+❌ Отозвать
+</button>` : ''}
+</div>
+</div>
+`).join('');
     }
-
     async function _createNewInvite() {
         const role = document.getElementById('newInviteRole')?.value || 'client';
         const maxUses = parseInt(document.getElementById('newInviteMaxUses')?.value || '1', 10);
-
         try {
-            const result = await apiRequest('/api/v1/admin/invites', {
+            const result = await apiRequest('/admin/invites', {
                 method: 'POST',
                 body: JSON.stringify({ role: role, max_uses: maxUses })
             });
@@ -382,11 +346,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка создания инвайта: ' + (e.message || 'неизвестная ошибка'), 'error');
         }
     }
-
     async function _revokeInvite(code) {
         if (!confirm('Отозвать этот инвайт?')) return;
         try {
-            await apiRequest(`/api/v1/admin/invites/${code}/revoke`, {
+            await apiRequest(`/admin/invites/${code}/revoke`, {
                 method: 'POST'
             });
             showToast('Инвайт отозван', 'success');
@@ -396,7 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка отзыва: ' + (e.message || 'неизвестная ошибка'), 'error');
         }
     }
-
     function _copyToClipboard(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -409,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
             _fallbackCopy(text);
         }
     }
-
     function _fallbackCopy(text) {
         const textarea = document.createElement('textarea');
         textarea.value = text;
@@ -425,35 +386,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         document.body.removeChild(textarea);
     }
-
     // Экспортируем функции в window для использования в onclick
     window.createNewInvite = _createNewInvite;
     window.revokeInvite = _revokeInvite;
     window.copyToClipboard = _copyToClipboard;
-
     // Обработчик переключения на админку
     document.addEventListener('click', (e) => {
         if (e.target.closest('[data-view="admin"]')) {
             loadAdminPanel();
         }
     });
-
     function showMainApp() {
         authScreen.classList.remove('active');
         mainScreen.classList.add('active');
         mainScreen.classList.remove('hidden');
         switchView('dashboard');
-
         // Проверяем роль админа после входа
         checkAdminRole();
-
         if (window.AppModules && window.AppModules.TrainingModule) {
             window.AppModules.TrainingModule.loadPlans();
         }
-
         console.log('[APP] Main app shown');
     }
-
     // ===== Validation =====
     const validators = {
         email: (v) => {
@@ -517,20 +471,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return '';
         },
     };
-
     function setFieldError(input, errorEl, msg) {
         if (!input) return;
         input.classList.toggle('invalid', !!msg);
         input.classList.toggle('valid', !msg && input.value.length > 0);
         if (errorEl) errorEl.textContent = msg || '';
     }
-
     function updatePasswordHint(result) {
         const hint = document.getElementById('passwordHint');
         if (!hint) return;
         hint.classList.toggle('hidden', !result || !result.checks);
         if (!result) return;
-
         const items = {
             hintLength: result.checks.length,
             hintUpper: result.checks.upper,
@@ -547,6 +498,56 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('registerBtn');
         if (btn) btn.disabled = !!result.error;
     }
+    // ===== BMI Calculation =====
+    function calculateAndShowBMI() {
+        const heightCm = parseFloat(document.getElementById('profHeight')?.value) || 0;
+        const weightKg = parseFloat(document.getElementById('profWeight')?.value) || 0;
+        const bmiHint = document.getElementById('bmiHint');
+        const bmiValue = document.getElementById('bmiValue');
+        const bmiCategory = document.getElementById('bmiCategory');
+        const bmiRecommendation = document.getElementById('bmiRecommendation');
+
+        if (heightCm > 0 && weightKg > 0) {
+            const heightM = heightCm / 100;
+            const bmi = weightKg / (heightM * heightM);
+            let category = '';
+            let recommendation = '';
+            let recommendedGoal = '';
+
+            if (bmi < 18.5) {
+                category = 'Недостаточный вес';
+                recommendation = 'Рекомендуется набор мышечной массы.';
+                recommendedGoal = 'muscle_gain';
+            } else if (bmi < 25) {
+                category = 'Нормальный вес';
+                recommendation = 'Ваш вес в норме. Можно выбрать любую цель.';
+                recommendedGoal = '';
+            } else if (bmi < 30) {
+                category = 'Избыточный вес';
+                recommendation = 'Рекомендуется снижение веса.';
+                recommendedGoal = 'weight_loss';
+            } else {
+                category = 'Ожирение';
+                recommendation = 'Настоятельно рекомендуется снижение веса.';
+                recommendedGoal = 'weight_loss';
+            }
+
+            if (bmiValue) bmiValue.textContent = bmi.toFixed(1);
+            if (bmiCategory) bmiCategory.textContent = category;
+            if (bmiRecommendation) bmiRecommendation.textContent = recommendation;
+            if (bmiHint) bmiHint.style.display = 'block';
+
+            // Автоматически предлагаем цель, если она еще не выбрана
+            if (recommendedGoal) {
+                const goalRadio = document.querySelector(`input[name="goal"][value="${recommendedGoal}"]`);
+                if (goalRadio && !document.querySelector('input[name="goal"]:checked')) {
+                    goalRadio.checked = true;
+                }
+            }
+        } else {
+            if (bmiHint) bmiHint.style.display = 'none';
+        }
+    }
 
     // ===== Events =====
     function bindEvents() {
@@ -556,7 +557,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const loginEmailErr = document.getElementById('loginEmailError');
         const loginPassErr = document.getElementById('loginPasswordError');
         const loginErrEl = document.getElementById('loginError');
-
         const regName = document.getElementById('regName');
         const regEmail = document.getElementById('regEmail');
         const regPassword = document.getElementById('regPassword');
@@ -564,9 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const regEmailErr = document.getElementById('regEmailError');
         const regPassErr = document.getElementById('regPasswordError');
         const regErrEl = document.getElementById('registerError');
-
         console.log('[APP] Elements:', { loginForm: !!loginForm, registerForm: !!registerForm, loginEmail: !!loginEmail });
-
         // Login field validation
         if (loginEmail) loginEmail.addEventListener('input', () => {
             setFieldError(loginEmail, loginEmailErr, validators.email(loginEmail.value));
@@ -576,7 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setFieldError(loginPassword, loginPassErr, validators.loginPassword(loginPassword.value));
             if (loginErrEl) loginErrEl.classList.add('hidden');
         });
-
         // Register field validation
         if (regName) regName.addEventListener('input', () => {
             setFieldError(regName, regNameErr, validators.name(regName.value));
@@ -593,7 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePasswordHint(typeof result === 'object' ? result : null);
             if (regErrEl) regErrEl.classList.add('hidden');
         });
-
         // Auth toggle
         document.getElementById('toRegister')?.addEventListener('click', e => {
             e.preventDefault();
@@ -610,7 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (verifyForm) verifyForm.classList.add('hidden');
             clearErrors();
         });
-
         document.getElementById('backToLogin')?.addEventListener('click', e => {
             e.preventDefault();
             console.log('[APP] Back to login from verify');
@@ -618,23 +613,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (verifyForm) verifyForm.classList.add('hidden');
             clearErrors();
         });
-
         document.getElementById('confirmBtn')?.addEventListener('click', async (e) => {
             e.preventDefault();
             const token = document.getElementById('verifyToken').value.trim();
             const confirmErr = document.getElementById('confirmError');
             const confirmOk = document.getElementById('confirmSuccess');
             const btn = document.getElementById('confirmBtn');
-
             if (!token) {
                 if (confirmErr) { confirmErr.textContent = 'Вставьте токен'; confirmErr.classList.remove('hidden'); }
                 return;
             }
-
             if (btn) { btn.disabled = true; btn.textContent = 'Подтверждение...'; }
             if (confirmErr) confirmErr.classList.add('hidden');
             if (confirmOk) confirmOk.classList.add('hidden');
-
             try {
                 await confirmEmail(token);
                 if (confirmOk) confirmOk.classList.remove('hidden');
@@ -649,7 +640,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btn) { btn.disabled = false; btn.textContent = 'Подтвердить email'; }
             }
         });
-
         // ===== LOGIN SUBMIT =====
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
@@ -657,21 +647,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[LOGIN] Submit!');
                 const email = loginEmail.value.trim();
                 const password = loginPassword.value;
-
                 const emailErr = validators.email(email);
                 const passErr = validators.loginPassword(password);
                 setFieldError(loginEmail, loginEmailErr, emailErr);
                 setFieldError(loginPassword, loginPassErr, passErr);
-
                 if (emailErr || passErr) {
                     console.log('[LOGIN] Validation failed');
                     if (loginErrEl) { loginErrEl.textContent = 'Проверьте введённые данные'; loginErrEl.classList.remove('hidden'); }
                     return;
                 }
-
                 const btn = document.getElementById('loginBtn');
                 if (btn) { btn.disabled = true; btn.textContent = 'Вход...'; }
-
                 try {
                     console.log('[LOGIN] Calling API for:', email);
                     const data = await login(email, password);
@@ -693,7 +679,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
         // ===== REGISTER SUBMIT =====
         if (registerForm) {
             registerForm.addEventListener('submit', async (e) => {
@@ -702,25 +687,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const name = regName.value.trim();
                 const email = regEmail.value.trim();
                 const password = regPassword.value;
-
                 const nameErr = validators.name(name);
                 const emailErr = validators.email(email);
                 const passResult = validators.password(password);
                 const passErr = typeof passResult === 'object' ? passResult.error : passResult;
-
                 setFieldError(regName, regNameErr, nameErr);
                 setFieldError(regEmail, regEmailErr, emailErr);
                 setFieldError(regPassword, regPassErr, passErr);
-
                 if (nameErr || emailErr || passErr) {
                     console.log('[REGISTER] Validation failed');
                     if (regErrEl) { regErrEl.textContent = 'Проверьте введённые данные'; regErrEl.classList.remove('hidden'); }
                     return;
                 }
-
                 const btn = document.getElementById('registerBtn');
                 if (btn) { btn.disabled = true; btn.textContent = 'Создание...'; }
-
                 try {
                     console.log('[REGISTER] Calling API for:', email, name);
                     const data = await register(email, password, name);
@@ -734,83 +714,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
         // Logout
         document.getElementById('logoutBtn')?.addEventListener('click', async () => {
             await logout();
             setAuthToken(null);
             showAuthScreen();
         });
-
         // Tab bar
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => switchView(tab.dataset.view));
         });
-
         // Generate plan (training page button only)
         document.getElementById('generatePlanBtn')?.addEventListener('click', generatePlan);
-
         // ML classify
         document.getElementById('mlClassifyBtn')?.addEventListener('click', mlClassify);
-
         // Profile save
         document.getElementById('profileForm')?.addEventListener('submit', saveProfile);
-
         // Change password button
         document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
             document.getElementById('changePasswordModal').classList.remove('hidden');
         });
-
         // Delete profile button
         document.getElementById('deleteProfileBtn')?.addEventListener('click', () => {
             document.getElementById('deleteProfileModal').classList.remove('hidden');
         });
-
         // Cancel change password
         document.getElementById('cancelChangePassword')?.addEventListener('click', () => {
             document.getElementById('changePasswordModal').classList.add('hidden');
             document.getElementById('changePasswordForm').reset();
         });
-
         // Cancel delete profile
         document.getElementById('cancelDeleteProfile')?.addEventListener('click', () => {
             document.getElementById('deleteProfileModal').classList.add('hidden');
             document.getElementById('deleteConfirmPassword').value = '';
         });
-
         // Change password form submit
         document.getElementById('changePasswordForm')?.addEventListener('submit', handleChangePassword);
-
         // Change email button
         document.getElementById('changeEmailBtn')?.addEventListener('click', () => {
             document.getElementById('changeEmailModal').classList.remove('hidden');
         });
-
         // Cancel change email
         document.getElementById('cancelChangeEmail')?.addEventListener('click', () => {
             document.getElementById('changeEmailModal').classList.add('hidden');
             document.getElementById('changeEmailForm').reset();
         });
-
         // Change email form submit
         document.getElementById('changeEmailForm')?.addEventListener('submit', handleChangeEmail);
-
         // Confirm delete profile
         document.getElementById('confirmDeleteProfile')?.addEventListener('click', handleDeleteProfile);
-
         // Close modal on overlay click
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', (e) => {
                 e.target.closest('.modal').classList.add('hidden');
             });
         });
-
         // Profile field validation
         const profNickname = document.getElementById('profNickname');
         const profAge = document.getElementById('profAge');
         const profHeight = document.getElementById('profHeight');
         const profWeight = document.getElementById('profWeight');
-
         if (profNickname) profNickname.addEventListener('input', () => {
             setFieldError(profNickname, document.getElementById('profNicknameError'), validators.nickname(profNickname.value));
         });
@@ -819,11 +782,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (profHeight) profHeight.addEventListener('input', () => {
             setFieldError(profHeight, document.getElementById('profHeightError'), validators.height(profHeight.value));
+            calculateAndShowBMI(); // Пересчитываем ИМТ при изменении роста
         });
         if (profWeight) profWeight.addEventListener('input', () => {
             setFieldError(profWeight, document.getElementById('profWeightError'), validators.weight(profWeight.value));
+            calculateAndShowBMI(); // Пересчитываем ИМТ при изменении веса
         });
-
         // ===== Change Password =====
         document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
             const form = document.getElementById('changePasswordForm');
@@ -840,14 +804,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
-
         // New password validation hints
         const newPassInput = document.getElementById('newPassword');
         if (newPassInput) newPassInput.addEventListener('input', () => {
             const v = newPassInput.value;
             const hint = document.getElementById('passwordHint');
             if (hint) hint.classList.toggle('hidden', v.length === 0);
-
             const checks = {
                 length: v.length >= 8,
                 upper: /[A-ZА-ЯЁ]/.test(v),
@@ -870,7 +832,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const btn = document.querySelector('#changePasswordForm .btn-primary');
             if (btn) btn.disabled = !Object.values(checks).every(Boolean);
         });
-
         // Confirm password validation
         const confirmPass = document.getElementById('confirmPassword');
         if (confirmPass) confirmPass.addEventListener('input', () => {
@@ -878,13 +839,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const err = confirmPass.value !== newP ? 'Пароли не совпадают' : '';
             setFieldError(confirmPass, document.getElementById('confirmPasswordError'), err);
         });
-
         document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const currentP = document.getElementById('currentPassword').value;
             const newP = document.getElementById('newPassword').value;
             const confirmP = document.getElementById('confirmPassword').value;
-
             if (!currentP) {
                 setFieldError(document.getElementById('currentPassword'), document.getElementById('currentPasswordError'), 'Введите текущий пароль');
                 return;
@@ -897,10 +856,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 setFieldError(document.getElementById('confirmPassword'), document.getElementById('confirmPasswordError'), 'Пароли не совпадают');
                 return;
             }
-
             const btn = document.querySelector('#changePasswordForm .btn-primary');
             if (btn) { btn.disabled = true; btn.textContent = 'Сохранение...'; }
-
             try {
                 await changePassword(currentP, newP);
                 showToast('Пароль успешно изменён', 'success');
@@ -917,15 +874,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btn) { btn.disabled = false; btn.textContent = 'Сохранить новый пароль'; }
             }
         });
-
         // ===== Delete Profile =====
         document.getElementById('deleteProfileBtn')?.addEventListener('click', async () => {
             if (!confirm('Вы уверены? Это действие необратимо. Все данные будут удалены.')) return;
             if (!confirm('Точно удалить аккаунт?')) return;
-
             const btn = document.getElementById('deleteProfileBtn');
             if (btn) { btn.disabled = true; btn.textContent = 'Удаление...'; }
-
             try {
                 await deleteProfile();
                 showToast('Аккаунт удалён', 'success');
@@ -938,8 +892,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btn) { btn.disabled = false; btn.textContent = 'Удалить аккаунт'; }
             }
         });
-    }
 
+        // ===== FIX: CSP - Убраны inline event handlers =====
+        document.getElementById('connectFitbitBtn')?.addEventListener('click', connectFitbit);
+        document.getElementById('connectWithingsBtn')?.addEventListener('click', connectWithings);
+
+        // ===== Diet Settings =====
+        document.getElementById('applyDietSettingsBtn')?.addEventListener('click', () => {
+            if (window.AppModules && window.AppModules.DietModule) {
+                window.AppModules.DietModule.loadDietPlan();
+                showToast('Настройки диеты применены', 'success');
+            }
+        });
+    }
     function clearErrors() {
         ['loginError', 'registerError', 'authError'].forEach(id => {
             const el = document.getElementById(id);
@@ -950,20 +915,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.textContent = '';
         });
     }
-
     // ===== Navigation =====
     function switchView(viewName) {
         state.currentView = viewName;
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         const targetView = document.getElementById(`${viewName}View`);
         if (targetView) targetView.classList.add('active');
-
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         const activeTab = document.querySelector(`.tab[data-view="${viewName}"]`);
         if (activeTab) activeTab.classList.add('active');
-
         pageTitle.textContent = viewTitles[viewName] || 'FitPulse';
-
         if (viewName === 'dashboard') loadDashboard();
         if (viewName === 'profile') loadProfile();
         if (viewName === 'training') loadTrainingPlans();
@@ -972,7 +933,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewName === 'achievements') loadAchievements();
         if (viewName === 'diet') initDietView();
     }
-
     // ===== Dashboard =====
     async function loadDashboard() {
         try {
@@ -986,13 +946,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (spo2Data.status === 'fulfilled' && spo2Data.value.records?.length > 0) {
                 document.getElementById('spo2Value').textContent = Math.round(spo2Data.value.records[0].value);
             }
-
             // Chart
             if (hrData.status === 'fulfilled' && hrData.value.records?.length > 1) {
                 const records = hrData.value.records.slice(0, 20).reverse();
                 const labels = records.map(r => new Date(r.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
                 const values = records.map(r => r.value);
-
                 if (state.heartChart) state.heartChart.destroy();
                 const ctx = document.getElementById('heartChart')?.getContext('2d');
                 if (ctx) {
@@ -1016,7 +974,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }
-
             // AI recommendation
             try {
                 const classifyRes = await apiRequest('/ml/classify', { method: 'POST', body: '{}' });
@@ -1034,7 +991,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('aiRecommendation').textContent = 'Ошибка анализа';
                 document.getElementById('aiDescription').textContent = 'Сервис AI временно недоступен';
             }
-
             // Today's workout - load active training plan
             try {
                 let plansData = await getTrainingPlans(1, 1);
@@ -1045,18 +1001,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (plans.length > 0) {
                     const plan = plans[0];
                     let todayWorkoutHtml = '';
-
                     // Try to load full plan details
                     try {
                         const fullPlan = await fetch(`/api/v1/training/plan/${plan.plan_id}`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
                         }).then(r => r.json());
-
                         const planData = fullPlan?.plan?.plan_data;
                         if (planData?.weeks && planData.weeks.length > 0) {
                             // Get today's day of week (0 = Sunday, 1 = Monday, etc)
                             const today = new Date().getDay();
-
                             // Search for today's workout in the first week
                             let todayWorkout = null;
                             for (const week of planData.weeks) {
@@ -1068,7 +1021,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 if (todayWorkout) break;
                             }
-
                             if (todayWorkout) {
                                 const trainingTypes = {
                                     'cardio': '🏃 Кардио',
@@ -1077,10 +1029,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     'endurance': '🏃 Выносливость',
                                     'hiit': 'HIIT'
                                 };
-
                                 const exercises = todayWorkout.exercises || [];
                                 const typeLabel = trainingTypes[todayWorkout.training_type] || '';
-
                                 let exercisesHtml = '';
                                 if (exercises.length > 0) {
                                     exercisesHtml = '<ul style="margin: 10px 0; padding-left: 20px;">' +
@@ -1092,31 +1042,28 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }).join('') +
                                         '</ul>';
                                 }
-
                                 todayWorkoutHtml = `
-                                    <div class="workout-content">
-                                        <h4>${typeLabel}</h4>
-                                        ${exercisesHtml}
-                                        ${todayWorkout.duration ? `<p> Длительность: ${todayWorkout.duration} мин</p>` : ''}
-                                        ${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
-                                    </div>
-                                `;
+<div class="workout-content">
+<h4>${typeLabel}</h4>
+${exercisesHtml}
+${todayWorkout.duration ? `<p> Длительность: ${todayWorkout.duration} мин</p>` : ''}
+${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
+</div>
+`;
                             }
                         }
                     } catch (e) {
                         console.warn('Could not load full plan details:', e);
                     }
-
                     // Fallback if no today's workout found
                     if (!todayWorkoutHtml) {
                         todayWorkoutHtml = `
-                             <div class="workout-content">
-                                 <h4>😴 Отдых</h4>
-                                 <p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
-                             </div>
-                         `;
+<div class="workout-content">
+<h4>😴 Отдых</h4>
+<p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
+</div>
+`;
                     }
-
                     document.getElementById('todayWorkout').innerHTML = todayWorkoutHtml;
                 }
             } catch (err) {
@@ -1126,7 +1073,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Dashboard load failed:', err);
         }
     }
-
     // ===== Profile =====
     async function loadProfile() {
         try {
@@ -1139,12 +1085,17 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('profHeight').value = p.height_cm || '';
             document.getElementById('profWeight').value = p.weight_kg || '';
             document.getElementById('profFitness').value = p.fitness_level || '';
-
             // Питание — select
             if (p.nutrition) {
                 document.getElementById('profNutrition').value = p.nutrition;
             }
-
+            // Аллергии и противопоказания
+            if (p.allergies) {
+                document.getElementById('profAllergies').value = Array.isArray(p.allergies) ? p.allergies.join(', ') : p.allergies;
+            }
+            if (p.contraindications) {
+                document.getElementById('profContraindications').value = Array.isArray(p.contraindications) ? p.contraindications.join(', ') : p.contraindications;
+            }
             // Сон — показываем с устройства
             if (p.sleep_hours) {
                 const sleepDisplay = document.getElementById('profSleepDisplay');
@@ -1153,12 +1104,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     sleepValue.textContent = p.sleep_hours + ' ч';
                 }
             }
-
             // Цель — radio (одна)
             const goal = Array.isArray(p.goals) && p.goals.length > 0 ? p.goals[0] : '';
             document.querySelectorAll('.goals-grid input[type="radio"]').forEach(radio => {
                 radio.checked = radio.value === goal;
             });
+
+            // Рассчитываем ИМТ после загрузки данных
+            calculateAndShowBMI();
         } catch (err) {
             console.error('Profile load failed:', err);
             // Если профиль не найден (404), возможно сессия устарела
@@ -1174,10 +1127,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
     async function saveProfile(e) {
         e.preventDefault();
-
         // Валидация никнейма (обязательно)
         const nickname = document.getElementById('profNickname').value.trim();
         const nickErr = validators.nickname(nickname);
@@ -1186,28 +1137,27 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка: ' + nickErr, 'error');
             return;
         }
-
         // Валидация числовых полей
         const ageVal = document.getElementById('profAge').value;
         const heightVal = document.getElementById('profHeight').value;
         const weightVal = document.getElementById('profWeight').value;
-
         const ageErr = validators.age(ageVal);
         const heightErr = validators.height(heightVal);
         const weightErr = validators.weight(weightVal);
-
         setFieldError(document.getElementById('profAge'), document.getElementById('profAgeError'), ageErr);
         setFieldError(document.getElementById('profHeight'), document.getElementById('profHeightError'), heightErr);
         setFieldError(document.getElementById('profWeight'), document.getElementById('profWeightError'), weightErr);
-
         if (ageErr || heightErr || weightErr) {
             showToast('Исправьте ошибки в числовых полях', 'error');
             return;
         }
-
         // Цель — одна
         const selectedGoal = document.querySelector('.goals-grid input[type="radio"]:checked');
         const goals = selectedGoal ? [selectedGoal.value] : [];
+
+        // Аллергии и противопоказания
+        const allergies = document.getElementById('profAllergies')?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
+        const contraindications = document.getElementById('profContraindications')?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
 
         const data = {
             full_name: nickname,
@@ -1218,8 +1168,9 @@ document.addEventListener('DOMContentLoaded', () => {
             fitness_level: document.getElementById('profFitness').value || null,
             nutrition: document.getElementById('profNutrition').value || null,
             goals,
+            allergies,
+            contraindications
         };
-
         try {
             await updateProfile(data);
             showToast('Профиль сохранён', 'success');
@@ -1233,26 +1184,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
     // ===== Change Password =====
     async function handleChangePassword(e) {
         e.preventDefault();
-
         const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmNewPassword = document.getElementById('confirmNewPassword').value;
-
         // Validation
         if (!currentPassword) {
             showToast('Введите текущий пароль', 'error');
             return;
         }
-
         if (!newPassword) {
             showToast('Введите новый пароль', 'error');
             return;
         }
-
         // Password strength validation
         const passwordChecks = {
             length: newPassword.length >= 8,
@@ -1260,7 +1206,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lower: /[a-zа-яё]/.test(newPassword),
             digit: /\d/.test(newPassword),
         };
-
         if (!passwordChecks.length) {
             showToast('Пароль должен содержать минимум 8 символов', 'error');
             return;
@@ -1277,12 +1222,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Пароль должен содержать цифру', 'error');
             return;
         }
-
         if (newPassword !== confirmNewPassword) {
             showToast('Новые пароли не совпадают', 'error');
             return;
         }
-
         try {
             await changePassword(currentPassword, newPassword);
             showToast('Пароль успешно изменён', 'success');
@@ -1293,29 +1236,23 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка: ' + err.message, 'error');
         }
     }
-
     // ===== Change Email =====
     async function handleChangeEmail(e) {
         e.preventDefault();
-
         const newEmail = document.getElementById('newEmail').value;
         const password = document.getElementById('emailConfirmPassword').value;
-
         if (!newEmail) {
             showToast('Введите новую почту', 'error');
             return;
         }
-
         if (!password) {
             showToast('Введите пароль для подтверждения', 'error');
             return;
         }
-
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
             showToast('Введите корректный email', 'error');
             return;
         }
-
         try {
             await changeEmail(newEmail, password);
             showToast('Email изменён', 'success');
@@ -1326,21 +1263,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка: ' + err.message, 'error');
         }
     }
-
     // ===== Delete Profile =====
     async function handleDeleteProfile() {
         const password = document.getElementById('deleteConfirmPassword').value;
-
         if (!password) {
             showToast('Введите пароль для подтверждения', 'error');
             return;
         }
-
         // Additional confirmation
         if (!confirm('Вы уверены? Это действие нельзя отменить.')) {
             return;
         }
-
         try {
             await deleteProfile(password);
             showToast('Профиль удалён', 'success');
@@ -1352,23 +1285,19 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Ошибка: ' + err.message, 'error');
         }
     }
-
     // ===== Training =====
     async function loadTrainingPlans() {
         if (window.AppModules) {
             await window.AppModules.TrainingModule.loadPlans();
         }
     }
-
     async function generatePlan() {
         if (window.AppModules) {
             await window.AppModules.TrainingModule.generatePlan();
         }
     }
-
     // ===== ML =====
     async function loadMLView() { }
-
     async function mlClassify() {
         try {
             const container = document.getElementById('mlResult');
@@ -1377,21 +1306,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const classRu = result.predicted_class_ru || result.predicted_class || 'Не определено';
             const confidence = result.confidence ? Math.round(result.confidence * 100) : 0;
             container.innerHTML = `<div class="ml-classification">
-                <div class="class-label">Ваше состояние</div>
-                <div class="class-name">${classRu}</div>
-                ${result.description ? `<p style="margin-top:12px;font-size:15px;color:var(--text-secondary);">${result.description}</p>` : ''}</div>`;
+<div class="class-label">Ваше состояние</div>
+<div class="class-name">${classRu}</div>
+${result.description ? `<p style="margin-top:12px;font-size:15px;color:var(--text-secondary);">${result.description}</p>` : ''}</div>`;
         } catch (err) {
             document.getElementById('mlResult').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>
-                <h3>Не удалось проанализировать</h3><p>${err.message}</p></div>`;
+<h3>Не удалось проанализировать</h3><p>${err.message}</p></div>`;
         }
     }
-
     // ===== Achievements =====
     async function loadAchievements() {
         const container = document.getElementById('achievementsList');
         const compContainer = document.getElementById('competitionsList');
         if (!container || !compContainer) return;
-
         // Заглушки достижений
         const achievements = [
             { icon: '🏃', name: 'Первый шаг', desc: 'Завершите первую тренировку', unlocked: false },
@@ -1401,40 +1328,35 @@ document.addEventListener('DOMContentLoaded', () => {
             { icon: '🎯', name: 'Точная цель', desc: 'Достигните поставленной цели', unlocked: false },
             { icon: '📊', name: 'Аналитик', desc: 'Записывайте данные 30 дней', unlocked: false },
         ];
-
         container.innerHTML = achievements.map(a => `
-            <div class="achievement-card ${a.unlocked ? 'unlocked' : 'locked'}">
-                <div class="achievement-icon">${a.icon}</div>
-                <div class="achievement-name">${a.name}</div>
-                <div class="achievement-desc">${a.desc}</div>
-                ${a.unlocked ? '<div class="achievement-progress">Получено</div>' : '<div class="achievement-progress">Заблокировано</div>'}
-            </div>
-        `).join('');
-
-        // Заглушки соревнований
+<div class="achievement-card ${a.unlocked ? 'unlocked' : 'locked'}">
+<div class="achievement-icon">${a.icon}</div>
+<div class="achievement-name">${a.name}</div>
+<div class="achievement-desc">${a.desc}</div>
+${a.unlocked ? '<div class="achievement-progress">Получено</div>' : '<div class="achievement-progress">Заблокировано</div>'}
+</div>
+`).join('');
+        // FIX: Убраны фейковые соревнования, заменены на персональные челленджи
         const competitions = [
-            { name: 'Неделя активности', desc: 'Кто наберёт больше шагов за неделю', status: 'active', participants: 124, rank: null },
-            { name: 'Марафон выносливости', desc: '30 дней кардио тренировок', status: 'upcoming', participants: 89, rank: null },
-            { name: 'Новогодний челлендж', desc: 'Тренировки каждый день в январе', status: 'finished', participants: 256, rank: 42 },
+            { name: 'Персональный рекорд', desc: 'Пройдите 10000 шагов за день', status: 'active', participants: 1, rank: null },
+            { name: 'Серия тренировок', desc: 'Тренируйтесь 3 дня подряд', status: 'upcoming', participants: 1, rank: null },
+            { name: 'Месяц активности', desc: 'Тренируйтесь 20 дней в месяце', status: 'upcoming', participants: 1, rank: null }
         ];
-
         const statusLabels = { active: 'Активно', upcoming: 'Скоро', finished: 'Завершено' };
-
         compContainer.innerHTML = competitions.map(c => `
-            <div class="competition-card">
-                <div class="competition-header">
-                    <div class="competition-name">${c.name}</div>
-                    <span class="competition-status ${c.status}">${statusLabels[c.status]}</span>
-                </div>
-                <div class="competition-desc">${c.desc}</div>
-                <div class="competition-meta">
-                    <span>${c.participants} участников</span>
-                    ${c.rank ? `<span class="competition-rank">🏅 Место: ${c.rank}</span>` : ''}
-                </div>
-            </div>
-        `).join('');
+<div class="competition-card">
+<div class="competition-header">
+<div class="competition-name">${c.name}</div>
+<span class="competition-status ${c.status}">${statusLabels[c.status]}</span>
+</div>
+<div class="competition-desc">${c.desc}</div>
+<div class="competition-meta">
+<span>Персональный челлендж</span>
+${c.rank ? `<span class="competition-rank">🏅 Место: ${c.rank}</span>` : ''}
+</div>
+</div>
+`).join('');
     }
-
     function initDevicesView() {
         if (window.AppModules) {
             window.AppModules.DeviceModule.init();
@@ -1442,14 +1364,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Загружаем список подключённых провайдеров при открытии вкладки
         loadConnectedProviders();
     }
-
     // ===== Diet View =====
     function initDietView() {
         if (window.AppModules) {
             window.AppModules.DietModule.loadDietPlan();
         }
     }
-
     // ===== Toast =====
     function showToast(msg, type = 'success') {
         const existing = document.querySelector('.toast');
