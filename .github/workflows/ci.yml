@@ -505,7 +505,7 @@ jobs:
           # without lock files (pip-compile hashes). Scan each requirements.txt
           # separately and collect results.
           echo "Scanning Python requirements..."
-          for req_file in $(find . -name "requirements.txt" -not -path "./.git/*"); do
+          find . -name "requirements.txt" -not -path "./.git/*" -print0 | while IFS= read -r -d '' req_file; do
             echo "=== Scanning $req_file ==="
             # Use --experimental-offline-vulnerabilities to avoid gRPC resolution errors
             docker run --rm -v "${GITHUB_WORKSPACE}:/repo" -w /repo \
