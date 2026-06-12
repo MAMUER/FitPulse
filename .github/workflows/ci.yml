@@ -1,4 +1,5 @@
 name: CI/CD Pipeline
+
 on:
   push:
     branches: [main, master, Microservice_arc]
@@ -18,6 +19,8 @@ on:
       - 'deployments/**'
       - '.dockerignore'
       - 'db/migrations/**'
+      - 'datasets/**'
+      - '*.py'
   pull_request:
     branches: [main, master, Microservice_arc]
     paths:
@@ -36,28 +39,47 @@ on:
       - 'deployments/**'
       - '.dockerignore'
       - 'db/migrations/**'
+      - 'datasets/**'
+      - '*.py'
   schedule:
-    - cron: '0 0 * * 1'
-    - cron: '0 9 1 * *'
-    - cron: '0 9 1 1,4,7,10 *'
+    - cron: '0 0 * * 1'      # Weekly Monday midnight
+    - cron: '0 9 1 * *'      # Monthly dependency update
+    - cron: '0 9 1 1,4,7,10 *'  # Quarterly vulncheck
+    - cron: '34 9 * * 3'     # CodeQL weekly
+    - cron: '16 11 * * 3'    # OSV weekly
+    - cron: '25 13 * * 1'    # Semgrep weekly
+    - cron: '0 0 * * 0'      # Fuzz tests weekly
+    - cron: '0 2 * * 1'      # ML retrain weekly Monday 2AM
   workflow_dispatch:
     inputs:
       run_mode:
         description: "Select execution mode"
         required: false
         type: choice
-        options: [full, maintenance]
+        options: [full, maintenance, ml-retrain]
       maintenance_type:
         description: "For maintenance mode: update|audit|vulncheck"
         required: false
         type: choice
         options: [update, audit, vulncheck]
         default: "update"
+      force_retrain:
+        description: 'Force ML retrain even if no data changes'
+        required: false
+        type: boolean
+        default: false
+  release:
+    types: [created]
+  issues:
+    types: [opened, labeled, unlabeled]
 
 permissions:
   contents: read
   packages: write
   actions: read
+  security-events: write
+  pull-requests: write
+  issues: write
 
 env:
   GO_VERSION: "1.26.4"
@@ -65,9 +87,13 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
 jobs:
+  # ============================================================================
+  # DETECT CHANGES
+  # ============================================================================
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    if: github.event_name != 'release' && github.event_name != 'issues'
     outputs:
       gateway: ${{ steps.filter.outputs.gateway }}
       user: ${{ steps.filter.outputs.user }}
@@ -123,10 +149,134 @@ jobs:
               - 'go.mod'
               - 'go.sum'
 
+  # ============================================================================
+  # ISSUE AUTOMATION
+  # ============================================================================
+  issue-automation:
+    name: Issue Automation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    steps:
+      - name: Add triage label
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['needs-triage']
+            });
+
+      - name: Add component labels
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const labels = [];
+            if (body.toLowerCase().includes('fitbit') || body.includes('withings')) {
+              labels.push('device-integration');
+            }
+            if (body.toLowerCase().includes('oauth') || body.includes('auth')) {
+              labels.push('authentication');
+            }
+            if (body.toLowerCase().includes('webhook')) {
+              labels.push('webhook');
+            }
+            if (body.toLowerCase().includes('smtp') || body.includes('email')) {
+              labels.push('email-service');
+            }
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: labels
+              });
+            }
+
+      - name: Assign based on component
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const title = context.payload.issue.title.toLowerCase();
+            const assignments = {
+              'gateway': ['@MAMUER'],
+              'user service': ['@MAMUER'],
+              'biometric': ['@MAMUER'],
+              'training': ['@MAMUER'],
+              'device': ['@MAMUER'],
+              'ml ': ['@MAMUER'],
+              'frontend': ['@MAMUER'],
+              'k8s': ['@MAMUER'],
+              'docker': ['@MAMUER'],
+              'ci/cd': ['@MAMUER'],
+            };
+            for (const [keyword, assignees] of Object.entries(assignments)) {
+              if (body.toLowerCase().includes(keyword) || title.includes(keyword)) {
+                for (const assignee of assignees) {
+                  await github.rest.issues.addAssignees({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    assignees: [assignee.replace('@', '')]
+                  });
+                }
+                break;
+              }
+            }
+
+      - name: Welcome new contributors
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const author = context.payload.issue.user.login;
+            const isFirst = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              creator: author,
+              per_page: 1
+            }).then(res => res.data.length === 1);
+            if (isFirst) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `👋 Привет, @${author}! Спасибо за первое сообщение об ошибке/идею.\n\nМы проверим ваш репорт в ближайшее время. Если у вас есть дополнительные детали — добавляйте в комментарии.`
+              });
+            }
+
+      - name: Security issue handling
+        if: contains(github.event.issue.labels.*.name, 'security')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            console.log('Security issue detected:', context.issue.number);
+
+      - name: Notify Telegram on critical
+        if: contains(github.event.issue.labels.*.name, 'priority:critical')
+        env:
+          ISSUE_TITLE: "${{ github.event.issue.title }}"
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\\n$ISSUE_TITLE\\n${{ github.event.issue.html_url }}\"}"
+
+  # ============================================================================
+  # VALIDATE WORKFLOW
+  # ============================================================================
   validate-workflow:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -134,9 +284,16 @@ jobs:
       - name: Validate workflow syntax
         uses: rhysd/actionlint@v1.7.12
 
+  # ============================================================================
+  # DOCKERFILE LINT
+  # ============================================================================
   dockerfile-lint:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - uses: actions/checkout@v6
       - name: Run Hadolint on all Dockerfiles
@@ -146,6 +303,216 @@ jobs:
             docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint hadolint -c .hadolint.yaml "$dockerfile"
           done
 
+  # ============================================================================
+  # SUPER LINTER
+  # ============================================================================
+  super-linter:
+    name: Super Linter
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Lint Code Base
+        uses: github/super-linter@v4
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: "Microservice_arc"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_GITHUB_ACTIONS: false
+          VALIDATE_PYTHON_BLACK: true
+          VALIDATE_PYTHON_FLAKE8: true
+          VALIDATE_PYTHON_ISORT: true
+          VALIDATE_PYTHON_MYPY: true
+          PYTHON_FLAKE8_CONFIG_FILE: .flake8
+          PYTHON_MYPY_CONFIG_FILE: mypy.ini
+
+  # ============================================================================
+  # CODEQL ANALYSIS
+  # ============================================================================
+  codeql:
+    name: CodeQL Analysis (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # ============================================================================
+  # DEPENDENCY REVIEW
+  # ============================================================================
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v6
+      - name: 'Dependency Review'
+        uses: actions/dependency-review-action@v4
+        with:
+          comment-summary-in-pr: always
+
+  # ============================================================================
+  # KUBESCAPE
+  # ============================================================================
+  kubescape:
+    name: Kubescape K8s Scan
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Kubescape
+        run: |
+          curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+
+      - name: Run Kubescape scan
+        run: |
+          kubescape scan configs/k8s/base/ \
+            --format sarif \
+            --output kubescape-results.sarif \
+            --verbose || true
+
+      - name: Upload Kubescape results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('kubescape-results.sarif') != ''
+        with:
+          sarif_file: kubescape-results.sarif
+          category: kubescape
+
+  # ============================================================================
+  # SEMGREP
+  # ============================================================================
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: returntocorp/semgrep-action@fcd5ab7459e8d91cb1777481980d1b18b4fc6735
+        with:
+          publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
+          publishDeployment: ${{ secrets.SEMGREP_DEPLOYMENT_ID }}
+          generateSarif: "1"
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
+  # ============================================================================
+  # OSV SCANNER
+  # ============================================================================
+  osv-scanner:
+    name: OSV Scanner
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            -r
+            --skip-git
+            ./
+
+  # ============================================================================
+  # FUZZ TESTS
+  # ============================================================================
+  fuzz-tests:
+    name: Fuzz Tests
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [validate-workflow]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Run fuzz tests
+        run: |
+          go test -fuzz=FuzzString -fuzztime=60s ./internal/sanitize/
+
+  # ============================================================================
+  # MONTHLY DEPENDENCY UPDATE
+  # ============================================================================
   monthly-dependency-update:
     name: Monthly Dependency Update
     runs-on: ubuntu-latest
@@ -174,6 +541,9 @@ jobs:
             This PR updates all Go dependencies to their latest versions.
             Scheduled run on the 1st of each month.
 
+  # ============================================================================
+  # QUARTERLY VULNCHECK
+  # ============================================================================
   quarterly-vulncheck:
     name: Quarterly Vulnerability Check
     runs-on: ubuntu-latest
@@ -190,13 +560,16 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./... -show verbose
 
+  # ============================================================================
+  # OSV AUDIT (manual)
+  # ============================================================================
   osv-audit:
     name: OSV Dependency Audit
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'workflow_dispatch'
-      && inputs.run_mode == 'maintenance'
-      && inputs.maintenance_type == 'audit'
+      github.event_name == 'workflow_dispatch' &&
+      inputs.run_mode == 'maintenance' &&
+      inputs.maintenance_type == 'audit'
     steps:
       - uses: actions/checkout@v6
       - name: Set up Go
@@ -210,13 +583,16 @@ jobs:
         run: |
           "$HOME/go/bin/osv-scanner" -r ./...
 
+  # ============================================================================
+  # SECURITY SCAN
+  # ============================================================================
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -271,17 +647,12 @@ jobs:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      # ========== Security Gate — блокирует pipeline при критических уязвимостях ==========
       - name: Security Gate — enforce quality thresholds
         run: |
           echo "============================================"
           echo "  Security Gate — Checking scan results"
           echo "============================================"
-          
           FAIL=0
-          
-          # 1. Check gosec SARIF for CRITICAL/HIGH findings
           if [ -f sarif-results/gosec.sarif ]; then
             GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
             GOSEC_HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
@@ -292,8 +663,6 @@ jobs:
               FAIL=1
             fi
           fi
-          
-          # 2. Check govulncheck results for known vulnerabilities
           if [ -f vulncheck-results.txt ]; then
             VULN_COUNT=$(grep -c "^GO-" vulncheck-results.txt 2>/dev/null || echo 0)
             echo "govulncheck: $VULN_COUNT vulnerabilities found"
@@ -303,8 +672,6 @@ jobs:
               FAIL=1
             fi
           fi
-          
-          # 3. Check Trivy filesystem SARIF for CRITICAL CVEs with CVSS > 7
           if [ -f sarif-results/trivy-fs.sarif ]; then
             TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null || echo 0)
             echo "trivy-fs: $TRIVY_CRITICAL critical CVEs"
@@ -314,7 +681,6 @@ jobs:
               FAIL=1
             fi
           fi
-          
           echo "============================================"
           if [ "$FAIL" -eq 1 ]; then
             echo "❌ Security Gate FAILED — pipeline blocked"
@@ -323,10 +689,17 @@ jobs:
           else
             echo "✅ Security Gate PASSED — no critical issues found"
           fi
+
+  # ============================================================================
+  # SECRETS SCAN
+  # ============================================================================
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -354,10 +727,16 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"chat_id\": \"${TG_CHAT_ID}\", \"text\": \"<b>Secrets detected!</b>\nRepo: ${{ github.repository }}\nRun: <a href='${RUN_URL}'>Details</a>\", \"parse_mode\": \"HTML\"}"
 
+  # ============================================================================
+  # MAKE CHECK
+  # ============================================================================
   check:
     name: Make Check (Lint + Test)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -375,11 +754,17 @@ jobs:
         env:
           DOCKER_HOST: ""
 
+  # ============================================================================
+  # BUILD BINARIES
+  # ============================================================================
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
-    needs: [security-scan, secrets-scan, check, dockerfile-lint]
+    if: >-
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
+    needs: [security-scan, secrets-scan, check, dockerfile-lint, super-linter]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -404,13 +789,18 @@ jobs:
           path: bin/
           retention-days: 1
 
+  # ============================================================================
+  # DOCKER BUILD & PUSH
+  # ============================================================================
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: [binary_build]
     if: >-
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
-      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -480,12 +870,156 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-docker
 
-  provision-k8s-vps:
-    name: Provision k3s Cluster on VPS (Step-by-Step, Safe)
+  # ============================================================================
+  # SLSA PROVENANCE
+  # ============================================================================
+  slsa-provenance:
+    name: SLSA Provenance
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'created'
+    permissions:
+      contents: read
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build artifacts
+        run: |
+          mkdir -p bin
+          GOMAXPROCS=$(nproc)
+          export GOMAXPROCS
+          for svc in user-service biometric-service training-service gateway device-connector device-emulator; do
+            go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
+          done
+          wait
+      - name: Generate subject for provenance
+        id: hash
+        run: |
+          set -euo pipefail
+          files=(bin/*)
+          echo "hashes=$(sha256sum "${files[@]}" | base64 -w0)" >> "${GITHUB_OUTPUT}"
+
+  slsa-publish:
+    name: SLSA Publish
+    needs: [slsa-provenance]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.4.0
+    with:
+      base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
+      upload-assets: true
+
+  # ============================================================================
+  # ML RETRAIN
+  # ============================================================================
+  ml-retrain-classifier:
+    name: ML Retrain Classifier
     runs-on: ubuntu-latest
     if: >-
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
-      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+      (github.event.schedule == '0 2 * * 1' || 
+       (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'ml-retrain')) &&
+      github.event_name != 'issues'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install DVC
+        run: |
+          pip install dvc==3.58.0
+          dvc version
+      - name: Pull data via DVC
+        run: |
+          echo "Using cached data from GitHub Actions cache..."
+          dvc pull datasets/processed/training_data_real.csv.dvc || echo "No DVC remote configured, using local cache"
+      - name: Install dependencies
+        run: |
+          pip install -r cmd/ml-classifier/requirements.txt
+      - name: Train with MLflow tracking
+        run: |
+          cd cmd/ml-classifier
+          python train.py
+        env:
+          MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
+      - name: Validate model quality
+        run: |
+          python -c "
+          import json
+          with open('models/training_history.json') as f:
+              h = json.load(f)
+          assert h['metrics']['test_accuracy'] > 0.7, 'Model accuracy too low!'
+          print('✅ Model quality check passed')
+          "
+      - name: Save model as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ml-models-classifier
+          path: models/
+          retention-days: 7
+      - name: Notify on completion
+        if: always()
+        uses: appleboy/telegram-action@v1.0.1
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            🔄 ML Classifier Retraining: ${{ job.status }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  ml-retrain-generator:
+    name: ML Retrain Generator
+    runs-on: ubuntu-latest
+    needs: ml-retrain-classifier
+    if: >-
+      (github.event.schedule == '0 2 * * 1' || 
+       (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'ml-retrain')) &&
+      github.event_name != 'issues'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install DVC
+        run: pip install dvc==3.58.0
+      - name: Pull training plans data
+        run: dvc pull datasets/processed/training_plans_exercises.csv.dvc || echo "Using local cache"
+      - name: Train GAN
+        run: |
+          pip install -r cmd/ml-generator/requirements.txt
+          cd cmd/ml-generator
+          python train_gan.py
+        env:
+          MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
+      - name: Save generator model as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ml-models-generator
+          path: models/
+          retention-days: 7
+
+  # ============================================================================
+  # PROVISION K8S
+  # ============================================================================
+  provision-k8s-vps:
+    name: Provision k3s Cluster on VPS
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     outputs:
       kubeconfig_available: ${{ steps.kubeconfig.outputs.available }}
     steps:
@@ -499,14 +1033,12 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-
       - name: Configure swap on VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           echo '-> Checking existing swap...'
           FREE_OUTPUT=\$(free -m | grep Swap || true)
           echo \"Current swap: \$FREE_OUTPUT\"
-          
           SWAP_SIZE=\$(free -m | awk '/Swap/ {print \$2}')
           if [ \"\$SWAP_SIZE\" -lt 3000 ] 2>/dev/null || [ -z \"\$SWAP_SIZE\" ]; then
             echo '-> Creating 4GB swap file...'
@@ -522,13 +1054,11 @@ jobs:
           else
             echo '✅ Swap already configured (>= 3GB)'
           fi
-          
-          # Оптимизация swappiness — использовать swap только при необходимости
           echo '-> Setting vm.swappiness=10...'
           echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
           sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
           "
-      - name: Clean up old k3s (safe)
+      - name: Clean up old k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -x
@@ -544,7 +1074,7 @@ jobs:
       - name: Fix DNS resolv.conf
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Fixing /etc/resolv.conf (remove duplicate nameservers)...\"
+            echo \"-> Fixing /etc/resolv.conf...\"
             if [ -f /etc/resolv.conf ]; then
               cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
               {
@@ -570,9 +1100,9 @@ jobs:
             echo \"Config written:\"
             cat /etc/rancher/k3s/config.yaml
           "
-      - name: Download k3s binary and install script on runner
+      - name: Download k3s binary and install script
         run: |
-          echo "-> Downloading k3s binary and install script on GitHub runner..."
+          echo "-> Downloading k3s binary and install script..."
           curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.31.6%2Bk3s1/k3s
           chmod +x /tmp/k3s
           curl -sfL -o /tmp/install.sh https://get.k3s.io
@@ -582,7 +1112,7 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s"
           ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install.sh"
-      - name: Install k3s on VPS (with Docker runtime)
+      - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
           SSH_RETRY_MAX_ATTEMPTS: 5
@@ -677,7 +1207,7 @@ jobs:
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
           "
-      - name: Setup Nginx with SSL fallback and production config
+      - name: Setup Nginx with SSL
         run: |
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -740,24 +1270,20 @@ jobs:
               exit 1
             fi
           "
-      - name: Setup auto-renewal for SSL certificates
+      - name: Setup auto-renewal for SSL
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Setting up certificate auto-renewal...\"
             (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
             echo \"✅ Auto-renewal configured\"
           "
-      - name: Setup DuckDNS auto-updater on VPS
+      - name: Setup DuckDNS auto-updater
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo '-> Setting up DuckDNS auto-updater...'
-            
-            # Save token securely
             echo '${{ secrets.DUCKDNS_TOKEN }}' | sudo tee /etc/duckdns/token > /dev/null
             sudo chmod 600 /etc/duckdns/token
             sudo mkdir -p /etc/duckdns
-            
-            # Create updater script
             sudo tee /usr/local/bin/duckdns-update.sh > /dev/null << 'EOFSCRIPT'
           #!/bin/bash
           set -euo pipefail
@@ -776,18 +1302,12 @@ jobs:
             exit 1
           fi
           EOFSCRIPT
-            
             sudo chmod +x /usr/local/bin/duckdns-update.sh
-            
-            # Add to cron — every 5 minutes
             (sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
-            
-            # Run immediately
             sudo /usr/local/bin/duckdns-update.sh
-            
             echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
           "
-      - name: Setup ML infrastructure directories on VPS
+      - name: Setup ML infrastructure directories
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Creating directories for ML storage...\"
@@ -795,7 +1315,7 @@ jobs:
             sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
             echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
           "
-      - name: Deploy MLflow service on VPS
+      - name: Deploy MLflow service
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Deploying MLflow via Docker Compose...\"
@@ -839,7 +1359,7 @@ jobs:
             done
             echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
           "
-      - name: Configure DVC local remote on VPS
+      - name: Configure DVC local remote
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Configuring DVC for local storage...\"
@@ -921,10 +1441,16 @@ jobs:
           path: ./k3s-config.yaml
           retention-days: 1
 
+  # ============================================================================
+  # DEPLOY TEST
+  # ============================================================================
   deploy-test:
     name: Deploy to Test (Docker Compose)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance' }}
+    if: >-
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
+      github.event_name != 'release' &&
+      github.event_name != 'issues'
     needs: [binary_build, provision-k8s-vps]
     steps:
       - uses: actions/checkout@v6
@@ -966,13 +1492,18 @@ jobs:
           [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
           echo "Smoke tests passed"
 
+  # ============================================================================
+  # DEPLOY PRODUCTION
+  # ============================================================================
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
     needs: [docker, provision-k8s-vps]
     if: >-
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
-      && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
+      github.event_name != 'release' &&
+      github.event_name != 'issues' &&
+      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -1177,15 +1708,12 @@ jobs:
           sleep 30
           echo "-> Checking for stuck pods in ContainerCreating state..."
           STUCK_PODS=$(kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running,status.phase!=Succeeded,status.phase!=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
-          
-          # FIX: Exclude StatefulSet pods (postgres, rabbitmq) as they may be legitimately waiting for PVC binding
           FILTERED_PODS=""
           for pod in $STUCK_PODS; do
             if [[ "$pod" != postgres-* && "$pod" != rabbitmq-* ]]; then
               FILTERED_PODS="$FILTERED_PODS $pod"
             fi
           done
-          
           if [ -n "$FILTERED_PODS" ]; then
             echo "⚠️ Found stuck pods: $FILTERED_PODS"
             echo "-> Deleting stuck pods to trigger recreation..."
@@ -1201,7 +1729,6 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Waiting for Postgres pod to be scheduled and running..."
-          # FIX: Increased timeout to 120 attempts (10 minutes) to allow PVC binding and node recovery from heavy I/O
           for i in {1..120}; do
             STATUS=$(kubectl get pod postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             if [ "$STATUS" = "Running" ]; then
@@ -1270,7 +1797,7 @@ jobs:
             echo "Attempt $i/20: waiting for postgres-service endpoints..."
             sleep 5
           done
-      - name: Run seed-admin job (create admin user)
+      - name: Run seed-admin job
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "=== Running seed-admin job ==="
@@ -1419,6 +1946,9 @@ jobs:
           fi
           echo " Production metrics stable. Deployment proceeding."
 
+  # ============================================================================
+  # TEST PRODUCTION
+  # ============================================================================
   test-production:
     name: Test Production (E2E)
     runs-on: ubuntu-latest
@@ -1467,18 +1997,25 @@ jobs:
       - name: Run UAT tests
         run: |
           python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
-      - name: Performance test (k6) — optional
+      - name: Performance test (k6)
         uses: k6io/action@v0.3.1
         with:
           filename: load-test.k6
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
 
+  # ============================================================================
+  # NOTIFY
+  # ============================================================================
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
-    needs: [security-scan, secrets-scan, binary_build, docker, deploy-test, deploy-production, test-production]
-    if: always() && (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
+    needs: [security-scan, secrets-scan, binary_build, docker, deploy-test, deploy-production, test-production, codeql, kubescape, semgrep, super-linter]
+    if: >-
+      always() &&
+      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main') &&
+      github.event_name != 'release' &&
+      github.event_name != 'issues'
     steps:
       - uses: actions/checkout@v6
       - name: Collect job statuses
@@ -1492,6 +2029,10 @@ jobs:
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
           PRODUCTION="$(get_emoji '${{ needs.deploy-production.result }}')"
           E2E="$(get_emoji '${{ needs.test-production.result }}')"
+          CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
+          KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
+          SEMGREP="$(get_emoji '${{ needs.semgrep.result }}')"
+          LINTER="$(get_emoji '${{ needs.super-linter.result }}')"
           if [[ "$E2E" == "✅" && "$PRODUCTION" == "✅" ]]; then
             OVERALL="УСПЕШНО"; STATUS="success"
           elif [[ "$PRODUCTION" == "❌" ]]; then
@@ -1513,6 +2054,10 @@ jobs:
             echo "docker=$DOCKER"
             echo "production=$PRODUCTION"
             echo "e2e=$E2E"
+            echo "codeql=$CODEQL"
+            echo "kubescape=$KUBESCAPE"
+            echo "semgrep=$SEMGREP"
+            echo "linter=$LINTER"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@v1.0.1
@@ -1533,9 +2078,17 @@ jobs:
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.production }} Deploy Production
             ${{ steps.statuses.outputs.e2e }} E2E Tests
+            <b>Security Tools:</b>
+            ${{ steps.statuses.outputs.codeql }} CodeQL
+            ${{ steps.statuses.outputs.kubescape }} Kubescape
+            ${{ steps.statuses.outputs.semgrep }} Semgrep
+            ${{ steps.statuses.outputs.linter }} Super Linter
             🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
+  # ============================================================================
+  # DEPENDABOT AUTO-MERGE
+  # ============================================================================
   dependabot-auto-merge:
     name: Dependabot auto-merge
     runs-on: ubuntu-latest
