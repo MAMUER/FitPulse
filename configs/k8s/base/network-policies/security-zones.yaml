@@ -11,7 +11,6 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Разрешаем ВЕСЬ входящий трафик на порты Gateway (включая NodePort из интернета)
     - ports:
         - protocol: TCP
           port: 8080
@@ -20,7 +19,6 @@ spec:
         - protocol: TCP
           port: 30080
   egress:
-    # DNS resolution
     - to:
         - namespaceSelector: {}
       ports:
@@ -28,7 +26,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Access to App Zone (gRPC services + ML)
     - to:
         - podSelector:
             matchLabels:
@@ -37,29 +34,28 @@ spec:
         - protocol: TCP
           port: 8080
         - protocol: TCP
-          port: 8082   # device-connector
+          port: 8082
         - protocol: TCP
-          port: 50051  # user-service
+          port: 50051
         - protocol: TCP
-          port: 50052  # biometric-service
+          port: 50052
         - protocol: TCP
-          port: 50053  # training-service
+          port: 50053
         - protocol: TCP
-          port: 8001   # ml-classifier
+          port: 8001
         - protocol: TCP
-          port: 8002   # ml-generator
-    # Access to Data Zone (Redis, RabbitMQ)
+          port: 8002
     - to:
         - podSelector:
             matchLabels:
               zone: data-zone
       ports:
         - protocol: TCP
-          port: 6379   # Redis
+          port: 6379
         - protocol: TCP
-          port: 5672   # RabbitMQ AMQP
+          port: 5672
         - protocol: TCP
-          port: 15672  # RabbitMQ Mgmt
+          port: 15672
 ---
 # App zone - microservices
 apiVersion: networking.k8s.io/v1
@@ -159,11 +155,11 @@ spec:
               zone: dmz
       ports:
         - protocol: TCP
-          port: 5432  # PostgreSQL
+          port: 5432
         - protocol: TCP
-          port: 6379  # Redis
+          port: 6379
         - protocol: TCP
-          port: 5672  # RabbitMQ
+          port: 5672
   egress:
     - to:
         - namespaceSelector: {}
@@ -173,7 +169,7 @@ spec:
         - protocol: TCP
           port: 53
 ---
-# Monitoring zone - ELK, Prometheus, Grafana
+# Monitoring zone - Prometheus, Alertmanager, Grafana, Logstash
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -194,11 +190,13 @@ spec:
         - protocol: TCP
           port: 9090
         - protocol: TCP
-          port: 5044
-        - protocol: TCP
-          port: 5601
+          port: 9093
         - protocol: TCP
           port: 3000
+        - protocol: TCP
+          port: 5044
+        - protocol: TCP
+          port: 5045
     - from:
         - namespaceSelector:
             matchLabels:
@@ -211,6 +209,8 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+        - protocol: TCP
+          port: 9090
     - to:
         - podSelector:
             matchLabels:
@@ -222,72 +222,6 @@ spec:
           port: 6379
         - protocol: TCP
           port: 5672
-        - protocol: TCP
-          port: 9200
-    - to:
-        - namespaceSelector: {}
-      ports:
-        - protocol: UDP
-          port: 53
----
-# Monitoring zone - Prometheus, Alertmanager, Grafana, Logstash
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: monitoring-zone
-spec:
-  podSelector:
-    matchLabels:
-      zone: monitoring-zone
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    # Доступ из app-zone для scraping метрик
-    - from:
-        - podSelector:
-            matchLabels:
-              zone: app-zone
-      ports:
-        - protocol: TCP
-          port: 9090   # Prometheus
-        - protocol: TCP
-          port: 9093   # Alertmanager
-        - protocol: TCP
-          port: 3000   # Grafana
-        - protocol: TCP
-          port: 5044   # Logstash TCP
-        - protocol: TCP
-          port: 5045   # Logstash Beats
-    # Доступ из kube-system (для kubectl port-forward)
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              name: kube-system
-  egress:
-    # Prometheus должен иметь доступ ко всем подам для scraping
-    - to:
-        - podSelector:
-            matchLabels:
-              zone: app-zone
-      ports:
-        - protocol: TCP
-          port: 8080   # Gateway metrics
-        - protocol: TCP
-          port: 9090   # Prometheus self
-    # Доступ к данным
-    - to:
-        - podSelector:
-            matchLabels:
-              zone: data-zone
-      ports:
-        - protocol: TCP
-          port: 5432   # PostgreSQL exporter
-        - protocol: TCP
-          port: 6379   # Redis
-        - protocol: TCP
-          port: 5672   # RabbitMQ
-    # DNS
     - to:
         - namespaceSelector: {}
       ports:
@@ -295,7 +229,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Внешний доступ (для webhook notifications)
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
