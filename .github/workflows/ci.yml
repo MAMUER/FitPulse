@@ -392,7 +392,7 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@v6
       - name: 'Dependency Review'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           comment-summary-in-pr: always
 
@@ -451,7 +451,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: returntocorp/semgrep-action@fcd5ab7459e8d91cb1777481980d1b18b4fc6735
+      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d
         with:
           publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
           publishDeployment: ${{ secrets.SEMGREP_DEPLOYMENT_ID }}
@@ -926,7 +926,7 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.4.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
       upload-assets: true
