@@ -328,7 +328,6 @@ jobs:
       - name: Lint Code Base
         uses: super-linter/super-linter@v8
         env:
-          VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: "Microservice_arc"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
@@ -469,8 +468,7 @@ jobs:
       - name: Install Kubescape
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
-          # FIX: Добавляем kubescape в PATH, чтобы он был доступен в следующем шаге
-          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
 
       - name: Run Kubescape scan
         run: |
@@ -478,6 +476,28 @@ jobs:
             --format sarif \
             --output kubescape-results.sarif \
             --verbose || true
+          
+          # Fix SARIF for GitHub Code Scanning
+          # Kubescape may generate results without artifactLocation.uri
+          # GitHub Code Scanning requires artifactLocation.uri for all results
+          if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
+            jq '
+              .runs |= map(
+                .results |= map(
+                  select(
+                    .locations != null and
+                    (.locations | length) > 0 and
+                    .locations[0].physicalLocation != null and
+                    .locations[0].physicalLocation.artifactLocation != null and
+                    .locations[0].physicalLocation.artifactLocation.uri != null and
+                    .locations[0].physicalLocation.artifactLocation.uri != ""
+                  )
+                )
+              )
+            ' kubescape-results.sarif > kubescape-results-fixed.sarif
+            mv kubescape-results-fixed.sarif kubescape-results.sarif
+            echo "Fixed SARIF file: removed results without artifactLocation.uri"
+          fi
 
       - name: Upload Kubescape results
         uses: github/codeql-action/upload-sarif@v4

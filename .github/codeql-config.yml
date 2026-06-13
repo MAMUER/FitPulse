@@ -1,0 +1,37 @@
+name: "CodeQL Configuration"
+
+# Пути для анализа
+paths:
+  - cmd
+  - internal
+  - pkg
+  - api
+  - scripts
+
+# Пути для игнорирования
+paths-ignore:
+  - '**/*.pb.go'
+  - '**/*_test.go'
+  - '**/vendor/**'
+  - '**/node_modules/**'
+  - '**/*.min.js'
+  - '**/testdata/**'
+  - '**/mocks/**'
+  - '**/generated/**'
+  - 'api/gen/**'
+  - 'bin/**'
+  - 'coverage/**'
+  - 'datasets/**'
+  - 'models/**'
+
+# Дополнительные запросы для расширенного анализа
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Фильтры для запросов
+query-filters:
+  # Исключаем предупреждения о тестовом коде
+  - exclude:
+      problem.severity: warning
+      tags: test
