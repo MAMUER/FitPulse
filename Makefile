@@ -6,18 +6,24 @@ endif
 
 .PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint certs
 
-# Generate self-signed TLS certificates for local development
+# Generate self-signed TLS certificates for local development (cross-platform)
 certs:
 	@echo "Generating self-signed TLS certificates..."
-	@powershell -Command "if (!(Test-Path 'deploy/tls/certs')) { New-Item -ItemType Directory -Path 'deploy/tls/certs' -Force }"
-	openssl req -x509 -nodes -days 365 \
+	@mkdir -p deploy/tls/certs
+	@openssl req -x509 -nodes -days 365 \
 		-newkey rsa:2048 \
 		-keyout deploy/tls/certs/server.key \
 		-out deploy/tls/certs/server.crt \
 		-subj "/C=RU/ST=Moscow/L=Moscow/O=FitnessPlatform/CN=localhost" \
-		-addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-	@echo "Certificates generated in deploy/tls/certs/"
-	@echo "NOTE: These are self-signed — browsers will show a warning."
+		-addext "subjectAltName=DNS:localhost,DNS:fittpulse.duckdns.org,IP:127.0.0.1,IP:${VPS_HOST}"
+	@chmod 600 deploy/tls/certs/server.key
+	@echo "✅ Certificates generated in deploy/tls/certs/"
+	@echo "⚠️  These are self-signed — browsers will show a warning."
+	@echo "📋 To trust locally (Linux):"
+	@echo "   sudo cp deploy/tls/certs/server.crt /usr/local/share/ca-certificates/"
+	@echo "   sudo update-ca-certificates"
+	@echo "📋 To trust locally (Windows):"
+	@echo "   Import deploy/tls/certs/server.crt into 'Trusted Root Certification Authorities'"
 
 BIN_DIR := bin
 GO_VERSION := 1.26.4

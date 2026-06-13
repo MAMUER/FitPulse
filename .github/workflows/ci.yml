@@ -104,6 +104,7 @@ jobs:
       k8s: ${{ steps.filter.outputs.k8s }}
       workflow: ${{ steps.filter.outputs.workflow }}
       db: ${{ steps.filter.outputs.db }}
+      infra: ${{ steps.filter.outputs.infra }}
       any_code: ${{ steps.filter.outputs.any_code }}
     steps:
       - uses: actions/checkout@v6
@@ -133,6 +134,7 @@ jobs:
               - 'cmd/ml-classifier/**'
               - 'cmd/ml-generator/**'
               - 'models/**'
+              - 'datasets/**'
             k8s:
               - 'configs/k8s/**'
             workflow:
@@ -140,6 +142,10 @@ jobs:
             db:
               - 'db/migrations/**'
               - 'configs/k8s/base/jobs/**'
+            infra:
+              - 'scripts/**'
+              - 'deploy/**'
+              - 'Makefile'
             any_code:
               - 'cmd/**'
               - 'internal/**'
@@ -147,6 +153,7 @@ jobs:
               - 'api/**'
               - 'go.mod'
               - 'go.sum'
+              - '*.py'
 
   # ============================================================================
   # ISSUE AUTOMATION
@@ -324,17 +331,41 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: "Microservice_arc"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Exclude GitHub Actions workflows from linting
-          FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$)'
-          # Super Linter v8: ONLY use VALIDATE=true. NEVER mix true and false.
-          # All linters are disabled by default — only enable what you need.
+          
+          # Exclude patterns
+          FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
+          
+          # Python linters (already enabled)
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
           VALIDATE_PYTHON_MYPY: true
-          # DO NOT set PYTHON_FLAKE8_CONFIG_FILE or PYTHON_MYPY_CONFIG_FILE
-          # They cause Jupyter NBQA linters to FATAL on missing internal rules.
-          # Super Linter will use its built-in default configs instead.
+          
+          # Add YAML validation
+          VALIDATE_YAML: true
+          
+          # Add Shell script validation
+          VALIDATE_BASH: true
+          VALIDATE_BASH_EXEC: true
+          VALIDATE_SHELL_SHFMT: true
+          
+          # Add Dockerfile validation (complements hadolint)
+          VALIDATE_DOCKERFILE_HADOLINT: true
+          
+          # Add JSON validation
+          VALIDATE_JSON: true
+          
+          # Add Markdown validation
+          VALIDATE_MARKDOWN: true
+          
+          # Disable Go (already in make check with golangci-lint)
+          VALIDATE_GO: false
+          VALIDATE_GO_MODULES: false
+          
+          # Config file paths
+          PYTHON_FLAKE8_CONFIG_FILE: .flake8
+          PYTHON_BLACK_CONFIG_FILE: pyproject.toml
+          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
 
   # ============================================================================
   # CODEQL ANALYSIS
@@ -373,11 +404,31 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql-config.yml
+          queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{matrix.language}}"
+          output: sarif-results
+          upload: failure-only
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results
+          category: codeql-${{ matrix.language }}
+          wait-for-processing: true
+
+      - name: Cache CodeQL databases
+        uses: actions/cache@v4
+        with:
+          path: ~/.codeql
+          key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py', '**/*.js') }}
+          restore-keys: |
+            ${{ runner.os }}-codeql-${{ matrix.language }}-
+            ${{ runner.os }}-codeql-
 
   # ============================================================================
   # DEPENDENCY REVIEW
@@ -418,6 +469,8 @@ jobs:
       - name: Install Kubescape
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+          # FIX: Добавляем kubescape в PATH, чтобы он был доступен в следующем шаге
+          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
 
       - name: Run Kubescape scan
         run: |
@@ -451,11 +504,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d
-        with:
-          publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
-          publishDeployment: ${{ secrets.SEMGREP_DEPLOYMENT_ID }}
-          generateSarif: "1"
+      # FIX: Используем CLI вместо устаревшего экшена, который требовал semgrep login
+      - name: Install and run Semgrep
+        run: |
+          pip install semgrep
+          semgrep scan --config auto --sarif --output=semgrep.sarif || true
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v4
@@ -486,23 +539,18 @@ jobs:
         with:
           scan-args: |-
             -r
-            --skip-git
             ./
 
       - name: Run OSV Scanner (Python requirements)
         continue-on-error: true
         run: |
-          # OSV Scanner v2.x has issues resolving Python requirements.txt
-          # without lock files (pip-compile hashes). Scan each requirements.txt
-          # separately and collect results.
           echo "Scanning Python requirements..."
           find . -name "requirements.txt" -not -path "./.git/*" -print0 | while IFS= read -r -d '' req_file; do
             echo "=== Scanning $req_file ==="
-            # Use --experimental-offline-vulnerabilities to avoid gRPC resolution errors
+            # FIX: Убраны невалидные для v2.x флаги --skip-git и --experimental-offline-vulnerabilities
             docker run --rm -v "${GITHUB_WORKSPACE}:/repo" -w /repo \
               ghcr.io/google/osv-scanner:v2.3.8 \
-              scan --experimental-offline-vulnerabilities \
-              "$req_file" || echo "⚠️ Could not fully resolve $req_file (no lock file)"
+              scan "$req_file" || echo "⚠️ Could not fully resolve $req_file (no lock file)"
           done
           echo "✅ Python requirements scan completed (some packages may not be fully resolved)"
 
@@ -780,11 +828,18 @@ jobs:
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
+    needs: [detect-changes, security-scan, secrets-scan, check, dockerfile-lint, super-linter]
     if: >-
+      always() &&
+      needs.detect-changes.outputs.any_code == 'true' &&
+      needs.security-scan.result == 'success' &&
+      needs.secrets-scan.result == 'success' &&
+      needs.check.result == 'success' &&
+      needs.dockerfile-lint.result == 'success' &&
+      needs.super-linter.result == 'success' &&
       github.event_name != 'release' &&
       github.event_name != 'issues' &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
-    needs: [security-scan, secrets-scan, check, dockerfile-lint, super-linter]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -796,13 +851,30 @@ jobs:
           cache: true
       - name: Build Go services (parallel)
         run: |
+          set -euo pipefail
           mkdir -p bin
+          
+          echo "-> Downloading Go modules sequentially to avoid race conditions..."
+          go mod download
+          
+          echo "-> Building Go services in parallel..."
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
+          
+          pids=()
           for svc in user-service biometric-service training-service gateway device-connector; do
+            echo "  Building $svc..."
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
+            pids+=($!)
           done
-          wait
+          
+          # Wait for all background jobs and fail fast if any failed
+          for pid in "${pids[@]}"; do
+            wait "$pid" || { echo "❌ Build failed for PID $pid"; exit 1; }
+          done
+          
+          echo "✅ All binaries built successfully"
+          ls -lh bin/
       - uses: actions/upload-artifact@v7
         with:
           name: binaries
@@ -815,8 +887,11 @@ jobs:
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [binary_build]
+    needs: [detect-changes, binary_build]
     if: >-
+      always() &&
+      needs.detect-changes.outputs.any_code == 'true' &&
+      needs.binary_build.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
       github.event_name != 'release' &&
       github.event_name != 'issues' &&
@@ -1035,7 +1110,10 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
+    needs: [detect-changes]
     if: >-
+      always() &&
+      (needs.detect-changes.outputs.any_code == 'true' || needs.detect-changes.outputs.k8s == 'true' || needs.detect-changes.outputs.db == 'true' || needs.detect-changes.outputs.infra == 'true') &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
       github.event_name != 'release' &&
       github.event_name != 'issues' &&
@@ -1234,8 +1312,8 @@ jobs:
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Installing Nginx and Certbot...\"
-            sudo apt update
-            sudo apt install -y nginx certbot python3-certbot-nginx
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq nginx certbot python3-certbot-nginx
             echo \"-> Configuring firewall for HTTP/HTTPS...\"
             sudo ufw allow \"Nginx Full\" || true
             sudo ufw reload || true
@@ -1243,19 +1321,25 @@ jobs:
             sudo systemctl stop nginx || true
             echo \"-> Attempting to obtain Let's Encrypt certificate...\"
             CERTBOT_SUCCESS=false
-            if sudo certbot certonly --standalone \
-              -d fittpulse.duckdns.org \
-              --non-interactive \
-              --agree-tos \
-              --email admin@fittpulse.duckdns.org \
-              --http-01-port 80 \
-              --preferred-challenges http \
-              2>&1 | tee ~/certbot.log; then
-              if grep -q \"Congratulations\" ~/certbot.log; then
+            
+            # Проверяем, существует ли уже валидный сертификат
+            if [ -f \"/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem\" ]; then
+              echo \"✅ Let's Encrypt certificate already exists\"
+              CERTBOT_SUCCESS=true
+            else
+              # Пытаемся получить новый сертификат
+              if sudo certbot certonly --standalone \
+                -d fittpulse.duckdns.org \
+                --non-interactive \
+                --agree-tos \
+                --email admin@fittpulse.duckdns.org \
+                --http-01-port 80 \
+                --preferred-challenges http; then
                 CERTBOT_SUCCESS=true
                 echo \"✅ Let's Encrypt certificate obtained\"
               fi
             fi
+            
             sudo mkdir -p /etc/nginx/certs
             if [ \"\$CERTBOT_SUCCESS\" = false ]; then
               echo \"⚠️ Let's Encrypt failed, generating self-signed certificate as fallback...\"
@@ -1326,38 +1410,43 @@ jobs:
           "
       - name: Deploy MLflow service
         run: |
+          # FIX: Создаем docker-compose файл локально, чтобы избежать проблем с heredoc в SSH
+          cat > /tmp/docker-compose.mlflow.yml << 'EOFMLFLOW'
+          version: '3.8'
+          services:
+            mlflow:
+              image: ghcr.io/mlflow/mlflow:v2.20.2
+              container_name: fitpulse-mlflow
+              ports:
+                - "5000:5000"
+              command: >
+                mlflow server
+                --host 0.0.0.0
+                --port 5000
+                --backend-store-uri sqlite:////mlflow/mlflow.db
+                --default-artifact-root /mlflow/artifacts
+              volumes:
+                - /opt/fitpulse/mlflow-data:/mlflow
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              networks:
+                - fitness-network
+          networks:
+            fitness-network:
+              external: true
+          EOFMLFLOW
+          
+          # Копируем файл на VPS через scp
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/fitpulse/deployments"
+          ./scripts/ssh-retry.sh scp /tmp/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
+          
+          # Запускаем MLflow
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Deploying MLflow via Docker Compose...\"
-            mkdir -p ~/fitpulse/deployments
             cd ~/fitpulse
-            cat > deployments/docker-compose.mlflow.yml << 'EOFMLFLOW'
-            version: '3.8'
-            services:
-              mlflow:
-                image: ghcr.io/mlflow/mlflow:v2.20.2
-                container_name: fitpulse-mlflow
-                ports:
-                  - \"5000:5000\"
-                command: >
-                  mlflow server
-                  --host 0.0.0.0
-                  --port 5000
-                  --backend-store-uri sqlite:////mlflow/mlflow.db
-                  --default-artifact-root /mlflow/artifacts
-                volumes:
-                  - /opt/fitpulse/mlflow-data:/mlflow
-                restart: unless-stopped
-                healthcheck:
-                  test: [\"CMD\", \"curl\", \"-f\", \"http://localhost:5000/health\"]
-                  interval: 30s
-                  timeout: 10s
-                  retries: 3
-                networks:
-                  - fitness-network
-            networks:
-              fitness-network:
-                external: true
-            EOFMLFLOW
             docker compose -f deployments/docker-compose.mlflow.yml up -d
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
@@ -1370,18 +1459,18 @@ jobs:
           "
       - name: Configure DVC local remote
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Configuring DVC for local storage...\"
-            cd ~/fitpulse
-            mkdir -p .dvc
-            cat > .dvc/config << 'EOFDVC'
-            [core]
-            remote = local
-            ['remote \"local\"']
-            url = /opt/fitpulse/dvc-storage
-            EOFDVC
-            echo \"✅ DVC configured with local remote: /opt/fitpulse/dvc-storage\"
-          "
+          # FIX: Создаем конфиг DVC локально, чтобы избежать проблем с heredoc в SSH
+          cat > /tmp/dvc-config << 'EOFDVC'
+          [core]
+              remote = local
+          ['remote "local"']
+              url = /opt/fitpulse/dvc-storage
+          EOFDVC
+          
+          # Копируем файл на VPS через scp
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
+          ./scripts/ssh-retry.sh scp /tmp/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
+          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Download and fix kubeconfig
         id: kubeconfig
         run: |
@@ -1402,28 +1491,31 @@ jobs:
             echo "cluster_connectivity=false" >> "$GITHUB_OUTPUT"
             echo "K8s API not reachable from runner"
           fi
+      - name: Generate TLS certificates locally (if missing)
+        run: |
+          mkdir -p deploy/tls/certs
+          if [ ! -f "deploy/tls/certs/server.crt" ] || [ ! -f "deploy/tls/certs/server.key" ]; then
+            echo "⚠️ TLS certificates not found locally, generating self-signed..."
+            make certs
+          else
+            echo "✅ Using existing TLS certificates from deploy/tls/certs/"
+          fi
+          # Проверка валидности
+          openssl x509 -in deploy/tls/certs/server.crt -text -noout | grep -A2 "Subject:" || true
+
       - name: Upload TLS certificates to VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s/tls
+            mkdir -p /etc/nginx/certs
           "
-          if [ -f "deploy/tls/certs/server.crt" ] && [ -f "deploy/tls/certs/server.key" ]; then
-            echo "Uploading TLS certificates..."
-            ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt"
-            ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key"
-            echo "TLS certificates uploaded"
-          else
-            echo "⚠️ TLS certificates not found, generating self-signed..."
-            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout /etc/rancher/k3s/tls/server.key \
-                -out /etc/rancher/k3s/tls/server.crt \
-                -subj \"/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=2.27.32.242\" \
-                -addext \"subjectAltName=IP:2.27.32.242\"
-            "
-            echo "Self-signed certificates generated"
-          fi
-      - name: Download TLS certificates from VPS
+          echo "Uploading TLS certificates to VPS..."
+          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt"
+          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key"
+          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.crt"
+          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.key"
+          echo "✅ TLS certificates uploaded to VPS"
+      - name: Download TLS certificates from VPS (for Kubernetes Secret)
         run: |
           mkdir -p /tmp/tls
           ./scripts/ssh-retry.sh scp "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt" /tmp/tls/server.crt
@@ -1449,18 +1541,22 @@ jobs:
           name: kubeconfig
           path: ./k3s-config.yaml
           retention-days: 1
-
+          
   # ============================================================================
   # DEPLOY TEST
   # ============================================================================
   deploy-test:
     name: Deploy to Test (Docker Compose)
     runs-on: ubuntu-latest
+    needs: [detect-changes, binary_build, provision-k8s-vps]
     if: >-
+      always() &&
+      needs.detect-changes.outputs.any_code == 'true' &&
+      needs.binary_build.result == 'success' &&
+      needs.provision-k8s-vps.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
       github.event_name != 'release' &&
       github.event_name != 'issues'
-    needs: [binary_build, provision-k8s-vps]
     steps:
       - uses: actions/checkout@v6
       - name: Start test environment
@@ -1507,8 +1603,12 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [docker, provision-k8s-vps]
+    needs: [detect-changes, docker, provision-k8s-vps]
     if: >-
+      always() &&
+      (needs.detect-changes.outputs.any_code == 'true' || needs.detect-changes.outputs.k8s == 'true' || needs.detect-changes.outputs.db == 'true' || needs.detect-changes.outputs.infra == 'true') &&
+      (needs.docker.result == 'success' || needs.docker.result == 'skipped') &&
+      needs.provision-k8s-vps.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
       github.event_name != 'release' &&
       github.event_name != 'issues' &&
@@ -1943,8 +2043,12 @@ jobs:
   test-production:
     name: Test Production (E2E)
     runs-on: ubuntu-latest
-    needs: [deploy-production]
-    if: needs.deploy-production.outputs.reachable == 'true'
+    needs: [detect-changes, deploy-production]
+    if: >-
+      always() &&
+      needs.detect-changes.outputs.any_code == 'true' &&
+      needs.deploy-production.result == 'success' &&
+      needs.deploy-production.outputs.reachable == 'true'
     env:
       PRODUCTION_URL: ${{ secrets.VPS_HOST }}
     steps:

@@ -16,7 +16,6 @@ data:
         editable: true
         jsonData:
           timeInterval: '15s'
-
   dashboards-provider.yaml: |
     apiVersion: 1
     providers:
@@ -30,82 +29,197 @@ data:
         options:
           path: /var/lib/grafana/dashboards
           foldersFromFilesStructure: false
-
   fitness-dashboard.json: |
     {
       "annotations": { "list": [] },
       "editable": true,
       "fiscalYearStartMonth": 0,
-      "graphTooltip": 0,
+      "graphTooltip": 1,
       "id": null,
       "links": [],
+      "liveNow": false,
       "panels": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 100,
+          "title": "🔍 Cluster & Gateway Overview",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
-              "mappings": [
-                { "options": { "0": { "color": "red", "text": "DOWN" }, "1": { "color": "green", "text": "UP" } }, "type": "value" }
-              ],
-              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
             }
           },
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
           "id": 1,
-          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
-          "title": "Service Uptime",
+          "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+          "title": "Pod Restarts (1h)",
           "type": "stat",
-          "targets": [{ "expr": "up{namespace=\"fitness-platform-production\"}", "legendFormat": "{{service}}", "refId": "A" }]
+          "targets": [{ "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[1h]))", "refId": "A" }]
         },
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 5, "showPoints": "auto" } } },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [{ "options": { "0": { "color": "green", "text": "ALL READY" } }, "type": "value" }],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+            }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
           "id": 2,
-          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
-          "title": "Pod Memory Usage",
-          "type": "timeseries",
-          "targets": [{ "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"fitness-platform-production\"})", "legendFormat": "{{pod}}", "refId": "A" }]
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Pods Not Ready",
+          "type": "stat",
+          "targets": [{ "expr": "count(kube_pod_status_ready{namespace=\"$namespace\", condition=\"true\"} == 0) or vector(0)", "refId": "A" }]
         },
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } } },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "thresholds" }, "unit": "reqps" },
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
           "id": 3,
-          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-          "title": "Pod CPU Usage",
-          "type": "timeseries",
-          "targets": [{ "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}}", "refId": "A" }]
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Gateway QPS",
+          "type": "stat",
+          "targets": [{ "expr": "sum(rate(http_requests_total{namespace=\"$namespace\", service=\"gateway\"}[5m])) or vector(0)", "refId": "A" }]
         },
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "thresholds" }, "unit": "percentunit", "max": 1 },
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.05 }] }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
           "id": 4,
-          "title": "Network I/O",
+          "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Gateway Error Rate (5xx)",
+          "type": "stat",
+          "targets": [{ "expr": "(sum(rate(http_requests_total{namespace=\"$namespace\", service=\"gateway\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"$namespace\", service=\"gateway\"}[5m]))) or vector(0)", "refId": "A" }]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 101,
+          "title": "🧠 ML Services & Application Metrics",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "percentunit", "max": 1 }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "id": 5,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "ML Classification Confidence",
+          "type": "timeseries",
+          "targets": [{ "expr": "classification_confidence{namespace=\"$namespace\"}", "legendFormat": "{{class_name}} ({{pod}})", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "id": 6,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "Gateway Request Latency (p95)",
+          "type": "timeseries",
+          "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\", service=\"gateway\"}[5m])) by (le))", "legendFormat": "p95", "refId": "A" }]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 102,
+          "title": "📦 Resources (CPU / Memory / Network)",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "stacking": { "mode": "normal" } }, "unit": "cores" }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+          "id": 7,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "CPU Usage by Pod",
+          "type": "timeseries",
+          "targets": [{ "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}[5m])) by (pod)", "legendFormat": "{{pod}}", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "stacking": { "mode": "normal" } }, "unit": "bytes" }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+          "id": 8,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "Memory Usage by Pod",
+          "type": "timeseries",
+          "targets": [{ "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}) by (pod)", "legendFormat": "{{pod}}", "refId": "A" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "Bps" }
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+          "id": 9,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "Network I/O (Receive / Transmit)",
           "type": "timeseries",
           "targets": [
-            { "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}} RX", "refId": "A" },
-            { "expr": "sum by (pod) (rate(container_network_transmit_bytes_total{namespace=\"fitness-platform-production\"}[5m]))", "legendFormat": "{{pod}} TX", "refId": "B" }
+            { "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"$namespace\"}[5m])) by (pod)", "legendFormat": "{{pod}} RX", "refId": "A" },
+            { "expr": "- sum(rate(container_network_transmit_bytes_total{namespace=\"$namespace\"}[5m])) by (pod)", "legendFormat": "{{pod}} TX", "refId": "B" }
           ]
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] },
-          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 14 },
-          "id": 5,
-          "options": { "showHeader": true },
-          "title": "Pod Status",
-          "type": "table",
-          "targets": [{ "expr": "kube_pod_status_phase{namespace=\"fitness-platform-production\"} > 0", "legendFormat": "{{pod}} - {{phase}}", "refId": "A", "format": "table", "instant": true }]
         }
       ],
       "schemaVersion": 39,
-      "tags": ["fitness", "kubernetes"],
-      "templating": { "list": [] },
+      "style": "dark",
+      "tags": ["fitness", "kubernetes", "microservices"],
+      "templating": {
+        "list": [
+          {
+            "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+            "hide": 0,
+            "includeAll": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "current": { "selected": false, "text": "fitness-platform-production", "value": "fitness-platform-production" },
+            "datasource": { "type": "prometheus", "uid": "${datasource}" },
+            "definition": "label_values(kube_pod_info, namespace)",
+            "hide": 0,
+            "includeAll": false,
+            "name": "namespace",
+            "options": [],
+            "query": { "query": "label_values(kube_pod_info, namespace)", "refId": "StandardVariableQuery" },
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
       "time": { "from": "now-1h", "to": "now" },
-      "title": "FitPulse K8s Overview",
-      "uid": "fitpulse-k8s",
-      "version": 1
+      "timepicker": {},
+      "timezone": "",
+      "title": "FitPulse Platform Overview",
+      "uid": "fitpulse-platform-overview",
+      "version": 2
     }
