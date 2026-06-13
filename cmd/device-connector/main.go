@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
@@ -374,8 +375,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.log.Info("Ingest completed",
-		zap.String("device_id", deviceID),
-		zap.String("device_type", device.DeviceType),
+		zap.String("device_id", strings.ReplaceAll(strings.ReplaceAll(deviceID, "\n", ""), "\r", "")),
+		zap.String("device_type", strings.ReplaceAll(strings.ReplaceAll(device.DeviceType, "\n", ""), "\r", "")),
 		zap.Int("total", stats.TotalReceived),
 		zap.Int("duplicates", stats.Duplicates),
 		zap.Int("forwarded", stats.Forwarded),

@@ -35,7 +35,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				log.Debug("Missing authorization header", zap.String("path", r.URL.Path))
+				log.Debug("Missing authorization header", zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")))
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}
@@ -48,7 +48,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 			token := parts[1]
 			claims, err := auth.ValidateJWT(token, secret)
 			if err != nil {
-				log.Debug("Invalid token", zap.Error(err), zap.String("path", r.URL.Path))
+				log.Debug("Invalid token", zap.Error(err), zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")))
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}
@@ -113,10 +113,10 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 				zap.String("userId", userID),
 				zap.String("action", "HTTP_REQUEST"),
 				zap.Int64("durationMs", duration.Milliseconds()),
-				zap.String("endpoint", r.URL.Path),
+				zap.String("endpoint", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")),
 				zap.String("method", r.Method),
 				zap.Int("statusCode", rw.statusCode),
-				zap.String("userAgent", r.Header.Get("User-Agent")),
+				zap.String("userAgent", strings.ReplaceAll(strings.ReplaceAll(r.Header.Get("User-Agent"), "\n", ""), "\r", "")),
 				zap.String("ip", getClientIP(r)),
 			)
 		})
@@ -155,7 +155,7 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 				if rec := recover(); rec != nil {
 					log.Error("Panic recovered",
 						zap.Any("panic", rec),
-						zap.String("path", r.URL.Path),
+						zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")),
 						zap.String("stack", string(debug.Stack())),
 					)
 					w.Header().Set("Content-Type", "text/plain")

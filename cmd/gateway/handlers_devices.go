@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/MAMUER/project/internal/middleware"
@@ -146,7 +147,8 @@ func (g *gateway) deviceIngestHandler(w http.ResponseWriter, r *http.Request) {
 	deviceID := vars["device_id"]
 
 	if !isValidDeviceID(deviceID) {
-		g.log.Warn("Invalid device ID format", zap.String("device_id", deviceID))
+		sanitizedDeviceID := strings.ReplaceAll(strings.ReplaceAll(deviceID, "\n", ""), "\r", "")
+		g.log.Warn("Invalid device ID format", zap.String("device_id", sanitizedDeviceID))
 		http.Error(w, "Неверный формат ID устройства", http.StatusBadRequest)
 		return
 	}

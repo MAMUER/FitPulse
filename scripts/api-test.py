@@ -12,9 +12,9 @@ import sys
 import json
 import random
 import argparse
+import http.client
 import ssl
-import urllib.request
-import urllib.error
+from urllib.parse import urlparse
 from datetime import datetime
 
 # === Configuration ===
@@ -45,20 +45,39 @@ class TestRunner:
     def request(self, method, path, body=None, token=None, expected_status=200):
         """Send HTTP request and return (status_code, body_dict)."""
         url = f"{self.base_url}{path}"
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return None, {"error": "unsupported or invalid API URL"}
+
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
         data = json.dumps(body).encode("utf-8") if body else None
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        request_path = parsed.path or "/"
+        if parsed.query:
+            request_path = f"{request_path}?{parsed.query}"
 
         try:
-            with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:
-                status = resp.status
-                raw = resp.read().decode("utf-8")
-        except urllib.error.HTTPError as e:
-            status = e.code
-            raw = e.read().decode("utf-8", errors="replace")
+            if parsed.scheme == "http":
+                conn = http.client.HTTPConnection(
+                    parsed.hostname,
+                    parsed.port or 80,
+                    timeout=30,
+                )
+            else:
+                conn = http.client.HTTPSConnection(
+                    parsed.hostname,
+                    parsed.port or 443,
+                    context=self.ctx,
+                    timeout=30,
+                )
+
+            conn.request(method, request_path, body=data, headers=headers)
+            resp = conn.getresponse()
+            status = resp.status
+            raw = resp.read().decode("utf-8", errors="replace")
+            conn.close()
         except Exception as e:
             return None, {"error": str(e)}
 

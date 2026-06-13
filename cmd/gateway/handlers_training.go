@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/gorilla/mux"
@@ -61,10 +62,21 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		DurationWeeks:       safeIntToInt32(req.DurationWeeks),
 		AvailableDays:       availableDays,
 	})
+	sanitize := func(s string) string {
+		return strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), "\r", "")
+	}
 	if err != nil {
-		g.log.Error("Failed to generate plan", zap.Error(err), zap.String("user_id", userID), zap.String("class", class))
+		g.log.Error("Failed to generate plan",
+			zap.Error(err),
+			zap.String("user_id", sanitize(userID)),
+			zap.String("class", sanitize(class)),
+		)
 		httpCode, errMsg := grpcToHTTPStatus(err)
-		g.log.Info("gRPC error details", zap.Int("httpCode", httpCode), zap.String("errMsg", errMsg), zap.String("grpc_code", err.Error()))
+		g.log.Info("gRPC error details",
+			zap.Int("httpCode", httpCode),
+			zap.String("errMsg", sanitize(errMsg)),
+			zap.String("grpc_code", sanitize(err.Error())),
+		)
 		if httpCode == http.StatusInternalServerError {
 			http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 			return

@@ -145,7 +145,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
-		g.log.Error("Login failed", zap.Error(err), zap.String("email", req.Email))
+		g.log.Error("Login failed", zap.Error(err), zap.String("email", html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))))
 		if httpCode == http.StatusUnauthorized && strings.Contains(errMsg, "Email not confirmed") {
 			http.Error(w, "Email не подтверждён. Проверьте вашу почту.", httpCode)
 			return
