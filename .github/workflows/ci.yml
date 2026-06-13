@@ -1130,9 +1130,9 @@ jobs:
           echo "Download complete."
       - name: Upload k3s files to VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/k3s-install"
-          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-install/k3s"
-          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-install/install.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /tmp/k3s-install"
+          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/k3s"
+          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/install.sh"
       - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
@@ -1142,14 +1142,14 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -euo pipefail
             echo \"-> Moving k3s binary to /usr/local/bin...\"
-            mv ~/k3s-install/k3s /usr/local/bin/k3s
-            chmod +x /usr/local/bin/k3s
+            sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s || mv /tmp/k3s-install/k3s /usr/local/bin/k3s
+            sudo chmod +x /usr/local/bin/k3s || chmod +x /usr/local/bin/k3s
             echo \"-> Running k3s install script with Docker runtime...\"
             export INSTALL_K3S_SKIP_DOWNLOAD=true
-            chmod +x ~/k3s-install/install.sh
-            ~/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
+            chmod +x /tmp/k3s-install/install.sh
+            sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker || /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
             echo \"k3s installed successfully\"
-            rm -rf ~/k3s-install
+            rm -rf /tmp/k3s-install
           "
       - name: Cleanup disk space on VPS
         run: |
@@ -1231,7 +1231,7 @@ jobs:
           "
       - name: Setup Nginx with SSL
         run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/production.conf"
+          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Installing Nginx and Certbot...\"
             sudo apt update
@@ -1266,7 +1266,7 @@ jobs:
                 -addext \"subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}\"
               echo \"-> Copying and patching production.conf for self-signed...\"
               sudo mkdir -p /etc/nginx/sites-available
-              sudo cp ~/production.conf /etc/nginx/sites-available/fitpulse
+              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
               sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g\" /etc/nginx/sites-available/fitpulse
               sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g\" /etc/nginx/sites-available/fitpulse
               echo \"✅ Self-signed certificate generated and config patched\"
@@ -1276,7 +1276,7 @@ jobs:
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
               echo \"-> Copying production.conf...\"
               sudo mkdir -p /etc/nginx/sites-available
-              sudo cp ~/production.conf /etc/nginx/sites-available/fitpulse
+              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
             fi
           "
       - name: Setup auto-renewal for SSL
