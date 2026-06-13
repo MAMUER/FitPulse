@@ -14,6 +14,8 @@ import random
 import argparse
 import http.client
 import ssl
+import urllib.request
+import urllib.error
 from urllib.parse import urlparse
 from datetime import datetime
 
@@ -42,6 +44,26 @@ class TestRunner:
         self.ctx.check_hostname = False
         self.ctx.verify_mode = ssl.CERT_NONE
 
+    def _make_request(self, method, request_path, data=None, headers=None):
+        req = urllib.request.Request(
+            self.base_url + request_path,
+            data=data,
+            headers=headers or {},
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:
+                return resp.status, json.loads(resp.read().decode("utf-8", errors="replace"))
+        except urllib.error.HTTPError as e:
+            body = {}
+            try:
+                body = json.loads(e.read().decode("utf-8", errors="replace"))
+            except Exception:
+                pass
+            return e.code, body
+        except Exception as e:
+            return None, {"error": str(e)}
+
     def request(self, method, path, body=None, token=None, expected_status=200):
         """Send HTTP request and return (status_code, body_dict)."""
         url = f"{self.base_url}{path}"
@@ -58,35 +80,7 @@ class TestRunner:
         if parsed.query:
             request_path = f"{request_path}?{parsed.query}"
 
-        try:
-            if parsed.scheme == "http":
-                conn = http.client.HTTPConnection(
-                    parsed.hostname,
-                    parsed.port or 80,
-                    timeout=30,
-                )
-            else:
-                conn = http.client.HTTPSConnection(
-                    parsed.hostname,
-                    parsed.port or 443,
-                    context=self.ctx,
-                    timeout=30,
-                )
-
-            conn.request(method, request_path, body=data, headers=headers)
-            resp = conn.getresponse()
-            status = resp.status
-            raw = resp.read().decode("utf-8", errors="replace")
-            conn.close()
-        except Exception as e:
-            return None, {"error": str(e)}
-
-        try:
-            body = json.loads(raw) if raw else {}
-        except json.JSONDecodeError:
-            body = {"raw": raw}
-
-        return status, body
+        return self._make_request(method, request_path, data=data, headers=headers)
 
     def test(self, name, method, path, body=None, expected=200, token=None):
         """Run a single test case."""

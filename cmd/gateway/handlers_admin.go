@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
@@ -231,7 +232,7 @@ func (g *gateway) adminCreateInviteHandler(w http.ResponseWriter, r *http.Reques
 
 	g.log.Info("Invite code created",
 		zap.String("code", code),
-		zap.String("role", req.Role),
+		zap.String("role", sanitize.LogString(req.Role)),
 		zap.Int("max_uses", req.MaxUses),
 		zap.String("created_by", userID))
 

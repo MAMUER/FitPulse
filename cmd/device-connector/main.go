@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
@@ -15,6 +14,7 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -146,7 +146,7 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	if !isValidDeviceType(req.DeviceType) {
-		s.log.Warn("Неподдерживаемый тип устройства", zap.String("device_type", req.DeviceType))
+		s.log.Warn("Неподдерживаемый тип устройства", zap.String("device_type", sanitize.LogString(req.DeviceType)))
 		http.Error(w, fmt.Sprintf("Неподдерживаемый тип устройства: %s", req.DeviceType), http.StatusBadRequest)
 		return
 	}
@@ -184,9 +184,9 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 	}
 
 	s.log.Info("Device registered",
-		zap.String("device_id", deviceID),
-		zap.String("device_type", req.DeviceType),
-		zap.String("user_id", req.UserID),
+		zap.String("device_id", sanitize.LogString(deviceID)),
+		zap.String("device_type", sanitize.LogString(req.DeviceType)),
+		zap.String("user_id", sanitize.LogString(req.UserID)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -223,8 +223,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	device, err := s.authenticateDevice(r.Context(), deviceID, req.DeviceToken)
 	if err != nil {
 		s.log.Warn("Device authentication failed",
-			zap.String("device_id", deviceID),
-			zap.Error(err),
+			zap.String("device_id", sanitize.LogString(deviceID)),
+			zap.String("error", sanitize.LogString(err.Error())),
 		)
 		http.Error(w, "Неверные учётные данные устройства", http.StatusUnauthorized)
 		return
@@ -261,7 +261,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		if rec.Value < 0 {
 			stats.Failed++
 			s.log.Warn("Skipping record with negative value",
-				zap.String("metric_type", rec.MetricType),
+				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
 			)
 			continue
 		}
@@ -297,8 +297,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		if exists {
 			stats.Duplicates++
 			s.log.Debug("Duplicate record skipped",
-				zap.String("device_id", deviceID),
-				zap.String("metric_type", rec.MetricType),
+				zap.String("device_id", sanitize.LogString(deviceID)),
+				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
 				zap.Time("timestamp", rec.Timestamp),
 			)
 			continue
@@ -343,8 +343,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 				DeviceType: pbRec.DeviceType,
 			}); err != nil {
 				s.log.Warn("Record failed validation before forwarding",
-					zap.String("metric_type", pbRec.MetricType),
-					zap.Error(err),
+					zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+					zap.String("error", sanitize.LogString(err.Error())),
 				)
 				stats.Failed++
 				continue
@@ -364,8 +364,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 					errMsg = st.Message()
 				}
 				s.log.Error("Failed to forward record to biometric-service",
-					zap.String("metric_type", pbRec.MetricType),
-					zap.String("error", errMsg),
+					zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+					zap.String("error", sanitize.LogString(errMsg)),
 				)
 				stats.Failed++
 				continue
@@ -375,8 +375,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.log.Info("Ingest completed",
-		zap.String("device_id", strings.ReplaceAll(strings.ReplaceAll(deviceID, "\n", ""), "\r", "")),
-		zap.String("device_type", strings.ReplaceAll(strings.ReplaceAll(device.DeviceType, "\n", ""), "\r", "")),
+		zap.String("device_id", sanitize.LogString(deviceID)),
+		zap.String("device_type", sanitize.LogString(device.DeviceType)),
 		zap.Int("total", stats.TotalReceived),
 		zap.Int("duplicates", stats.Duplicates),
 		zap.Int("forwarded", stats.Forwarded),

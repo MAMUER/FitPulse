@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,9 +19,9 @@ func ErrorHandler(log *zap.Logger) func(http.Handler) http.Handler {
 			if rw.statusCode >= 400 {
 				log.Warn("Error response",
 					zap.Int("status", rw.statusCode),
-					zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")),
-					zap.String("method", r.Method),
-					zap.String("correlationId", GetCorrelationID(r.Context())),
+					zap.String("path", sanitizeLogValue(r.URL.Path)),
+					zap.String("method", sanitizeLogValue(r.Method)),
+					zap.String("correlationId", sanitizeLogValue(GetCorrelationID(r.Context()))),
 				)
 			}
 		})

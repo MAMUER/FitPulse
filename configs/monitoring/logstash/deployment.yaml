@@ -23,6 +23,9 @@ spec:
       - name: logstash
         image: docker.elastic.co/logstash/logstash:8.13.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
         ports:
         - containerPort: 5044
           name: tcp

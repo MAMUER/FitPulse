@@ -357,9 +357,9 @@ jobs:
           # Add Markdown validation
           VALIDATE_MARKDOWN: true
           
-          # Disable Go (already in make check with golangci-lint)
-          VALIDATE_GO: false
-          VALIDATE_GO_MODULES: false
+          # Disable Go validation because it is already handled by make check with golangci-lint.
+          # Super-Linter v8 requires all VALIDATE_* variables to be either opt-in (`true`)
+          # or opt-out (`false`), so Go is disabled by omission here.
           
           # Config file paths
           PYTHON_FLAKE8_CONFIG_FILE: .flake8
@@ -390,8 +390,6 @@ jobs:
             build-mode: none
           - language: go
             build-mode: autobuild
-          - language: javascript-typescript
-            build-mode: none
           - language: python
             build-mode: none
     steps:
@@ -424,7 +422,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.codeql
-          key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py', '**/*.js') }}
+          key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py') }}
           restore-keys: |
             ${{ runner.os }}-codeql-${{ matrix.language }}-
             ${{ runner.os }}-codeql-

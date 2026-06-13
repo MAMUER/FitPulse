@@ -35,7 +35,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				log.Debug("Missing authorization header", zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")))
+				log.Debug("Missing authorization header", zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}
@@ -48,7 +48,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 			token := parts[1]
 			claims, err := auth.ValidateJWT(token, secret)
 			if err != nil {
-				log.Debug("Invalid token", zap.Error(err), zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")))
+				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}
@@ -109,15 +109,15 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 
 			// Log in structured format
 			log.Info("HTTP_REQUEST",
-				zap.String("correlationId", cid),
+				zap.String("correlationId", sanitizeLogValue(cid)),
 				zap.String("userId", userID),
 				zap.String("action", "HTTP_REQUEST"),
 				zap.Int64("durationMs", duration.Milliseconds()),
-				zap.String("endpoint", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")),
-				zap.String("method", r.Method),
+				zap.String("endpoint", sanitizeLogValue(r.URL.Path)),
+				zap.String("method", sanitizeLogValue(r.Method)),
 				zap.Int("statusCode", rw.statusCode),
-				zap.String("userAgent", strings.ReplaceAll(strings.ReplaceAll(r.Header.Get("User-Agent"), "\n", ""), "\r", "")),
-				zap.String("ip", getClientIP(r)),
+				zap.String("userAgent", sanitizeLogValue(r.Header.Get("User-Agent"))),
+				zap.String("ip", sanitizeLogValue(getClientIP(r))),
 			)
 		})
 	}
@@ -130,21 +130,25 @@ func getClientIP(r *http.Request) string {
 	if xff != "" {
 		// Take the first IP if multiple
 		ips := strings.Split(xff, ",")
-		return strings.TrimSpace(ips[0])
+		return sanitizeLogValue(strings.TrimSpace(ips[0]))
 	}
 
 	// Check X-Real-IP header
 	xri := r.Header.Get("X-Real-IP")
 	if xri != "" {
-		return xri
+		return sanitizeLogValue(strings.TrimSpace(xri))
 	}
 
 	// Fall back to RemoteAddr
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		return sanitizeLogValue(r.RemoteAddr)
 	}
-	return ip
+	return sanitizeLogValue(ip)
+}
+
+func sanitizeLogValue(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "\n", ""), "\r", "")
 }
 
 // RecoveryMiddleware перехватывает паники
@@ -155,7 +159,7 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 				if rec := recover(); rec != nil {
 					log.Error("Panic recovered",
 						zap.Any("panic", rec),
-						zap.String("path", strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")),
+						zap.String("path", sanitizeLogValue(r.URL.Path)),
 						zap.String("stack", string(debug.Stack())),
 					)
 					w.Header().Set("Content-Type", "text/plain")

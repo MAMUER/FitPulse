@@ -11,7 +11,8 @@ spec:
       labels:
         app: redis
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -47,7 +48,8 @@ spec:
         app: gateway
         tier: api
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -81,7 +83,8 @@ spec:
       labels:
         app: user-service
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -115,7 +118,8 @@ spec:
       labels:
         app: biometric-service
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -149,7 +153,8 @@ spec:
       labels:
         app: training-service
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -183,7 +188,8 @@ spec:
       labels:
         app: device-connector
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -218,7 +224,8 @@ spec:
       labels:
         app: ml-classifier
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots
@@ -252,7 +259,8 @@ spec:
       labels:
         app: ml-generator
     spec:
-      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
       dnsConfig:
         options:
           - name: ndots

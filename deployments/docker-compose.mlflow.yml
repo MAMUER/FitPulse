@@ -5,8 +5,13 @@ services:
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.20.2
     container_name: fitpulse-mlflow
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "5000:5000"
+    tmpfs:
+      - /tmp:size=64M
     command: >
       mlflow server
       --host 0.0.0.0

@@ -13,7 +13,6 @@ import os
 import json
 import shutil
 import threading
-import uuid
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -275,7 +274,6 @@ def _on_classify_message(channel, method, properties, body):
 
         # Run the same classification logic as the sync endpoint
         physio_data = message['physiological_data']
-        user_profile_data = message.get('user_profile')
 
         pd = type('PhysioData', (), physio_data)  # Simple object from dict
         features = [
@@ -338,7 +336,6 @@ def _do_classify(physiological_data, user_profile=None):
         raise RuntimeError("Models not loaded")
 
     # Prepare features (7 dimensions)
-    pd = type('PD', (), physiological_data)()
     features = [
         physiological_data['heart_rate'],
         physiological_data.get('heart_rate_variability') or 50.0,

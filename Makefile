@@ -10,12 +10,14 @@ endif
 certs:
 	@echo "Generating self-signed TLS certificates..."
 	@mkdir -p deploy/tls/certs
-	@openssl req -x509 -nodes -days 365 \
+	@SAN="DNS:localhost,DNS:fittpulse.duckdns.org,IP:127.0.0.1"; \
+	if [ -n "${VPS_HOST}" ]; then SAN="$${SAN},IP:${VPS_HOST}"; fi; \
+	openssl req -x509 -nodes -days 365 \
 		-newkey rsa:2048 \
 		-keyout deploy/tls/certs/server.key \
 		-out deploy/tls/certs/server.crt \
 		-subj "/C=RU/ST=Moscow/L=Moscow/O=FitnessPlatform/CN=localhost" \
-		-addext "subjectAltName=DNS:localhost,DNS:fittpulse.duckdns.org,IP:127.0.0.1,IP:${VPS_HOST}"
+		-addext "subjectAltName=$${SAN}"
 	@chmod 600 deploy/tls/certs/server.key
 	@echo "✅ Certificates generated in deploy/tls/certs/"
 	@echo "⚠️  These are self-signed — browsers will show a warning."

@@ -36,6 +36,11 @@ func String(s string) string {
 	return s
 }
 
+// LogString removes log-forgery control characters from user-provided strings.
+func LogString(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), "\r", "")
+}
+
 // Strings очищает слайс строк
 func Strings(items []string) []string {
 	if items == nil {

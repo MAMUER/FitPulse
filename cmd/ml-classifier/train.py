@@ -14,7 +14,6 @@ import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 # === конец подавления ===
 
-import sys
 import json
 import numpy as np
 import pandas as pd
@@ -22,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report
 from sklearn.utils.class_weight import compute_class_weight
 import keras
 from keras import layers, models, callbacks

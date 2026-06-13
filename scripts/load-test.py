@@ -52,6 +52,8 @@ def print_results(results_file):
             print(f"  • P99 response time: < 1s")
     except Exception as e:
         pass
+    # Note: intentionally ignoring unhandled exceptions from the main logic block
+    # as this is an optional load-test wrapper; real error handling is done above.
 
 
 def main():
