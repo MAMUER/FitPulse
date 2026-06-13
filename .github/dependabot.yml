@@ -3,6 +3,14 @@ version: 2
 # Раз в месяц: go get -u ./... && go mod tidy
 # Раз в квартал: govulncheck ./... -show verbose
 # При добавлении новых зависимостей: проверять через osv-scanner
+
+registries:
+  ghcr:
+    type: docker-registry
+    url: https://ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GHCR_TOKEN }}
+
 updates:
   # ═══════════════════════════════════════════════════════════════
   # 1. GO МОДУЛИ (основной backend)
@@ -23,7 +31,7 @@ updates:
       - "go"
       - "automated"
     assignees:
-      - "MAMUER" 
+      - "MAMUER"
     groups:
       go-dependencies:
         patterns:
@@ -36,6 +44,10 @@ updates:
           - "*"
         update-types:
           - "major"
+    # Разрешаем срочные обновления безопасности даже для мажорных версий
+    allow:
+      - dependency-type: "direct"
+        update-type: "security"
 
   # ═══════════════════════════════════════════════════════════════
   # 2. GITHUB ACTIONS (CI/CD)
@@ -59,7 +71,6 @@ updates:
     assignees:
       - "MAMUER"
     groups:
-      # Все обновления actions в один PR
       actions-updates:
         patterns:
           - "*"
@@ -67,7 +78,6 @@ updates:
   # ═══════════════════════════════════════════════════════════════
   # 3. DOCKER — Go-сервисы
   # ═══════════════════════════════════════════════════════════════
-  # Шаблон для всех Go-сервисов (одинаковая конфигурация)
   - package-ecosystem: "docker"
     directory: "/cmd/gateway"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
@@ -78,6 +88,7 @@ updates:
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
@@ -89,6 +100,7 @@ updates:
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
@@ -100,6 +112,7 @@ updates:
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/training-service"
@@ -111,6 +124,7 @@ updates:
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/device-connector"
@@ -122,7 +136,8 @@ updates:
     ignore:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
-
+    registries: ["ghcr"]
+    
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
@@ -154,6 +169,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "scikit-learn"
         update-types: ["version-update:semver-major"]
+      # cryptography: разрешаем обновления в диапазоне, совместимом с mlflow
+      - dependency-name: "cryptography"
+        versions: [">=47"]
     groups:
       ml-dependencies:
         patterns:
@@ -164,6 +182,11 @@ updates:
           - "matplotlib"
           - "redis"
           - "pika"
+          - "joblib"
+          - "prometheus-client"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "pip"
     directory: "/cmd/ml-generator"
@@ -179,6 +202,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "numpy"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "cryptography"
+        versions: [">=47"]
     groups:
       ml-dependencies:
         patterns:
@@ -187,6 +212,12 @@ updates:
           - "pydantic"
           - "pandas"
           - "matplotlib"
+          - "redis"
+          - "pika"
+          - "prometheus-client"
+        update-types:
+          - "minor"
+          - "patch"
 
   # ═══════════════════════════════════════════════════════════════
   # 5. DOCKER — ML-сервисы (Python-образы)
@@ -201,7 +232,8 @@ updates:
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-major"]
-        versions: [">=3.13"] 
+        versions: [">=3.13"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/ml-generator"
@@ -214,3 +246,20 @@ updates:
       - dependency-name: "python"
         update-types: ["version-update:semver-major"]
         versions: [">=3.13"]
+    registries: ["ghcr"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 6. KUBERNETES MANIFESTS (опционально)
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "docker"
+    directory: "/configs/k8s/base/deployments"
+    schedule: { interval: "monthly", day: "monday", time: "09:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(k8s)", include: "scope" }
+    labels: ["dependencies", "kubernetes", "automated"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "postgres"
+        versions: [">=16"]
+      - dependency-name: "redis"
+        versions: [">=8"]
