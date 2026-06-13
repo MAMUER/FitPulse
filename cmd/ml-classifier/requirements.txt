@@ -11,7 +11,7 @@ matplotlib==3.11.0        # Совместимо
 uvicorn==0.49.0           # Стабильная версия
 fastapi==0.136.3          # Стабильная версия
 pydantic==2.13.4          # Совместимо с FastAPI
-python-multipart==0.0.27  # Patched version (DoS fix + path traversal fix)
+python-multipart==0.0.32  # Patched version (DoS fix + path traversal fix)
 
 # Utils
 joblib==1.5.3
@@ -20,7 +20,7 @@ redis==8.0.0              # Redis client
 
 # MLOps
 mlflow==3.11.1            # Эксперименты и модели
-dvc[s3]==3.58.0           # Версионирование данных (или dvc[gs] для GCP)
+dvc[s3]==3.67.1           # Версионирование данных (или dvc[gs] для GCP)
 prometheus-client==0.25.0 # Метрики
 
 # Security (опционально)
