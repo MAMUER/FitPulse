@@ -21,7 +21,7 @@ redis==8.0.0              # Redis client
 # MLOps
 mlflow==3.11.1            # Эксперименты и модели
 dvc[s3]==3.58.0           # Версионирование данных (или dvc[gs] для GCP)
-prometheus-client==0.21.1 # Метрики
+prometheus-client==0.25.0 # Метрики
 
 # Security (опционально)
 cryptography==46.0.7
