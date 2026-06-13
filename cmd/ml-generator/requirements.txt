@@ -12,8 +12,8 @@ python-multipart==0.0.32
 
 # MLOps
 mlflow==3.13.0
+prometheus-client==0.25.0
 dvc[s3]==3.67.1
-prometheus-client==0.21.1
 
 # Utils
 pika==1.4.1
