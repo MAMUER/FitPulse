@@ -468,7 +468,7 @@ jobs:
       - name: Install Kubescape
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
-          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
+          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
 
       - name: Run Kubescape scan
         run: |
