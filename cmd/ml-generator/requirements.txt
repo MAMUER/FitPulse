@@ -17,4 +17,4 @@ prometheus-client==0.21.1
 
 # Utils
 pika==1.4.1
-redis==5.2.1
+redis==8.0.0
