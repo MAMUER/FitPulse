@@ -1130,8 +1130,9 @@ jobs:
           echo "Download complete."
       - name: Upload k3s files to VPS
         run: |
-          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s"
-          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/k3s-install"
+          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-install/k3s"
+          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-install/install.sh"
       - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
@@ -1141,13 +1142,14 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -euo pipefail
             echo \"-> Moving k3s binary to /usr/local/bin...\"
-            mv /tmp/k3s /usr/local/bin/k3s
+            mv ~/k3s-install/k3s /usr/local/bin/k3s
             chmod +x /usr/local/bin/k3s
             echo \"-> Running k3s install script with Docker runtime...\"
             export INSTALL_K3S_SKIP_DOWNLOAD=true
-            chmod +x /tmp/install.sh
-            /tmp/install.sh server --write-kubeconfig-mode 644 --docker
+            chmod +x ~/k3s-install/install.sh
+            ~/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
             echo \"k3s installed successfully\"
+            rm -rf ~/k3s-install
           "
       - name: Cleanup disk space on VPS
         run: |
@@ -1229,7 +1231,7 @@ jobs:
           "
       - name: Setup Nginx with SSL
         run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
+          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo \"-> Installing Nginx and Certbot...\"
             sudo apt update
@@ -1248,8 +1250,8 @@ jobs:
               --email admin@fittpulse.duckdns.org \
               --http-01-port 80 \
               --preferred-challenges http \
-              2>&1 | tee /tmp/certbot.log; then
-              if grep -q \"Congratulations\" /tmp/certbot.log; then
+              2>&1 | tee ~/certbot.log; then
+              if grep -q \"Congratulations\" ~/certbot.log; then
                 CERTBOT_SUCCESS=true
                 echo \"✅ Let's Encrypt certificate obtained\"
               fi
@@ -1264,7 +1266,7 @@ jobs:
                 -addext \"subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}\"
               echo \"-> Copying and patching production.conf for self-signed...\"
               sudo mkdir -p /etc/nginx/sites-available
-              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
+              sudo cp ~/production.conf /etc/nginx/sites-available/fitpulse
               sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g\" /etc/nginx/sites-available/fitpulse
               sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g\" /etc/nginx/sites-available/fitpulse
               echo \"✅ Self-signed certificate generated and config patched\"
@@ -1274,22 +1276,8 @@ jobs:
               sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
               echo \"-> Copying production.conf...\"
               sudo mkdir -p /etc/nginx/sites-available
-              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
+              sudo cp ~/production.conf /etc/nginx/sites-available/fitpulse
             fi
-            sudo ln -sf /etc/nginx/sites-available/fitpulse /etc/nginx/sites-enabled/fitpulse
-            sudo rm -f /etc/nginx/sites-enabled/default
-            echo \"-> Testing Nginx configuration...\"
-            if sudo nginx -t; then
-              echo \"-> Starting Nginx...\"
-              sudo systemctl start nginx
-              sudo systemctl enable nginx
-              echo \"✅ Nginx configured and running\"
-            else
-              echo \"❌ Nginx config test failed\"
-              sudo nginx -t
-              exit 1
-            fi
-          "
       - name: Setup auto-renewal for SSL
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
