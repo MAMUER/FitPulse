@@ -14,6 +14,7 @@ spec:
     metadata:
       labels:
         app: grafana
+        zone: monitoring-zone
     spec:
       securityContext:
         runAsUser: 472
@@ -39,14 +40,15 @@ spec:
         - name: GF_INSTALL_PLUGINS
           value: "grafana-clock-panel"
         volumeMounts:
+        # FIX: Указываем полный путь к файлу при использовании subPath
         - name: provisioning
-          mountPath: /etc/grafana/provisioning/datasources
+          mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
           subPath: datasources.yaml
         - name: provisioning
-          mountPath: /etc/grafana/provisioning/dashboards
+          mountPath: /etc/grafana/provisioning/dashboards/dashboards-provider.yaml
           subPath: dashboards-provider.yaml
         - name: dashboards
-          mountPath: /var/lib/grafana/dashboards
+          mountPath: /var/lib/grafana/dashboards/fitness-dashboard.json
           subPath: fitness-dashboard.json
         - name: data
           mountPath: /var/lib/grafana
