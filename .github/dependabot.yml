@@ -169,6 +169,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "scikit-learn"
         update-types: ["version-update:semver-major"]
+      # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
+      - dependency-name: "pandas"
+        versions: [">=3"]
       # cryptography: разрешаем обновления в диапазоне, совместимом с mlflow
       - dependency-name: "cryptography"
         versions: [">=47"]
@@ -202,6 +205,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "numpy"
         update-types: ["version-update:semver-major"]
+      # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
+      - dependency-name: "pandas"
+        versions: [">=3"]
       - dependency-name: "cryptography"
         versions: [">=47"]
     groups:
