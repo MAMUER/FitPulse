@@ -1278,6 +1278,7 @@ jobs:
               sudo mkdir -p /etc/nginx/sites-available
               sudo cp ~/production.conf /etc/nginx/sites-available/fitpulse
             fi
+          "
       - name: Setup auto-renewal for SSL
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
