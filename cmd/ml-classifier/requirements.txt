@@ -24,4 +24,4 @@ dvc[s3]==3.67.1           # Версионирование данных (или 
 prometheus-client==0.25.0 # Метрики
 
 # Security (опционально)
-cryptography==46.0.7
+cryptography==49.0.0
