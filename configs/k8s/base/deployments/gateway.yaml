@@ -94,6 +94,8 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: REDIS_PASSWORD
+            - name: ML_ASYNC
+              value: "false"
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:

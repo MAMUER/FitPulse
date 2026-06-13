@@ -4,7 +4,6 @@ const AppModules = (() => {
     // ===== State =====
     let currentUser = null;
     let selectedDevice = null;
-    let emulationInterval = null;
     // ===== Device Module =====
     // Mapping from exercise identifiers to Russian display names
     const EXERCISE_NAME_MAP = {
@@ -57,7 +56,6 @@ const AppModules = (() => {
             this.renderDeviceSelector();
             this.bindEvents();
             this.renderConnectedDevices();
-            this.showEmulatorInstructions();
         },
         renderDeviceSelector() {
             const container = document.getElementById('deviceSelector');
@@ -69,25 +67,6 @@ const AppModules = (() => {
 <div class="device-capabilities">${d.capabilities}</div>
 </div>
 `).join('');
-        },
-        showEmulatorInstructions() {
-            const container = document.getElementById('deviceSelector');
-            if (!container || document.getElementById('emulatorInstructions')) return; // Уже добавлено
-
-            const info = document.createElement('div');
-            info.id = 'emulatorInstructions';
-            info.style.cssText = 'grid-column: 1 / -1; background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;';
-            info.innerHTML = `
-        <strong>💡 Как подключить эмулятор устройства:</strong><br>
-        1. Выберите тип устройства выше и нажмите "Подключить устройство".<br>
-        2. После успешного подключения скопируйте <code>device_id</code> и <code>device_token</code> из ответа сервера (они отобразятся ниже).<br>
-        3. Запустите эмулятор на вашем компьютере (требуется Go и доступ к серверу):<br>
-        <code style="display:block; background:var(--bg-input); padding:8px; margin-top:4px; border-radius:4px; font-size:11px; word-break: break-all;">
-        go run ./cmd/device-emulator --user-id=ВАШ_USER_ID --device-type=ТИП_УСТРОЙСТВА --connector-url=http://localhost:8082
-        </code>
-        <span style="color: var(--orange);">⚠️ Убедитесь, что ML-сервисы запущены, иначе генерация планов будет недоступна.</span>
-    `;
-            container.parentNode.insertBefore(info, container);
         },
         bindEvents() {
             document.addEventListener('click', (e) => {
@@ -118,13 +97,13 @@ const AppModules = (() => {
                     const result = await this.connectDevice(selectedDevice, userId);
                     showToast(`${this.devices.find(d => d.type === selectedDevice)?.name} подключено!`, 'success');
 
-                    // Отображаем device_id и device_token для эмулятора
+                    // Отображаем device_id и device_token
                     const container = document.getElementById('connectedDevicesList');
                     if (container && result) {
                         const credsDiv = document.createElement('div');
                         credsDiv.style.cssText = 'margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 12px;';
                         credsDiv.innerHTML = `
-        <strong>Данные для эмулятора:</strong><br>
+        <strong>Данные</strong><br>
         <code>device_id: ${result.device_id || 'N/A'}</code><br>
         <code>device_token: ${result.device_token || 'N/A'}</code>
     `;

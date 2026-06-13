@@ -247,10 +247,6 @@ nav.tab-bar
 
 Сетка доступных устройств для подключения. При выборе происходит регистрация и переключение статуса.
 
-### 6.3. Эмулятор (Dev mode)
-
-При отсутствии реальных устройств — кнопка «Запустить эмулятор», которая отправляет данные с `device-emulator` через `Device Connector` (`http://localhost:8082`).
-
 ---
 
 ## 7. Достижения (`achievementsView`)
@@ -421,6 +417,6 @@ nav.tab-bar
 
 1. **P0** — Auth (login/register/confirm), Dashboard (биометрия + график), Profile (форма + смена пароля).
 2. **P1** — Training: список планов + генерация + завершение.
-3. **P2** — Devices: подключение + эмулятор.
+3. **P2** — Devices: подключение.
 4. **P3** — Achievements, Diet, ML-классификация.
 5. **UX/Polish** — скелетон-экраны, pull-to-refresh, offline-индикатор, skeleton loaders.

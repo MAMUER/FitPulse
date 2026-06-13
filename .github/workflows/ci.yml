@@ -128,7 +128,6 @@ jobs:
               - 'internal/training/**'
             device:
               - 'cmd/device-connector/**'
-              - 'cmd/device-emulator/**'
               - 'internal/device/**'
             ml:
               - 'cmd/ml-classifier/**'
@@ -800,7 +799,7 @@ jobs:
           mkdir -p bin
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
-          for svc in user-service biometric-service training-service gateway device-connector device-emulator; do
+          for svc in user-service biometric-service training-service gateway device-connector; do
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
           done
           wait
@@ -844,7 +843,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
       - name: Build and push Go services
         run: |
-          services="user-service biometric-service training-service gateway device-connector device-emulator"
+          services="user-service biometric-service training-service gateway device-connector"
           for svc in $services; do
             echo "Building $svc..."
             docker buildx build \
@@ -909,7 +908,7 @@ jobs:
           mkdir -p bin
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
-          for svc in user-service biometric-service training-service gateway device-connector device-emulator; do
+          for svc in user-service biometric-service training-service gateway device-connector; do
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
           done
           wait
@@ -1175,7 +1174,7 @@ jobs:
             k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
             echo ''
             echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector device-emulator ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
               echo \"Cleaning \$svc...\"
               docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
                 sort -k2 -r | \
@@ -1677,7 +1676,7 @@ jobs:
             docker builder prune -f --filter 'until=24h' || true
             echo ''
             echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector device-emulator ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
               echo \"Cleaning \$svc...\"
               docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
                 sort -k2 -r | \
@@ -1708,7 +1707,7 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo 'Logging in to GHCR on VPS...'
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
-            for svc in user-service biometric-service training-service gateway device-connector device-emulator ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
               echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
               docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
             done

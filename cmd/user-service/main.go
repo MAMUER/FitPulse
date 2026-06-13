@@ -638,7 +638,7 @@ func (s *userServer) SyncDeviceData(ctx context.Context, req *pb.SyncDeviceDataR
 		return nil, status.Error(codes.InvalidArgument, "user_id and device_id are required")
 	}
 
-	// In real implementation, trigger sync with wearable emulator or real API
+	// In real implementation, trigger sync with real API
 	// For now, simulate sync by updating last_sync
 	_, err := s.db.ExecContext(ctx, "UPDATE devices SET last_sync = NOW() WHERE user_id = $1 AND id = $2", req.UserId, req.DeviceId)
 	if err != nil {

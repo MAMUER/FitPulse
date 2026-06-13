@@ -19,15 +19,14 @@ spec:
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsUser: 999
         fsGroup: 999
-        
       containers:
       - name: rabbitmq
         image: rabbitmq:3.13-management-alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5672
           name: amqp
@@ -36,6 +35,10 @@ spec:
         volumeMounts:
         - name: rabbitmq-storage
           mountPath: /var/lib/rabbitmq
+        - name: tmp
+          mountPath: /tmp
+        - name: mnesia
+          mountPath: /var/lib/rabbitmq/mnesia
         env:
         - name: RABBITMQ_DEFAULT_USER
           valueFrom:
@@ -48,27 +51,32 @@ spec:
               name: app-secrets
               key: RABBITMQ_PASS
         - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
-          value: "-rabbit ignore_cluster_mismatch true"
+          value: "-rabbit ignore_cluster_mismatch true +S 1 +S 1:1"
         resources:
           requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
             memory: "256Mi"
             cpu: "200m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
         livenessProbe:
           tcpSocket:
             port: 5672
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          initialDelaySeconds: 45
+          periodSeconds: 15
+          failureThreshold: 5
         readinessProbe:
           tcpSocket:
             port: 5672
-          initialDelaySeconds: 10
-          periodSeconds: 5
+          initialDelaySeconds: 20
+          periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: mnesia
+          emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: rabbitmq-storage
@@ -76,4 +84,4 @@ spec:
       accessModes: ["ReadWriteOnce"]
       resources:
         requests:
-          storage: 2Gi
+          storage: 512Mi

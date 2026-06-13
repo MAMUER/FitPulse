@@ -105,7 +105,6 @@ build:
 	go build -ldflags="-s -w" -o bin/training-service ./cmd/training-service
 	go build -ldflags="-s -w" -o bin/data-processor ./cmd/data-processor
 	go build -ldflags="-s -w" -o bin/device-connector ./cmd/device-connector
-	go build -ldflags="-s -w" -o bin/device-emulator ./cmd/device-emulator
 	@echo "Skipping Python-based ML services for Go build target: cmd/ml-classifier, cmd/ml-generator"
 	@echo "Build complete."
 

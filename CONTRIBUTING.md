@@ -108,8 +108,6 @@ git checkout -b feature/your-feature-name
 ```bash
 feat(auth): добавить поддержку invite-кодов для регистрации админов
 
-fix(biometric): исправить дублирование данных при эмуляции устройств
-
 docs(readme): обновить инструкции по локальной установке
 ```
 
