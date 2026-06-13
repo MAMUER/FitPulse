@@ -470,7 +470,7 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
           # FIX: Добавляем kubescape в PATH, чтобы он был доступен в следующем шаге
-          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
+          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
 
       - name: Run Kubescape scan
         run: |
