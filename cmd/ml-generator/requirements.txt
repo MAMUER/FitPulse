@@ -13,7 +13,7 @@ mlflow==3.13.0
 prometheus-client==0.25.0
 dvc[s3]==3.67.1
 # Security — понижено до совместимой с mlflow версии (<47)
-cryptography==46.0.0
+cryptography==46.0.7
 # Utils
 pika==1.4.1
 redis==8.0.0
