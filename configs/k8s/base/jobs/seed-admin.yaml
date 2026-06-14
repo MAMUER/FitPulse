@@ -2,9 +2,15 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: seed-admin
+  namespace: fitness-platform-production
   labels:
     app: seed-admin
     zone: app-zone
+    environment: production
+    app.kubernetes.io/name: seed-admin
+    app.kubernetes.io/instance: seed-admin
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 3600
@@ -14,18 +20,41 @@ spec:
         app: seed-admin
         zone: app-zone
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       restartPolicy: OnFailure
       serviceAccountName: app-service-account
-      imagePullSecrets:
-        - name: ghcr-pull-secret
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
       containers:
         - name: seed-admin
           image: postgres:15-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -euo pipefail
+              # Load secrets from mounted files
+              export POSTGRES_USER=$(cat /etc/secrets/POSTGRES_USER)
+              export POSTGRES_PASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+              export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
+              export SEED_ADMIN_EMAIL=$(cat /etc/secrets/SEED_ADMIN_EMAIL)
+              export SEED_ADMIN_PASSWORD=$(cat /etc/secrets/SEED_ADMIN_PASSWORD)
+              
               echo "=== FitPulse Admin Seed ==="
               echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               echo "Email: ${SEED_ADMIN_EMAIL}"
@@ -117,36 +146,30 @@ spec:
               EOF
               
               echo "✅ Admin user created successfully"
-          env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
-            - name: SEED_ADMIN_EMAIL
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SEED_ADMIN_EMAIL
-            - name: SEED_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SEED_ADMIN_PASSWORD
-            - name: DB_HOST
-              value: "postgres-service"
-            - name: DB_PORT
-              value: "5432"
+          volumeMounts:
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h "${DB_HOST:-postgres-service}" -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               memory: "64Mi"

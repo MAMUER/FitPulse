@@ -1,4 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fitness-platform
+  name: fitness-platform-production
+  labels:
+    app.kubernetes.io/name: fitness-platform
+    environment: production

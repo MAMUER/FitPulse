@@ -12,7 +12,6 @@ import sys
 import json
 import random
 import argparse
-import http.client
 import ssl
 import urllib.request
 import urllib.error
@@ -52,6 +51,9 @@ class TestRunner:
             method=method,
         )
         try:
+            # nosem: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            # SAFETY: URL scheme is restricted to http/https by `request()` below, so
+            # `file://` and similar schemes cannot be exploited from user-controlled input.
             with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:
                 return resp.status, json.loads(resp.read().decode("utf-8", errors="replace"))
         except urllib.error.HTTPError as e:
@@ -59,6 +61,8 @@ class TestRunner:
             try:
                 body = json.loads(e.read().decode("utf-8", errors="replace"))
             except Exception:
+                # Intentionally ignoring JSON decode errors from HTTP error response body;
+                # returning empty body with error status code is sufficient for test reporting.
                 pass
             return e.code, body
         except Exception as e:
@@ -70,6 +74,7 @@ class TestRunner:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return None, {"error": "unsupported or invalid API URL"}
+        # Blocks unsafe URL schemes (e.g. file://) from reaching urllib below.
 
         headers = {"Content-Type": "application/json"}
         if token:

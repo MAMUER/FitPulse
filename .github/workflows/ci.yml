@@ -340,31 +340,29 @@ jobs:
           VALIDATE_PYTHON_ISORT: true
           VALIDATE_PYTHON_MYPY: true
           
-          # Add YAML validation
+          # YAML validation
           VALIDATE_YAML: true
           
-          # Add Shell script validation
+          # Shell script validation
           VALIDATE_BASH: true
           VALIDATE_BASH_EXEC: true
           VALIDATE_SHELL_SHFMT: true
           
-          # Add Dockerfile validation (complements hadolint)
+          # Dockerfile validation (complements hadolint)
           VALIDATE_DOCKERFILE_HADOLINT: true
           
-          # Add JSON validation
+          # JSON validation
           VALIDATE_JSON: true
           
-          # Add Markdown validation
+          # Markdown validation
           VALIDATE_MARKDOWN: true
-          
-          # Disable Go validation because it is already handled by make check with golangci-lint.
-          # Super-Linter v8 requires all VALIDATE_* variables to be either opt-in (`true`)
-          # or opt-out (`false`), so Go is disabled by omission here.
           
           # Config file paths
           PYTHON_FLAKE8_CONFIG_FILE: .flake8
           PYTHON_BLACK_CONFIG_FILE: pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
+          
+          # Optional override file to enforce same env values regardless of other config
 
   # ============================================================================
   # CODEQL ANALYSIS

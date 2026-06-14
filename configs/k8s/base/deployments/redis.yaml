@@ -2,10 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
+  namespace: fitness-platform-production
   labels:
     app: redis
     tier: infrastructure
+    environment: production
     zone: data-zone
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   replicas: 1
@@ -18,19 +24,22 @@ spec:
         app: redis
         zone: data-zone
     spec:
-      serviceAccountName: app-service-account
-      imagePullSecrets:
-        - name: ghcr-pull-secret
-      terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
       securityContext:
+        runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
         fsGroup: 999
+        readOnlyRootFilesystem: true
+      terminationGracePeriodSeconds: 30
       volumes:
         - name: redis-data
           emptyDir: {}
         - name: tmp
           emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
       containers:
         - name: redis
           image: redis:7-alpine
@@ -39,36 +48,33 @@ spec:
             - sh
             - -c
             - |
-              if [ -z "$REDIS_PASSWORD" ]; then
+              if [ -f "/etc/secrets/REDIS_PASSWORD" ] && [ -s "/etc/secrets/REDIS_PASSWORD" ]; then
+                echo "Starting Redis WITH password from file..."
+                exec redis-server \
+                  --bind 0.0.0.0 \
+                  --appendonly yes \
+                  --requirepass-file /etc/secrets/REDIS_PASSWORD \
+                  --maxmemory 256mb \
+                  --maxmemory-policy allkeys-lru
+              else
                 echo "Starting Redis WITHOUT password..."
                 exec redis-server \
                   --bind 0.0.0.0 \
                   --appendonly yes \
                   --maxmemory 256mb \
                   --maxmemory-policy allkeys-lru
-              else
-                echo "Starting Redis WITH password..."
-                exec redis-server \
-                  --bind 0.0.0.0 \
-                  --appendonly yes \
-                  --requirepass "$REDIS_PASSWORD" \
-                  --maxmemory 256mb \
-                  --maxmemory-policy allkeys-lru
               fi
           ports:
             - containerPort: 6379
               name: redis
-          env:
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: REDIS_PASSWORD
           volumeMounts:
             - name: redis-data
               mountPath: /data
             - name: tmp
               mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
           resources:
             requests:
               memory: "128Mi"
@@ -77,12 +83,13 @@ spec:
               memory: "256Mi"
               cpu: "200m"
           securityContext:
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
           livenessProbe:
-            tcpSocket:  # ← tcp надежнее, чем exec с паролем
+            tcpSocket:
               port: 6379
             initialDelaySeconds: 15
             periodSeconds: 10

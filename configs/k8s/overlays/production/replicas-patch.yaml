@@ -123,8 +123,18 @@ spec:
       labels:
         app: user-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
       containers:
         - name: user-service
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: REDIS_HOST
               value: "redis"

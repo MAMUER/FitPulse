@@ -50,10 +50,10 @@ def print_results(results_file):
             print(f"  • Error rate: < 10%")
             print(f"  • P95 response time: < 500ms")
             print(f"  • P99 response time: < 1s")
-    except Exception as e:
+    except Exception:
+        # Intentionally ignoring unhandled exceptions from the main logic block
+        # as this is an optional load-test wrapper; real error handling is done above.
         pass
-    # Note: intentionally ignoring unhandled exceptions from the main logic block
-    # as this is an optional load-test wrapper; real error handling is done above.
 
 
 def main():

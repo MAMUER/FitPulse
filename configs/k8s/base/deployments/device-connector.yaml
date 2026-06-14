@@ -2,10 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: device-connector
+  namespace: fitness-platform-production
   labels:
     app: device-connector
     tier: backend
     component: device-connector
+    environment: production
+    app.kubernetes.io/name: device-connector
+    app.kubernetes.io/instance: device-connector
+    app.kubernetes.io/component: device-connector
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   replicas: 2
@@ -20,11 +26,15 @@ spec:
         component: device-connector
         zone: app-zone
     spec:
+      automountServiceAccountToken: false
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 1000
+        readOnlyRootFilesystem: true
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -40,12 +50,22 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
+            items:
+              - key: POSTGRES_USER
+                path: POSTGRES_USER
+              - key: POSTGRES_PASSWORD
+                path: POSTGRES_PASSWORD
       containers:
         - name: device-connector
           image: ghcr.io/mamuer/project/device-connector:latest
           imagePullPolicy: Always
           securityContext:
+            runAsNonRoot: true
             runAsUser: 1000
+            runAsGroup: 1000
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
@@ -57,17 +77,10 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
@@ -90,6 +103,8 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: DB_SSLMODE
+            - name: SECRETS_PATH
+              value: "/etc/secrets"
           livenessProbe:
             httpGet:
               path: /health

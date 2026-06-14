@@ -2,9 +2,14 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: migrate-db
+  namespace: fitness-platform-production
   labels:
     app: migrate-db
     zone: app-zone
+    app.kubernetes.io/name: migrate-db
+    app.kubernetes.io/instance: migrate-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
@@ -14,46 +19,68 @@ spec:
         app: migrate-db
         zone: app-zone
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
       restartPolicy: OnFailure
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
+        - name: sql
+          configMap:
+            name: init-db-sql
       containers:
         - name: migrate
           image: postgres:15-alpine
           imagePullPolicy: IfNotPresent
-          command: ["psql"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          command: ["/bin/sh", "-c"]
           args:
-            - "-h"
-            - "postgres-service"
-            - "-U"
-            - "$(POSTGRES_USER)"
-            - "-d"
-            - "$(POSTGRES_DB)"
-            - "-f"
-            - "/sql/init.sql"
-            - "-v"
-            - "ON_ERROR_STOP=1"
-          env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
+            - |
+              set -euo pipefail
+              export POSTGRES_USER=$(cat /etc/secrets/POSTGRES_USER)
+              export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
+              export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+              psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f /sql/init.sql -v ON_ERROR_STOP=1
           volumeMounts:
             - name: sql
               mountPath: /sql
               readOnly: true
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h postgres-service -p 5432 -U "$(cat /etc/secrets/POSTGRES_USER)"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h postgres-service -p 5432 -U "$(cat /etc/secrets/POSTGRES_USER)"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               memory: "64Mi"
@@ -61,7 +88,3 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
-      volumes:
-        - name: sql
-          configMap:
-            name: init-db-sql

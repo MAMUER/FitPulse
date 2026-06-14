@@ -2,31 +2,45 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ml-classifier
+  namespace: fitness-platform-production
+  labels:
+    app: ml-classifier
+    tier: ml
+    environment: production
+    app.kubernetes.io/name: ml-classifier
+    app.kubernetes.io/instance: ml-classifier
+    app.kubernetes.io/component: ml
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   replicas: 1
   selector:
     matchLabels:
       app: ml-classifier
+      tier: ml
   template:
     metadata:
       labels:
         app: ml-classifier
+        tier: ml
         zone: app-zone
+        environment: production
     spec:
+      automountServiceAccountToken: false
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1001
+        readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
       volumes:
         - name: tmp
           emptyDir: {}
-        # FIX: Убираем emptyDir для models, чтобы не затирало модели из Docker-образа
       containers:
         - name: ml-classifier
           image: ghcr.io/mamuer/project/ml-classifier:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -39,7 +53,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            # FIX: Убираем mountPath для models
           env:
             - name: ML_CLASSIFIER_PORT
               valueFrom:

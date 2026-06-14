@@ -2,6 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ml-generator
+  namespace: fitness-platform-production
+  labels:
+    app: ml-generator
+    tier: ml
+    environment: production
+    app.kubernetes.io/name: ml-generator
+    app.kubernetes.io/instance: ml-generator
+    app.kubernetes.io/component: ml
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   replicas: 1
@@ -14,19 +23,21 @@ spec:
         app: ml-generator
         zone: app-zone
     spec:
+      automountServiceAccountToken: false
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1001
+        readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
       volumes:
         - name: tmp
           emptyDir: {}
-        # FIX: Убираем emptyDir для models, чтобы не затирало модели из Docker-образа
       containers:
         - name: ml-generator
           image: ghcr.io/mamuer/project/ml-generator:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -39,7 +50,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            # FIX: Убираем mountPath для models
           env:
             - name: ML_GENERATOR_PORT
               valueFrom:

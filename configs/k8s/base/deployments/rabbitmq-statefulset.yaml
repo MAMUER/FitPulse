@@ -2,6 +2,15 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: rabbitmq
+  namespace: fitness-platform-production
+  labels:
+    app: rabbitmq
+    tier: infrastructure
+    environment: production
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/instance: rabbitmq
+    app.kubernetes.io/component: message-queue
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   serviceName: rabbitmq
@@ -9,6 +18,7 @@ spec:
   selector:
     matchLabels:
       app: rabbitmq
+      tier: infrastructure
   template:
     metadata:
       labels:
@@ -16,11 +26,21 @@ spec:
         tier: infrastructure
         zone: data-zone
     spec:
+      automountServiceAccountToken: false
       serviceAccountName: app-service-account
       imagePullSecrets:
         - name: ghcr-pull-secret
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
+        - name: tmp
+          emptyDir: {}
+        - name: mnesia
+          emptyDir: {}
       terminationGracePeriodSeconds: 30
       securityContext:
+        runAsNonRoot: true
         runAsUser: 999
         fsGroup: 999
       containers:
@@ -32,6 +52,13 @@ spec:
               name: amqp
             - containerPort: 15672
               name: management
+          env:
+            - name: RABBITMQ_DEFAULT_USER_FILE
+              value: "/etc/secrets/RABBITMQ_USER"
+            - name: RABBITMQ_DEFAULT_PASS_FILE
+              value: "/etc/secrets/RABBITMQ_PASS"
+            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+              value: "-rabbit ignore_cluster_mismatch true +S 1 +S 1:1"
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
@@ -39,19 +66,9 @@ spec:
               mountPath: /tmp
             - name: mnesia
               mountPath: /var/lib/rabbitmq/mnesia
-          env:
-            - name: RABBITMQ_DEFAULT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_USER
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_PASS
-            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
-              value: "-rabbit ignore_cluster_mismatch true +S 1 +S 1:1"
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
           resources:
             requests:
               memory: "128Mi"
@@ -61,6 +78,10 @@ spec:
               cpu: "200m"
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           livenessProbe:
             tcpSocket:
               port: 5672
@@ -71,12 +92,7 @@ spec:
             tcpSocket:
               port: 5672
             initialDelaySeconds: 20
-            periodSeconds: 10
-      volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: mnesia
-          emptyDir: {}
+            periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage

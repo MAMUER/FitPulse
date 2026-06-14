@@ -2,6 +2,15 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
+  namespace: fitness-platform-production
+  labels:
+    app: postgres
+    tier: database
+    environment: production
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: fitness-platform
 spec:
   revisionHistoryLimit: 1
   serviceName: postgres-service
@@ -9,42 +18,55 @@ spec:
   selector:
     matchLabels:
       app: postgres
+      tier: database
   template:
     metadata:
       labels:
         app: postgres
+        tier: database
         zone: data-zone
+        environment: production
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
       terminationGracePeriodSeconds: 60
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
       containers:
         - name: postgres
           image: postgres:15-alpine
           ports:
             - containerPort: 5432
+              name: postgres
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
+            - name: POSTGRES_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
+            - name: POSTGRES_PASSWORD_FILE
+              value: "/etc/secrets/POSTGRES_PASSWORD"
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
             - name: POSTGRES_INITDB_ARGS
               value: "--locale=en_US.utf8"
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
           resources:
             requests:
               memory: "128Mi"

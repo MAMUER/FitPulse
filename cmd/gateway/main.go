@@ -399,6 +399,14 @@ func main() {
 			http.Error(w, "Invalid redirect target", http.StatusBadRequest)
 			return
 		}
+		// nosemgrep: go.lang.security.injection.open-redirect.open-redirect
+		// SAFETY: Not an open redirect. The redirect target is constructed from:
+		//   - scheme hardcoded to "https"
+		//   - host validated against r.Host / publicHost (IPs rejected, port stripped)
+		//   - path/query/fragment passed through but prefixed with the trusted host
+		//   - final URL re-parsed and scheme+hostname re-validated before redirect
+		//   - leading "//" and "\\" URI prefixes are rejected to prevent protocol-relative redirects.
+		// No attacker-controlled domain can be injected into the redirect URL.
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	})
 

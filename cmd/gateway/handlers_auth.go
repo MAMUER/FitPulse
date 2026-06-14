@@ -242,6 +242,9 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 			return
 		}
 		safeToken := html.EscapeString(token)
+		// nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
+		// SAFETY: Fallback email confirmation HTML. Token is HTML-escaped via `html.EscapeString(token)`
+		// before being interpolated with `%s`, so no raw user input reaches the ResponseWriter.
 		if _, err := fmt.Fprintf(w, "<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: %s</p></div></body></html>", safeToken); err != nil {
 			g.log.Error("Failed to write fallback response", zap.Error(err))
 		}
