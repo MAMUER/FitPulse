@@ -12,10 +12,9 @@ import sys
 import json
 import random
 import argparse
+import http.client
 import ssl
-import urllib.request
-import urllib.error
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 from datetime import datetime
 
 # === Configuration ===
@@ -38,44 +37,61 @@ class TestRunner:
         self.failed = 0
         self.skipped = 0
         self.results = []
+        self.parsed_base_url = urlsplit(self.base_url)
+        self.host = self.parsed_base_url.hostname
+        try:
+            port = self.parsed_base_url.port
+        except ValueError:
+            port = None
+        self.port = (
+            port
+            if port is not None
+            else (443 if self.parsed_base_url.scheme == "https" else 80)
+        )
+        self.path_prefix = self.parsed_base_url.path.rstrip("/")
+        self.invalid_base_url = (
+            self.parsed_base_url.scheme not in {"http", "https"}
+            or not self.parsed_base_url.hostname
+            or port is None
+        )
         # Disable SSL verification for self-signed certs
         self.ctx = ssl.create_default_context()
         self.ctx.check_hostname = False
         self.ctx.verify_mode = ssl.CERT_NONE
 
     def _make_request(self, method, request_path, data=None, headers=None):
-        req = urllib.request.Request(
-            self.base_url + request_path,
-            data=data,
-            headers=headers or {},
-            method=method,
+        path = request_path if request_path.startswith("/") else f"/{request_path}"
+        if self.path_prefix:
+            path = f"{self.path_prefix}{path}"
+
+        connection_cls = (
+            http.client.HTTPSConnection
+            if self.parsed_base_url.scheme == "https"
+            else http.client.HTTPConnection
         )
+        connection_kwargs = {"timeout": 30}
+        if self.parsed_base_url.scheme == "https":
+            connection_kwargs["context"] = self.ctx
+
         try:
-            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            # SAFETY: URL scheme is restricted to http/https by `request()` below, so
-            # `file://` and similar schemes cannot be exploited from user-controlled input.
-            with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:
-                return resp.status, json.loads(resp.read().decode("utf-8", errors="replace"))
-        except urllib.error.HTTPError as e:
-            body = {}
+            conn = connection_cls(self.host, self.port, **connection_kwargs)
             try:
-                body = json.loads(e.read().decode("utf-8", errors="replace"))
-            except Exception:
-                # nosemgrep: python.lang.security.audit.empty-except.empty-except
-                # Intentionally ignoring JSON decode errors from HTTP error response body;
-                # returning empty body with error status code is sufficient for test reporting.
-                pass
-            return e.code, body
-        except Exception as e:
+                conn.request(method, path, body=data, headers=headers or {})
+                resp = conn.getresponse()
+                body = resp.read().decode("utf-8", errors="replace")
+                return resp.status, json.loads(body) if body else {}
+            finally:
+                conn.close()
+        except (http.client.HTTPException, OSError, ssl.SSLError) as e:
             return None, {"error": str(e)}
 
     def request(self, method, path, body=None, token=None, expected_status=200):
         """Send HTTP request and return (status_code, body_dict)."""
         url = f"{self.base_url}{path}"
-        parsed = urlparse(url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        parsed = urlsplit(url)
+        if self.invalid_base_url:
             return None, {"error": "unsupported or invalid API URL"}
-        # Blocks unsafe URL schemes (e.g. file://) from reaching urllib below.
+        # Blocks unsafe URL schemes (e.g. file://) from reaching the HTTP client below.
 
         headers = {"Content-Type": "application/json"}
         if token:

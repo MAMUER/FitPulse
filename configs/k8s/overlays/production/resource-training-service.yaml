@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: training-service
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m

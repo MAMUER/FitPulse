@@ -11,6 +11,8 @@ metadata:
     app.kubernetes.io/instance: ml-generator
     app.kubernetes.io/component: ml
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
   replicas: 1
@@ -22,6 +24,12 @@ spec:
       labels:
         app: ml-generator
         zone: app-zone
+        app.kubernetes.io/name: ml-generator
+        app.kubernetes.io/instance: ml-generator
+        app.kubernetes.io/component: ml
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "latest"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -29,6 +37,8 @@ spec:
         runAsUser: 1001
         runAsGroup: 1001
         readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -48,6 +58,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 8002
               name: http

@@ -11,6 +11,8 @@ metadata:
     app.kubernetes.io/instance: rabbitmq
     app.kubernetes.io/component: message-queue
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "3.13"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
   serviceName: rabbitmq
@@ -25,6 +27,12 @@ spec:
         app: rabbitmq
         tier: infrastructure
         zone: data-zone
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/instance: rabbitmq
+        app.kubernetes.io/component: message-queue
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "3.13"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       serviceAccountName: app-service-account
@@ -41,8 +49,11 @@ spec:
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        fsGroup: 999
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: rabbitmq
           image: rabbitmq:3.13-management-alpine
@@ -78,11 +89,15 @@ spec:
               cpu: "200m"
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           livenessProbe:
             tcpSocket:
               port: 5672

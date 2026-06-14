@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: gateway
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 50m

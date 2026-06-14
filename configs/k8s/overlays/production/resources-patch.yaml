@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: redis
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m
@@ -26,6 +28,8 @@ spec:
     spec:
       containers:
         - name: gateway
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 50m
@@ -44,6 +48,8 @@ spec:
     spec:
       containers:
         - name: user-service
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m
@@ -62,6 +68,8 @@ spec:
     spec:
       containers:
         - name: biometric-service
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m
@@ -80,6 +88,8 @@ spec:
     spec:
       containers:
         - name: training-service
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m
@@ -98,6 +108,8 @@ spec:
     spec:
       containers:
         - name: device-connector
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m
@@ -116,6 +128,8 @@ spec:
     spec:
       containers:
         - name: ml-classifier
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 100m
@@ -134,6 +148,8 @@ spec:
     spec:
       containers:
         - name: ml-generator
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 100m

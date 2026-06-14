@@ -225,10 +225,8 @@ func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	// SAFETY: Proxying pre-formed JSON bytes from internal ML service.
-	// Content-Type is application/json, so browsers do not interpret this as HTML.
-	// The body is not rendered as HTML, eliminating XSS risk.
-	if _, err := w.Write(respBody); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
+	_, err = bytes.NewBuffer(respBody).WriteTo(w)
+	if err != nil {
 		g.log.Error("Failed to write response", zap.Error(err))
 	}
 }

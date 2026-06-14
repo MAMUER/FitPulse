@@ -11,6 +11,8 @@ metadata:
     app.kubernetes.io/instance: user-service
     app.kubernetes.io/component: user
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
   replicas: 2
@@ -25,6 +27,12 @@ spec:
         tier: backend
         zone: app-zone
         environment: production
+        app.kubernetes.io/name: user-service
+        app.kubernetes.io/instance: user-service
+        app.kubernetes.io/component: user
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "latest"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -32,6 +40,8 @@ spec:
         runAsUser: 1001
         runAsGroup: 1001
         readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -54,6 +64,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 50051
               name: grpc

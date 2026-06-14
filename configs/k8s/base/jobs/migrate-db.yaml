@@ -10,6 +10,8 @@ metadata:
     app.kubernetes.io/instance: migrate-db
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "15"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
@@ -18,11 +20,20 @@ spec:
       labels:
         app: migrate-db
         zone: app-zone
+        app.kubernetes.io/name: migrate-db
+        app.kubernetes.io/instance: migrate-db
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "15"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsGroup: 1000
         readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
       restartPolicy: OnFailure
       serviceAccountName: app-service-account
       imagePullSecrets:
@@ -41,11 +52,13 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 999
+            runAsUser: 1000
             capabilities:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           command: ["/bin/sh", "-c"]
           args:
             - |

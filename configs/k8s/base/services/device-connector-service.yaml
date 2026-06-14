@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: device-connector-service
+  namespace: fitness-platform-production
   labels:
     app: device-connector
     tier: backend

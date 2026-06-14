@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: biometric-service
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m

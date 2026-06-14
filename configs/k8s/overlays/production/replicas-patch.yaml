@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: redis
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m

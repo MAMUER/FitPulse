@@ -12,6 +12,8 @@ metadata:
     app.kubernetes.io/instance: redis
     app.kubernetes.io/component: cache
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "7"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
   replicas: 1
@@ -23,14 +25,22 @@ spec:
       labels:
         app: redis
         zone: data-zone
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: redis
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "7"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
       terminationGracePeriodSeconds: 30
       volumes:
         - name: redis-data
@@ -84,11 +94,13 @@ spec:
               cpu: "200m"
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
+            runAsUser: 1000
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           livenessProbe:
             tcpSocket:
               port: 6379

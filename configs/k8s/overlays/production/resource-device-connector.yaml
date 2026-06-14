@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: device-connector
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 25m

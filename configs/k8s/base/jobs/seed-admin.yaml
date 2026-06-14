@@ -11,6 +11,8 @@ metadata:
     app.kubernetes.io/instance: seed-admin
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kustomize
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 3600
@@ -19,12 +21,20 @@ spec:
       labels:
         app: seed-admin
         zone: app-zone
+        app.kubernetes.io/name: seed-admin
+        app.kubernetes.io/instance: seed-admin
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "latest"
+        app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       restartPolicy: OnFailure
       serviceAccountName: app-service-account
       volumes:
@@ -44,6 +54,8 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           command: ["/bin/sh", "-c"]
           args:
             - |

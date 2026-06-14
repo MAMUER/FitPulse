@@ -8,6 +8,8 @@ spec:
     spec:
       containers:
         - name: ml-generator
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: 100m
