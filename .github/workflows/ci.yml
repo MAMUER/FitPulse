@@ -334,7 +334,7 @@ jobs:
           # Exclude patterns
           FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
           
-          # Python linters (already enabled)
+          # Python linters
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
@@ -356,14 +356,6 @@ jobs:
           
           # Markdown validation
           VALIDATE_MARKDOWN: true
-          
-          # Config file paths
-          PYTHON_FLAKE8_CONFIG_FILE: .flake8
-          PYTHON_BLACK_CONFIG_FILE: pyproject.toml
-          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
-          
-          # Optional override file to enforce same env values regardless of other config
-
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================

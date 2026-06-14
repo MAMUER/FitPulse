@@ -6,6 +6,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: redis
           securityContext:
@@ -26,6 +28,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: gateway
           securityContext:
@@ -46,6 +50,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: user-service
           securityContext:
@@ -66,6 +72,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: biometric-service
           securityContext:
@@ -86,6 +94,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: training-service
           securityContext:
@@ -106,6 +116,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: device-connector
           securityContext:
@@ -126,6 +138,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: ml-classifier
           securityContext:
@@ -146,6 +160,8 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: ml-generator
           securityContext:
