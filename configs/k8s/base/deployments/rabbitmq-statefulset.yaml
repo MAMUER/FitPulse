@@ -77,11 +77,12 @@ spec:
               memory: "256Mi"
               cpu: "200m"
           securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-            readOnlyRootFilesystem: true
           livenessProbe:
             tcpSocket:
               port: 5672

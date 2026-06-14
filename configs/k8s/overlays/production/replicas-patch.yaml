@@ -4,110 +4,6 @@ metadata:
   name: gateway
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: gateway
-      tier: api
-  template:
-    metadata:
-      labels:
-        app: gateway
-        tier: api
-      annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '8080'
-        prometheus.io/path: '/metrics'
-    spec:
-      securityContext:
-        runAsUser: 1001
-      imagePullSecrets:
-        - name: ghcr-pull-secret
-      serviceAccountName: app-service-account
-      volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: tls-certs
-          secret:
-            secretName: gateway-tls
-            optional: true
-      containers:
-        - name: gateway
-          image: ghcr.io/mamuer/project/gateway:latest
-          imagePullPolicy: Always
-          securityContext:
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-          ports:
-            - containerPort: 8080
-              name: http
-            - containerPort: 8443
-              name: https
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-            - name: tls-certs
-              mountPath: /etc/tls
-              readOnly: true
-          env:
-            - name: GATEWAY_PORT
-              value: '8080'
-            - name: USER_SERVICE_ADDR
-              value: "user-service:50051"
-            - name: BIOMETRIC_SERVICE_ADDR
-              value: "biometric-service:50052"
-            - name: TRAINING_SERVICE_ADDR
-              value: "training-service:50053"
-            - name: DEVICE_CONNECTOR_URL
-              value: "http://device-connector-service:8082"
-            - name: PROMETHEUS_ENABLED
-              value: 'true'
-            - name: ML_CLASSIFIER_URL
-              value: "http://ml-classifier:8001"
-            - name: ML_GENERATOR_URL
-              value: "http://ml-generator:8002"
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: JWT_SECRET
-            - name: TLS_CERT_FILE
-              value: "/etc/tls/tls.crt"
-            - name: TLS_KEY_FILE
-              value: "/etc/tls/tls.key"
-            - name: REDIS_HOST
-              value: "redis"
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: REDIS_PASSWORD
-            - name: RABBITMQ_URL
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_URL
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 5
-          resources:
-            requests:
-              memory: "64Mi"
-              cpu: "100m"
-            limits:
-              memory: "128Mi"
-              cpu: "200m"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -115,43 +11,7 @@ metadata:
   name: user-service
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: user-service
-  template:
-    metadata:
-      labels:
-        app: user-service
-    spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-      containers:
-        - name: user-service
-          securityContext:
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-          env:
-            - name: REDIS_HOST
-              value: "redis"
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: REDIS_PASSWORD
-            - name: RABBITMQ_URL
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_URL
-            - name: SMTP_TLS
-              value: "true"
 ---
-# FIX: Уменьшаем реплики до 1 для экономии RAM на 2GB VPS
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -170,5 +30,19 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: device-connector
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-classifier
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-generator
 spec:
   replicas: 1

@@ -51,7 +51,7 @@ class TestRunner:
             method=method,
         )
         try:
-            # nosem: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             # SAFETY: URL scheme is restricted to http/https by `request()` below, so
             # `file://` and similar schemes cannot be exploited from user-controlled input.
             with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:
@@ -61,6 +61,7 @@ class TestRunner:
             try:
                 body = json.loads(e.read().decode("utf-8", errors="replace"))
             except Exception:
+                # nosemgrep: python.lang.security.audit.empty-except.empty-except
                 # Intentionally ignoring JSON decode errors from HTTP error response body;
                 # returning empty body with error status code is sufficient for test reporting.
                 pass

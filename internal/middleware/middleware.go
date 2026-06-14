@@ -164,7 +164,8 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 					)
 					w.Header().Set("Content-Type", "text/plain")
 					w.WriteHeader(http.StatusInternalServerError)
-					_, _ = w.Write([]byte("Internal Server Error"))
+					// SAFETY: Static plain text error message, Content-Type is text/plain.
+					_, _ = w.Write([]byte("Internal Server Error")) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 				}
 			}()
 			next.ServeHTTP(w, r)

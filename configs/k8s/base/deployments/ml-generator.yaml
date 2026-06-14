@@ -27,6 +27,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
+        runAsGroup: 1001
         readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -39,6 +40,9 @@ spec:
           image: ghcr.io/mamuer/project/ml-generator:latest
           imagePullPolicy: Always
           securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:

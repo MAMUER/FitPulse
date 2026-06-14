@@ -110,10 +110,9 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 	// 3. Отправляем ТЕ ЖЕ байты, что были подписаны
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	// nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	// SAFETY: Writing pre-marshaled JSON bytes with Content-Type application/json.
 	// json.Marshal escapes all string values, and browsers will not interpret
 	// application/json responses as HTML, so direct ResponseWriter.Write is safe here.
-	_, err = w.Write(jsonBytes)
+	_, err = w.Write(jsonBytes) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	return err
 }

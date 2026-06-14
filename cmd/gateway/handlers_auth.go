@@ -235,17 +235,17 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 		g.log.Warn("Failed to load confirm template, using fallback", zap.Error(err))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if token == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			if _, err := fmt.Fprint(w, "<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>"); err != nil {
-				g.log.Error("Failed to write fallback response", zap.Error(err))
+w.WriteHeader(http.StatusBadRequest)
+		// SAFETY: Static HTML error message, no user input, Content-Type is text/html.
+		if _, err := fmt.Fprint(w, "<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>"); err != nil { // nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
+			g.log.Error("Failed to write fallback response", zap.Error(err))
 			}
 			return
 		}
 		safeToken := html.EscapeString(token)
-		// nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
 		// SAFETY: Fallback email confirmation HTML. Token is HTML-escaped via `html.EscapeString(token)`
 		// before being interpolated with `%s`, so no raw user input reaches the ResponseWriter.
-		if _, err := fmt.Fprintf(w, "<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: %s</p></div></body></html>", safeToken); err != nil {
+		if _, err := fmt.Fprintf(w, "<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: %s</p></div></body></html>", safeToken); err != nil { // nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
 			g.log.Error("Failed to write fallback response", zap.Error(err))
 		}
 		return
@@ -255,7 +255,9 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 	tmplText = strings.Replace(tmplText, "{{ .Token }}", html.EscapeString(token), 1)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := fmt.Fprint(w, tmplText); err != nil {
+	// SAFETY: Token is HTML-escaped via html.EscapeString on line 255 before template interpolation.
+	// The HTML template is read from file and only {{ .Token }} placeholder is replaced with escaped value.
+	if _, err := fmt.Fprint(w, tmplText); err != nil { // nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
 		g.log.Error("Failed to write confirm page", zap.Error(err))
 	}
 }

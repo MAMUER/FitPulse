@@ -369,7 +369,8 @@ func main() {
 		if r.URL.Path == "/health" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`))
+			// SAFETY: Static JSON response for health check, Content-Type is application/json.
+			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`)) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 			return
 		}
 

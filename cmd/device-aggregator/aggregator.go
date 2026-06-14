@@ -29,7 +29,8 @@ func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvi
 func (a *aggregator) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(`{"status":"ok","service":"device-aggregator"}`)); err != nil {
+	// SAFETY: Static JSON health response, Content-Type is application/json.
+	if _, err := w.Write([]byte(`{"status":"ok","service":"device-aggregator"}`)); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 		a.log.Warn("failed to write health response", zap.Error(err))
 	}
 }
@@ -103,7 +104,8 @@ func (a *aggregator) fitbitDisconnectHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil {
+	// SAFETY: Static JSON response, Content-Type is application/json.
+	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 		a.log.Warn("failed to write disconnect response", zap.Error(err))
 	}
 }

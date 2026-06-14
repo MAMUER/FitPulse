@@ -3,21 +3,8 @@ kind: Deployment
 metadata:
   name: redis
 spec:
-  selector:
-    matchLabels:
-      app: redis
   template:
-    metadata:
-      labels:
-        app: redis
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: redis
           resources:
@@ -27,34 +14,14 @@ spec:
             limits:
               cpu: 100m
               memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: false
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gateway
 spec:
-  selector:
-    matchLabels:
-      app: gateway
-      tier: api
   template:
-    metadata:
-      labels:
-        app: gateway
-        tier: api
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: gateway
           resources:
@@ -64,32 +31,14 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-service
 spec:
-  selector:
-    matchLabels:
-      app: user-service
   template:
-    metadata:
-      labels:
-        app: user-service
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: user-service
           resources:
@@ -99,32 +48,14 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: biometric-service
 spec:
-  selector:
-    matchLabels:
-      app: biometric-service
   template:
-    metadata:
-      labels:
-        app: biometric-service
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: biometric-service
           resources:
@@ -134,32 +65,14 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: training-service
 spec:
-  selector:
-    matchLabels:
-      app: training-service
   template:
-    metadata:
-      labels:
-        app: training-service
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: training-service
           resources:
@@ -169,32 +82,14 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: device-connector
 spec:
-  selector:
-    matchLabels:
-      app: device-connector
   template:
-    metadata:
-      labels:
-        app: device-connector
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: device-connector
           resources:
@@ -204,33 +99,14 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
-# FIX: Уменьшаем requests для ML-сервисов, чтобы они поместились на 2GB VPS
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ml-classifier
 spec:
-  selector:
-    matchLabels:
-      app: ml-classifier
   template:
-    metadata:
-      labels:
-        app: ml-classifier
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: ml-classifier
           resources:
@@ -240,32 +116,14 @@ spec:
             limits:
               cpu: 500m
               memory: 768Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ml-generator
 spec:
-  selector:
-    matchLabels:
-      app: ml-generator
   template:
-    metadata:
-      labels:
-        app: ml-generator
     spec:
-      securityContext:
-        runAsNonRoot: true
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-          - name: single-request-reopen
       containers:
         - name: ml-generator
           resources:
@@ -275,8 +133,3 @@ spec:
             limits:
               cpu: 500m
               memory: 768Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true

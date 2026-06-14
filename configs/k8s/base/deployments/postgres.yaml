@@ -46,10 +46,11 @@ spec:
             - containerPort: 5432
               name: postgres
           securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            runAsUser: 999
-            capabilities:
+             allowPrivilegeEscalation: false
+             runAsNonRoot: true
+             runAsUser: 999
+             runAsGroup: 999
+             capabilities:
               drop:
                 - ALL
           env:

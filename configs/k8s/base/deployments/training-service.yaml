@@ -27,6 +27,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
+        runAsGroup: 1001
         readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: ghcr-pull-secret
