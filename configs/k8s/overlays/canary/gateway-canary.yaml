@@ -12,23 +12,42 @@ spec:
       labels:
         app: gateway-canary
     spec:
+      automountServiceAccountToken: false
       securityContext:
-        
         runAsUser: 1001
+        runAsGroup: 1001
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: secrets
+        secret:
+          secretName: app-secrets
       containers:
       - name: gateway
         image: ghcr.io/mamuer/project/gateway:canary
         imagePullPolicy: Always
         securityContext:
-          
+          runAsUser: 1001
+          runAsGroup: 1001
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 8080
           name: http
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: secrets
+          mountPath: /etc/secrets
+          readOnly: true
         env:
         - name: GATEWAY_PORT
           valueFrom:
@@ -45,23 +64,20 @@ spec:
           value: "http://ml-classifier:8001"
         - name: ML_GENERATOR_URL
           value: "http://ml-generator:8002"
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: JWT_SECRET
+        - name: JWT_SECRET_FILE
+          value: "/etc/secrets/JWT_SECRET"
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 5
+            initialDelaySeconds: 15
+            periodSeconds: 5
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+            initialDelaySeconds: 5
+            periodSeconds: 5
         resources:
           requests:
             memory: "64Mi"
