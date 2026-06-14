@@ -1,14 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
   - prometheus
   - alertmanager
   - grafana
   - logstash
-
 namespace: fitness-platform-production
-
-commonLabels:
-  app.kubernetes.io/part-of: monitoring
-  zone: monitoring-zone
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: monitoring
+      zone: monitoring-zone
+    includeSelectors: true

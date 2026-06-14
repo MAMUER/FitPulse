@@ -33,5 +33,5 @@ exclude = [
     "vendor/",
     "build/",
     "dist/",
-    ".venv/"
+    ".venv/",
 ]

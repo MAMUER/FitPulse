@@ -7,15 +7,15 @@ Usage:
     python scripts/api-test.py --base-url https://localhost:8443
 """
 
-import os
-import sys
-import json
-import random
 import argparse
 import http.client
+import json
+import os
+import random
 import ssl
-from urllib.parse import urlsplit
+import sys
 from datetime import datetime
+from urllib.parse import urlsplit
 
 # === Configuration ===
 DEFAULT_BASE_URL = "https://localhost:8443"
@@ -109,7 +109,9 @@ class TestRunner:
         num = self.passed + self.failed + self.skipped + 1
         print(f"  [{num}] {name} ", end="", flush=True)
 
-        status, resp_body = self.request(method, path, body, token=token, expected_status=expected)
+        status, resp_body = self.request(
+            method, path, body, token=token, expected_status=expected
+        )
 
         if status is None:
             print(f"{RED}ERROR (connection){RESET}")
@@ -128,7 +130,8 @@ class TestRunner:
             print(f"{RED}FAIL (exp:{expected} got:{status}) — {preview}{RESET}")
 
         self.results.append(
-            f"{'PASS' if ok else 'FAIL'} | {method} {path} | Exp:{expected} | Act:{status} | {preview}"
+            f"{'PASS' if ok else 'FAIL'} | {method} {path} | "
+            f"Exp:{expected} | Act:{status} | {preview}"
         )
         return resp_body
 
@@ -170,30 +173,71 @@ def main():
     verify_token = ""
     if isinstance(resp, dict) and resp.get("message"):
         import re
+
         match = re.search(r"token \(dev only\):\s*([a-f0-9]+)", resp["message"])
         if match:
             verify_token = match.group(1)
 
     if verify_token:
-        t.test("Confirm Email", "POST", "/api/v1/auth/confirm",
-               body={"token": verify_token}, expected=200)
+        t.test(
+            "Confirm Email",
+            "POST",
+            "/api/v1/auth/confirm",
+            body={"token": verify_token},
+            expected=200,
+        )
 
     t.test("Register (dup)", "POST", "/api/v1/register", body=reg_body, expected=409)
-    t.test("Register (bad email)", "POST", "/api/v1/register",
-           body={"email": "bad", "password": TEST_PASSWORD, "full_name": "B", "role": "client"}, expected=400)
-    t.test("Register (short pw)", "POST", "/api/v1/register",
-           body={"email": "s@e.com", "password": "123", "full_name": "S", "role": "client"}, expected=400)
+    t.test(
+        "Register (bad email)",
+        "POST",
+        "/api/v1/register",
+        body={
+            "email": "bad",
+            "password": TEST_PASSWORD,
+            "full_name": "B",
+            "role": "client",
+        },
+        expected=400,
+    )
+    t.test(
+        "Register (short pw)",
+        "POST",
+        "/api/v1/register",
+        body={
+            "email": "s@e.com",
+            "password": "123",
+            "full_name": "S",
+            "role": "client",
+        },
+        expected=400,
+    )
 
     # Login
-    login_resp = t.test("Login", "POST", "/api/v1/login",
-                        body={"email": test_email, "password": TEST_PASSWORD}, expected=200)
+    login_resp = t.test(
+        "Login",
+        "POST",
+        "/api/v1/login",
+        body={"email": test_email, "password": TEST_PASSWORD},
+        expected=200,
+    )
     if isinstance(login_resp, dict) and login_resp.get("access_token"):
         t.token = login_resp["access_token"]
 
-    t.test("Login (wrong pw)", "POST", "/api/v1/login",
-           body={"email": test_email, "password": "wrong"}, expected=401)
-    t.test("Login (empty email)", "POST", "/api/v1/login",
-           body={"email": "", "password": TEST_PASSWORD}, expected=400)
+    t.test(
+        "Login (wrong pw)",
+        "POST",
+        "/api/v1/login",
+        body={"email": test_email, "password": "wrong"},
+        expected=401,
+    )
+    t.test(
+        "Login (empty email)",
+        "POST",
+        "/api/v1/login",
+        body={"email": "", "password": TEST_PASSWORD},
+        expected=400,
+    )
 
     if not t.token:
         print(f"\n{RED}No token obtained. Skipping auth tests.{RESET}")
@@ -202,28 +246,61 @@ def main():
     # 2. Profile
     section("2. PROFILE")
     t.test("Get Profile", "GET", "/api/v1/profile", token=t.token, expected=200)
-    t.test("Update Profile", "PUT", "/api/v1/profile",
-           body={"full_name": "API Test User", "age": 28, "gender": "male",
-                 "height_cm": 180, "weight_kg": 75.5,
-                 "fitness_level": "intermediate", "goals": ["weight_loss", "endurance"],
-                 "contraindications": ["knee"], "nutrition": "balanced", "sleep_hours": 7.5},
-           token=t.token, expected=200)
+    t.test(
+        "Update Profile",
+        "PUT",
+        "/api/v1/profile",
+        body={
+            "full_name": "API Test User",
+            "age": 28,
+            "gender": "male",
+            "height_cm": 180,
+            "weight_kg": 75.5,
+            "fitness_level": "intermediate",
+            "goals": ["weight_loss", "endurance"],
+            "contraindications": ["knee"],
+            "nutrition": "balanced",
+            "sleep_hours": 7.5,
+        },
+        token=t.token,
+        expected=200,
+    )
     t.test("Get Profile (after)", "GET", "/api/v1/profile", token=t.token, expected=200)
 
     # 3. Biometrics
     section("3. BIOMETRICS")
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    t.test("Add Biometric (HR)", "POST", "/api/v1/biometrics",
-           body={"metric_type": "heart_rate", "value": 72.0, "timestamp": now},
-           token=t.token, expected=201)
-    t.test("Add Biometric (SpO2)", "POST", "/api/v1/biometrics",
-           body={"metric_type": "spo2", "value": 98.0, "timestamp": now},
-           token=t.token, expected=201)
-    t.test("Add Biometric (neg)", "POST", "/api/v1/biometrics",
-           body={"metric_type": "heart_rate", "value": -10.0, "timestamp": now},
-           token=t.token, expected=400)
-    t.test("Get Biometrics", "GET", "/api/v1/biometrics?metric_type=heart_rate&limit=10",
-           token=t.token, expected=200)
+    t.test(
+        "Add Biometric (HR)",
+        "POST",
+        "/api/v1/biometrics",
+        body={"metric_type": "heart_rate", "value": 72.0, "timestamp": now},
+        token=t.token,
+        expected=201,
+    )
+    t.test(
+        "Add Biometric (SpO2)",
+        "POST",
+        "/api/v1/biometrics",
+        body={"metric_type": "spo2", "value": 98.0, "timestamp": now},
+        token=t.token,
+        expected=201,
+    )
+    t.test(
+        "Add Biometric (neg)",
+        "POST",
+        "/api/v1/biometrics",
+        body={"metric_type": "heart_rate", "value": -10.0, "timestamp": now},
+        token=t.token,
+        expected=400,
+    )
+    t.test(
+        "Get Biometrics",
+        "GET",
+        "/api/v1/biometrics?metric_type=heart_rate&limit=10",
+        token=t.token,
+        expected=200,
+    )
 
     # Logout
     t.test("Logout", "POST", "/api/v1/logout", token=t.token, expected=200)
@@ -235,21 +312,29 @@ def main():
     t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=404)
 
     # Re-login
-    lr = t.test("Re-login", "POST", "/api/v1/login",
-                body={"email": test_email, "password": TEST_PASSWORD}, expected=200)
+    lr = t.test(
+        "Re-login",
+        "POST",
+        "/api/v1/login",
+        body={"email": test_email, "password": TEST_PASSWORD},
+        expected=200,
+    )
     if isinstance(lr, dict) and lr.get("access_token"):
         t.token = lr["access_token"]
 
     # 5. Training
     section("5. TRAINING")
     t.test("Get Plans", "GET", "/api/v1/training/plans", token=t.token, expected=200)
-    t.test("Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200)
+    t.test(
+        "Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200
+    )
 
     # 6. ML
     section("6. ML")
     # ML может вернуть 202 (async job) или 200 (sync result)
-    ml_resp = t.test("ML Classify", "POST", "/api/v1/ml/classify",
-                     token=t.token, expected=200)
+    ml_resp = t.test(
+        "ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200
+    )
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 

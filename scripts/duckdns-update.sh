@@ -19,10 +19,10 @@ if [ -z "$DUCKDNS_TOKEN" ]; then
 fi
 
 # Get current public IP
-CURRENT_IP=$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null || \
-             curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || \
-             curl -sf --max-time 5 https://icanhazip.com 2>/dev/null || \
-             echo "")
+CURRENT_IP=$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null ||
+    curl -sf --max-time 5 https://ifconfig.me 2>/dev/null ||
+    curl -sf --max-time 5 https://icanhazip.com 2>/dev/null ||
+    echo "")
 
 if [ -z "$CURRENT_IP" ]; then
     echo "$(date): Failed to determine public IP"

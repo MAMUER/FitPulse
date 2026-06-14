@@ -5,7 +5,7 @@
 echo "Running secret scan with TruffleHog..."
 
 # Check if trufflehog is installed
-if ! command -v trufflehog &> /dev/null; then
+if ! command -v trufflehog &>/dev/null; then
     echo " TruffleHog not found. Please install it:"
     echo "   go install github.com/trufflesecurity/trufflehog/v3@latest"
     echo "   or visit https://github.com/trufflesecurity/trufflehog"

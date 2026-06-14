@@ -50,6 +50,7 @@ POST /generate-plan with:
 ```
 
 ## Plan Features (19 dimensions)
+
 | Index | Feature | Range |
 |-------|---------|-------|
 | 0 | duration_minutes | 0-100 |

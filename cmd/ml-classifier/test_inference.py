@@ -6,28 +6,32 @@ Run this to validate the model before deleting raw data.
 
 # === Подавление CUDA / TensorFlow шума (должно быть самым первым) ===
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 # === конец ===
 
-import pandas as pd
-import joblib
 from pathlib import Path
+
+import joblib
 import keras
 import numpy as np
+import pandas as pd
 
 # Paths (adjusted for container layout where code is in /app/cmd)
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent.parent   # /app
+PROJECT_ROOT = SCRIPT_DIR.parent.parent  # /app
 MODELS_DIR = PROJECT_ROOT / "models"
 DATA_PATH = PROJECT_ROOT / "datasets" / "processed" / "training_data_real_v3.csv"
+
 
 def find_latest_model():
     models = sorted(MODELS_DIR.glob("classifier_*.keras"))
     if models:
         return models[-1]
     return MODELS_DIR / "classifier.keras"
+
 
 def load_latest_model_and_scaler():
     model_path = find_latest_model()
@@ -41,16 +45,21 @@ def load_latest_model_and_scaler():
 
     return model, scaler
 
+
 def predict_sample(model, scaler, row):
-    features = np.array([[
-        row["hr"],
-        row["hrv"],
-        row["spo2"],
-        row["temp"],
-        row["bp_s"],
-        row["bp_d"],
-        row["sleep"]
-    ]])
+    features = np.array(
+        [
+            [
+                row["hr"],
+                row["hrv"],
+                row["spo2"],
+                row["temp"],
+                row["bp_s"],
+                row["bp_d"],
+                row["sleep"],
+            ]
+        ]
+    )
 
     features_scaled = scaler.transform(features)
     features_scaled = np.nan_to_num(features_scaled, nan=0.0)
@@ -60,6 +69,7 @@ def predict_sample(model, scaler, row):
     confidence = float(probs[pred_class])
 
     return pred_class, confidence, probs
+
 
 def main():
     print("=== Classifier Inference Test ===\n")
@@ -89,13 +99,16 @@ def main():
         if pred_label == true_label:
             correct += 1
 
-        print(f"Sample {idx+1:2d} | True: {true_label} | Pred: {pred_label} | "
-              f"Conf: {confidence:.3f} | {status}")
+        print(
+            f"Sample {idx+1:2d} | True: {true_label} | Pred: {pred_label} | "
+            f"Conf: {confidence:.3f} | {status}"
+        )
 
     accuracy = correct / len(test_df)
     print(f"\n=== Test Accuracy on {len(test_df)} samples: {accuracy:.1%} ===")
 
     print("\nModel is working. You can safely delete the raw data now if you want.")
+
 
 if __name__ == "__main__":
     main()

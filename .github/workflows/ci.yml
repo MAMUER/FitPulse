@@ -331,6 +331,11 @@ jobs:
           DEFAULT_BRANCH: "Microservice_arc"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
+          # Super-Linter output
+          ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: true
+          SAVE_SUPER_LINTER_SUMMARY: true
+          
           # Exclude patterns
           FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
           
@@ -356,6 +361,13 @@ jobs:
           
           # Markdown validation
           VALIDATE_MARKDOWN: true
+
+          # Python linters config files
+          PYTHON_FLAKE8_CONFIG_FILE: .flake8
+          PYTHON_BLACK_CONFIG_FILE: pyproject.toml
+          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
+          PYTHON_MYPY_CONFIG_FILE: pyproject.toml
+          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml-generator/main.py"
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================

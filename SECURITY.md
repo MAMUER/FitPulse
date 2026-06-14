@@ -110,7 +110,7 @@
 ## Контакты
 
 - **GitHub Issues**: [Create a security advisory](https://github.com/your-org/fitpulse/security/advisories)
-- **Email**: security@fitpulse.local (если настроено)
+- **Email**: [security@fitpulse.local](mailto:security@fitpulse.local) (если настроено)
 
 ---
 

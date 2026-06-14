@@ -1,34 +1,31 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 namespace: fitness-platform-production
-
 resources:
   - ../../base
   - ingress.yaml
   - gateway-nodeport.yaml
   - hpa.yaml
-  - replica-gateway.yaml
-  - replica-user-service.yaml
-  - replica-biometric-service.yaml
-  - replica-training-service.yaml
-  - replica-device-connector.yaml
-  - replica-ml-classifier.yaml
-  - replica-ml-generator.yaml
-  - resource-redis.yaml
-  - resource-gateway.yaml
-  - resource-user-service.yaml
-  - resource-biometric-service.yaml
-  - resource-training-service.yaml
-  - resource-device-connector.yaml
-  - resource-ml-classifier.yaml
-  - resource-ml-generator.yaml
   - configmap-patch.yaml
-
+patches:
+  - path: replica-gateway.yaml
+  - path: replica-user-service.yaml
+  - path: replica-biometric-service.yaml
+  - path: replica-training-service.yaml
+  - path: replica-device-connector.yaml
+  - path: replica-ml-classifier.yaml
+  - path: replica-ml-generator.yaml
+  - path: replicas-patch.yaml
+  - path: resource-gateway.yaml
+  - path: resource-user-service.yaml
+  - path: resource-biometric-service.yaml
+  - path: resource-training-service.yaml
+  - path: resource-device-connector.yaml
+  - path: resource-ml-classifier.yaml
+  - path: resource-ml-generator.yaml
 labels:
   - pairs:
       environment: production
-
 images:
   - name: ghcr.io/mamuer/project/user-service
     newTag: ${IMAGE_TAG:-latest}

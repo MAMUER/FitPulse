@@ -2,12 +2,10 @@
 
 ignored:
   # DL3018: Pin versions in apk add.
-  # We intentionally skip version pinning for Alpine packages because:
-  # 1. The Alpine version is already pinned via the base image (e.g., golang:1.26-alpine)
-  # 2. apk installs from that specific Alpine release's repository, so "incompatible versions"
-  #    cannot arrive unexpectedly.
-  # 3. Hard-pinning (e.g., git=2.52.0-r0) breaks builds whenever Alpine updates its repo,
-  #    requiring constant manual maintenance.
+  # We intentionally skip version pinning for Alpine packages:
+  # 1. The Alpine version is pinned by the base image (golang:1.26-alpine / alpine:3.24).
+  # 2. `apk add` resolves from that specific release, so unpinned names are broadly stable.
+  # 3. Hard pinning would require exact per-image package hashes (e.g. git=X-r0).
   - DL3018
 
   # DL3008: Pin versions in apt get install.
