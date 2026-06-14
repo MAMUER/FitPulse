@@ -5,7 +5,7 @@ echo "=============================================="
 echo "ПОЛНОЕ ОБУЧЕНИЕ НА ВСЕХ ДАТАСЕТАХ"
 echo "=============================================="
 
-cd cmd/ml-classifier
+cd cmd/ml-classifier || exit
 
 echo ""
 echo "Шаг 1: Препроцессинг ВСЕХ датасетов..."
@@ -18,7 +18,7 @@ python train.py
 
 echo ""
 echo "Шаг 3: Обучение GAN-генератора..."
-cd ../ml-generator
+cd ../ml-generator || exit
 python train_gan.py
 
 echo ""

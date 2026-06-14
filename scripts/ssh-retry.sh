@@ -15,18 +15,19 @@ MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
 DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
 TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
 
-COMMON_OPTS="-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60"
+COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60)
 
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
   echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
-  COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${BASTION_USER}@${BASTION_HOST}"
+  COMMON_OPTS+=("-o" "ProxyJump=${BASTION_USER}@${BASTION_HOST}")
 elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
   echo "-> Using jump host: ${SSH_JUMP_HOST}"
-  COMMON_OPTS="$COMMON_OPTS -o ProxyJump=${SSH_JUMP_HOST}"
+  COMMON_OPTS+=("-o" "ProxyJump=${SSH_JUMP_HOST}")
 fi
 
 if [[ -n "${SSH_OPTS:-}" ]]; then
-  COMMON_OPTS="$COMMON_OPTS $SSH_OPTS"
+  read -r -a EXTRA_SSH_OPTS <<< "$SSH_OPTS"
+  COMMON_OPTS+=("${EXTRA_SSH_OPTS[@]}")
 fi
 
 TARGET=""
@@ -54,13 +55,13 @@ while true; do
     echo "-> Target : $TARGET"
     if [[ -n "$COMMAND" ]]; then
       echo "-> Command: ${COMMAND:0:200}..."
-      if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" bash -s; then
+      if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
         echo "Success on attempt $attempt"
         exit 0
       fi
     else
       echo "-> Reading command from stdin..."
-      if timeout "$TIMEOUT" ssh $COMMON_OPTS "$TARGET" bash -s; then
+      if timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
         echo "Success on attempt $attempt"
         exit 0
       fi
@@ -68,7 +69,7 @@ while true; do
   else
     echo "-> Source : $SRC"
     echo "-> Dest   : $DEST"
-    if timeout "$TIMEOUT" scp $COMMON_OPTS "$SRC" "$DEST"; then
+    if timeout "$TIMEOUT" scp "${COMMON_OPTS[@]}" "$SRC" "$DEST"; then
       echo "Success on attempt $attempt"
       exit 0
     fi

@@ -15,7 +15,7 @@ fi
 # Run TruffleHog on staged changes
 trufflehog git file://. --since-commit HEAD --only-verified --fail
 
-if [ $? -ne 0 ]; then
+if ! trufflehog git file://. --since-commit HEAD --only-verified --fail; then
     echo ""
     echo "POTENTIAL SECRETS DETECTED!"
     echo "   Remove sensitive data from your changes before committing."
