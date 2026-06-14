@@ -2,6 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: gateway-hpa
+  namespace: fitness-platform-production
   labels:
     environment: production
 spec:
@@ -29,6 +30,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: user-service-hpa
+  namespace: fitness-platform-production
   labels:
     environment: production
 spec:
@@ -50,6 +52,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: biometric-service-hpa
+  namespace: fitness-platform-production
   labels:
     environment: production
 spec:
@@ -71,6 +74,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: training-service-hpa
+  namespace: fitness-platform-production
   labels:
     environment: production
 spec:

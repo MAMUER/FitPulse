@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: gateway
   namespace: fitness-platform-production
 spec:
   template:
     spec:
       containers:
-        - name: redis
+        - name: gateway
           resources:
             requests:
-              cpu: 25m
-              memory: 32Mi
-            limits:
-              cpu: 100m
+              cpu: 50m
               memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
