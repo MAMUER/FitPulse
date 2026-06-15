@@ -10,12 +10,12 @@
 
 ### Уровни серьёзности
 
-| Уровень | Влияние | Время реакции | Время исправления | Эскалация |
-|---------|---------|--------------|-------------------|-----------|
-| **SEV-1** | Полный downtime сервиса, риск потери данных | 15 мин | 1 час | Немедленный PagerDuty → Tech Lead → CTO |
-| **SEV-2** | Сервис деградирован, частичная потеря функциональности | 1 час | 4 часа | Slack → дежурный инженер → Tech Lead |
-| **SEV-3** | Мелкие проблемы, влияние на UX | 4 часа | 2 недели | Slack → дежурный инженер |
-| **SEV-4** | Нет непосредственного влияния на пользователей | 24 часа | Следующий релиз | Очередь тикетов |
+|Уровень|Влияние|Время реакции|Время исправления|Эскалация|
+|---|---|---|---|---|
+|**SEV-1**|Полный downtime сервиса, риск потери данных|15 мин|1 час|Немедленный PagerDuty → Tech Lead → CTO|
+|**SEV-2**|Сервис деградирован, частичная потеря функциональности|1 час|4 часа|Slack → дежурный инженер → Tech Lead|
+|**SEV-3**|Мелкие проблемы, влияние на UX|4 часа|2 недели|Slack → дежурный инженер|
+|**SEV-4**|Нет непосредственного влияния на пользователей|24 часа|Следующий релиз|Очередь тикетов|
 
 ---
 
@@ -82,7 +82,7 @@ curl http://device-aggregator:8083/health
 ```
 
 **Действия Communications**:
-- Обновить статус-страницу: https://status.fitpulse.app
+- Обновить статус-страницу: [status.fitpulse.app](https://status.fitpulse.app)
 - Оповестить в `#general-incidents`
 - Подготовить заявление: «Идёт работа над восстановлением сервиса...»
 
@@ -157,7 +157,7 @@ kubectl top pod -n fitness-platform --containers
 
 3. **Уведомление** (4–24 часа)
    - Уведомить затронутых пользователей (email-шаблон у security-команды).
-   - Подать инцидент-репорт вLegal.
+   - Подать инцидент-репорт в Legal.
    - Уведомить Роскомнадзор при необходимости (152-ФЗ).
 
 4. **Ремедиация** (24+ часов)
@@ -178,7 +178,7 @@ kubectl top pod -n fitness-platform --containers
 
 ### Начальный статус
 
-```
+```text
 ИНЦИДЕНТ: Деградация API сервиса
 Начало: 2026-05-06T14:30Z
 Влияние: ~10% пользователей испытывают таймауты
@@ -188,7 +188,7 @@ kubectl top pod -n fitness-platform --containers
 
 ### Разрешение
 
-```
+```text
 РЕШЕНО: Деградация API сервиса
 Длительность: 45 минут
 Причина: Исчерпан пул соединений к БД из-за memory leak в biometric-service
@@ -198,7 +198,7 @@ Fix: Выпущен и развёрнут патч biometric-service v2.1.1
 
 ### Post-Mortem
 
-```
+```text
 Post-Mortem: Деградация API сервиса (2026-05-06)
 
 Хронология:
@@ -224,14 +224,14 @@ Action Items:
 
 ## Инструменты и доступы
 
-| Инструмент | URL / Путь | Назначение |
-|-----------|-----------|-----------|
-| PagerDuty | https://fitpulse.pagerduty.com | Трекинг инцидентов and on-call |
-| Slack | `#incidents`, `#alerts`, `#general-incidents` | Коммуникация |
-| Grafana | https://grafana.fitpulse.app:3000 | Дашборды and метрики |
-| Kibana | https://kibana.fitpulse.app:5601 | Логи и анализ |
-| Kubernetes | `kubectl` | Оркестрация контейнеров |
-| Status Page | https://status.fitpulse.app | Публичный статус сервисов |
+|Инструмент|URL / Путь|Назначение|
+|---|---|---|
+|PagerDuty|[fitpulse.pagerduty.com](https://fitpulse.pagerduty.com)|Трекинг инцидентов and on-call|
+|Slack|`#incidents`, `#alerts`, `#general-incidents`|Коммуникация|
+|Grafana|[grafana.fitpulse.app:3000](https://grafana.fitpulse.app:3000)|Дашборды and метрики|
+|Kibana|[kibana.fitpulse.app:5601](https://kibana.fitpulse.app:5601)|Логи и анализ|
+|Kubernetes|`kubectl`|Оркестрация контейнеров|
+|Status Page|[status.fitpulse.app](https://status.fitpulse.app)|Публичный статус сервисов|
 
 ---
 
@@ -253,18 +253,18 @@ Action Items:
 
 При расследовании учитывать все активные компоненты проекта:
 
-| Сервис | Namespace label | Health endpoint | Логи |
-|--------|----------------|-----------------|------|
-| Gateway | `app=gateway` | `https://<host>:8443/health` | `kubectl logs -f deployment/gateway` |
-| User Service | `app=user-service` | gRPC health | `kubectl logs -f deployment/user-service` |
-| Biometric Service | `app=biometric-service` | gRPC health | `kubectl logs -f deployment/biometric-service` |
-| Training Service | `app=training-service` | gRPC health | `kubectl logs -f deployment/training-service` |
-| Device Connector | `app=device-connector` | `http://device-connector:8082/health` | `kubectl logs -f deployment/device-connector` |
-| Device Aggregator | `app=device-aggregator` | `http://device-aggregator:8083/health` | `kubectl logs -f deployment/device-aggregator` |
-| ML Classifier | `app=ml-classifier` | `http://ml-classifier:8001/health` | `kubectl logs -f deployment/ml-classifier` |
-| ML Generator | `app=ml-generator` | `http://ml-generator:8002/health` | `kubectl logs -f deployment/ml-generator` |
+|Сервис|Namespace label|Health endpoint|Логи|
+|---|---|---|---|
+|Gateway|`app=gateway`|`https://<host>:8443/health`|`kubectl logs -f deployment/gateway`|
+|User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
+|Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
+|Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
+|Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
+|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
+|ML Classifier|`app=ml-classifier`|`http://ml-classifier:8001/health`|`kubectl logs -f deployment/ml-classifier`|
+|ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 
 ---
 
-**Последнее обновление**: 2026-06-07  
+**Последнее обновление**: 2026-06-15 
 **Ведёт**: Security & Platform Teams

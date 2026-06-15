@@ -102,24 +102,16 @@ def create_classifier_model(input_shape=7, num_classes=4):
         [
             layers.Input(shape=(input_shape,)),
             layers.GaussianNoise(0.05),
-            layers.Dense(
-                256, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)
-            ),
+            layers.Dense(256, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)),
             layers.BatchNormalization(),
             layers.Dropout(0.4),
-            layers.Dense(
-                128, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)
-            ),
+            layers.Dense(128, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)),
             layers.BatchNormalization(),
             layers.Dropout(0.4),
-            layers.Dense(
-                64, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)
-            ),
+            layers.Dense(64, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)),
             layers.BatchNormalization(),
             layers.Dropout(0.3),
-            layers.Dense(
-                32, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)
-            ),
+            layers.Dense(32, activation="relu", kernel_regularizer=keras.regularizers.l2(0.003)),
             layers.BatchNormalization(),
             layers.Dropout(0.3),
             layers.Dense(num_classes, activation="softmax"),
@@ -142,9 +134,7 @@ def train_model():
     print("=" * 70)
 
     # === MLflow: начало трекинга ===
-    with mlflow.start_run(
-        run_name=f"v3_{datetime.now().strftime('%Y%m%d_%H%M')}"
-    ) as run:
+    with mlflow.start_run(run_name=f"v3_{datetime.now().strftime('%Y%m%d_%H%M')}") as run:
         run_id = run.info.run_id
         print(f"\n🔬 MLflow Run ID: {run_id}")
 
@@ -204,14 +194,10 @@ def train_model():
         mlflow.log_text("\n".join(model_summary), "model_architecture.txt")
 
         print("\n⚖️ Расчет весов классов...")
-        class_weights = compute_class_weight(
-            "balanced", classes=np.unique(y_train), y=y_train
-        )
+        class_weights = compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
         class_weight_dict = dict(enumerate(class_weights))
         print(f"Веса классов: {class_weight_dict}")
-        mlflow.log_params(
-            {f"class_weight_{i}": float(w) for i, w in class_weight_dict.items()}
-        )
+        mlflow.log_params({f"class_weight_{i}": float(w) for i, w in class_weight_dict.items()})
 
         early_stop = callbacks.EarlyStopping(
             monitor="val_loss", patience=5, restore_best_weights=True, verbose=1
@@ -374,9 +360,7 @@ def train_model():
         print(f"\n✅ Model logged to MLflow: {mlflow.get_artifact_uri('model')}")
         print("\n" + "=" * 70)
         print("ОБУЧЕНИЕ ЗАВЕРШЕНО!")
-        print(
-            f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}"
-        )
+        print(f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}")
         print("=" * 70)
 
         return model, scaler

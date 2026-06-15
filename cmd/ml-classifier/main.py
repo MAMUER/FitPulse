@@ -114,12 +114,8 @@ class PhysiologicalData(BaseModel):
     """Input physiological parameters"""
 
     heart_rate: float = Field(..., description="Heart rate (bpm)", ge=40, le=220)
-    heart_rate_variability: Optional[float] = Field(
-        None, description="HRV (ms)", ge=0, le=200
-    )
-    spo2: Optional[float] = Field(
-        None, description="Blood oxygen saturation (%)", ge=80, le=100
-    )
+    heart_rate_variability: Optional[float] = Field(None, description="HRV (ms)", ge=0, le=200)
+    spo2: Optional[float] = Field(None, description="Blood oxygen saturation (%)", ge=80, le=100)
     temperature: Optional[float] = Field(
         None, description="Body temperature (°C)", ge=35.0, le=42.0
     )
@@ -137,9 +133,7 @@ class UserProfile(BaseModel):
 
     gender: str = Field(..., description="Gender (male/female)")
     age: int = Field(..., description="Age", ge=10, le=100)
-    fitness_level: str = Field(
-        ..., description="Fitness level (beginner/intermediate/advanced)"
-    )
+    fitness_level: str = Field(..., description="Fitness level (beginner/intermediate/advanced)")
     weight: Optional[float] = Field(None, description="Weight (kg)", ge=30, le=200)
     height: Optional[float] = Field(None, description="Height (cm)", ge=100, le=250)
     health_conditions: Optional[List[str]] = Field(
@@ -186,9 +180,7 @@ def load_models():
         if latest_model != stable_model:
             try:
                 shutil.copy2(latest_model, stable_model)
-                print(
-                    f"🔄 Updated stable model: classifier.keras ← {latest_model.name}"
-                )
+                print(f"🔄 Updated stable model: classifier.keras ← {latest_model.name}")
             except Exception as e:
                 print(f" Could not sync classifier.keras: {e}")
 
@@ -223,9 +215,7 @@ def init_async():
     global redis_client, rabbitmq_url, ml_async_enabled
 
     if not ASYNC_DEPS_AVAILABLE:
-        print(
-            "Async mode requested but pika/redis not installed. Running in sync mode."
-        )
+        print("Async mode requested but pika/redis not installed. Running in sync mode.")
         return
 
     ml_async_enabled = os.environ.get("ML_ASYNC", "").lower() == "true"
@@ -237,9 +227,7 @@ def init_async():
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     try:
-        redis_client = redis.Redis(
-            host=redis_host, port=redis_port, decode_responses=True
-        )
+        redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
         redis_client.ping()
         print(f"Redis connected at {redis_host}:{redis_port}")
     except Exception as e:
@@ -249,9 +237,7 @@ def init_async():
         return
 
     # Start multiple RabbitMQ consumer threads for better concurrency
-    num_consumers = int(
-        os.environ.get("ML_CONSUMER_THREADS", 3)
-    )  # Default to 3 threads
+    num_consumers = int(os.environ.get("ML_CONSUMER_THREADS", 3))  # Default to 3 threads
     for i in range(num_consumers):
         consumer_thread = threading.Thread(
             target=_run_rabbitmq_consumer,
@@ -311,23 +297,11 @@ def _on_classify_message(channel, method, properties, body):
         pd = type("PhysioData", (), physio_data)  # Simple object from dict
         features = [
             pd.heart_rate,
-            (
-                pd.heart_rate_variability
-                if pd.heart_rate_variability is not None
-                else 50.0
-            ),
+            (pd.heart_rate_variability if pd.heart_rate_variability is not None else 50.0),
             pd.spo2 if pd.spo2 is not None else 98.0,
             pd.temperature if pd.temperature is not None else 37.0,
-            (
-                pd.blood_pressure_systolic
-                if pd.blood_pressure_systolic is not None
-                else 120.0
-            ),
-            (
-                pd.blood_pressure_diastolic
-                if pd.blood_pressure_diastolic is not None
-                else 80.0
-            ),
+            (pd.blood_pressure_systolic if pd.blood_pressure_systolic is not None else 120.0),
+            (pd.blood_pressure_diastolic if pd.blood_pressure_diastolic is not None else 80.0),
             pd.sleep_hours if pd.sleep_hours is not None else 7.0,
         ]
 
@@ -412,9 +386,7 @@ def _do_classify(physiological_data, user_profile=None):
             notes.append("Учитывайте возраст при планировании восстановления")
 
         if up.get("health_conditions"):
-            notes.append(
-                f"Проконсультируйтесь с врачом при: {', '.join(up['health_conditions'])}"
-            )
+            notes.append(f"Проконсультируйтесь с врачом при: {', '.join(up['health_conditions'])}")
 
         if up.get("goals"):
             goals_lower = [g.lower() for g in up["goals"]]
@@ -428,8 +400,7 @@ def _do_classify(physiological_data, user_profile=None):
         "predicted_class_ru": class_info["name_ru"],
         "confidence": round(confidence, 4),
         "probabilities": {
-            TRAINING_CLASSES[i]["name"]: round(float(p), 4)
-            for i, p in enumerate(probabilities)
+            TRAINING_CLASSES[i]["name"]: round(float(p), 4) for i, p in enumerate(probabilities)
         },
         "description": class_info["description"],
         "hr_range": class_info["hr_range"],
@@ -473,9 +444,7 @@ async def classify_training(request: ClassificationRequest):
 
     try:
         physio_dict = request.physiological_data.dict()
-        user_profile_dict = (
-            request.user_profile.dict() if request.user_profile else None
-        )
+        user_profile_dict = request.user_profile.dict() if request.user_profile else None
 
         result = _do_classify(physio_dict, user_profile_dict)
 

@@ -91,9 +91,7 @@ class UserProfile(BaseModel):
     )
     weight: Optional[float] = Field(70.0, description="Weight (kg)", ge=30, le=200)
     height: Optional[float] = Field(170.0, description="Height (cm)", ge=100, le=250)
-    health_conditions: Optional[List[str]] = Field(
-        None, description="Health conditions"
-    )
+    health_conditions: Optional[List[str]] = Field(None, description="Health conditions")
     goals: Optional[List[str]] = Field(None, description="Training goals")
     lifestyle: Optional[Dict] = Field(
         None, description="Lifestyle factors (nutrition, sleep, etc.)"
@@ -160,9 +158,7 @@ def init_async():
     global redis_client, rabbitmq_url, ml_async_enabled
 
     if not ASYNC_DEPS_AVAILABLE:
-        print(
-            "Async mode requested but pika/redis not installed. Running in sync mode."
-        )
+        print("Async mode requested but pika/redis not installed. Running in sync mode.")
         return
 
     ml_async_enabled = os.environ.get("ML_ASYNC", "").lower() == "true"
@@ -174,9 +170,7 @@ def init_async():
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     try:
-        redis_client = redis.Redis(
-            host=redis_host, port=redis_port, decode_responses=True
-        )
+        redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
         redis_client.ping()
         print(f"Redis connected at {redis_host}:{redis_port}")
     except Exception as e:
@@ -347,13 +341,9 @@ def encode_user_profile(profile: UserProfile) -> np.ndarray:
     return encoded.reshape(1, -1)
 
 
-def decode_plan(
-    plan_vector: np.ndarray, training_class: str, user_profile: UserProfile
-) -> dict:
+def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: UserProfile) -> dict:
     """Decode GAN output (19 dimensions) to training plan"""
-    template = TRAINING_TEMPLATES.get(
-        training_class, TRAINING_TEMPLATES["endurance_e1e2"]
-    )
+    template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES["endurance_e1e2"])
 
     duration = int(plan_vector[0] * 100)
     intensity = plan_vector[1]
@@ -361,26 +351,20 @@ def decode_plan(
 
     equipment_dist = plan_vector[4:12]
     primary_exercise_idx = int(np.argmax(equipment_dist))
-    primary_exercise = template["exercises"][
-        primary_exercise_idx % len(template["exercises"])
-    ]
+    primary_exercise = template["exercises"][primary_exercise_idx % len(template["exercises"])]
 
     warmup = int(plan_vector[12] * 100)
     cooldown = int(plan_vector[13] * 100)
 
     # Build session structure
     session_structure = [
-        Exercise(
-            name="Разминка", duration_minutes=max(5, min(20, warmup)), intensity=0.3
-        ),
+        Exercise(name="Разминка", duration_minutes=max(5, min(20, warmup)), intensity=0.3),
         Exercise(
             name=primary_exercise,
             duration_minutes=int(duration * 0.6),
             intensity=intensity,
         ),
-        Exercise(
-            name="Заминка", duration_minutes=max(5, min(20, cooldown)), intensity=0.3
-        ),
+        Exercise(name="Заминка", duration_minutes=max(5, min(20, cooldown)), intensity=0.3),
     ]
 
     # Build notes
@@ -424,8 +408,7 @@ def decode_plan(
         "cooldown_minutes": max(5, min(20, cooldown)),
         "exercises": template["exercises"],
         "session_structure": [
-            e.model_dump() if hasattr(e, "model_dump") else e.dict()
-            for e in session_structure
+            e.model_dump() if hasattr(e, "model_dump") else e.dict() for e in session_structure
         ],
         "notes": notes,
         "weekly_schedule": weekly_schedule,
@@ -442,9 +425,7 @@ async def generate_plan(request: PlanGenerationRequest):
         raise HTTPException(status_code=503, detail="Generator not loaded")
 
     try:
-        plan = _do_generate_plan(
-            request.training_class, request.user_profile, request.preferences
-        )
+        plan = _do_generate_plan(request.training_class, request.user_profile, request.preferences)
         classification_confidence.labels(
             model_version=getattr(generator, "name", "unknown"),
             class_name=request.training_class,

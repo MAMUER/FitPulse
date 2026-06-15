@@ -175,16 +175,18 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Phase
 
 ## Сроки (оценочно)
 
-| Этап | Срок | Ответственный |
-|------|------|---------------|
-| Infra provisioning (VPS + k8s) | 2-3 недели | DevOps |
-| Vault + Secrets | 1 неделя | DevOps/Backend |
-| PostgreSQL HA | 2 недели | DBA/DevOps |
-| Redis Cluster | 1 неделя | DevOps |
-| mTLS / Service Mesh | 2 недели | Platform |
-| Compliance (152-ФЗ) | 4-6 недель | Legal/DevOps |
-| Backup DR | 1-2 недели | DevOps |
-| Observability расширение | 1 неделя | Platform |
+## Сроки (оценочно)
+
+|Этап|Срок|Ответственный|
+|---|---|---|
+|Infra provisioning (VPS + k8s)|2-3 недели|DevOps|
+|Vault + Secrets|1 неделя|DevOps/Backend|
+|PostgreSQL HA|2 недели|DBA/DevOps|
+|Redis Cluster|1 неделя|DevOps|
+|mTLS / Service Mesh|2 недели|Platform|
+|Compliance (152-ФЗ)|4-6 недель|Legal/DevOps|
+|Backup DR|1-2 недели|DevOps|
+|Observability расширение|1 неделя|Platform|
 
 **Итого Phase 2: 3-4 месяца**
 

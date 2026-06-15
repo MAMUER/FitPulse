@@ -386,7 +386,7 @@ flyway undo -target=previous_version
 
 **Требование**: > 99.9% uptime annually
 
-```
+```text
 Calculation: (total_minutes - downtime_minutes) / total_minutes * 100
 Monitoring: Prometheus uptime probe + synthetic transactions
 ```

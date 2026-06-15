@@ -52,9 +52,7 @@ import tensorflow as tf
 tf.get_logger().setLevel("ERROR")
 
 SCRIPT_DIR = Path(__file__).parent.parent.parent
-TRAINING_DATA_PATH = (
-    SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
-)
+TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
 PLAN_DIM = 19
 
 
@@ -75,9 +73,7 @@ class TrainingPlanGAN:
         x = layers.Dropout(0.2)(x)
         x = layers.Dense(256, activation="relu")(x)
         x = layers.BatchNormalization()(x)
-        output = layers.Dense(self.plan_dim, activation="sigmoid", name="plan_output")(
-            x
-        )
+        output = layers.Dense(self.plan_dim, activation="sigmoid", name="plan_output")(x)
         model = models.Model(inputs=input_latent, outputs=output, name="generator")
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
@@ -108,17 +104,13 @@ class TrainingPlanGAN:
         if "plan_vector" in df.columns:
             import ast
 
-            plans = np.array(
-                [ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32
-            )
+            plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
         else:
             plans = df.iloc[:, : self.plan_dim].values.astype(np.float32)
         return plans
 
     def train(self, epochs=500, batch_size=64, save_interval=50):
-        with mlflow.start_run(
-            run_name=f"gan_v1_{datetime.now().strftime('%Y%m%d_%H%M')}"
-        ) as run:
+        with mlflow.start_run(run_name=f"gan_v1_{datetime.now().strftime('%Y%m%d_%H%M')}") as run:
             mlflow.log_params(
                 {
                     "latent_dim": self.latent_dim,
@@ -138,9 +130,7 @@ class TrainingPlanGAN:
 
             print("\n[1/4] Loading training data...")
             real_plans = self.load_real_data()
-            print(
-                f"Loaded {len(real_plans)} training plans with {real_plans.shape[1]} features"
-            )
+            print(f"Loaded {len(real_plans)} training plans with {real_plans.shape[1]} features")
 
             mlflow.log_param("training_samples", len(real_plans))
             mlflow.log_param("feature_dim", real_plans.shape[1])
@@ -212,9 +202,7 @@ class TrainingPlanGAN:
 
             print("\n[4/4] Training Complete!")
             print("=" * 60)
-            print(
-                f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}"
-            )
+            print(f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}")
 
             return self.generator, history
 
