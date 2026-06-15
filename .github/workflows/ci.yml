@@ -425,7 +425,7 @@ jobs:
           wait-for-processing: true
 
       - name: Cache CodeQL databases
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.codeql
           key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py') }}
