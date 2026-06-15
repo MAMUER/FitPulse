@@ -8,7 +8,7 @@ scikit-learn==1.9.0       # Совместимо
 matplotlib==3.11.0        # Совместимо
 # API
 uvicorn==0.49.0           # Стабильная версия
-fastapi==0.137.0          # Стабильная версия
+fastapi==0.137.1          # Стабильная версия
 pydantic==2.13.4          # Совместимо с FastAPI
 python-multipart==0.0.32  # Patched version (DoS fix + path traversal fix)
 # Utils
