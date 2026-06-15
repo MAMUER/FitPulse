@@ -17,7 +17,7 @@ USER mluser
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install dependencies (cached layer)
-COPY --chown=mluser:mluser cmd/ml-generator/requirements.txt /tmp/requirements.txt
+COPY --chown=mluser:mluser cmd/ml_generator/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade pip==25.2 setuptools==81.0 wheel==0.45.1 && \
     python -m pip install --no-cache-dir --retries 5 --timeout 120 -r /tmp/requirements.txt
 
