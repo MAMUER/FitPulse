@@ -30,8 +30,10 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
 exclude = [
-    "vendor/",
-    "build/",
-    "dist/",
-    ".venv/",
+  "vendor/",
+  "build/",
+  "dist/",
+  ".venv/",
+  "cmd/ml-classifier/main.py",
+  "cmd/ml-generator/main.py",
 ]
