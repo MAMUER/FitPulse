@@ -4,7 +4,7 @@ FROM golang:1.26-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
-RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20260611-r0
+RUN apk add --no-cache git=2.54.0-r0 ca-certificates=20260611-r0
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

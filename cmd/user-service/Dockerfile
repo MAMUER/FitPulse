@@ -7,7 +7,7 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
 
-RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20260611-r0
+RUN apk add --no-cache git=2.54.0-r0 ca-certificates=20260611-r0
 
 WORKDIR /app
 

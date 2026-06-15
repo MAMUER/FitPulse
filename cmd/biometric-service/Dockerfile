@@ -9,7 +9,7 @@ ENV GOSUMDB=off
 
 WORKDIR /app
 
-RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20260611-r0
+RUN apk add --no-cache git=2.54.0-r0 ca-certificates=20260611-r0
 
 COPY go.mod go.sum ./
 RUN go mod download

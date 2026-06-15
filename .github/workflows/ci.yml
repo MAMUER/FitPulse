@@ -423,15 +423,16 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@v6
-      - name: "Dependency Review"
+      - name: Dependency Review
         uses: actions/dependency-review-action@v5
         with:
           comment-summary-in-pr: always
-          base-ref: ${{ github.event.pull_request.base.ref || github.event.base_ref }}
-          head-ref: ${{ github.event.pull_request.head.ref || github.event.head_ref }}
+          base-ref: ${{ github.event.pull_request.base.sha }}
+          head-ref: ${{ github.event.pull_request.head.sha }}
 
   # ============================================================================
   # KUBESCAPE
