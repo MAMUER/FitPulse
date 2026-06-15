@@ -16,7 +16,7 @@ joblib==1.5.3
 pika==1.4.1               # RabbitMQ client
 redis==8.0.0              # Redis client
 # MLOps
-mlflow==3.11.1            # Эксперименты и модели
+mlflow==3.13.0            # Эксперименты и модели
 dvc[s3]==3.67.1           # Версионирование данных (или dvc[gs] для GCP)
 prometheus-client==0.25.0 # Метрики
 # Security (опционально) — понижено до совместимой с mlflow версии (<47)
