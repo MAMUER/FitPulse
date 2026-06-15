@@ -77,16 +77,16 @@ requirements:
 
 ## 2. Матрица конфигураций по окружениям
 
-| Параметр | Dev | Test | Staging | Prod |
-|----------|-----|------|---------|------|
-| **K8s pods per service** | 1 | 2 | 3 | 5+ (HPA: min=5, max=20) |
-| **PostgreSQL topology** | 1 инстанс (локальный) | 1 primary + 1 replica | 1 primary + 2 replicas | 1 primary + 3 replicas (1 sync + 2 async) |
-| **Redis topology** | 1 узел | 3 узла (Sentinel) | 3 узла (Sentinel) | 6 узлов (Cluster mode, 3 master + 3 replica) |
-| **GPU resources** | CPU only | 1× NVIDIA T4 | 2× NVIDIA T4 | 4+× NVIDIA A10 (ML inference) |
-| **Monitoring stack** | Базовый (логи в консоль) | ELK + Prometheus (full) | Полный + алерты в Slack | Полный + on-call ротация + PagerDuty |
-| **Backup strategy** | Нет | Ежедневно (pg_dump) | Каждые 12 часов (WAL-архивация) | Каждые 6 часов (WAL) + PITR |
-| **SSL/TLS** | Self-signed | Let's Encrypt (авто-ротация) | Corporate CA | Corporate CA + HSM |
-| **Access control** | Локальный доступ | VPN | VPN + 2FA (TOTP) | 2FA + IP whitelist + Hardware token |
+|Параметр|Dev|Test|Staging|Prod|
+|---|---|---|---|---|
+|**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
+|**PostgreSQL topology**|1 инстанс (локальный)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async)|
+|**Redis topology**|1 узел|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
+|**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
+|**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|
+|**Backup strategy**|Нет|Ежедневно (pg_dump)|Каждые 12 часов (WAL-архивация)|Каждые 6 часов (WAL) + PITR|
+|**SSL/TLS**|Self-signed|Let's Encrypt (авто-ротация)|Corporate CA|Corporate CA + HSM|
+|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist + Hardware token|
 
 ---
 
@@ -96,14 +96,14 @@ requirements:
 
 Все сервисы должны логировать в следующем формате:
 
-| Поле | Тип | Описание |
-|------|-----|---------|
-| `timestamp` | ISO8601 | Время события в UTC |
-| `level` | enum | DEBUG/INFO/WARN/ERROR/FATAL |
-| `service` | string | Имя микросервиса |
-| `correlationId` | UUID | ID для трассировки запроса по сервисам |
-| `userId` | string\|null | ID пользователя (если аутентифицирован) |
-| `action` | string | Семантическое имя действия (UPPER_SNAKE_CASE) |
+|Поле|Тип|Описание|
+|---|---|---|
+|`timestamp`|ISO8601|Время события в UTC|
+|`level`|enum|DEBUG/INFO/WARN/ERROR/FATAL|
+|`service`|string|Имя микросервиса|
+|`correlationId`|UUID|ID для трассировки запроса по сервисам|
+|`userId`|string\|null|ID пользователя (если аутентифицирован)|
+|`action`|string|Семантическое имя действия (UPPER_SNAKE_CASE)|
 
 ### 3.2 Prometheus-метрики (обязательный набор)
 
@@ -141,19 +141,19 @@ prometheus_metrics:
 
 #### Критические (SEV-1)
 
-| Алерт | Условие | Каналы |
-|-------|---------|--------|
-| `ServiceDown` | `up{job=~'fitness-.*'} == 0` за 2 мин | Slack + PagerDuty |
-| `DBConnectionPoolExhausted` | `db_connection_pool_usage > 0.9` за 1 мин | PagerDuty |
-| `BackupFailed` | `backup_success{type='full'} == 0` | PagerDuty |
+|Алерт|Условие|Каналы|
+|---|---|---|
+|`ServiceDown`|`up{job=~'fitness-.*'} == 0` за 2 мин|Slack + PagerDuty|
+|`DBConnectionPoolExhausted`|`db_connection_pool_usage > 0.9` за 1 мин|PagerDuty|
+|`BackupFailed`|`backup_success{type='full'} == 0`|PagerDuty|
 
 #### Предупреждения (SEV-3)
 
-| Алерт | Условие | Каналы |
-|-------|---------|--------|
-| `HighErrorRate` | `rate(error_total[5m]) / rate(request_total[5m]) > 0.05` за 5 мин | Slack |
-| `HighLatency` | `histogram_quantile(0.95, ...) > 5` за 10 мин | Slack |
-| `LowMLConfidence` | `classification_confidence < 0.7` за 15 мин | Slack |
+|Алерт|Условие|Каналы|
+|---|---|---|
+|`HighErrorRate`|`rate(error_total[5m]) / rate(request_total[5m]) > 0.05` за 5 мин|Slack|
+|`HighLatency`|`histogram_quantile(0.95, ...) > 5` за 10 мин|Slack|
+|`LowMLConfidence`|`classification_confidence < 0.7` за 15 мин|Slack|
 
 **Политика эскалации**:
 - `SEV-1`: немедленно → PagerDuty → on-call engineer → Tech Lead → CTO
@@ -223,10 +223,10 @@ verification:
 
 ### 4.4 Управление зависимостями
 
-| Инструмент | Функция |
-|-----------|---------|
-| Dependabot | Еженедельный скан, авто-PR для минорных обновлений |
-| Snyk | Интеграция в CI/CD, блокировка мержа при critical CVE |
+|Инструмент|Функция|
+|---|---|
+|Dependabot|Еженедельный скан, авто-PR для минорных обновлений|
+|Snyk|Интеграция в CI/CD, блокировка мержа при critical CVE|
 
 **Политики**:
 - Critical CVE: патч в течение 24 часов

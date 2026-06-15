@@ -77,7 +77,7 @@ git checkout -b feature/your-feature-name
 ### Именование веток
 
 | Тип | Формат | Пример |
-|-----|--------|--------|
+| ----- | --------- | -------- |
 | Feature | `feature/<описание>` | `feature/email-verification` |
 | Bugfix | `bugfix/<описание>` | `bugfix/login-timeout` |
 | Hotfix | `hotfix/<описание>` | `hotfix/security-patch` |
@@ -87,7 +87,7 @@ git checkout -b feature/your-feature-name
 
 Мы следуем стандарту [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -301,7 +301,7 @@ PR будет принят, если:
 
 - **GitHub Issues**: для багов и фич
 - **GitHub Discussions**: для общих вопросов
-- **Email**: support@fitpulse.local (если настроено)
+- **Email**: <support@fitpulse.local> (если настроено)
 
 ### Кодекс поведения
 

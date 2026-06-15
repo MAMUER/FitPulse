@@ -15,17 +15,20 @@ spec:
       labels:
         app: alertmanager
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 65534
         runAsGroup: 65534
         fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: alertmanager
           image: prom/alertmanager:v0.27.0
           imagePullPolicy: IfNotPresent
           args:
-            - '--config.file=/etc/alertmanager/alertmanager.yml'
-            - '--storage.path=/alertmanager'
+            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--storage.path=/alertmanager"
           ports:
             - containerPort: 9093
               name: http
@@ -46,6 +49,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           livenessProbe:
             httpGet:
               path: /-/healthy

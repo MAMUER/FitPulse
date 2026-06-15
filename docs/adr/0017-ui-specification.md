@@ -17,7 +17,7 @@ Frontend начал оформляться как SPA на vanilla JS/ES2022 с 
 3. **Dashboard**: 4 health-summary карточки (пульс, SpO₂, сон, давление), Chart.js график пульса, AI-рекомендации, today’s workout карточка.
 4. **Profile**: форма с groups (основное, параметры тела, образ жизни, цели) + модалки смены пароля/email + danger-zone с удалением аккаунта.
 5. **Training**: список планов, пустое состояние, FAB для генерации через форму параметров (durationWeeks, maxDuration, preferredTime, days, equipment).
-6. **Achievements **: сетка карточек достижений и список соревнований.
+6. **Achievements**: сетка карточек достижений и список соревнований.
 7. **Diet**: карточки приёмов пищи (калории, БЖУ).
 8. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
 9. **Безопасность**: XSS (`textContent`), CSP, HTTPS-only, JWT в `localStorage`, rate-limit UI на 429.

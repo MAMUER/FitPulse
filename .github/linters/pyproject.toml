@@ -34,6 +34,4 @@ exclude = [
   "build/",
   "dist/",
   ".venv/",
-  "cmd/ml-classifier/main.py",
-  "cmd/ml-generator/main.py",
 ]

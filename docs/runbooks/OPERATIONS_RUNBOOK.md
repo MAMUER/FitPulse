@@ -256,18 +256,18 @@ kubectl logs -f deployment/gateway -n fitness-platform
 
 ### Ключевые метрики
 
-| Метрика | Порог | Частота проверки |
-|----------|-------|------------------|
-| Error Rate | < 5% | Непрерывно (1 мин) |
-| p95 Latency | < 5s | Непрерывно (1 мин) |
-| Uptime | > 99.9% | Ежедневно |
-| DB Pool Usage | < 80% | Каждые 5 мин |
-| Backup Success | 100% | Каждые 6 ч |
-| ML Confidence | > 0.7 | Каждые 15 мин |
+|Метрика|Порог|Частота проверки|
+|---|---|---|
+|Error Rate|< 5%|Непрерывно (1 мин)|
+|p95 Latency|< 5s|Непрерывно (1 мин)|
+|Uptime|> 99.9%|Ежедневно|
+|DB Pool Usage|< 80%|Каждые 5 мин|
+|Backup Success|100%|Каждые 6 ч|
+|ML Confidence|> 0.7|Каждые 15 мин|
 
 ### Доступ к Grafana
 
-```
+```text
 URL: https://grafana.fitpulse.app:3000
 Username: admin
 Password: ${GRAFANA_ADMIN_PASSWORD}
@@ -354,23 +354,23 @@ curl "elasticsearch:9200/_cat/indices?v" | grep restored
 ## Контакты и эскалация
 
 - **Дежурный инженер**: расписание в PagerDuty
-- **Tech Lead**: tech-lead@fitpulse.app
-- **CTO**: cto@fitpulse.app (только SEV-1, эскалация после 15 мин)
+- **Tech Lead**: [tech-lead@fitpulse.app](mailto:tech-lead@fitpulse.app)
+- **CTO**: [cto@fitpulse.app](mailto:cto@fitpulse.app) (только SEV-1, эскалация после 15 мин)
 
 ---
 
 ## Справочник сервисов
 
-| Сервис | Namespace label | Health endpoint | Логи |
-|--------|----------------|-----------------|------|
-| Gateway | `app=gateway` | `https://<host>:8443/health` | `kubectl logs -f deployment/gateway` |
-| User Service | `app=user-service` | gRPC health | `kubectl logs -f deployment/user-service` |
-| Biometric Service | `app=biometric-service` | gRPC health | `kubectl logs -f deployment/biometric-service` |
-| Training Service | `app=training-service` | gRPC health | `kubectl logs -f deployment/training-service` |
-| Device Connector | `app=device-connector` | `http://device-connector:8082/health` | `kubectl logs -f deployment/device-connector` |
-| Device Aggregator | `app=device-aggregator` | `http://device-aggregator:8083/health` | `kubectl logs -f deployment/device-aggregator` |
-| ML Classifier | `app=ml-classifier` | `http://ml-classifier:8001/health` | `kubectl logs -f deployment/ml-classifier` |
-| ML Generator | `app=ml-generator` | `http://ml-generator:8002/health` | `kubectl logs -f deployment/ml-generator` |
+|Сервис|Namespace label|Health endpoint|Логи|
+|---|---|---|---|
+|Gateway|`app=gateway`|`https://<host>:8443/health`|`kubectl logs -f deployment/gateway`|
+|User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
+|Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
+|Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
+|Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
+|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
+|ML Classifier|`app=ml-classifier`|`http://ml-classifier:8001/health`|`kubectl logs -f deployment/ml-classifier`|
+|ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 
 ---
 

@@ -52,7 +52,7 @@ POST /generate-plan with:
 ## Plan Features (19 dimensions)
 
 | Index | Feature | Range |
-|-------|---------|-------|
+| ------- | --------- | ------- |
 | 0 | duration_minutes | 0-100 |
 | 1 | intensity_level | 0-1 |
 | 2 | rest_ratio | 0-1 |

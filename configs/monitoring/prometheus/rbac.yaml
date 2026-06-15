@@ -4,6 +4,7 @@ metadata:
   name: prometheus
   labels:
     app: prometheus
+automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

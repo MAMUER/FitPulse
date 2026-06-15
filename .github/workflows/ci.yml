@@ -4,52 +4,52 @@ on:
   push:
     branches: [main, master, Microservice_arc]
     paths:
-      - '.github/workflows/ci.yml'
-      - '.github/dependabot.yml'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Makefile'
-      - 'api/**'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'configs/**'
-      - 'scripts/**'
-      - 'models/**'
-      - 'deployments/**'
-      - '.dockerignore'
-      - 'db/migrations/**'
-      - 'datasets/**'
-      - '*.py'
+      - ".github/workflows/ci.yml"
+      - ".github/dependabot.yml"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "api/**"
+      - "cmd/**"
+      - "internal/**"
+      - "pkg/**"
+      - "configs/**"
+      - "scripts/**"
+      - "models/**"
+      - "deployments/**"
+      - ".dockerignore"
+      - "db/migrations/**"
+      - "datasets/**"
+      - "*.py"
   pull_request:
     branches: [main, master, Microservice_arc]
     paths:
-      - '.github/workflows/ci.yml'
-      - '.github/dependabot.yml'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Makefile'
-      - 'api/**'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'configs/**'
-      - 'scripts/**'
-      - 'models/**'
-      - 'deployments/**'
-      - '.dockerignore'
-      - 'db/migrations/**'
-      - 'datasets/**'
-      - '*.py'
+      - ".github/workflows/ci.yml"
+      - ".github/dependabot.yml"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "api/**"
+      - "cmd/**"
+      - "internal/**"
+      - "pkg/**"
+      - "configs/**"
+      - "scripts/**"
+      - "models/**"
+      - "deployments/**"
+      - ".dockerignore"
+      - "db/migrations/**"
+      - "datasets/**"
+      - "*.py"
   schedule:
-    - cron: '0 0 * * 1'      # Weekly Monday midnight
-    - cron: '0 9 1 * *'      # Monthly dependency update
-    - cron: '0 9 1 1,4,7,10 *'  # Quarterly vulncheck
-    - cron: '34 9 * * 3'     # CodeQL weekly
-    - cron: '16 11 * * 3'    # OSV weekly
-    - cron: '25 13 * * 1'    # Semgrep weekly
-    - cron: '0 0 * * 0'      # Fuzz tests weekly
-    - cron: '0 2 * * 1'      # ML retrain weekly Monday 2AM
+    - cron: "0 0 * * 1" # Weekly Monday midnight
+    - cron: "0 9 1 * *" # Monthly dependency update
+    - cron: "0 9 1 1,4,7,10 *" # Quarterly vulncheck
+    - cron: "34 9 * * 3" # CodeQL weekly
+    - cron: "16 11 * * 3" # OSV weekly
+    - cron: "25 13 * * 1" # Semgrep weekly
+    - cron: "0 0 * * 0" # Fuzz tests weekly
+    - cron: "0 2 * * 1" # ML retrain weekly Monday 2AM
   workflow_dispatch:
     inputs:
       run_mode:
@@ -64,7 +64,7 @@ on:
         options: [update, audit, vulncheck]
         default: "update"
       force_retrain:
-        description: 'Force ML retrain even if no data changes'
+        description: "Force ML retrain even if no data changes"
         required: false
         type: boolean
         default: false
@@ -314,6 +314,9 @@ jobs:
   super-linter:
     name: Super Linter
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
     if: >-
       github.event_name != 'release' &&
       github.event_name != 'issues' &&
@@ -328,37 +331,38 @@ jobs:
       - name: Lint Code Base
         uses: super-linter/super-linter@v8
         env:
+          PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: "Microservice_arc"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+          GITHUB_COMMIT_STATUS_ENABLED: false
           # Super-Linter output
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: true
           SAVE_SUPER_LINTER_SUMMARY: true
-          
+
           # Exclude patterns
           FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
-          
+
           # Python linters
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
           VALIDATE_PYTHON_MYPY: true
-          
+
           # YAML validation
           VALIDATE_YAML: true
-          
+
           # Shell script validation
           VALIDATE_BASH: true
           VALIDATE_BASH_EXEC: true
           VALIDATE_SHELL_SHFMT: true
-          
+
           # Dockerfile validation (complements hadolint)
           VALIDATE_DOCKERFILE_HADOLINT: true
-          
+
           # JSON validation
           VALIDATE_JSON: true
-          
+
           # Markdown validation
           VALIDATE_MARKDOWN: true
 
@@ -439,9 +443,9 @@ jobs:
       github.event_name == 'pull_request' &&
       (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
-      - name: 'Checkout repository'
+      - name: "Checkout repository"
         uses: actions/checkout@v6
-      - name: 'Dependency Review'
+      - name: "Dependency Review"
         uses: actions/dependency-review-action@v5
         with:
           comment-summary-in-pr: always
@@ -476,7 +480,7 @@ jobs:
             --format sarif \
             --output kubescape-results.sarif \
             --verbose || true
-          
+
           # Fix SARIF for GitHub Code Scanning
           # Kubescape may generate results without artifactLocation.uri
           # GitHub Code Scanning requires artifactLocation.uri for all results
@@ -592,7 +596,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
       - name: Run fuzz tests
         run: |
@@ -714,20 +718,20 @@ jobs:
       - name: Run Trivy config scan
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'config'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-          skip-dirs: 'configs/k8s/overlays/production'
+          scan-type: "config"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          skip-dirs: "configs/k8s/overlays/production"
       - name: Run Trivy filesystem scan
         id: trivy-fs
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scanners: 'vuln'
-          severity: 'CRITICAL,HIGH'
-          format: 'sarif'
-          output: 'sarif-results/trivy-fs.sarif'
-          exit-code: '0'
+          scan-type: "fs"
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
+          format: "sarif"
+          output: "sarif-results/trivy-fs.sarif"
+          exit-code: "0"
       - name: Upload Trivy results
         if: always()
         uses: github/codeql-action/upload-sarif@v4
@@ -848,7 +852,15 @@ jobs:
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
-    needs: [detect-changes, security-scan, secrets-scan, check, dockerfile-lint, super-linter]
+    needs:
+      [
+        detect-changes,
+        security-scan,
+        secrets-scan,
+        check,
+        dockerfile-lint,
+        super-linter,
+      ]
     if: >-
       always() &&
       needs.detect-changes.outputs.any_code == 'true' &&
@@ -873,26 +885,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p bin
-          
+
           echo "-> Downloading Go modules sequentially to avoid race conditions..."
           go mod download
-          
+
           echo "-> Building Go services in parallel..."
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
-          
+
           pids=()
           for svc in user-service biometric-service training-service gateway device-connector; do
             echo "  Building $svc..."
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
             pids+=($!)
           done
-          
+
           # Wait for all background jobs and fail fast if any failed
           for pid in "${pids[@]}"; do
             wait "$pid" || { echo "❌ Build failed for PID $pid"; exit 1; }
           done
-          
+
           echo "✅ All binaries built successfully"
           ls -lh bin/
       - uses: actions/upload-artifact@v7
@@ -971,11 +983,11 @@ jobs:
         continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: '${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}'
+          image-ref: "${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}"
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
-          exit-code: '0'
+          exit-code: "0"
           scanners: vuln
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
@@ -1044,8 +1056,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: "pip"
       - name: Install DVC
         run: |
           pip install dvc==3.58.0
@@ -1104,8 +1116,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: "pip"
       - name: Install DVC
         run: pip install dvc==3.58.0
       - name: Pull training plans data
@@ -1208,7 +1220,7 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
-          printf "bind-address: 0.0.0.0\ntls-san:\n  - %s\ndisable:\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          printf "bind-address: 0.0.0.0\ntls-san:\n  - fittpulse.duckdns.org\n  - %s\n  - 127.0.0.1\n  - localhost\ndisable:\n  - traefik\nflannel-backend: wireguard-native\nwrite-kubeconfig-mode: 644\ndocker: true\n" "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s
             echo \"Directory /etc/rancher/k3s created\"
@@ -1308,6 +1320,7 @@ jobs:
             echo \"Docker images:\"
             docker images | head -10
           "
+
       - name: Start and verify k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1327,60 +1340,42 @@ jobs:
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
           "
-      - name: Setup Nginx with SSL
+      - name: Ensure k3s certificates include domain and external IP
         run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Installing Nginx and Certbot...\"
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq nginx certbot python3-certbot-nginx
-            echo \"-> Configuring firewall for HTTP/HTTPS...\"
-            sudo ufw allow \"Nginx Full\" || true
-            sudo ufw reload || true
-            echo \"-> Stopping Nginx for certbot...\"
-            sudo systemctl stop nginx || true
-            echo \"-> Attempting to obtain Let's Encrypt certificate...\"
-            CERTBOT_SUCCESS=false
-            
-            # Проверяем, существует ли уже валидный сертификат
-            if [ -f \"/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem\" ]; then
-              echo \"✅ Let's Encrypt certificate already exists\"
-              CERTBOT_SUCCESS=true
-            else
-              # Пытаемся получить новый сертификат
-              if sudo certbot certonly --standalone \
-                -d fittpulse.duckdns.org \
-                --non-interactive \
-                --agree-tos \
-                --email admin@fittpulse.duckdns.org \
-                --http-01-port 80 \
-                --preferred-challenges http; then
-                CERTBOT_SUCCESS=true
-                echo \"✅ Let's Encrypt certificate obtained\"
-              fi
+            set -euo pipefail
+            # Проверяем, содержатся ли нужные SAN в сертификате API
+            if ! k3s kubectl get --raw /livez &>/dev/null; then
+              echo \"API не отвечает\"; exit 1
             fi
-            
-            sudo mkdir -p /etc/nginx/certs
-            if [ \"\$CERTBOT_SUCCESS\" = false ]; then
-              echo \"⚠️ Let's Encrypt failed, generating self-signed certificate as fallback...\"
-              sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout /etc/nginx/certs/server.key \
-                -out /etc/nginx/certs/server.crt \
-                -subj \"/C=RU/ST=Moscow/L=Moscow/O=FitPulse/CN=fittpulse.duckdns.org\" \
-                -addext \"subjectAltName=DNS:fittpulse.duckdns.org,IP:${{ secrets.VPS_HOST }}\"
-              echo \"-> Copying and patching production.conf for self-signed...\"
-              sudo mkdir -p /etc/nginx/sites-available
-              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
-              sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem|/etc/nginx/certs/server.crt|g\" /etc/nginx/sites-available/fitpulse
-              sudo sed -i \"s|/etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem|/etc/nginx/certs/server.key|g\" /etc/nginx/sites-available/fitpulse
-              echo \"✅ Self-signed certificate generated and config patched\"
+            CERT_FILE=\"/var/lib/rancher/k3s/server/tls/dynamic-cert.json\"
+            NEED_RESTART=false
+            if [ -f \"\$CERT_FILE\" ]; then
+              # Извлекаем текущие SAN (примерно)
+              CURRENT_SAN=\$(kubectl get --raw /apis | jq -r '.')
+              # Более надёжно: проверяем, есть ли домен в конфиге
+              if ! grep -q 'fittpulse.duckdns.org' /etc/rancher/k3s/config.yaml; then
+                echo \"⚠️ Конфиг не содержит домен, обновляем...\"
+                NEED_RESTART=true
+              else
+                echo \"✅ Домен уже в конфиге.\"
+              fi
             else
-              echo \"-> Creating symlinks for Let's Encrypt certificates...\"
-              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem /etc/nginx/certs/server.crt
-              sudo ln -sf /etc/letsencrypt/live/fittpulse.duckdns.org/privkey.pem /etc/nginx/certs/server.key
-              echo \"-> Copying production.conf...\"
-              sudo mkdir -p /etc/nginx/sites-available
-              sudo cp /tmp/production.conf /etc/nginx/sites-available/fitpulse
+              echo \"Сертификат ещё не сгенерирован, перезапуск не требуется.\"
+            fi
+
+            if [ \"\$NEED_RESTART\" = true ]; then
+              echo \"Перезапуск k3s для применения новых SAN...\"
+              sudo systemctl stop k3s
+              sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
+              sudo systemctl start k3s
+              for i in \$(seq 1 60); do
+                if k3s kubectl cluster-info &>/dev/null; then
+                  echo \"k3s снова готов после \${i}s\"
+                  break
+                fi
+                sleep 2
+              done
             fi
           "
       - name: Setup auto-renewal for SSL
@@ -1459,11 +1454,11 @@ jobs:
             fitness-network:
               external: true
           EOFMLFLOW
-          
+
           # Копируем файл на VPS через scp
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/fitpulse/deployments"
           ./scripts/ssh-retry.sh scp /tmp/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
-          
+
           # Запускаем MLflow
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             cd ~/fitpulse
@@ -1486,31 +1481,25 @@ jobs:
           ['remote "local"']
               url = /opt/fitpulse/dvc-storage
           EOFDVC
-          
+
           # Копируем файл на VPS через scp
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
           ./scripts/ssh-retry.sh scp /tmp/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
-          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
-      - name: Download and fix kubeconfig
-        id: kubeconfig
+          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"      
+      - name: Generate kubeconfig with external domain
         run: |
-          ./scripts/ssh-retry.sh scp \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/k3s.yaml" \
-            ./k3s-config.yaml
-          sed -i "s|127.0.0.1|${{ secrets.VPS_HOST }}|g; s|localhost|${{ secrets.VPS_HOST }}|g; s|0.0.0.0|${{ secrets.VPS_HOST }}|g" ./k3s-config.yaml
-          echo "=== Fixed kubeconfig ==="
-          grep "server:" ./k3s-config.yaml
-          if grep -q "server: https://${{ secrets.VPS_HOST }}:6443" ./k3s-config.yaml; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-          if timeout 10 bash -c "</dev/tcp/${{ secrets.VPS_HOST }}/6443" 2>/dev/null; then
-            echo "cluster_connectivity=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cluster_connectivity=false" >> "$GITHUB_OUTPUT"
-            echo "K8s API not reachable from runner"
-          fi
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            set -euo pipefail
+            # Копируем оригинальный kubeconfig и заменяем адрес на домен
+            sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
+            sudo sed -i 's|127.0.0.1|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
+            # Убираем insecure-skip-tls-verify (все проверки будут валидны)
+            sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
+            sudo chmod 644 /tmp/k3s-domain.yaml
+            # Сохраняем в домашнюю директорию для скачивания
+            sudo cp /tmp/k3s-domain.yaml /home/${{ secrets.VPS_USER }}/k3s-config.yaml
+            sudo chown ${{ secrets.VPS_USER }} /home/${{ secrets.VPS_USER }}/k3s-config.yaml
+          "
       - name: Generate TLS certificates locally (if missing)
         run: |
           mkdir -p deploy/tls/certs
@@ -1555,13 +1544,19 @@ jobs:
             -n fitness-platform-production \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
           echo "✅ TLS Secret created in fitness-platform-production"
+      - name: Download kubeconfig artifact
+        run: |
+          ./scripts/ssh-retry.sh scp \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USER }}/k3s-config.yaml" \
+            ./k3s-config.yaml
+
       - name: Upload kubeconfig artifact
         uses: actions/upload-artifact@v7
         with:
           name: kubeconfig
           path: ./k3s-config.yaml
           retention-days: 1
-          
+
   # ============================================================================
   # DEPLOY TEST
   # ============================================================================
@@ -1747,7 +1742,7 @@ jobs:
             --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ app-secrets created"
-    
+
           echo "Creating monitoring-secrets..."
           kubectl create secret generic monitoring-secrets -n fitness-platform-production \
             --from-literal=grafana-admin-password=${{ secrets.GRAFANA_ADMIN_PASSWORD }} \
@@ -2125,7 +2120,20 @@ jobs:
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
-    needs: [security-scan, secrets-scan, binary_build, docker, deploy-test, deploy-production, test-production, codeql, kubescape, semgrep, super-linter]
+    needs:
+      [
+        security-scan,
+        secrets-scan,
+        binary_build,
+        docker,
+        deploy-test,
+        deploy-production,
+        test-production,
+        codeql,
+        kubescape,
+        semgrep,
+        super-linter,
+      ]
     if: >-
       always() &&
       (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main') &&

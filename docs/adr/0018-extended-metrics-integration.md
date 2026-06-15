@@ -23,7 +23,7 @@
 
 ### База данных
 В `internal/db/db.go` после `sql.Open` запускается `sync.Once`-горутина, которая раз в 15 секунд считывает `db.Stats()` и пишет:
-```
+```text
 usage = InUse / max(MaxOpenConnections, 1)
 ```
 
@@ -34,7 +34,7 @@ usage = InUse / max(MaxOpenConnections, 1)
 
 ### Biometric service
 В `cmd/biometric-service/main.go` в `AddRecord` замеряется `time.Now()` до и после INSERT, после записи вызывается:
-```
+```text
 metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(lag)
 ```
 
