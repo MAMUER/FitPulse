@@ -6,22 +6,22 @@ echo "Running secret scan with TruffleHog..."
 
 # Check if trufflehog is installed
 if ! command -v trufflehog &>/dev/null; then
-    echo " TruffleHog not found. Please install it:"
-    echo "   go install github.com/trufflesecurity/trufflehog/v3@latest"
-    echo "   or visit https://github.com/trufflesecurity/trufflehog"
-    exit 0
+	echo " TruffleHog not found. Please install it:"
+	echo "   go install github.com/trufflesecurity/trufflehog/v3@latest"
+	echo "   or visit https://github.com/trufflesecurity/trufflehog"
+	exit 0
 fi
 
 # Run TruffleHog on staged changes
 trufflehog git file://. --since-commit HEAD --only-verified --fail
 
 if ! trufflehog git file://. --since-commit HEAD --only-verified --fail; then
-    echo ""
-    echo "POTENTIAL SECRETS DETECTED!"
-    echo "   Remove sensitive data from your changes before committing."
-    echo "   Use .env.example as a template — never commit real credentials."
-    echo ""
-    exit 1
+	echo ""
+	echo "POTENTIAL SECRETS DETECTED!"
+	echo "   Remove sensitive data from your changes before committing."
+	echo "   Use .env.example as a template — never commit real credentials."
+	echo ""
+	exit 1
 fi
 
 echo "No secrets detected."
