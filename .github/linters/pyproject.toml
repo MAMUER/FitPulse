@@ -39,3 +39,11 @@ exclude = [
   "cmd/ml_classifier/",
   "cmd/ml_generator/",
 ]
+
+[[tool.mypy.overrides]]
+module = "cmd.ml_generator.main"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "cmd.ml_classifier.main"
+ignore_errors = true

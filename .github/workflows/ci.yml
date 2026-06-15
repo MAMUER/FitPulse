@@ -1481,13 +1481,11 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -euo pipefail
-            # Копируем оригинальный kubeconfig и заменяем адрес на домен
             sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
+            sudo sed -i 's|0.0.0.0|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
             sudo sed -i 's|127.0.0.1|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
-            # Убираем insecure-skip-tls-verify (все проверки будут валидны)
             sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
             sudo chmod 644 /tmp/k3s-domain.yaml
-            # Сохраняем в домашнюю директорию для скачивания (без sudo)
             cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
             echo \"✅ Kubeconfig saved to ~/k3s-config.yaml\"
           "
