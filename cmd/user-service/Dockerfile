@@ -7,7 +7,7 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
 
-RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20240226-r0
+RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20260611-r0
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ FROM alpine:3.24
 # Update libssl3 to fix CVE-2026-45447 (use-after-free in PKCS#7 verification)
 # Fixed in libssl3 3.5.7-r0; alpine:3.23 ships 3.5.6-r0 by default
 RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates=20240226-r0 tzdata=2025b-r0
+    apk add --no-cache ca-certificates=20260611-r0 tzdata=2026b-r0
 
 # Create non-privileged user
 RUN addgroup -g 1001 -S appgroup && \

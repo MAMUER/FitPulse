@@ -4,7 +4,7 @@ FROM golang:1.26-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
-RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20240226-r0
+RUN apk add --no-cache git=2.49.0-r0 ca-certificates=20260611-r0
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -23,8 +23,8 @@ FROM alpine:3.24
 # Upgrade all packages to get latest security patches (fixes CVE-2026-45447 in libcrypto3/libssl3)
 RUN apk upgrade --no-cache && \
     apk add --no-cache \
-    ca-certificates=20240226-r0 \
-    tzdata=2025b-r0 \
+    ca-certificates=20260611-r0 \
+    tzdata=2026b-r0 \
     curl=8.13.0-r0
 RUN addgroup -g 1001 -S appgroup && \
 adduser -u 1001 -S appuser -G appgroup

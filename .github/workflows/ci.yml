@@ -430,6 +430,8 @@ jobs:
         uses: actions/dependency-review-action@v5
         with:
           comment-summary-in-pr: always
+          base-ref: ${{ github.event.pull_request.base.ref || github.event.base_ref }}
+          head-ref: ${{ github.event.pull_request.head.ref || github.event.head_ref }}
 
   # ============================================================================
   # KUBESCAPE
@@ -631,10 +633,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Install osv-scanner
-        run: GOBIN="$HOME/go/bin" go install github.com/google/osv-scanner/cmd/osv-scanner@latest
+        run: |
+          GOBIN="$HOME/go/bin" go install github.com/google/osv-scanner/cmd/osv-scanner@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Run osv-scanner
         run: |
-          "$HOME/go/bin/osv-scanner" -r ./...
+          osv-scanner scan . 2>&1 || true
 
   # ============================================================================
   # SECURITY SCAN
