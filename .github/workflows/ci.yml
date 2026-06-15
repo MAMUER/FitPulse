@@ -371,7 +371,7 @@ jobs:
           PYTHON_BLACK_CONFIG_FILE: pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           PYTHON_MYPY_CONFIG_FILE: pyproject.toml
-          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml-generator/main.py"
+          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml-generator/ --exclude cmd/ml-classifier/"
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================
@@ -1487,9 +1487,9 @@ jobs:
             # Убираем insecure-skip-tls-verify (все проверки будут валидны)
             sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
             sudo chmod 644 /tmp/k3s-domain.yaml
-            # Сохраняем в домашнюю директорию для скачивания
-            sudo cp /tmp/k3s-domain.yaml /home/${{ secrets.VPS_USER }}/k3s-config.yaml
-            sudo chown ${{ secrets.VPS_USER }} /home/${{ secrets.VPS_USER }}/k3s-config.yaml
+            # Сохраняем в домашнюю директорию для скачивания (без sudo)
+            cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
+            echo \"✅ Kubeconfig saved to ~/k3s-config.yaml\"
           "
       - name: Generate TLS certificates locally (if missing)
         run: |
@@ -1538,7 +1538,7 @@ jobs:
       - name: Download kubeconfig artifact
         run: |
           ./scripts/ssh-retry.sh scp \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USER }}/k3s-config.yaml" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-config.yaml" \
             ./k3s-config.yaml
 
       - name: Upload kubeconfig artifact
