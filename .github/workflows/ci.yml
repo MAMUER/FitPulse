@@ -279,10 +279,6 @@ jobs:
   validate-workflow:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -296,10 +292,6 @@ jobs:
   dockerfile-lint:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - uses: actions/checkout@v6
       - name: Run Hadolint on all Dockerfiles
@@ -317,10 +309,6 @@ jobs:
     permissions:
       contents: read
       statuses: write
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     steps:
       - name: Checkout code
@@ -378,10 +366,6 @@ jobs:
   codeql:
     name: CodeQL Analysis (${{ matrix.language }})
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -439,9 +423,6 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -456,10 +437,6 @@ jobs:
   kubescape:
     name: Kubescape K8s Scan
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     permissions:
       actions: read
@@ -516,10 +493,6 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     permissions:
       contents: read
@@ -546,10 +519,6 @@ jobs:
   osv-scanner:
     name: OSV Scanner
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -584,10 +553,6 @@ jobs:
   fuzz-tests:
     name: Fuzz Tests
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow]
     permissions:
       contents: read
@@ -658,10 +623,6 @@ jobs:
   osv-audit:
     name: OSV Dependency Audit
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      inputs.run_mode == 'maintenance' &&
-      inputs.maintenance_type == 'audit'
     steps:
       - uses: actions/checkout@v6
       - name: Set up Go
@@ -681,10 +642,6 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -788,10 +745,6 @@ jobs:
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -825,10 +778,6 @@ jobs:
   check:
     name: Make Check (Lint + Test)
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     needs: [validate-workflow, dockerfile-lint]
     steps:
       - uses: actions/checkout@v6
@@ -861,17 +810,6 @@ jobs:
         dockerfile-lint,
         super-linter,
       ]
-    if: >-
-      always() &&
-      needs.detect-changes.outputs.any_code == 'true' &&
-      needs.security-scan.result == 'success' &&
-      needs.secrets-scan.result == 'success' &&
-      needs.check.result == 'success' &&
-      needs.dockerfile-lint.result == 'success' &&
-      needs.super-linter.result == 'success' &&
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -920,14 +858,6 @@ jobs:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: [detect-changes, binary_build]
-    if: >-
-      always() &&
-      needs.detect-changes.outputs.any_code == 'true' &&
-      needs.binary_build.result == 'success' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -1555,14 +1485,6 @@ jobs:
     name: Deploy to Test (Docker Compose)
     runs-on: ubuntu-latest
     needs: [detect-changes, binary_build, provision-k8s-vps]
-    if: >-
-      always() &&
-      needs.detect-changes.outputs.any_code == 'true' &&
-      needs.binary_build.result == 'success' &&
-      needs.provision-k8s-vps.result == 'success' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
-      github.event_name != 'release' &&
-      github.event_name != 'issues'
     steps:
       - uses: actions/checkout@v6
       - name: Start test environment
@@ -1610,15 +1532,6 @@ jobs:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
     needs: [detect-changes, docker, provision-k8s-vps]
-    if: >-
-      always() &&
-      (needs.detect-changes.outputs.any_code == 'true' || needs.detect-changes.outputs.k8s == 'true' || needs.detect-changes.outputs.db == 'true' || needs.detect-changes.outputs.infra == 'true') &&
-      (needs.docker.result == 'success' || needs.docker.result == 'skipped') &&
-      needs.provision-k8s-vps.result == 'success' &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_mode != 'maintenance') &&
-      github.event_name != 'release' &&
-      github.event_name != 'issues' &&
-      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main')
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -2050,11 +1963,6 @@ jobs:
     name: Test Production (E2E)
     runs-on: ubuntu-latest
     needs: [detect-changes, deploy-production]
-    if: >-
-      always() &&
-      needs.detect-changes.outputs.any_code == 'true' &&
-      needs.deploy-production.result == 'success' &&
-      needs.deploy-production.outputs.reachable == 'true'
     env:
       PRODUCTION_URL: ${{ secrets.VPS_HOST }}
     steps:
@@ -2125,11 +2033,6 @@ jobs:
         semgrep,
         super-linter,
       ]
-    if: >-
-      always() &&
-      (github.ref == 'refs/heads/Microservice_arc' || github.ref == 'refs/heads/main') &&
-      github.event_name != 'release' &&
-      github.event_name != 'issues'
     steps:
       - uses: actions/checkout@v6
       - name: Collect job statuses
