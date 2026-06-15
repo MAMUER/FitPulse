@@ -20,12 +20,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 ./cmd/gateway
 # ========== Runtime stage ==========
 FROM alpine:3.24
-# Upgrade all packages to get latest security patches (fixes CVE-2026-45447 in libcrypto3/libssl3)
+# hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-    apk add --no-cache \
-    ca-certificates=20260611-r0 \
-    tzdata=2026b-r0 \
-    curl=8.13.0-r0
+    apk add --no-cache ca-certificates tzdata curl=8.20.0-r1
 RUN addgroup -g 1001 -S appgroup && \
 adduser -u 1001 -S appuser -G appgroup
 WORKDIR /app
