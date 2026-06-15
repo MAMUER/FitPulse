@@ -1,4 +1,4 @@
-# cmd/ml-classifier/train.py
+# cmd/ml_classifier/train.py
 """
 Training script for ML Classifier - Keras 3 compatible
 """

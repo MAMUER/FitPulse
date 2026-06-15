@@ -1,4 +1,4 @@
-# cmd/ml-classifier/requirements.txt
+# cmd/ml_classifier/requirements.txt
 # Core ML
 tensorflow==2.21.0
 keras==3.14.1

@@ -19,7 +19,7 @@
   - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
 
 ### ML-сервисы
-В `cmd/ml-classifier/main.py` и `cmd/ml-generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной классификации/генерации происходит `labels(model_version, class).set(confidence)`.
+В `cmd/ml_classifier/main.py` и `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной классификации/генерации происходит `labels(model_version, class).set(confidence)`.
 
 ### База данных
 В `internal/db/db.go` после `sql.Open` запускается `sync.Once`-горутина, которая раз в 15 секунд считывает `db.Stats()` и пишет:
@@ -52,8 +52,8 @@ metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(l
 - `internal/db/db.go`
 - `internal/queue/queue.go`
 - `cmd/biometric-service/main.go`
-- `cmd/ml-classifier/main.py`
-- `cmd/ml-generator/main.py`
+- `cmd/ml_classifier/main.py`
+- `cmd/ml_generator/main.py`
 - `cmd/device-aggregator/aggregator.go`
 - `cmd/device-aggregator/webhooks.go`
 - `cmd/device-aggregator/main.go`

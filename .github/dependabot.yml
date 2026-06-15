@@ -47,7 +47,6 @@ updates:
     # Разрешаем срочные обновления безопасности даже для мажорных версий
     allow:
       - dependency-type: "direct"
-        update-type: "security"
 
   # ═══════════════════════════════════════════════════════════════
   # 2. GITHUB ACTIONS (CI/CD)
@@ -153,7 +152,7 @@ updates:
   # 4. PYTHON (pip) — ML-сервисы
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "pip"
-    directory: "/cmd/ml-classifier"
+    directory: "/cmd/ml_classifier"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(pip/ml-classifier)", include: "scope" }
@@ -192,7 +191,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "pip"
-    directory: "/cmd/ml-generator"
+    directory: "/cmd/ml_generator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
@@ -229,7 +228,7 @@ updates:
   # 5. DOCKER — ML-сервисы (Python-образы)
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
-    directory: "/cmd/ml-classifier"
+    directory: "/cmd/ml_classifier"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/ml-classifier)", include: "scope" }
@@ -242,7 +241,7 @@ updates:
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
-    directory: "/cmd/ml-generator"
+    directory: "/cmd/ml_generator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }

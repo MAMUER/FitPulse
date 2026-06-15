@@ -36,6 +36,6 @@ exclude = [
   "build/",
   "dist/",
   ".venv/",
-  "cmd/ml-classifier/",
-  "cmd/ml-generator/",
+  "cmd/ml_classifier/",
+  "cmd/ml_generator/",
 ]

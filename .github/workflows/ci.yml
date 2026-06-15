@@ -131,8 +131,8 @@ jobs:
               - 'cmd/device-connector/**'
               - 'internal/device/**'
             ml:
-              - 'cmd/ml-classifier/**'
-              - 'cmd/ml-generator/**'
+              - 'cmd/ml_classifier/**'
+              - 'cmd/ml_generator/**'
               - 'models/**'
               - 'datasets/**'
             k8s:
@@ -371,7 +371,7 @@ jobs:
           PYTHON_BLACK_CONFIG_FILE: pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           PYTHON_MYPY_CONFIG_FILE: pyproject.toml
-          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml-generator/ --exclude cmd/ml-classifier/"
+          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/ --exclude cmd/ml_classifier/"
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================
@@ -967,14 +967,14 @@ jobs:
           if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
             docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}" \
               -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest" \
-              -f cmd/ml-classifier/Dockerfile .
+              -f cmd/ml_classifier/Dockerfile .
             docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}"
             docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest"
           fi
           if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
             docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}" \
               -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest" \
-              -f cmd/ml-generator/Dockerfile .
+              -f cmd/ml_generator/Dockerfile .
             docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}"
             docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest"
           fi
@@ -1068,10 +1068,10 @@ jobs:
           dvc pull datasets/processed/training_data_real.csv.dvc || echo "No DVC remote configured, using local cache"
       - name: Install dependencies
         run: |
-          pip install -r cmd/ml-classifier/requirements.txt
+          pip install -r cmd/ml_classifier/requirements.txt
       - name: Train with MLflow tracking
         run: |
-          cd cmd/ml-classifier
+          cd cmd/ml_classifier
           python train.py
         env:
           MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
@@ -1124,8 +1124,8 @@ jobs:
         run: dvc pull datasets/processed/training_plans_exercises.csv.dvc || echo "Using local cache"
       - name: Train GAN
         run: |
-          pip install -r cmd/ml-generator/requirements.txt
-          cd cmd/ml-generator
+          pip install -r cmd/ml_generator/requirements.txt
+          cd cmd/ml_generator
           python train_gan.py
         env:
           MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
@@ -1468,15 +1468,15 @@ jobs:
           # FIX: Создаем конфиг DVC локально, чтобы избежать проблем с heredoc в SSH
           cat > /tmp/dvc-config << 'EOFDVC'
           [core]
-              remote = local
+            remote = local
           ['remote "local"']
-              url = /opt/fitpulse/dvc-storage
+            url = /opt/fitpulse/dvc-storage
           EOFDVC
 
           # Копируем файл на VPS через scp
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
           ./scripts/ssh-retry.sh scp /tmp/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
-          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"      
+          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Generate kubeconfig with external domain
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1491,6 +1491,12 @@ jobs:
             cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
             echo \"✅ Kubeconfig saved to ~/k3s-config.yaml\"
           "
+
+      - name: Download kubeconfig artifact
+        run: |
+          ./scripts/ssh-retry.sh scp \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-config.yaml" \
+            ./k3s-config.yaml
       - name: Generate TLS certificates locally (if missing)
         run: |
           mkdir -p deploy/tls/certs
@@ -1500,7 +1506,6 @@ jobs:
           else
             echo "✅ Using existing TLS certificates from deploy/tls/certs/"
           fi
-          # Проверка валидности
           openssl x509 -in deploy/tls/certs/server.crt -text -noout | grep -A2 "Subject:" || true
 
       - name: Upload TLS certificates to VPS
@@ -1515,12 +1520,14 @@ jobs:
           ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.crt"
           ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.key"
           echo "✅ TLS certificates uploaded to VPS"
+
       - name: Download TLS certificates from VPS (for Kubernetes Secret)
         run: |
           mkdir -p /tmp/tls
           ./scripts/ssh-retry.sh scp "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt" /tmp/tls/server.crt
           ./scripts/ssh-retry.sh scp "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key" /tmp/tls/server.key
           chmod 600 /tmp/tls/server.key
+
       - name: Create TLS Secret in Kubernetes
         run: |
           mkdir -p "$HOME/.kube"
@@ -1535,11 +1542,6 @@ jobs:
             -n fitness-platform-production \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
           echo "✅ TLS Secret created in fitness-platform-production"
-      - name: Download kubeconfig artifact
-        run: |
-          ./scripts/ssh-retry.sh scp \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-config.yaml" \
-            ./k3s-config.yaml
 
       - name: Upload kubeconfig artifact
         uses: actions/upload-artifact@v7

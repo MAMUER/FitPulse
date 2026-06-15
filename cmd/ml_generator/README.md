@@ -10,7 +10,7 @@ Generates personalized training plans using a GAN trained on exercise data.
 
 ## Installation
 ```bash
-pip install -r cmd/ml-generator/requirements.txt
+pip install -r cmd/ml_generator/requirements.txt
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ plan = model.predict(np.random.randn(1, 64), verbose=0)[0]
 
 ### Via TrainingScript
 ```python
-from cmd.ml-generator.train_gan import TrainingPlanGAN
+from cmd.ml_generator.train_gan import TrainingPlanGAN
 
 gan = TrainingPlanGAN(latent_dim=64, plan_dim=19)
 plan = gan.generate_plan(seed=42)
@@ -35,7 +35,7 @@ plan_dict = gan.generate_plan_dict(seed=42)
 
 ### Via API
 ```bash
-uvicorn cmd.ml-generator.main:app --host 0.0.0.0 --port 8002
+uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 ```
 
 POST /generate-plan with:

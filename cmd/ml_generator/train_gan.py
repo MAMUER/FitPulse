@@ -5,7 +5,7 @@ Uses real exercise data from datasets/processed/training_plans_exercises.csv
 
 USAGE:
     # Train the model
-    python cmd/ml-generator/train_gan.py
+    python cmd/ml_generator/train_gan.py
 
     # Generate training plans using the trained model
     from train_gan import TrainingPlanGAN

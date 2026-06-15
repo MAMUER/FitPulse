@@ -44,9 +44,9 @@ ML Generator service должен был производить персонал
 
 ## Реализация
 
-- `cmd/ml-generator/preprocess_exercises.py` — предобработка данных;
-- `cmd/ml-generator/train_gan.py` — скрипт обучения GAN;
-- `cmd/ml-generator/main.py` — FastAPI сервис с упрощённой генерацией;
+- `cmd/ml_generator/preprocess_exercises.py` — предобработка данных;
+- `cmd/ml_generator/train_gan.py` — скрипт обучения GAN;
+- `cmd/ml_generator/main.py` — FastAPI сервис с упрощённой генерацией;
 - `models/generator.keras` — обученная модель (1.2MB).
 
 ## Использование
