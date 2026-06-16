@@ -178,7 +178,12 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const body = context.payload.issue.body || '';
+            const issue = context.payload.issue;
+            if (!issue) {
+              console.log('No issue payload, skipping component labels');
+              return;
+            }
+            const body = issue.body || '';
             const labels = [];
             if (body.toLowerCase().includes('fitbit') || body.includes('withings')) {
               labels.push('device-integration');
