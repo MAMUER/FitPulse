@@ -171,9 +171,9 @@ updates:
       # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
       - dependency-name: "pandas"
         versions: [">=3"]
-      # cryptography: разрешаем обновления в диапазоне, совместимом с mlflow
+      # cryptography: блокируем обновления до версий >=49 (несовместимы с mlflow)
       - dependency-name: "cryptography"
-        versions: [">=47"]
+        versions: [">=49"]
     groups:
       ml-dependencies:
         patterns:
@@ -207,8 +207,9 @@ updates:
       # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
       - dependency-name: "pandas"
         versions: [">=3"]
+      # cryptography: блокируем обновления до версий >=49 (несовместимы с mlflow)
       - dependency-name: "cryptography"
-        versions: [">=47"]
+        versions: [">=49"]
     groups:
       ml-dependencies:
         patterns:
