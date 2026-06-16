@@ -175,7 +175,6 @@ jobs:
             });
 
       - name: Add component labels
-        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
@@ -203,7 +202,6 @@ jobs:
             }
 
       - name: Assign based on component
-        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
@@ -236,7 +234,6 @@ jobs:
             }
 
       - name: Welcome new contributors
-        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
@@ -257,14 +254,12 @@ jobs:
             }
 
       - name: Security issue handling
-        if: contains(github.event.issue.labels.*.name, 'security')
         uses: actions/github-script@v9
         with:
           script: |
             console.log('Security issue detected:', context.issue.number);
 
       - name: Notify Telegram on critical
-        if: contains(github.event.issue.labels.*.name, 'priority:critical')
         env:
           ISSUE_TITLE: "${{ github.event.issue.title }}"
         run: |
@@ -422,7 +417,6 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

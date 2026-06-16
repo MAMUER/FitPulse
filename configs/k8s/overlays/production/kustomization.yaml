@@ -6,6 +6,7 @@ resources:
   - ingress.yaml
   - gateway-nodeport.yaml
   - hpa.yaml
+patchesStrategicMerge:
   - configmap-patch.yaml
 patches:
   - path: replica-gateway.yaml
