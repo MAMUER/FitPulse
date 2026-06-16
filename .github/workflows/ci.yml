@@ -161,7 +161,6 @@ jobs:
   issue-automation:
     name: Issue Automation
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues'
     steps:
       - name: Add triage label
         if: github.event.action == 'opened'
