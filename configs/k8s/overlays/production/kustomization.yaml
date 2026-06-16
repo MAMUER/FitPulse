@@ -6,8 +6,6 @@ resources:
   - ingress.yaml
   - gateway-nodeport.yaml
   - hpa.yaml
-patchesStrategicMerge:
-  - configmap-patch.yaml
 patches:
   - path: replica-gateway.yaml
   - path: replica-user-service.yaml
@@ -24,6 +22,10 @@ patches:
   - path: resource-device-connector.yaml
   - path: resource-ml-classifier.yaml
   - path: resource-ml-generator.yaml
+  - path: configmap-patch.yaml
+    target:
+      kind: ConfigMap
+      name: app-config
 labels:
   - pairs:
       environment: production
