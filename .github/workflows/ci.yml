@@ -1176,7 +1176,8 @@ jobs:
       - name: Upload k3s files to VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /tmp/k3s-install"
-          ./scripts/ssh-retry.sh scp /tmp/k3s /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/"
+          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/k3s"
+          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/install.sh"
       - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600

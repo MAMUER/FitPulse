@@ -95,8 +95,8 @@ spec:
           env:
             - name: POSTGRES_DB
               valueFrom:
-                configMapKeyRef:
-                  name: app-config
+                secretKeyRef:
+                  name: app-secrets
                   key: POSTGRES_DB
             - name: BIOMETRIC_SERVICE_ADDR
               value: "biometric-service:50052"

@@ -88,8 +88,8 @@ spec:
               value: "/etc/secrets/POSTGRES_PASSWORD"
             - name: POSTGRES_DB
               valueFrom:
-                configMapKeyRef:
-                  name: app-config
+                secretKeyRef:
+                  name: app-secrets
                   key: POSTGRES_DB
             - name: DB_SSLMODE
               valueFrom:

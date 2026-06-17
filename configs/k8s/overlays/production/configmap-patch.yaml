@@ -13,7 +13,4 @@ data:
   BACKUP_STRATEGY: "Нет"
   SSL_TLS: "Self-signed сертификаты"
   ACCESS_CONTROL: "Локальный доступ"
-  POSTGRES_USER: "postgres"
-  POSTGRES_DB: "fitness"
-  RABBITMQ_DEFAULT_USER: "guest"
   READINESS_ENABLED: "true"
