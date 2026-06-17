@@ -275,13 +275,13 @@ jobs:
             console.log('Security issue detected:', context.issue.number);
 
       - name: Notify Telegram on critical
+        if: github.event_name == 'issues' && github.event.action == 'opened'
         env:
           ISSUE_TITLE: "${{ github.event.issue.title }}"
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\\n$ISSUE_TITLE\\n${{ github.event.issue.html_url }}\"}"
-
   # ============================================================================
   # VALIDATE WORKFLOW
   # ============================================================================

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1944,4 +1946,129 @@ func TestGateway_RealLoginHandler(t *testing.T) {
 	h.loginHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestGoogleLoginHandler_SetsCookieAndRedirects tests that the Google login handler
+// generates a random state, sets a secure cookie, and redirects to Google's OAuth endpoint.
+func TestGoogleLoginHandler_SetsCookieAndRedirects(t *testing.T) {
+	// Setup a mock Google OAuth config that will produce a predictable redirect URL for testing.
+	// We set the AuthURL to a local mock endpoint to avoid making real network calls.
+	mockAuthURL := "https://mock-google.com/o/oauth2/auth"
+	mockTokenURL := "https://mock-google.com/o/oauth2/token"
+	mockConfig := &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		RedirectURL:  "https://example.com/auth/google/callback",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  mockAuthURL,
+			TokenURL: mockTokenURL,
+		},
+		Scopes: []string{"openid", "profile", "email"},
+	}
+
+	g := &gateway{
+		googleOAuthConfig: mockConfig,
+		log:               logger.New("test"),
+	}
+
+	// Create a request with a malicious state parameter (should be ignored).
+	req := httptest.NewRequest("GET", "/api/v1/auth/google?state=https://evil.com", nil)
+	w := httptest.NewRecorder()
+
+	g.googleLoginHandler(w, req)
+
+	// Check that the response is a redirect (temporary).
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code, "expected redirect status")
+
+	// Check that the Location header points to Google's AuthURL.
+	location := w.Header().Get("Location")
+	assert.NotEmpty(t, location, "Location header should be set")
+	u, err := url.Parse(location)
+	assert.NoError(t, err, "failed to parse Location URL")
+	assert.Equal(t, mockAuthURL, u.Scheme+"://"+u.Host+u.Path, "Location host/path should match Google auth URL")
+
+	// Check that the state parameter in the Location is not the malicious one.
+	queryVals := u.Query()
+	state := queryVals.Get("state")
+	assert.NotEmpty(t, state, "state parameter should be present in the redirect URL")
+	assert.NotEqual(t, "https://evil.com", state, "state should not be the user-provided value")
+
+	// Check that a cookie named googleOAuthStateCookie was set.
+	cookies := w.Result().Cookies()
+	var stateCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == googleOAuthStateCookie {
+			stateCookie = c
+			break
+		}
+	}
+	assert.NotNil(t, stateCookie, "expected a cookie named %s", googleOAuthStateCookie)
+	assert.NotEmpty(t, stateCookie.Value, "cookie value should not be empty")
+	assert.Equal(t, "/", stateCookie.Path, "cookie path should be /")
+	assert.True(t, stateCookie.HttpOnly, "cookie should be HttpOnly")
+	assert.True(t, stateCookie.Secure, "cookie should be Secure (for production)")
+	assert.Equal(t, http.SameSiteLaxMode, stateCookie.SameSite, "cookie SameSite should be Lax")
+	// The cookie value should match the state in the URL (since we set it from the same generated state).
+	assert.Equal(t, state, stateCookie.Value, "cookie value should match the state parameter")
+}
+
+// TestGoogleCallbackHandler_InvalidState tests that the callback handler rejects requests
+// with an invalid or missing state parameter.
+func TestGoogleCallbackHandler_InvalidState(t *testing.T) {
+	mockAuthURL := "https://mock-google.com/o/oauth2/auth"
+	mockTokenURL := "https://mock-google.com/o/oauth2/token"
+	mockConfig := &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		RedirectURL:  "https://example.com/auth/google/callback",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  mockAuthURL,
+			TokenURL: mockTokenURL,
+		},
+		Scopes: []string{"openid", "profile", "email"},
+	}
+
+	g := &gateway{
+		googleOAuthConfig: mockConfig,
+		log:               logger.New("test"),
+	}
+
+	// Case 1: No state parameter and no cookie.
+	req := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc", nil)
+	w := httptest.NewRecorder()
+	g.googleCallbackHandler(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code, "expected bad request when state is missing")
+	assert.Contains(t, w.Body.String(), "invalid oauth state", "response body should indicate invalid state")
+
+	// Case 2: State parameter does not match cookie.
+	req2 := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc&state=badstate", nil)
+	req2.AddCookie(&http.Cookie{
+		Name:  googleOAuthStateCookie,
+		Value: "goodstate",
+		Path:  "/",
+	})
+	w2 := httptest.NewRecorder()
+	g.googleCallbackHandler(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code, "expected bad request when state does not match cookie")
+	assert.Contains(t, w2.Body.String(), "invalid oauth state", "response body should indicate invalid state")
+
+	// Case 3: Valid state (cookie matches) but we don't test the code exchange here.
+	// We'll just ensure that a valid state passes the state check and moves on to code validation.
+	// For brevity, we only test that it doesn't return a bad request due to state.
+	req3 := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc&state=goodstate", nil)
+	req3.AddCookie(&http.Cookie{
+		Name:  googleOAuthStateCookie,
+		Value: "goodstate",
+		Path:  "/",
+	})
+	w3 := httptest.NewRecorder()
+	g.googleCallbackHandler(w3, req3)
+	// We expect either a bad request due to missing/invalid code (since we didn't mock the token endpoint)
+	// or an internal error due to missing dependencies. The important thing is that it's not a bad request due to state.
+	if w3.Code == http.StatusBadRequest {
+		// If it is a bad request, it should not be because of state.
+		assert.NotContains(t, w3.Body.String(), "invalid oauth state", "bad request should not be due to state when state matches")
+	}
+	// Note: We could also test the success case by mocking the token endpoint, but that is more involved.
+	// The state validation logic is covered by the above cases.
 }

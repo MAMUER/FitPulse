@@ -47,32 +47,6 @@ spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
-      initContainers:
-        - name: init-postgres
-          image: busybox:latest
-          command:
-            - sh
-            - -c
-            - chown -R 999:999 /var/lib/postgresql/data
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: postgres-storage
-              mountPath: /var/lib/postgresql/data
-          resources:
-            requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              cpu: 50m
-              memory: 32Mi
       volumes:
         - name: secrets
           secret:

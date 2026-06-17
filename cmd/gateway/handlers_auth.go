@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -36,11 +37,22 @@ const (
 	confirmFallbackErrorHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>`
 
 	totpRateLimitAttempts = 5
+
+	googleOAuthStateCookie = "google_oauth_state"
 )
 
 type totpRateLimiter struct {
 	limiter   *rate.Limiter
 	expiresAt time.Time
+}
+
+func generateOAuthState() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(b), nil
 }
 
 func (g *gateway) userTOTPEnabled(ctx context.Context, userID string) bool {
@@ -414,12 +426,23 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state := r.URL.Query().Get("state")
-	if state == "" {
-		b := make([]byte, 16)
-		_, _ = rand.Read(b)
-		state = hex.EncodeToString(b)
+	state, err := generateOAuthState()
+	if err != nil {
+		g.log.Error("Failed to generate Google OAuth state", zap.Error(err))
+		http.Error(w, "failed to generate oauth state", http.StatusInternalServerError)
+		return
 	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    state,
+		Path:     "/",
+		MaxAge:   600,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	redirectURL := g.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
@@ -430,6 +453,24 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Google OAuth not configured", http.StatusNotImplemented)
 		return
 	}
+
+	state := r.URL.Query().Get("state")
+	cookie, err := r.Cookie(googleOAuthStateCookie)
+	if err != nil || state == "" || cookie == nil || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
+		http.Error(w, "invalid oauth state", http.StatusBadRequest)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
