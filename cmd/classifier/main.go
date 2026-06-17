@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -330,9 +331,10 @@ func logMiddleware(log *zap.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
+		safePath := strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")
 		log.Info("request",
 			zap.String("method", r.Method),
-			zap.String("path", r.URL.Path),
+			zap.String("path", safePath),
 			zap.Duration("duration", time.Since(start)),
 		)
 	})

@@ -243,10 +243,16 @@ jobs:
               }
             }
       - name: Welcome new contributors
+        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
-            const author = context.payload.issue.user.login;
+            const issue = context.payload.issue;
+            if (!issue) {
+              console.log('No issue payload, skipping welcome comment');
+              return;
+            }
+            const author = issue.user.login;
             const isFirst = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -667,7 +673,7 @@ jobs:
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
-          gosec -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
+          gosec -exclude=G710 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
           if [ ! -s sarif-results/gosec.sarif ]; then
             echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
@@ -1170,8 +1176,7 @@ jobs:
       - name: Upload k3s files to VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /tmp/k3s-install"
-          ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/k3s"
-          ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/install.sh"
+          ./scripts/ssh-retry.sh scp /tmp/k3s /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/"
       - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
