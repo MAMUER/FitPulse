@@ -201,7 +201,7 @@ func newTestGatewayFull(t *testing.T) (*gateway, *mockUserServiceFull, *mockBiom
 		userClient:         mockUser,
 		biometricClient:    mockBio,
 		trainingClient:     mockTraining,
-		mlClassifierURL:    "http://localhost:8001",
+		classifierURL:      "http://localhost:8001",
 		mlGeneratorURL:     "http://localhost:8002",
 		deviceConnectorURL: "http://localhost:8082",
 		log:                log,
@@ -271,7 +271,7 @@ func TestSafeIntToInt32_Underflow(t *testing.T) {
 
 func TestIsValidServiceURL_Valid(t *testing.T) {
 	assert.True(t, isValidServiceURL("http://localhost:8080", "http://localhost:"))
-	assert.True(t, isValidServiceURL("http://ml-classifier:8001", "http://ml-"))
+	assert.True(t, isValidServiceURL("http://classifier:8001", "http://classifier:"))
 	assert.True(t, isValidServiceURL("http://connector:9090", "http://connector:"))
 	assert.True(t, isValidServiceURL("https://localhost:8443", "https://localhost:"))
 }
@@ -1065,7 +1065,7 @@ func TestHealthHandler_Success(t *testing.T) {
 	assert.Equal(t, "ok", resp["status"])
 	assert.Equal(t, "gateway", resp["service"])
 	assert.NotEmpty(t, resp["timestamp"])
-	assert.Equal(t, "http://localhost:8001", resp["ml_classifier"])
+	assert.Equal(t, "http://localhost:8001", resp["classifier"])
 	assert.Equal(t, "http://localhost:8002", resp["ml_generator"])
 }
 
@@ -1603,7 +1603,7 @@ func TestGetProgressHandler_GrpcError(t *testing.T) {
 }
 
 // ============================================================================
-// ML Handler Tests (mlClassifyHandler)
+// ML Handler Tests (classifyHandler)
 // ============================================================================
 
 func TestClassifyHandler_Unauthorized(t *testing.T) {
@@ -1611,17 +1611,16 @@ func TestClassifyHandler_Unauthorized(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/ml/classify", nil)
 	w := httptest.NewRecorder()
 
-	g.mlClassifyHandler(w, req)
+	g.classifyHandler(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestClassifyHandler_InvalidMLURL(t *testing.T) {
+func TestClassifyHandler_InvalidClassifierURL(t *testing.T) {
 	g, _, mockBio, _ := newTestGatewayFull(t)
 	g.mlAsync = false
-	g.mlClassifierURL = "http://evil.com/classify" // Invalid - not in allowed prefixes
+	g.classifierURL = "http://evil.com/classify"
 
-	// mlClassifyHandler calls GetLatest for each metric type before checking ML URL
 	mockBio.On("GetLatest", mock.Anything, mock.AnythingOfType("*biometric.GetLatestRequest")).
 		Return(&biometricpb.BiometricRecord{MetricType: "heart_rate", Value: 75.0}, nil).Times(7)
 
@@ -1629,10 +1628,10 @@ func TestClassifyHandler_InvalidMLURL(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/ml/classify", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	g.mlClassifyHandler(w, req)
+	g.classifyHandler(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-	assert.Contains(t, w.Body.String(), "ML-сервис временно недоступен")
+	assert.Contains(t, w.Body.String(), "Сервис классификации временно недоступен")
 	mockBio.AssertExpectations(t)
 }
 

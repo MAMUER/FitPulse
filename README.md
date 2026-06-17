@@ -526,7 +526,7 @@ API для валидации: `POST /api/v1/invite/validate`
 │   ├── training-service/   # Training Service (gRPC)
 │   ├── device-connector/   # Device Connector (HTTP)
 │   ├── data-processor/     # RabbitMQ Consumer
-│   ├── ml_classifier/      # Python ML Classifier
+│   ├── classifier/          # Go Classifier Service
 │   └── ml_generator/       # Python GAN Generator
 ├── internal/               # Общие пакеты
 │   ├── auth/               # JWT, HMAC подпись

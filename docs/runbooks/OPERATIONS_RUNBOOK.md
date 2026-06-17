@@ -208,18 +208,18 @@ kubectl logs -f deployment/gateway -n fitness-platform
 **Шаги**:
 1. **Проверить версии моделей**
    ```bash
-   curl http://ml-classifier:8001/model-info
+   curl http://classifier:8001/model-info
    ```
 
 2. **Изучить последние предсказания**
    ```bash
-   # Kibana: service="ml-classifier" AND action="CLASSIFY" AND confidence < 0.7
+   # Kibana: service="classifier" AND action="CLASSIFY" AND confidence < 0.7
    ```
 
 3. **Запустить переобучение модели**
    ```bash
    # Через admin endpoint ML-сервиса
-   curl -X POST http://ml-classifier:8001/retrain \
+   curl -X POST http://classifier:8001/retrain \
      -H "Authorization: Bearer $ML_ADMIN_TOKEN"
    ```
 
@@ -369,7 +369,7 @@ curl "elasticsearch:9200/_cat/indices?v" | grep restored
 |Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
 |Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
 |Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
-|ML Classifier|`app=ml-classifier`|`http://ml-classifier:8001/health`|`kubectl logs -f deployment/ml-classifier`|
+|Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
 |ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 
 ---

@@ -44,7 +44,6 @@ updates:
           - "*"
         update-types:
           - "major"
-    # Разрешаем срочные обновления безопасности даже для мажорных версий
     allow:
       - dependency-type: "direct"
 
@@ -136,7 +135,7 @@ updates:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
-    
+
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
@@ -148,17 +147,28 @@ updates:
       - dependency-name: "golang"
         update-types: ["version-update:semver-major"]
 
+  - package-ecosystem: "docker"
+    directory: "/cmd/classifier"
+    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
+    labels: ["dependencies", "docker", "classifier"]
+    assignees: ["MAMUER"]
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
+
   # ═══════════════════════════════════════════════════════════════
   # 4. PYTHON (pip) — ML-сервисы
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "pip"
-    directory: "/cmd/ml_classifier"
+    directory: "/cmd/ml_generator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
     open-pull-requests-limit: 5
-    commit-message: { prefix: "deps(pip/ml-classifier)", include: "scope" }
-    labels: ["dependencies", "python", "ml-classifier"]
+    commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
+    labels: ["dependencies", "python", "ml-generator"]
     assignees: ["MAMUER"]
-    # Критические ML-библиотеки обновляем осторожно
     ignore:
       - dependency-name: "tensorflow"
         update-types: ["version-update:semver-major"]
@@ -168,10 +178,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "scikit-learn"
         update-types: ["version-update:semver-major"]
-      # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
       - dependency-name: "pandas"
         versions: [">=3"]
-      # cryptography: блокируем обновления до версий >=49 (несовместимы с mlflow)
       - dependency-name: "cryptography"
         versions: [">=49"]
     groups:
@@ -190,57 +198,9 @@ updates:
           - "minor"
           - "patch"
 
-  - package-ecosystem: "pip"
-    directory: "/cmd/ml_generator"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
-    labels: ["dependencies", "python", "ml-generator"]
-    assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "tensorflow"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "keras"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "numpy"
-        update-types: ["version-update:semver-major"]
-      # pandas: mlflow 3.x требует pandas<3, блокируем мажорные обновления
-      - dependency-name: "pandas"
-        versions: [">=3"]
-      # cryptography: блокируем обновления до версий >=49 (несовместимы с mlflow)
-      - dependency-name: "cryptography"
-        versions: [">=49"]
-    groups:
-      ml-dependencies:
-        patterns:
-          - "fastapi"
-          - "uvicorn"
-          - "pydantic"
-          - "pandas"
-          - "matplotlib"
-          - "redis"
-          - "pika"
-          - "prometheus-client"
-        update-types:
-          - "minor"
-          - "patch"
-
   # ═══════════════════════════════════════════════════════════════
   # 5. DOCKER — ML-сервисы (Python-образы)
   # ═══════════════════════════════════════════════════════════════
-  - package-ecosystem: "docker"
-    directory: "/cmd/ml_classifier"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
-    open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/ml-classifier)", include: "scope" }
-    labels: ["dependencies", "docker", "ml-classifier"]
-    assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
-        versions: [">=3.13"]
-    registries: ["ghcr"]
-
   - package-ecosystem: "docker"
     directory: "/cmd/ml_generator"
     schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }

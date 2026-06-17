@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ml-classifier
+  name: classifier
   namespace: fitness-platform-production
   labels:
-    app: ml-classifier
+    app: classifier
     tier: ml
     environment: production
-    app.kubernetes.io/name: ml-classifier
-    app.kubernetes.io/instance: ml-classifier
+    app.kubernetes.io/name: classifier
+    app.kubernetes.io/instance: classifier
     app.kubernetes.io/component: ml
     app.kubernetes.io/part-of: fitness-platform
     app.kubernetes.io/version: "latest"
@@ -18,16 +18,16 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ml-classifier
+      app: classifier
       tier: ml
   template:
     metadata:
       labels:
-        app: ml-classifier
+        app: classifier
         tier: ml
         zone: app-zone
-        app.kubernetes.io/name: ml-classifier
-        app.kubernetes.io/instance: ml-classifier
+        app.kubernetes.io/name: classifier
+        app.kubernetes.io/instance: classifier
         app.kubernetes.io/component: ml
         app.kubernetes.io/part-of: fitness-platform
         app.kubernetes.io/version: "latest"
@@ -49,8 +49,8 @@ spec:
         - name: tmp
           emptyDir: {}
       containers:
-        - name: ml-classifier
-          image: ghcr.io/mamuer/project/ml-classifier:latest
+        - name: classifier
+          image: ghcr.io/mamuer/project/classifier:latest
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -70,31 +70,29 @@ spec:
             - name: tmp
               mountPath: /tmp
           env:
-            - name: ML_CLASSIFIER_PORT
+            - name: CLASSIFIER_PORT
               valueFrom:
                 configMapKeyRef:
                   name: app-config
-                  key: ML_CLASSIFIER_PORT
-            - name: MPLCONFIGDIR
-              value: "/tmp/matplotlib"
+                  key: CLASSIFIER_PORT
           livenessProbe:
             httpGet:
               path: /health
               port: 8001
-            initialDelaySeconds: 300
+            initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 10
-            failureThreshold: 10
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 8001
-            initialDelaySeconds: 180
+            initialDelaySeconds: 15
             periodSeconds: 5
           resources:
             requests:
-              memory: "256Mi"
+              memory: "64Mi"
               cpu: "100m"
             limits:
-              memory: "1Gi"
-              cpu: "1"
+              memory: "256Mi"
+              cpu: "500m"

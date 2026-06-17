@@ -130,8 +130,8 @@ jobs:
             device:
               - 'cmd/device-connector/**'
               - 'internal/device/**'
-            ml:
-              - 'cmd/ml_classifier/**'
+            classifier:
+              - 'cmd/classifier/**'
               - 'cmd/ml_generator/**'
               - 'models/**'
               - 'datasets/**'
@@ -362,7 +362,7 @@ jobs:
           PYTHON_BLACK_CONFIG_FILE: pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           PYTHON_MYPY_CONFIG_FILE: pyproject.toml
-          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/ --exclude cmd/ml_classifier/"
+          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/"
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================
@@ -903,11 +903,11 @@ jobs:
       - name: Build and push ML images (if models exist)
         run: |
           if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
-            docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}" \
-              -t "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest" \
-              -f cmd/ml_classifier/Dockerfile .
-            docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:${{ steps.sha.outputs.short_sha }}"
-            docker push "${{ env.REGISTRY }}/mamuer/project/ml-classifier:latest"
+            docker build -t "${{ env.REGISTRY }}/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}" \
+              -t "${{ env.REGISTRY }}/mamuer/project/classifier:latest" \
+              -f cmd/classifier/Dockerfile .
+            docker push "${{ env.REGISTRY }}/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}"
+            docker push "${{ env.REGISTRY }}/mamuer/project/classifier:latest"
           fi
           if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
             docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}" \
@@ -1004,13 +1004,13 @@ jobs:
         run: |
           echo "Using cached data from GitHub Actions cache..."
           dvc pull datasets/processed/training_data_real.csv.dvc || echo "No DVC remote configured, using local cache"
-      - name: Install dependencies
+      - name: Install dependencies (generator)
         run: |
-          pip install -r cmd/ml_classifier/requirements.txt
-      - name: Train with MLflow tracking
+          pip install -r cmd/ml_generator/requirements.txt
+      - name: Train generator with MLflow tracking
         run: |
-          cd cmd/ml_classifier
-          python train.py
+          cd cmd/ml_generator
+          python train_gan.py
         env:
           MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
       - name: Validate model quality
@@ -1215,7 +1215,7 @@ jobs:
             k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
             echo ''
             echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
               echo \"Cleaning \$svc...\"
               docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
                 sort -k2 -r | \
@@ -1670,7 +1670,7 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           echo "Updating image tags to :$SHA"
           cd configs/k8s/overlays/production
-          for svc in user-service biometric-service training-service gateway ml-classifier ml-generator; do
+          for svc in user-service biometric-service training-service gateway classifier ml-generator; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
       - name: Cleanup disk space on VPS
@@ -1696,7 +1696,7 @@ jobs:
             docker builder prune -f --filter 'until=24h' || true
             echo ''
             echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
               echo \"Cleaning \$svc...\"
               docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
                 sort -k2 -r | \
@@ -1727,7 +1727,7 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo 'Logging in to GHCR on VPS...'
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
-            for svc in user-service biometric-service training-service gateway device-connector ml-classifier ml-generator; do
+            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
               echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
               docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
             done

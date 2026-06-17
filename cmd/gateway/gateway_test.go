@@ -339,9 +339,9 @@ func TestExtractFeatures_Comprehensive(t *testing.T) {
 // Тест health handler
 func TestGateway_HealthHandler(t *testing.T) {
 	g := &gateway{
-		mlClassifierURL: "http://classifier:8001",
-		mlGeneratorURL:  "http://generator:8002",
-		log:             logger.New("test-gateway"),
+		classifierURL:  "http://classifier:8001",
+		mlGeneratorURL: "http://generator:8002",
+		log:            logger.New("test-gateway"),
 	}
 
 	router := mux.NewRouter()
@@ -362,7 +362,7 @@ func TestGateway_HealthHandler(t *testing.T) {
 	assert.Equal(t, "degraded", response["status"])
 	assert.Equal(t, "gateway", response["service"])
 	assert.Contains(t, response, "timestamp")
-	assert.Equal(t, "http://classifier:8001", response["ml_classifier"])
+	assert.Equal(t, "http://classifier:8001", response["classifier"])
 	assert.Equal(t, "http://generator:8002", response["ml_generator"])
 	services, ok := response["services"].(map[string]interface{})
 	require.True(t, ok)

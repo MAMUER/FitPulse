@@ -12,7 +12,7 @@ patches:
   - path: replica-biometric-service.yaml
   - path: replica-training-service.yaml
   - path: replica-device-connector.yaml
-  - path: replica-ml-classifier.yaml
+  - path: replica-classifier.yaml
   - path: replica-ml-generator.yaml
   - path: replicas-patch.yaml
   - path: resource-gateway.yaml
@@ -20,7 +20,7 @@ patches:
   - path: resource-biometric-service.yaml
   - path: resource-training-service.yaml
   - path: resource-device-connector.yaml
-  - path: resource-ml-classifier.yaml
+  - path: resource-classifier.yaml
   - path: resource-ml-generator.yaml
   - path: configmap-patch.yaml
     target:
@@ -38,7 +38,7 @@ images:
     newTag: ${IMAGE_TAG:-latest}
   - name: ghcr.io/mamuer/project/gateway
     newTag: ${IMAGE_TAG:-latest}
-  - name: ghcr.io/mamuer/project/ml-classifier
+  - name: ghcr.io/mamuer/project/classifier
     newTag: ${IMAGE_TAG:-latest}
   - name: ghcr.io/mamuer/project/ml-generator
     newTag: ${IMAGE_TAG:-latest}

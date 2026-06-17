@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ml-classifier
+  name: classifier
   namespace: fitness-platform-production
 spec:
   selector:
-    app: ml-classifier
+    app: classifier
   ports:
   - port: 8001
     targetPort: 8001

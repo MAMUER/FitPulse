@@ -100,11 +100,11 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":        status,
-		"service":       "gateway",
-		"timestamp":     time.Now().UTC().Format(time.RFC3339),
-		"services":      services,
-		"ml_classifier": g.mlClassifierURL,
-		"ml_generator":  g.mlGeneratorURL,
+		"status":       status,
+		"service":      "gateway",
+		"timestamp":    time.Now().UTC().Format(time.RFC3339),
+		"services":     services,
+		"classifier":   g.classifierURL,
+		"ml_generator": g.mlGeneratorURL,
 	})
 }

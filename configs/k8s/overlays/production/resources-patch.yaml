@@ -133,7 +133,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ml-classifier
+  name: classifier
   namespace: fitness-platform-production
 spec:
   template:
@@ -141,16 +141,16 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-        - name: ml-classifier
+        - name: classifier
           securityContext:
             runAsNonRoot: true
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 64Mi
             limits:
               cpu: 500m
-              memory: 768Mi
+              memory: 256Mi
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -261,7 +261,7 @@ Action Items:
 |Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
 |Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
 |Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
-|ML Classifier|`app=ml-classifier`|`http://ml-classifier:8001/health`|`kubectl logs -f deployment/ml-classifier`|
+|Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
 |ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 
 ---

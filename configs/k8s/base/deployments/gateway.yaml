@@ -105,8 +105,8 @@ spec:
               value: "/etc/secrets/POSTGRES_PASSWORD"
             - name: PROMETHEUS_ENABLED
               value: 'true'
-            - name: ML_CLASSIFIER_URL
-              value: "http://ml-classifier:8001"
+            - name: CLASSIFIER_URL
+              value: "http://classifier:8001"
             - name: ML_GENERATOR_URL
               value: "http://ml-generator:8002"
             - name: JWT_SECRET_FILE

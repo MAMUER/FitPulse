@@ -43,7 +43,7 @@ type gateway struct {
 	biometricClient    biometricpb.BiometricServiceClient
 	trainingAddr       string
 	trainingClient     trainingpb.TrainingServiceClient
-	mlClassifierURL    string
+	classifierURL      string
 	mlGeneratorURL     string
 	deviceConnectorURL string
 	log                *logger.Logger
@@ -171,7 +171,7 @@ type gatewayConfig struct {
 	userServiceAddr      string
 	biometricServiceAddr string
 	trainingServiceAddr  string
-	mlClassifierURL      string
+	classifierURL        string
 	mlGeneratorURL       string
 	deviceConnectorURL   string
 	rabbitmqURL          string
@@ -227,7 +227,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		userServiceAddr:      defaultEnv("USER_SERVICE_ADDR", "localhost:50051"),
 		biometricServiceAddr: defaultEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052"),
 		trainingServiceAddr:  defaultEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
-		mlClassifierURL:      defaultEnv("ML_CLASSIFIER_URL", "http://localhost:8001"),
+		classifierURL:        defaultEnv("CLASSIFIER_URL", "http://classifier:8001"),
 		mlGeneratorURL:       defaultEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
 		deviceConnectorURL:   defaultEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
 		mlAsync:              envBool("ML_ASYNC"),
@@ -443,7 +443,7 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		userClient:         userClient,
 		biometricAddr:      cfg.biometricServiceAddr,
 		trainingAddr:       cfg.trainingServiceAddr,
-		mlClassifierURL:    cfg.mlClassifierURL,
+		classifierURL:      cfg.classifierURL,
 		mlGeneratorURL:     cfg.mlGeneratorURL,
 		deviceConnectorURL: cfg.deviceConnectorURL,
 		log:                log,
@@ -498,7 +498,7 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.
 			log.Info("HTTPS server starting",
 				zap.String("port", "8443"),
 				zap.String("cert", tls.certFile),
-				zap.String("ml_classifier", cfg.mlClassifierURL),
+				zap.String("classifier", cfg.classifierURL),
 				zap.String("ml_generator", cfg.mlGeneratorURL))
 			if err := httpsSrv.ListenAndServeTLS(tls.certFile, tls.keyFile); err != nil && err != http.ErrServerClosed {
 				log.Fatal("Failed to start HTTPS server", zap.Error(err))
@@ -649,7 +649,7 @@ func (g *gateway) registerRoutes() *mux.Router {
 	protected.HandleFunc("/training/workouts/{workout_id}/complete", g.completeWorkoutHandler).Methods("POST")
 
 	// ML
-	protected.HandleFunc("/ml/classify", g.mlClassifyHandler).Methods("POST")
+	protected.HandleFunc("/ml/classify", g.classifyHandler).Methods("POST")
 	protected.HandleFunc("/ml/generate", g.mlGenerateHandler).Methods("POST")
 
 	// Devices — проксирование на device-connector
