@@ -1972,7 +1972,7 @@ func TestGoogleLoginHandler_SetsCookieAndRedirects(t *testing.T) {
 	}
 
 	// Create a request with a malicious state parameter (should be ignored).
-	req := httptest.NewRequest("GET", "/api/v1/auth/google?state=https://evil.com", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google?state=https://evil.com", nil)
 	w := httptest.NewRecorder()
 
 	g.googleLoginHandler(w, req)
@@ -2034,14 +2034,14 @@ func TestGoogleCallbackHandler_InvalidState(t *testing.T) {
 	}
 
 	// Case 1: No state parameter and no cookie.
-	req := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?code=abc", nil)
 	w := httptest.NewRecorder()
 	g.googleCallbackHandler(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code, "expected bad request when state is missing")
 	assert.Contains(t, w.Body.String(), "invalid oauth state", "response body should indicate invalid state")
 
 	// Case 2: State parameter does not match cookie.
-	req2 := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc&state=badstate", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?code=abc&state=badstate", nil)
 	req2.AddCookie(&http.Cookie{
 		Name:  googleOAuthStateCookie,
 		Value: "goodstate",
@@ -2055,7 +2055,7 @@ func TestGoogleCallbackHandler_InvalidState(t *testing.T) {
 	// Case 3: Valid state (cookie matches) but we don't test the code exchange here.
 	// We'll just ensure that a valid state passes the state check and moves on to code validation.
 	// For brevity, we only test that it doesn't return a bad request due to state.
-	req3 := httptest.NewRequest("GET", "/api/v1/auth/google/callback?code=abc&state=goodstate", nil)
+	req3 := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?code=abc&state=goodstate", nil)
 	req3.AddCookie(&http.Cookie{
 		Name:  googleOAuthStateCookie,
 		Value: "goodstate",
