@@ -3,6 +3,7 @@
 services:
   postgres-test:
     image: postgres:15-alpine
+    user: "999:999"
     environment:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass

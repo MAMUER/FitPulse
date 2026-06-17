@@ -99,10 +99,27 @@ spec:
               value: "training-service:50053"
             - name: DEVICE_CONNECTOR_URL
               value: "http://device-connector-service:8082"
-            - name: DATABASE_URL
-              value: "postgres://postgres:$(POSTGRES_PASSWORD)@postgres-service:5432/fitness?sslmode=disable"
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_SSLMODE
+            - name: POSTGRES_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
               value: "/etc/secrets/POSTGRES_PASSWORD"
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
             - name: PROMETHEUS_ENABLED
               value: 'true'
             - name: CLASSIFIER_URL

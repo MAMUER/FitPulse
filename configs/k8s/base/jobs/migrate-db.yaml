@@ -30,6 +30,7 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000          # <--- добавлено (был только runAsGroup)
         runAsGroup: 1000
         readOnlyRootFilesystem: true
         seccompProfile:
@@ -53,6 +54,7 @@ spec:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
             runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop:
                 - ALL
