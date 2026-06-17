@@ -2,13 +2,14 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/MAMUER/Project/api/gen/user";
+option go_package = "github.com/MAMUER/project/api/gen/user";
 
 service UserService {
     rpc Register(RegisterRequest) returns (RegisterResponse);
     rpc RegisterWithInvite(RegisterWithInviteRequest) returns (RegisterResponse);
     rpc ConfirmEmail(ConfirmEmailRequest) returns (ConfirmEmailResponse);
     rpc Login(LoginRequest) returns (LoginResponse);
+    rpc AuthenticateGoogle(AuthenticateGoogleRequest) returns (LoginResponse);
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
@@ -60,6 +61,10 @@ message LoginResponse {
     string role = 5;
 }
 
+message AuthenticateGoogleRequest {
+    string id_token = 1;
+}
+
 message GetProfileRequest {
     string user_id = 1;
 }
@@ -67,7 +72,7 @@ message GetProfileRequest {
 message UpdateProfileRequest {
     string user_id = 1;
     optional string full_name = 11;
-    optional string nickname = 12; // New field for nickname
+    optional string nickname = 12;
     optional int32 age = 2;
     optional string gender = 3;
     optional int32 height_cm = 4;
@@ -102,7 +107,7 @@ message ChangeEmailResponse {
 message UploadProfilePhotoRequest {
     string user_id = 1;
     bytes photo_data = 2;
-    string content_type = 3; // e.g., "image/jpeg"
+    string content_type = 3;
 }
 
 message UploadProfilePhotoResponse {
@@ -128,7 +133,7 @@ message ChangeNicknameResponse {
 
 message Device {
     string device_id = 1;
-    string device_type = 2; // e.g., "apple_watch"
+    string device_type = 2;
     string device_name = 3;
     bool is_connected = 4;
     string last_sync = 5;
@@ -173,8 +178,8 @@ message SyncDeviceDataResponse {
 
 message GetTrainingStatsRequest {
     string user_id = 1;
-    string from_date = 2; // ISO date
-    string to_date = 3;   // ISO date
+    string from_date = 2;
+    string to_date = 3;
 }
 
 message TrainingStats {
@@ -209,7 +214,7 @@ message UserProfile {
     string user_id = 1;
     string email = 2;
     string full_name = 3;
-    string nickname = 4; // New field
+    string nickname = 4;
     string role = 5;
     bool email_confirmed = 6;
     int32 age = 7;
@@ -223,7 +228,7 @@ message UserProfile {
     string updated_at = 15;
     string nutrition = 16;
     float sleep_hours = 17;
-    string profile_photo_url = 18; // New field
+    string profile_photo_url = 18;
 }
 
 message ListUsersRequest {
@@ -236,8 +241,6 @@ message ListUsersResponse {
     repeated UserProfile users = 1;
     int32 total = 2;
 }
-
-// ===== Invite Code Registration =====
 
 message RegisterWithInviteRequest {
     string email = 1;

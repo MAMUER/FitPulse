@@ -21,6 +21,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/oauth2"
+	oauth2google "golang.org/x/oauth2/google"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
@@ -54,6 +56,8 @@ type gateway struct {
 	requestDuration    *prometheus.HistogramVec
 	requestTotal       *prometheus.CounterVec
 	errorTotal         *prometheus.CounterVec
+
+	googleOAuthConfig *oauth2.Config
 
 	biometricMu sync.Mutex
 	trainingMu  sync.Mutex
@@ -175,6 +179,26 @@ func main() {
 		if appURLErr == nil {
 			publicHost = parsedAppURL.Host
 		}
+	}
+
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	var googleOAuthConfig *oauth2.Config
+	if googleClientID != "" && googleClientSecret != "" {
+		redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
+		if redirectURL == "" && appBaseURL != "" {
+			redirectURL = appBaseURL + "/api/v1/auth/google/callback"
+		}
+		googleOAuthConfig = &oauth2.Config{
+			ClientID:     googleClientID,
+			ClientSecret: googleClientSecret,
+			RedirectURL:  redirectURL,
+			Scopes:       []string{"openid", "profile", "email"},
+			Endpoint:     oauth2google.Endpoint,
+		}
+		log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
+	} else {
+		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
 	}
 
 	// Database connection for server-side role re-verification (Security #10)
@@ -328,6 +352,7 @@ func main() {
 		requestDuration:    requestDuration,
 		requestTotal:       requestTotal,
 		errorTotal:         errorTotal,
+		googleOAuthConfig:  googleOAuthConfig,
 	}
 
 	// Setup routes (middleware applied via r.Use() in registerRoutes)
@@ -477,6 +502,8 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.HandleFunc("/api/v1/login", g.loginHandler).Methods("POST")
 	r.HandleFunc("/api/v1/auth/confirm", g.confirmEmailHandler).Methods("POST")
 	r.HandleFunc("/api/v1/auth/verify-status", g.checkVerificationStatusHandler).Methods("GET")
+	r.HandleFunc("/api/v1/auth/google", g.googleLoginHandler).Methods("GET")
+	r.HandleFunc("/api/v1/auth/google/callback", g.googleCallbackHandler).Methods("GET")
 	r.HandleFunc("/health", g.healthHandler).Methods("GET")
 	// Webhook endpoint - БЕЗ authMiddleware
 	r.HandleFunc("/api/v1/devices/withings/webhook", g.proxyToDeviceAggregator).Methods("POST")
@@ -652,4 +679,11 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

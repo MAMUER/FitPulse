@@ -19,6 +19,7 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
+	"google.golang.org/api/idtoken"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
@@ -41,11 +42,12 @@ type User struct {
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
-	db          *sql.DB
-	log         *logger.Logger
-	secret      string
-	emailSender *email.Sender
-	baseURL     string
+	db              *sql.DB
+	log             *logger.Logger
+	secret          string
+	emailSender     *email.Sender
+	baseURL         string
+	googleClientID  string
 }
 
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -240,6 +242,100 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 		ExpiresIn:   24 * 3600,
 		UserId:      user.ID,
 		Role:        user.Role,
+	}, nil
+}
+
+func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.AuthenticateGoogleRequest) (*pb.LoginResponse, error) {
+	s.log.Info("Google auth request")
+
+	if req.IdToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "id_token is required")
+	}
+
+	payload, err := idtoken.Validate(ctx, req.IdToken, s.googleClientID)
+	if err != nil {
+		s.log.Warn("Invalid Google token", zap.Error(err))
+		return nil, status.Error(codes.Unauthenticated, "invalid Google token")
+	}
+
+	emailVal, _ := payload.Claims["email"].(string)
+	googleSub, _ := payload.Claims["sub"].(string)
+
+	if emailVal == "" || googleSub == "" {
+		return nil, status.Error(codes.InvalidArgument, "Google token missing required claims")
+	}
+
+	emailVal = sanitize.String(emailVal)
+
+	var userID, role string
+	var emailConfirmed bool
+	err = s.db.QueryRowContext(ctx, `
+		SELECT id, role, email_confirmed FROM users WHERE provider = 'google' AND external_id = $1
+	`, googleSub).Scan(&userID, &role, &emailConfirmed)
+	if err == nil {
+		if !emailConfirmed {
+			_, _ = s.db.ExecContext(ctx, `UPDATE users SET email_confirmed = true, updated_at = NOW() WHERE id = $1`, userID)
+			emailConfirmed = true
+		}
+	} else if errors.Is(err, sql.ErrNoRows) {
+		err = s.db.QueryRowContext(ctx, `
+			SELECT id, role, email_confirmed FROM users WHERE email = $1
+		`, emailVal).Scan(&userID, &role, &emailConfirmed)
+		if err == nil {
+			_, linkErr := s.db.ExecContext(ctx, `
+				UPDATE users SET provider = 'google', external_id = $1, email_confirmed = true, updated_at = NOW() WHERE id = $2
+			`, googleSub, userID)
+			if linkErr != nil {
+				s.log.Warn("Failed to link Google account", zap.Error(linkErr), zap.String("user_id", userID))
+			}
+		} else if errors.Is(err, sql.ErrNoRows) {
+			nickname := extractLocalPart(emailVal)
+			userID = uuid.New().String()
+			_, insertErr := s.db.ExecContext(ctx, `
+				INSERT INTO users (id, email, password_hash, full_name, nickname, role, provider, external_id, email_confirmed, created_at, updated_at)
+				VALUES ($1, $2, NULL, $3, $4, 'client', 'google', $5, true, NOW(), NOW())
+			`, userID, emailVal, nickname, nickname, googleSub)
+			if insertErr != nil {
+				var pqErr *pq.Error
+				if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
+					return nil, status.Error(codes.AlreadyExists, "user already exists")
+				}
+				s.log.Error("Failed to create OAuth user", zap.Error(insertErr))
+				return nil, status.Error(codes.Internal, "failed to create user")
+			}
+			role = "client"
+			emailConfirmed = true
+
+			_, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
+			if profileErr != nil {
+				s.log.Warn("Failed to create profile for OAuth user", zap.Error(profileErr), zap.String("user_id", userID))
+			}
+		} else {
+			s.log.Error("Database error during Google auth", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+	} else {
+		s.log.Error("Database error during Google auth", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if !emailConfirmed {
+		return nil, status.Error(codes.Unauthenticated, "email not confirmed")
+	}
+
+	token, tokenErr := auth.GenerateJWT(userID, emailVal, role, s.secret, 24)
+	if tokenErr != nil {
+		s.log.Error("Failed to generate JWT", zap.Error(tokenErr))
+		return nil, status.Error(codes.Internal, "failed to generate token")
+	}
+
+	s.log.Info("Google auth successful", zap.String("user_id", userID), zap.String("email", emailVal))
+	return &pb.LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		ExpiresIn:   24 * 3600,
+		UserId:      userID,
+		Role:        role,
 	}, nil
 }
 
@@ -728,6 +824,14 @@ func containsDigit(s string) bool {
 	return false
 }
 
+func extractLocalPart(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return email
+}
+
 func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
 	// Валидация параметров
 	if req == nil {
@@ -921,6 +1025,10 @@ func main() {
 	emailCfg := email.LoadConfig()
 	emailSender := email.NewSender(emailCfg)
 	baseURL := getEnvOrDefault("BASE_URL", "https://localhost:8443")
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	if googleClientID == "" {
+		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
+	}
 
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":"+port)
 	if err != nil {
@@ -931,11 +1039,12 @@ func main() {
 		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
 	)
 	pb.RegisterUserServiceServer(s, &userServer{
-		db:          database,
-		log:         log,
-		secret:      secret,
-		emailSender: emailSender,
-		baseURL:     baseURL,
+		db:              database,
+		log:             log,
+		secret:          secret,
+		emailSender:     emailSender,
+		baseURL:         baseURL,
+		googleClientID:  googleClientID,
 	})
 
 	// Register gRPC health server

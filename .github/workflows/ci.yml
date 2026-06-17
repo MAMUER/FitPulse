@@ -210,8 +210,13 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const body = context.payload.issue.body || '';
-            const title = context.payload.issue.title.toLowerCase();
+            const issue = context.payload.issue;
+            if (!issue) {
+              console.log('No issue payload, skipping assignment');
+              return;
+            }
+            const body = issue.body || '';
+            const title = issue.title.toLowerCase();
             const assignments = {
               'gateway': ['@MAMUER'],
               'user service': ['@MAMUER'],
@@ -237,7 +242,6 @@ jobs:
                 break;
               }
             }
-
       - name: Welcome new contributors
         uses: actions/github-script@v9
         with:
@@ -1648,6 +1652,9 @@ jobs:
             --from-literal=WITHINGS_CLIENT_ID=${{ secrets.WITHINGS_CLIENT_ID }} \
             --from-literal=WITHINGS_CLIENT_SECRET=${{ secrets.WITHINGS_CLIENT_SECRET }} \
             --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
+            --from-literal=GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+            --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
+            --from-literal=GOOGLE_REDIRECT_URL=${{ vars.GOOGLE_REDIRECT_URL }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ app-secrets created"
 

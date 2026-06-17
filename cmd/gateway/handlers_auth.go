@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"html"
 	"html/template"
 	"net/http"
 	"os"
 	"strings"
+
+	"golang.org/x/oauth2"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
@@ -284,6 +288,74 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if executeErr := tmpl.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
 		g.log.Error("Failed to write confirm page", zap.Error(executeErr))
+	}
+}
+
+func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
+	if g.googleOAuthConfig == nil {
+		http.Error(w, "Google OAuth not configured", http.StatusNotImplemented)
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		state = hex.EncodeToString(b)
+	}
+
+	redirectURL := g.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	if g.googleOAuthConfig == nil {
+		http.Error(w, "Google OAuth not configured", http.StatusNotImplemented)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "missing authorization code", http.StatusBadRequest)
+		return
+	}
+
+	token, err := g.googleOAuthConfig.Exchange(r.Context(), code)
+	if err != nil {
+		g.log.Error("Failed to exchange Google code", zap.Error(err))
+		http.Error(w, "failed to exchange authorization code", http.StatusBadRequest)
+		return
+	}
+
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok || idToken == "" {
+		g.log.Error("Google token missing id_token")
+		http.Error(w, "missing id_token from Google", http.StatusBadRequest)
+		return
+	}
+
+	grpcResp, err := g.userClient.AuthenticateGoogle(r.Context(), &userpb.AuthenticateGoogleRequest{
+		IdToken: idToken,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Google auth failed", zap.Error(err))
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       "ok",
+		"access_token": grpcResp.GetAccessToken(),
+		"token_type":   grpcResp.GetTokenType(),
+		"expires_in":   grpcResp.GetExpiresIn(),
+		"user_id":      grpcResp.GetUserId(),
+		"role":         grpcResp.GetRole(),
+	}); err != nil {
+		g.log.Error("Failed to encode Google auth response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
 	}
 }
 
