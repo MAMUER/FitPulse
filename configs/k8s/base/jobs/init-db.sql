@@ -1,42 +1,107 @@
--- V1__create_extensions.sql
--- Create necessary extensions with explicit existence checks
--- CREATE EXTENSION IF NOT EXISTS can fail with "duplicate key value violates unique constraint"
--- when the extension catalog is in an inconsistent state. Using DO block with pg_extension check.
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') THEN
-        CREATE EXTENSION "uuid-ossp";
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
-        CREATE EXTENSION "pgcrypto";
-    END IF;
-END $$;
+-- V10__add_classification_class_column.sql
+-- V10__add_classification_class_column.sql
+-- Add classification_class column to training_plans (was missing from V6)
 
--- Cleanup orphaned composite types that prevent CREATE TABLE IF NOT EXISTS
--- This resolves: ERROR: duplicate key value violates unique constraint "pg_type_typname_nsp_index"
--- FIX: Exclude types associated with views ('v') and materialized views ('m') to avoid
--- "cannot drop type ... because view ... requires it" errors.
-DO $$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (SELECT t.typname 
-              FROM pg_type t 
-              JOIN pg_namespace n ON n.oid = t.typnamespace 
-              WHERE n.nspname = 'public' 
-                AND t.typtype = 'c' 
-                AND NOT EXISTS (
-                    SELECT 1 FROM pg_class c 
-                    WHERE c.relname = t.typname 
-                    AND c.relkind IN ('r', 'p', 'v', 'm')
-                ))
-    LOOP
-        EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(r.typname) || ' CASCADE';
-    END LOOP;
-END $$;
+ALTER TABLE training_plans
+    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
+
+COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';
+
+-- V11__device_providers.sql
+-- Таблица для OAuth state (защита от CSRF)
+CREATE TABLE IF NOT EXISTS oauth_states (
+    state VARCHAR(255) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+
+-- Таблица для хранения OAuth токенов провайдеров
+CREATE TABLE IF NOT EXISTS device_provider_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    provider_user_id VARCHAR(255) NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
+    scopes TEXT[],
+    webhook_subscription_id VARCHAR(255),
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_accounts_user ON device_provider_accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON device_provider_accounts(provider);
+
+-- Лог синхронизаций
+CREATE TABLE IF NOT EXISTS device_sync_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_account_id UUID REFERENCES device_provider_accounts(id) ON DELETE CASCADE,
+    sync_type VARCHAR(50) NOT NULL,
+    records_count INT DEFAULT 0,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'pending',
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
+
+-- V12__oauth_providers.sql
+-- V12__oauth_providers.sql
+-- OAuth providers support (Google OAuth)
+
+-- Make password optional for OAuth users (local users still set password)
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+
+-- OAuth provider fields
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS provider VARCHAR(50) NOT NULL DEFAULT 'local',
+    ADD COLUMN IF NOT EXISTS external_id VARCHAR(255);
+
+-- Unique index for OAuth lookups (google + google_sub)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external
+    ON users(provider, external_id)
+    WHERE external_id IS NOT NULL;
+
+-- V13__add_totp_2fa.sql
+-- V13__add_totp_2fa.sql
+-- Adds TOTP two-factor authentication support
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted BYTEA;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_hash TEXT[];
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_remaining INT NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_users_totp_enabled
+    ON users(totp_enabled)
+    WHERE totp_enabled = TRUE;
+
+COMMENT ON COLUMN users.totp_secret_encrypted IS 'TOTP secret encrypted with AES-256-GCM using TOTP_ENCRYPTION_KEY';
+COMMENT ON COLUMN users.totp_backup_codes_hash IS 'Array of SHA-256 hashes of backup codes (10 codes)';
+
+
+-- V1__create_extensions.sql
+-- V1__create_extensions.sql
+-- Create necessary extensions
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- V2__create_users_and_auth.sql
+-- V2__create_users_and_auth.sql
 -- Core users and authentication tables
+
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,7 +111,7 @@ CREATE TABLE IF NOT EXISTS users (
     nickname            VARCHAR(100) UNIQUE,
     profile_photo_url   VARCHAR(500),
     role                VARCHAR(50) NOT NULL DEFAULT 'client'
-        CHECK (role IN ('client', 'admin')),
+                            CHECK (role IN ('client', 'admin')),
     email_confirmed     BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
@@ -94,7 +159,9 @@ CREATE INDEX IF NOT EXISTS idx_invite_code_uses_code ON invite_code_uses(invite_
 CREATE INDEX IF NOT EXISTS idx_invite_code_uses_user ON invite_code_uses(user_id);
 
 -- V3__create_user_profiles.sql
+-- V3__create_user_profiles.sql
 -- User profiles and related data
+
 -- User profiles
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id         UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -126,7 +193,9 @@ CREATE TABLE IF NOT EXISTS user_contraindications (
 );
 
 -- V4__create_devices.sql
+-- V4__create_devices.sql
 -- Devices registered by device-connector
+
 -- Devices
 CREATE TABLE IF NOT EXISTS devices (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -142,7 +211,9 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 
 -- V5__create_biometric_data.sql
+-- V4__create_biometric_data.sql
 -- Biometric data and device ingestion
+
 -- Biometric data
 CREATE TABLE IF NOT EXISTS biometric_data (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -170,7 +241,9 @@ CREATE TABLE IF NOT EXISTS device_ingest_log (
 CREATE INDEX IF NOT EXISTS idx_ingest_log_device_time ON device_ingest_log(device_id, timestamp);
 
 -- V6__create_training_plans.sql
+-- V6__create_training_plans.sql
 -- Training plans and related data
+
 -- Training plans
 CREATE TABLE IF NOT EXISTS training_plans (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -179,7 +252,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
     training_goal       VARCHAR(50) CHECK (training_goal IS NULL OR training_goal IN (
         'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility', 'general_fitness',
         'recovery', 'endurance_e1e2', 'threshold_e3', 'strength_hiit'
-        )),
+    )),
     training_location   VARCHAR(50) CHECK (training_location IS NULL OR training_location IN ('home', 'gym', 'pool', 'outdoor')),
     available_time      VARCHAR(20) CHECK (available_time IS NULL OR available_time IN ('morning', 'afternoon', 'evening')),
     duration_weeks      INT CHECK (duration_weeks IS NULL OR (duration_weeks > 0 AND duration_weeks <= 52)),
@@ -252,7 +325,9 @@ CREATE INDEX IF NOT EXISTS idx_workout_completions_user ON workout_completions(u
 CREATE INDEX IF NOT EXISTS idx_workout_completions_plan ON workout_completions(training_plan_id);
 
 -- V7__create_achievements.sql
+-- V7__create_achievements.sql
 -- Achievements system
+
 -- Achievements
 CREATE TABLE IF NOT EXISTS achievements (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -281,7 +356,9 @@ INSERT INTO achievements (name, description, criteria) VALUES
 ON CONFLICT DO NOTHING;
 
 -- V8__create_views.sql
+-- V8__create_views.sql
 -- Views for backward compatibility and derived data
+
 -- Invite code statistics (replaces invite_codes.used_count)
 CREATE OR REPLACE VIEW invite_code_stats AS
 SELECT
@@ -318,7 +395,9 @@ GROUP BY up.user_id, up.age, up.gender, up.height_cm, up.weight_kg, up.fitness_l
          up.nutrition, up.sleep_hours, up.created_at, up.updated_at;
 
 -- V9__create_functions.sql
+-- V9__create_functions.sql
 -- Functions for invite code management
+
 -- Create a new invite code
 -- Parameters: p_role, p_specialty, p_max_uses, p_valid_days
 CREATE OR REPLACE FUNCTION create_invite_code(
@@ -351,6 +430,7 @@ BEGIN
         TRUE,
         CASE WHEN p_valid_days > 0 THEN NOW() + (p_valid_days || ' days')::INTERVAL ELSE NULL END
     );
+
     RETURN v_code;
 END;
 $$ LANGUAGE plpgsql;
@@ -371,6 +451,7 @@ DECLARE
 BEGIN
     -- Lookup code
     SELECT * INTO v_record FROM invite_codes WHERE code = p_code AND is_active = TRUE;
+
     IF NOT FOUND THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code not found or inactive';
         RETURN NEXT; RETURN;
@@ -410,13 +491,8 @@ BEGIN
     IF v_invite_id IS NULL THEN
         RAISE EXCEPTION 'Invite code not found: %', p_code;
     END IF;
+
     INSERT INTO invite_code_uses (invite_code_id, user_id) VALUES (v_invite_id, p_user_id);
 END;
 $$ LANGUAGE plpgsql;
 
--- V10__add_classification_class_column.sql
--- Add classification_class column to training_plans (was missing from V6)
-ALTER TABLE training_plans
-    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
-
-COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';

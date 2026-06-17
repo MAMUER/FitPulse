@@ -1655,6 +1655,7 @@ jobs:
             --from-literal=GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
             --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
             --from-literal=GOOGLE_REDIRECT_URL=${{ vars.GOOGLE_REDIRECT_URL }} \
+            --from-literal=TOTP_ENCRYPTION_KEY=${{ secrets.TOTP_ENCRYPTION_KEY }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ app-secrets created"
 

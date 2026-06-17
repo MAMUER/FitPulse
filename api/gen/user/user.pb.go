@@ -2365,6 +2365,446 @@ func (x *ValidateInviteCodeResponse) GetErrorMessage() string {
 	return ""
 }
 
+type SetupTOTPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetupTOTPRequest) Reset() {
+	*x = SetupTOTPRequest{}
+	mi := &file_user_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetupTOTPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetupTOTPRequest) ProtoMessage() {}
+
+func (x *SetupTOTPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetupTOTPRequest.ProtoReflect.Descriptor instead.
+func (*SetupTOTPRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SetupTOTPRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type SetupTOTPResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	QrCodeUrl     string                 `protobuf:"bytes,1,opt,name=qr_code_url,json=qrCodeUrl,proto3" json:"qr_code_url,omitempty"`
+	Secret        string                 `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
+	BackupCodes   []string               `protobuf:"bytes,3,rep,name=backup_codes,json=backupCodes,proto3" json:"backup_codes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetupTOTPResponse) Reset() {
+	*x = SetupTOTPResponse{}
+	mi := &file_user_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetupTOTPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetupTOTPResponse) ProtoMessage() {}
+
+func (x *SetupTOTPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetupTOTPResponse.ProtoReflect.Descriptor instead.
+func (*SetupTOTPResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *SetupTOTPResponse) GetQrCodeUrl() string {
+	if x != nil {
+		return x.QrCodeUrl
+	}
+	return ""
+}
+
+func (x *SetupTOTPResponse) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *SetupTOTPResponse) GetBackupCodes() []string {
+	if x != nil {
+		return x.BackupCodes
+	}
+	return nil
+}
+
+type ConfirmTOTPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Passcode      string                 `protobuf:"bytes,2,opt,name=passcode,proto3" json:"passcode,omitempty"`
+	TempSecret    string                 `protobuf:"bytes,3,opt,name=temp_secret,json=tempSecret,proto3" json:"temp_secret,omitempty"`
+	BackupCodes   []string               `protobuf:"bytes,4,rep,name=backup_codes,json=backupCodes,proto3" json:"backup_codes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmTOTPRequest) Reset() {
+	*x = ConfirmTOTPRequest{}
+	mi := &file_user_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmTOTPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmTOTPRequest) ProtoMessage() {}
+
+func (x *ConfirmTOTPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmTOTPRequest.ProtoReflect.Descriptor instead.
+func (*ConfirmTOTPRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *ConfirmTOTPRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ConfirmTOTPRequest) GetPasscode() string {
+	if x != nil {
+		return x.Passcode
+	}
+	return ""
+}
+
+func (x *ConfirmTOTPRequest) GetTempSecret() string {
+	if x != nil {
+		return x.TempSecret
+	}
+	return ""
+}
+
+func (x *ConfirmTOTPRequest) GetBackupCodes() []string {
+	if x != nil {
+		return x.BackupCodes
+	}
+	return nil
+}
+
+type ConfirmTOTPResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmTOTPResponse) Reset() {
+	*x = ConfirmTOTPResponse{}
+	mi := &file_user_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmTOTPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmTOTPResponse) ProtoMessage() {}
+
+func (x *ConfirmTOTPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmTOTPResponse.ProtoReflect.Descriptor instead.
+func (*ConfirmTOTPResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ConfirmTOTPResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ConfirmTOTPResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type VerifyTOTPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Passcode      string                 `protobuf:"bytes,2,opt,name=passcode,proto3" json:"passcode,omitempty"`
+	IsBackupCode  bool                   `protobuf:"varint,3,opt,name=is_backup_code,json=isBackupCode,proto3" json:"is_backup_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyTOTPRequest) Reset() {
+	*x = VerifyTOTPRequest{}
+	mi := &file_user_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyTOTPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyTOTPRequest) ProtoMessage() {}
+
+func (x *VerifyTOTPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyTOTPRequest.ProtoReflect.Descriptor instead.
+func (*VerifyTOTPRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *VerifyTOTPRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *VerifyTOTPRequest) GetPasscode() string {
+	if x != nil {
+		return x.Passcode
+	}
+	return ""
+}
+
+func (x *VerifyTOTPRequest) GetIsBackupCode() bool {
+	if x != nil {
+		return x.IsBackupCode
+	}
+	return false
+}
+
+type VerifyTOTPResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Valid                bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
+	BackupCodesRemaining int32                  `protobuf:"varint,2,opt,name=backup_codes_remaining,json=backupCodesRemaining,proto3" json:"backup_codes_remaining,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *VerifyTOTPResponse) Reset() {
+	*x = VerifyTOTPResponse{}
+	mi := &file_user_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyTOTPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyTOTPResponse) ProtoMessage() {}
+
+func (x *VerifyTOTPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyTOTPResponse.ProtoReflect.Descriptor instead.
+func (*VerifyTOTPResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *VerifyTOTPResponse) GetValid() bool {
+	if x != nil {
+		return x.Valid
+	}
+	return false
+}
+
+func (x *VerifyTOTPResponse) GetBackupCodesRemaining() int32 {
+	if x != nil {
+		return x.BackupCodesRemaining
+	}
+	return 0
+}
+
+type DisableTOTPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Passcode      string                 `protobuf:"bytes,2,opt,name=passcode,proto3" json:"passcode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisableTOTPRequest) Reset() {
+	*x = DisableTOTPRequest{}
+	mi := &file_user_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisableTOTPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableTOTPRequest) ProtoMessage() {}
+
+func (x *DisableTOTPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableTOTPRequest.ProtoReflect.Descriptor instead.
+func (*DisableTOTPRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *DisableTOTPRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *DisableTOTPRequest) GetPasscode() string {
+	if x != nil {
+		return x.Passcode
+	}
+	return ""
+}
+
+type DisableTOTPResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisableTOTPResponse) Reset() {
+	*x = DisableTOTPResponse{}
+	mi := &file_user_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisableTOTPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableTOTPResponse) ProtoMessage() {}
+
+func (x *DisableTOTPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableTOTPResponse.ProtoReflect.Descriptor instead.
+func (*DisableTOTPResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *DisableTOTPResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DisableTOTPResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_user_proto protoreflect.FileDescriptor
 
 const file_user_proto_rawDesc = "" +
@@ -2551,7 +2991,35 @@ const file_user_proto_rawDesc = "" +
 	"\bis_valid\x18\x01 \x01(\bR\aisValid\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1c\n" +
 	"\tspecialty\x18\x03 \x01(\tR\tspecialty\x12#\n" +
-	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage2\xb6\v\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\"+\n" +
+	"\x10SetupTOTPRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"n\n" +
+	"\x11SetupTOTPResponse\x12\x1e\n" +
+	"\vqr_code_url\x18\x01 \x01(\tR\tqrCodeUrl\x12\x16\n" +
+	"\x06secret\x18\x02 \x01(\tR\x06secret\x12!\n" +
+	"\fbackup_codes\x18\x03 \x03(\tR\vbackupCodes\"\x8d\x01\n" +
+	"\x12ConfirmTOTPRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\bpasscode\x18\x02 \x01(\tR\bpasscode\x12\x1f\n" +
+	"\vtemp_secret\x18\x03 \x01(\tR\n" +
+	"tempSecret\x12!\n" +
+	"\fbackup_codes\x18\x04 \x03(\tR\vbackupCodes\"I\n" +
+	"\x13ConfirmTOTPResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"n\n" +
+	"\x11VerifyTOTPRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\bpasscode\x18\x02 \x01(\tR\bpasscode\x12$\n" +
+	"\x0eis_backup_code\x18\x03 \x01(\bR\fisBackupCode\"`\n" +
+	"\x12VerifyTOTPResponse\x12\x14\n" +
+	"\x05valid\x18\x01 \x01(\bR\x05valid\x124\n" +
+	"\x16backup_codes_remaining\x18\x02 \x01(\x05R\x14backupCodesRemaining\"I\n" +
+	"\x12DisableTOTPRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\bpasscode\x18\x02 \x01(\tR\bpasscode\"I\n" +
+	"\x13DisableTOTPResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xbd\r\n" +
 	"\vUserService\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
 	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
@@ -2573,7 +3041,12 @@ const file_user_proto_rawDesc = "" +
 	"\x10GetTrainingStats\x12\x1d.user.GetTrainingStatsRequest\x1a\x1e.user.GetTrainingStatsResponse\x12N\n" +
 	"\x0fGetAchievements\x12\x1c.user.GetAchievementsRequest\x1a\x1d.user.GetAchievementsResponse\x12<\n" +
 	"\tListUsers\x12\x16.user.ListUsersRequest\x1a\x17.user.ListUsersResponse\x12W\n" +
-	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
+	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponse\x12<\n" +
+	"\tSetupTOTP\x12\x16.user.SetupTOTPRequest\x1a\x17.user.SetupTOTPResponse\x12B\n" +
+	"\vConfirmTOTP\x12\x18.user.ConfirmTOTPRequest\x1a\x19.user.ConfirmTOTPResponse\x12?\n" +
+	"\n" +
+	"VerifyTOTP\x12\x17.user.VerifyTOTPRequest\x1a\x18.user.VerifyTOTPResponse\x12B\n" +
+	"\vDisableTOTP\x12\x18.user.DisableTOTPRequest\x1a\x19.user.DisableTOTPResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -2587,7 +3060,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),            // 0: user.RegisterRequest
 	(*RegisterResponse)(nil),           // 1: user.RegisterResponse
@@ -2629,6 +3102,14 @@ var file_user_proto_goTypes = []any{
 	(*RegisterWithInviteRequest)(nil),  // 37: user.RegisterWithInviteRequest
 	(*ValidateInviteCodeRequest)(nil),  // 38: user.ValidateInviteCodeRequest
 	(*ValidateInviteCodeResponse)(nil), // 39: user.ValidateInviteCodeResponse
+	(*SetupTOTPRequest)(nil),           // 40: user.SetupTOTPRequest
+	(*SetupTOTPResponse)(nil),          // 41: user.SetupTOTPResponse
+	(*ConfirmTOTPRequest)(nil),         // 42: user.ConfirmTOTPRequest
+	(*ConfirmTOTPResponse)(nil),        // 43: user.ConfirmTOTPResponse
+	(*VerifyTOTPRequest)(nil),          // 44: user.VerifyTOTPRequest
+	(*VerifyTOTPResponse)(nil),         // 45: user.VerifyTOTPResponse
+	(*DisableTOTPRequest)(nil),         // 46: user.DisableTOTPRequest
+	(*DisableTOTPResponse)(nil),        // 47: user.DisableTOTPResponse
 }
 var file_user_proto_depIdxs = []int32{
 	19, // 0: user.ListDevicesResponse.devices:type_name -> user.Device
@@ -2656,28 +3137,36 @@ var file_user_proto_depIdxs = []int32{
 	32, // 22: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
 	35, // 23: user.UserService.ListUsers:input_type -> user.ListUsersRequest
 	38, // 24: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
-	1,  // 25: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 26: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 27: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 28: user.UserService.Login:output_type -> user.LoginResponse
-	5,  // 29: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
-	34, // 30: user.UserService.GetProfile:output_type -> user.UserProfile
-	34, // 31: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	10, // 32: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	12, // 33: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	14, // 34: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
-	16, // 35: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
-	18, // 36: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
-	21, // 37: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
-	23, // 38: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
-	25, // 39: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
-	27, // 40: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
-	30, // 41: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
-	33, // 42: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
-	36, // 43: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	39, // 44: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	25, // [25:45] is the sub-list for method output_type
-	5,  // [5:25] is the sub-list for method input_type
+	40, // 25: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
+	42, // 26: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
+	44, // 27: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
+	46, // 28: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
+	1,  // 29: user.UserService.Register:output_type -> user.RegisterResponse
+	1,  // 30: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
+	3,  // 31: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
+	5,  // 32: user.UserService.Login:output_type -> user.LoginResponse
+	5,  // 33: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
+	34, // 34: user.UserService.GetProfile:output_type -> user.UserProfile
+	34, // 35: user.UserService.UpdateProfile:output_type -> user.UserProfile
+	10, // 36: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
+	12, // 37: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
+	14, // 38: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
+	16, // 39: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
+	18, // 40: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
+	21, // 41: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
+	23, // 42: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
+	25, // 43: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
+	27, // 44: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
+	30, // 45: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
+	33, // 46: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
+	36, // 47: user.UserService.ListUsers:output_type -> user.ListUsersResponse
+	39, // 48: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
+	41, // 49: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
+	43, // 50: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
+	45, // 51: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
+	47, // 52: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
+	29, // [29:53] is the sub-list for method output_type
+	5,  // [5:29] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -2695,7 +3184,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   40,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -131,6 +131,35 @@ async function changeEmail(newEmail, password) {
     });
 }
 
+async function get2FAStatus() {
+    return apiRequest('/auth/2fa/status');
+}
+
+async function setup2FA() {
+    return apiRequest('/auth/2fa/setup', { method: 'POST' });
+}
+
+async function confirm2FA(passcode, tempSecret, backupCodes) {
+    return apiRequest('/auth/2fa/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ passcode, temp_secret: tempSecret, backup_codes: backupCodes })
+    });
+}
+
+async function verify2FA(tempToken, passcode, isBackupCode = false) {
+    return apiRequest('/auth/2fa/verify', {
+        method: 'POST',
+        body: JSON.stringify({ temp_token: tempToken, passcode, is_backup_code: isBackupCode })
+    });
+}
+
+async function disable2FA(passcode) {
+    return apiRequest('/auth/2fa/disable', {
+        method: 'POST',
+        body: JSON.stringify({ passcode })
+    });
+}
+
 async function deleteProfile(password) {
     return apiRequest('/profile', {
         method: 'DELETE',
@@ -203,3 +232,9 @@ async function logout() {
 // Export shared functions for use by other modules
 window.apiRequest = apiRequest;
 window.setAuthToken = setAuthToken;
+window.login = login;
+window.get2FAStatus = get2FAStatus;
+window.setup2FA = setup2FA;
+window.confirm2FA = confirm2FA;
+window.verify2FA = verify2FA;
+window.disable2FA = disable2FA;

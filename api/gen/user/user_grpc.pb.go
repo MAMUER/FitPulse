@@ -39,6 +39,10 @@ const (
 	UserService_GetAchievements_FullMethodName    = "/user.UserService/GetAchievements"
 	UserService_ListUsers_FullMethodName          = "/user.UserService/ListUsers"
 	UserService_ValidateInviteCode_FullMethodName = "/user.UserService/ValidateInviteCode"
+	UserService_SetupTOTP_FullMethodName          = "/user.UserService/SetupTOTP"
+	UserService_ConfirmTOTP_FullMethodName        = "/user.UserService/ConfirmTOTP"
+	UserService_VerifyTOTP_FullMethodName         = "/user.UserService/VerifyTOTP"
+	UserService_DisableTOTP_FullMethodName        = "/user.UserService/DisableTOTP"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -65,6 +69,10 @@ type UserServiceClient interface {
 	GetAchievements(ctx context.Context, in *GetAchievementsRequest, opts ...grpc.CallOption) (*GetAchievementsResponse, error)
 	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
 	ValidateInviteCode(ctx context.Context, in *ValidateInviteCodeRequest, opts ...grpc.CallOption) (*ValidateInviteCodeResponse, error)
+	SetupTOTP(ctx context.Context, in *SetupTOTPRequest, opts ...grpc.CallOption) (*SetupTOTPResponse, error)
+	ConfirmTOTP(ctx context.Context, in *ConfirmTOTPRequest, opts ...grpc.CallOption) (*ConfirmTOTPResponse, error)
+	VerifyTOTP(ctx context.Context, in *VerifyTOTPRequest, opts ...grpc.CallOption) (*VerifyTOTPResponse, error)
+	DisableTOTP(ctx context.Context, in *DisableTOTPRequest, opts ...grpc.CallOption) (*DisableTOTPResponse, error)
 }
 
 type userServiceClient struct {
@@ -275,6 +283,46 @@ func (c *userServiceClient) ValidateInviteCode(ctx context.Context, in *Validate
 	return out, nil
 }
 
+func (c *userServiceClient) SetupTOTP(ctx context.Context, in *SetupTOTPRequest, opts ...grpc.CallOption) (*SetupTOTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetupTOTPResponse)
+	err := c.cc.Invoke(ctx, UserService_SetupTOTP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ConfirmTOTP(ctx context.Context, in *ConfirmTOTPRequest, opts ...grpc.CallOption) (*ConfirmTOTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmTOTPResponse)
+	err := c.cc.Invoke(ctx, UserService_ConfirmTOTP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) VerifyTOTP(ctx context.Context, in *VerifyTOTPRequest, opts ...grpc.CallOption) (*VerifyTOTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyTOTPResponse)
+	err := c.cc.Invoke(ctx, UserService_VerifyTOTP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) DisableTOTP(ctx context.Context, in *DisableTOTPRequest, opts ...grpc.CallOption) (*DisableTOTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisableTOTPResponse)
+	err := c.cc.Invoke(ctx, UserService_DisableTOTP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -299,6 +347,10 @@ type UserServiceServer interface {
 	GetAchievements(context.Context, *GetAchievementsRequest) (*GetAchievementsResponse, error)
 	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
 	ValidateInviteCode(context.Context, *ValidateInviteCodeRequest) (*ValidateInviteCodeResponse, error)
+	SetupTOTP(context.Context, *SetupTOTPRequest) (*SetupTOTPResponse, error)
+	ConfirmTOTP(context.Context, *ConfirmTOTPRequest) (*ConfirmTOTPResponse, error)
+	VerifyTOTP(context.Context, *VerifyTOTPRequest) (*VerifyTOTPResponse, error)
+	DisableTOTP(context.Context, *DisableTOTPRequest) (*DisableTOTPResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -368,6 +420,18 @@ func (UnimplementedUserServiceServer) ListUsers(context.Context, *ListUsersReque
 }
 func (UnimplementedUserServiceServer) ValidateInviteCode(context.Context, *ValidateInviteCodeRequest) (*ValidateInviteCodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateInviteCode not implemented")
+}
+func (UnimplementedUserServiceServer) SetupTOTP(context.Context, *SetupTOTPRequest) (*SetupTOTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetupTOTP not implemented")
+}
+func (UnimplementedUserServiceServer) ConfirmTOTP(context.Context, *ConfirmTOTPRequest) (*ConfirmTOTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmTOTP not implemented")
+}
+func (UnimplementedUserServiceServer) VerifyTOTP(context.Context, *VerifyTOTPRequest) (*VerifyTOTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyTOTP not implemented")
+}
+func (UnimplementedUserServiceServer) DisableTOTP(context.Context, *DisableTOTPRequest) (*DisableTOTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisableTOTP not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -750,6 +814,78 @@ func _UserService_ValidateInviteCode_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_SetupTOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetupTOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).SetupTOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_SetupTOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).SetupTOTP(ctx, req.(*SetupTOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ConfirmTOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmTOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ConfirmTOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ConfirmTOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ConfirmTOTP(ctx, req.(*ConfirmTOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_VerifyTOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyTOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).VerifyTOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_VerifyTOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).VerifyTOTP(ctx, req.(*VerifyTOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_DisableTOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisableTOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).DisableTOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_DisableTOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).DisableTOTP(ctx, req.(*DisableTOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -836,6 +972,22 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateInviteCode",
 			Handler:    _UserService_ValidateInviteCode_Handler,
+		},
+		{
+			MethodName: "SetupTOTP",
+			Handler:    _UserService_SetupTOTP_Handler,
+		},
+		{
+			MethodName: "ConfirmTOTP",
+			Handler:    _UserService_ConfirmTOTP_Handler,
+		},
+		{
+			MethodName: "VerifyTOTP",
+			Handler:    _UserService_VerifyTOTP_Handler,
+		},
+		{
+			MethodName: "DisableTOTP",
+			Handler:    _UserService_DisableTOTP_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

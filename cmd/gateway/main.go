@@ -59,11 +59,47 @@ type gateway struct {
 
 	googleOAuthConfig *oauth2.Config
 
-	biometricMu sync.Mutex
-	trainingMu  sync.Mutex
+	biometricMu      sync.Mutex
+	trainingMu       sync.Mutex
+	totpRateLimiters sync.Map
 }
 
 //nolint:gocognit,gocyclo,funlen // Complexity due to sequential init of multiple services
+func getEnvOrFile(key string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+
+	filePath := os.Getenv(key + "_FILE")
+	if filePath == "" {
+		return ""
+	}
+
+	value, err := readSecretFile(filePath)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(value))
+}
+
+func readSecretFile(filePath string) ([]byte, error) {
+	cleanPath := filepath.Clean(filePath)
+	if cleanPath == "." || cleanPath == string(filepath.Separator) {
+		return nil, fmt.Errorf("secret file path is invalid")
+	}
+
+	info, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("secret file path is a directory")
+	}
+
+	return os.ReadFile(cleanPath) // #nosec G304 -- path is checked with os.Stat before reading
+}
+
 func main() {
 	log := logger.New("gateway")
 	defer func() {
@@ -72,65 +108,212 @@ func main() {
 		}
 	}()
 
-	// Initialize Prometheus metrics
-	requestDuration := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "request_duration_seconds",
-			Help:    "Duration of HTTP requests",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"service", "endpoint", "method", "status"},
-	)
-	requestTotal := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "request_total",
-			Help: "Total number of HTTP requests",
-		},
-		[]string{"service", "endpoint", "method"},
-	)
-	errorTotal := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "error_total",
-			Help: "Total number of errors",
-		},
-		[]string{"service", "error_code", "endpoint"},
-	)
+	ctx := context.Background()
+	metrics := newGatewayMetrics()
+	cfg := loadGatewayConfig(log)
 
-	prometheus.MustRegister(requestDuration, requestTotal, errorTotal)
+	db, closeDB := openGatewayDatabase(log, os.Getenv("DATABASE_URL"))
+	defer closeDB()
 
-	port := os.Getenv("GATEWAY_PORT")
-	if port == "" {
-		port = "8080"
+	redisPassword := getEnvOrFile("REDIS_PASSWORD")
+	const redisMaxRetries = 10
+	const redisRetryDelay = 3 * time.Second
+
+	mlAsync := cfg.mlAsync
+	var asyncRDB *redis.Client
+	if mlAsync {
+		var redisConnected bool
+		asyncRDB, redisConnected = connectRedis(ctx, log, cfg.redisAddr, redisPassword, 1, redisMaxRetries, redisRetryDelay)
+		if !redisConnected {
+			mlAsync = false
+		}
 	}
 
-	userServiceAddr := os.Getenv("USER_SERVICE_ADDR")
-	if userServiceAddr == "" {
-		userServiceAddr = "localhost:50051"
+	rmqCh, rmqClose, rabbitMQConnected := connectRabbitMQ(log, cfg.rabbitmqURL, mlAsync)
+	if !rabbitMQConnected {
+		mlAsync = false
+		if asyncRDB != nil {
+			if closeErr := asyncRDB.Close(); closeErr != nil {
+				log.Warn("Failed to close async Redis client", zap.Error(closeErr))
+			}
+		}
+	}
+	if rmqClose != nil {
+		defer rmqClose()
 	}
 
-	biometricServiceAddr := os.Getenv("BIOMETRIC_SERVICE_ADDR")
-	if biometricServiceAddr == "" {
-		biometricServiceAddr = "localhost:50052"
+	rdb, redisConnected := connectRedis(ctx, log, cfg.redisAddr, redisPassword, 0, redisMaxRetries, redisRetryDelay)
+	var sessionStore *cache.SessionStore
+	if redisConnected {
+		sessionStore = cache.NewSessionStoreFromRedis(rdb)
 	}
 
-	trainingServiceAddr := os.Getenv("TRAINING_SERVICE_ADDR")
-	if trainingServiceAddr == "" {
-		trainingServiceAddr = "localhost:50053"
+	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
+	defer func() {
+		if closeErr := userConn.Close(); closeErr != nil {
+			log.Error("Failed to close user service connection", zap.Error(closeErr))
+		}
+	}()
+
+	g := buildGateway(log, cfg, metrics, db, sessionStore, rdb, rmqCh, userClient, mlAsync)
+	mainRouter := g.registerRoutes()
+	startGatewayServers(log, cfg, mainRouter)
+}
+
+type gatewayMetrics struct {
+	requestDuration *prometheus.HistogramVec
+	requestTotal    *prometheus.CounterVec
+	errorTotal      *prometheus.CounterVec
+}
+
+type gatewayConfig struct {
+	port                 string
+	userServiceAddr      string
+	biometricServiceAddr string
+	trainingServiceAddr  string
+	mlClassifierURL      string
+	mlGeneratorURL       string
+	deviceConnectorURL   string
+	rabbitmqURL          string
+	redisAddr            string
+	jwtSecret            string
+	appBaseURL           string
+	publicHost           string
+	googleClientID       string
+	googleClientSecret   string
+	mlAsync              bool
+	googleOAuthConfig    *oauth2.Config
+}
+
+type tlsMode struct {
+	available bool
+	certFile  string
+	keyFile   string
+}
+
+func newGatewayMetrics() gatewayMetrics {
+	metrics := gatewayMetrics{
+		requestDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "request_duration_seconds",
+				Help:    "Duration of HTTP requests",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"service", "endpoint", "method", "status"},
+		),
+		requestTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "request_total",
+				Help: "Total number of HTTP requests",
+			},
+			[]string{"service", "endpoint", "method"},
+		),
+		errorTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "error_total",
+				Help: "Total number of errors",
+			},
+			[]string{"service", "error_code", "endpoint"},
+		),
 	}
 
-	mlClassifierURL := os.Getenv("ML_CLASSIFIER_URL")
-	if mlClassifierURL == "" {
-		mlClassifierURL = "http://localhost:8001"
+	prometheus.MustRegister(metrics.requestDuration, metrics.requestTotal, metrics.errorTotal)
+	return metrics
+}
+
+func loadGatewayConfig(log *logger.Logger) gatewayConfig {
+	cfg := gatewayConfig{
+		port:                 defaultEnv("GATEWAY_PORT", "8080"),
+		userServiceAddr:      defaultEnv("USER_SERVICE_ADDR", "localhost:50051"),
+		biometricServiceAddr: defaultEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052"),
+		trainingServiceAddr:  defaultEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
+		mlClassifierURL:      defaultEnv("ML_CLASSIFIER_URL", "http://localhost:8001"),
+		mlGeneratorURL:       defaultEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
+		deviceConnectorURL:   defaultEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
+		mlAsync:              envBool("ML_ASYNC"),
+		redisAddr:            redisAddress(),
+		appBaseURL:           os.Getenv("APP_BASE_URL"),
+		googleClientID:       os.Getenv("GOOGLE_CLIENT_ID"),
+		googleClientSecret:   os.Getenv("GOOGLE_CLIENT_SECRET"),
 	}
 
-	mlGeneratorURL := os.Getenv("ML_GENERATOR_URL")
-	if mlGeneratorURL == "" {
-		mlGeneratorURL = "http://ml-generator:8002"
+	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
+		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
 	}
 
+	rabbitmqURL := getEnvOrFile("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		rabbitmqURL = "amqp://localhost:5672/"
+	}
+	cfg.rabbitmqURL = rabbitmqURL
+
+	jwtSecret := getEnvOrFile("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	cfg.jwtSecret = jwtSecret
+
+	cfg.publicHost = publicHostFromBaseURL(cfg.appBaseURL)
+	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
+	return cfg
+}
+
+func defaultEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func envBool(key string) bool {
+	value := os.Getenv(key)
+	return value == "true" || value == "True" || value == "1"
+}
+
+func redisAddress() string {
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "redis"
+	}
+	return redisHost + ":6379"
+}
+
+func publicHostFromBaseURL(appBaseURL string) string {
+	if appBaseURL == "" {
+		return ""
+	}
+	parsedAppURL, err := url.Parse(appBaseURL)
+	if err != nil {
+		return ""
+	}
+	return parsedAppURL.Host
+}
+
+func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
+	if cfg.googleClientID == "" || cfg.googleClientSecret == "" {
+		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
+		return nil
+	}
+
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
+	if redirectURL == "" && cfg.appBaseURL != "" {
+		redirectURL = cfg.appBaseURL + "/api/v1/auth/google/callback"
+	}
+
+	log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
+	return &oauth2.Config{
+		ClientID:     cfg.googleClientID,
+		ClientSecret: cfg.googleClientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"openid", "profile", "email"},
+		Endpoint:     oauth2google.Endpoint,
+	}
+}
+
+func validateMLGeneratorURL(mlGeneratorURL string) error {
 	parsedURL, err := url.Parse(mlGeneratorURL)
 	if err != nil {
-		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
+		return err
 	}
 
 	allowedHosts := map[string]bool{
@@ -143,180 +326,107 @@ func main() {
 		"localhost":         true,
 	}
 	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
-		log.Fatal("ML_GENERATOR_URL host not allowed", zap.String("host", parsedURL.Host))
+		return fmt.Errorf("host %q is not allowed", parsedURL.Host)
+	}
+	return nil
+}
+
+func openGatewayDatabase(log *logger.Logger, dbURL string) (*sql.DB, func()) {
+	if dbURL == "" {
+		return nil, func() {}
 	}
 
-	deviceConnectorURL := os.Getenv("DEVICE_CONNECTOR_URL")
-	if deviceConnectorURL == "" {
-		deviceConnectorURL = "http://localhost:8082"
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Failed to open database", zap.Error(err))
+	}
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	if pingErr := db.PingContext(context.Background()); pingErr != nil {
+		log.Fatal("Failed to ping database", zap.Error(pingErr))
 	}
 
-	mlAsync := os.Getenv("ML_ASYNC") == "true" || os.Getenv("ML_ASYNC") == "True" || os.Getenv("ML_ASYNC") == "1"
-
-	rabbitmqURL := os.Getenv("RABBITMQ_URL")
-	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://localhost:5672/"
-	}
-
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisHost := os.Getenv("REDIS_HOST")
-		if redisHost == "" {
-			redisHost = "redis"
-		}
-		redisAddr = redisHost + ":6379"
-	}
-
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
-	}
-
-	appBaseURL := os.Getenv("APP_BASE_URL")
-	publicHost := ""
-	if appBaseURL != "" {
-		parsedAppURL, appURLErr := url.Parse(appBaseURL)
-		if appURLErr == nil {
-			publicHost = parsedAppURL.Host
+	return db, func() {
+		if closeErr := db.Close(); closeErr != nil {
+			log.Error("Failed to close database connection", zap.Error(closeErr))
 		}
 	}
+}
 
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
-	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	var googleOAuthConfig *oauth2.Config
-	if googleClientID != "" && googleClientSecret != "" {
-		redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
-		if redirectURL == "" && appBaseURL != "" {
-			redirectURL = appBaseURL + "/api/v1/auth/google/callback"
-		}
-		googleOAuthConfig = &oauth2.Config{
-			ClientID:     googleClientID,
-			ClientSecret: googleClientSecret,
-			RedirectURL:  redirectURL,
-			Scopes:       []string{"openid", "profile", "email"},
-			Endpoint:     oauth2google.Endpoint,
-		}
-		log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
-	} else {
-		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
-	}
-
-	// Database connection for server-side role re-verification (Security #10)
-	dbURL := os.Getenv("DATABASE_URL")
-	var db *sql.DB
-	if dbURL != "" {
-		var openErr error
-		db, openErr = sql.Open("postgres", dbURL)
-		if openErr != nil {
-			log.Fatal("Failed to open database", zap.Error(openErr))
-		}
-		db.SetMaxOpenConns(5)
-		db.SetMaxIdleConns(2)
-		db.SetConnMaxLifetime(5 * time.Minute)
-		if pingErr := db.PingContext(context.Background()); pingErr != nil {
-			log.Fatal("Failed to ping database", zap.Error(pingErr))
-		}
-		defer func() {
-			if closeErr := db.Close(); closeErr != nil {
-				log.Error("Failed to close database connection", zap.Error(closeErr))
-			}
-		}()
-	}
-	const redisMaxRetries = 10
-	const redisRetryDelay = 3 * time.Second
-	var rdb *redis.Client
-	if mlAsync {
-		rdb = redis.NewClient(&redis.Options{
-			Addr:     redisAddr,
-			Password: os.Getenv("REDIS_PASSWORD"),
-		})
-		// Retry Redis connection for async mode
-		var redisAsyncConnected bool
-		for attempt := 1; attempt <= redisMaxRetries; attempt++ {
-			if pingErr := rdb.Ping(context.Background()).Err(); pingErr == nil {
-				redisAsyncConnected = true
-				log.Info("Redis connected for async job results", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
-				break
-			}
-			if attempt < redisMaxRetries {
-				time.Sleep(redisRetryDelay)
-			}
-		}
-		if !redisAsyncConnected {
-			log.Warn("Redis unavailable for async ML mode, disabling async")
-			mlAsync = false
-			rdb = nil
-		}
-	}
-
-	var sessionStore *cache.SessionStore
-	redisClient := redis.NewClient(&redis.Options{
+func connectRedis(ctx context.Context, log *logger.Logger, redisAddr, password string, dbNum, maxRetries int, retryDelay time.Duration) (*redis.Client, bool) {
+	rdb := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
+		Password: password,
+		DB:       dbNum,
 	})
-
-	// Retry Redis connection with backoff — Redis may start after gateway in Kubernetes
-
-	var redisConnected bool
-	for attempt := 1; attempt <= redisMaxRetries; attempt++ {
-		pingErr := redisClient.Ping(context.Background()).Err()
-		if pingErr == nil {
-			redisConnected = true
-			log.Info("Redis connected for session management", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
-			break
+	connected := waitForRedis(ctx, log, rdb, redisAddr, maxRetries, retryDelay)
+	if !connected {
+		if closeErr := rdb.Close(); closeErr != nil {
+			log.Warn("Failed to close Redis client", zap.Error(closeErr))
 		}
-		if attempt < redisMaxRetries {
+		return nil, false
+	}
+	return rdb, true
+}
+
+func waitForRedis(ctx context.Context, log *logger.Logger, rdb *redis.Client, redisAddr string, maxRetries int, retryDelay time.Duration) bool {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		pingErr := rdb.Ping(ctx).Err()
+		if pingErr == nil {
+			log.Info("Redis connected", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
+			return true
+		}
+
+		if attempt < maxRetries {
 			log.Warn("Redis unavailable, retrying",
 				zap.Int("attempt", attempt),
-				zap.Int("max_retries", redisMaxRetries),
-				zap.Duration("retry_delay", redisRetryDelay),
+				zap.Int("max_retries", maxRetries),
+				zap.Duration("retry_delay", retryDelay),
 				zap.Error(pingErr))
-			time.Sleep(redisRetryDelay)
-		} else {
-			log.Warn("Redis unavailable after all retries, session management disabled",
-				zap.Int("attempts", redisMaxRetries),
-				zap.Error(pingErr))
+			time.Sleep(retryDelay)
+			continue
 		}
+
+		log.Warn("Redis unavailable after all retries",
+			zap.Int("attempts", maxRetries),
+			zap.Error(pingErr))
+	}
+	return false
+}
+
+func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amqp.Channel, func(), bool) {
+	if !mlAsync {
+		return nil, nil, false
 	}
 
-	if redisConnected {
-		sessionStore = cache.NewSessionStoreFromRedis(redisClient)
+	rmqConn, err := amqp.Dial(rabbitmqURL)
+	if err != nil {
+		log.Warn("RabbitMQ unavailable, async ML mode disabled", zap.Error(err))
+		return nil, nil, false
 	}
 
-	// RabbitMQ channel for publishing ML jobs (used in async mode)
-	var rmqCh *amqp.Channel
-	var rmqClose func()
-	if mlAsync {
-		rmqConn, rmqErr := amqp.Dial(rabbitmqURL)
-		if rmqErr != nil {
-			log.Warn("RabbitMQ unavailable, async ML mode disabled", zap.Error(rmqErr))
-			mlAsync = false
-			rdb = nil
-		} else {
-			rmqCh, rmqErr = rmqConn.Channel()
-			if rmqErr != nil {
-				log.Warn("Failed to create RabbitMQ channel, async ML mode disabled", zap.Error(rmqErr))
-				mlAsync = false
-				rdb = nil
-				if closeErr := rmqConn.Close(); closeErr != nil {
-					log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
-				}
-			} else {
-				// Declare queues (idempotent)
-				_, _ = rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil)
-				_, _ = rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil)
-				log.Info("RabbitMQ connected for async ML jobs", zap.String("url", rabbitmqURL))
-				rmqClose = func() {
-					if closeErr := rmqConn.Close(); closeErr != nil {
-						log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
-					}
-				}
-			}
+	rmqCh, err := rmqConn.Channel()
+	if err != nil {
+		log.Warn("Failed to create RabbitMQ channel, async ML mode disabled", zap.Error(err))
+		if closeErr := rmqConn.Close(); closeErr != nil {
+			log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
 		}
+		return nil, nil, false
 	}
 
-	// gRPC connections — User service is critical
+	_, _ = rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil)
+	_, _ = rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil)
+	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", rabbitmqURL))
+
+	return rmqCh, func() {
+		if closeErr := rmqConn.Close(); closeErr != nil {
+			log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
+		}
+	}, true
+}
+
+func connectUserService(ctx context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
 	userConn, err := grpc.NewClient(userServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
@@ -324,58 +434,34 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to user service", zap.Error(err))
 	}
-	defer func() {
-		if closeErr := userConn.Close(); closeErr != nil {
-			log.Error("Failed to close user service connection", zap.Error(closeErr))
-		}
-	}()
 
-	if rmqClose != nil {
-		defer rmqClose()
-	}
+	return userConn, userpb.NewUserServiceClient(userConn)
+}
 
-	g := &gateway{
-		userClient:         userpb.NewUserServiceClient(userConn),
-		userConn:           userConn,
-		biometricAddr:      biometricServiceAddr,
-		trainingAddr:       trainingServiceAddr,
-		mlClassifierURL:    mlClassifierURL,
-		mlGeneratorURL:     mlGeneratorURL,
-		deviceConnectorURL: deviceConnectorURL,
+func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, rdb *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
+	return &gateway{
+		userClient:         userClient,
+		biometricAddr:      cfg.biometricServiceAddr,
+		trainingAddr:       cfg.trainingServiceAddr,
+		mlClassifierURL:    cfg.mlClassifierURL,
+		mlGeneratorURL:     cfg.mlGeneratorURL,
+		deviceConnectorURL: cfg.deviceConnectorURL,
 		log:                log,
-		jwtSecret:          jwtSecret,
+		jwtSecret:          cfg.jwtSecret,
 		db:                 db,
 		sessionStore:       sessionStore,
 		rdb:                rdb,
 		rmqCh:              rmqCh,
 		mlAsync:            mlAsync,
-		requestDuration:    requestDuration,
-		requestTotal:       requestTotal,
-		errorTotal:         errorTotal,
-		googleOAuthConfig:  googleOAuthConfig,
+		requestDuration:    metrics.requestDuration,
+		requestTotal:       metrics.requestTotal,
+		errorTotal:         metrics.errorTotal,
+		googleOAuthConfig:  cfg.googleOAuthConfig,
 	}
+}
 
-	// Setup routes (middleware applied via r.Use() in registerRoutes)
-	mainRouter := g.registerRoutes()
-
-	// ========== TLS mode detection ==========
-	tlsCertFile := os.Getenv("TLS_CERT_FILE")
-	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
-	tlsAvailable := tlsCertFile != "" && tlsKeyFile != ""
-	if tlsAvailable {
-		if _, err := os.Stat(filepath.Clean(tlsCertFile)); err != nil { //gosec:G703
-			log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
-				zap.String("cert_file", tlsCertFile), zap.Error(err))
-			tlsAvailable = false
-		}
-		if _, err := os.Stat(filepath.Clean(tlsKeyFile)); err != nil { //gosec:G703
-			log.Warn("TLS key file not found, falling back to HTTP-only mode",
-				zap.String("key_file", tlsKeyFile), zap.Error(err))
-			tlsAvailable = false
-		}
-	}
-
-	// ========== HTTPS server (main) ==========
+func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.Router) {
+	tls := detectTLSMode(log, cfg)
 	httpsSrv := &http.Server{
 		Addr:              ":8443",
 		Handler:           mainRouter,
@@ -385,17 +471,86 @@ func main() {
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
-	// ========== HTTP redirect server ==========
-	// Always redirect HTTP to HTTPS with correct URL (no :8443 suffix)
-	httpRedirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Health check endpoint — return 200 directly (no redirect)
-		// This is critical for Kubernetes liveness/readiness probes which
-		// follow redirects and fail on TLS certificate validation errors.
+	var httpHandler http.Handler = mainRouter
+	if tls.available {
+		httpHandler = buildHTTPRedirectHandler(cfg.publicHost, cfg.port)
+	} else {
+		log.Info("TLS is not available, serving application directly over HTTP")
+	}
+
+	httpSrv := &http.Server{
+		Addr:              ":" + cfg.port,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		ReadHeaderTimeout: 15 * time.Second,
+		Handler:           httpHandler,
+	}
+
+	go func() {
+		log.Info("HTTP server starting", zap.String("port", cfg.port), zap.Bool("redirect_to_https", tls.available))
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("HTTP server failed", zap.Error(err))
+		}
+	}()
+
+	if tls.available {
+		go func() {
+			log.Info("HTTPS server starting",
+				zap.String("port", "8443"),
+				zap.String("cert", tls.certFile),
+				zap.String("ml_classifier", cfg.mlClassifierURL),
+				zap.String("ml_generator", cfg.mlGeneratorURL))
+			if err := httpsSrv.ListenAndServeTLS(tls.certFile, tls.keyFile); err != nil && err != http.ErrServerClosed {
+				log.Fatal("Failed to start HTTPS server", zap.Error(err))
+			}
+		}()
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Info("Shutting down servers...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_ = httpSrv.Shutdown(ctx)
+	if tls.available {
+		_ = httpsSrv.Shutdown(ctx)
+	}
+	log.Info("Servers stopped")
+}
+
+func detectTLSMode(log *logger.Logger, cfg gatewayConfig) tlsMode {
+	mode := tlsMode{
+		certFile: os.Getenv("TLS_CERT_FILE"),
+		keyFile:  os.Getenv("TLS_KEY_FILE"),
+	}
+	if mode.certFile == "" || mode.keyFile == "" {
+		return mode
+	}
+
+	if _, err := os.Stat(filepath.Clean(mode.certFile)); err != nil {
+		log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
+			zap.String("cert_file", mode.certFile), zap.Error(err))
+		return tlsMode{}
+	}
+	if _, err := os.Stat(filepath.Clean(mode.keyFile)); err != nil {
+		log.Warn("TLS key file not found, falling back to HTTP-only mode",
+			zap.String("key_file", mode.keyFile), zap.Error(err))
+		return tlsMode{}
+	}
+
+	mode.available = true
+	return mode
+}
+
+func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			// SAFETY: Static JSON response for health check, Content-Type is application/json.
-			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`)) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
+			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`))
 			return
 		}
 
@@ -410,77 +565,28 @@ func main() {
 				return
 			}
 		}
+
 		requestURI := r.URL.RequestURI()
 		if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
 			http.Error(w, "Invalid request URI", http.StatusBadRequest)
 			return
 		}
+
 		redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
 		if port != "" && port != "80" && port != "443" {
 			redirectURL.Host = host + ":8443"
 		}
+
 		target := redirectURL.String()
 		parsed, err := url.Parse(target)
 		if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
 			http.Error(w, "Invalid redirect target", http.StatusBadRequest)
 			return
 		}
+
 		w.Header().Set("Location", target)
 		w.WriteHeader(http.StatusMovedPermanently)
 	})
-
-	// Determine HTTP handler based on TLS availability
-	var httpHandler http.Handler
-	if tlsAvailable {
-		httpHandler = httpRedirectHandler
-	} else {
-		log.Info("TLS is not available, serving application directly over HTTP")
-		httpHandler = mainRouter
-	}
-
-	httpSrv := &http.Server{
-		Addr:              ":" + port,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		ReadHeaderTimeout: 15 * time.Second,
-		Handler:           httpHandler,
-	}
-
-	// ========== Start servers ==========
-	go func() {
-		log.Info("HTTP server starting", zap.String("port", port), zap.Bool("redirect_to_https", tlsAvailable))
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("HTTP server failed", zap.Error(err))
-		}
-	}()
-
-	if tlsAvailable {
-		go func() {
-			log.Info("HTTPS server starting",
-				zap.String("port", "8443"),
-				zap.String("cert", tlsCertFile),
-				zap.String("ml_classifier", mlClassifierURL),
-				zap.String("ml_generator", mlGeneratorURL))
-			if err := httpsSrv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
-				log.Fatal("Failed to start HTTPS server", zap.Error(err))
-			}
-		}()
-	}
-
-	// ========== Graceful shutdown ==========
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Info("Shutting down servers...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_ = httpSrv.Shutdown(ctx)
-	if tlsAvailable {
-		_ = httpsSrv.Shutdown(ctx)
-	}
-	log.Info("Servers stopped")
 }
 
 // registerRoutes registers all HTTP routes on the router
@@ -521,6 +627,15 @@ func (g *gateway) registerRoutes() *mux.Router {
 	// Profile
 	protected.HandleFunc("/profile", g.getProfileHandler).Methods("GET")
 	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
+
+	// 2FA TOTP (protected routes - require auth)
+	protected.HandleFunc("/auth/2fa/setup", g.setupTOTPHandler).Methods("POST")
+	protected.HandleFunc("/auth/2fa/confirm", g.confirmTOTPHandler).Methods("POST")
+	protected.HandleFunc("/auth/2fa/status", g.totpStatusHandler).Methods("GET")
+	protected.HandleFunc("/auth/2fa/disable", g.disableTOTPHandler).Methods("POST")
+
+	// 2FA TOTP verify (public route - uses temp_token)
+	r.HandleFunc("/api/v1/auth/2fa/verify", g.verifyTOTPHandler).Methods("POST")
 
 	// Biometrics
 	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
@@ -679,11 +794,4 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
-}
-
-func getEnvOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

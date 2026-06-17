@@ -107,6 +107,8 @@ spec:
                   key: USER_SERVICE_PORT
             - name: JWT_SECRET_FILE
               value: "/etc/secrets/JWT_SECRET"
+            - name: TOTP_ENCRYPTION_KEY_FILE
+              value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
             - name: REDIS_HOST
               value: "redis"
             - name: REDIS_PASSWORD_FILE

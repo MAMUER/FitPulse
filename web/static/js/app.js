@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView: 'dashboard',
         heartChart: null,
         isAdmin: false,
+        twoFATempToken: null,
     };
     // Mapping from exercise identifiers to Russian display names
     const EXERCISE_NAME_MAP = {
@@ -93,9 +94,27 @@ document.addEventListener('DOMContentLoaded', () => {
         mainScreen.classList.add('hidden');
         loginForm.classList.remove('hidden');
         registerForm.classList.add('hidden');
+        const login2FAForm = document.getElementById('login2FAForm');
+        if (login2FAForm) login2FAForm.classList.add('hidden');
         if (verifyForm) verifyForm.classList.add('hidden');
         clearErrors();
         console.log('[APP] Auth screen shown');
+    }
+    function showLogin2FA(tempToken) {
+        state.twoFATempToken = tempToken;
+        authScreen.classList.add('active');
+        mainScreen.classList.remove('active');
+        mainScreen.classList.add('hidden');
+        loginForm.classList.add('hidden');
+        registerForm.classList.add('hidden');
+        if (verifyForm) verifyForm.classList.add('hidden');
+        const login2FAForm = document.getElementById('login2FAForm');
+        if (login2FAForm) {
+            login2FAForm.classList.remove('hidden');
+            const error = document.getElementById('login2FAError');
+            if (error) error.classList.add('hidden');
+            document.getElementById('totpLoginCode')?.focus();
+        }
     }
     async function connectFitbit() {
         const token = localStorage.getItem('authToken');
@@ -549,6 +568,45 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
         }
     }
 
+    async function submitLogin2FA(isBackupCode) {
+        const errorEl = document.getElementById('login2FAError');
+        const btn = document.getElementById('login2FABtn');
+        const backupBtn = document.getElementById('useBackupLoginBtn');
+        const codeInput = document.getElementById(isBackupCode ? 'backupLoginCode' : 'totpLoginCode');
+        const code = (codeInput?.value || '').trim();
+        if (errorEl) errorEl.classList.add('hidden');
+        if (!state.twoFATempToken) {
+            if (errorEl) {
+                errorEl.textContent = 'Сессия 2FA истекла. Войдите заново.';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        if (!code) {
+            if (errorEl) {
+                errorEl.textContent = isBackupCode ? 'Введите резервный код' : 'Введите 6-значный код';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        if (btn) btn.disabled = true;
+        if (backupBtn) backupBtn.disabled = true;
+        try {
+            const data = await verify2FA(state.twoFATempToken, code, isBackupCode);
+            setAuthToken(data.access_token);
+            showToast('Вход выполнен', 'success');
+            showMainApp();
+        } catch (err) {
+            if (errorEl) {
+                errorEl.textContent = err.message || 'Неверный код 2FA';
+                errorEl.classList.remove('hidden');
+            }
+        } finally {
+            if (btn) btn.disabled = false;
+            if (backupBtn) backupBtn.disabled = false;
+        }
+    }
+
     // ===== Events =====
     function bindEvents() {
         // --- Fields ---
@@ -613,6 +671,19 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
             if (verifyForm) verifyForm.classList.add('hidden');
             clearErrors();
         });
+        document.getElementById('backToLoginFrom2FA')?.addEventListener('click', e => {
+            e.preventDefault();
+            state.twoFATempToken = null;
+            showAuthScreen();
+        });
+        document.getElementById('login2FABtn')?.addEventListener('click', async e => {
+            e.preventDefault();
+            await submitLogin2FA(false);
+        });
+        document.getElementById('useBackupLoginBtn')?.addEventListener('click', async e => {
+            e.preventDefault();
+            await submitLogin2FA(true);
+        });
         document.getElementById('confirmBtn')?.addEventListener('click', async (e) => {
             e.preventDefault();
             const token = document.getElementById('verifyToken').value.trim();
@@ -666,6 +737,8 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
                         setAuthToken(data.access_token);
                         state.isAdmin = data.role === 'admin';
                         showMainApp();
+                    } else if (data && data.requires_2fa && data.temp_token) {
+                        showLogin2FA(data.temp_token);
                     } else {
                         console.error('[LOGIN] Unexpected response:', data);
                         const msg = data && data.message ? data.message : 'Сервер вернул неожиданный ответ. Попробуйте войти позже.';
@@ -734,6 +807,9 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
         document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
             document.getElementById('changePasswordModal').classList.remove('hidden');
         });
+        document.getElementById('enable2FABtn')?.addEventListener('click', start2FASetup);
+        document.getElementById('confirm2FABtn')?.addEventListener('click', confirm2FASetup);
+        document.getElementById('disable2FABtn')?.addEventListener('click', disable2FAFlow);
         // Delete profile button
         document.getElementById('deleteProfileBtn')?.addEventListener('click', () => {
             document.getElementById('deleteProfileModal').classList.remove('hidden');
@@ -788,7 +864,114 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
             setFieldError(profWeight, document.getElementById('profWeightError'), validators.weight(profWeight.value));
             calculateAndShowBMI(); // Пересчитываем ИМТ при изменении веса
         });
-        // ===== Change Password =====
+    }
+
+    async function load2FAStatus() {
+        const statusEl = document.getElementById('twoFAStatus');
+            const enableBtn = document.getElementById('enable2FABtn');
+            const disableBtn = document.getElementById('disable2FABtn');
+            const disablePanel = document.getElementById('disable2FAPanel');
+            const setupPanel = document.getElementById('totpSetupPanel');
+        try {
+            const status = await get2FAStatus();
+            const enabled = status.enabled === true;
+            if (statusEl) statusEl.textContent = enabled ? `Включена. Осталось резервных кодов: ${status.backup_codes_remaining}` : 'Не включена';
+            if (enableBtn) enableBtn.classList.toggle('hidden', enabled);
+            if (disableBtn) disableBtn.classList.toggle('hidden', !enabled);
+            if (disablePanel) disablePanel.classList.toggle('hidden', !enabled);
+            if (setupPanel && enabled) setupPanel.classList.add('hidden');
+        } catch (err) {
+            if (statusEl) statusEl.textContent = 'Не удалось загрузить статус 2FA';
+            if (enableBtn) enableBtn.classList.remove('hidden');
+            if (disableBtn) disableBtn.classList.add('hidden');
+            if (disablePanel) disablePanel.classList.add('hidden');
+        }
+    }
+
+    async function start2FASetup() {
+        const panel = document.getElementById('totpSetupPanel');
+        const errorEl = document.getElementById('totpSetupError');
+        const successEl = document.getElementById('totpSetupSuccess');
+        if (panel) panel.classList.add('hidden');
+        if (errorEl) errorEl.classList.add('hidden');
+        if (successEl) successEl.classList.add('hidden');
+        try {
+            const data = await setup2FA();
+            const secret = (data.secret || '').replace(/(.{4})/g, '$1 ').trim();
+            document.getElementById('totpQRCode').src = data.qr_code_base64 || '';
+            document.getElementById('totpManualSecret').textContent = secret;
+            const backupList = document.getElementById('totpBackupCodes');
+            if (backupList) {
+                backupList.innerHTML = (data.backup_codes || []).map(code => `<li><code>${code}</code></li>`).join('');
+            }
+            if (panel) panel.classList.remove('hidden');
+        } catch (err) {
+            if (errorEl) {
+                errorEl.textContent = err.message || 'Не удалось начать настройку 2FA';
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    async function confirm2FASetup() {
+        const errorEl = document.getElementById('totpSetupError');
+        const successEl = document.getElementById('totpSetupSuccess');
+        const btn = document.getElementById('confirm2FABtn');
+        const secret = document.getElementById('totpManualSecret')?.textContent.replace(/\s+/g, '') || '';
+        const backupCodes = Array.from(document.querySelectorAll('#totpBackupCodes code')).map(el => el.textContent.trim());
+        const passcode = (document.getElementById('totpSetupCode')?.value || '').trim();
+        if (errorEl) errorEl.classList.add('hidden');
+        if (successEl) successEl.classList.add('hidden');
+        if (!/^\d{6}$/.test(passcode)) {
+            if (errorEl) {
+                errorEl.textContent = 'Введите 6-значный код из приложения';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        if (btn) btn.disabled = true;
+        try {
+            await confirm2FA(passcode, secret, backupCodes);
+            if (successEl) successEl.textContent = '2FA включена. Сохраните резервные коды в надёжном месте.';
+            if (successEl) successEl.classList.remove('hidden');
+            const panel = document.getElementById('totpSetupPanel');
+            if (panel) panel.classList.add('hidden');
+            await load2FAStatus();
+        } catch (err) {
+            if (errorEl) {
+                errorEl.textContent = err.message || 'Неверный код подтверждения';
+                errorEl.classList.remove('hidden');
+            }
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function disable2FAFlow() {
+        const passcode = document.getElementById('disable2FACode')?.value.trim();
+        const errorEl = document.getElementById('disable2FAError');
+        if (errorEl) errorEl.classList.add('hidden');
+        if (!passcode) {
+            if (errorEl) {
+                errorEl.textContent = 'Введите текущий код 2FA для отключения';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        try {
+            await disable2FA(passcode);
+            showToast('2FA отключена', 'success');
+            document.getElementById('disable2FACode').value = '';
+            await load2FAStatus();
+        } catch (err) {
+            if (errorEl) {
+                errorEl.textContent = err.message || 'Не удалось отключить 2FA';
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // ===== Change Password =====
         document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
             const form = document.getElementById('changePasswordForm');
             if (form) form.classList.remove('hidden');
@@ -906,7 +1089,7 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
         });
     }
     function clearErrors() {
-        ['loginError', 'registerError', 'authError'].forEach(id => {
+        ['loginError', 'registerError', 'authError', 'login2FAError'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.textContent = ''; el.classList.add('hidden'); el.style.color = ''; }
         });
@@ -1112,6 +1295,7 @@ ${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
 
             // Рассчитываем ИМТ после загрузки данных
             calculateAndShowBMI();
+            await load2FAStatus();
         } catch (err) {
             console.error('Profile load failed:', err);
             // Если профиль не найден (404), возможно сессия устарела

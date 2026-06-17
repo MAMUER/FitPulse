@@ -1,18 +1,29 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"html"
 	"html/template"
+	"image/png"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/pquerna/otp"
 	"golang.org/x/oauth2"
+	"golang.org/x/time/rate"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
 )
@@ -23,7 +34,96 @@ const (
 	confirmFallbackHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: {{ .Token }}</p></div></body></html>`
 
 	confirmFallbackErrorHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>`
+
+	totpRateLimitAttempts = 5
 )
+
+type totpRateLimiter struct {
+	limiter   *rate.Limiter
+	expiresAt time.Time
+}
+
+func (g *gateway) userTOTPEnabled(ctx context.Context, userID string) bool {
+	if g.db == nil || userID == "" {
+		return false
+	}
+
+	var totpEnabled bool
+	if err := g.db.QueryRowContext(ctx, "SELECT totp_enabled FROM users WHERE id = $1", userID).Scan(&totpEnabled); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
+		}
+		return false
+	}
+
+	return totpEnabled
+}
+
+func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
+	if g.db == nil || userID == "" {
+		return "", errors.New("database unavailable")
+	}
+
+	var email, role string
+	if err := g.db.QueryRowContext(ctx, "SELECT email, role FROM users WHERE id = $1", userID).Scan(&email, &role); err != nil {
+		return "", err
+	}
+
+	return auth.GenerateJWT(userID, email, role, g.jwtSecret, 24)
+}
+
+func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
+	redisKey := "2fa_rate:" + key
+	if g.rdb != nil {
+		count, err := g.rdb.Incr(ctx, redisKey).Result()
+		if err == nil {
+			if count == 1 {
+				_ = g.rdb.Expire(ctx, redisKey, time.Minute).Err()
+			}
+			if count > totpRateLimitAttempts {
+				return errors.New("too many 2FA attempts")
+			}
+			return nil
+		}
+		g.log.Warn("Redis 2FA rate limit unavailable", zap.Error(err))
+	}
+
+	v, _ := g.totpRateLimiters.LoadOrStore(key, &totpRateLimiter{
+		limiter:   rate.NewLimiter(totpRateLimitAttempts, totpRateLimitAttempts),
+		expiresAt: time.Now().Add(time.Minute),
+	})
+	limiter := v.(*totpRateLimiter)
+	if time.Now().After(limiter.expiresAt) {
+		limiter = &totpRateLimiter{
+			limiter:   rate.NewLimiter(totpRateLimitAttempts, totpRateLimitAttempts),
+			expiresAt: time.Now().Add(time.Minute),
+		}
+		g.totpRateLimiters.Store(key, limiter)
+	}
+	if !limiter.limiter.Allow() {
+		return errors.New("too many 2FA attempts")
+	}
+	return nil
+}
+
+func encodeQRCodeBase64(qrCodeURL string) (string, error) {
+	key, err := otp.NewKeyFromURL(qrCodeURL)
+	if err != nil {
+		return "", err
+	}
+
+	img, err := key.Image(256, 256)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
 
 func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -161,6 +261,23 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	if g.userTOTPEnabled(r.Context(), resp.GetUserId()) {
+		tempToken := uuid.New().String()
+		_ = g.rdb.Set(r.Context(), "2fa_temp:"+tempToken, resp.GetUserId(), 5*time.Minute).Err()
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"requires_2fa": true,
+			"temp_token":   tempToken,
+			"message":      "Please provide your 2FA code",
+		}); err != nil {
+			g.log.Error("Failed to encode 2FA response", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
@@ -344,6 +461,21 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
+		tempToken := uuid.New().String()
+		_ = g.rdb.Set(r.Context(), "2fa_temp:"+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"requires_2fa": true,
+			"temp_token":   tempToken,
+			"message":      "Please provide your 2FA code",
+		}); err != nil {
+			g.log.Error("Failed to encode Google 2FA response", zap.Error(err))
+			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "ok",
@@ -354,6 +486,225 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		"role":         grpcResp.GetRole(),
 	}); err != nil {
 		g.log.Error("Failed to encode Google auth response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+// 2FA TOTP endpoints
+
+func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.enforceTOTPRateLimit(r.Context(), "setup:"+userID); err != nil {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
+
+	resp, err := g.userClient.SetupTOTP(r.Context(), &userpb.SetupTOTPRequest{UserId: userID})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("TOTP setup failed", zap.Error(err))
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	qrCodeBase64, err := encodeQRCodeBase64(resp.QrCodeUrl)
+	if err != nil {
+		g.log.Warn("Failed to encode TOTP QR code", zap.Error(err))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"qr_code_url":    resp.QrCodeUrl,
+		"qr_code_base64": qrCodeBase64,
+		"secret":         resp.Secret,
+		"backup_codes":   resp.BackupCodes,
+	}); err != nil {
+		g.log.Error("Failed to encode TOTP setup response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.enforceTOTPRateLimit(r.Context(), "confirm:"+userID); err != nil {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
+
+	var req struct {
+		Passcode    string   `json:"passcode"`
+		TempSecret  string   `json:"temp_secret"`
+		BackupCodes []string `json:"backup_codes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := g.userClient.ConfirmTOTP(r.Context(), &userpb.ConfirmTOTPRequest{
+		UserId:      userID,
+		Passcode:    req.Passcode,
+		TempSecret:  req.TempSecret,
+		BackupCodes: req.BackupCodes,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": resp.Success,
+		"message": resp.Message,
+	}); err != nil {
+		g.log.Error("Failed to encode TOTP confirm response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TempToken    string `json:"temp_token"`
+		Passcode     string `json:"passcode"`
+		IsBackupCode bool   `json:"is_backup_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+	if req.TempToken == "" || req.Passcode == "" {
+		http.Error(w, "temp_token and passcode are required", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := g.rdb.Get(r.Context(), "2fa_temp:"+req.TempToken).Result()
+	if err != nil {
+		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
+		return
+	}
+
+	rateLimitErr := g.enforceTOTPRateLimit(r.Context(), "verify:"+userID)
+	if rateLimitErr != nil {
+		http.Error(w, rateLimitErr.Error(), http.StatusTooManyRequests)
+		return
+	}
+
+	resp, err := g.userClient.VerifyTOTP(r.Context(), &userpb.VerifyTOTPRequest{
+		UserId:       userID,
+		Passcode:     req.Passcode,
+		IsBackupCode: req.IsBackupCode,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	if !resp.Valid {
+		http.Error(w, "Invalid TOTP code", http.StatusUnauthorized)
+		return
+	}
+
+	_ = g.rdb.Del(r.Context(), "2fa_temp:"+req.TempToken)
+
+	token, err := g.issueJWT(r.Context(), userID)
+	if err != nil {
+		g.log.Error("Failed to issue JWT after 2FA", zap.Error(err), zap.String("user_id", userID))
+		http.Error(w, "Failed to issue token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"access_token":           token,
+		"token_type":             "Bearer",
+		"expires_in":             24 * 3600,
+		"backup_codes_remaining": resp.BackupCodesRemaining,
+	}); err != nil {
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.enforceTOTPRateLimit(r.Context(), "disable:"+userID); err != nil {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
+
+	var req struct {
+		Passcode string `json:"passcode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := g.userClient.DisableTOTP(r.Context(), &userpb.DisableTOTPRequest{
+		UserId:   userID,
+		Passcode: req.Passcode,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": resp.Success,
+		"message": resp.Message,
+	}); err != nil {
+		g.log.Error("Failed to encode TOTP disable response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || g.db == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var enabled bool
+	var remaining int32
+	if err := g.db.QueryRowContext(r.Context(), `
+		SELECT totp_enabled, COALESCE(totp_backup_codes_remaining, 0)
+		FROM users WHERE id = $1
+	`, userID).Scan(&enabled, &remaining); err != nil {
+		g.log.Error("Failed to load TOTP status", zap.Error(err), zap.String("user_id", userID))
+		http.Error(w, "Failed to load TOTP status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"enabled":                enabled,
+		"backup_codes_remaining": remaining,
+	}); err != nil {
+		g.log.Error("Failed to encode TOTP status response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
 	}

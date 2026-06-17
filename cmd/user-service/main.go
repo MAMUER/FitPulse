@@ -8,22 +8,25 @@ import (
 	"errors"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	pb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/email"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/totp"
 	"github.com/MAMUER/project/internal/validator"
-	"google.golang.org/api/idtoken"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -42,12 +45,13 @@ type User struct {
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
-	db              *sql.DB
-	log             *logger.Logger
-	secret          string
-	emailSender     *email.Sender
-	baseURL         string
-	googleClientID  string
+	db             *sql.DB
+	log            *logger.Logger
+	secret         string
+	emailSender    *email.Sender
+	baseURL        string
+	googleClientID string
+	totpService    *totp.Service
 }
 
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -907,6 +911,41 @@ func getEnvOrDefault(key, fallback string) string {
 	return fallback
 }
 
+func getEnvOrFile(key string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+
+	filePath := os.Getenv(key + "_FILE")
+	if filePath == "" {
+		return ""
+	}
+
+	value, err := readSecretFile(filePath)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(value))
+}
+
+func readSecretFile(filePath string) ([]byte, error) {
+	cleanPath := filepath.Clean(filePath)
+	if cleanPath == "." || cleanPath == string(filepath.Separator) {
+		return nil, errors.New("secret file path is invalid")
+	}
+
+	info, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, errors.New("secret file path is a directory")
+	}
+
+	return os.ReadFile(cleanPath) // #nosec G304 -- path is checked with os.Stat before reading
+}
+
 func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWithInviteRequest) (*pb.RegisterResponse, error) {
 	s.log.Info("Register with invite code", zap.String("email", req.GetEmail()))
 
@@ -988,6 +1027,198 @@ func (s *userServer) ValidateInviteCode(ctx context.Context, req *pb.ValidateInv
 	}, nil
 }
 
+func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*pb.SetupTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	var email string
+	var totpEnabled bool
+	err := s.db.QueryRowContext(ctx, "SELECT email, totp_enabled FROM users WHERE id = $1", req.UserId).Scan(&email, &totpEnabled)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	if totpEnabled {
+		return nil, status.Error(codes.AlreadyExists, "2FA already enabled")
+	}
+
+	setup, err := s.totpService.GenerateTOTPSecret(email)
+	if err != nil {
+		s.log.Error("Failed to generate TOTP secret", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate TOTP secret")
+	}
+
+	s.log.Info("TOTP setup generated", zap.String("user_id", req.UserId))
+
+	return &pb.SetupTOTPResponse{
+		QrCodeUrl:   setup.QRCodeURL,
+		Secret:      setup.Secret,
+		BackupCodes: setup.BackupCodes,
+	}, nil
+}
+
+func (s *userServer) ConfirmTOTP(ctx context.Context, req *pb.ConfirmTOTPRequest) (*pb.ConfirmTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.TempSecret == "" || req.Passcode == "" {
+		return nil, status.Error(codes.InvalidArgument, "temp_secret and passcode are required")
+	}
+	if len(req.BackupCodes) != totp.BackupCodesCount {
+		return nil, status.Error(codes.InvalidArgument, "exactly 10 backup codes are required")
+	}
+
+	valid, err := s.totpService.ValidateTOTPCode(req.Passcode, req.TempSecret)
+	if err != nil {
+		s.log.Warn("TOTP code validation error", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to validate TOTP code")
+	}
+	if !valid {
+		return &pb.ConfirmTOTPResponse{Success: false, Message: "Invalid TOTP code"}, nil
+	}
+
+	encryptedSecret, err := s.totpService.EncryptSecret(req.TempSecret)
+	if err != nil {
+		s.log.Error("Failed to encrypt TOTP secret", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to encrypt secret")
+	}
+
+	hashedCodes := totp.HashBackupCodes(req.BackupCodes)
+
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE users 
+		SET totp_secret_encrypted = $1, totp_enabled = true, totp_backup_codes_hash = $2, totp_backup_codes_remaining = $3, updated_at = NOW()
+		WHERE id = $4
+	`, encryptedSecret, pq.Array(hashedCodes), len(req.BackupCodes), req.UserId)
+	if err != nil {
+		s.log.Error("Failed to enable TOTP", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to enable TOTP")
+	}
+
+	s.log.Info("TOTP enabled successfully", zap.String("user_id", req.UserId))
+	return &pb.ConfirmTOTPResponse{Success: true, Message: "TOTP enabled successfully"}, nil
+}
+
+func (s *userServer) VerifyTOTP(ctx context.Context, req *pb.VerifyTOTPRequest) (*pb.VerifyTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.Passcode == "" {
+		return nil, status.Error(codes.InvalidArgument, "passcode is required")
+	}
+
+	var encryptedSecret []byte
+	var totpEnabled bool
+	var backupCodesHash []string
+	var backupCodesRemaining int32
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT totp_secret_encrypted, totp_enabled, totp_backup_codes_hash, totp_backup_codes_remaining
+		FROM users WHERE id = $1
+	`, req.UserId).Scan(&encryptedSecret, &totpEnabled, pq.Array(&backupCodesHash), &backupCodesRemaining)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if !totpEnabled {
+		return &pb.VerifyTOTPResponse{Valid: false}, nil
+	}
+
+	if req.IsBackupCode {
+		idx, backupErr := totp.ValidateBackupCode(req.Passcode, backupCodesHash)
+		if backupErr != nil {
+			s.log.Warn("Invalid backup code", zap.Error(backupErr), zap.String("user_id", req.UserId))
+			return nil, status.Error(codes.Unauthenticated, "invalid backup code")
+		}
+
+		remaining := backupCodesRemaining
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE users 
+			SET totp_backup_codes_hash = array_remove(totp_backup_codes_hash, $1),
+			    totp_backup_codes_remaining = GREATEST(totp_backup_codes_remaining - 1, 0)
+			WHERE id = $2
+		`, backupCodesHash[idx], req.UserId)
+		if err != nil {
+			s.log.Warn("Failed to remove used backup code", zap.Error(err))
+		} else if remaining > 0 {
+			remaining--
+		}
+
+		return &pb.VerifyTOTPResponse{Valid: true, BackupCodesRemaining: remaining}, nil
+	}
+
+	secret, err := s.totpService.DecryptSecret(encryptedSecret)
+	if err != nil {
+		s.log.Error("Failed to decrypt TOTP secret", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to decrypt secret")
+	}
+
+	valid, err := s.totpService.ValidateTOTPCode(req.Passcode, secret)
+	if err != nil {
+		s.log.Warn("TOTP validation error", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to validate TOTP code")
+	}
+
+	s.log.Info("TOTP verified", zap.String("user_id", req.UserId), zap.Bool("valid", valid))
+	return &pb.VerifyTOTPResponse{Valid: valid, BackupCodesRemaining: backupCodesRemaining}, nil
+}
+
+func (s *userServer) DisableTOTP(ctx context.Context, req *pb.DisableTOTPRequest) (*pb.DisableTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.Passcode == "" {
+		return nil, status.Error(codes.InvalidArgument, "passcode is required")
+	}
+
+	var encryptedSecret []byte
+	err := s.db.QueryRowContext(ctx, `
+		SELECT totp_secret_encrypted FROM users 
+		WHERE id = $1 AND totp_enabled = true
+	`, req.UserId).Scan(&encryptedSecret)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "TOTP not enabled for user")
+		}
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	secret, err := s.totpService.DecryptSecret(encryptedSecret)
+	if err != nil {
+		s.log.Error("Failed to decrypt TOTP secret for disable", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to decrypt secret")
+	}
+
+	valid, err := s.totpService.ValidateTOTPCode(req.Passcode, secret)
+	if err != nil {
+		s.log.Warn("TOTP validation error during disable", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to validate TOTP code")
+	}
+	if !valid {
+		return &pb.DisableTOTPResponse{Success: false, Message: "Invalid TOTP code"}, nil
+	}
+
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE users 
+		SET totp_secret_encrypted = NULL, totp_enabled = false, 
+		    totp_backup_codes_hash = NULL, totp_backup_codes_remaining = 0, updated_at = NOW()
+		WHERE id = $1
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to disable TOTP", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to disable TOTP")
+	}
+
+	s.log.Info("TOTP disabled", zap.String("user_id", req.UserId))
+	return &pb.DisableTOTPResponse{Success: true, Message: "TOTP disabled successfully"}, nil
+}
+
 func main() {
 	log := logger.New("user-service")
 	defer func() { _ = log.Sync() }()
@@ -998,12 +1229,12 @@ func main() {
 	}
 
 	dbCfg := db.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		Host:     getEnvOrDefault("DB_HOST", "localhost"),
+		Port:     getEnvOrDefault("DB_PORT", "5432"),
+		User:     getEnvOrFile("POSTGRES_USER"),
+		Password: getEnvOrFile("POSTGRES_PASSWORD"),
+		DBName:   getEnvOrDefault("POSTGRES_DB", "fitness"),
+		SSLMode:  getEnvOrDefault("DB_SSLMODE", "disable"),
 	}
 
 	database, err := db.NewConnection(dbCfg)
@@ -1016,9 +1247,19 @@ func main() {
 		}
 	}()
 
-	secret := os.Getenv("JWT_SECRET")
+	secret := getEnvOrFile("JWT_SECRET")
 	if secret == "" {
 		log.Fatal("JWT_SECRET environment variable is required")
+	}
+
+	totpEncryptionKey := getEnvOrFile("TOTP_ENCRYPTION_KEY")
+	if totpEncryptionKey == "" {
+		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
+	}
+
+	totpEncryptor, initErr := crypto.NewTOTPEncryptor(totpEncryptionKey)
+	if initErr != nil {
+		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
 	}
 
 	// SMTP email configuration
@@ -1039,12 +1280,13 @@ func main() {
 		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
 	)
 	pb.RegisterUserServiceServer(s, &userServer{
-		db:              database,
-		log:             log,
-		secret:          secret,
-		emailSender:     emailSender,
-		baseURL:         baseURL,
-		googleClientID:  googleClientID,
+		db:             database,
+		log:            log,
+		secret:         secret,
+		emailSender:    emailSender,
+		baseURL:        baseURL,
+		googleClientID: googleClientID,
+		totpService:    totp.NewService(totpEncryptor),
 	})
 
 	// Register gRPC health server

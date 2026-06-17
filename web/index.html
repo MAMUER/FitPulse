@@ -38,6 +38,24 @@
                     <button type="submit" class="btn-primary" id="loginBtn">Войти</button>
                     <p class="auth-switch">Нет аккаунта? <a href="#" id="toRegister">Создать</a></p>
                 </form>
+                <form id="login2FAForm" class="auth-form hidden" novalidate>
+                    <h2>Двухфакторная аутентификация</h2>
+                    <p class="verify-text">Введите код из приложения-аутентификатора.</p>
+                    <div class="field">
+                        <input type="text" id="totpLoginCode" placeholder="6-значный код" maxlength="6"
+                            inputmode="numeric" autocomplete="one-time-code" required>
+                        <div class="field-error" id="totpLoginCodeError"></div>
+                    </div>
+                    <div class="field">
+                        <input type="text" id="backupLoginCode" placeholder="Резервный код xxxx-xxxx" maxlength="9"
+                            autocomplete="off">
+                        <div class="field-error" id="backupLoginCodeError"></div>
+                    </div>
+                    <div class="auth-error hidden" id="login2FAError"></div>
+                    <button type="submit" class="btn-primary" id="login2FABtn">Войти</button>
+                    <button type="button" class="btn-secondary" id="useBackupLoginBtn">Использовать резервный код</button>
+                    <p class="auth-switch"><a href="#" id="backToLoginFrom2FA">← Вернуться ко входу</a></p>
+                </form>
                 <form id="registerForm" class="auth-form hidden" novalidate>
                     <div class="field">
                         <input type="text" id="regName" placeholder="Имя" autocomplete="name" required maxlength="100"
@@ -270,6 +288,35 @@
                         <button type="button" class="btn-secondary" id="changeEmailBtn" style="margin-bottom: 12px;">
                             Сменить почту
                         </button>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                            <h4>Двухфакторная аутентификация</h4>
+                            <p id="twoFAStatus" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                                Загрузка статуса...
+                            </p>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <button type="button" class="btn-secondary" id="enable2FABtn">Включить 2FA</button>
+                                <button type="button" class="btn-danger hidden" id="disable2FABtn">Отключить 2FA</button>
+                            </div>
+                            <div id="totpSetupPanel" class="hidden" style="padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                                <p style="font-size: 13px; margin: 0 0 12px;">Отсканируйте QR-код в приложении-аутентификаторе.</p>
+                                <img id="totpQRCode" alt="TOTP QR Code" style="width: 220px; height: 220px; display: block; margin: 0 auto 12px; background: #fff; border-radius: var(--radius-sm);">
+                                <p style="font-size: 13px;">Не получается отсканировать? Введите секрет вручную:</p>
+                                <code id="totpManualSecret" style="word-break: break-all;"></code>
+                                <h4 style="margin: 16px 0 8px;">Резервные коды</h4>
+                                <ul id="totpBackupCodes" style="columns: 2; font-size: 13px; margin: 0 0 12px 20px;"></ul>
+                                <div class="field">
+                                    <label>Код из приложения</label>
+                                    <input type="text" id="totpSetupCode" placeholder="6-значный код" maxlength="6" inputmode="numeric">
+                                    <div class="field-error" id="totpSetupError"></div>
+                                </div>
+                                <div class="auth-success hidden" id="totpSetupSuccess"></div>
+                                <button type="button" class="btn-primary" id="confirm2FABtn" style="margin-top: 12px;">Подтвердить и включить 2FA</button>
+                            </div>
+                            <div id="disable2FAPanel" style="margin-top: 12px;">
+                                <input type="text" id="disable2FACode" placeholder="Текущий код 2FA" maxlength="6" inputmode="numeric" style="width: 100%; padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                <div class="field-error hidden" id="disable2FAError"></div>
+                            </div>
+                        </div>
                         <!-- Форма смены почты (скрыта по умолчанию) -->
                         <form id="changeEmailForm" class="hidden"
                             style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">

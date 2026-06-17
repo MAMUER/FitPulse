@@ -25,6 +25,10 @@ service UserService {
     rpc GetAchievements(GetAchievementsRequest) returns (GetAchievementsResponse);
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
+    rpc SetupTOTP(SetupTOTPRequest) returns (SetupTOTPResponse);
+    rpc ConfirmTOTP(ConfirmTOTPRequest) returns (ConfirmTOTPResponse);
+    rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
+    rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
 }
 
 message RegisterRequest {
@@ -258,4 +262,47 @@ message ValidateInviteCodeResponse {
     string role = 2;
     string specialty = 3;
     string error_message = 4;
+}
+
+message SetupTOTPRequest {
+    string user_id = 1;
+}
+
+message SetupTOTPResponse {
+    string qr_code_url = 1;
+    string secret = 2;
+    repeated string backup_codes = 3;
+}
+
+message ConfirmTOTPRequest {
+    string user_id = 1;
+    string passcode = 2;
+    string temp_secret = 3;
+    repeated string backup_codes = 4;
+}
+
+message ConfirmTOTPResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message VerifyTOTPRequest {
+    string user_id = 1;
+    string passcode = 2;
+    bool is_backup_code = 3;
+}
+
+message VerifyTOTPResponse {
+    bool valid = 1;
+    int32 backup_codes_remaining = 2;
+}
+
+message DisableTOTPRequest {
+    string user_id = 1;
+    string passcode = 2;
+}
+
+message DisableTOTPResponse {
+    bool success = 1;
+    string message = 2;
 }
