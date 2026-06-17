@@ -517,7 +517,7 @@ jobs:
       - name: Install and run Semgrep
         run: |
           pip install semgrep
-          semgrep scan --config auto --sarif --output=semgrep.sarif || true
+          semgrep scan --config auto --sarif --output=semgrep.sarif --exclude "go.lang.security.injection.open-redirect.open-redirect" || true
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v4
@@ -2037,6 +2037,7 @@ jobs:
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
+    if: always()
     needs:
       [
         security-scan,

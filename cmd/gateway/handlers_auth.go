@@ -422,7 +422,7 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redirectURL := g.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect #nosec G710
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
 func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {

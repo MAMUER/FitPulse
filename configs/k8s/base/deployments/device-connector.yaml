@@ -62,12 +62,14 @@ spec:
           emptyDir: {}
         - name: secrets
           secret:
-            secretName: app-secrets
-            items:
-              - key: POSTGRES_USER
-                path: POSTGRES_USER
-              - key: POSTGRES_PASSWORD
-                path: POSTGRES_PASSWORD
+             secretName: app-secrets
+             items:
+               - key: POSTGRES_USER
+                 path: POSTGRES_USER
+               - key: POSTGRES_PASSWORD
+                 path: POSTGRES_PASSWORD
+               - key: POSTGRES_DB
+                 path: POSTGRES_DB
       containers:
         - name: device-connector
           image: ghcr.io/mamuer/project/device-connector:latest
@@ -93,11 +95,12 @@ spec:
               mountPath: /etc/secrets
               readOnly: true
           env:
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
+            - name: POSTGRES_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
+            - name: POSTGRES_PASSWORD_FILE
+              value: "/etc/secrets/POSTGRES_PASSWORD"
             - name: BIOMETRIC_SERVICE_ADDR
               value: "biometric-service:50052"
             - name: DB_HOST

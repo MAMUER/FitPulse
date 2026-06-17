@@ -87,11 +87,8 @@ spec:
               value: "/etc/secrets/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
               value: "/etc/secrets/POSTGRES_PASSWORD"
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
             - name: DB_SSLMODE
               valueFrom:
                 configMapKeyRef:
