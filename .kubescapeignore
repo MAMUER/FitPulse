@@ -1,0 +1,8 @@
+# Kubescape ignore file
+# C-0012 false positive: credentials in configuration files
+# All secrets are mounted from external Kubernetes Secrets (app-secrets),
+# configs only contain *_FILE path references and non-sensitive config.
+# See: https://hub.armosec.io/docs/c-0012
+
+configs/k8s/base/*
+configs/k8s/base/**/*

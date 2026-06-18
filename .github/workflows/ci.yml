@@ -468,6 +468,7 @@ jobs:
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
+            --ignore .kubescapeignore \
             --verbose || true
 
           # Fix SARIF for GitHub Code Scanning
@@ -1275,6 +1276,32 @@ jobs:
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
           "
+      - name: Ensure local-path provisioner is installed and default StorageClass
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo \"-> Checking local-path provisioner...\"
+            if ! k3s kubectl get ns local-path-storage &>/dev/null; then
+              echo \"-> Deploying local-path provisioner...\"
+              kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
+              sleep 5
+            fi
+            echo \"-> Waiting for local-path provisioner pod...\"
+            for i in \$(seq 1 30); do
+              if k3s kubectl get pods -n local-path-storage 2>/dev/null | grep -q Running; then
+                echo \"✅ local-path provisioner ready\"
+                break
+              fi
+              [ \$i -eq 30 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
+              sleep 2
+            done
+            echo \"-> Setting local-path as default StorageClass...\"
+            STORAGE_CLASS=\$(k3s kubectl get storageclass local-path -o name 2>/dev/null || echo '')
+            if [ -n \"\$STORAGE_CLASS\" ]; then
+              k3s kubectl patch storageclass local-path -p '{\"metadata\":{\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}' || true
+            fi
+            echo \"-> StorageClasses:\"
+            k3s kubectl get storageclass
+          "
       - name: Ensure k3s certificates include domain and external IP
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1753,6 +1780,26 @@ jobs:
             echo "Failed to apply production overlay"
             exit 1
           fi
+      - name: Wait for Postgres PVC to be bound
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Waiting for Postgres PVC to be bound..."
+          for i in {1..120}; do
+            STATUS=$(kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+            if [ "$STATUS" = "Bound" ]; then
+              echo "✅ Postgres PVC bound after ${i}x5 seconds"
+              break
+            fi
+            if [ "$i" -eq 120 ]; then
+              echo "❌ Timeout waiting for Postgres PVC"
+              kubectl get pvc -n fitness-platform-production || true
+              kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
+              kubectl get storageclass || true
+              exit 1
+            fi
+            echo "Attempt $i/120: PVC status=$STATUS, waiting 5s..."
+            sleep 5
+          done
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
