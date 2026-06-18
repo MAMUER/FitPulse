@@ -1292,7 +1292,7 @@ jobs:
                 echo \"✅ local-path provisioner ready\"
                 break
               fi
-              [ "$i" -eq 30 ] && { echo "local-path provisioner not ready"; k3s kubectl get pods -n local-path-storage || true; }
+              [ "$i" -eq 30 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
               sleep 2
             done
             echo \"-> Configuring local-path provisioner for Immediate binding...\"
