@@ -1,104 +1,8 @@
--- V10__add_classification_class_column.sql
--- V10__add_classification_class_column.sql
--- Add classification_class column to training_plans (was missing from V6)
-
-ALTER TABLE training_plans
-    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
-
-COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';
-
--- V11__device_providers.sql
--- Таблица для OAuth state (защита от CSRF)
-CREATE TABLE IF NOT EXISTS oauth_states (
-    state VARCHAR(255) PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider VARCHAR(50) NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
-
--- Таблица для хранения OAuth токенов провайдеров
-CREATE TABLE IF NOT EXISTS device_provider_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider VARCHAR(50) NOT NULL,
-    provider_user_id VARCHAR(255) NOT NULL,
-    access_token TEXT NOT NULL,
-    refresh_token TEXT,
-    token_expires_at TIMESTAMP WITH TIME ZONE,
-    scopes TEXT[],
-    webhook_subscription_id VARCHAR(255),
-    last_sync_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, provider)
-);
-
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_user ON device_provider_accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON device_provider_accounts(provider);
-
--- Лог синхронизаций
-CREATE TABLE IF NOT EXISTS device_sync_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider_account_id UUID REFERENCES device_provider_accounts(id) ON DELETE CASCADE,
-    sync_type VARCHAR(50) NOT NULL,
-    records_count INT DEFAULT 0,
-    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(20) DEFAULT 'pending',
-    error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
-
--- V12__oauth_providers.sql
--- V12__oauth_providers.sql
--- OAuth providers support (Google OAuth)
-
--- Make password optional for OAuth users (local users still set password)
-ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
-
--- OAuth provider fields
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS provider VARCHAR(50) NOT NULL DEFAULT 'local',
-    ADD COLUMN IF NOT EXISTS external_id VARCHAR(255);
-
--- Unique index for OAuth lookups (google + google_sub)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external
-    ON users(provider, external_id)
-    WHERE external_id IS NOT NULL;
-
--- V13__add_totp_2fa.sql
--- V13__add_totp_2fa.sql
--- Adds TOTP two-factor authentication support
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted BYTEA;
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_hash TEXT[];
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_remaining INT NOT NULL DEFAULT 0;
-
-CREATE INDEX IF NOT EXISTS idx_users_totp_enabled
-    ON users(totp_enabled)
-    WHERE totp_enabled = TRUE;
-
-COMMENT ON COLUMN users.totp_secret_encrypted IS 'TOTP secret encrypted with AES-256-GCM using TOTP_ENCRYPTION_KEY';
-COMMENT ON COLUMN users.totp_backup_codes_hash IS 'Array of SHA-256 hashes of backup codes (10 codes)';
-
-
--- V1__create_extensions.sql
 -- V1__create_extensions.sql
 -- Create necessary extensions
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- V2__create_users_and_auth.sql
 -- V2__create_users_and_auth.sql
 -- Core users and authentication tables
 
@@ -159,7 +63,6 @@ CREATE INDEX IF NOT EXISTS idx_invite_code_uses_code ON invite_code_uses(invite_
 CREATE INDEX IF NOT EXISTS idx_invite_code_uses_user ON invite_code_uses(user_id);
 
 -- V3__create_user_profiles.sql
--- V3__create_user_profiles.sql
 -- User profiles and related data
 
 -- User profiles
@@ -193,7 +96,6 @@ CREATE TABLE IF NOT EXISTS user_contraindications (
 );
 
 -- V4__create_devices.sql
--- V4__create_devices.sql
 -- Devices registered by device-connector
 
 -- Devices
@@ -211,7 +113,6 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 
 -- V5__create_biometric_data.sql
--- V4__create_biometric_data.sql
 -- Biometric data and device ingestion
 
 -- Biometric data
@@ -240,7 +141,6 @@ CREATE TABLE IF NOT EXISTS device_ingest_log (
 
 CREATE INDEX IF NOT EXISTS idx_ingest_log_device_time ON device_ingest_log(device_id, timestamp);
 
--- V6__create_training_plans.sql
 -- V6__create_training_plans.sql
 -- Training plans and related data
 
@@ -325,7 +225,6 @@ CREATE INDEX IF NOT EXISTS idx_workout_completions_user ON workout_completions(u
 CREATE INDEX IF NOT EXISTS idx_workout_completions_plan ON workout_completions(training_plan_id);
 
 -- V7__create_achievements.sql
--- V7__create_achievements.sql
 -- Achievements system
 
 -- Achievements
@@ -333,7 +232,7 @@ CREATE TABLE IF NOT EXISTS achievements (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(255) NOT NULL,
     description TEXT,
-    criteria    JSONB,        -- Config data, acceptable for 1NF
+    criteria    JSONB,
     icon_url    VARCHAR(255),
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -356,7 +255,6 @@ INSERT INTO achievements (name, description, criteria) VALUES
 ON CONFLICT DO NOTHING;
 
 -- V8__create_views.sql
--- V8__create_views.sql
 -- Views for backward compatibility and derived data
 
 -- Invite code statistics (replaces invite_codes.used_count)
@@ -373,7 +271,7 @@ SELECT
     ic.created_at
 FROM invite_codes ic
 LEFT JOIN invite_code_uses icu ON icu.invite_code_id = ic.id
-GROUP BY ic.id, ic.code, ic.role, ic.specialty, ic.max_uses, ic.is_active, ic.expires_at, ic.created_at;
+GROUP BY ic.id, ic.code, ic.role, ic.specialty, ic.max_uses, ic.expires_at, ic.created_at;
 
 -- User profiles with goals array (backward compatibility for goals TEXT[])
 CREATE OR REPLACE VIEW user_profiles_with_goals AS
@@ -395,11 +293,9 @@ GROUP BY up.user_id, up.age, up.gender, up.height_cm, up.weight_kg, up.fitness_l
          up.nutrition, up.sleep_hours, up.created_at, up.updated_at;
 
 -- V9__create_functions.sql
--- V9__create_functions.sql
 -- Functions for invite code management
 
 -- Create a new invite code
--- Parameters: p_role, p_specialty, p_max_uses, p_valid_days
 CREATE OR REPLACE FUNCTION create_invite_code(
     p_role VARCHAR(50),
     p_specialty VARCHAR(100),
@@ -435,8 +331,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Validate and consume an invite code (returns is_valid, role, specialty, error_msg)
--- Order matches Go code: Scan(&isValid, &role, &specialty, &errMsg)
+-- Validate and consume an invite code
 CREATE OR REPLACE FUNCTION use_invite_code(
     p_code VARCHAR(100)
 ) RETURNS TABLE(
@@ -449,7 +344,6 @@ DECLARE
     v_record RECORD;
     v_used_count INT;
 BEGIN
-    -- Lookup code
     SELECT * INTO v_record FROM invite_codes WHERE code = p_code AND is_active = TRUE;
 
     IF NOT FOUND THEN
@@ -457,20 +351,17 @@ BEGIN
         RETURN NEXT; RETURN;
     END IF;
 
-    -- Check expiration
     IF v_record.expires_at IS NOT NULL AND v_record.expires_at < NOW() THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has expired';
         RETURN NEXT; RETURN;
     END IF;
 
-    -- Check usage count
     SELECT COUNT(*) INTO v_used_count FROM invite_code_uses WHERE invite_code_id = v_record.id;
     IF v_used_count >= v_record.max_uses THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has reached its usage limit';
         RETURN NEXT; RETURN;
     END IF;
 
-    -- Valid — return role/specialty (caller must INSERT into invite_code_uses after user creation)
     is_valid := TRUE;
     role := v_record.role;
     specialty := v_record.specialty;
@@ -496,3 +387,92 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- V10__add_classification_class_column.sql
+-- Add classification_class column to training_plans (was missing from V6)
+
+ALTER TABLE training_plans
+    ADD COLUMN IF NOT EXISTS classification_class VARCHAR(255);
+
+COMMENT ON COLUMN training_plans.classification_class IS 'ML-классификация типа тренировки (например endurance_e1e2)';
+
+-- V11__device_providers.sql
+-- Таблица для OAuth state (защита от CSRF)
+CREATE TABLE IF NOT EXISTS oauth_states (
+    state VARCHAR(255) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+
+-- Таблица для хранения OAuth токенов провайдеров
+CREATE TABLE IF NOT EXISTS device_provider_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    provider_user_id VARCHAR(255) NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
+    scopes TEXT[],
+    webhook_subscription_id VARCHAR(255),
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_accounts_user ON device_provider_accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON device_provider_accounts(provider);
+
+-- Лог синхронизаций
+CREATE TABLE IF NOT EXISTS device_sync_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_account_id UUID REFERENCES device_provider_accounts(id) ON DELETE CASCADE,
+    sync_type VARCHAR(50) NOT NULL,
+    records_count INT DEFAULT 0,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'pending',
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
+
+-- V12__oauth_providers.sql
+-- OAuth providers support (Google OAuth)
+
+-- Make password optional for OAuth users
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+
+-- OAuth provider fields
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS provider VARCHAR(50) NOT NULL DEFAULT 'local',
+    ADD COLUMN IF NOT EXISTS external_id VARCHAR(255);
+
+-- Unique index for OAuth lookups
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external
+    ON users(provider, external_id)
+    WHERE external_id IS NOT NULL;
+
+-- V13__add_totp_2fa.sql
+-- Adds TOTP two-factor authentication support
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted BYTEA;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_hash TEXT[];
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes_remaining INT NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_users_totp_enabled
+    ON users(totp_enabled)
+    WHERE totp_enabled = TRUE;
+
+COMMENT ON COLUMN users.totp_secret_encrypted IS 'TOTP secret encrypted with AES-256-GCM using TOTP_ENCRYPTION_KEY';
+COMMENT ON COLUMN users.totp_backup_codes_hash IS 'Array of SHA-256 hashes of backup codes (10 codes)';

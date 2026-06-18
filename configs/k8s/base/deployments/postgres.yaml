@@ -54,6 +54,27 @@ spec:
             secretName: app-secrets
         - name: tmp
           emptyDir: {}
+      initContainers:
+        - name: fix-permissions
+          image: postgres:15-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              chown -R 999:999 /var/lib/postgresql/data || true
+              chmod 2775 /var/run/postgresql || true
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+            - name: tmp
+              mountPath: /var/run/postgresql
       containers:
         - name: postgres
           image: postgres:15-alpine
@@ -65,6 +86,7 @@ spec:
             runAsNonRoot: true
             runAsUser: 999
             runAsGroup: 999
+            readOnlyRootFilesystem: true   # <--- возвращено для соответствия правилу C-0017
             capabilities:
               drop:
                 - ALL
