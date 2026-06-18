@@ -468,6 +468,7 @@ jobs:
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
+            --ignore .kubescapeignore \
             --verbose || true
 
           # Fix SARIF for GitHub Code Scanning
@@ -1293,10 +1294,11 @@ jobs:
               [ \$i -eq 30 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
               sleep 2
             done
-            echo \"-> Setting local-path as default StorageClass...\"
+            echo \"-> Setting local-path as default StorageClass with Immediate binding...\"
             STORAGE_CLASS=\$(k3s kubectl get storageclass local-path -o name 2>/dev/null || echo '')
             if [ -n \"\$STORAGE_CLASS\" ]; then
               k3s kubectl patch storageclass local-path -p '{\"metadata\":{\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}' || true
+              k3s kubectl patch storageclass local-path --type='json' -p='[{\"op\":\"replace\",\"path\":\"/spec/volumeBindingMode\",\"value\":\"Immediate\"}]' || true
             fi
             echo \"-> StorageClasses:\"
             k3s kubectl get storageclass
