@@ -1102,12 +1102,12 @@ jobs:
         run: chmod +x scripts/ssh-retry.sh
       - name: Configure swap on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
           echo '-> Checking existing swap...'
-          FREE_OUTPUT=\$(free -m | grep Swap || true)
-          echo \"Current swap: \$FREE_OUTPUT\"
-          SWAP_SIZE=\$(free -m | awk '/Swap/ {print \$2}')
-          if [ \"\$SWAP_SIZE\" -lt 3000 ] 2>/dev/null || [ -z \"\$SWAP_SIZE\" ]; then
+          FREE_OUTPUT=$(free -m | grep Swap || true)
+          echo "Current swap: $FREE_OUTPUT"
+          SWAP_SIZE=$(free -m | awk '/Swap/ {print $2}')
+          if [ "$SWAP_SIZE" -lt 3000 ] 2>/dev/null || [ -z "$SWAP_SIZE" ]; then
             echo '-> Creating 4GB swap file...'
             if [ ! -f /swapfile ]; then
               sudo fallocate -l 4G /swapfile
@@ -1124,7 +1124,7 @@ jobs:
           echo '-> Setting vm.swappiness=10...'
           echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
           sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
-          "
+          EOF
       - name: Clean up old k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
