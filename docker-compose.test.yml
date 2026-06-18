@@ -57,7 +57,7 @@ services:
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://testuser:testpass@rabbitmq-test:5672/
       JWT_SECRET: test_jwt_secret_for_smoke_tests_only
-      TOTP_ENCRYPTION_KEY: test_totp_encryption_key_for_smoke_tests_only_32chars!!
+      TOTP_ENCRYPTION_KEY: test_totp_key_32bytes_long_str!!
       GOOGLE_CLIENT_ID: test-google-client-id.apps.googleusercontent.com
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"

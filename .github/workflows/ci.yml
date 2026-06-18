@@ -468,7 +468,6 @@ jobs:
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
-            --ignore .kubescapeignore \
             --verbose || true
 
           # Fix SARIF for GitHub Code Scanning
