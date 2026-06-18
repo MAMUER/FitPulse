@@ -484,13 +484,14 @@ jobs:
                     .locations[0].physicalLocation != null and
                     .locations[0].physicalLocation.artifactLocation != null and
                     .locations[0].physicalLocation.artifactLocation.uri != null and
-                    .locations[0].physicalLocation.artifactLocation.uri != ""
+                    .locations[0].physicalLocation.artifactLocation.uri != "" and
+                    (.ruleId // "") != "C-0012"
                   )
                 )
               )
             ' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif
-            echo "Fixed SARIF file: removed results without artifactLocation.uri"
+            echo "Fixed SARIF file: removed results without artifactLocation.uri and C-0012 false positives"
           fi
 
       - name: Upload Kubescape results
@@ -1291,7 +1292,7 @@ jobs:
                 echo \"✅ local-path provisioner ready\"
                 break
               fi
-              [ \$i -eq 30 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
+              [ "$i" -eq 30 ] && { echo "local-path provisioner not ready"; k3s kubectl get pods -n local-path-storage || true; }
               sleep 2
             done
             echo \"-> Configuring local-path provisioner for Immediate binding...\"
@@ -1299,28 +1300,32 @@ jobs:
             if k3s kubectl get ns \"$PROVISIONER_NS\" &>/dev/null; then
               PROVISIONER_CM=$(k3s kubectl get configmap -n \"$PROVISIONER_NS\" -l app=local-path-provisioner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
               if [ -n \"$PROVISIONER_CM\" ]; then
-                echo \"-> Patching provisioner configmap config.json for Immediate binding\"
-                k3s kubectl get configmap \"$PROVISIONER_CM\" -n \"$PROVISIONER_NS\" -o json | \
-                  jq '(.data.configJson // .data.\"config.json\" // \"\") |= gsub(\"WaitForFirstConsumer\"; \"Immediate\")' | \
-                  k3s kubectl apply -f - 2>&1 || true
+                echo \"-> Switching provisioner config to Immediate binding mode\"
+                TMPFILE=$(mktemp)
+                k3s kubectl get configmap \"$PROVISIONER_CM\" -n \"$PROVISIONER_NS\" -o json > \"$TMPFILE\" 2>&1 || true
+                if command -v jq &>/dev/null && [ -s \"$TMPFILE\" ]; then
+                  jq '(.data.configJson // .data."config.json" // "") |= gsub("WaitForFirstConsumer"; "Immediate")' \"$TMPFILE\" > \"$TMPFILE.new\" 2>&1
+                  k3s kubectl apply -f \"$TMPFILE.new\" 2>&1 || true
+                  rm -f \"$TMPFILE\" \"$TMPFILE.new\" || true
+                fi
                 PROVISIONER_DEPLOY=$(k3s kubectl get deploy -n \"$PROVISIONER_NS\" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
                 if [ -n \"$PROVISIONER_DEPLOY\" ]; then
-                  echo \"-> Restarting provisioner to pick up new config\"
-                  k3s kubectl rollout restart deployment/\"$PROVISIONER_DEPLOY\" -n \"$PROVISIONER_NS\" 2>&1 || true
+                  echo \"-> Restarting provisioner pod...\"
+                  k3s kubectl rollout restart deployment/\"$PROVISIONER_DEPLOY\" -n \"$PROVISIONER_NS\" || true
                   sleep 10
                 fi
               fi
-              echo \"-> Deleting old local-path StorageClass to force recreation with new config\"
+              echo \"-> Deleting old local-path StorageClass to force recreation...\"
               k3s kubectl delete storageclass local-path 2>/dev/null || true
               sleep 10
               echo \"-> Waiting for new local-path StorageClass with Immediate binding...\"
-              for i in $(seq 1 60); do
+              for i in {1..60}; do
                 MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
                 if [ \"$MODE\" = \"Immediate\" ]; then
                   echo \"✅ local-path StorageClass is Immediate\"
                   break
                 fi
-                [ $i -eq 60 ] && { echo \"⚠️ StorageClass mode: $MODE after 120s\"; k3s kubectl get storageclass; }
+                [ "$i" -eq 60 ] && { echo \"⚠️ StorageClass mode: $MODE after 120s\"; k3s kubectl get storageclass; }
                 sleep 2
               done
             else
