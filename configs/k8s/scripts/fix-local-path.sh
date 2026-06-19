@@ -1,13 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-echo '-> Deploying upstream local-path-provisioner...'
-k3s kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
+echo '-> Deploying local-path-provisioner from local manifest...'
+k3s kubectl apply -f /tmp/local-path-provisioner.yaml
 sleep 10
-
-echo '-> Ensuring ClusterRole has full access to configmaps and events...'
-k3s kubectl patch clusterrole local-path-provisioner-role --type='json' \
-	-p='[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps","events"],"verbs":["get","list","watch","create","update","patch","delete"]}}]'
 
 echo '-> Waiting for provisioner to be ready...'
 for i in $(seq 1 30); do
