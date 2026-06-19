@@ -1076,7 +1076,6 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Configure swap on VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
@@ -1102,7 +1101,6 @@ jobs:
           echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
           sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
           EOF
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Configure Docker and System log rotation
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
@@ -1144,7 +1142,6 @@ jobs:
             systemctl daemon-reload
             echo \"Cleanup done\"
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Fix DNS resolv.conf
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1161,7 +1158,6 @@ jobs:
               cat /etc/resolv.conf
             fi
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Prepare k3s config on VPS
         run: |
           VPS_HOST="${{ secrets.VPS_HOST }}"
@@ -1183,13 +1179,11 @@ jobs:
           curl -sfL -o /tmp/install.sh https://get.k3s.io
           chmod +x /tmp/install.sh
           echo "Download complete."
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Upload k3s files to VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /tmp/k3s-install"
           ./scripts/ssh-retry.sh scp /tmp/k3s "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/k3s"
           ./scripts/ssh-retry.sh scp /tmp/install.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-install/install.sh"
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Install k3s on VPS
         env:
           SSH_RETRY_TIMEOUT: 600
@@ -1208,7 +1202,6 @@ jobs:
             echo \"k3s installed successfully\"
             rm -rf /tmp/k3s-install
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Cleanup disk space on VPS
         run: |
           echo "-> Cleaning up disk space on VPS..."
@@ -1257,7 +1250,6 @@ jobs:
             echo ''
             echo '✅ Disk cleanup completed'
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Pre-pull system images via Docker
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1269,7 +1261,6 @@ jobs:
             echo \"Docker images:\"
             docker images | head -10
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Start and verify k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1480,7 +1471,6 @@ jobs:
             echo \"-> Final StorageClasses:\"
             k3s kubectl get storageclass
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Ensure k3s certificates include domain and external IP
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1519,7 +1509,6 @@ jobs:
               done
             fi
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Setup auto-renewal for SSL
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1527,7 +1516,6 @@ jobs:
             (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
             echo \"✅ Auto-renewal configured\"
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Setup DuckDNS auto-updater
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1558,7 +1546,6 @@ jobs:
             sudo /usr/local/bin/duckdns-update.sh
             echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Setup ML infrastructure directories
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1630,7 +1617,6 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
           ./scripts/ssh-retry.sh scp /tmp/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
           echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Generate kubeconfig with external domain
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1660,7 +1646,6 @@ jobs:
           fi
           openssl x509 -in deploy/tls/certs/server.crt -text -noout | grep -A2 "Subject:" || true
 
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Upload TLS certificates to VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1890,7 +1875,6 @@ jobs:
           for svc in user-service biometric-service training-service gateway classifier ml-generator; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Cleanup disk space on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1937,7 +1921,6 @@ jobs:
             echo ''
             echo '✅ Disk cleanup completed'
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Pre-pull application images on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
