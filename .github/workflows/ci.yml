@@ -1913,6 +1913,21 @@ jobs:
             echo '-> Waiting 60s to let node recover from disk I/O...'
             sleep 60
           "
+      - name: Ensure local-path StorageClass is Immediate binding mode
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Ensuring local-path StorageClass uses Immediate binding mode..."
+          MODE=$(kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+          echo "-> Current local-path StorageClass binding mode: $MODE"
+          if [ "$MODE" != "Immediate" ]; then
+            echo "-> Patching StorageClass to Immediate..."
+            kubectl patch storageclass local-path -p '{"volumeBindingMode": "Immediate"}' --type=merge
+            sleep 3
+            MODE=$(kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+            echo "-> Updated local-path StorageClass binding mode: $MODE"
+          else
+            echo "✅ local-path StorageClass is already Immediate"
+          fi
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
