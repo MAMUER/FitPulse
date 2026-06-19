@@ -1290,220 +1290,16 @@ jobs:
           "
       - name: Limit k3s memory usage
         run: |
-          # Создаем watchdog скрипт локально
-          cat > /tmp/k3s-memory-watchdog.sh << 'EOFSCRIPT'
-          #!/bin/bash
-          set -euo pipefail
-          K3S_PID=$(pgrep -f 'k3s server' || echo '')
-          if [ -z "$K3S_PID" ]; then
-              echo "$(date): k3s not running, skipping"
-              exit 0
-          fi
-          K3S_RSS=$(ps -o rss= -p "$K3S_PID" 2>/dev/null || echo 0)
-          LIMIT_KB=600000
-          if [ "$K3S_RSS" -gt "$LIMIT_KB" ]; then
-              echo "$(date): k3s memory ${K3S_RSS}KB exceeds limit ${LIMIT_KB}KB, restarting..." | logger -t k3s-watchdog
-              systemctl restart k3s
-              sleep 10
-              NEW_RSS=$(ps -o rss= -p $(pgrep -f 'k3s server' || echo 0) 2>/dev/null || echo 0)
-              echo "$(date): k3s restarted, new memory: ${NEW_RSS}KB" | logger -t k3s-watchdog
-          fi
-          EOFSCRIPT
-          
-          # Создаем setup скрипт локально
-          cat > /tmp/setup-k3s-memory.sh << 'EOFSETUP'
-          #!/bin/bash
-          set -euo pipefail
-          sudo mkdir -p /etc/systemd/system/k3s.service.d
-          cat > /tmp/memory-limit.conf << 'EOFCONF'
-          [Service]
-          MemoryMax=1G
-          MemoryHigh=800M
-          EOFCONF
-          sudo mv /tmp/memory-limit.conf /etc/systemd/system/k3s.service.d/memory-limit.conf
-          sudo mv /tmp/k3s-memory-watchdog.sh /usr/local/bin/k3s-memory-watchdog.sh
-          sudo chmod +x /usr/local/bin/k3s-memory-watchdog.sh
-          (sudo crontab -l 2>/dev/null | grep -v k3s-memory-watchdog; echo '*/5 * * * * /usr/local/bin/k3s-memory-watchdog.sh >> /var/log/k3s-watchdog.log 2>&1') | sudo crontab -
-          sudo systemctl daemon-reload
-          sudo systemctl restart k3s
-          echo 'k3s memory watchdog configured'
-          EOFSETUP
-          
-          # Копируем и запускаем
-          ./scripts/ssh-retry.sh scp /tmp/k3s-memory-watchdog.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-memory-watchdog.sh"
-          ./scripts/ssh-retry.sh scp /tmp/setup-k3s-memory.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/setup-k3s-memory.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/k3s-memory-watchdog.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-memory-watchdog.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/setup-k3s-memory.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/setup-k3s-memory.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/setup-k3s-memory.sh && sudo /tmp/setup-k3s-memory.sh"
 
       - name: Fix local-path-provisioner RBAC and ensure Immediate binding mode
         run: |
-          cat > /tmp/fix-local-path.sh << 'REMOTE_EOF'
-          #!/bin/bash
-          set -euo pipefail
-          echo '-> Checking local-path provisioner status...'
-          PROVISIONER_POD=$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
-          if [ -z "$PROVISIONER_POD" ]; then
-            echo '⚠️ Provisioner pod not found, deploying...'
-            kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
-            sleep 10
-          fi
-          echo '-> Applying ClusterRole and ClusterRoleBinding...'
-          k3s kubectl apply -f /tmp/local-path-role.yaml
-          k3s kubectl apply -f /tmp/local-path-binding.yaml
-          echo '-> Restarting local-path-provisioner...'
-          k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
-          sleep 15
-          echo '-> Waiting for provisioner to be ready...'
-          for i in $(seq 1 30); do
-            if k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner | grep -q Running; then
-              echo "✅ local-path provisioner is Running after ${i}x2s"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "❌ local-path provisioner not ready"
-              k3s kubectl get pods -n local-path-storage
-              exit 1
-            fi
-            sleep 2
-          done
-
-          echo '-> Configuring StorageClass local-path with Immediate binding mode...'
-          k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-          sleep 3
-          if k3s kubectl get storageclass local-path &>/dev/null; then
-            echo '⚠️ StorageClass still exists after deletion (provisioner recreated it too fast)'
-            sleep 5
-            k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-            sleep 3
-          fi
-
-          k3s kubectl get configmap local-path-config -n local-path-storage -o json > /tmp/local-path-config.json 2>/dev/null || true
-          if [ -f /tmp/local-path-config.json ]; then
-            echo '-> Patching local-path-config ConfigMap with volumeBindingMode: Immediate...'
-            k3s kubectl patch configmap local-path-config -n local-path-storage \
-              --type='json' \
-              -p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || \
-            k3s kubectl patch configmap local-path-config -n local-path-storage \
-              --type='json' \
-              -p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || true
-          else
-            echo '-> Warning: ConfigMap local-path-config not found, patching skipped'
-          fi
-
-          k3s kubectl delete pod -n local-path-storage -l app=local-path-provisioner --ignore-not-found=true --timeout=30s || true
-          sleep 10
-
-          for i in $(seq 1 30); do
-            if k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner --no-headers 2>/dev/null | grep -q Running; then
-              echo "✅ local-path provisioner is Running after ${i}x2s"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "❌ local-path provisioner not ready"
-              k3s kubectl get pods -n local-path-storage
-              exit 1
-            fi
-            sleep 2
-          done
-
-          echo '-> Waiting for StorageClass to be recreated with Immediate mode...'
-          for i in $(seq 1 30); do
-            MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-            if [ "$MODE" = "Immediate" ]; then
-              echo "✅ local-path StorageClass is Immediate after ${i}x3s"
-              break
-            fi
-            if [ "$MODE" = "NotFound" ]; then
-              sleep 3
-              continue
-            fi
-            echo "Attempt $i/30: mode=$MODE, waiting..."
-            sleep 3
-          done
-
-          MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-          echo "-> local-path StorageClass binding mode: $MODE"
-          if [ "$MODE" = "Immediate" ]; then
-            echo '✅ local-path StorageClass is Immediate'
-          else
-            echo "❌ StorageClass mode is '$MODE', expected Immediate. Exiting."
-            exit 1
-          fi
-
-          echo '-> Final StorageClasses:'
-          k3s kubectl get storageclass
-          REMOTE_EOF
-
-          chmod +x /tmp/fix-local-path.sh
-          ./scripts/ssh-retry.sh scp /tmp/local-path-role.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-role.yaml"
-          ./scripts/ssh-retry.sh scp /tmp/local-path-binding.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-binding.yaml"
-          ./scripts/ssh-retry.sh scp /tmp/fix-local-path.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/fix-local-path.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/fix-local-path.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/fix-local-path.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/base/local-path-provisioner.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-provisioner.yaml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/fix-local-path.sh && sudo /tmp/fix-local-path.sh"
 
-      - name: Force reinstall k3s to correct version
-        run: |
-          # Создаем скрипт проверки версии локально
-          cat > /tmp/check-k3s-version.sh << 'EOFSCRIPT'
-          #!/bin/bash
-          set -euo pipefail
-          echo 'Checking current k3s version...'
-          CURRENT_VERSION=$(k3s --version 2>/dev/null | grep -oP 'v\K[0-9.]+' || echo 'unknown')
-          TARGET_VERSION='1.31.6'
-          if [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
-              echo "k3s version mismatch: current=$CURRENT_VERSION, target=$TARGET_VERSION"
-              echo 'Stopping k3s...'
-              sudo systemctl stop k3s || true
-              pkill -9 -f 'k3s server' || true
-              echo 'Removing old k3s binary...'
-              sudo rm -f /usr/local/bin/k3s
-              echo 'Installing correct k3s version...'
-              curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.31.6+k3s1' INSTALL_K3S_SKIP_DOWNLOAD=false sh -s - server --write-kubeconfig-mode 644 --docker
-              echo 'Waiting for k3s to be ready...'
-              for i in $(seq 1 60); do
-                  if k3s kubectl cluster-info &>/dev/null; then
-                      echo "k3s v$TARGET_VERSION ready after ${i}s"
-                      break
-                  fi
-                  [ $i -eq 60 ] && { echo 'Timeout'; exit 1; }
-                  sleep 2
-              done
-              echo 'k3s reinstalled to correct version'
-          else
-              echo "k3s already at correct version: $CURRENT_VERSION"
-          fi
-          EOFSCRIPT
-          
-          # Копируем и запускаем
-          ./scripts/ssh-retry.sh scp /tmp/check-k3s-version.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/check-k3s-version.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/check-k3s-version.sh && sudo /tmp/check-k3s-version.sh"
-      - name: Ensure local-path provisioner is installed and default StorageClass
-        run: |
-          # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Checking local-path provisioner...\"
-            if ! k3s kubectl get ns local-path-storage &>/dev/null; then
-              echo \"-> Deploying local-path provisioner...\"
-              kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
-              sleep 5
-            fi
-            echo \"-> Waiting for local-path provisioner pod...\"
-            for i in \$(seq 1 60); do
-              if k3s kubectl get pods -n local-path-storage 2>/dev/null | grep -q Running; then
-                echo \"✅ local-path provisioner ready\"
-                break
-              fi
-              [ \"\$i\" -eq 60 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
-              sleep 2
-            done
-            echo \"-> Verifying StorageClass local-path mode (should be Immediate from previous step)...\"
-            MODE=\$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-            echo \"-> StorageClass binding mode: \$MODE\"
-            if [ \"\$MODE\" != \"Immediate\" ]; then
-              echo \"⚠️ StorageClass mode is \$MODE, patching to Immediate...\"
-              k3s kubectl patch storageclass local-path -p '{\"volumeBindingMode\":\"Immediate\"}' --type=merge 2>/dev/null || true
-            fi
-            echo \"-> Final StorageClasses:\"
-            k3s kubectl get storageclass
-          "
       - name: Ensure k3s certificates include domain and external IP
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1556,24 +1352,9 @@ jobs:
             echo '${{ secrets.DUCKDNS_TOKEN }}' | sudo tee /etc/duckdns/token > /dev/null
             sudo chmod 600 /etc/duckdns/token
             sudo mkdir -p /etc/duckdns
-            sudo tee /usr/local/bin/duckdns-update.sh > /dev/null << 'EOFSCRIPT'
-          #!/bin/bash
-          set -euo pipefail
-          DUCKDNS_TOKEN=\$(cat /etc/duckdns/token)
-          DUCKDNS_DOMAIN='fittpulse'
-          CURRENT_IP=\$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null || curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || echo '')
-          if [ -z \"\$CURRENT_IP\" ]; then
-            echo \"\$(date): Failed to determine public IP\"
-            exit 1
-          fi
-          RESPONSE=\$(curl -sf --max-time 10 \"https://www.duckdns.org/update?domains=\${DUCKDNS_DOMAIN}&token=\${DUCKDNS_TOKEN}&ip=\${CURRENT_IP}\" 2>/dev/null || echo 'ERROR')
-          if [ \"\$RESPONSE\" = \"OK\" ]; then
-            echo \"\$(date): DuckDNS OK — \${DUCKDNS_DOMAIN}.duckdns.org → \${CURRENT_IP}\"
-          else
-            echo \"\$(date): DuckDNS FAILED — \${RESPONSE}\"
-            exit 1
-          fi
-          EOFSCRIPT
+          "
+          ./scripts/ssh-retry.sh scp scripts/duckdns-update.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/duckdns-update.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             sudo chmod +x /usr/local/bin/duckdns-update.sh
             (sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
             sudo /usr/local/bin/duckdns-update.sh
@@ -1589,47 +1370,14 @@ jobs:
           "
       - name: Deploy MLflow service
         run: |
-          # FIX: Создаем docker-compose файл локально, чтобы избежать проблем с heredoc в SSH
-          cat > /tmp/docker-compose.mlflow.yml << 'EOFMLFLOW'
-          version: '3.8'
-          services:
-            mlflow:
-              image: ghcr.io/mlflow/mlflow:v2.20.2
-              container_name: fitpulse-mlflow
-              ports:
-                - "5000:5000"
-              command: >
-                mlflow server
-                --host 0.0.0.0
-                --port 5000
-                --backend-store-uri sqlite:////mlflow/mlflow.db
-                --default-artifact-root /mlflow/artifacts
-              volumes:
-                - /opt/fitpulse/mlflow-data:/mlflow
-              restart: unless-stopped
-              healthcheck:
-                test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-              networks:
-                - fitness-network
-          networks:
-            fitness-network:
-              external: true
-          EOFMLFLOW
-
-          # Копируем файл на VPS через scp
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/fitpulse/deployments"
-          ./scripts/ssh-retry.sh scp /tmp/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
-
-          # Запускаем MLflow
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             cd ~/fitpulse
             docker compose -f deployments/docker-compose.mlflow.yml up -d
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
-                echo \"✅ MLflow is healthy\"
+                echo '✅ MLflow is healthy'
                 break
               fi
               sleep 2
@@ -1638,17 +1386,8 @@ jobs:
           "
       - name: Configure DVC local remote
         run: |
-          # FIX: Создаем конфиг DVC локально, чтобы избежать проблем с heredoc в SSH
-          cat > /tmp/dvc-config << 'EOFDVC'
-          [core]
-            remote = local
-          ['remote "local"']
-            url = /opt/fitpulse/dvc-storage
-          EOFDVC
-
-          # Копируем файл на VPS через scp
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
-          ./scripts/ssh-retry.sh scp /tmp/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
           echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Generate kubeconfig with external domain
         run: |
