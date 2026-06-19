@@ -1327,7 +1327,6 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/setup-k3s-memory.sh && sudo /tmp/setup-k3s-memory.sh"
 
       - name: Fix local-path-provisioner RBAC and ensure Immediate binding mode
-        if: steps.connectivity.outputs.reachable == 'true'
         run: |
           # Создаём YAML файлы локально
           cat > /tmp/local-path-role.yaml << 'EOFROLE'
