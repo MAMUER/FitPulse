@@ -1,4 +1,1 @@
-rules:
-  - id: C-0012
-    paths:
-      - configs/k8s/base/**
+C-0012

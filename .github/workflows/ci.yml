@@ -282,6 +282,7 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\\n$ISSUE_TITLE\\n${{ github.event.issue.html_url }}\"}"
+
   # ============================================================================
   # VALIDATE WORKFLOW
   # ============================================================================
@@ -309,6 +310,7 @@ jobs:
             echo "Linting $dockerfile"
             docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint hadolint -c .hadolint.yaml "$dockerfile"
           done
+
   # ============================================================================
   # SUPER LINTER
   # ============================================================================
@@ -369,6 +371,7 @@ jobs:
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           PYTHON_MYPY_CONFIG_FILE: pyproject.toml
           PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/"
+
   # ============================================================================
   # CODEQL ANALYSIS
   # ============================================================================
@@ -1127,6 +1130,34 @@ jobs:
           sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
           EOF
       # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
+      - name: Configure Docker and System log rotation
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
+          echo "-> Setting up Docker log rotation..."
+          sudo mkdir -p /etc/docker
+          cat <<EOT | sudo tee /etc/docker/daemon.json
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }
+          EOT
+
+          echo "-> Setting up journald size limit..."
+          sudo mkdir -p /etc/systemd/journald.conf.d
+          cat <<EOT | sudo tee /etc/systemd/journald.conf.d/99-size-limit.conf
+          [Journal]
+          SystemMaxUse=500M
+          SystemMaxFileSize=50M
+          MaxRetentionSec=1week
+          EOT
+
+          sudo systemctl daemon-reload
+          sudo systemctl restart systemd-journald
+          echo "-> Logs rotation configured"
+          EOF
       - name: Clean up old k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1286,6 +1317,130 @@ jobs:
             k3s kubectl get pods -A
           "
       # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
+      - name: Limit k3s memory usage
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Setting up k3s memory limits...'
+            sudo mkdir -p /etc/systemd/system/k3s.service.d
+            cat <<EOT | sudo tee /etc/systemd/system/k3s.service.d/memory-limit.conf
+            [Service]
+            MemoryMax=1G
+            MemoryHigh=800M
+            EOT
+
+            echo '-> Creating k3s memory watchdog script...'
+            sudo tee /usr/local/bin/k3s-memory-watchdog.sh > /dev/null <<'EOFSCRIPT'
+            #!/bin/bash
+            set -euo pipefail
+
+            K3S_PID=\$(pgrep -f 'k3s server' || echo '')
+            if [ -z \"\$K3S_PID\" ]; then
+                echo \"\$(date): k3s not running, skipping\"
+                exit 0
+            fi
+
+            K3S_RSS=\$(ps -o rss= -p \"\$K3S_PID\" 2>/dev/null || echo 0)
+            LIMIT_KB=600000  # 600MB
+
+            if [ \"\$K3S_RSS\" -gt \"\$LIMIT_KB\" ]; then
+                echo \"\$(date): k3s memory \${K3S_RSS}KB exceeds limit \${LIMIT_KB}KB, restarting...\" | logger -t k3s-watchdog
+                systemctl restart k3s
+                sleep 10
+                NEW_RSS=\$(ps -o rss= -p \$(pgrep -f 'k3s server' || echo 0) 2>/dev/null || echo 0)
+                echo \"\$(date): k3s restarted, new memory: \${NEW_RSS}KB\" | logger -t k3s-watchdog
+            fi
+            EOFSCRIPT
+
+            sudo chmod +x /usr/local/bin/k3s-memory-watchdog.sh
+
+            echo '-> Adding watchdog to crontab...'
+            (sudo crontab -l 2>/dev/null | grep -v k3s-memory-watchdog; echo '*/5 * * * * /usr/local/bin/k3s-memory-watchdog.sh >> /var/log/k3s-watchdog.log 2>&1') | sudo crontab -
+
+            echo '-> Reloading systemd and restarting k3s...'
+            sudo systemctl daemon-reload
+            sudo systemctl restart k3s
+            echo '✅ k3s memory watchdog configured'
+          "
+
+      - name: Fix local-path-provisioner RBAC
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Fixing local-path-provisioner RBAC...'
+
+            # Create ClusterRole for local-path-provisioner
+            k3s kubectl apply -f - <<EOF
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: ClusterRole
+            metadata:
+              name: local-path-provisioner-role
+            rules:
+            - apiGroups: [\"\"]
+              resources: [\"nodes\", \"persistentvolumes\", \"persistentvolumeclaims\", \"configmaps\", \"events\"]
+              verbs: [\"get\", \"list\", \"watch\", \"create\", \"update\", \"patch\", \"delete\"]
+            - apiGroups: [\"storage.k8s.io\"]
+              resources: [\"storageclasses\"]
+              verbs: [\"get\", \"list\", \"watch\"]
+            EOF
+
+            # Create ClusterRoleBinding
+            k3s kubectl apply -f - <<EOF
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: ClusterRoleBinding
+            metadata:
+              name: local-path-provisioner-bind
+            subjects:
+            - kind: ServiceAccount
+              name: local-path-provisioner-service-account
+              namespace: local-path-storage
+            roleRef:
+              kind: ClusterRole
+              name: local-path-provisioner-role
+              apiGroup: rbac.authorization.k8s.io
+            EOF
+
+            echo '-> Restarting local-path-provisioner...'
+            k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
+            sleep 10
+
+            echo '-> Checking local-path-provisioner status...'
+            k3s kubectl get pods -n local-path-storage
+            echo '✅ local-path-provisioner RBAC fixed'
+          "
+
+      - name: Force reinstall k3s to correct version
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Checking current k3s version...'
+            CURRENT_VERSION=\$(k3s --version 2>/dev/null | grep -oP 'v\K[0-9.]+' || echo 'unknown')
+            TARGET_VERSION='1.31.6'
+
+            if [ \"\$CURRENT_VERSION\" != \"\$TARGET_VERSION\" ]; then
+                echo \"⚠️ k3s version mismatch: current=\$CURRENT_VERSION, target=\$TARGET_VERSION\"
+                echo '-> Stopping k3s...'
+                sudo systemctl stop k3s || true
+                pkill -9 -f 'k3s server' || true
+
+                echo '-> Removing old k3s binary...'
+                sudo rm -f /usr/local/bin/k3s
+
+                echo '-> Installing correct k3s version...'
+                curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.31.6+k3s1' INSTALL_K3S_SKIP_DOWNLOAD=false sh -s - server --write-kubeconfig-mode 644 --docker
+
+                echo '-> Waiting for k3s to be ready...'
+                for i in \$(seq 1 60); do
+                    if k3s kubectl cluster-info &>/dev/null; then
+                        echo \"✅ k3s v\$TARGET_VERSION ready after \${i}s\"
+                        break
+                    fi
+                    [ \$i -eq 60 ] && { echo '❌ Timeout'; exit 1; }
+                    sleep 2
+                done
+
+                echo '✅ k3s reinstalled to correct version'
+            else
+                echo \"✅ k3s already at correct version: \$CURRENT_VERSION\"
+            fi
+          "
       - name: Ensure local-path provisioner is installed and default StorageClass
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
