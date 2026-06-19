@@ -35,7 +35,7 @@ fi
 echo '-> Patching local-path-config ConfigMap with volumeBindingMode: Immediate...'
 k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
-	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || \
+	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null ||
 k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
 	-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || true
