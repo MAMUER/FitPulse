@@ -463,8 +463,16 @@ jobs:
 
       - name: Install Kubescape
         run: |
-          curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
-          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          echo "Installing Kubescape..."
+          curl -sL https://github.com/kubescape/kubescape/releases/latest/download/install.sh -o /tmp/install-kubescape.sh
+          chmod +x /tmp/install-kubescape.sh
+          if /tmp/install-kubescape.sh; then
+            echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
+            kubescape version || true
+          else
+            echo "⚠️ Kubescape installation failed, continuing without it"
+          fi
       - name: Run Kubescape scan
         run: |
           kubescape scan configs/k8s/base/ \
@@ -1391,32 +1399,58 @@ jobs:
             # ========== НОВАЯ ЛОГИКА: настройка StorageClass ==========
             echo '-> Configuring StorageClass local-path with Immediate binding mode...'
 
-            # Проверяем, существует ли StorageClass local-path
+            k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
+            sleep 3
+
             if k3s kubectl get storageclass local-path &>/dev/null; then
-              echo 'StorageClass local-path exists, patching to Immediate...'
-              k3s kubectl patch storageclass local-path -p '{\"volumeBindingMode\":\"Immediate\"}' --type=merge || true
-            else
-              echo 'StorageClass local-path does not exist, creating with Immediate mode...'
-              k3s kubectl apply -f - <<EOFSC
-          apiVersion: storage.k8s.io/v1
-          kind: StorageClass
-          metadata:
-            name: local-path
-            annotations:
-              storageclass.kubernetes.io/is-default-class: \"true\"
-          provisioner: rancher.io/local-path
-          volumeBindingMode: Immediate
-          reclaimPolicy: Delete
-          EOFSC
+              echo '⚠️ StorageClass still exists after deletion (provisioner recreated it too fast)'
+              sleep 5
+              k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
+              sleep 3
             fi
 
-            # Проверяем, что StorageClass теперь Immediate
-            MODE=\$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-            echo \"-> local-path StorageClass binding mode: \$MODE\"
-            if [ \"\$MODE\" = \"Immediate\" ]; then
+            k3s kubectl get configmap local-path-config -n local-path-storage -o json >/tmp/local-path-config.json 2>/dev/null || true
+            if [ -f /tmp/local-path-config.json ]; then
+              echo '-> Patching local-path-config ConfigMap with volumeBindingMode: Immediate...'
+              jq '.data.STORAGECLASS_EXTRA_PARAMS = "{\"volumeBindingMode\":\"Immediate\"}"' /tmp/local-path-config.json > /tmp/local-path-config-patched.json
+              k3s kubectl apply -f /tmp/local-path-config-patched.json --namespace=local-path-storage
+            else
+              echo '-> Warning: ConfigMap local-path-config not found, patching skipped'
+            fi
+
+            k3s kubectl delete pod -n local-path-storage -l app=local-path-provisioner --ignore-not-found=true --timeout=30s || true
+            sleep 10
+
+            for i in $(seq 1 30); do
+              if k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner --no-headers 2>/dev/null | grep -q Running; then
+                echo "✅ local-path provisioner is Running after ${i}x2s"
+                break
+              fi
+              [ "$i" -eq 30 ] && { echo "❌ local-path provisioner not ready"; k3s kubectl get pods -n local-path-storage; exit 1; }
+              sleep 2
+            done
+
+            echo '-> Waiting for StorageClass to be recreated with Immediate mode...'
+            for i in $(seq 1 30); do
+              MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+              if [ "$MODE" = "Immediate" ]; then
+                echo "✅ local-path StorageClass is Immediate after ${i}x3s"
+                break
+              fi
+              if [ "$MODE" = "NotFound" ]; then
+                sleep 3
+                continue
+              fi
+              echo "Attempt $i/30: mode=$MODE, waiting..."
+              sleep 3
+            done
+
+            MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+            echo "-> local-path StorageClass binding mode: $MODE"
+            if [ "$MODE" = "Immediate" ]; then
               echo '✅ local-path StorageClass is Immediate'
             else
-              echo \"❌ StorageClass mode is \$MODE, expected Immediate. Exiting.\"
+              echo "❌ StorageClass mode is '$MODE', expected Immediate. Exiting."
               exit 1
             fi
 
