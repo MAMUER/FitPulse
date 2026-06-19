@@ -1289,28 +1289,19 @@ jobs:
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Limit k3s memory usage
         run: |
-          cat > /tmp/k3s-memory-limit.conf << 'EOF'
-          [Service]
-          MemoryMax=1G
-          MemoryHigh=800M
-          EOF
-          
+          # Создаем watchdog скрипт локально
           cat > /tmp/k3s-memory-watchdog.sh << 'EOFSCRIPT'
           #!/bin/bash
           set -euo pipefail
-          
           K3S_PID=$(pgrep -f 'k3s server' || echo '')
           if [ -z "$K3S_PID" ]; then
               echo "$(date): k3s not running, skipping"
               exit 0
           fi
-          
           K3S_RSS=$(ps -o rss= -p "$K3S_PID" 2>/dev/null || echo 0)
           LIMIT_KB=600000
-          
           if [ "$K3S_RSS" -gt "$LIMIT_KB" ]; then
               echo "$(date): k3s memory ${K3S_RSS}KB exceeds limit ${LIMIT_KB}KB, restarting..." | logger -t k3s-watchdog
               systemctl restart k3s
@@ -1320,24 +1311,34 @@ jobs:
           fi
           EOFSCRIPT
           
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /etc/systemd/system/k3s.service.d"
-          ./scripts/ssh-retry.sh scp /tmp/k3s-memory-limit.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-memory-limit.conf"
-          ./scripts/ssh-retry.sh scp /tmp/k3s-memory-watchdog.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-memory-watchdog.sh"
+          # Создаем setup скрипт локально
+          cat > /tmp/setup-k3s-memory.sh << 'EOFSETUP'
+          #!/bin/bash
+          set -euo pipefail
+          sudo mkdir -p /etc/systemd/system/k3s.service.d
+          cat > /tmp/memory-limit.conf << 'EOFCONF'
+          [Service]
+          MemoryMax=1G
+          MemoryHigh=800M
+          EOFCONF
+          sudo mv /tmp/memory-limit.conf /etc/systemd/system/k3s.service.d/memory-limit.conf
+          sudo mv /tmp/k3s-memory-watchdog.sh /usr/local/bin/k3s-memory-watchdog.sh
+          sudo chmod +x /usr/local/bin/k3s-memory-watchdog.sh
+          (sudo crontab -l 2>/dev/null | grep -v k3s-memory-watchdog; echo '*/5 * * * * /usr/local/bin/k3s-memory-watchdog.sh >> /var/log/k3s-watchdog.log 2>&1') | sudo crontab -
+          sudo systemctl daemon-reload
+          sudo systemctl restart k3s
+          echo 'k3s memory watchdog configured'
+          EOFSETUP
           
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo mv /tmp/k3s-memory-limit.conf /etc/systemd/system/k3s.service.d/memory-limit.conf
-            sudo mv /tmp/k3s-memory-watchdog.sh /usr/local/bin/k3s-memory-watchdog.sh
-            sudo chmod +x /usr/local/bin/k3s-memory-watchdog.sh
-            (sudo crontab -l 2>/dev/null | grep -v k3s-memory-watchdog; echo '*/5 * * * * /usr/local/bin/k3s-memory-watchdog.sh >> /var/log/k3s-watchdog.log 2>&1') | sudo crontab -
-            sudo systemctl daemon-reload
-            sudo systemctl restart k3s
-            echo 'k3s memory watchdog configured'
-          "
+          # Копируем и запускаем
+          ./scripts/ssh-retry.sh scp /tmp/k3s-memory-watchdog.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/k3s-memory-watchdog.sh"
+          ./scripts/ssh-retry.sh scp /tmp/setup-k3s-memory.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/setup-k3s-memory.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/setup-k3s-memory.sh && sudo /tmp/setup-k3s-memory.sh"
 
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Fix local-path-provisioner RBAC
         run: |
-          cat > /tmp/local-path-provisioner-role.yaml << 'EOF'
+          # Создаем YAML файлы локально
+          cat > /tmp/local-path-role.yaml << 'EOFROLE'
           apiVersion: rbac.authorization.k8s.io/v1
           kind: ClusterRole
           metadata:
@@ -1349,9 +1350,9 @@ jobs:
           - apiGroups: ["storage.k8s.io"]
             resources: ["storageclasses"]
             verbs: ["get", "list", "watch"]
-          EOF
+          EOFROLE
           
-          cat > /tmp/local-path-provisioner-binding.yaml << 'EOF'
+          cat > /tmp/local-path-binding.yaml << 'EOFBIND'
           apiVersion: rbac.authorization.k8s.io/v1
           kind: ClusterRoleBinding
           metadata:
@@ -1364,46 +1365,46 @@ jobs:
             kind: ClusterRole
             name: local-path-provisioner-role
             apiGroup: rbac.authorization.k8s.io
-          EOF
+          EOFBIND
           
-          ./scripts/ssh-retry.sh scp /tmp/local-path-provisioner-role.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-provisioner-role.yaml"
-          ./scripts/ssh-retry.sh scp /tmp/local-path-provisioner-binding.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-provisioner-binding.yaml"
+          cat > /tmp/apply-rbac.sh << 'EOFAPPLY'
+          #!/bin/bash
+          set -euo pipefail
+          echo 'Applying local-path-provisioner RBAC...'
+          k3s kubectl apply -f /tmp/local-path-role.yaml
+          k3s kubectl apply -f /tmp/local-path-binding.yaml
+          echo 'Restarting local-path-provisioner...'
+          k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
+          sleep 10
+          echo 'Checking local-path-provisioner status...'
+          k3s kubectl get pods -n local-path-storage
+          echo 'local-path-provisioner RBAC fixed'
+          EOFAPPLY
           
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo 'Applying local-path-provisioner RBAC...'
-            k3s kubectl apply -f /tmp/local-path-provisioner-role.yaml
-            k3s kubectl apply -f /tmp/local-path-provisioner-binding.yaml
-            echo 'Restarting local-path-provisioner...'
-            k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
-            sleep 10
-            echo 'Checking local-path-provisioner status...'
-            k3s kubectl get pods -n local-path-storage
-            echo 'local-path-provisioner RBAC fixed'
-          "
+          # Копируем и запускаем
+          ./scripts/ssh-retry.sh scp /tmp/local-path-role.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-role.yaml"
+          ./scripts/ssh-retry.sh scp /tmp/local-path-binding.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-binding.yaml"
+          ./scripts/ssh-retry.sh scp /tmp/apply-rbac.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/apply-rbac.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/apply-rbac.sh && sudo /tmp/apply-rbac.sh"
 
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Force reinstall k3s to correct version
         run: |
+          # Создаем скрипт проверки версии локально
           cat > /tmp/check-k3s-version.sh << 'EOFSCRIPT'
           #!/bin/bash
           set -euo pipefail
-          
           echo 'Checking current k3s version...'
           CURRENT_VERSION=$(k3s --version 2>/dev/null | grep -oP 'v\K[0-9.]+' || echo 'unknown')
           TARGET_VERSION='1.31.6'
-          
           if [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
               echo "k3s version mismatch: current=$CURRENT_VERSION, target=$TARGET_VERSION"
               echo 'Stopping k3s...'
               sudo systemctl stop k3s || true
               pkill -9 -f 'k3s server' || true
-              
               echo 'Removing old k3s binary...'
               sudo rm -f /usr/local/bin/k3s
-              
               echo 'Installing correct k3s version...'
               curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.31.6+k3s1' INSTALL_K3S_SKIP_DOWNLOAD=false sh -s - server --write-kubeconfig-mode 644 --docker
-              
               echo 'Waiting for k3s to be ready...'
               for i in $(seq 1 60); do
                   if k3s kubectl cluster-info &>/dev/null; then
@@ -1413,18 +1414,15 @@ jobs:
                   [ $i -eq 60 ] && { echo 'Timeout'; exit 1; }
                   sleep 2
               done
-              
               echo 'k3s reinstalled to correct version'
           else
               echo "k3s already at correct version: $CURRENT_VERSION"
           fi
           EOFSCRIPT
           
+          # Копируем и запускаем
           ./scripts/ssh-retry.sh scp /tmp/check-k3s-version.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/check-k3s-version.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo chmod +x /tmp/check-k3s-version.sh
-            sudo /tmp/check-k3s-version.sh
-          "
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/check-k3s-version.sh && sudo /tmp/check-k3s-version.sh"
       - name: Ensure local-path provisioner is installed and default StorageClass
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
