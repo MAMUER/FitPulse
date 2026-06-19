@@ -1425,49 +1425,23 @@ jobs:
               sleep 5
             fi
             echo \"-> Waiting for local-path provisioner pod...\"
-            for i in \$(seq 1 30); do
+            for i in \$(seq 1 60); do
               if k3s kubectl get pods -n local-path-storage 2>/dev/null | grep -q Running; then
                 echo \"✅ local-path provisioner ready\"
                 break
               fi
-              [ "$i" -eq 30 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
+              [ \"\$i\" -eq 60 ] && { echo \"local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage || true; }
               sleep 2
             done
-            echo \"-> Configuring local-path provisioner for Immediate binding...\"
-            PROVISIONER_NS=local-path-storage
-            if k3s kubectl get ns \"$PROVISIONER_NS\" &>/dev/null; then
-              PROVISIONER_CM=$(k3s kubectl get configmap -n \"$PROVISIONER_NS\" -l app=local-path-provisioner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
-              if [ -n \"$PROVISIONER_CM\" ]; then
-                echo \"-> Switching provisioner config to Immediate binding mode\"
-                TMPFILE=$(mktemp)
-                k3s kubectl get configmap \"$PROVISIONER_CM\" -n \"$PROVISIONER_NS\" -o json > \"$TMPFILE\" 2>&1 || true
-                if command -v jq &>/dev/null && [ -s \"$TMPFILE\" ]; then
-                  jq '(.data.configJson // .data."config.json" // "") |= gsub("WaitForFirstConsumer"; "Immediate")' \"$TMPFILE\" > \"$TMPFILE.new\" 2>&1
-                  k3s kubectl apply -f \"$TMPFILE.new\" 2>&1 || true
-                  rm -f \"$TMPFILE\" \"$TMPFILE.new\" || true
-                fi
-                PROVISIONER_DEPLOY=$(k3s kubectl get deploy -n \"$PROVISIONER_NS\" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
-                if [ -n \"$PROVISIONER_DEPLOY\" ]; then
-                  echo \"-> Restarting provisioner pod...\"
-                  k3s kubectl rollout restart deployment/\"$PROVISIONER_DEPLOY\" -n \"$PROVISIONER_NS\" || true
-                  sleep 10
-                fi
-              fi
-              echo \"-> Deleting old local-path StorageClass to force recreation...\"
-              k3s kubectl delete storageclass local-path 2>/dev/null || true
-              sleep 10
-              echo \"-> Waiting for new local-path StorageClass with Immediate binding...\"
-              for i in {1..60}; do
-                MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-                if [ \"$MODE\" = \"Immediate\" ]; then
-                  echo \"✅ local-path StorageClass is Immediate\"
-                  break
-                fi
-                [ "$i" -eq 60 ] && { echo \"⚠️ StorageClass mode: $MODE after 120s\"; k3s kubectl get storageclass; }
-                sleep 2
-              done
+            echo \"-> Setting local-path StorageClass to Immediate binding mode...\"
+            k3s kubectl patch storageclass local-path -p '{\"volumeBindingMode\": \"Immediate\"}' --type=merge 2>/dev/null || true
+            sleep 2
+            MODE=\$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+            echo \"-> local-path StorageClass binding mode: \$MODE\"
+            if [ \"\$MODE\" != \"Immediate\" ]; then
+              echo \"⚠️ Failed to switch StorageClass to Immediate, will retry after apply...\"
             else
-              echo \"-> local-path-storage namespace not found, will be created during kustomize apply\"
+              echo \"✅ local-path StorageClass is Immediate\"
             fi
             echo \"-> Final StorageClasses:\"
             k3s kubectl get storageclass
@@ -2261,6 +2235,8 @@ jobs:
         docker,
         codeql,
         kubescape,
+        deploy-production,
+        test-production,
       ]
     steps:
       - uses: actions/checkout@v6
@@ -2272,19 +2248,23 @@ jobs:
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
           CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
+          DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
+          TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
           if [[ "$DOCKER" == "❌" ]]; then
             OVERALL="ОШИБКА СБОРКИ"; STATUS="failure"
           else
             OVERALL="УСПЕШНО"; STATUS="success"
           fi
-          {
-            echo "overall=$OVERALL"
-            echo "status=$STATUS"
-            echo "build=$BUILD"
-            echo "docker=$DOCKER"
-            echo "codeql=$CODEQL"
-            echo "kubescape=$KUBESCAPE"
-          } >> "$GITHUB_OUTPUT"
+           {
+             echo "overall=$OVERALL"
+             echo "status=$STATUS"
+             echo "build=$BUILD"
+             echo "docker=$DOCKER"
+             echo "codeql=$CODEQL"
+             echo "kubescape=$KUBESCAPE"
+             echo "deploy_prod=$DEPLOY_PROD"
+             echo "test_prod=$TEST_PROD"
+           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@v1.0.1
         with:
@@ -2299,6 +2279,8 @@ jobs:
             <b>Статусы:</b>
             ${{ steps.statuses.outputs.build }} Build
             ${{ steps.statuses.outputs.docker }} Docker
+            ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
+            ${{ steps.statuses.outputs.test_prod }} Test Production
             <b>Security Tools:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
