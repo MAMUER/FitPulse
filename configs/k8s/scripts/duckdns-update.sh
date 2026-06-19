@@ -3,8 +3,8 @@ set -euo pipefail
 DUCKDNS_TOKEN=$(cat /etc/duckdns/token)
 DUCKDNS_DOMAIN='fittpulse'
 CURRENT_IP=$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null ||
-curl -sf --max-time 5 https://ifconfig.me 2>/dev/null ||
-echo '')
+	curl -sf --max-time 5 https://ifconfig.me 2>/dev/null ||
+	echo '')
 if [ -z "$CURRENT_IP" ]; then
 	echo "$(date): Failed to determine public IP"
 	exit 1

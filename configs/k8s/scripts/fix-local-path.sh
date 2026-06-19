@@ -8,7 +8,7 @@ sleep 10
 echo '-> Ensuring ClusterRole grants full access to configmaps...'
 k3s kubectl get clusterrole local-path-provisioner-role &>/dev/null || true
 k3s kubectl patch clusterrole local-path-provisioner-role --type='json' \
-  -p='[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps","events"],"verbs":["get","list","watch","create","update","patch","delete"]}}]' 2>/dev/null || true
+	-p='[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps","events"],"verbs":["get","list","watch","create","update","patch","delete"]}}]' 2>/dev/null || true
 
 echo '-> Waiting for provisioner to be ready...'
 for i in $(seq 1 30); do
@@ -45,7 +45,7 @@ echo '-> Patching local-path-config ConfigMap with volumeBindingMode: Immediate.
 k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
 	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null ||
-k3s kubectl patch configmap local-path-config -n local-path-storage \
+	k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
 	-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || true
 
