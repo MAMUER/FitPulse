@@ -1326,9 +1326,10 @@ jobs:
           ./scripts/ssh-retry.sh scp /tmp/setup-k3s-memory.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/setup-k3s-memory.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/setup-k3s-memory.sh && sudo /tmp/setup-k3s-memory.sh"
 
-      - name: Fix local-path-provisioner RBAC
+      - name: Fix local-path-provisioner RBAC and ensure Immediate binding mode
+        if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          # Создаем YAML файлы локально
+          # Создаём YAML файлы локально
           cat > /tmp/local-path-role.yaml << 'EOFROLE'
           apiVersion: rbac.authorization.k8s.io/v1
           kind: ClusterRole
@@ -1358,25 +1359,82 @@ jobs:
             apiGroup: rbac.authorization.k8s.io
           EOFBIND
           
-          cat > /tmp/apply-rbac.sh << 'EOFAPPLY'
-          #!/bin/bash
-          set -euo pipefail
-          echo 'Applying local-path-provisioner RBAC...'
-          k3s kubectl apply -f /tmp/local-path-role.yaml
-          k3s kubectl apply -f /tmp/local-path-binding.yaml
-          echo 'Restarting local-path-provisioner...'
-          k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
-          sleep 10
-          echo 'Checking local-path-provisioner status...'
-          k3s kubectl get pods -n local-path-storage
-          echo 'local-path-provisioner RBAC fixed'
-          EOFAPPLY
-          
-          # Копируем и запускаем
+          # Копируем на VPS
           ./scripts/ssh-retry.sh scp /tmp/local-path-role.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-role.yaml"
           ./scripts/ssh-retry.sh scp /tmp/local-path-binding.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/local-path-binding.yaml"
-          ./scripts/ssh-retry.sh scp /tmp/apply-rbac.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/apply-rbac.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/apply-rbac.sh && sudo /tmp/apply-rbac.sh"
+          
+          # Применяем RBAC и перезапускаем provisioner
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            set -euo pipefail
+            echo '-> Checking local-path provisioner status...'
+            PROVISIONER_POD=\$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo '')
+            if [ -z \"\$PROVISIONER_POD\" ]; then
+              echo '⚠️ Provisioner pod not found, deploying...'
+              kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
+              sleep 10
+            fi
+            echo '-> Applying ClusterRole and ClusterRoleBinding...'
+            k3s kubectl apply -f /tmp/local-path-role.yaml
+            k3s kubectl apply -f /tmp/local-path-binding.yaml
+            echo '-> Restarting local-path-provisioner...'
+            k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
+            sleep 15
+            echo '-> Waiting for provisioner to be ready...'
+            for i in \$(seq 1 30); do
+              if k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner | grep -q Running; then
+                echo \"✅ local-path provisioner is Running after \${i}x2s\"
+                break
+              fi
+              [ \"\$i\" -eq 30 ] && { echo \"❌ local-path provisioner not ready\"; k3s kubectl get pods -n local-path-storage; exit 1; }
+              sleep 2
+            done
+            echo '-> Patching configmap for Immediate binding mode...'
+            k3s kubectl patch configmap local-path-config -n local-path-storage \
+              --type='json' -p='[{\"op\":\"replace\",\"path\":\"/data/STORAGECLASS_EXTRA_PARAMS\",\"value\":\"{\\\"volumeBindingMode\\\":\\\"Immediate\\\"}\"}]' 2>/dev/null || \
+            k3s kubectl patch configmap local-path-config -n local-path-storage \
+              --type='json' -p='[{\"op\":\"add\",\"path\":\"/data/STORAGECLASS_EXTRA_PARAMS\",\"value\":\"{\\\"volumeBindingMode\\\":\\\"Immediate\\\"}\"}]' 2>/dev/null || true
+            echo '-> Restarting provisioner to apply ConfigMap changes...'
+            k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
+            sleep 15
+            echo '-> Deleting existing StorageClass to force recreation...'
+            k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
+            sleep 5
+            echo '-> Waiting for provisioner to be healthy after deletion...'
+            for i in \$(seq 1 30); do
+              PROVISIONER_STATUS=\$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o jsonpath='{.items[0].status.containerStatuses[0].state.terminated.reason}' 2>/dev/null || echo '')
+              if [ \"\$PROVISIONER_STATUS\" = 'Running' ] || [ -z \"\$PROVISIONER_STATUS\" ]; then
+                RUNNING=\$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner --no-headers 2>/dev/null | grep -c Running || true)
+                if [ \"\$RUNNING\" -ge 1 ]; then
+                  echo \"✅ local-path provisioner is healthy\"
+                  break
+                fi
+              fi
+              [ \"\$i\" -eq 30 ] && { echo \"❌ local-path provisioner unhealthy after StorageClass deletion\"; k3s kubectl get pods -n local-path-storage; k3s kubectl describe pod -n local-path-storage -l app=local-path-provisioner; exit 1; }
+              sleep 2
+            done
+            echo '-> Waiting for StorageClass to be recreated...'
+            for i in \$(seq 1 20); do
+              if k3s kubectl get storageclass local-path &>/dev/null; then
+                echo \"✅ StorageClass 'local-path' recreated\"
+                break
+              fi
+              [ \"\$i\" -eq 20 ] && { echo \"⚠️ StorageClass not recreated yet, will be auto-created on first PVC\"; break; }
+              sleep 3
+            done
+            MODE=\$(k3s kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+            echo \"-> local-path StorageClass binding mode: \$MODE\"
+            if [ \"\$MODE\" = \"Immediate\" ]; then
+              echo '✅ local-path StorageClass is Immediate'
+            elif [ \"\$MODE\" = \"NotFound\" ]; then
+              echo '⚠️ StorageClass not found, but provisioner is healthy. Will be auto-created with Immediate mode on first PVC.'
+            else
+              echo \"❌ StorageClass has wrong mode: \$MODE\"
+              k3s kubectl get storageclass local-path -o yaml || true
+              exit 1
+            fi
+            echo '-> Final StorageClasses:'
+            k3s kubectl get storageclass
+          "
 
       - name: Force reinstall k3s to correct version
         run: |
@@ -1913,41 +1971,6 @@ jobs:
             echo '-> Waiting 60s to let node recover from disk I/O...'
             sleep 60
           "
-      - name: Recreate local-path StorageClass with Immediate binding mode
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "-> Recreating local-path StorageClass with Immediate binding mode..."
-          kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound'
-          kubectl get configmap local-path-config -n local-path-storage -o yaml 2>/dev/null || true
-          kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-          sleep 3
-          if kubectl get storageclass local-path &>/dev/null; then
-            echo "⚠️ StorageClass 'local-path' still exists after delete, checking mode..."
-            MODE=$(kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-            echo "Current mode: $MODE"
-            if [ "$MODE" != "Immediate" ]; then
-              echo "⚠️ StorageClass still has WaitForFirstConsumer, patching provisioner configmap..."
-              kubectl patch configmap local-path-config -n local-path-storage --type='json' -p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || true
-              kubectl delete pod -n local-path-storage -l app=local-path-provisioner --ignore-not-found=true --timeout=30s || true
-              sleep 8
-              kubectl rollout status deployment/local-path-provisioner -n local-path-storage --timeout=60s || true
-              sleep 3
-              kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-              sleep 5
-            fi
-          fi
-          if kubectl get storageclass local-path &>/dev/null; then
-            MODE=$(kubectl get storageclass local-path -o jsonpath='{.spec.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
-            echo "-> local-path StorageClass binding mode after recreate: $MODE"
-            if [ "$MODE" != "Immediate" ]; then
-              echo "❌ FATAL: local-path StorageClass must use Immediate binding mode for StatefulSet PVC provisioning."
-              kubectl get storageclass local-path -o yaml || true
-              exit 1
-            fi
-            echo "✅ local-path StorageClass is Immediate"
-          else
-            echo "⚠️ local-path StorageClass not found, will be auto-created by provisioner on first PVC"
-          fi
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
