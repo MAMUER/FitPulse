@@ -2,13 +2,12 @@
 set -euo pipefail
 
 echo '-> Deploying upstream local-path-provisioner...'
-k3s kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml 2>/dev/null || true
+k3s kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
 sleep 10
 
-echo '-> Ensuring ClusterRole grants full access to configmaps...'
-k3s kubectl get clusterrole local-path-provisioner-role &>/dev/null || true
+echo '-> Ensuring ClusterRole has full access to configmaps and events...'
 k3s kubectl patch clusterrole local-path-provisioner-role --type='json' \
-	-p='[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps","events"],"verbs":["get","list","watch","create","update","patch","delete"]}}]' 2>/dev/null || true
+	-p='[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps","events"],"verbs":["get","list","watch","create","update","patch","delete"]}}]'
 
 echo '-> Waiting for provisioner to be ready...'
 for i in $(seq 1 30); do
@@ -32,25 +31,15 @@ for i in $(seq 1 30); do
 done
 
 echo '-> Configuring StorageClass local-path with Immediate binding mode...'
-k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-sleep 3
-if k3s kubectl get storageclass local-path &>/dev/null; then
-	echo 'StorageClass still exists after deletion, retrying...'
-	sleep 5
-	k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
-	sleep 3
-fi
-
-echo '-> Patching local-path-config ConfigMap with volumeBindingMode: Immediate...'
 k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
-	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null ||
-	k3s kubectl patch configmap local-path-config -n local-path-storage \
+	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || \
+k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
-	-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null || true
+	-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]'
 
 echo '-> Restarting provisioner to apply ConfigMap changes...'
-k3s kubectl delete pod -n local-path-storage -l app=local-path-provisioner --ignore-not-found=true --timeout=30s || true
+k3s kubectl delete pod -n local-path-storage -l app=local-path-provisioner --ignore-not-found=true --timeout=30s
 sleep 10
 
 echo '-> Waiting for provisioner to be ready after restart...'
@@ -71,6 +60,16 @@ for i in $(seq 1 30); do
 	fi
 	sleep 2
 done
+
+echo '-> Deleting existing StorageClass to force recreation with Immediate mode...'
+k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
+sleep 3
+if k3s kubectl get storageclass local-path &>/dev/null; then
+	echo 'StorageClass still exists after deletion, retrying...'
+	sleep 5
+	k3s kubectl delete storageclass local-path --ignore-not-found=true --timeout=30s || true
+	sleep 3
+fi
 
 echo '-> Waiting for StorageClass to be recreated with Immediate mode...'
 for i in $(seq 1 30); do
