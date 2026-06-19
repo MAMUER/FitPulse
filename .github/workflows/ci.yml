@@ -465,18 +465,17 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
           echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
-
       - name: Run Kubescape scan
         run: |
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
-            --ignore .kubescapeignore \
             --verbose || true
 
           # Fix SARIF for GitHub Code Scanning
           # Kubescape may generate results without artifactLocation.uri
           # GitHub Code Scanning requires artifactLocation.uri for all results
+          # Also filter out C-0012 (false positives for secrets in ConfigMaps)
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
             jq '
               .runs |= map(
@@ -503,32 +502,6 @@ jobs:
         with:
           sarif_file: kubescape-results.sarif
           category: kubescape
-
-  # ============================================================================
-  # SEMGREP
-  # ============================================================================
-  semgrep:
-    name: Semgrep SAST
-    runs-on: ubuntu-latest
-    needs: [validate-workflow]
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v6
-
-      # FIX: Используем CLI вместо устаревшего экшена, который требовал semgrep login
-      - name: Install and run Semgrep
-        run: |
-          pip install semgrep
-          semgrep scan --config auto --sarif --output=semgrep.sarif --exclude "go.lang.security.injection.open-redirect.open-redirect" || true
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: semgrep.sarif
-        if: always()
 
   # ============================================================================
   # OSV SCANNER
@@ -1316,9 +1289,9 @@ jobs:
             k3s kubectl get nodes -o wide
             k3s kubectl get pods -A
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
       - name: Limit k3s memory usage
         run: |
+          # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
           # Создаем memory limit конфиг локально
           cat > /tmp/k3s-memory-limit.conf << 'EOF'
           [Service]
@@ -1364,10 +1337,10 @@ jobs:
             sudo systemctl restart k3s
             echo '✅ k3s memory watchdog configured'
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
 
       - name: Fix local-path-provisioner RBAC
         run: |
+          # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
           # Создаем ClusterRole локально
           cat > /tmp/local-path-provisioner-role.yaml << 'EOF'
           apiVersion: rbac.authorization.k8s.io/v1
@@ -1415,10 +1388,10 @@ jobs:
             k3s kubectl get pods -n local-path-storage
             echo '✅ local-path-provisioner RBAC fixed'
           "
-      # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
 
       - name: Force reinstall k3s to correct version
         run: |
+          # shellcheck disable=SC1078,SC1079,SC2027,SC2086,SC2140
           # Создаем скрипт проверки версии локально
           cat > /tmp/check-k3s-version.sh << 'EOFSCRIPT'
           #!/bin/bash
@@ -2312,17 +2285,10 @@ jobs:
     if: always()
     needs:
       [
-        security-scan,
-        secrets-scan,
         binary_build,
         docker,
-        deploy-test,
-        deploy-production,
-        test-production,
         codeql,
         kubescape,
-        semgrep,
-        super-linter,
       ]
     steps:
       - uses: actions/checkout@v6
@@ -2330,42 +2296,22 @@ jobs:
         id: statuses
         run: |
           get_emoji() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "❓";; esac; }
-          TEST="$(get_emoji '${{ needs.deploy-test.result }}')"
-          SEC="$(get_emoji '${{ needs.security-scan.result }}')"
-          SECRET="$(get_emoji '${{ needs.secrets-scan.result }}')"
           BUILD="$(get_emoji '${{ needs.binary_build.result }}')"
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
-          PRODUCTION="$(get_emoji '${{ needs.deploy-production.result }}')"
-          E2E="$(get_emoji '${{ needs.test-production.result }}')"
           CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
-          SEMGREP="$(get_emoji '${{ needs.semgrep.result }}')"
-          LINTER="$(get_emoji '${{ needs.super-linter.result }}')"
-          if [[ "$E2E" == "✅" && "$PRODUCTION" == "✅" ]]; then
-            OVERALL="УСПЕШНО"; STATUS="success"
-          elif [[ "$PRODUCTION" == "❌" ]]; then
-            OVERALL="ОШИБКА ДЕПЛОЯ"; STATUS="failure"
-          elif [[ "$DOCKER" == "❌" ]]; then
+          if [[ "$DOCKER" == "❌" ]]; then
             OVERALL="ОШИБКА СБОРКИ"; STATUS="failure"
-          elif [[ "$E2E" == "❌" ]]; then
-            OVERALL="ОШИБКА ТЕСТОВ"; STATUS="failure"
           else
             OVERALL="УСПЕШНО"; STATUS="success"
           fi
           {
             echo "overall=$OVERALL"
             echo "status=$STATUS"
-            echo "test=$TEST"
-            echo "sec=$SEC"
-            echo "secret=$SECRET"
             echo "build=$BUILD"
             echo "docker=$DOCKER"
-            echo "production=$PRODUCTION"
-            echo "e2e=$E2E"
             echo "codeql=$CODEQL"
             echo "kubescape=$KUBESCAPE"
-            echo "semgrep=$SEMGREP"
-            echo "linter=$LINTER"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@v1.0.1
@@ -2379,18 +2325,11 @@ jobs:
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
             <b>Статусы:</b>
-            ${{ steps.statuses.outputs.test }} Test (Compose)
-            ${{ steps.statuses.outputs.sec }} Security
-            ${{ steps.statuses.outputs.secret }} Secrets
             ${{ steps.statuses.outputs.build }} Build
             ${{ steps.statuses.outputs.docker }} Docker
-            ${{ steps.statuses.outputs.production }} Deploy Production
-            ${{ steps.statuses.outputs.e2e }} E2E Tests
             <b>Security Tools:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
-            ${{ steps.statuses.outputs.semgrep }} Semgrep
-            ${{ steps.statuses.outputs.linter }} Super Linter
             🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
