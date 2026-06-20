@@ -30,9 +30,9 @@ echo '-> Configuring StorageClass local-path with Immediate binding mode...'
 k3s kubectl patch configmap local-path-config -n local-path-storage \
 	--type='json' \
 	-p='[{"op":"replace","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]' 2>/dev/null ||
-k3s kubectl patch configmap local-path-config -n local-path-storage \
-	--type='json' \
-	-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]'
+	k3s kubectl patch configmap local-path-config -n local-path-storage \
+		--type='json' \
+		-p='[{"op":"add","path":"/data/STORAGECLASS_EXTRA_PARAMS","value":"{\"volumeBindingMode\":\"Immediate\"}"}]'
 
 echo '-> Restarting provisioner to apply ConfigMap changes...'
 # Force delete any stuck pods (e.g., Terminating state) to avoid timeout

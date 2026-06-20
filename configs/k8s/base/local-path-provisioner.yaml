@@ -104,10 +104,6 @@ spec:
         - /etc/local-path-config/config.json
         - --helper-pod-file
         - /etc/local-path-config/helperPod.yaml
-        - --setup
-        - /etc/local-path-config/setup
-        - --teardown
-        - /etc/local-path-config/teardown
         resources:
           requests:
             cpu: 50m
