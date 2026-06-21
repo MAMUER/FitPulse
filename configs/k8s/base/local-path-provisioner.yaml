@@ -68,14 +68,21 @@ data:
     metadata:
       name: helper-pod
     spec:
+      restartPolicy: Never
       priorityClassName: system-node-critical
       tolerations:
       - key: node.kubernetes.io/disk-pressure
         operator: Exists
         effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
       containers:
       - name: helper-pod
-        image: busybox:latest
+        image: busybox:1.36.1
         imagePullPolicy: IfNotPresent
   setup: |
     #!/bin/sh
