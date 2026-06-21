@@ -21,7 +21,8 @@ done
 
 echo '-> Verifying StorageClass local-path exists and has WaitForFirstConsumer mode...'
 for i in $(seq 1 10); do
-	MODE=$(k3s kubectl get storageclass local-path -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo 'NotFound')
+	# Используем awk вместо jsonpath, чтобы избежать проблем с парсингом в k3s
+	MODE=$(k3s kubectl get storageclass local-path -o wide 2>/dev/null | awk 'NR>1 {print $4}' || echo 'NotFound')
 	if [ "$MODE" = "WaitForFirstConsumer" ]; then
 		echo "✅ local-path StorageClass is WaitForFirstConsumer"
 		break
