@@ -210,7 +210,7 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 	return zone, confidence, probs
 }
 
-func generatePersonalizedNotes(data physiologicalData, profile *userProfile, predictedClass int) *string {
+func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predictedClass int) *string {
 	if profile == nil {
 		return nil
 	}

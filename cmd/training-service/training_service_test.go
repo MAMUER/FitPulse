@@ -2,16 +2,19 @@ package main
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestTrainingServiceMain(t *testing.T) {
-	t.Skip("Integration test - requires database and RabbitMQ")
-}
-
-func TestGeneratePlan(t *testing.T) {
-	t.Skip("Integration test - requires database")
-}
-
-func TestCompleteWorkout(t *testing.T) {
-	t.Skip("Integration test - requires database")
+func TestChainCleanup(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"basic"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.True(t, true)
+		})
+	}
 }

@@ -426,7 +426,7 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 	}, true
 }
 
-func connectUserService(ctx context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
+func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
 	userConn, err := grpc.NewClient(userServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
@@ -521,7 +521,7 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.
 	log.Info("Servers stopped")
 }
 
-func detectTLSMode(log *logger.Logger, cfg gatewayConfig) tlsMode {
+func detectTLSMode(log *logger.Logger, _ gatewayConfig) tlsMode {
 	mode := tlsMode{
 		certFile: os.Getenv("TLS_CERT_FILE"),
 		keyFile:  os.Getenv("TLS_KEY_FILE"),

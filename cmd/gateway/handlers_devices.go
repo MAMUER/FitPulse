@@ -4,23 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
-
-func isValidDeviceID(deviceID string) bool {
-	matched, err := regexp.MatchString(`^[a-zA-Z0-9_-]{1,100}$`, deviceID)
-	return err == nil && matched
-}
 
 func (g *gateway) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -116,76 +106,6 @@ func (g *gateway) registerDeviceHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		g.log.Error("Device connector unreachable", zap.Error(err))
 		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			g.log.Error("Failed to close response body", zap.Error(closeErr))
-		}
-	}()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		g.log.Error("Failed to write response", zap.Error(err))
-	}
-}
-
-func (g *gateway) deviceIngestHandler(w http.ResponseWriter, r *http.Request) {
-	if g.deviceConnectorURL == "" {
-		http.Error(w, "Сервис устройств временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-
-	if !isValidServiceURL(g.deviceConnectorURL, "http://localhost:", "http://device-", "http://connector:") {
-		g.log.Error("Invalid device connector URL", zap.String("url", g.deviceConnectorURL))
-		http.Error(w, "Сервис устройств временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-
-	vars := mux.Vars(r)
-	deviceID := vars["device_id"]
-
-	if !isValidDeviceID(deviceID) {
-		sanitizedDeviceID := strings.ReplaceAll(strings.ReplaceAll(deviceID, "\n", ""), "\r", "")
-		g.log.Warn("Invalid device ID format", zap.String("device_id", sanitizedDeviceID))
-		http.Error(w, "Неверный формат ID устройства", http.StatusBadRequest)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		g.log.Error("Failed to read request body", zap.Error(err))
-		http.Error(w, "Ошибка чтения запроса", http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	baseURL, urlErr := url.Parse(g.deviceConnectorURL)
-	if urlErr != nil {
-		g.log.Error("Invalid device connector URL", zap.Error(urlErr))
-		http.Error(w, "Сервис устройств временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	baseURL.Path = fmt.Sprintf("/api/v1/devices/%s/ingest", url.PathEscape(deviceID))
-
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		baseURL.String(),
-		bytes.NewReader(body))
-	if err != nil {
-		g.log.Error("Failed to create device ingest request", zap.Error(err))
-		http.Error(w, "Сервис устройств временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		g.log.Error("Device connector unreachable", zap.Error(err))
-		http.Error(w, "Сервис устройств временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 	defer func() {

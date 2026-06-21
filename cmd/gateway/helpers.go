@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -140,47 +139,4 @@ func containsIgnoreCase(s, substr string) bool {
 
 func containsSubstringIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-}
-
-// extractFeatures извлекает фичи из биометрических данных для ML-классификации
-func extractMLPayload(bioResp *biometricpb.BiometricRecord) map[string]interface{} {
-	// Дефолтные значения при отсутствии данных
-	heartRate := 70.0
-	hrv := 50.0
-	spo2 := 98.0
-	temp := 36.6
-	bpSystolic := 120.0
-	bpDiastolic := 80.0
-	sleepHours := 7.0
-
-	if bioResp != nil {
-		switch bioResp.MetricType {
-		case "heart_rate":
-			heartRate = bioResp.Value
-		case "hrv":
-			hrv = bioResp.Value
-		case "spo2":
-			spo2 = bioResp.Value
-		case "temperature":
-			temp = bioResp.Value
-		case "systolic_pressure":
-			bpSystolic = bioResp.Value
-		case "diastolic_pressure":
-			bpDiastolic = bioResp.Value
-		case "sleep_hours":
-			sleepHours = bioResp.Value
-		}
-	}
-
-	return map[string]interface{}{
-		"physiological_data": map[string]float64{
-			"heart_rate":               heartRate,
-			"heart_rate_variability":   hrv,
-			"spo2":                     spo2,
-			"temperature":              temp,
-			"blood_pressure_systolic":  bpSystolic,
-			"blood_pressure_diastolic": bpDiastolic,
-			"sleep_hours":              sleepHours,
-		},
-	}
 }
