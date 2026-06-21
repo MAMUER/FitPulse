@@ -22,6 +22,60 @@ patches:
   - path: resource-device-connector.yaml
   - path: resource-classifier.yaml
   - path: resource-ml-generator.yaml
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: logstash
+        namespace: fitness-platform-production
+      spec:
+        template:
+          spec:
+            containers:
+            - name: logstash
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: grafana
+        namespace: fitness-platform-production
+      spec:
+        template:
+          spec:
+            containers:
+            - name: grafana
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: prometheus
+        namespace: fitness-platform-production
+      spec:
+        template:
+          spec:
+            containers:
+            - name: prometheus
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
   - path: configmap-patch.yaml
     target:
       kind: ConfigMap
