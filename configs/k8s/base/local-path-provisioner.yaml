@@ -25,6 +25,7 @@ rules:
         "configmaps",
         "events",
         "pods",
+        "pods/log",
       ]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
@@ -76,6 +77,11 @@ data:
       - name: helper-pod
         image: busybox:latest
         imagePullPolicy: IfNotPresent
+  setup: |
+    #!/bin/sh
+    set -e
+    echo "Setting up volume $VOL_DIR on node $NODE_NAME"
+    mkdir -p "$VOL_DIR"
 ---
 apiVersion: apps/v1
 kind: Deployment
