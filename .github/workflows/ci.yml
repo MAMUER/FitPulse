@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+﻿name: CI/CD Pipeline
 on:
   push:
     branches: [main, master, Microservice_arc]
@@ -1348,9 +1348,15 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo '-> Deploying Nginx configuration...'
             sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
-            sudo mv /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
+            
+            # Удаляем все старые/конфликтующие конфиги, чтобы избежать ошибки 'duplicate default server'
+            sudo rm -f /etc/nginx/sites-enabled/*
+            sudo rm -f /etc/nginx/conf.d/*.conf
+            
+            # Используем cp вместо mv, чтобы при повторных попытках (retry) файл не пропадал из /tmp/
+            sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
             sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
-            sudo rm -f /etc/nginx/sites-enabled/default
+            
             if sudo nginx -t; then
               sudo systemctl reload nginx
               echo '✅ Nginx configuration deployed and reloaded'
