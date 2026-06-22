@@ -109,10 +109,10 @@ spec:
           resources:
             requests:
               cpu: "5m"
-              memory: "16Mi"
+              memory: "8Mi"
             limits:
-              cpu: "50m"
-              memory: "32Mi"
+              cpu: "20m"
+              memory: "16Mi"
           volumeMounts:
             - name: local-path-config
               mountPath: /etc/local-path-config

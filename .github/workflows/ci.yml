@@ -1758,20 +1758,43 @@ jobs:
           kubectl wait --for=condition=Ready --timeout=5m nodes --all || { kubectl cluster-info; kubectl get nodes -o wide; exit 1; }
           echo "Waiting for local-path-provisioner..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
+
           cd configs/k8s/overlays/production
-          if kustomize build . | kubectl apply --validate=false -f -; then
-            echo "Production overlay applied successfully"
-          else
-            echo "Failed to apply production overlay — gathering debug info"
-            kubectl get pods -A -o wide || true
-            kubectl -n local-path-storage get pods -o wide || true
-            kubectl -n local-path-storage logs -l app=local-path-provisioner --tail=200 || true
-            kubectl -n fitness-platform-production get pvc || true
-            kubectl -n fitness-platform-production describe pvc rabbitmq-storage-rabbitmq-0 || true
-            kubectl -n fitness-platform-production get events --sort-by='.lastTimestamp' || true
-            echo "Exiting with failure"
-            exit 1
-          fi
+          kustomize build . > /tmp/manifests.yaml
+
+          echo "Applying manifests with retries..."
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            if kubectl apply --validate=false -f /tmp/manifests.yaml; then
+              echo "Production overlay applied successfully"
+              break
+            else
+              echo "Attempt $i/$MAX_RETRIES failed."
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "Waiting 20s before retry..."
+                sleep 20
+                # Проверяем, не упал ли API-сервер полностью
+                if ! kubectl get nodes >/dev/null 2>&1; then
+                  echo "API server is unresponsive. Restarting k3s via SSH..."
+                  ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s" || true
+                  echo "Waiting 40s for k3s to restart..."
+                  sleep 40
+                  # Ждем, пока API снова поднимется
+                  for j in {1..30}; do
+                    if kubectl get nodes >/dev/null 2>&1; then
+                      echo "k3s API is back online."
+                      break
+                    fi
+                    sleep 5
+                  done
+                fi
+              else
+                echo "Failed to apply manifests after $MAX_RETRIES attempts."
+                kubectl get pods -A -o wide || true
+                exit 1
+              fi
+            fi
+          done
       - name: Wait for Postgres PVC to be bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -2087,17 +2110,27 @@ jobs:
         id: statuses
         run: |
           get_emoji() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "❓";; esac; }
+
           BUILD="$(get_emoji '${{ needs.binary_build.result }}')"
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
           CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
-          if [[ "$DOCKER" == "❌" ]]; then
-            OVERALL="ОШИБКА СБОРКИ"; STATUS="failure"
+
+          # Проверяем ВСЕ критические job'ы
+          FAILED_JOBS=""
+          if [[ "${{ needs.binary_build.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
+          if [[ "${{ needs.docker.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
+          if [[ "${{ needs['deploy-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
+          if [[ "${{ needs['test-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
+
+          if [[ -n "$FAILED_JOBS" ]]; then
+            OVERALL="ОШИБКА"; STATUS="failure"
           else
             OVERALL="УСПЕШНО"; STATUS="success"
           fi
+
           {
             echo "overall=$OVERALL"
             echo "status=$STATUS"
@@ -2119,14 +2152,17 @@ jobs:
             <b>CI/CD — ${{ steps.statuses.outputs.overall }}</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
-            <b>Статусы:</b>
+
+            <b>Основные этапы:</b>
             ${{ steps.statuses.outputs.build }} Build
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
             ${{ steps.statuses.outputs.test_prod }} Test Production
-            <b>Security Tools:</b>
+
+            <b>Безопасность:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
+
             🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 

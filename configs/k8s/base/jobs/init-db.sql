@@ -410,7 +410,7 @@ OR REPLACE FUNCTION create_invite_code(
     p_specialty VARCHAR(100),
     p_max_uses INT,
     p_valid_days INT
-) RETURNS VARCHAR AS $ $ DECLARE v_code VARCHAR(100);
+) RETURNS VARCHAR AS $$ DECLARE v_code VARCHAR(100);
 
 BEGIN v_code := UPPER(p_role) || '-' || TO_CHAR(NOW(), 'YYYY') || '-' || UPPER(
     REPLACE(
@@ -473,7 +473,7 @@ RETURN v_code;
 
 END;
 
-$ $ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Validate and consume an invite code
 CREATE
@@ -482,7 +482,7 @@ OR REPLACE FUNCTION use_invite_code(p_code VARCHAR(100)) RETURNS TABLE(
     role VARCHAR(50),
     specialty VARCHAR(100),
     error_msg TEXT
-) AS $ $ DECLARE v_record RECORD;
+) AS $$ DECLARE v_record RECORD;
 
 v_used_count INT;
 
@@ -557,11 +557,11 @@ RETURN NEXT;
 
 END;
 
-$ $ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Log invite code usage
 CREATE
-OR REPLACE FUNCTION log_invite_code_use(p_code VARCHAR(100), p_user_id UUID) RETURNS VOID AS $ $ DECLARE v_invite_id UUID;
+OR REPLACE FUNCTION log_invite_code_use(p_code VARCHAR(100), p_user_id UUID) RETURNS VOID AS $$ DECLARE v_invite_id UUID;
 
 BEGIN
 SELECT
@@ -583,7 +583,7 @@ VALUES
 
 END;
 
-$ $ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- V10__add_classification_class_column.sql
 -- Add classification_class column to training_plans (was missing from V6)
