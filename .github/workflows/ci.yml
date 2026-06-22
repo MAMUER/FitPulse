@@ -1758,10 +1758,10 @@ jobs:
           kubectl wait --for=condition=Ready --timeout=5m nodes --all || { kubectl cluster-info; kubectl get nodes -o wide; exit 1; }
           echo "Waiting for local-path-provisioner..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
-
+          echo "Deleting immutable Jobs to allow updates..."
+          kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
           cd configs/k8s/overlays/production
           kustomize build . > /tmp/manifests.yaml
-
           echo "Applying manifests with retries..."
           MAX_RETRIES=5
           for i in $(seq 1 "$MAX_RETRIES"); do
