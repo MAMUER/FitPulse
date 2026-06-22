@@ -89,6 +89,10 @@ data:
     set -e
     echo "Setting up volume $VOL_DIR on node $NODE_NAME"
     mkdir -p "$VOL_DIR"
+  teardown: |
+     #!/bin/sh
+     set -e
+     rm -rf "$VOL_DIR"
 ---
 apiVersion: apps/v1
 kind: Deployment
