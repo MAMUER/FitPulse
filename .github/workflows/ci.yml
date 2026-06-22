@@ -1764,13 +1764,13 @@ jobs:
 
           echo "Applying manifests with retries..."
           MAX_RETRIES=5
-          for i in $(seq 1 $MAX_RETRIES); do
+          for i in $(seq 1 "$MAX_RETRIES"); do
             if kubectl apply --validate=false -f /tmp/manifests.yaml; then
               echo "Production overlay applied successfully"
               break
             else
               echo "Attempt $i/$MAX_RETRIES failed."
-              if [ $i -lt $MAX_RETRIES ]; then
+                 if [ "$i" -lt "$MAX_RETRIES" ]; then
                 echo "Waiting 20s before retry..."
                 sleep 20
                 # Проверяем, не упал ли API-сервер полностью
@@ -1780,9 +1780,11 @@ jobs:
                   echo "Waiting 40s for k3s to restart..."
                   sleep 40
                   # Ждем, пока API снова поднимется
-                  for j in {1..30}; do
+                  _waited=false
+                  for _j in {1..30}; do
                     if kubectl get nodes >/dev/null 2>&1; then
                       echo "k3s API is back online."
+                      _waited=true
                       break
                     fi
                     sleep 5
