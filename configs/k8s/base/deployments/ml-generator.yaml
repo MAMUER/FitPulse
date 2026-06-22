@@ -11,7 +11,6 @@ metadata:
     app.kubernetes.io/instance: ml-generator
     app.kubernetes.io/component: ml
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "latest"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
@@ -24,11 +23,11 @@ spec:
       labels:
         app: ml-generator
         zone: app-zone
+        environment: production
         app.kubernetes.io/name: ml-generator
         app.kubernetes.io/instance: ml-generator
         app.kubernetes.io/component: ml
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "latest"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
@@ -37,27 +36,29 @@ spec:
         runAsUser: 1001
         runAsGroup: 1001
         readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
       volumes:
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 100Mi
       containers:
         - name: ml-generator
           image: ghcr.io/mamuer/project/ml-generator:latest
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1001
-            runAsGroup: 1001
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
           ports:
@@ -74,24 +75,30 @@ spec:
                   key: ML_GENERATOR_PORT
             - name: MPLCONFIGDIR
               value: "/tmp/matplotlib"
+            - name: TF_CPP_MIN_LOG_LEVEL
+              value: "2"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           livenessProbe:
             httpGet:
               path: /health
               port: 8002
-            initialDelaySeconds: 300
-            periodSeconds: 10
+            initialDelaySeconds: 120
+            periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8002
-            initialDelaySeconds: 180
-            periodSeconds: 5
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
           resources:
             requests:
-              memory: "128Mi"
               cpu: "100m"
-            limits:
               memory: "256Mi"
+            limits:
               cpu: "500m"
+              memory: "512Mi"

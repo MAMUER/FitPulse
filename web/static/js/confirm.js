@@ -13,24 +13,24 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token })
     })
-    .then(function (r) {
-        return r.json().then(function (d) {
-            return { ok: r.ok, data: d };
+        .then(function (r) {
+            return r.json().then(function (d) {
+                return { ok: r.ok, data: d };
+            });
+        })
+        .then(function (res) {
+            if (res.ok) {
+                showSuccess('Email успешно подтверждён! Теперь вы можете войти в систему.');
+            } else {
+                var msg = typeof res.data === 'string'
+                    ? res.data
+                    : (res.data ? JSON.stringify(res.data) : 'Ошибка подтверждения');
+                showError(msg);
+            }
+        })
+        .catch(function () {
+            showError('Произошла ошибка соединения. Попробите позже.');
         });
-    })
-    .then(function (res) {
-        if (res.ok) {
-            showSuccess('Email успешно подтверждён! Теперь вы можете войти в систему.');
-        } else {
-            var msg = typeof res.data === 'string'
-                ? res.data
-                : (res.data ? JSON.stringify(res.data) : 'Ошибка подтверждения');
-            showError(msg);
-        }
-    })
-    .catch(function () {
-        showError('Произошла ошибка соединения. Попробите позже.');
-    });
 
     function showSuccess(msg) {
         hideSpinner();

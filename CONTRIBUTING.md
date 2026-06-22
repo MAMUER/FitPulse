@@ -25,25 +25,34 @@
 
 1. **Fork репозитория** на GitHub
 2. **Клонируйте ваш fork**:
+
    ```bash
    git clone https://github.com/your-username/fitpulse.git
    cd fitpulse
    ```
+
 3. **Добавьте upstream remote**:
+
    ```bash
    git remote add upstream https://github.com/original-org/fitpulse.git
    ```
+
 4. **Установите зависимости**:
+
    ```bash
    go mod tidy
    pip install -r requirements.txt  # для ML-сервисов
    ```
+
 5. **Настройте окружение**:
+
    ```bash
    cp .env.example .env
    # Отредактируйте .env с необходимыми значениями
    ```
+
 6. **Запустите локально**:
+
    ```bash
    scripts/run-local.bat  # Windows
    # или
@@ -96,6 +105,7 @@ git checkout -b feature/your-feature-name
 ```
 
 **Типы коммитов:**
+
 - `feat`: новая функция
 - `fix`: исправление ошибки
 - `docs`: изменение документации
@@ -105,6 +115,7 @@ git checkout -b feature/your-feature-name
 - `chore`: обслуживание (dependencies, build)
 
 **Примеры:**
+
 ```bash
 feat(auth): добавить поддержку invite-кодов для регистрации админов
 
@@ -116,11 +127,13 @@ docs(readme): обновить инструкции по локальной ус
 ### Go код
 
 1. **Форматирование**: Используйте `go fmt` перед каждым коммитом
+
    ```bash
    go fmt ./...
    ```
 
 2. **Линтинг**: Запустите golangci-lint
+
    ```bash
    make lint
    ```
@@ -132,6 +145,7 @@ docs(readme): обновить инструкции по локальной ус
    - Adapters в `internal/*/adapters/`
 
 4. **Обработка ошибок**:
+
    ```go
    // Правильно
    if err != nil {
@@ -145,6 +159,7 @@ docs(readme): обновить инструкции по локальной ус
    ```
 
 5. **Контекст**: Всегда передавайте context первым параметром
+
    ```go
    func (s *Service) GetUser(ctx context.Context, id string) (*User, error)
    ```
@@ -187,6 +202,7 @@ make load-test
 Минимальное требование покрытия: **80%** для нового кода.
 
 Проверка покрытия:
+
 ```bash
 go test -v -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out -o coverage.html
@@ -199,6 +215,7 @@ go tool cover -html=coverage.out -o coverage.html
 3. **E2E-тесты**: Тестируйте полный поток через API
 
 Пример unit-теста:
+
 ```go
 func TestMedicalService_ClassifyState(t *testing.T) {
     // Arrange
@@ -219,17 +236,20 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 ### Перед отправкой PR
 
 1. **Обновите ветку** от upstream develop:
+
    ```bash
    git fetch upstream
    git rebase upstream/develop
    ```
 
 2. **Запустите все проверки**:
+
    ```bash
    make check  # fmt + vet + lint + test + build
    ```
 
 3. **Проверьте покрытие тестами**:
+
    ```bash
    go test -cover ./...
    ```

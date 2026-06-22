@@ -17,30 +17,36 @@
 **Симптомы**: сервис возвращает 503, health-check падает, высокий error rate.
 
 **Шаги**:
+
 1. **Подтвердить алерт** (Slack/PagerDuty)
+
    ```bash
    # Реакция :ack: в Slack или подтверждение в PagerDuty
    ```
 
 2. **Проверить статус сервисов**
+
    ```bash
    kubectl get pods -n fitness-platform
    kubectl describe pod <pod-name> -n fitness-platform
    ```
 
 3. **Проверить логи**
+
    ```bash
    kubectl logs <pod-name> -n fitness-platform --tail=100
    # Или через Kibana: индекс "fitness-logs-*", фильтр service="gateway"
    ```
 
 4. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
+
    ```bash
    kubectl delete pod <pod-name> -n fitness-platform
    # Pod будет пересоздан deployment controller'ом
    ```
 
 5. **Откат** если проблема появилась после недавнего деплоя
+
    ```bash
    kubectl rollout undo deployment/gateway -n fitness-platform
    ```
@@ -54,8 +60,10 @@
 **Симптомы**: error rate > 5%, p95 latency > 5s.
 
 **Шаги**:
+
 1. Открыть Grafana дашборд «FitPulse Service Overview».
 2. Изучить логи в Kibana на паттерны:
+
    ```json
    {
      "level": "ERROR",
@@ -63,11 +71,15 @@
      "timestamp": "2026-05-06T*"
    }
    ```
+
 3. Масштабировать сервис, если исчерпан пул соединений к БД:
+
    ```bash
    kubectl scale deployment biometric-service --replicas=3 -n fitness-platform
    ```
+
 4. Проверить репликацию БД:
+
    ```bash
    psql -h postgres -U postgres -d fitness -c "SELECT slot_name, restart_lsn FROM pg_replication_slots;"
    ```
@@ -155,23 +167,28 @@ kubectl logs -f deployment/gateway -n fitness-platform
 **Алерт**: `db_connection_pool_usage > 0.9`
 
 **Шаги**:
+
 1. **Проверить активные соединения**
+
    ```sql
    SELECT datname, count(*) FROM pg_stat_activity GROUP BY datname;
    ```
 
 2. **Найти долгие запросы**
+
    ```sql
    SELECT query, duration FROM pg_stat_statements 
    ORDER BY duration DESC LIMIT 5;
    ```
 
 3. **Масштабировать реплики сервиса**
+
    ```bash
    kubectl scale deployment user-service --replicas=5 -n fitness-platform
    ```
 
 4. **Мониторить восстановление пула**
+
    ```bash
    # Следить за метрикой db_connection_pool_usage в Grafana
    ```
@@ -181,18 +198,22 @@ kubectl logs -f deployment/gateway -n fitness-platform
 **Алерт**: `backup_success{type='full'} == 0`
 
 **Шаги**:
+
 1. **Проверить логи job'ы бэкапа**
+
    ```bash
    kubectl get pods -n fitness-platform -l job-name=backup
    kubectl logs -f backup-job -n fitness-platform
    ```
 
 2. **Проверить свободное место**
+
    ```bash
    df -h /var/lib/postgresql/data
    ```
 
 3. **Запустить бэкап вручную**
+
    ```bash
    # Через скрипт
    scripts/backup-db.sh --encrypted --s3-upload
@@ -206,17 +227,21 @@ kubectl logs -f deployment/gateway -n fitness-platform
 **Алерт**: `classification_confidence < 0.7`
 
 **Шаги**:
+
 1. **Проверить версии моделей**
+
    ```bash
    curl http://classifier:8001/model-info
    ```
 
 2. **Изучить последние предсказания**
+
    ```bash
    # Kibana: service="classifier" AND action="CLASSIFY" AND confidence < 0.7
    ```
 
 3. **Запустить переобучение модели**
+
    ```bash
    # Через admin endpoint ML-сервиса
    curl -X POST http://classifier:8001/retrain \
@@ -230,17 +255,21 @@ kubectl logs -f deployment/gateway -n fitness-platform
 **Симптомы**: пользователи не могут подключить Fitbit/Garmin/Withings, webhook'и не доставляются.
 
 **Шаги**:
+
 1. **Проверить logs device-aggregator**
+
    ```bash
    kubectl logs -f deployment/device-aggregator -n fitness-platform | grep -i "error\|panic"
    ```
 
 2. **Проверить health**
+
    ```bash
    curl http://device-aggregator:8083/health
    ```
 
 3. **Проверить токены в БД**
+
    ```sql
    SELECT provider, is_active, last_sync_at 
    FROM device_provider_accounts 
@@ -274,6 +303,7 @@ Password: ${GRAFANA_ADMIN_PASSWORD}
 ```
 
 **Стандартные дашборды**:
+
 - `FitPulse Service Overview`: request rate, error rate, latency, ML метрики
 - `Database Performance`: соединения, время запросов, репликация
 - `ELK Stack Health`: индексы Elasticsearch, пропускная способность Logstash

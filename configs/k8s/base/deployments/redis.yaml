@@ -1,3 +1,4 @@
+File: configs/k8s/base/deployments/redis.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,12 +8,10 @@ metadata:
     app: redis
     tier: infrastructure
     environment: production
-    zone: data-zone
     app.kubernetes.io/name: redis
     app.kubernetes.io/instance: redis
     app.kubernetes.io/component: cache
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "7"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
@@ -25,90 +24,68 @@ spec:
       labels:
         app: redis
         zone: data-zone
+        environment: production
         app.kubernetes.io/name: redis
         app.kubernetes.io/instance: redis
         app.kubernetes.io/component: cache
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "7"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        readOnlyRootFilesystem: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
       volumes:
-        - name: redis-data
-          emptyDir: {}
         - name: tmp
           emptyDir: {}
-        - name: secrets
-          secret:
-            secretName: app-secrets
+        - name: redis-config
+          configMap:
+            name: redis-config
       containers:
         - name: redis
           image: redis:7-alpine
-          imagePullPolicy: Always
-          command:
-            - sh
-            - -c
-            - |
-              if [ -f "/etc/secrets/REDIS_PASSWORD" ] && [ -s "/etc/secrets/REDIS_PASSWORD" ]; then
-                echo "Starting Redis WITH password from file..."
-                exec redis-server \
-                  --bind 0.0.0.0 \
-                  --appendonly yes \
-                  --requirepass-file /etc/secrets/REDIS_PASSWORD \
-                  --maxmemory 256mb \
-                  --maxmemory-policy allkeys-lru
-              else
-                echo "Starting Redis WITHOUT password..."
-                exec redis-server \
-                  --bind 0.0.0.0 \
-                  --appendonly yes \
-                  --maxmemory 256mb \
-                  --maxmemory-policy allkeys-lru
-              fi
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379
               name: redis
-          volumeMounts:
-            - name: redis-data
-              mountPath: /data
-            - name: tmp
-              mountPath: /tmp
-            - name: secrets
-              mountPath: /etc/secrets
-              readOnly: true
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "200m"
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
             allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-            readOnlyRootFilesystem: true
-            seccompProfile:
-              type: RuntimeDefault
+          command:
+            - redis-server
+            - /etc/redis/redis.conf
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: redis-config
+              mountPath: /etc/redis
           livenessProbe:
             tcpSocket:
               port: 6379
             initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
           readinessProbe:
             tcpSocket:
               port: 6379
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"

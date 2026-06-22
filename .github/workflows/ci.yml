@@ -55,7 +55,7 @@ on:
         description: "Select execution mode"
         required: false
         type: choice
-        options: [full, maintenance, ml-retrain]
+        options: [full, maintenance, ml-retrain, recreate-cluster]
       maintenance_type:
         description: "For maintenance mode: update|audit|vulncheck"
         required: false
@@ -327,30 +327,22 @@ jobs:
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: "Microservice_arc"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMIT_STATUS_ENABLED: false # Super-Linter output
+          GITHUB_COMMIT_STATUS_ENABLED: false
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: true
           SAVE_SUPER_LINTER_SUMMARY: true
-          # Exclude patterns
           FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
-          # Python linters
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
           VALIDATE_PYTHON_MYPY: true
-          # YAML validation
           VALIDATE_YAML: true
-          # Shell script validation
           VALIDATE_BASH: true
           VALIDATE_BASH_EXEC: true
           VALIDATE_SHELL_SHFMT: true
-          # Dockerfile validation (complements hadolint)
           VALIDATE_DOCKERFILE_HADOLINT: true
-          # JSON validation
           VALIDATE_JSON: true
-          # Markdown validation
           VALIDATE_MARKDOWN: true
-          # Python linters config files
           PYTHON_FLAKE8_CONFIG_FILE: .flake8
           PYTHON_BLACK_CONFIG_FILE: pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
@@ -460,10 +452,6 @@ jobs:
             --output kubescape-results.sarif \
             --verbose || true
 
-          # Fix SARIF for GitHub Code Scanning
-          # Kubescape may generate results without artifactLocation.uri
-          # GitHub Code Scanning requires artifactLocation.uri for all results
-          # Also filter out C-0012 (false positives for secrets in ConfigMaps)
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
             jq '
               .runs |= map(
@@ -515,7 +503,6 @@ jobs:
           echo "Scanning Python requirements..."
           find . -name "requirements.txt" -not -path "./.git/*" -print0 | while IFS= read -r -d '' req_file; do
             echo "=== Scanning $req_file ==="
-            # FIX: Убраны невалидные для v2.x флаги --skip-git и --experimental-offline-vulnerabilities
             docker run --rm -v "${GITHUB_WORKSPACE}:/repo" -w /repo \
               ghcr.io/google/osv-scanner:v2.3.8 \
               scan "$req_file" || echo "⚠️ Could not fully resolve $req_file (no lock file)"
@@ -811,7 +798,6 @@ jobs:
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
             pids+=($!)
           done
-          # Wait for all background jobs and fail fast if any failed
           for pid in "${pids[@]}"; do
             wait "$pid" || { echo "❌ Build failed for PID $pid"; exit 1; }
           done
@@ -1054,6 +1040,20 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+
+      - name: Check disk space on VPS
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+            echo \"Current disk usage: \${DISK_USAGE}%\"
+            if [ \"\$DISK_USAGE\" -gt 90 ]; then
+              echo \"⚠️ WARNING: Disk usage is over 90%!\"
+              curl -s -X POST \"https://api.telegram.org/bot\${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage\" \
+                -H \"Content-Type: application/json\" \
+                -d \"{\\\"chat_id\\\": \\\"\${{ secrets.TELEGRAM_CHAT_ID }}\\\", \\\"text\\\": \\\"⚠️ VPS Disk usage is \${DISK_USAGE}%!\\\"}\" || true
+            fi
+          "
+
       - name: Configure swap on VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
@@ -1106,6 +1106,7 @@ jobs:
             echo "-> Logs rotation configured"
           EOF
       - name: Clean up old k3s
+        if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'recreate-cluster'
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -x
@@ -1144,11 +1145,15 @@ jobs:
           - 127.0.0.1
           - localhost
           disable:
-          - traefik
           - local-storage
           flannel-backend: wireguard-native
           write-kubeconfig-mode: 644
           docker: true
+          kubelet-arg:
+          - max-pods=50
+          - kube-reserved=cpu=100m,memory=256Mi
+          - system-reserved=cpu=100m,memory=256Mi
+          - eviction-hard=memory.available<100Mi,nodefs.available<10%%
           " "$VPS_HOST" > /tmp/k3s-config-remote.yaml
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s
@@ -1283,16 +1288,13 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -euo pipefail
-            # Проверяем, содержатся ли нужные SAN в сертификате API
             if ! k3s kubectl get --raw /livez &>/dev/null; then
               echo \"API не отвечает\"; exit 1
             fi
             CERT_FILE=\"/var/lib/rancher/k3s/server/tls/dynamic-cert.json\"
             NEED_RESTART=false
             if [ -f \"\$CERT_FILE\" ]; then
-              # Извлекаем текущие SAN (примерно)
               CURRENT_SAN=\$(kubectl get --raw /apis | jq -r '.')
-              # Более надёжно: проверяем, есть ли домен в конфиге
               if ! grep -q 'fittpulse.duckdns.org' /etc/rancher/k3s/config.yaml; then
                 echo \"⚠️ Конфиг не содержит домен, обновляем...\"
                 NEED_RESTART=true
@@ -1314,6 +1316,49 @@ jobs:
                 fi
                 sleep 2
               done
+            fi
+          "
+      - name: Upload Traefik NodePort config to VPS
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /var/lib/rancher/k3s/server/manifests"
+          ./scripts/ssh-retry.sh scp configs/k8s/base/traefik-config.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/traefik-config.yaml"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mv /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml && sudo chmod 644 /var/lib/rancher/k3s/server/manifests/traefik-config.yaml"
+          echo "✅ Traefik config uploaded. K3s will apply it on startup."
+      - name: Ensure Let's Encrypt certificate exists
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Checking for Let'\''s Encrypt certificate...'
+            if [ ! -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
+              echo '⚠️ Certificate not found. Installing Certbot and issuing certificate...'
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq certbot
+              sudo mkdir -p /var/www/certbot
+              sudo systemctl stop nginx 2>/dev/null || true
+              sudo certbot certonly --standalone --non-interactive --agree-tos \
+                --email admin@fittpulse.duckdns.org \
+                -d fittpulse.duckdns.org
+              sudo systemctl start nginx 2>/dev/null || true
+              echo '✅ Certificate issued successfully'
+            else
+              echo '✅ Let'\''s Encrypt certificate already exists'
+            fi
+          "
+      - name: Deploy Nginx configuration to VPS
+        run: |
+          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Deploying Nginx configuration...'
+            sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
+            sudo mv /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
+            sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
+            sudo rm -f /etc/nginx/sites-enabled/default
+            if sudo nginx -t; then
+              sudo systemctl reload nginx
+              echo '✅ Nginx configuration deployed and reloaded'
+            else
+              echo '❌ Nginx configuration test failed!'
+              sudo nginx -t
+              exit 1
             fi
           "
       - name: Setup auto-renewal for SSL
@@ -1367,6 +1412,42 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
           echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
+
+      - name: Setup Postgres automated backups
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            echo '-> Setting up Postgres backups...'
+            sudo mkdir -p /opt/fitpulse/backups
+            cat <<'BACKUP_EOF' | sudo tee /usr/local/bin/backup-postgres.sh > /dev/null
+          #!/bin/bash
+          set -euo pipefail
+          BACKUP_DIR='/opt/fitpulse/backups'
+          mkdir -p \"\$BACKUP_DIR\"
+          DATE=\$(date +%Y%m%d_%H%M%S)
+          FILENAME=\"\$BACKUP_DIR/fitness_\$DATE.dump\"
+          ENCRYPTED=\"\$FILENAME.enc\"
+
+          # Dump from inside the pod (since Postgres is running in k3s without NodePort)
+          /usr/local/bin/k3s kubectl exec -n fitness-platform-production postgres-0 -- \
+            pg_dump -U postgres -d fitness -F c > \"\$FILENAME\"
+
+          # Encrypt using logic from scripts/backup-db.sh if BACKUP_KEY is provided
+          if [ -n \"${{ secrets.BACKUP_KEY }}\" ]; then
+            openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:'${{ secrets.BACKUP_KEY }}' -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
+            rm -f \"\$FILENAME\"
+            echo \"Encrypted backup created: \$ENCRYPTED\"
+          else
+            echo \"Backup created: \$FILENAME (unencrypted)\"
+          fi
+
+          # Cleanup old backups (keep last 7 days)
+          find \"\$BACKUP_DIR\" -type f -mtime +7 -delete
+          BACKUP_EOF
+            sudo chmod +x /usr/local/bin/backup-postgres.sh
+            (sudo crontab -l 2>/dev/null | grep -v backup-postgres; echo '0 2 * * * /usr/local/bin/backup-postgres.sh >> /var/log/backup-postgres.log 2>&1') | sudo crontab -
+            echo '✅ Postgres backups configured (daily at 2 AM)'
+          "
+
       - name: Generate kubeconfig with external domain
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1384,48 +1465,6 @@ jobs:
           ./scripts/ssh-retry.sh scp \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-config.yaml" \
             ./k3s-config.yaml
-      - name: Generate TLS certificates locally (if missing)
-        run: |
-          mkdir -p deploy/tls/certs
-          if [ ! -f "deploy/tls/certs/server.crt" ] || [ ! -f "deploy/tls/certs/server.key" ]; then
-            echo "⚠️ TLS certificates not found locally, generating self-signed..."
-            make certs
-          else
-            echo "✅ Using existing TLS certificates from deploy/tls/certs/"
-          fi
-          openssl x509 -in deploy/tls/certs/server.crt -text -noout | grep -A2 "Subject:" || true
-      - name: Upload TLS certificates to VPS
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            mkdir -p /etc/rancher/k3s/tls
-            mkdir -p /etc/nginx/certs
-          "
-          echo "Uploading TLS certificates to VPS..."
-          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt"
-          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key"
-          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.crt "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.crt"
-          ./scripts/ssh-retry.sh scp deploy/tls/certs/server.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/nginx/certs/server.key"
-          echo "✅ TLS certificates uploaded to VPS"
-      - name: Download TLS certificates from VPS (for Kubernetes Secret)
-        run: |
-          mkdir -p /tmp/tls
-          ./scripts/ssh-retry.sh scp "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.crt" /tmp/tls/server.crt
-          ./scripts/ssh-retry.sh scp "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/tls/server.key" /tmp/tls/server.key
-          chmod 600 /tmp/tls/server.key
-      - name: Create TLS Secret in Kubernetes
-        run: |
-          mkdir -p "$HOME/.kube"
-          cp ./k3s-config.yaml "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          kubectl cluster-info
-          kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply --validate=false -f -
-          sleep 10
-          kubectl create secret tls gateway-tls \
-            --cert=/tmp/tls/server.crt \
-            --key=/tmp/tls/server.key \
-            -n fitness-platform-production \
-            --dry-run=client -o yaml | kubectl apply --validate=false -f -
-          echo "✅ TLS Secret created in fitness-platform-production"
       - name: Upload kubeconfig artifact
         uses: actions/upload-artifact@v7
         with:
@@ -1686,15 +1725,11 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           set -euo pipefail
-
           echo "Waiting for k8s API..."
           kubectl wait --for=condition=Ready --timeout=5m nodes --all || { kubectl cluster-info; kubectl get nodes -o wide; exit 1; }
-
           echo "Waiting for local-path-provisioner..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
-
           cd configs/k8s/overlays/production
-
           if kustomize build . | kubectl apply --validate=false -f -; then
             echo "Production overlay applied successfully"
           else
@@ -1935,27 +1970,6 @@ jobs:
           kubectl get pods -n fitness-platform-production
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=300s || echo "Gateway not ready yet"
           sleep 30
-      - name: Canary Health Check & Auto-Rollback
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "⏳ Monitoring production deployment for 5 minutes..."
-          ROLLBACK_TRIGGERED=false
-          for _ in {1..30}; do
-            ERRORS=$(kubectl logs -n fitness-platform-production -l app=gateway --since=2m 2>/dev/null | grep -c '"statusCode":5[0-9][0-9]' || true)
-            if [ "$ERRORS" -gt 50 ]; then
-              echo " High error rate detected ($ERRORS 5xx errors). Triggering auto-rollback..."
-              kubectl rollout undo deployment/gateway -n fitness-platform-production || true
-              kubectl rollout undo deployment/gateway-canary -n fitness-platform-production || true
-              ROLLBACK_TRIGGERED=true
-              break
-            fi
-            sleep 10
-          done
-          if [ "$ROLLBACK_TRIGGERED" = true ]; then
-            echo " Deployment failed health check. Rollback executed."
-            exit 1
-          fi
-          echo " Production metrics stable. Deployment proceeding."
 
   # ============================================================================
   # TEST PRODUCTION
@@ -1983,6 +1997,14 @@ jobs:
         run: |
           URL="https://fittpulse.duckdns.org"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify SSL Certificate
+        run: |
+          echo "🔍 Checking SSL certificate validity..."
+          echo | openssl s_client -servername fittpulse.duckdns.org -connect fittpulse.duckdns.org:443 2>/dev/null | openssl x509 -noout -dates -issuer
+          curl -sSf -o /dev/null --max-time 10 "https://fittpulse.duckdns.org/health" || exit 1
+          echo "✅ SSL certificate is valid and trusted"
+
       - name: Health check
         run: |
           echo "🔍 Checking production health via HTTPS..."

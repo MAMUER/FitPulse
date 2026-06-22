@@ -5,8 +5,8 @@ metadata:
   labels:
     app: prometheus
   annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '9090'
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
 spec:
   type: ClusterIP
   selector:

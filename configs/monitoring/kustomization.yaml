@@ -4,7 +4,7 @@ resources:
   - prometheus
   - alertmanager
   - grafana
-  - logstash
+  - fluent-bit
 namespace: fitness-platform-production
 labels:
   - pairs:

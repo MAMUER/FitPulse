@@ -13,46 +13,46 @@ linters:
     - unused
     - staticcheck
     # Security-oriented
-    - gosec          # Security vulnerability detection
-    - goconst        # Повторяющиеся строковые литералы (potential secrets/hardcoded values)
+    - gosec # Security vulnerability detection
+    - goconst # Повторяющиеся строковые литералы (potential secrets/hardcoded values)
     - gochecknoglobals # Запрет глобальных переменных (code quality)
-    - nilerr         # Проверка ошибок nil
-    - bodyclose      # Проверка закрытия HTTP response bodies
-    - noctx          # Требование context в HTTP/gRPC запросах
-    - prealloc       # Предварительное выделение слайсов (performance)
-    - errorlint      # Правильная обработка ошибок
-    - exhaustive     # Проверка полноты switch statement
-    - copyloopvar    # Обнаружение копирования переменных цикла
-    - fatcontext     # Обнаружение больших context
+    - nilerr # Проверка ошибок nil
+    - bodyclose # Проверка закрытия HTTP response bodies
+    - noctx # Требование context в HTTP/gRPC запросах
+    - prealloc # Предварительное выделение слайсов (performance)
+    - errorlint # Правильная обработка ошибок
+    - exhaustive # Проверка полноты switch statement
+    - copyloopvar # Обнаружение копирования переменных цикла
+    - fatcontext # Обнаружение больших context
     # Complexity & maintainability (code-smells)
-    - gocyclo        # Цикломатическая сложность (Вирт: прозрачность алгоритмов)
-    - gocognit       # Когнитивная сложность (code-smell: сложные функции)
-    - funlen         # Слишком длинные функции (code-smell: Long Method)
-    - dupl           # Дублирование кода (code-smell: Duplicate Code)
+    - gocyclo # Цикломатическая сложность (Вирт: прозрачность алгоритмов)
+    - gocognit # Когнитивная сложность (code-smell: сложные функции)
+    - funlen # Слишком длинные функции (code-smell: Long Method)
+    - dupl # Дублирование кода (code-smell: Duplicate Code)
   settings:
     gosec:
       severity: medium
       confidence: medium
       excludes:
-        - G104  # Duplicate of errcheck
+        - G104 # Duplicate of errcheck
     govet:
       enable-all: true
       disable:
-        - fieldalignment  # Не критично для production
+        - fieldalignment # Не критично для production
     staticcheck:
-      checks: ["all", "-SA1029"]  # Allow string keys for context
+      checks: ["all", "-SA1029"] # Allow string keys for context
     # Code-smell thresholds (Вирт: «простота — основа надёжности»)
     # Установлены ВЫШЕ худшего существующего кода.
     # Новые функции должны быть ПРОЩЕ. Со временем пороги снижать.
     gocyclo:
-      min-complexity: 40  # Худший в коде: gateway main=34
+      min-complexity: 40 # Худший в коде: gateway main=34
     gocognit:
-      min-complexity: 60  # Худший в коде: gateway main=51
+      min-complexity: 60 # Худший в коде: gateway main=51
     funlen:
-      lines: 260          # Худший в коде: gateway main=256, ingestHandler=174
-      statements: 110     # Худший в коде: gateway main=104, ingestHandler=87
+      lines: 260 # Худший в коде: gateway main=256, ingestHandler=174
+      statements: 110 # Худший в коде: gateway main=104, ingestHandler=87
     dupl:
-      threshold: 200      # Пропускает мелкие и тестовые дубликаты
+      threshold: 200 # Пропускает мелкие и тестовые дубликаты
   exclusions:
     generated: lax
     rules:

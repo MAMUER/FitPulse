@@ -1,573 +1,756 @@
 <!DOCTYPE html>
 <html lang="ru">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000000">
-    <title>FitPulse</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-    <link rel="stylesheet" href="/static/css/modules.css">
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style"
+            content="black-translucent">
+        <meta name="theme-color" content="#000000">
+        <title>FitPulse</title>
+        <link rel="stylesheet" href="/static/css/main.css">
+        <link rel="stylesheet" href="/static/css/modules.css">
+    </head>
 
-<body>
-    <div id="app">
-        <!-- Экран авторизации -->
-        <div id="authScreen" class="screen active">
-            <div class="auth-container">
-                <div class="auth-logo">
-                    <div class="logo-icon">💓</div>
-                    <h1>FitPulse</h1>
-                    <p>Ваш персональный AI-тренер</p>
-                </div>
-                <form id="loginForm" class="auth-form" novalidate>
-                    <div class="field">
-                        <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required
-                            maxlength="254" inputmode="email">
-                        <div class="field-error" id="loginEmailError"></div>
+    <body>
+        <div id="app">
+            <!-- Экран авторизации -->
+            <div id="authScreen" class="screen active">
+                <div class="auth-container">
+                    <div class="auth-logo">
+                        <div class="logo-icon">💓</div>
+                        <h1>FitPulse</h1>
+                        <p>Ваш персональный AI-тренер</p>
                     </div>
-                    <div class="field">
-                        <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password"
-                            required maxlength="128">
-                        <div class="field-error" id="loginPasswordError"></div>
-                    </div>
-                    <div class="auth-error hidden" id="loginError"></div>
-                    <button type="submit" class="btn-primary" id="loginBtn">Войти</button>
-                    <p class="auth-switch">Нет аккаунта? <a href="#" id="toRegister">Создать</a></p>
-                </form>
-                <form id="login2FAForm" class="auth-form hidden" novalidate>
-                    <h2>Двухфакторная аутентификация</h2>
-                    <p class="verify-text">Введите код из приложения-аутентификатора.</p>
-                    <div class="field">
-                        <input type="text" id="totpLoginCode" placeholder="6-значный код" maxlength="6"
-                            inputmode="numeric" autocomplete="one-time-code" required>
-                        <div class="field-error" id="totpLoginCodeError"></div>
-                    </div>
-                    <div class="field">
-                        <input type="text" id="backupLoginCode" placeholder="Резервный код xxxx-xxxx" maxlength="9"
-                            autocomplete="off">
-                        <div class="field-error" id="backupLoginCodeError"></div>
-                    </div>
-                    <div class="auth-error hidden" id="login2FAError"></div>
-                    <button type="submit" class="btn-primary" id="login2FABtn">Войти</button>
-                    <button type="button" class="btn-secondary" id="useBackupLoginBtn">Использовать резервный код</button>
-                    <p class="auth-switch"><a href="#" id="backToLoginFrom2FA">← Вернуться ко входу</a></p>
-                </form>
-                <form id="registerForm" class="auth-form hidden" novalidate>
-                    <div class="field">
-                        <input type="text" id="regName" placeholder="Имя" autocomplete="name" required maxlength="100"
-                            minlength="2" pattern="[A-Za-zА-Яа-яЁё\s\-]+">
-                        <div class="field-error" id="regNameError"></div>
-                    </div>
-                    <div class="field">
-                        <input type="email" id="regEmail" placeholder="Email" autocomplete="email" required
-                            maxlength="254" inputmode="email">
-                        <div class="field-error" id="regEmailError"></div>
-                    </div>
-                    <div class="field">
-                        <input type="password" id="regPassword" placeholder="Пароль (мин. 8 символов)"
-                            autocomplete="new-password" required maxlength="128" minlength="8">
-                        <div class="field-error" id="regPasswordError"></div>
-                        <div class="password-hint hidden" id="passwordHint">
-                            <span class="hint-item" id="hintLength">✗ 8+ символов</span>
-                            <span class="hint-item" id="hintUpper">✗ Заглавная буква</span>
-                            <span class="hint-item" id="hintLower">✗ Строчная буква</span>
-                            <span class="hint-item" id="hintDigit">✗ Цифра</span>
+                    <form id="loginForm" class="auth-form" novalidate>
+                        <div class="field">
+                            <input type="email" id="loginEmail"
+                                placeholder="Email" autocomplete="email"
+                                required
+                                maxlength="254" inputmode="email">
+                            <div class="field-error" id="loginEmailError"></div>
                         </div>
-                    </div>
-                    <div class="auth-error hidden" id="registerError"></div>
-                    <button type="submit" class="btn-primary" id="registerBtn" disabled>Создать аккаунт</button>
-                    <p class="auth-switch">Уже есть? <a href="#" id="toLogin">Войти</a></p>
-                </form>
-                <form id="verifyForm" class="auth-form hidden" novalidate>
-                    <div class="verify-icon">📧</div>
-                    <h2>Проверьте почту</h2>
-                    <p class="verify-text">Мы отправили письмо на <strong id="verifyEmail"></strong></p>
-                    <p class="verify-text">Перейдите по ссылке из письма, чтобы подтвердить email и войти.</p>
-                    <div class="verify-token-section hidden" id="devTokenSection">
-                        <p class="verify-hint">Режим разработки — скопируйте токен:</p>
-                        <div class="verify-token-box" id="devToken" onclick="copyToken()"></div>
-                        <p class="verify-hint">Или вставьте токен ниже:</p>
-                        <input type="text" id="verifyToken" placeholder="Токен из письма">
-                        <button type="submit" class="btn-primary" id="confirmBtn">Подтвердить email</button>
-                    </div>
-                    <div class="auth-error hidden" id="confirmError"></div>
-                    <div class="auth-success hidden" id="confirmSuccess">Email подтверждён!</div>
-                    <p class="auth-switch"><a href="#" id="backToLogin">← Вернуться ко входу</a></p>
-                </form>
-                <div id="authError" class="auth-error hidden"></div>
+                        <div class="field">
+                            <input type="password" id="loginPassword"
+                                placeholder="Пароль"
+                                autocomplete="current-password"
+                                required maxlength="128">
+                            <div class="field-error"
+                                id="loginPasswordError"></div>
+                        </div>
+                        <div class="auth-error hidden" id="loginError"></div>
+                        <button type="submit" class="btn-primary"
+                            id="loginBtn">Войти</button>
+                        <p class="auth-switch">Нет аккаунта? <a href="#"
+                                id="toRegister">Создать</a></p>
+                    </form>
+                    <form id="login2FAForm" class="auth-form hidden" novalidate>
+                        <h2>Двухфакторная аутентификация</h2>
+                        <p class="verify-text">Введите код из
+                            приложения-аутентификатора.</p>
+                        <div class="field">
+                            <input type="text" id="totpLoginCode"
+                                placeholder="6-значный код" maxlength="6"
+                                inputmode="numeric" autocomplete="one-time-code"
+                                required>
+                            <div class="field-error"
+                                id="totpLoginCodeError"></div>
+                        </div>
+                        <div class="field">
+                            <input type="text" id="backupLoginCode"
+                                placeholder="Резервный код xxxx-xxxx"
+                                maxlength="9"
+                                autocomplete="off">
+                            <div class="field-error"
+                                id="backupLoginCodeError"></div>
+                        </div>
+                        <div class="auth-error hidden" id="login2FAError"></div>
+                        <button type="submit" class="btn-primary"
+                            id="login2FABtn">Войти</button>
+                        <button type="button" class="btn-secondary"
+                            id="useBackupLoginBtn">Использовать резервный
+                            код</button>
+                        <p class="auth-switch"><a href="#"
+                                id="backToLoginFrom2FA">← Вернуться ко
+                                входу</a></p>
+                    </form>
+                    <form id="registerForm" class="auth-form hidden" novalidate>
+                        <div class="field">
+                            <input type="text" id="regName" placeholder="Имя"
+                                autocomplete="name" required maxlength="100"
+                                minlength="2" pattern="[A-Za-zА-Яа-яЁё\s\-]+">
+                            <div class="field-error" id="regNameError"></div>
+                        </div>
+                        <div class="field">
+                            <input type="email" id="regEmail"
+                                placeholder="Email" autocomplete="email"
+                                required
+                                maxlength="254" inputmode="email">
+                            <div class="field-error" id="regEmailError"></div>
+                        </div>
+                        <div class="field">
+                            <input type="password" id="regPassword"
+                                placeholder="Пароль (мин. 8 символов)"
+                                autocomplete="new-password" required
+                                maxlength="128" minlength="8">
+                            <div class="field-error"
+                                id="regPasswordError"></div>
+                            <div class="password-hint hidden" id="passwordHint">
+                                <span class="hint-item" id="hintLength">✗ 8+
+                                    символов</span>
+                                <span class="hint-item" id="hintUpper">✗
+                                    Заглавная буква</span>
+                                <span class="hint-item" id="hintLower">✗
+                                    Строчная буква</span>
+                                <span class="hint-item" id="hintDigit">✗
+                                    Цифра</span>
+                            </div>
+                        </div>
+                        <div class="auth-error hidden" id="registerError"></div>
+                        <button type="submit" class="btn-primary"
+                            id="registerBtn" disabled>Создать аккаунт</button>
+                        <p class="auth-switch">Уже есть? <a href="#"
+                                id="toLogin">Войти</a></p>
+                    </form>
+                    <form id="verifyForm" class="auth-form hidden" novalidate>
+                        <div class="verify-icon">📧</div>
+                        <h2>Проверьте почту</h2>
+                        <p class="verify-text">Мы отправили письмо на <strong
+                                id="verifyEmail"></strong></p>
+                        <p class="verify-text">Перейдите по ссылке из письма,
+                            чтобы подтвердить email и войти.</p>
+                        <div class="verify-token-section hidden"
+                            id="devTokenSection">
+                            <p class="verify-hint">Режим разработки — скопируйте
+                                токен:</p>
+                            <div class="verify-token-box" id="devToken"
+                                onclick="copyToken()"></div>
+                            <p class="verify-hint">Или вставьте токен ниже:</p>
+                            <input type="text" id="verifyToken"
+                                placeholder="Токен из письма">
+                            <button type="submit" class="btn-primary"
+                                id="confirmBtn">Подтвердить email</button>
+                        </div>
+                        <div class="auth-error hidden" id="confirmError"></div>
+                        <div class="auth-success hidden"
+                            id="confirmSuccess">Email подтверждён!</div>
+                        <p class="auth-switch"><a href="#" id="backToLogin">←
+                                Вернуться ко входу</a></p>
+                    </form>
+                    <div id="authError" class="auth-error hidden"></div>
+                </div>
             </div>
-        </div>
-        <!-- Главное приложение (скрыто до авторизации) -->
-        <div id="mainScreen" class="screen">
-            <!-- Верхняя панель -->
-            <header class="top-bar">
-                <h2 id="pageTitle">Обзор</h2>
-                <button id="logoutBtn" class="btn-icon" aria-label="Выйти">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                </button>
-            </header>
-            <!-- Контент -->
-            <main class="content">
-                <!-- Дашборд -->
-                <div id="dashboardView" class="view active">
-                    <section class="health-summary">
-                        <div class="summary-card heart-rate">
-                            <div class="card-icon">❤️</div>
-                            <div class="card-data">
-                                <span class="card-label">Пульс</span>
-                                <span class="card-value" id="hrValue">--</span>
-                                <span class="card-unit">уд/мин</span>
-                            </div>
-                        </div>
-                        <div class="summary-card spo2">
-                            <div class="card-icon">🫁</div>
-                            <div class="card-data">
-                                <span class="card-label">SpO₂</span>
-                                <span class="card-value" id="spo2Value">--</span>
-                                <span class="card-unit">%</span>
-                            </div>
-                        </div>
-                        <div class="summary-card sleep">
-                            <div class="card-icon">🌙</div>
-                            <div class="card-data">
-                                <span class="card-label">Сон</span>
-                                <span class="card-value" id="sleepValue">--</span>
-                                <span class="card-unit">часов</span>
-                            </div>
-                        </div>
-                        <div class="summary-card bp">
-                            <div class="card-icon">🩸</div>
-                            <div class="card-data">
-                                <span class="card-label">Давление</span>
-                                <span class="card-value" id="bpValue">--/--</span>
-                                <span class="card-unit">мм рт.ст.</span>
-                            </div>
-                        </div>
-                    </section>
-                    <section class="chart-section">
-                        <h3>Динамика пульса</h3>
-                        <div class="chart-container">
-                            <canvas id="heartChart"></canvas>
-                        </div>
-                    </section>
-                    <section class="ai-section">
-                        <div class="ai-card">
-                            <div class="ai-header">
-                                <span class="ai-badge">AI Анализ</span>
-                            </div>
-                            <h3 id="aiRecommendation">Загрузка рекомендаций...</h3>
-                            <p id="aiDescription">Анализируем ваши биометрические данные</p>
-                        </div>
-                    </section>
-                    <section class="today-section">
-                        <h3>🏋️ Тренировка на сегодня</h3>
-                        <div id="todayWorkout" class="workout-card">
-                            <div class="workout-placeholder">
-                                <p>Сгенерируйте программу тренировок в разделе "Тренировки"</p>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-                <!-- Профиль -->
-                <div id="profileView" class="view">
-                    <form id="profileForm" class="profile-form" novalidate>
-                        <div class="form-section">
-                            <h3>Основное</h3>
-                            <div class="form-group">
-                                <label>Никнейм *</label>
-                                <input type="text" id="profNickname" placeholder="Ваш никнейм" maxlength="30" required>
-                                <div class="field-error" id="profNicknameError"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Возраст</label>
-                                    <input type="number" id="profAge" placeholder="30" min="18" max="100"
-                                        inputmode="numeric">
-                                    <div class="field-error" id="profAgeError"></div>
+            <!-- Главное приложение (скрыто до авторизации) -->
+            <div id="mainScreen" class="screen">
+                <!-- Верхняя панель -->
+                <header class="top-bar">
+                    <h2 id="pageTitle">Обзор</h2>
+                    <button id="logoutBtn" class="btn-icon" aria-label="Выйти">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                </header>
+                <!-- Контент -->
+                <main class="content">
+                    <!-- Дашборд -->
+                    <div id="dashboardView" class="view active">
+                        <section class="health-summary">
+                            <div class="summary-card heart-rate">
+                                <div class="card-icon">❤️</div>
+                                <div class="card-data">
+                                    <span class="card-label">Пульс</span>
+                                    <span class="card-value"
+                                        id="hrValue">--</span>
+                                    <span class="card-unit">уд/мин</span>
                                 </div>
+                            </div>
+                            <div class="summary-card spo2">
+                                <div class="card-icon">🫁</div>
+                                <div class="card-data">
+                                    <span class="card-label">SpO₂</span>
+                                    <span class="card-value"
+                                        id="spo2Value">--</span>
+                                    <span class="card-unit">%</span>
+                                </div>
+                            </div>
+                            <div class="summary-card sleep">
+                                <div class="card-icon">🌙</div>
+                                <div class="card-data">
+                                    <span class="card-label">Сон</span>
+                                    <span class="card-value"
+                                        id="sleepValue">--</span>
+                                    <span class="card-unit">часов</span>
+                                </div>
+                            </div>
+                            <div class="summary-card bp">
+                                <div class="card-icon">🩸</div>
+                                <div class="card-data">
+                                    <span class="card-label">Давление</span>
+                                    <span class="card-value"
+                                        id="bpValue">--/--</span>
+                                    <span class="card-unit">мм рт.ст.</span>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="chart-section">
+                            <h3>Динамика пульса</h3>
+                            <div class="chart-container">
+                                <canvas id="heartChart"></canvas>
+                            </div>
+                        </section>
+                        <section class="ai-section">
+                            <div class="ai-card">
+                                <div class="ai-header">
+                                    <span class="ai-badge">AI Анализ</span>
+                                </div>
+                                <h3 id="aiRecommendation">Загрузка
+                                    рекомендаций...</h3>
+                                <p id="aiDescription">Анализируем ваши
+                                    биометрические данные</p>
+                            </div>
+                        </section>
+                        <section class="today-section">
+                            <h3>🏋️ Тренировка на сегодня</h3>
+                            <div id="todayWorkout" class="workout-card">
+                                <div class="workout-placeholder">
+                                    <p>Сгенерируйте программу тренировок в
+                                        разделе "Тренировки"</p>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                    <!-- Профиль -->
+                    <div id="profileView" class="view">
+                        <form id="profileForm" class="profile-form" novalidate>
+                            <div class="form-section">
+                                <h3>Основное</h3>
                                 <div class="form-group">
-                                    <label>Пол</label>
-                                    <select id="profGender">
-                                        <option value="">—</option>
-                                        <option value="male">Мужской</option>
-                                        <option value="female">Женский</option>
+                                    <label>Никнейм *</label>
+                                    <input type="text" id="profNickname"
+                                        placeholder="Ваш никнейм" maxlength="30"
+                                        required>
+                                    <div class="field-error"
+                                        id="profNicknameError"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Возраст</label>
+                                        <input type="number" id="profAge"
+                                            placeholder="30" min="18" max="100"
+                                            inputmode="numeric">
+                                        <div class="field-error"
+                                            id="profAgeError"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Пол</label>
+                                        <select id="profGender">
+                                            <option value>—</option>
+                                            <option
+                                                value="male">Мужской</option>
+                                            <option
+                                                value="female">Женский</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <h3>Параметры тела</h3>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Рост, см</label>
+                                        <input type="number" id="profHeight"
+                                            placeholder="175" min="50" max="300"
+                                            inputmode="numeric">
+                                        <div class="field-error"
+                                            id="profHeightError"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Вес, кг</label>
+                                        <input type="number" id="profWeight"
+                                            placeholder="70" min="20" max="500"
+                                            step="0.1"
+                                            inputmode="decimal">
+                                        <div class="field-error"
+                                            id="profWeightError"></div>
+                                    </div>
+                                </div>
+                                <!-- ИМТ подсказка -->
+                                <div id="bmiHint"
+                                    style="margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); display: none;">
+                                    <strong>ИМТ:</strong> <span
+                                        id="bmiValue">--</span> (<span
+                                        id="bmiCategory">--</span>)<br>
+                                    <span id="bmiRecommendation"
+                                        style="color: var(--blue);"></span>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <h3>Образ жизни</h3>
+                                <div class="form-group">
+                                    <label>Уровень подготовки</label>
+                                    <select id="profFitness">
+                                        <option value>—</option>
+                                        <option value="beginner">Начинающий
+                                            (менее 1 тренировки в
+                                            неделю)</option>
+                                        <option value="intermediate">Средний
+                                            (1-3 тренировки в неделю)</option>
+                                        <option value="advanced">Продвинутый
+                                            (более 3 тренировок в
+                                            неделю)</option>
                                     </select>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="form-section">
-                            <h3>Параметры тела</h3>
-                            <div class="form-row">
                                 <div class="form-group">
-                                    <label>Рост, см</label>
-                                    <input type="number" id="profHeight" placeholder="175" min="50" max="300"
-                                        inputmode="numeric">
-                                    <div class="field-error" id="profHeightError"></div>
+                                    <label>Тип питания</label>
+                                    <select id="profNutrition">
+                                        <option value>—</option>
+                                        <option
+                                            value="balanced">Сбалансированное</option>
+                                        <option
+                                            value="high_protein">Высокобелковое</option>
+                                        <option
+                                            value="vegetarian">Вегетарианское</option>
+                                        <option value="vegan">Веганское</option>
+                                        <option value="keto">Кето</option>
+                                        <option value="paleo">Палео</option>
+                                    </select>
+                                    <div class="field-error"
+                                        id="profNutritionError"></div>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <h3>Здоровье и предпочтения</h3>
+                                <div class="form-group">
+                                    <label>Аллергии или непереносимость
+                                        продуктов (через запятую)</label>
+                                    <input type="text" id="profAllergies"
+                                        placeholder="Например: орехи, лактоза, глютен">
                                 </div>
                                 <div class="form-group">
-                                    <label>Вес, кг</label>
-                                    <input type="number" id="profWeight" placeholder="70" min="20" max="500" step="0.1"
-                                        inputmode="decimal">
-                                    <div class="field-error" id="profWeightError"></div>
+                                    <label>Медицинские противопоказания (для
+                                        тренировок)</label>
+                                    <input type="text"
+                                        id="profContraindications"
+                                        placeholder="Например: проблемы с коленями, астма">
                                 </div>
                             </div>
-                            <!-- ИМТ подсказка -->
-                            <div id="bmiHint"
-                                style="margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); display: none;">
-                                <strong>ИМТ:</strong> <span id="bmiValue">--</span> (<span
-                                    id="bmiCategory">--</span>)<br>
-                                <span id="bmiRecommendation" style="color: var(--blue);"></span>
+                            <div class="form-section">
+                                <h3>Основная цель</h3>
+                                <div class="goals-grid">
+                                    <label class="goal-chip"><input type="radio"
+                                            name="goal" value="weight_loss">
+                                        Похудение</label>
+                                    <label class="goal-chip"><input type="radio"
+                                            name="goal" value="muscle_gain">
+                                        Набор
+                                        мышц</label>
+                                    <label class="goal-chip"><input type="radio"
+                                            name="goal" value="endurance">
+                                        Выносливость</label>
+                                    <label class="goal-chip"><input type="radio"
+                                            name="goal" value="flexibility">
+                                        Гибкость</label>
+                                </div>
                             </div>
+                            <button type="submit"
+                                class="btn-primary">Сохранить</button>
+                        </form>
+                        <!-- Смена пароля -->
+                        <div class="form-section" style="margin-top: 24px;">
+                            <h3>Безопасность</h3>
+                            <button type="button" class="btn-secondary"
+                                id="changePasswordBtn"
+                                style="margin-bottom: 12px;">
+                                Сменить пароль
+                            </button>
+                            <button type="button" class="btn-secondary"
+                                id="changeEmailBtn"
+                                style="margin-bottom: 12px;">
+                                Сменить почту
+                            </button>
+                            <div
+                                style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                                <h4>Двухфакторная аутентификация</h4>
+                                <p id="twoFAStatus"
+                                    style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                                    Загрузка статуса...
+                                </p>
+                                <div
+                                    style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                    <button type="button" class="btn-secondary"
+                                        id="enable2FABtn">Включить 2FA</button>
+                                    <button type="button"
+                                        class="btn-danger hidden"
+                                        id="disable2FABtn">Отключить
+                                        2FA</button>
+                                </div>
+                                <div id="totpSetupPanel" class="hidden"
+                                    style="padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                                    <p
+                                        style="font-size: 13px; margin: 0 0 12px;">Отсканируйте
+                                        QR-код в приложении-аутентификаторе.</p>
+                                    <img id="totpQRCode" alt="TOTP QR Code"
+                                        style="width: 220px; height: 220px; display: block; margin: 0 auto 12px; background: #fff; border-radius: var(--radius-sm);">
+                                    <p style="font-size: 13px;">Не получается
+                                        отсканировать? Введите секрет
+                                        вручную:</p>
+                                    <code id="totpManualSecret"
+                                        style="word-break: break-all;"></code>
+                                    <h4 style="margin: 16px 0 8px;">Резервные
+                                        коды</h4>
+                                    <ul id="totpBackupCodes"
+                                        style="columns: 2; font-size: 13px; margin: 0 0 12px 20px;"></ul>
+                                    <div class="field">
+                                        <label>Код из приложения</label>
+                                        <input type="text" id="totpSetupCode"
+                                            placeholder="6-значный код"
+                                            maxlength="6" inputmode="numeric">
+                                        <div class="field-error"
+                                            id="totpSetupError"></div>
+                                    </div>
+                                    <div class="auth-success hidden"
+                                        id="totpSetupSuccess"></div>
+                                    <button type="button" class="btn-primary"
+                                        id="confirm2FABtn"
+                                        style="margin-top: 12px;">Подтвердить и
+                                        включить 2FA</button>
+                                </div>
+                                <div id="disable2FAPanel"
+                                    style="margin-top: 12px;">
+                                    <input type="text" id="disable2FACode"
+                                        placeholder="Текущий код 2FA"
+                                        maxlength="6" inputmode="numeric"
+                                        style="width: 100%; padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                    <div class="field-error hidden"
+                                        id="disable2FAError"></div>
+                                </div>
+                            </div>
+                            <!-- Форма смены почты (скрыта по умолчанию) -->
+                            <form id="changeEmailForm" class="hidden"
+                                style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                                <div class="form-group">
+                                    <label>Новый email</label>
+                                    <input type="email" id="newEmail"
+                                        placeholder="example@mail.ru" required>
+                                    <div class="field-error"
+                                        id="newEmailError"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Текущий пароль</label>
+                                    <input type="password"
+                                        id="emailConfirmPassword"
+                                        placeholder="Введите пароль для подтверждения"
+                                        required>
+                                    <div class="field-error"
+                                        id="emailConfirmPasswordError"></div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="submit"
+                                        class="btn-primary">Сохранить новую
+                                        почту</button>
+                                    <button type="button" class="btn-secondary"
+                                        id="cancelChangeEmail">Отмена</button>
+                                </div>
+                            </form>
+                            <!-- Форма смены пароля (скрыта по умолчанию) -->
+                            <form id="changePasswordForm" class="hidden"
+                                style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                                <div class="form-group">
+                                    <label>Текущий пароль</label>
+                                    <input type="password" id="currentPassword"
+                                        placeholder="Введите текущий пароль"
+                                        required>
+                                    <div class="field-error"
+                                        id="currentPasswordError"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Новый пароль</label>
+                                    <input type="password" id="newPassword"
+                                        placeholder="Минимум 8 символов, буквы и цифры"
+                                        required minlength="8">
+                                    <div class="field-error"
+                                        id="newPasswordError"></div>
+                                    <div id="passwordHint"
+                                        class="password-hint hidden">
+                                        <span id="hintLength">✗ Минимум 8
+                                            символов</span>
+                                        <span id="hintUpper">✗ Заглавная
+                                            буква</span>
+                                        <span id="hintLower">✗ Строчная
+                                            буква</span>
+                                        <span id="hintDigit">✗ Цифра</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Подтверждение пароля</label>
+                                    <input type="password" id="confirmPassword"
+                                        placeholder="Повторите новый пароль"
+                                        required>
+                                    <div class="field-error"
+                                        id="confirmPasswordError"></div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="submit"
+                                        class="btn-primary">Сохранить новый
+                                        пароль</button>
+                                    <button type="button" class="btn-secondary"
+                                        id="cancelChangePassword">Отмена</button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="form-section">
-                            <h3>Образ жизни</h3>
-                            <div class="form-group">
-                                <label>Уровень подготовки</label>
-                                <select id="profFitness">
-                                    <option value="">—</option>
-                                    <option value="beginner">Начинающий (менее 1 тренировки в неделю)</option>
-                                    <option value="intermediate">Средний (1-3 тренировки в неделю)</option>
-                                    <option value="advanced">Продвинутый (более 3 тренировок в неделю)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Тип питания</label>
-                                <select id="profNutrition">
-                                    <option value="">—</option>
-                                    <option value="balanced">Сбалансированное</option>
-                                    <option value="high_protein">Высокобелковое</option>
-                                    <option value="vegetarian">Вегетарианское</option>
-                                    <option value="vegan">Веганское</option>
-                                    <option value="keto">Кето</option>
-                                    <option value="paleo">Палео</option>
-                                </select>
-                                <div class="field-error" id="profNutritionError"></div>
-                            </div>
-                        </div>
-                        <div class="form-section">
-                            <h3>Здоровье и предпочтения</h3>
-                            <div class="form-group">
-                                <label>Аллергии или непереносимость продуктов (через запятую)</label>
-                                <input type="text" id="profAllergies" placeholder="Например: орехи, лактоза, глютен">
-                            </div>
-                            <div class="form-group">
-                                <label>Медицинские противопоказания (для тренировок)</label>
-                                <input type="text" id="profContraindications"
-                                    placeholder="Например: проблемы с коленями, астма">
-                            </div>
-                        </div>
-                        <div class="form-section">
-                            <h3>Основная цель</h3>
-                            <div class="goals-grid">
-                                <label class="goal-chip"><input type="radio" name="goal" value="weight_loss">
-                                    Похудение</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="muscle_gain"> Набор
-                                    мышц</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="endurance">
-                                    Выносливость</label>
-                                <label class="goal-chip"><input type="radio" name="goal" value="flexibility">
-                                    Гибкость</label>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-primary">Сохранить</button>
-                    </form>
-                    <!-- Смена пароля -->
-                    <div class="form-section" style="margin-top: 24px;">
-                        <h3>Безопасность</h3>
-                        <button type="button" class="btn-secondary" id="changePasswordBtn" style="margin-bottom: 12px;">
-                            Сменить пароль
-                        </button>
-                        <button type="button" class="btn-secondary" id="changeEmailBtn" style="margin-bottom: 12px;">
-                            Сменить почту
-                        </button>
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-                            <h4>Двухфакторная аутентификация</h4>
-                            <p id="twoFAStatus" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-                                Загрузка статуса...
+                        <!-- Удаление профиля -->
+                        <div class="form-section danger-zone"
+                            style="margin-top: 24px;">
+                            <h3 style="color: var(--red);">Опасная зона</h3>
+                            <p
+                                style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                                Удаление профиля необратимо. Все ваши данные,
+                                тренировки и достижения будут удалены.
                             </p>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                                <button type="button" class="btn-secondary" id="enable2FABtn">Включить 2FA</button>
-                                <button type="button" class="btn-danger hidden" id="disable2FABtn">Отключить 2FA</button>
-                            </div>
-                            <div id="totpSetupPanel" class="hidden" style="padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-                                <p style="font-size: 13px; margin: 0 0 12px;">Отсканируйте QR-код в приложении-аутентификаторе.</p>
-                                <img id="totpQRCode" alt="TOTP QR Code" style="width: 220px; height: 220px; display: block; margin: 0 auto 12px; background: #fff; border-radius: var(--radius-sm);">
-                                <p style="font-size: 13px;">Не получается отсканировать? Введите секрет вручную:</p>
-                                <code id="totpManualSecret" style="word-break: break-all;"></code>
-                                <h4 style="margin: 16px 0 8px;">Резервные коды</h4>
-                                <ul id="totpBackupCodes" style="columns: 2; font-size: 13px; margin: 0 0 12px 20px;"></ul>
-                                <div class="field">
-                                    <label>Код из приложения</label>
-                                    <input type="text" id="totpSetupCode" placeholder="6-значный код" maxlength="6" inputmode="numeric">
-                                    <div class="field-error" id="totpSetupError"></div>
-                                </div>
-                                <div class="auth-success hidden" id="totpSetupSuccess"></div>
-                                <button type="button" class="btn-primary" id="confirm2FABtn" style="margin-top: 12px;">Подтвердить и включить 2FA</button>
-                            </div>
-                            <div id="disable2FAPanel" style="margin-top: 12px;">
-                                <input type="text" id="disable2FACode" placeholder="Текущий код 2FA" maxlength="6" inputmode="numeric" style="width: 100%; padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                                <div class="field-error hidden" id="disable2FAError"></div>
+                            <button type="button" class="btn-danger"
+                                id="deleteProfileBtn">
+                                Удалить аккаунт
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Тренировки -->
+                    <div id="trainingView" class="view">
+                        <div id="plansList" class="plans-list">
+                            <div class="empty-state">
+                                <div class="empty-icon">🏃</div>
+                                <h3>Нет активных программ</h3>
+                                <p>AI создаст персональный план на основе ваших
+                                    данных</p>
                             </div>
                         </div>
-                        <!-- Форма смены почты (скрыта по умолчанию) -->
-                        <form id="changeEmailForm" class="hidden"
-                            style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-                            <div class="form-group">
-                                <label>Новый email</label>
-                                <input type="email" id="newEmail" placeholder="example@mail.ru" required>
-                                <div class="field-error" id="newEmailError"></div>
-                            </div>
-                            <div class="form-group">
-                                <label>Текущий пароль</label>
-                                <input type="password" id="emailConfirmPassword"
-                                    placeholder="Введите пароль для подтверждения" required>
-                                <div class="field-error" id="emailConfirmPasswordError"></div>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button type="submit" class="btn-primary">Сохранить новую почту</button>
-                                <button type="button" class="btn-secondary" id="cancelChangeEmail">Отмена</button>
-                            </div>
-                        </form>
-                        <!-- Форма смены пароля (скрыта по умолчанию) -->
-                        <form id="changePasswordForm" class="hidden"
-                            style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-                            <div class="form-group">
-                                <label>Текущий пароль</label>
-                                <input type="password" id="currentPassword" placeholder="Введите текущий пароль"
-                                    required>
-                                <div class="field-error" id="currentPasswordError"></div>
-                            </div>
-                            <div class="form-group">
-                                <label>Новый пароль</label>
-                                <input type="password" id="newPassword" placeholder="Минимум 8 символов, буквы и цифры"
-                                    required minlength="8">
-                                <div class="field-error" id="newPasswordError"></div>
-                                <div id="passwordHint" class="password-hint hidden">
-                                    <span id="hintLength">✗ Минимум 8 символов</span>
-                                    <span id="hintUpper">✗ Заглавная буква</span>
-                                    <span id="hintLower">✗ Строчная буква</span>
-                                    <span id="hintDigit">✗ Цифра</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Подтверждение пароля</label>
-                                <input type="password" id="confirmPassword" placeholder="Повторите новый пароль"
-                                    required>
-                                <div class="field-error" id="confirmPasswordError"></div>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button type="submit" class="btn-primary">Сохранить новый пароль</button>
-                                <button type="button" class="btn-secondary" id="cancelChangePassword">Отмена</button>
-                            </div>
-                        </form>
-                    </div>
-                    <!-- Удаление профиля -->
-                    <div class="form-section danger-zone" style="margin-top: 24px;">
-                        <h3 style="color: var(--red);">Опасная зона</h3>
-                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-                            Удаление профиля необратимо. Все ваши данные, тренировки и достижения будут удалены.
-                        </p>
-                        <button type="button" class="btn-danger" id="deleteProfileBtn">
-                            Удалить аккаунт
+                        <button id="generatePlanBtn" class="btn-floating"
+                            aria-label="Сгенерировать план">
+                            <svg width="28" height="28" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
                         </button>
                     </div>
-                </div>
-                <!-- Тренировки -->
-                <div id="trainingView" class="view">
-                    <div id="plansList" class="plans-list">
-                        <div class="empty-state">
-                            <div class="empty-icon">🏃</div>
-                            <h3>Нет активных программ</h3>
-                            <p>AI создаст персональный план на основе ваших данных</p>
+                    <!-- Устройства -->
+                    <div id="devicesView" class="view">
+                        <h3>Подключённые устройства</h3>
+                        <div id="connectedDevicesList"></div>
+                        <div id="deviceSelector" class="device-selector"></div>
+                        <button class="action-btn"
+                            id="connectDeviceBtn">Подключить устройство</button>
+                        <!-- OAuth провайдеры -->
+                        <div
+                            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                            <h4
+                                style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Интеграции</h4>
+                            <div
+                                style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button id="connectFitbitBtn"
+                                    class="btn-secondary"
+                                    style="padding: 8px 12px; font-size: 13px;">
+                                    ⌚ Fitbit
+                                </button>
+                                <button id="connectWithingsBtn"
+                                    class="btn-secondary"
+                                    style="padding: 8px 12px; font-size: 13px;">
+                                    ⚖️ Withings
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <button id="generatePlanBtn" class="btn-floating" aria-label="Сгенерировать план">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                    </button>
-                </div>
-                <!-- Устройства -->
-                <div id="devicesView" class="view">
-                    <h3>Подключённые устройства</h3>
-                    <div id="connectedDevicesList"></div>
-                    <div id="deviceSelector" class="device-selector"></div>
-                    <button class="action-btn" id="connectDeviceBtn">Подключить устройство</button>
-                    <!-- OAuth провайдеры -->
-                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-                        <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Интеграции</h4>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button id="connectFitbitBtn" class="btn-secondary"
-                                style="padding: 8px 12px; font-size: 13px;">
-                                ⌚ Fitbit
-                            </button>
-                            <button id="connectWithingsBtn" class="btn-secondary"
-                                style="padding: 8px 12px; font-size: 13px;">
-                                ⚖️ Withings
-                            </button>
-                        </div>
+                    <!-- Достижения и Соревнования -->
+                    <div id="achievementsView" class="view">
+                        <h3>🏆 Достижения</h3>
+                        <div id="achievementsList"
+                            class="achievements-grid"></div>
+                        <h3 style="margin-top: 24px;">🏅 Персональные
+                            челленджи</h3>
+                        <div id="competitionsList"
+                            class="competitions-list"></div>
                     </div>
-                </div>
-                <!-- Достижения и Соревнования -->
-                <div id="achievementsView" class="view">
-                    <h3>🏆 Достижения</h3>
-                    <div id="achievementsList" class="achievements-grid"></div>
-                    <h3 style="margin-top: 24px;">🏅 Персональные челленджи</h3>
-                    <div id="competitionsList" class="competitions-list"></div>
-                </div>
-                <!-- Диета -->
-                <div id="dietView" class="view">
-                    <h3>План питания</h3>
-                    <!-- Настройки диеты -->
-                    <div id="dietSettings" class="diet-settings"
-                        style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px;">
-                        <h3 style="font-size: 15px; margin-bottom: 12px;">⚙️ Настройки питания</h3>
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Аллергии/непереносимость (через запятую)</label>
-                            <input type="text" id="dietAllergies" placeholder="Например: орехи, молоко"
-                                style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Нелюбимые продукты (через запятую)</label>
-                            <input type="text" id="dietDislikes" placeholder="Например: рыба, лук"
-                                style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                        </div>
-                        <div class="form-row" style="gap: 12px;">
-                            <div class="form-group">
-                                <label>Количество приемов пищи в день</label>
-                                <select id="dietMealsCount"
+                    <!-- Диета -->
+                    <div id="dietView" class="view">
+                        <h3>План питания</h3>
+                        <!-- Настройки диеты -->
+                        <div id="dietSettings" class="diet-settings"
+                            style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px;">
+                            <h3 style="font-size: 15px; margin-bottom: 12px;">⚙️
+                                Настройки питания</h3>
+                            <div class="form-group"
+                                style="margin-bottom: 12px;">
+                                <label>Аллергии/непереносимость (через
+                                    запятую)</label>
+                                <input type="text" id="dietAllergies"
+                                    placeholder="Например: орехи, молоко"
                                     style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                                    <option value="3">3 приема</option>
-                                    <option value="4" selected>4 приема</option>
-                                    <option value="5">5 приемов</option>
-                                    <option value="6">6 приемов</option>
+                            </div>
+                            <div class="form-group"
+                                style="margin-bottom: 12px;">
+                                <label>Нелюбимые продукты (через
+                                    запятую)</label>
+                                <input type="text" id="dietDislikes"
+                                    placeholder="Например: рыба, лук"
+                                    style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                            </div>
+                            <div class="form-row" style="gap: 12px;">
+                                <div class="form-group">
+                                    <label>Количество приемов пищи в
+                                        день</label>
+                                    <select id="dietMealsCount"
+                                        style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                        <option value="3">3 приема</option>
+                                        <option value="4" selected>4
+                                            приема</option>
+                                        <option value="5">5 приемов</option>
+                                        <option value="6">6 приемов</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Время первого приема пищи</label>
+                                    <input type="time" id="dietFirstMealTime"
+                                        value="08:00"
+                                        style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                </div>
+                            </div>
+                            <button type="button" class="btn-primary"
+                                id="applyDietSettingsBtn"
+                                style="margin-top: 12px;">Применить и обновить
+                                план</button>
+                        </div>
+                        <div id="dietPlanContainer"></div>
+                    </div>
+                    <!-- ML Анализ -->
+                    <div id="mlView" class="view">
+                        <div id="mlResult" class="ml-result">
+                            <div class="empty-state">
+                                <div class="empty-icon">🧠</div>
+                                <h3>AI-анализ состояния</h3>
+                                <p>Нажмите для анализа ваших биометрических
+                                    данных</p>
+                            </div>
+                        </div>
+                        <button id="mlClassifyBtn" class="btn-floating"
+                            aria-label="Анализировать">
+                            <svg width="28" height="28" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 16v-4" />
+                                <path d="M12 8h.01" />
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Админка -->
+                    <div id="adminView" class="view">
+                        <h3>🔐 Панель администратора</h3>
+                        <section class="admin-section"
+                            style="margin-bottom: 24px;">
+                            <h4>Создать инвайт</h4>
+                            <div
+                                style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <select id="newInviteRole"
+                                    style="flex: 1; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                    <option value="client">Клиент</option>
+                                    <option value="admin">Администратор</option>
                                 </select>
+                                <input type="number" id="newInviteMaxUses"
+                                    value="1" min="1" max="100"
+                                    style="width: 80px; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
+                                <button class="btn-primary"
+                                    onclick="window.createNewInvite()"
+                                    style="flex: 1;">
+                                    Создать
+                                </button>
                             </div>
-                            <div class="form-group">
-                                <label>Время первого приема пищи</label>
-                                <input type="time" id="dietFirstMealTime" value="08:00"
-                                    style="padding: 10px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                            </div>
-                        </div>
-                        <button type="button" class="btn-primary" id="applyDietSettingsBtn"
-                            style="margin-top: 12px;">Применить и обновить план</button>
+                        </section>
+                        <section class="admin-section">
+                            <h4>Активные инвайты</h4>
+                            <div id="invitesList" class="invites-list"
+                                style="display: flex; flex-direction: column; gap: 12px;"></div>
+                        </section>
                     </div>
-                    <div id="dietPlanContainer"></div>
-                </div>
-                <!-- ML Анализ -->
-                <div id="mlView" class="view">
-                    <div id="mlResult" class="ml-result">
-                        <div class="empty-state">
-                            <div class="empty-icon">🧠</div>
-                            <h3>AI-анализ состояния</h3>
-                            <p>Нажмите для анализа ваших биометрических данных</p>
-                        </div>
-                    </div>
-                    <button id="mlClassifyBtn" class="btn-floating" aria-label="Анализировать">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-4" />
-                            <path d="M12 8h.01" />
+                </main>
+                <!-- Нижний таб-бар -->
+                <nav class="tab-bar">
+                    <button class="tab active" data-view="dashboard">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                            <rect x="14" y="14" width="7" height="7" rx="1" />
                         </svg>
+                        <span>Обзор</span>
                     </button>
-                </div>
-                <!-- Админка -->
-                <div id="adminView" class="view">
-                    <h3>🔐 Панель администратора</h3>
-                    <section class="admin-section" style="margin-bottom: 24px;">
-                        <h4>Создать инвайт</h4>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <select id="newInviteRole"
-                                style="flex: 1; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                                <option value="client">Клиент</option>
-                                <option value="admin">Администратор</option>
-                            </select>
-                            <input type="number" id="newInviteMaxUses" value="1" min="1" max="100"
-                                style="width: 80px; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
-                            <button class="btn-primary" onclick="window.createNewInvite()" style="flex: 1;">
-                                Создать
-                            </button>
-                        </div>
-                    </section>
-                    <section class="admin-section">
-                        <h4>Активные инвайты</h4>
-                        <div id="invitesList" class="invites-list"
-                            style="display: flex; flex-direction: column; gap: 12px;"></div>
-                    </section>
-                </div>
-            </main>
-            <!-- Нижний таб-бар -->
-            <nav class="tab-bar">
-                <button class="tab active" data-view="dashboard">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7" rx="1" />
-                        <rect x="14" y="3" width="7" height="7" rx="1" />
-                        <rect x="3" y="14" width="7" height="7" rx="1" />
-                        <rect x="14" y="14" width="7" height="7" rx="1" />
-                    </svg>
-                    <span>Обзор</span>
-                </button>
-                <button class="tab" data-view="profile">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                    </svg>
-                    <span>Профиль</span>
-                </button>
-                <button class="tab" data-view="training">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
-                    <span>Тренировки</span>
-                </button>
-                <button class="tab" data-view="devices">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="5" y="2" width="14" height="20" rx="2" />
-                        <line x1="12" y1="18" x2="12" y2="18.01" />
-                    </svg>
-                    <span>Устройства</span>
-                </button>
-                <button class="tab" data-view="achievements">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="8" r="7" />
-                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
-                    </svg>
-                    <span>Достижения</span>
-                </button>
-                <button class="tab" data-view="diet">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 8h1a4 4 0 010 8h-1" />
-                        <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
-                        <line x1="6" y1="1" x2="6" y2="4" />
-                        <line x1="10" y1="1" x2="10" y2="4" />
-                        <line x1="14" y1="1" x2="14" y2="4" />
-                    </svg>
-                    <span>Диета</span>
-                </button>
-                <button class="tab" data-view="admin" id="adminTab" style="display: none;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    <span>Админка</span>
-                </button>
-            </nav>
+                    <button class="tab" data-view="profile">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        <span>Профиль</span>
+                    </button>
+                    <button class="tab" data-view="training">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon
+                                points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        <span>Тренировки</span>
+                    </button>
+                    <button class="tab" data-view="devices">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="5" y="2" width="14" height="20" rx="2" />
+                            <line x1="12" y1="18" x2="12" y2="18.01" />
+                        </svg>
+                        <span>Устройства</span>
+                    </button>
+                    <button class="tab" data-view="achievements">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="8" r="7" />
+                            <polyline
+                                points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                        </svg>
+                        <span>Достижения</span>
+                    </button>
+                    <button class="tab" data-view="diet">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8h1a4 4 0 010 8h-1" />
+                            <path
+                                d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
+                            <line x1="6" y1="1" x2="6" y2="4" />
+                            <line x1="10" y1="1" x2="10" y2="4" />
+                            <line x1="14" y1="1" x2="14" y2="4" />
+                        </svg>
+                        <span>Диета</span>
+                    </button>
+                    <button class="tab" data-view="admin" id="adminTab"
+                        style="display: none;">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path
+                                d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                        <span>Админка</span>
+                    </button>
+                </nav>
+            </div>
         </div>
-    </div>
-    <script src="/static/js/chart.umd.min.js"></script>
-    <script src="/static/js/api.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/modules.js"></script>
-</body>
+        <script src="/static/js/chart.umd.min.js"></script>
+        <script src="/static/js/api.js"></script>
+        <script src="/static/js/app.js"></script>
+        <script src="/static/js/modules.js"></script>
+    </body>
 
 </html>

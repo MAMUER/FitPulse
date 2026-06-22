@@ -11,6 +11,7 @@
 ## Решение
 
 Разделить метрики на два файла в пакете `internal/metrics`:
+
 - `metrics.go` — core HTTP/Prometheus метрики (`RequestsTotal`, `RequestDuration`, `ActiveRequests`, `ErrorTotal`).
 - `extended.go` — доменные метрики:
   - `ClassificationConfidence` (`model_version`, `class`)
@@ -19,21 +20,28 @@
   - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
 
 ### ML-сервисы
+
 В `cmd/classifier/main.go` и `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной классификации/генерации происходит `labels(model_version, class).set(confidence)`.
 
 ### База данных
+
 В `internal/db/db.go` после `sql.Open` запускается `sync.Once`-горутина, которая раз в 15 секунд считывает `db.Stats()` и пишет:
+
 ```text
 usage = InUse / max(MaxOpenConnections, 1)
 ```
 
 ### RabbitMQ
+
 В `internal/queue/queue.go`:
+
 - добавлен `QueueMetrics` + `registerQueueMetrics()` кэш по `(queue, priority)`;
 - `StartDepthReporter()` раз в 10 секунд через `QueueDeclarePassive` обновляет gauge глубины очереди.
 
 ### Biometric service
+
 В `cmd/biometric-service/main.go` в `AddRecord` замеряется `time.Now()` до и после INSERT, после записи вызывается:
+
 ```text
 metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(lag)
 ```

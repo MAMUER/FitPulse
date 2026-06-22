@@ -34,24 +34,28 @@
 ## Типы уязвимостей
 
 ### Критические
+
 - Удалённое выполнение кода (RCE)
 - SQL-инъекции с доступом к данным
 - Аутентификация/авторизация bypass
 - Утечка чувствительных данных (PII, пароли, токены)
 
 ### Высокие
+
 - XSS (Cross-Site Scripting)
 - CSRF (Cross-Site Request Forgery)
 - Недостатки контроля доступа
 - Небезопасная десериализация
 
 ### Средние
+
 - Missing security headers
 - Weak cryptography
 - Information disclosure
 - Session management issues
 
 ### Низкие
+
 - Missing rate limiting
 - Verbose error messages
 - Missing CSP directives
@@ -114,4 +118,4 @@
 
 ---
 
-*Последнее обновление: 2026-05-15*
+### Последнее обновление: 2026-05-15

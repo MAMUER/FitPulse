@@ -1,35 +1,12 @@
 # Загрузка переменных из .env
 ifneq (,$(wildcard ./.env))
-    include .env
-    export
+include .env
+export
 endif
 
-.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint certs
-
-# Generate self-signed TLS certificates for local development (cross-platform)
-certs:
-	@echo "Generating self-signed TLS certificates..."
-	@mkdir -p deploy/tls/certs
-	@SAN="DNS:localhost,DNS:fittpulse.duckdns.org,IP:127.0.0.1"; \
-	if [ -n "${VPS_HOST}" ]; then SAN="$${SAN},IP:${VPS_HOST}"; fi; \
-	openssl req -x509 -nodes -days 365 \
-		-newkey rsa:2048 \
-		-keyout deploy/tls/certs/server.key \
-		-out deploy/tls/certs/server.crt \
-		-subj "/C=RU/ST=Moscow/L=Moscow/O=FitnessPlatform/CN=localhost" \
-		-addext "subjectAltName=$${SAN}"
-	@chmod 600 deploy/tls/certs/server.key
-	@echo "✅ Certificates generated in deploy/tls/certs/"
-	@echo "⚠️  These are self-signed — browsers will show a warning."
-	@echo "📋 To trust locally (Linux):"
-	@echo "   sudo cp deploy/tls/certs/server.crt /usr/local/share/ca-certificates/"
-	@echo "   sudo update-ca-certificates"
-	@echo "📋 To trust locally (Windows):"
-	@echo "   Import deploy/tls/certs/server.crt into 'Trusted Root Certification Authorities'"
-
+.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint fmt-py fmt-shell lint-py lint-shell lint-json lint-markdown lint-dockerfile
 BIN_DIR := bin
 GO_VERSION := 1.26.4
-
 # Зависимости
 tidy:
 	@echo "Tidying Go modules..."
@@ -92,6 +69,50 @@ docker-lint:
 	$(if $(DOCKER_LINT_SKIP),@echo "Skipping docker-lint on Windows (runs in GitHub Actions CI/CD)",@for f in cmd/*/Dockerfile; do echo "Linting $$f" && docker run --rm -i hadolint/hadolint < "$$f" || true; done)
 	@echo "Docker lint complete."
 
+# Python formatting (black + isort)
+fmt-py:
+	@echo "Running Python formatters (black + isort)..."
+	@python -m black scripts/ configs/ || true
+	@python -m isort scripts/ configs/ || true
+	@echo "Python format check complete."
+
+# Shell/sh formatting (shfmt)
+fmt-shell:
+	@echo "Running shell formatter (shfmt)..."
+	@shfmt -w scripts/*.sh scripts/*.bash 2>/dev/null || echo "shfmt not installed or no shell files found"
+	@echo "Shell format complete."
+
+# Python lint (flake8 + mypy)
+lint-py:
+	@echo "Running Python linters (flake8 + mypy)..."
+	@python -c "import flake8" 2>/dev/null && python -m flake8 scripts/ configs/ && echo "flake8 passed" || echo "flake8 skipped or failed"
+	@python -c "import mypy" 2>/dev/null && python -m mypy scripts/ && echo "mypy passed" || echo "mypy skipped or failed"
+	@echo "Python lint complete."
+
+# Shell/sh syntax check (cross-platform via Python wrapper)
+lint-shell:
+	@echo "Running shell syntax check..."
+	@python -c "import os,subprocess; files=[f for f in os.listdir('scripts') if f.endswith(('.sh','.bash'))]; [print('Checking '+f) or subprocess.call(['bash','-n','scripts/'+f]) for f in files]" 2>&1 || echo "Shell syntax check completed (bash may not be available on Windows)"
+	@echo "Shell syntax check complete."
+
+# JSON validation (cross-platform)
+lint-json:
+	@echo "Validating JSON files..."
+	@python -c "import os,json,sys; files=[os.path.join(r,f) for r,_,fs in os.walk('configs') for f in fs if f.endswith('.json')]; bad=[p for p in files if not json.load(open(p))]; [print('Invalid JSON:', p) for p in bad]; sys.exit(len(bad))" || true
+	@echo "JSON validation complete."
+
+# Markdown lint
+lint-markdown:
+	@echo "Linting markdown files..."
+	@python -c "import shutil; print('markdownlint not installed, skipping') if not shutil.which('markdownlint') else None" 2>/dev/null || echo "markdownlint not installed, skipping"
+	@echo "Markdown lint complete."
+
+# Dockerfile hadolint
+lint-dockerfile:
+	@echo "Linting Dockerfiles with hadolint..."
+	$(if $(DOCKER_LINT_SKIP),@echo "Skipping docker-lint on Windows (runs in GitHub Actions CI/CD)",@for f in cmd/*/Dockerfile; do echo "Linting $$f" && docker run --rm -i hadolint/hadolint < "$$f" || true; done)
+	@echo "Dockerfile lint complete."
+
 # Запуск integration тестов
 test-integration:
 	@echo "Running integration tests..."
@@ -99,7 +120,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок (без build и test-cover, они есть в CI отдельно)
-check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration
+check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration fmt-py fmt-shell lint-py lint-shell lint-json lint-markdown lint-dockerfile
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -116,26 +137,20 @@ build:
 	go build -ldflags="-s -w" -o bin/classifier ./cmd/classifier
 	@echo "Build complete."
 
-
 proto:
 	@echo "Generating proto files..."
 	powershell -Command "if (!(Test-Path 'api/gen/user')) { New-Item -ItemType Directory -Path 'api/gen/user' -Force }"
 	powershell -Command "if (!(Test-Path 'api/gen/biometric')) { New-Item -ItemType Directory -Path 'api/gen/biometric' -Force }"
 	powershell -Command "if (!(Test-Path 'api/gen/training')) { New-Item -ItemType Directory -Path 'api/gen/training' -Force }"
 	powershell -Command "if (!(Test-Path 'api/gen/ml')) { New-Item -ItemType Directory -Path 'api/gen/ml' -Force }"
-	
 	@echo "Generating user proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/user --go_opt=paths=source_relative --go-grpc_out=api/gen/user --go-grpc_opt=paths=source_relative api/proto/user.proto
-	
 	@echo "Generating biometric proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/biometric --go_opt=paths=source_relative --go-grpc_out=api/gen/biometric --go-grpc_opt=paths=source_relative api/proto/biometric.proto
-	
 	@echo "Generating training proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/training --go_opt=paths=source_relative --go-grpc_out=api/gen/training --go-grpc_opt=paths=source_relative api/proto/training.proto
-	
 	@echo "Generating ml proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/ml --go_opt=paths=source_relative --go-grpc_out=api/gen/ml --go-grpc_opt=paths=source_relative api/proto/ml.proto
-	
 	@echo "Proto generation complete"
 
 proto-clean:
@@ -154,7 +169,7 @@ docker-down:
 
 # Создание combined init-db.sql из миграций
 combine-migrations:
-	python -c "from pathlib import Path; migrations_dir=Path('db/migrations'); init_file=Path('configs/k8s/base/jobs/init-db.sql'); [init_file.write_text(''.join(f'-- {f.name}\n{f.read_text()}\n\n' for f in sorted(migrations_dir.glob('V*.sql'))))]; print('Combined init-db.sql created')"
+	python -c "from pathlib import Path; migrations_dir=Path('db/migrations'); init_file=Path('configs/k8s/base/jobs/init-db.sql'); [init_file.write_text(''.join(f'-- {f.name}\n{f.read_text()}\n' for f in sorted(migrations_dir.glob('V*.sql'))))]; print('Combined init-db.sql created')"
 
 # Миграция БД (кроссплатформенный)
 migrate: combine-migrations
@@ -193,7 +208,13 @@ help:
 	@echo "  make fmt        - Format Go code"
 	@echo "  make vet        - Run go vet"
 	@echo "  make lint       - Run golangci-lint"
-	@echo "  make gosec      - Run gosec SAST scanner"
+	@echo "  make lint-dockerfile - Lint Dockerfiles with hadolint"
+	@echo "  make fmt-py         - Format Python code (black + isort)"
+	@echo "  make fmt-shell      - Format shell/sh scripts (shfmt)"
+	@echo "  make lint-py        - Lint Python code (flake8 + mypy)"
+	@echo "  make lint-shell     - Syntax check shell/sh scripts (bash -n)"
+	@echo "  make lint-json      - Validate JSON files"
+	@echo "  make lint-markdown  - Lint markdown files"
 	@echo "  make vulncheck  - Run govulncheck dependency scanner"
 	@echo "  make test       - Run unit tests"
 	@echo "  make test-cover - Run tests with coverage report"

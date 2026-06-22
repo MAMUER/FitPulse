@@ -7,6 +7,6 @@ spec:
   selector:
     app: ml-generator
   ports:
-  - port: 8002
-    targetPort: 8002
+    - port: 8002
+      targetPort: 8002
   type: ClusterIP

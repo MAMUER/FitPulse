@@ -23,33 +23,39 @@
         <input type="text" id="profileFullName" placeholder="ФИО">
         <input type="number" id="profileAge" placeholder="Возраст">
         <select id="profileGender">
-            <option value="">Пол</option>
+            <option value>Пол</option>
             <option value="male">Мужской</option>
             <option value="female">Женский</option>
         </select>
         <input type="number" id="profileHeight" placeholder="Рост (см)">
         <input type="number" id="profileWeight" placeholder="Вес (кг)">
         <select id="profileFitnessLevel">
-            <option value="">Уровень подготовки</option>
+            <option value>Уровень подготовки</option>
             <option value="beginner">Начинающий</option>
             <option value="intermediate">Средний</option>
             <option value="advanced">Продвинутый</option>
         </select>
         <input type="text" id="profileNutrition" placeholder="Питание">
-        <input type="number" id="profileSleepHours" placeholder="Часы сна" step="0.5" min="0" max="24">
+        <input type="number" id="profileSleepHours" placeholder="Часы сна"
+            step="0.5" min="0" max="24">
         <div class="checkbox-group">
             <label>Цели:</label>
             <label><input type="checkbox" value="weight_loss"> Похудение</label>
-            <label><input type="checkbox" value="muscle_gain"> Набор мышц</label>
-            <label><input type="checkbox" value="endurance"> Выносливость</label>
+            <label><input type="checkbox" value="muscle_gain"> Набор
+                мышц</label>
+            <label><input type="checkbox" value="endurance">
+                Выносливость</label>
         </div>
         <button type="submit">Сохранить</button>
     </form>
     <div class="profile-actions">
         <h2>Безопасность</h2>
-        <button type="button" id="changePasswordBtn" class="btn-secondary">Сменить пароль</button>
-        <button type="button" id="changeEmailBtn" class="btn-secondary">Сменить почту</button>
-        <button type="button" id="deleteProfileBtn" class="btn-danger">Удалить профиль</button>
+        <button type="button" id="changePasswordBtn"
+            class="btn-secondary">Сменить пароль</button>
+        <button type="button" id="changeEmailBtn" class="btn-secondary">Сменить
+            почту</button>
+        <button type="button" id="deleteProfileBtn" class="btn-danger">Удалить
+            профиль</button>
     </div>
 </main>
 <!-- Modal: Change Password -->
@@ -58,12 +64,17 @@
     <div class="modal-content">
         <h3>Смена пароля</h3>
         <form id="changePasswordForm">
-            <input type="password" id="currentPassword" placeholder="Текущий пароль" required>
-            <input type="password" id="newPassword" placeholder="Новый пароль" required>
-            <input type="password" id="confirmNewPassword" placeholder="Подтвердите новый пароль" required>
+            <input type="password" id="currentPassword"
+                placeholder="Текущий пароль" required>
+            <input type="password" id="newPassword" placeholder="Новый пароль"
+                required>
+            <input type="password" id="confirmNewPassword"
+                placeholder="Подтвердите новый пароль" required>
             <div class="modal-actions">
-                <button type="button" id="cancelChangePassword" class="btn-secondary">Отмена</button>
-                <button type="submit" class="btn-primary">Сменить пароль</button>
+                <button type="button" id="cancelChangePassword"
+                    class="btn-secondary">Отмена</button>
+                <button type="submit" class="btn-primary">Сменить
+                    пароль</button>
             </div>
         </form>
     </div>
@@ -75,10 +86,13 @@
     <div class="modal-content">
         <h3>Смена почты</h3>
         <form id="changeEmailForm">
-            <input type="email" id="newEmail" placeholder="Новая почта" required>
-            <input type="password" id="confirmEmailPassword" placeholder="Пароль для подтверждения" required>
+            <input type="email" id="newEmail" placeholder="Новая почта"
+                required>
+            <input type="password" id="confirmEmailPassword"
+                placeholder="Пароль для подтверждения" required>
             <div class="modal-actions">
-                <button type="button" id="cancelChangeEmail" class="btn-secondary">Отмена</button>
+                <button type="button" id="cancelChangeEmail"
+                    class="btn-secondary">Отмена</button>
                 <button type="submit" class="btn-primary">Сменить почту</button>
             </div>
         </form>
@@ -90,11 +104,15 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <h3>Удаление профиля</h3>
-        <p class="delete-warning">Вы уверены, что хотите удалить свой профиль? Это действие нельзя отменить.</p>
-        <input type="password" id="deleteConfirmPassword" placeholder="Введите пароль для подтверждения" required>
+        <p class="delete-warning">Вы уверены, что хотите удалить свой профиль?
+            Это действие нельзя отменить.</p>
+        <input type="password" id="deleteConfirmPassword"
+            placeholder="Введите пароль для подтверждения" required>
         <div class="modal-actions">
-            <button type="button" id="cancelDeleteProfile" class="btn-secondary">Отмена</button>
-            <button type="button" id="confirmDeleteProfile" class="btn-danger">Удалить</button>
+            <button type="button" id="cancelDeleteProfile"
+                class="btn-secondary">Отмена</button>
+            <button type="button" id="confirmDeleteProfile"
+                class="btn-danger">Удалить</button>
         </div>
     </div>
 </div>

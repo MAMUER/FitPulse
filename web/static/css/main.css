@@ -40,8 +40,15 @@ body {
 }
 
 /* ===== Screens ===== */
-.screen { display: none; }
-.screen.active { display: flex; flex-direction: column; min-height: 100dvh; }
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+}
 
 /* ===== Auth Screen ===== */
 .auth-container {
@@ -66,8 +73,15 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
 }
 
 .auth-logo h1 {
@@ -146,7 +160,9 @@ body {
     margin-top: 4px;
 }
 
-.password-hint.hidden { display: none; }
+.password-hint.hidden {
+    display: none;
+}
 
 .hint-item {
     font-size: 12px;
@@ -170,6 +186,7 @@ body {
     text-decoration: none;
     font-weight: 600;
 }
+
 .btn-primary:disabled {
     opacity: 0.4;
     pointer-events: none;
@@ -186,7 +203,9 @@ body {
     margin-top: 4px;
 }
 
-.auth-error.hidden { display: none; }
+.auth-error.hidden {
+    display: none;
+}
 
 .auth-success {
     background: rgba(48, 209, 88, 0.15);
@@ -199,7 +218,9 @@ body {
     margin-top: 4px;
 }
 
-.auth-success.hidden { display: none; }
+.auth-success.hidden {
+    display: none;
+}
 
 /* Verification screen */
 .verify-icon {
@@ -396,10 +417,21 @@ body {
     color: var(--text-tertiary);
 }
 
-.heart-rate .card-value { color: var(--accent); }
-.spo2 .card-value { color: var(--blue); }
-.sleep .card-value { color: var(--purple); }
-.bp .card-value { color: var(--orange); }
+.heart-rate .card-value {
+    color: var(--accent);
+}
+
+.spo2 .card-value {
+    color: var(--blue);
+}
+
+.sleep .card-value {
+    color: var(--purple);
+}
+
+.bp .card-value {
+    color: var(--orange);
+}
 
 /* ===== Chart Section ===== */
 .chart-section {
@@ -421,7 +453,9 @@ body {
 }
 
 /* ===== AI Section ===== */
-.ai-section { margin-bottom: 20px; }
+.ai-section {
+    margin-bottom: 20px;
+}
 
 .ai-card {
     background: linear-gradient(135deg, var(--purple), var(--blue));
@@ -454,7 +488,9 @@ body {
 }
 
 /* ===== Today Workout ===== */
-.today-section { margin-bottom: 20px; }
+.today-section {
+    margin-bottom: 20px;
+}
 
 .today-section h3 {
     font-size: 20px;
@@ -486,7 +522,9 @@ body {
     border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
 }
 
-.workout-item:last-child { border-bottom: none; }
+.workout-item:last-child {
+    border-bottom: none;
+}
 
 .workout-exercise {
     flex: 1;
@@ -499,7 +537,11 @@ body {
 }
 
 /* ===== Profile Form ===== */
-.profile-form { display: flex; flex-direction: column; gap: 20px; }
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
 
 .profile-actions {
     margin-top: 32px;
@@ -728,7 +770,11 @@ body {
 }
 
 /* ===== Training View ===== */
-.plans-list { display: flex; flex-direction: column; gap: 12px; }
+.plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
 .plan-card {
     background: var(--bg-card);
@@ -772,7 +818,9 @@ body {
 }
 
 /* ===== ML View ===== */
-.ml-result { margin-bottom: 20px; }
+.ml-result {
+    margin-bottom: 20px;
+}
 
 .ml-classification {
     background: var(--bg-card);
@@ -847,11 +895,18 @@ body {
 }
 
 /* ===== Views ===== */
-.view { display: none; }
-.view.active { display: block; }
+.view {
+    display: none;
+}
+
+.view.active {
+    display: block;
+}
 
 /* ===== Utility ===== */
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
 /* ===== Toast ===== */
 .toast {
@@ -869,17 +924,44 @@ body {
 }
 
 @keyframes slideDown {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
-.toast.success { border-left: 4px solid var(--green); }
-.toast.error { border-left: 4px solid var(--accent); }
+.toast.success {
+    border-left: 4px solid var(--green);
+}
+
+.toast.error {
+    border-left: 4px solid var(--accent);
+}
 
 /* ===== Responsive (larger screens) ===== */
 @media (min-width: 768px) {
-    .content { max-width: 480px; margin: 0 auto; }
-    .health-summary { grid-template-columns: repeat(4, 1fr); }
-    .tab-bar { max-width: 480px; left: 50%; transform: translateX(-50%); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
-    .btn-floating { right: calc(50% - 220px); }
+    .content {
+        max-width: 480px;
+        margin: 0 auto;
+    }
+
+    .health-summary {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .tab-bar {
+        max-width: 480px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    }
+
+    .btn-floating {
+        right: calc(50% - 220px);
+    }
 }

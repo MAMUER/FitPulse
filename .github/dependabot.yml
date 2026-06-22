@@ -78,7 +78,13 @@ updates:
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/cmd/gateway"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/gateway)", include: "scope" }
     labels: ["dependencies", "docker", "gateway"]
@@ -90,7 +96,13 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/user-service)", include: "scope" }
     labels: ["dependencies", "docker", "user-service"]
@@ -102,9 +114,16 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/biometric-service)", include: "scope" }
+    commit-message:
+      { prefix: "deps(docker/biometric-service)", include: "scope" }
     labels: ["dependencies", "docker", "biometric-service"]
     assignees: ["MAMUER"]
     ignore:
@@ -114,9 +133,16 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/training-service"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/training-service)", include: "scope" }
+    commit-message:
+      { prefix: "deps(docker/training-service)", include: "scope" }
     labels: ["dependencies", "docker", "training-service"]
     assignees: ["MAMUER"]
     ignore:
@@ -126,9 +152,16 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/device-connector"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/device-connector)", include: "scope" }
+    commit-message:
+      { prefix: "deps(docker/device-connector)", include: "scope" }
     labels: ["dependencies", "docker", "device-connector"]
     assignees: ["MAMUER"]
     ignore:
@@ -138,9 +171,16 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/device-aggregator)", include: "scope" }
+    commit-message:
+      { prefix: "deps(docker/device-aggregator)", include: "scope" }
     labels: ["dependencies", "docker", "device-aggregator"]
     assignees: ["MAMUER"]
     ignore:
@@ -149,7 +189,13 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/cmd/classifier"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
     labels: ["dependencies", "docker", "classifier"]
@@ -164,7 +210,13 @@ updates:
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "pip"
     directory: "/cmd/ml_generator"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
     labels: ["dependencies", "python", "ml-generator"]
@@ -203,7 +255,13 @@ updates:
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/cmd/ml_generator"
-    schedule: { interval: "weekly", day: "monday", time: "08:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
     labels: ["dependencies", "docker", "ml-generator"]
@@ -219,7 +277,13 @@ updates:
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/deployments"
-    schedule: { interval: "monthly", day: "monday", time: "09:00", timezone: "Europe/Moscow" }
+    schedule:
+      {
+        interval: "monthly",
+        day: "monday",
+        time: "09:00",
+        timezone: "Europe/Moscow",
+      }
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(k8s)", include: "scope" }
     labels: ["dependencies", "kubernetes", "automated"]

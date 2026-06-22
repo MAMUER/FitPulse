@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Подтверждение email — FitPulse</title>
-<link rel="stylesheet" href="/static/css/confirm.css">
-</head>
-<body>
-  <div class="container">
-    <h1>Подтверждение email</h1>
-    <p>Пожалуйста, подождите...</p>
-    <div class="spinner" id="spinner"></div>
-    <div class="result" id="result"></div>
-    <div class="back-link" id="backLink"><a href="/">← Вернуться ко входу</a></div>
-  </div>
-  <script src="/static/js/confirm.js" data-token="{{ .Token }}"></script>
-</body>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email — FitPulse</title>
+    <link rel="stylesheet" href="/static/css/confirm.css">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Подтверждение email</h1>
+      <p>Пожалуйста, подождите...</p>
+      <div class="spinner" id="spinner"></div>
+      <div class="result" id="result"></div>
+      <div class="back-link" id="backLink"><a href="/">← Вернуться ко
+          входу</a></div>
+    </div>
+    <script src="/static/js/confirm.js" data-token="{{ .Token }}"></script>
+  </body>
 </html>

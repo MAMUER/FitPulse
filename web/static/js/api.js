@@ -183,11 +183,11 @@ async function getBiometricRecords(metricType, from, to, limit = 100) {
 }
 
 // Training
-async function generateTrainingPlan(durationWeeks = 4, availableDays = [1,3,5], classificationClass = '', confidence = 0) {
+async function generateTrainingPlan(durationWeeks = 4, availableDays = [1, 3, 5], classificationClass = '', confidence = 0) {
     return apiRequest('/training/generate', {
         method: 'POST',
-        body: JSON.stringify({ 
-            duration_weeks: durationWeeks, 
+        body: JSON.stringify({
+            duration_weeks: durationWeeks,
             available_days: availableDays,
             class: classificationClass,
             confidence: confidence
