@@ -1,5 +1,9 @@
 /* Confirm email page styles — dark theme */
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 body {
   background-color: #0d1117;
@@ -27,7 +31,7 @@ body {
   font-size: 20px;
 }
 
-.container > p {
+.container>p {
   font-size: 15px;
   color: #8b949e;
   margin-bottom: 20px;
@@ -43,7 +47,11 @@ body {
   margin: 24px auto;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .result {
   display: none;

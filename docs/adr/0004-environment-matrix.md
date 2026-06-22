@@ -14,6 +14,7 @@
 - **Prod**: production с высокой доступностью, безопасностью и соответствием требованиям.
 
 Ключевые параметры:
+
 - K8s подов на сервис (1 → 2 → 3 → 5+ с HPA)
 - PostgreSQL топология (один инстанс → primary+replica → primary+2 replicas → primary+3 replicas с sync/async)
 - Redis топология (single node → Sentinel → Cluster mode)

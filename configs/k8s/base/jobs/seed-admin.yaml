@@ -66,14 +66,14 @@ spec:
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
               export SEED_ADMIN_EMAIL=$(cat /etc/secrets/SEED_ADMIN_EMAIL)
               export SEED_ADMIN_PASSWORD=$(cat /etc/secrets/SEED_ADMIN_PASSWORD)
-              
+
               echo "=== FitPulse Admin Seed ==="
               echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               echo "Email: ${SEED_ADMIN_EMAIL}"
               echo "DB Host: ${DB_HOST:-postgres-service}"
               echo "DB Port: ${DB_PORT:-5432}"
               echo "DB Name: ${POSTGRES_DB}"
-              
+
               # === Wait for PostgreSQL ready ===
               echo "-> Waiting for PostgreSQL to accept connections..."
               for i in $(seq 1 30); do
@@ -86,7 +86,7 @@ spec:
                 echo "  Attempt $i/30: PostgreSQL not ready yet, waiting 5s..."
                 sleep 5
               done
-              
+
               # Final connection test
               if ! PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                   -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
@@ -94,36 +94,36 @@ spec:
                 echo "❌ Cannot connect to database after retries"
                 exit 1
               fi
-              
+
               # Check if admin already exists (idempotent)
               echo "-> Checking if admin exists..."
               EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
                 "SELECT COUNT(*) FROM users WHERE email = '${SEED_ADMIN_EMAIL}'" 2>/dev/null || echo "0")
-              
+
               if [ "${EXISTING:-0}" != "0" ]; then
                 echo "✅ Admin user already exists: ${SEED_ADMIN_EMAIL}"
                 exit 0
               fi
-              
+
               # Generate bcrypt hash using pgcrypto
               echo "-> Generating password hash..."
               HASH=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
                 "SELECT crypt('${SEED_ADMIN_PASSWORD}', gen_salt('bf', 10))" 2>/dev/null)
-              
+
               if [ -z "${HASH}" ]; then
                 echo "❌ Failed to generate password hash (is pgcrypto extension installed?)"
                 exit 1
               fi
               echo "Hash generated"
-              
+
               # Create admin user
               echo "-> Creating admin user..."
               PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
               BEGIN;
-              
+
               INSERT INTO users (id, email, password_hash, full_name, role, email_confirmed, created_at, updated_at)
               VALUES (
                 gen_random_uuid(),
@@ -135,11 +135,11 @@ spec:
                 NOW(),
                 NOW()
               );
-              
+
               INSERT INTO user_profiles (user_id)
               SELECT id FROM users WHERE email = '${SEED_ADMIN_EMAIL}'
               ON CONFLICT (user_id) DO NOTHING;
-              
+
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT 
                 'INVITE-' || substr(md5(random()::text || i::text), 1, 8),
@@ -151,12 +151,12 @@ spec:
               WHERE NOT EXISTS (
                 SELECT 1 FROM invite_codes WHERE code LIKE 'INVITE-%'
               );
-              
+
               COMMIT;
-              
+
               SELECT 'Admin created: ' || email FROM users WHERE email = '${SEED_ADMIN_EMAIL}';
               EOF
-              
+
               echo "✅ Admin user created successfully"
           volumeMounts:
             - name: secrets

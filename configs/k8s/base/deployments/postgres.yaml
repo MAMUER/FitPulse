@@ -54,6 +54,9 @@ spec:
             secretName: app-secrets
         - name: tmp
           emptyDir: {}
+        - name: postgres-config
+          configMap:
+            name: postgres-config
       initContainers:
         - name: fix-permissions
           image: postgres:15-alpine
@@ -67,14 +70,20 @@ spec:
             runAsNonRoot: false
             runAsUser: 0
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             readOnlyRootFilesystem: false
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
             - name: tmp
               mountPath: /var/run/postgresql
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "16Mi"
+            limits:
+              cpu: "25m"
+              memory: "32Mi"
       containers:
         - name: postgres
           image: postgres:15-alpine
@@ -86,21 +95,9 @@ spec:
             runAsNonRoot: true
             runAsUser: 999
             runAsGroup: 999
-            readOnlyRootFilesystem: true   # <--- возвращено для соответствия правилу C-0017
+            readOnlyRootFilesystem: true
             capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          env:
-            - name: POSTGRES_USER_FILE
-              value: "/etc/secrets/POSTGRES_USER"
-            - name: POSTGRES_PASSWORD_FILE
-              value: "/etc/secrets/POSTGRES_PASSWORD"
-            - name: POSTGRES_DB_FILE
-              value: "/etc/secrets/POSTGRES_DB"
-            - name: POSTGRES_INITDB_ARGS
-              value: "--locale=en_US.utf8"
+              drop: ["ALL"]
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
@@ -111,25 +108,45 @@ spec:
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
+            - name: postgres-config
+              mountPath: /etc/postgresql
+              readOnly: true
+          env:
+            - name: POSTGRES_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
+            - name: POSTGRES_PASSWORD_FILE
+              value: "/etc/secrets/POSTGRES_PASSWORD"
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
+            - name: POSTGRES_INITDB_ARGS
+              value: "--locale=en_US.utf8"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
           resources:
             requests:
-              memory: "128Mi"
+              memory: "96Mi"
               cpu: "50m"
             limits:
-              memory: "256Mi"
+              memory: "192Mi"
               cpu: "200m"
           livenessProbe:
-            tcpSocket:
-              port: 5432
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h "${DB_HOST:-localhost}" -p 5432 -U "${POSTGRES_USER:-postgres}"
             initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
-            tcpSocket:
-              port: 5432
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h "${DB_HOST:-localhost}" -p 5432 -U "${POSTGRES_USER:-postgres}"
             initialDelaySeconds: 10
-            periodSeconds: 5
+            periodSeconds: 10
             timeoutSeconds: 5
   volumeClaimTemplates:
     - metadata:
@@ -139,4 +156,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 5Gi
+            storage: 2Gi

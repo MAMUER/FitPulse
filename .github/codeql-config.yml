@@ -10,19 +10,19 @@ paths:
 
 # Пути для игнорирования
 paths-ignore:
-  - '**/*.pb.go'
-  - '**/*_test.go'
-  - '**/vendor/**'
-  - '**/node_modules/**'
-  - '**/*.min.js'
-  - '**/testdata/**'
-  - '**/mocks/**'
-  - '**/generated/**'
-  - 'api/gen/**'
-  - 'bin/**'
-  - 'coverage/**'
-  - 'datasets/**'
-  - 'models/**'
+  - "**/*.pb.go"
+  - "**/*_test.go"
+  - "**/vendor/**"
+  - "**/node_modules/**"
+  - "**/*.min.js"
+  - "**/testdata/**"
+  - "**/mocks/**"
+  - "**/generated/**"
+  - "api/gen/**"
+  - "bin/**"
+  - "coverage/**"
+  - "datasets/**"
+  - "models/**"
 
 # Дополнительные запросы для расширенного анализа
 queries:

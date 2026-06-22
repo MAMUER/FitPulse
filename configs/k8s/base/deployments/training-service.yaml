@@ -9,13 +9,12 @@ metadata:
     environment: production
     app.kubernetes.io/name: training-service
     app.kubernetes.io/instance: training-service
-    app.kubernetes.io/component: training
+    app.kubernetes.io/component: api
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "latest"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: training-service
@@ -24,21 +23,25 @@ spec:
       labels:
         app: training-service
         zone: app-zone
+        environment: production
         app.kubernetes.io/name: training-service
         app.kubernetes.io/instance: training-service
-        app.kubernetes.io/component: training
+        app.kubernetes.io/component: api
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "latest"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
+        runAsUser: 1000
+        runAsGroup: 1000
         readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -48,23 +51,32 @@ spec:
         - name: secrets
           secret:
             secretName: app-secrets
+            items:
+              - key: POSTGRES_USER
+                path: POSTGRES_USER
+              - key: POSTGRES_PASSWORD
+                path: POSTGRES_PASSWORD
+              - key: POSTGRES_DB
+                path: POSTGRES_DB
+              - key: RABBITMQ_URL
+                path: RABBITMQ_URL
+              - key: REDIS_PASSWORD
+                path: REDIS_PASSWORD
       containers:
         - name: training-service
           image: ghcr.io/mamuer/project/training-service:latest
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1001
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
           ports:
-            - containerPort: 50053
-              name: grpc
+            - containerPort: 8083
+              name: http
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -93,37 +105,41 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: DB_SSLMODE
-            - name: TRAINING_SERVICE_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: TRAINING_SERVICE_PORT
             - name: REDIS_HOST
               value: "redis"
             - name: REDIS_PASSWORD_FILE
               value: "/etc/secrets/REDIS_PASSWORD"
-            - name: ML_ASYNC
-              value: "false"
-            - name: CLASSIFIER_URL
-              value: "http://classifier:8001"
-            - name: ML_GENERATOR_URL
-              value: "http://ml-generator:8002"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: ML_GENERATOR_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ML_GENERATOR_HOST
+            - name: ML_GENERATOR_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ML_GENERATOR_PORT
           livenessProbe:
-            tcpSocket:
-              port: 50053
+            httpGet:
+              path: /health
+              port: 8083
             initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
-            tcpSocket:
-              port: 50053
-            initialDelaySeconds: 15
-            periodSeconds: 5
+            httpGet:
+              path: /health
+              port: 8083
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "100m"
+              cpu: "10m"
+              memory: "32Mi"
             limits:
-              memory: "128Mi"
-              cpu: "200m"
+              cpu: "100m"
+              memory: "64Mi"

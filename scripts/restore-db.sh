@@ -5,18 +5,18 @@ BACKUP_KEY="${BACKUP_KEY:-}"
 BACKUP_FILE="${1:-}"
 
 if [[ -z "$BACKUP_KEY" ]]; then
-	echo "ERROR: BACKUP_KEY environment variable must be set"
-	exit 1
+    echo "ERROR: BACKUP_KEY environment variable must be set"
+    exit 1
 fi
 
 if [[ -z "$BACKUP_FILE" ]]; then
-	echo "Usage: $0 <encrypted-backup-file>"
-	exit 1
+    echo "Usage: $0 <encrypted-backup-file>"
+    exit 1
 fi
 
 if [[ ! -f "$BACKUP_FILE" ]]; then
-	echo "ERROR: backup file not found: $BACKUP_FILE"
-	exit 1
+    echo "ERROR: backup file not found: $BACKUP_FILE"
+    exit 1
 fi
 
 DECRYPTED_FILE="$(mktemp --suffix=.dump)"

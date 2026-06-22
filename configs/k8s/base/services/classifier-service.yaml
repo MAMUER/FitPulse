@@ -7,6 +7,6 @@ spec:
   selector:
     app: classifier
   ports:
-  - port: 8001
-    targetPort: 8001
+    - port: 8001
+      targetPort: 8001
   type: ClusterIP

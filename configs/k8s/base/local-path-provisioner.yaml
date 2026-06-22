@@ -25,7 +25,6 @@ rules:
         "configmaps",
         "events",
         "pods",
-        "pods/log",
       ]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
@@ -68,31 +67,15 @@ data:
     metadata:
       name: helper-pod
     spec:
-      restartPolicy: Never
       priorityClassName: system-node-critical
       tolerations:
-      - key: node.kubernetes.io/disk-pressure
-        operator: Exists
-        effect: NoSchedule
-      - key: node-role.kubernetes.io/master
-        operator: Exists
-        effect: NoSchedule
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
       containers:
-      - name: helper-pod
-        image: busybox:1.36.1
-        imagePullPolicy: IfNotPresent
-  setup: |
-    #!/bin/sh
-    set -e
-    echo "Setting up volume $VOL_DIR on node $NODE_NAME"
-    mkdir -p "$VOL_DIR"
-  teardown: |
-     #!/bin/sh
-     set -e
-     rm -rf "$VOL_DIR"
+        - name: helper-pod
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -125,11 +108,11 @@ spec:
             - /etc/local-path-config/helperPod.yaml
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: "5m"
+              memory: "16Mi"
             limits:
-              cpu: 200m
-              memory: 128Mi
+              cpu: "50m"
+              memory: "32Mi"
           volumeMounts:
             - name: local-path-config
               mountPath: /etc/local-path-config

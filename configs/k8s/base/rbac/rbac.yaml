@@ -3,23 +3,21 @@ kind: Role
 metadata:
   name: app-service-role
 rules:
-- apiGroups: [""]
-  resources: ["configmaps", "secrets"]
-  verbs: ["get"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: app-service-rolebinding
 subjects:
-- kind: ServiceAccount
-  name: app-service-account
+  - kind: ServiceAccount
+    name: app-service-account
 roleRef:
   kind: Role
   name: app-service-role
   apiGroup: rbac.authorization.k8s.io
-
-

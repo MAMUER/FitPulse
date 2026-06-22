@@ -68,11 +68,19 @@ Examples:
   python scripts/load-test.py --base-url http://localhost:8080 --insecure
         """,
     )
-    parser.add_argument("--base-url", default="https://localhost:8443", help="API base URL")
-    parser.add_argument("--duration", default="8m", help="Test duration (e.g. 1m, 5m, 30s)")
-    parser.add_argument("--vus", type=int, default=50, help="Max number of virtual users")
+    parser.add_argument(
+        "--base-url", default="https://localhost:8443", help="API base URL"
+    )
+    parser.add_argument(
+        "--duration", default="8m", help="Test duration (e.g. 1m, 5m, 30s)"
+    )
+    parser.add_argument(
+        "--vus", type=int, default=50, help="Max number of virtual users"
+    )
     parser.add_argument("--insecure", action="store_true", help="Skip TLS verification")
-    parser.add_argument("--output", default="results.json", help="Output file for results")
+    parser.add_argument(
+        "--output", default="results.json", help="Output file for results"
+    )
     args = parser.parse_args()
 
     # Check k6
@@ -94,7 +102,9 @@ Examples:
 
     if not k6_path:
         print(f"{RED}k6 not found in PATH or common locations!{RESET}")
-        print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}")
+        print(
+            f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}"
+        )
         print(f"Or download and place in one of: {', '.join(common_paths)}{RESET}\n")
         sys.exit(1)
 
@@ -142,7 +152,9 @@ Examples:
                 print_results(args.output)
             print()
         else:
-            print(f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
+            print(
+                f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n"
+            )
             sys.exit(result.returncode)
 
     except subprocess.TimeoutExpired:

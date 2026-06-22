@@ -7,6 +7,6 @@ spec:
   selector:
     app: user-service
   ports:
-  - port: 50051
-    targetPort: 50051
+    - port: 50051
+      targetPort: 50051
   type: ClusterIP

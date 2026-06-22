@@ -44,7 +44,9 @@ class TestRunner:
         except ValueError:
             port = None
         self.port = (
-            port if port is not None else (443 if self.parsed_base_url.scheme == "https" else 80)
+            port
+            if port is not None
+            else (443 if self.parsed_base_url.scheme == "https" else 80)
         )
         self.path_prefix = self.parsed_base_url.path.rstrip("/")
         self.invalid_base_url = (
@@ -107,7 +109,9 @@ class TestRunner:
         num = self.passed + self.failed + self.skipped + 1
         print(f"  [{num}] {name} ", end="", flush=True)
 
-        status, resp_body = self.request(method, path, body, token=token, expected_status=expected)
+        status, resp_body = self.request(
+            method, path, body, token=token, expected_status=expected
+        )
 
         if status is None:
             print(f"{RED}ERROR (connection){RESET}")
@@ -321,12 +325,16 @@ def main():
     # 5. Training
     section("5. TRAINING")
     t.test("Get Plans", "GET", "/api/v1/training/plans", token=t.token, expected=200)
-    t.test("Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200)
+    t.test(
+        "Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200
+    )
 
     # 6. ML
     section("6. ML")
     # ML может вернуть 202 (async job) или 200 (sync result)
-    ml_resp = t.test("ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200)
+    ml_resp = t.test(
+        "ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200
+    )
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 

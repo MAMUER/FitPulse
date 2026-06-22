@@ -20,6 +20,7 @@ requirements:
 ```
 
 **Конфигурация**:
+
 - Replicated queues: `x-ha-policy: all` для отказоустойчивости
 - DLQ: `<queue-name>.dlq` для анализа ошибок
 - TTL на сообщениях: 24 часа для сообщений уведомлений
@@ -41,6 +42,7 @@ requirements:
 ```
 
 **JSON-формат логов (обязательный)**:
+
 ```json
 {
   "timestamp": "2026-04-02T14:30:00Z",
@@ -156,6 +158,7 @@ prometheus_metrics:
 |`LowMLConfidence`|`classification_confidence < 0.7` за 15 мин|Slack|
 
 **Политика эскалации**:
+
 - `SEV-1`: немедленно → PagerDuty → on-call engineer → Tech Lead → CTO
 - `SEV-2`: 15 мин → Slack → on-call engineer → Tech Lead
 - `SEV-3`: 1 час → Slack → on-call engineer
@@ -212,11 +215,13 @@ verification:
 ### 4.3 Шифрование
 
 **At rest**:
+
 - PostgreSQL: TDE (Transparent Data Encryption) или pgcrypto для чувствительных полей
 - Volumes: шифрование через KMS (AWS KMS / HashiCorp Vault Transit)
 - Secrets: только в Vault, никогда в ConfigMap/etcd в открытом виде
 
 **In transit**:
+
 - TLS 1.3 минимум для всех внешних эндпоинтов
 - mTLS для gRPC-коммуникации между микросервисами (istio/linkerd)
 - Certificate pinning для мобильных клиентов
@@ -229,6 +234,7 @@ verification:
 |Snyk|Интеграция в CI/CD, блокировка мержа при critical CVE|
 
 **Политики**:
+
 - Critical CVE: патч в течение 24 часов
 - High CVE: патч в течение 7 дней
 - Запрет на использование пакетов с известными уязвимостями (blacklist)
@@ -256,10 +262,12 @@ verification:
 ### 4.6 WAF (Web Application Firewall)
 
 **Опции**:
+
 - Nginx + ModSecurity (open-source, CRS ruleset)
 - AWS WAF / Cloudflare (managed rules + custom)
 
 **Правила**:
+
 - SQL injection, XSS, path traversal блокировка
 - Rate limiting: 100 req/min per IP для анонимных пользователей
 - Geo-blocking: доступ только из разрешённых регионов (опционально)
@@ -284,12 +292,14 @@ verification:
 ### 5.1 Девять этапов релиза
 
 #### Этап 1: Разработка (Development)
+
 - Ветка: `feature/*`
 - Действия:
   - Разработка в изолированной ветке
   - Pre-commit hooks: lint, format, secret scan
 
 #### Этап 2: Code Review
+
 - Требования:
   - Minimum 2 approving reviews
   - SAST scan: SonarQube (quality gate: no critical issues)
@@ -298,6 +308,7 @@ verification:
   - Approved PR с changelog
 
 #### Этап 3: CI Build
+
 - Jobs:
   - Unit tests (coverage ≥95%)
   - Integration tests (TestContainers)
@@ -307,6 +318,7 @@ verification:
 - Output: Immutable image tag: `sha256:abc123`
 
 #### Этап 4: Deploy Test
+
 - Environment: `test`
 - Automation: fully automated
 - Verification:
@@ -314,6 +326,7 @@ verification:
   - API contract validation
 
 #### Этап 5: Deploy Production
+
 - Environment: `production`
 - Действия:
   - UAT: тестирование продуктовой командой
@@ -323,6 +336,7 @@ verification:
 - Approval: Product Owner + Tech Lead sign-off
 
 #### Этап 6: Release Candidate
+
 - Артефакты:
   - Git tag: `v2.1.0-rc1`
   - Changelog: auto-generated + manual review
@@ -332,6 +346,7 @@ verification:
 #### Этап 7: Deploy Production (Canary + Rolling)
 
 **Canary фаза**:
+
 ```yaml
 traffic: "10%"
 duration: "1 hour"
@@ -343,6 +358,7 @@ success_criteria:
 ```
 
 **Rolling фаза**:
+
 ```yaml
 batches: "30% → 60% → 100%"
 interval: "30 minutes между батчами"
@@ -350,6 +366,7 @@ health_check: "readiness probe + synthetic transactions"
 ```
 
 #### Этап 8: Post-Deploy Monitoring
+
 - Duration: 24 hours
 - Metrics watch:
   - Error rate (per endpoint)
@@ -361,12 +378,14 @@ health_check: "readiness probe + synthetic transactions"
 #### Этап 9: Автоматический откат (Rollback Trigger)
 
 **Откат срабатывает при**:
+
 - Error rate > 5% в течение 15 минут
 - p95 latency > 10s в течение 15 минут
 - Critical security vulnerability обнаружена
 - Data loss > 0.1%
 
 **Команды**:
+
 ```bash
 # Kubernetes
 kubectl rollout undo deployment/fitness-api -n prod
@@ -419,6 +438,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 **Требование**: 0 critical vulnerabilities после penetration test
 
 **Процесс**:
+
 - Ежеквартальный внешний пентест
 - Ежемесячный внутренний скан (OWASP ZAP)
 - Remediation SLA: critical 24h, high 7d
@@ -428,12 +448,14 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 **Требование**: Полное соответствие 152-ФЗ (персональные данные)
 
 **Реализация**:
+
 - Хранение ПДн только на территории РФ (Yandex Cloud / Selectel)
 - Шифрование ПДн в покое и при передаче
 - Механизм выполнения прав субъекта ПДн (удаление, экспорт)
 - Регистрация в Роскомнадзоре (оператор ПДн)
 
 **Проверка**:
+
 - Ежегодный аудит на соответствие 152-ФЗ
 - DPIA (Data Protection Impact Assessment) для новых фич
 
@@ -442,6 +464,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 **Требование**: Актуальная документация в репозитории
 
 **Обязательные документы**:
+
 - Architecture Decision Records (ADR)
 - Runbook для эксплуатации
 - Incident Response Playbook
@@ -454,17 +477,20 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 ## 7. Контрольный список проверки архитектуры
 
 ### Инфраструктура
+
 - [ ] Матрица окружений применена ко всем компонентам
 - [ ] RabbitMQ настроен с persistent queues и DLQ
 - [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
 - [ ] Prometheus: service discovery, recording rules, Alertmanager
 
 ### Наблюдаемость
+
 - [ ] Все сервисы логируют в обязательном JSON-формате
 - [ ] Реализованы 6 обязательных Prometheus-метрик
 - [ ] Настроены алерты с эскалацией по уровням SEV
 
 ### Безопасность
+
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
 - [ ] Шифрование: TDE/БД, KMS/volumes, Vault/secrets
@@ -473,11 +499,13 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [ ] Secrets rotation: 90 дней, автоматизировано через Vault
 
 ### Релизный процесс
+
 - [ ] Пайплайн включает все 9 этапов
 - [ ] Canary-деплой с критериями успеха/отката
 - [ ] Автоматический rollback при error rate > 5% или p95 > 10s
 
 ### Приемка
+
 - [ ] Определены метрики для 99.9% availability
 - [ ] Настроены нагрузочные тесты для проверки p95 < 5s
 - [ ] План Chaos Engineering для проверки восстановления < 5 мин
@@ -485,6 +513,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [ ] Реализованы механизмы соответствия 152-ФЗ
 
 ### Документация
+
 - [ ] ADR для всех архитектурных решений
 - [ ] Runbook для эксплуатации и отката
 - [ ] OpenAPI-спецификация актуальна и покрыта тестами

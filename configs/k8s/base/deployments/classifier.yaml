@@ -11,7 +11,6 @@ metadata:
     app.kubernetes.io/instance: classifier
     app.kubernetes.io/component: ml
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "latest"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
@@ -19,29 +18,30 @@ spec:
   selector:
     matchLabels:
       app: classifier
-      tier: ml
   template:
     metadata:
       labels:
         app: classifier
-        tier: ml
         zone: app-zone
+        environment: production
         app.kubernetes.io/name: classifier
         app.kubernetes.io/instance: classifier
         app.kubernetes.io/component: ml
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "latest"
         app.kubernetes.io/managed-by: kustomize
-        environment: production
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
+        runAsUser: 1000
+        runAsGroup: 1000
         readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -54,13 +54,10 @@ spec:
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1001
-            runAsGroup: 1001
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
           ports:
@@ -79,20 +76,21 @@ spec:
             httpGet:
               path: /health
               port: 8001
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 10
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 8001
-            initialDelaySeconds: 15
-            periodSeconds: 5
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "100m"
+              cpu: "50m"
+              memory: "128Mi"
             limits:
-              memory: "256Mi"
-              cpu: "500m"
+              cpu: "300m"
+              memory: "384Mi"

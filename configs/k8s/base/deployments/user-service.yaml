@@ -9,39 +9,39 @@ metadata:
     environment: production
     app.kubernetes.io/name: user-service
     app.kubernetes.io/instance: user-service
-    app.kubernetes.io/component: user
+    app.kubernetes.io/component: api
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "latest"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: user-service
-      tier: backend
   template:
     metadata:
       labels:
         app: user-service
-        tier: backend
         zone: app-zone
         environment: production
         app.kubernetes.io/name: user-service
         app.kubernetes.io/instance: user-service
-        app.kubernetes.io/component: user
+        app.kubernetes.io/component: api
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "latest"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
+        runAsUser: 1000
+        runAsGroup: 1000
         readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -51,24 +51,68 @@ spec:
         - name: secrets
           secret:
             secretName: app-secrets
+            items:
+              - key: POSTGRES_USER
+                path: POSTGRES_USER
+              - key: POSTGRES_PASSWORD
+                path: POSTGRES_PASSWORD
+              - key: POSTGRES_DB
+                path: POSTGRES_DB
+              - key: JWT_SECRET
+                path: JWT_SECRET
+              - key: RABBITMQ_URL
+                path: RABBITMQ_URL
+              - key: REDIS_PASSWORD
+                path: REDIS_PASSWORD
+              - key: SMTP_HOST
+                path: SMTP_HOST
+              - key: SMTP_PORT
+                path: SMTP_PORT
+              - key: SMTP_USER
+                path: SMTP_USER
+              - key: SMTP_PASSWORD
+                path: SMTP_PASSWORD
+              - key: SMTP_FROM
+                path: SMTP_FROM
+              - key: APP_BASE_URL
+                path: APP_BASE_URL
+              - key: FITBIT_CLIENT_ID
+                path: FITBIT_CLIENT_ID
+              - key: FITBIT_CLIENT_SECRET
+                path: FITBIT_CLIENT_SECRET
+              - key: FITBIT_REDIRECT_URI
+                path: FITBIT_REDIRECT_URI
+              - key: FITBIT_VERIFIER_SECRET
+                path: FITBIT_VERIFIER_SECRET
+              - key: WITHINGS_CLIENT_ID
+                path: WITHINGS_CLIENT_ID
+              - key: WITHINGS_CLIENT_SECRET
+                path: WITHINGS_CLIENT_SECRET
+              - key: WITHINGS_REDIRECT_URI
+                path: WITHINGS_REDIRECT_URI
+              - key: GOOGLE_CLIENT_ID
+                path: GOOGLE_CLIENT_ID
+              - key: GOOGLE_CLIENT_SECRET
+                path: GOOGLE_CLIENT_SECRET
+              - key: GOOGLE_REDIRECT_URL
+                path: GOOGLE_REDIRECT_URL
+              - key: TOTP_ENCRYPTION_KEY
+                path: TOTP_ENCRYPTION_KEY
       containers:
         - name: user-service
           image: ghcr.io/mamuer/project/user-service:latest
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1001
-            runAsGroup: 1001
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
           ports:
-            - containerPort: 50051
-              name: grpc
+            - containerPort: 8081
+              name: http
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -97,21 +141,14 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: DB_SSLMODE
-            - name: USER_SERVICE_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: USER_SERVICE_PORT
             - name: JWT_SECRET_FILE
               value: "/etc/secrets/JWT_SECRET"
-            - name: TOTP_ENCRYPTION_KEY_FILE
-              value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
+            - name: RABBITMQ_URL_FILE
+              value: "/etc/secrets/RABBITMQ_URL"
             - name: REDIS_HOST
               value: "redis"
             - name: REDIS_PASSWORD_FILE
               value: "/etc/secrets/REDIS_PASSWORD"
-            - name: RABBITMQ_URL_FILE
-              value: "/etc/secrets/RABBITMQ_URL"
             - name: SMTP_HOST_FILE
               value: "/etc/secrets/SMTP_HOST"
             - name: SMTP_PORT_FILE
@@ -122,24 +159,49 @@ spec:
               value: "/etc/secrets/SMTP_PASSWORD"
             - name: SMTP_FROM_FILE
               value: "/etc/secrets/SMTP_FROM"
-            - name: SMTP_TLS
-              value: "true"
             - name: APP_BASE_URL_FILE
               value: "/etc/secrets/APP_BASE_URL"
+            - name: FITBIT_CLIENT_ID_FILE
+              value: "/etc/secrets/FITBIT_CLIENT_ID"
+            - name: FITBIT_CLIENT_SECRET_FILE
+              value: "/etc/secrets/FITBIT_CLIENT_SECRET"
+            - name: FITBIT_REDIRECT_URI_FILE
+              value: "/etc/secrets/FITBIT_REDIRECT_URI"
+            - name: FITBIT_VERIFIER_SECRET_FILE
+              value: "/etc/secrets/FITBIT_VERIFIER_SECRET"
+            - name: WITHINGS_CLIENT_ID_FILE
+              value: "/etc/secrets/WITHINGS_CLIENT_ID"
+            - name: WITHINGS_CLIENT_SECRET_FILE
+              value: "/etc/secrets/WITHINGS_CLIENT_SECRET"
+            - name: WITHINGS_REDIRECT_URI_FILE
+              value: "/etc/secrets/WITHINGS_REDIRECT_URI"
+            - name: GOOGLE_CLIENT_ID_FILE
+              value: "/etc/secrets/GOOGLE_CLIENT_ID"
+            - name: GOOGLE_CLIENT_SECRET_FILE
+              value: "/etc/secrets/GOOGLE_CLIENT_SECRET"
+            - name: GOOGLE_REDIRECT_URL_FILE
+              value: "/etc/secrets/GOOGLE_REDIRECT_URL"
+            - name: TOTP_ENCRYPTION_KEY_FILE
+              value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
           livenessProbe:
-            tcpSocket:
-              port: 50051
+            httpGet:
+              path: /health
+              port: 8081
             initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
-            tcpSocket:
-              port: 50051
-            initialDelaySeconds: 15
-            periodSeconds: 5
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "100m"
+              cpu: "10m"
+              memory: "32Mi"
             limits:
-              memory: "128Mi"
-              cpu: "200m"
+              cpu: "100m"
+              memory: "64Mi"
