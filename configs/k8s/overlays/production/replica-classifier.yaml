@@ -1,7 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: classifier
-  namespace: fitness-platform-production
-spec:
-  replicas: 1
