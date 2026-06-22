@@ -1323,7 +1323,6 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /var/lib/rancher/k3s/server/manifests"
           ./scripts/ssh-retry.sh scp configs/k8s/base/traefik-config.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/traefik-config.yaml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mv /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml && sudo chmod 644 /var/lib/rancher/k3s/server/manifests/traefik-config.yaml"
-          echo "✅ Traefik config uploaded. K3s will apply it on startup."
       - name: Ensure Let's Encrypt certificate exists
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1415,35 +1414,59 @@ jobs:
 
       - name: Setup Postgres automated backups
         run: |
+          # 1. Безопасная передача секрета на VPS (избегаем проблем с экранированием кавычек)
+          if [ -n "${{ secrets.BACKUP_KEY }}" ]; then
+            # Сохраняем в локальный временный файл
+            echo -n "${{ secrets.BACKUP_KEY }}" > /tmp/backup.key
+            chmod 600 /tmp/backup.key
+            
+            # Создаем директорию на VPS и копируем ключ по SSH
+            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /etc/fitpulse"
+            ./scripts/ssh-retry.sh scp /tmp/backup.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/backup.key"
+            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+              sudo mv /tmp/backup.key /etc/fitpulse/backup.key
+              sudo chmod 600 /etc/fitpulse/backup.key
+              sudo chown root:root /etc/fitpulse/backup.key
+              echo '✅ Backup key saved securely to /etc/fitpulse/backup.key'
+            "
+            rm -f /tmp/backup.key
+          else
+            echo "⚠️ BACKUP_KEY secret is not set in GitHub. Backups will NOT be encrypted."
+            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo rm -f /etc/fitpulse/backup.key || true"
+          fi
+
+          # 2. Деплой самого скрипта бэкапа (уже БЕЗ hardcoded секретов)
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '-> Setting up Postgres backups...'
             sudo mkdir -p /opt/fitpulse/backups
             cat <<'BACKUP_EOF' | sudo tee /usr/local/bin/backup-postgres.sh > /dev/null
           #!/bin/bash
           set -euo pipefail
           BACKUP_DIR='/opt/fitpulse/backups'
+          KEY_FILE='/etc/fitpulse/backup.key'
           mkdir -p \"\$BACKUP_DIR\"
           DATE=\$(date +%Y%m%d_%H%M%S)
           FILENAME=\"\$BACKUP_DIR/fitness_\$DATE.dump\"
           ENCRYPTED=\"\$FILENAME.enc\"
 
-          # Dump from inside the pod (since Postgres is running in k3s without NodePort)
+          # Dump from inside the pod
           /usr/local/bin/k3s kubectl exec -n fitness-platform-production postgres-0 -- \
             pg_dump -U postgres -d fitness -F c > \"\$FILENAME\"
 
-          # Encrypt using logic from scripts/backup-db.sh if BACKUP_KEY is provided
-          if [ -n \"${{ secrets.BACKUP_KEY }}\" ]; then
-            openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:'${{ secrets.BACKUP_KEY }}' -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
+          # Encrypt if key file exists
+          if [ -f \"\$KEY_FILE\" ] && [ -s \"\$KEY_FILE\" ]; then
+            openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:\"\$KEY_FILE\" -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
             rm -f \"\$FILENAME\"
             echo \"Encrypted backup created: \$ENCRYPTED\"
           else
-            echo \"Backup created: \$FILENAME (unencrypted)\"
+            echo \"Backup created (unencrypted): \$FILENAME\"
           fi
 
           # Cleanup old backups (keep last 7 days)
           find \"\$BACKUP_DIR\" -type f -mtime +7 -delete
           BACKUP_EOF
             sudo chmod +x /usr/local/bin/backup-postgres.sh
+            
+            # Setup cron job
             (sudo crontab -l 2>/dev/null | grep -v backup-postgres; echo '0 2 * * * /usr/local/bin/backup-postgres.sh >> /var/log/backup-postgres.log 2>&1') | sudo crontab -
             echo '✅ Postgres backups configured (daily at 2 AM)'
           "

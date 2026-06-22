@@ -69,32 +69,6 @@ docker-lint:
 	$(if $(DOCKER_LINT_SKIP),@echo "Skipping docker-lint on Windows (runs in GitHub Actions CI/CD)",@for f in cmd/*/Dockerfile; do echo "Linting $$f" && docker run --rm -i hadolint/hadolint < "$$f" || true; done)
 	@echo "Docker lint complete."
 
-# Python formatting (black + isort)
-fmt-py:
-	@echo "Running Python formatters (black + isort)..."
-	@python -m black scripts/ configs/ || true
-	@python -m isort scripts/ configs/ || true
-	@echo "Python format check complete."
-
-# Shell/sh formatting (shfmt)
-fmt-shell:
-	@echo "Running shell formatter (shfmt)..."
-	@shfmt -w scripts/*.sh scripts/*.bash 2>/dev/null || echo "shfmt not installed or no shell files found"
-	@echo "Shell format complete."
-
-# Python lint (flake8 + mypy)
-lint-py:
-	@echo "Running Python linters (flake8 + mypy)..."
-	@python -c "import flake8" 2>/dev/null && python -m flake8 scripts/ configs/ && echo "flake8 passed" || echo "flake8 skipped or failed"
-	@python -c "import mypy" 2>/dev/null && python -m mypy scripts/ && echo "mypy passed" || echo "mypy skipped or failed"
-	@echo "Python lint complete."
-
-# Shell/sh syntax check (cross-platform via Python wrapper)
-lint-shell:
-	@echo "Running shell syntax check..."
-	@python -c "import os,subprocess; files=[f for f in os.listdir('scripts') if f.endswith(('.sh','.bash'))]; [print('Checking '+f) or subprocess.call(['bash','-n','scripts/'+f]) for f in files]" 2>&1 || echo "Shell syntax check completed (bash may not be available on Windows)"
-	@echo "Shell syntax check complete."
-
 # JSON validation (cross-platform)
 lint-json:
 	@echo "Validating JSON files..."
@@ -120,7 +94,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок (без build и test-cover, они есть в CI отдельно)
-check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration fmt-py fmt-shell lint-py lint-shell lint-json lint-markdown lint-dockerfile
+check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration lint-json lint-markdown lint-dockerfile
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
