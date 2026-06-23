@@ -46,10 +46,10 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: "50m"
+              cpu: "25m"
               memory: "64Mi"
             limits:
-              cpu: "150m"
+              cpu: "100m"
               memory: "128Mi"
           livenessProbe:
             httpGet:

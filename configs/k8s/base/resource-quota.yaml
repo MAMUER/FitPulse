@@ -5,10 +5,9 @@ metadata:
   namespace: fitness-platform-production
 spec:
   hard:
-    requests.cpu: "1.2"
-    requests.memory: 700Mi
-    limits.cpu: "1.8"
-    limits.memory: 1200Mi
-    pods: "30"
-    services: "20"
-    persistentvolumeclaims: "10"
+    requests.cpu: "800m" # 80% от 1 vCPU
+    requests.memory: 1200Mi # ~60% от 2GB (оставляем место для k3s/system)
+    limits.cpu: "1200m"
+    limits.memory: 1600Mi # ~80% от 2GB — максимум для всех подов
+    pods: "20"
+    persistentvolumeclaims: "5"
