@@ -19,9 +19,9 @@ fi
 
 if command -v envsubst &>/dev/null; then
 	export VPS_HOST
-	envsubst < "$TEMPLATE" > "$OUTPUT_FILE"
+	envsubst <"$TEMPLATE" >"$OUTPUT_FILE"
 else
-	sed "s|\${VPS_HOST}|${VPS_HOST}|g" "$TEMPLATE" > "$OUTPUT_FILE"
+	sed "s|\${VPS_HOST}|${VPS_HOST}|g" "$TEMPLATE" >"$OUTPUT_FILE"
 fi
 
 echo "✅ Config generated: ${OUTPUT_FILE:-stdout}" >&2

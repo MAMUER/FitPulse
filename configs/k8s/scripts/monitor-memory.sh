@@ -7,4 +7,3 @@ if [ "$USAGE" -gt "$THRESHOLD" ]; then
 		-H "Content-Type: application/json" \
 		-d "{\"chat_id\": \"${TELEGRAM_CHAT_ID}\", \"text\": \"⚠️ Memory usage: ${USAGE}% on fittpulse\"}"
 fi
-
