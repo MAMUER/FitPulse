@@ -1158,6 +1158,13 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           set -euo pipefail
+
+          # Проверяем, установлен ли уже k3s (существует ли systemd-юнит или бинарник)
+          if [ ! -f /etc/systemd/system/k3s.service ] && [ ! -f /usr/local/bin/k3s ]; then
+            echo '✅ k3s is not installed yet, skipping restart (will be installed in next steps)'
+            exit 0
+          fi
+
           # Считаем хеш только что скопированного конфига
           LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{print \$1}' || echo 'none')
           # Считаем хеш конфига, с которым k3s был запущен в последний раз
