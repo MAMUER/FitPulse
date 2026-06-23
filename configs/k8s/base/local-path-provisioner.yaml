@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-path-storage
-labels:
-  pod-security.kubernetes.io/enforce: privileged
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -64,34 +64,34 @@ data:
     #!/bin/sh
     while getopts "m:s:p:" opt
     do
-        case $opt in
-            p)
-            ABS_PATH=$OPTARG
-            ;;
-            m)
-            VOL_MODE=$OPTARG
-            ;;
-            s)
-            SIZE=$OPTARG
-            ;;
-        esac
+      case $opt in
+        p)
+        ABS_PATH=$OPTARG
+        ;;
+        m)
+        VOL_MODE=$OPTARG
+        ;;
+        s)
+        SIZE=$OPTARG
+        ;;
+      esac
     done
     mkdir -m 0777 -p ${ABS_PATH}
   teardown: |
     #!/bin/sh
     while getopts "m:s:p:" opt
     do
-        case $opt in
-            p)
-            ABS_PATH=$OPTARG
-            ;;
-            m)
-            VOL_MODE=$OPTARG
-            ;;
-            s)
-            SIZE=$OPTARG
-            ;;
-        esac
+      case $opt in
+        p)
+        ABS_PATH=$OPTARG
+        ;;
+        m)
+        VOL_MODE=$OPTARG
+        ;;
+        s)
+        SIZE=$OPTARG
+        ;;
+      esac
     done
     rm -rf ${ABS_PATH}
   helperPod.yaml: |
@@ -110,8 +110,8 @@ kind: Deployment
 metadata:
   name: local-path-provisioner
   namespace: local-path-storage
-labels:
-  app: local-path-provisioner
+  labels:
+    app: local-path-provisioner
 spec:
   replicas: 1
   selector:
