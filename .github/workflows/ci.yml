@@ -1786,7 +1786,6 @@ jobs:
                 echo "Failed to apply manifests after $MAX_RETRIES attempts."
                 kubectl get pods -A -o wide || true
                 exit 1
-                fi
               fi
             fi
           done
