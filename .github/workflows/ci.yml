@@ -1130,7 +1130,7 @@ jobs:
       - name: Prepare k3s config on VPS
         run: |
           # Генерируем конфиг из шаблона с подстановкой VPS_HOST
-          ./scripts/generate-k3s-config.sh "${{ secrets.VPS_HOST }}" /tmp/k3s-config-remote.yaml
+          ./configs/k8s/scripts/generate-k3s-config.sh "${{ secrets.VPS_HOST }}" /tmp/k3s-config-remote.yaml
 
           # Валидация YAML перед отправкой
           if command -v python3 &>/dev/null; then
