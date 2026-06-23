@@ -1164,10 +1164,7 @@ jobs:
             echo '✅ k3s is not installed yet, skipping restart (will be installed in next steps)'
             exit 0
           fi
-
-          # Считаем хеш только что скопированного конфига
           LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{print \$1}' || echo 'none')
-          # Считаем хеш конфига, с которым k3s был запущен в последний раз
           SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
           if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
             echo '-> Config changed (or first run), restarting k3s to apply kubelet-arg...'
