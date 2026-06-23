@@ -1129,34 +1129,29 @@ jobs:
           "
       - name: Prepare k3s config on VPS
         run: |
-          VPS_HOST="${{ secrets.VPS_HOST }}"
-           printf "bind-address: 0.0.0.0
-           tls-san:
-           - fittpulse.duckdns.org
-           - %s
-           - localhost
-           - 127.0.0.1
-           disable:
-           - local-storage
-           flannel-backend: wireguard-native
-           write-kubeconfig-mode: 644
-           docker: true
-           kubelet-arg:
-           - max-pods=30
-           - kube-reserved=cpu=200m,memory=512Mi    # Резерв для системных процессов
-           - system-reserved=cpu=100m,memory=256Mi  # Резерв для k3s/kubelet
-           - eviction-hard=memory.available<200Mi,nodefs.available<10%%,imagefs.available<10%%
-           - eviction-soft=memory.available<300Mi
-           - eviction-soft-grace-period=memory.available=2m
-           - pods-per-core=10
-           " "$VPS_HOST" > /tmp/k3s-config-remote.yaml
+          # Генерируем конфиг из шаблона с подстановкой VPS_HOST
+          ./scripts/generate-k3s-config.sh "${{ secrets.VPS_HOST }}" /tmp/k3s-config-remote.yaml
+
+          # Валидация YAML перед отправкой
+          if command -v python3 &>/dev/null; then
+            python3 -c "import yaml; yaml.safe_load(open('/tmp/k3s-config-remote.yaml'))" || {
+              echo "❌ Generated config is invalid YAML"
+              cat /tmp/k3s-config-remote.yaml
+              exit 1
+            }
+            echo "✅ Config YAML is valid"
+          fi
+
+          # Копируем на VPS
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             mkdir -p /etc/rancher/k3s
-            echo \"Directory /etc/rancher/k3s created\"
+            echo 'Directory /etc/rancher/k3s created'
           "
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
+
+          # Показать результат для отладки
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"Config written:\"
+            echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
             cat /etc/rancher/k3s/config.yaml
           "
       - name: Download k3s binary and install script
