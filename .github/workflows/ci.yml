@@ -1789,19 +1789,19 @@ jobs:
               fi
             fi
           done
-          echo "Waiting for ConfigMaps to propagate..."
-          sleep 10
+           echo "Waiting for ConfigMaps to propagate..."
+           sleep 15
       - name: Wait for Postgres PVC to be bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Waiting for Postgres PVC to be bound..."
-          for i in {1..180}; do
+          for i in {1..300}; do
             STATUS=$(kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
             if [ "$STATUS" = "Bound" ]; then
               echo "✅ Postgres PVC bound after ${i}x5 seconds"
               break
             fi
-            if [ "$i" -eq 180 ]; then
+            if [ "$i" -eq 300 ]; then
               echo "❌ Timeout waiting for Postgres PVC"
               kubectl get nodes -o wide || true
               kubectl get pvc -n fitness-platform-production || true
@@ -1816,7 +1816,7 @@ jobs:
               kubectl get pods -n fitness-platform-production | grep helper || true
               exit 1
             fi
-            echo "Attempt $i/180: PVC status=$STATUS, waiting 5s..."
+            echo "Attempt $i/300: PVC status=$STATUS, waiting 5s..."
             sleep 5
           done
       - name: Wait for Postgres to be ready

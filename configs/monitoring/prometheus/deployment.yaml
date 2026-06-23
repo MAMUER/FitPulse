@@ -30,12 +30,12 @@ spec:
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus"
-            - "--storage.tsdb.retention.time=2h"
+            - "--storage.tsdb.retention.time=1h"
             - "--web.console.libraries=/etc/prometheus/console_libraries"
             - "--web.console.templates=/etc/prometheus/consoles"
             - "--web.enable-lifecycle"
-            - "--storage.tsdb.min-block-duration=2h"
-            - "--storage.tsdb.max-block-duration=2h"
+            - "--storage.tsdb.min-block-duration=1h"
+            - "--storage.tsdb.max-block-duration=1h"
           ports:
             - containerPort: 9090
               name: web
@@ -46,11 +46,11 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: "25m"
-              memory: "64Mi"
+              cpu: "15m"
+              memory: "32Mi"
             limits:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "60m"
+              memory: "96Mi"
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -76,4 +76,4 @@ spec:
             name: prometheus-config
         - name: data
           emptyDir:
-            sizeLimit: 200Mi
+            sizeLimit: 150Mi

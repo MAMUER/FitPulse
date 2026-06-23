@@ -39,11 +39,11 @@ spec:
               mountPath: /alertmanager
           resources:
             requests:
-              cpu: 10m
-              memory: 16Mi
+              cpu: "5m"
+              memory: "12Mi"
             limits:
-              cpu: 25m
-              memory: 32Mi
+              cpu: "20m"
+              memory: "24Mi"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

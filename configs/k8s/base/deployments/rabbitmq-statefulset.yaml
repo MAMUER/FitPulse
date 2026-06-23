@@ -66,7 +66,7 @@ spec:
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
             - name: RABBITMQ_VM_MEMORY_HIGH_WATERMARK
-              value: "128MB"
+              value: "96MB"
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
@@ -90,11 +90,11 @@ spec:
             timeoutSeconds: 5
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
+              memory: "32Mi"
+              cpu: "25m"
             limits:
-              memory: "128Mi"
-              cpu: "150m"
+              memory: "96Mi"
+              cpu: "100m"
       volumes:
         - name: tmp
           emptyDir: {}

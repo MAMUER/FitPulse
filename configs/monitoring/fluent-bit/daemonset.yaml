@@ -23,11 +23,11 @@ spec:
               name: metrics
           resources:
             requests:
-              cpu: "5m"
-              memory: "5Mi"
+              cpu: "3m"
+              memory: "4Mi"
             limits:
-              cpu: "20m"
-              memory: "15Mi"
+              cpu: "15m"
+              memory: "12Mi"
           volumeMounts:
             - name: config
               mountPath: /fluent-bit/etc/
