@@ -12,7 +12,7 @@ flannel-backend: wireguard-native
 write-kubeconfig-mode: "644"
 docker: true
 kubelet-arg:
-  - "max-pods=30"
+  - "max-pods=40"
   - "kube-reserved=cpu=200m,memory=512Mi"
   - "system-reserved=cpu=100m,memory=256Mi"
   - "eviction-hard=memory.available<200Mi,nodefs.available<10%,imagefs.available<10%"

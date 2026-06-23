@@ -1663,6 +1663,8 @@ jobs:
             --from-literal=TOTP_ENCRYPTION_KEY=${{ secrets.TOTP_ENCRYPTION_KEY }} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ app-secrets created"
+          echo "Waiting for secrets to propagate..."
+          sleep 10
           echo "Creating monitoring-secrets..."
           kubectl create secret generic monitoring-secrets -n fitness-platform-production \
             --from-literal=grafana-admin-password=${{ secrets.GRAFANA_ADMIN_PASSWORD }} \
