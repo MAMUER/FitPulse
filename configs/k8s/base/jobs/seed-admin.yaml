@@ -36,6 +36,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: app-service-account
+      restartPolicy: OnFailure
       volumes:
         - name: secrets
           secret:
