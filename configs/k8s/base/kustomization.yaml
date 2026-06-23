@@ -12,3 +12,4 @@ resources:
   - services
   - jobs
   - ../../monitoring
+  - local-path-provisioner.yaml

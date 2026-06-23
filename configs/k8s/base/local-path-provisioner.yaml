@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-path-storage
-  labels:
-    pod-security.kubernetes.io/enforce: privileged
+labels:
+  pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -25,6 +25,7 @@ rules:
         "configmaps",
         "events",
         "pods",
+        "pods/log",
       ]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
@@ -53,14 +54,46 @@ data:
   config.json: |
     {
       "nodePathMap":[
-      {
-        "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
-        "paths":["/opt/local-path-provisioner"]
-      }
-      ],
-      "setup": "mkdir -m 0777 -p \"$VOL_DIR\"",
-      "teardown": "rm -rf \"$VOL_DIR\""
+        {
+          "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
+          "paths":["/opt/local-path-provisioner"]
+        }
+      ]
     }
+  setup: |
+    #!/bin/sh
+    while getopts "m:s:p:" opt
+    do
+        case $opt in
+            p)
+            ABS_PATH=$OPTARG
+            ;;
+            m)
+            VOL_MODE=$OPTARG
+            ;;
+            s)
+            SIZE=$OPTARG
+            ;;
+        esac
+    done
+    mkdir -m 0777 -p ${ABS_PATH}
+  teardown: |
+    #!/bin/sh
+    while getopts "m:s:p:" opt
+    do
+        case $opt in
+            p)
+            ABS_PATH=$OPTARG
+            ;;
+            m)
+            VOL_MODE=$OPTARG
+            ;;
+            s)
+            SIZE=$OPTARG
+            ;;
+        esac
+    done
+    rm -rf ${ABS_PATH}
   helperPod.yaml: |
     apiVersion: v1
     kind: Pod
@@ -77,8 +110,8 @@ kind: Deployment
 metadata:
   name: local-path-provisioner
   namespace: local-path-storage
-  labels:
-    app: local-path-provisioner
+labels:
+  app: local-path-provisioner
 spec:
   replicas: 1
   selector:

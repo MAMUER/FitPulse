@@ -9,5 +9,5 @@ spec:
     requests.memory: 1000Mi
     limits.cpu: "1400m"
     limits.memory: 1800Mi
-    pods: "30"
+    pods: "110"
     persistentvolumeclaims: "5"

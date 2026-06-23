@@ -1154,6 +1154,37 @@ jobs:
             echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
             cat /etc/rancher/k3s/config.yaml
           "
+      - name: Restart k3s if config changed
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          set -euo pipefail
+          # Считаем хеш только что скопированного конфига
+          LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{print \$1}' || echo 'none')
+          # Считаем хеш конфига, с которым k3s был запущен в последний раз
+          SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
+          if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
+            echo '-> Config changed (or first run), restarting k3s to apply kubelet-arg...'
+            sudo systemctl restart k3s
+            for i in \$(seq 1 90); do
+              if k3s kubectl cluster-info &>/dev/null; then
+                echo \"✅ k3s ready after \${i}s\"
+                break
+              fi
+              if [ \"\$i\" -eq 90 ]; then
+                echo '❌ Timeout waiting for k3s restart'
+                journalctl -u k3s -n 30 --no-pager
+                exit 1
+              fi
+              sleep 2
+            done
+            echo '-> Saving config hash for future comparisons...'
+            echo \"\$LOCAL_HASH\" | sudo tee /etc/rancher/k3s/.config-hash > /dev/null
+            echo '✅ k3s restarted with new config'
+            k3s kubectl get nodes -o wide
+          else
+            echo '✅ Config unchanged, skipping k3s restart'
+          fi
+          "
       - name: Download k3s binary and install script
         run: |
           echo "-> Downloading k3s binary and install script..."
@@ -1791,6 +1822,9 @@ jobs:
           done
            echo "Waiting for ConfigMaps to propagate..."
            sleep 15
+          echo "Ensuring local-path-provisioner is up-to-date..."
+          kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
+          kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
       - name: Wait for Postgres PVC to be bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
