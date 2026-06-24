@@ -433,10 +433,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+      - name: Install Kubescape
+        run: |
+          echo "Installing Kubescape..."
+          curl -sL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh -o /tmp/install-kubescape.sh
+          chmod +x /tmp/install-kubescape.sh
+          /tmp/install-kubescape.sh
+          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
       - name: Run Kubescape scan
         run: |
-          docker run --rm -v "$(pwd)":/workspace -w /workspace \
-            quay.io/kubescape/kubescape:latest scan configs/k8s/base/ \
+          kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
             --verbose || true
@@ -1401,7 +1407,15 @@ jobs:
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             cd ~/fitpulse
-            docker-compose -f deployments/docker-compose.mlflow.yml up -d
+            if command -v docker-compose &> /dev/null; then
+              docker-compose -f deployments/docker-compose.mlflow.yml up -d
+            elif docker compose version &> /dev/null; then
+              docker compose -f deployments/docker-compose.mlflow.yml up -d
+            else
+              echo "⚠️ Docker Compose not found, installing..."
+              sudo apt-get update -qq && sudo apt-get install -y -qq docker-compose-plugin
+              docker compose -f deployments/docker-compose.mlflow.yml up -d
+            fi
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
                 echo '✅ MLflow is healthy'

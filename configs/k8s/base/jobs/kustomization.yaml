@@ -5,6 +5,8 @@ configMapGenerator:
   - name: init-db-sql
     files:
       - init.sql=init-db.sql
+    options:
+      disableNameSuffixHash: true # <-- добавьте эту строку
 
 resources:
   - migrate-db.yaml
