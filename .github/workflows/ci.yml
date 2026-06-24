@@ -439,7 +439,7 @@ jobs:
           curl -sL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh -o /tmp/install-kubescape.sh
           chmod +x /tmp/install-kubescape.sh
           /tmp/install-kubescape.sh
-          echo "$HOME/.kubescape/bin" >> $GITHUB_PATH
+          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
       - name: Run Kubescape scan
         run: |
           kubescape scan configs/k8s/base/ \
