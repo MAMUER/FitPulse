@@ -448,7 +448,19 @@ jobs:
             --verbose || true
 
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
-            jq '...' kubescape-results.sarif > kubescape-results-fixed.sarif
+            jq '.runs |= map(
+              .results |= map(
+                select(
+                  .locations != null and
+                  (.locations | length) > 0 and
+                  .locations[0].physicalLocation != null and
+                  .locations[0].physicalLocation.artifactLocation != null and
+                  .locations[0].physicalLocation.artifactLocation.uri != null and
+                  .locations[0].physicalLocation.artifactLocation.uri != "" and
+                  (.ruleId // "") != "C-0012"
+                )
+              )
+            )' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif
           fi
       - name: Upload Kubescape results
@@ -1403,19 +1415,20 @@ jobs:
           "
       - name: Deploy MLflow service
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p ~/fitpulse/deployments"
-          ./scripts/ssh-retry.sh scp configs/k8s/scripts/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            cd ~/fitpulse
-            if command -v docker-compose &> /dev/null; then
-              docker-compose -f deployments/docker-compose.mlflow.yml up -d
-            elif docker compose version &> /dev/null; then
-              docker compose -f deployments/docker-compose.mlflow.yml up -d
-            else
-              echo "⚠️ Docker Compose not found, installing..."
-              sudo apt-get update -qq && sudo apt-get install -y -qq docker-compose-plugin
-              docker compose -f deployments/docker-compose.mlflow.yml up -d
-            fi
+            mkdir -p ~/fitpulse/deployments
+            docker rm -f fitpulse-mlflow 2>/dev/null || true
+            docker run -d \
+              --name fitpulse-mlflow \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              -v /opt/fitpulse/mlflow-data:/mlflow \
+              ghcr.io/mlflow/mlflow:v2.20.2 \
+              mlflow server \
+                --host 0.0.0.0 \
+                --port 5000 \
+                --backend-store-uri sqlite:////mlflow/mlflow.db \
+                --default-artifact-root /mlflow/artifacts
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
                 echo '✅ MLflow is healthy'

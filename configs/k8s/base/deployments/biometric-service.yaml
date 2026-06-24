@@ -130,8 +130,8 @@ spec:
             timeoutSeconds: 3
           resources:
             requests:
-              cpu: "8m"
-              memory: "12Mi"
+              cpu: "5m"
+              memory: "8Mi"
             limits:
-              cpu: "40m"
-              memory: "36Mi"
+              cpu: "20m"
+              memory: "24Mi"
