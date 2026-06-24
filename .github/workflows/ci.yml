@@ -433,43 +433,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      - name: Install Kubescape
-        run: |
-          set -euo pipefail
-          echo "Installing Kubescape..."
-          curl -sL https://github.com/kubescape/kubescape/releases/latest/download/install.sh -o /tmp/install-kubescape.sh
-          chmod +x /tmp/install-kubescape.sh
-          if /tmp/install-kubescape.sh; then
-            echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
-            kubescape version || true
-          else
-            echo "⚠️ Kubescape installation failed, continuing without it"
-          fi
       - name: Run Kubescape scan
         run: |
-          kubescape scan configs/k8s/base/ \
+          docker run --rm -v $(pwd):/workspace -w /workspace \
+            quay.io/kubescape/kubescape:latest scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
             --verbose || true
 
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
-            jq '
-              .runs |= map(
-                .results |= map(
-                  select(
-                    .locations != null and
-                    (.locations | length) > 0 and
-                    .locations[0].physicalLocation != null and
-                    .locations[0].physicalLocation.artifactLocation != null and
-                    .locations[0].physicalLocation.artifactLocation.uri != null and
-                    .locations[0].physicalLocation.artifactLocation.uri != "" and
-                    (.ruleId // "") != "C-0012"
-                  )
-                )
-              )
-            ' kubescape-results.sarif > kubescape-results-fixed.sarif
+            jq '...' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif
-            echo "Fixed SARIF file: removed results without artifactLocation.uri and C-0012 false positives"
           fi
       - name: Upload Kubescape results
         uses: github/codeql-action/upload-sarif@v4
@@ -1427,7 +1401,7 @@ jobs:
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/docker-compose.mlflow.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/deployments/docker-compose.mlflow.yml"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             cd ~/fitpulse
-            docker compose -f deployments/docker-compose.mlflow.yml up -d
+            docker-compose -f deployments/docker-compose.mlflow.yml up -d
             for _ in {1..30}; do
               if curl -sf http://localhost:5000/health &>/dev/null; then
                 echo '✅ MLflow is healthy'
@@ -1827,7 +1801,6 @@ jobs:
            echo "Waiting for ConfigMaps to propagate..."
            sleep 15
           echo "Ensuring local-path-provisioner is up-to-date..."
-          kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
       - name: Wait for Postgres PVC to be bound
         if: steps.connectivity.outputs.reachable == 'true'
