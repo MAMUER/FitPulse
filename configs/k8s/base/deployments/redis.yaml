@@ -87,4 +87,4 @@ spec:
               memory: "32Mi"
             limits:
               cpu: "20m"
-              memory: "24Mi"
+              memory: "48Mi" # было 24Mi

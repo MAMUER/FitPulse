@@ -69,26 +69,7 @@ spec:
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
               psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f /sql/init.sql -v ON_ERROR_STOP=1
-          env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_DB
-            - name: DB_HOST
-              value: "postgres-service"
-            - name: DB_PORT
-              value: "5432"
+          # Блок env удалён – секреты используются только через файлы
           volumeMounts:
             - name: sql
               mountPath: /sql
@@ -96,22 +77,17 @@ spec:
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
+          # Пробы заменены на tcpSocket (без секретов)
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${POSTGRES_USER}"
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 12
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${POSTGRES_USER}"
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -119,7 +95,7 @@ spec:
           resources:
             requests:
               memory: "32Mi"
-              cpu: "15m" # было 25m, но оставляем 15m
+              cpu: "15m"
             limits:
               memory: "96Mi"
               cpu: "100m"
