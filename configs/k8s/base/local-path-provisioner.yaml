@@ -140,7 +140,7 @@ spec:
         app.kubernetes.io/name: local-path-provisioner
         app.kubernetes.io/part-of: k8s-system
     spec:
-      automountServiceAccountToken: false
+      # automountServiceAccountToken: false   # УДАЛИТЬ эту строку
       serviceAccountName: local-path-provisioner-service-account
       securityContext:
         runAsNonRoot: false
@@ -163,7 +163,7 @@ spec:
             readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
-              add: ["DAC_OVERRIDE"] # необходимо для создания каталогов
+              add: ["DAC_OVERRIDE"]
           resources:
             requests:
               cpu: "5m"
