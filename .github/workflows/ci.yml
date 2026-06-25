@@ -1798,21 +1798,17 @@ jobs:
               break
             else
               echo "Attempt $i/$MAX_RETRIES failed."
-                 if [ "$i" -lt "$MAX_RETRIES" ]; then
+              if [ "$i" -lt "$MAX_RETRIES" ]; then
                 echo "Waiting 20s before retry..."
                 sleep 20
-                # Проверяем, не упал ли API-сервер полностью
                 if ! kubectl get nodes >/dev/null 2>&1; then
                   echo "API server is unresponsive. Restarting k3s via SSH..."
                   ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s" || true
                   echo "Waiting 40s for k3s to restart..."
                   sleep 40
-                  # Ждем, пока API снова поднимется
-                  _waited=false
                   for _j in {1..30}; do
                     if kubectl get nodes >/dev/null 2>&1; then
                       echo "k3s API is back online."
-                      _waited=true
                       break
                     fi
                     sleep 5
@@ -1825,10 +1821,28 @@ jobs:
               fi
             fi
           done
-           echo "Waiting for ConfigMaps to propagate..."
-           sleep 15
+          echo "Waiting for ConfigMaps to propagate..."
+          sleep 15
           echo "Ensuring local-path-provisioner is up-to-date..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
+
+      - name: Verify Postgres StatefulSet
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "=== Checking resources in namespace ==="
+          kubectl get all -n fitness-platform-production
+          echo "=== Checking StatefulSet specifically ==="
+          if ! kubectl get statefulset postgres -n fitness-platform-production >/dev/null 2>&1; then
+            echo "❌ StatefulSet 'postgres' not found. Re-applying manifests..."
+            cd configs/k8s/overlays/production
+            kustomize build . | kubectl apply --validate=false -f -
+            echo "Waiting 30s for StatefulSet to appear..."
+            sleep 30
+          fi
+          kubectl get statefulset postgres -n fitness-platform-production -o wide || true
+          kubectl describe statefulset postgres -n fitness-platform-production || true
+          echo "=== Checking pods ==="
+          kubectl get pods -n fitness-platform-production -o wide
       - name: Wait for Postgres PVC to be bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
