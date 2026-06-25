@@ -2,17 +2,26 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-path-storage
+  labels:
+    app.kubernetes.io/name: local-path-storage
+    app.kubernetes.io/part-of: k8s-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: local-path-provisioner-service-account
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: local-path-provisioner-role
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 rules:
   - apiGroups: [""]
     resources:
@@ -34,6 +43,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: local-path-provisioner-bind
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 subjects:
   - kind: ServiceAccount
     name: local-path-provisioner-service-account
@@ -48,6 +60,9 @@ kind: ConfigMap
 metadata:
   name: local-path-config
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 data:
   config.json: |
     {
@@ -111,6 +126,8 @@ metadata:
   namespace: local-path-storage
   labels:
     app: local-path-provisioner
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 spec:
   replicas: 1
   selector:
@@ -120,8 +137,16 @@ spec:
     metadata:
       labels:
         app: local-path-provisioner
+        app.kubernetes.io/name: local-path-provisioner
+        app.kubernetes.io/part-of: k8s-system
     spec:
+      automountServiceAccountToken: false
       serviceAccountName: local-path-provisioner-service-account
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
       containers:
         - name: local-path-provisioner
           image: rancher/local-path-provisioner:v0.0.26
@@ -133,6 +158,12 @@ spec:
             - /etc/local-path-config/config.json
             - --helper-pod-file
             - /etc/local-path-config/helperPod.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["DAC_OVERRIDE"] # необходимо для создания каталогов
           resources:
             requests:
               cpu: "5m"
@@ -140,6 +171,26 @@ spec:
             limits:
               cpu: "20m"
               memory: "16Mi"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pgrep -f "local-path-provisioner"
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pgrep -f "local-path-provisioner"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: local-path-config
               mountPath: /etc/local-path-config
@@ -154,6 +205,47 @@ metadata:
   name: local-path
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
 provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
+---
+# NetworkPolicy для local-path-storage
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: local-path-provisioner-network-policy
+  namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: local-path-provisioner
+    app.kubernetes.io/part-of: k8s-system
+spec:
+  podSelector:
+    matchLabels:
+      app: local-path-provisioner
+  policyTypes:
+    - Egress
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

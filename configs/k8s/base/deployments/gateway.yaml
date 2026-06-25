@@ -22,7 +22,7 @@ spec:
     metadata:
       labels:
         app: gateway
-        zone: dmz-zone
+        zone: dmz # было "dmz-zone"
         environment: production
         app.kubernetes.io/name: gateway
         app.kubernetes.io/instance: gateway
@@ -104,8 +104,8 @@ spec:
             timeoutSeconds: 3
           resources:
             requests:
-              cpu: "5m"
-              memory: "8Mi"
+              cpu: "15m"
+              memory: "32Mi"
             limits:
               cpu: "20m"
               memory: "32Mi"

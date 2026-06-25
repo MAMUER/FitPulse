@@ -69,6 +69,26 @@ spec:
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
               psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f /sql/init.sql -v ON_ERROR_STOP=1
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_DB
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
           volumeMounts:
             - name: sql
               mountPath: /sql
@@ -81,7 +101,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -h postgres-service -p 5432 -U "$(cat /etc/secrets/POSTGRES_USER)"
+                - pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${POSTGRES_USER}"
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
@@ -91,7 +111,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -h postgres-service -p 5432 -U "$(cat /etc/secrets/POSTGRES_USER)"
+                - pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${POSTGRES_USER}"
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -99,7 +119,7 @@ spec:
           resources:
             requests:
               memory: "32Mi"
-              cpu: "25m"
+              cpu: "15m" # было 25m, но оставляем 15m
             limits:
               memory: "96Mi"
               cpu: "100m"

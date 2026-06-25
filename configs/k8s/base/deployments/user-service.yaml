@@ -200,8 +200,8 @@ spec:
             timeoutSeconds: 3
           resources:
             requests:
-              cpu: "5m"
-              memory: "8Mi"
+              cpu: "15m" # было 5m
+              memory: "32Mi" # было 8Mi
             limits:
               cpu: "20m"
               memory: "24Mi"
