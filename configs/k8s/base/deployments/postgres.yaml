@@ -79,8 +79,8 @@ spec:
               mountPath: /var/run/postgresql
           resources:
             requests:
-              cpu: "5m"
-              memory: "8Mi"
+              cpu: "10m" # было 5m
+              memory: "16Mi" # было 8Mi
             limits:
               cpu: "20m"
               memory: "24Mi"
