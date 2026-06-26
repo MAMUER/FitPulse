@@ -1,1 +1,2 @@
 configs/k8s/base/configmap.yaml
+configs/k8s/base/local-path-provisioner.yaml
