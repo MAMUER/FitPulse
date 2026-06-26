@@ -1796,7 +1796,16 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           set -euo pipefail
-          echo "Waiting for k8s API..."
+          echo "Waiting for k8s API internal availability..."
+          for i in {1..30}; do
+            if kubectl get --raw /healthz &>/dev/null; then
+              echo "✅ API internal health OK"
+              break
+            fi
+            echo "Attempt $i/30: waiting for internal API..."
+            sleep 5
+          done
+          echo "Waiting for k8s API nodes..."
           kubectl wait --for=condition=Ready --timeout=5m nodes --all || { kubectl cluster-info; kubectl get nodes -o wide; exit 1; }
           echo "Waiting for local-path-provisioner..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
