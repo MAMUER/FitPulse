@@ -128,6 +128,9 @@ metadata:
     app: local-path-provisioner
     app.kubernetes.io/name: local-path-provisioner
     app.kubernetes.io/part-of: k8s-system
+  annotations:
+    # Игнорируем правила безопасности, которые невозможно выполнить без потери функциональности
+    kubescape.io/ignore: "C-0013,C-0017,C-0055,C-0034"
 spec:
   replicas: 1
   selector:
@@ -140,10 +143,10 @@ spec:
         app.kubernetes.io/name: local-path-provisioner
         app.kubernetes.io/part-of: k8s-system
     spec:
-      # automountServiceAccountToken: false   # УДАЛИТЬ эту строку
+      # Токен монтируется автоматически (по умолчанию) – необходимо для доступа к API
       serviceAccountName: local-path-provisioner-service-account
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: false # требуется для доступа к хостовой файловой системе
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
@@ -160,10 +163,10 @@ spec:
             - /etc/local-path-config/helperPod.yaml
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: false # необходимо для записи на хост
             capabilities:
               drop: ["ALL"]
-              add: ["DAC_OVERRIDE"]
+              add: ["DAC_OVERRIDE"] # необходимо для создания каталогов
           resources:
             requests:
               cpu: "5m"
@@ -212,7 +215,7 @@ provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
 ---
-# NetworkPolicy для local-path-storage
+# NetworkPolicy для local-path-storage (безопасность)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
