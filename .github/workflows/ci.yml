@@ -1697,14 +1697,14 @@ jobs:
             --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
             --from-literal=GOOGLE_REDIRECT_URL=${{ vars.GOOGLE_REDIRECT_URL }} \
             --from-literal=TOTP_ENCRYPTION_KEY=${{ secrets.TOTP_ENCRYPTION_KEY }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
           echo "✅ app-secrets created"
           echo "Waiting for secrets to propagate..."
           sleep 10
           echo "Creating monitoring-secrets..."
           kubectl create secret generic monitoring-secrets -n fitness-platform-production \
             --from-literal=grafana-admin-password=${{ secrets.GRAFANA_ADMIN_PASSWORD }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
           echo "✅ monitoring-secrets created"
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'
