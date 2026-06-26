@@ -15,7 +15,7 @@ metadata:
 spec:
   revisionHistoryLimit: 1
   serviceName: rabbitmq
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: rabbitmq

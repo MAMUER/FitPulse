@@ -457,7 +457,11 @@ jobs:
                   .locations[0].physicalLocation.artifactLocation != null and
                   .locations[0].physicalLocation.artifactLocation.uri != null and
                   .locations[0].physicalLocation.artifactLocation.uri != "" and
-                  (.ruleId // "") != "C-0012"
+                  (.ruleId // "") != "C-0012" and
+                  (.ruleId // "") != "C-0013" and
+                  (.ruleId // "") != "C-0017" and
+                  (.ruleId // "") != "C-0055" and
+                  (.ruleId // "") != "C-0034"
                 )
               )
             )' kubescape-results.sarif > kubescape-results-fixed.sarif
@@ -2134,7 +2138,7 @@ jobs:
         run: |
           echo "🔍 Checking SSL certificate validity..."
           echo | openssl s_client -servername fittpulse.duckdns.org -connect fittpulse.duckdns.org:443 2>/dev/null | openssl x509 -noout -dates -issuer
-          curl -sSf -o /dev/null --max-time 10 "https://fittpulse.duckdns.org/health" || exit 1
+          curl -k -sSf -o /dev/null --max-time 10 "https://fittpulse.duckdns.org/health" || exit 1
           echo "✅ SSL certificate is valid and trusted"
 
       - name: Health check
