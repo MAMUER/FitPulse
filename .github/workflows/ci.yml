@@ -1601,6 +1601,20 @@ jobs:
         with:
           name: kubeconfig
           path: ./kubeconfig
+      - name: Resolve VPS hostname and add to /etc/hosts
+        run: |
+          VPS_IP=$(dig +short "${{ secrets.VPS_HOST }}" | head -1)
+          if [ -z "$VPS_IP" ]; then
+            echo "dig failed, trying nslookup..."
+            VPS_IP=$(nslookup "${{ secrets.VPS_HOST }}" | grep -A1 "Name:" | tail -1 | awk '{print $2}')
+          fi
+          if [ -z "$VPS_IP" ]; then
+            echo "Failed to resolve VPS_HOST, using VPS_HOST as IP (assuming it's an IP address)"
+            VPS_IP="${{ secrets.VPS_HOST }}"
+          fi
+          echo "Resolved VPS_IP: $VPS_IP"
+          echo "$VPS_IP fittpulse.duckdns.org" | sudo tee -a /etc/hosts
+          echo "Added /etc/hosts entry"
       - name: Configure kubectl
         run: |
           mkdir -p "$HOME/.kube"
