@@ -129,7 +129,6 @@ metadata:
     app.kubernetes.io/name: local-path-provisioner
     app.kubernetes.io/part-of: k8s-system
   annotations:
-    # Игнорируем правила безопасности, которые невозможно выполнить без потери функциональности
     kubescape.io/ignore: "C-0013,C-0017,C-0055,C-0034"
 spec:
   replicas: 1
@@ -143,10 +142,9 @@ spec:
         app.kubernetes.io/name: local-path-provisioner
         app.kubernetes.io/part-of: k8s-system
     spec:
-      # Токен монтируется автоматически (по умолчанию) – необходимо для доступа к API
       serviceAccountName: local-path-provisioner-service-account
       securityContext:
-        runAsNonRoot: false # требуется для доступа к хостовой файловой системе
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
@@ -163,10 +161,10 @@ spec:
             - /etc/local-path-config/helperPod.yaml
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false # необходимо для записи на хост
+            readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
-              add: ["DAC_OVERRIDE"] # необходимо для создания каталогов
+              add: ["DAC_OVERRIDE"]
           resources:
             requests:
               cpu: "5m"
@@ -215,7 +213,7 @@ provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
 ---
-# NetworkPolicy для local-path-storage (безопасность)
+# NetworkPolicy for local-path-storage (безопасность)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -236,19 +234,5 @@ spec:
         - namespaceSelector: {}
   egress:
     - to:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: 443
-        - protocol: TCP
-          port: 53
-        - protocol: UDP
-          port: 53
-    - to:
         - ipBlock:
             cidr: 0.0.0.0/0
-      ports:
-        - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443
