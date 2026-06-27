@@ -2170,11 +2170,14 @@ jobs:
           echo "=== Checking pod status ==="
           kubectl get pods -n fitness-platform-production -o wide || true
           echo ""
-          echo "=== Logs for failing pods (if any) ==="
-          for pod in $(kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}'); do
-            echo "--- Logs for $pod ---"
-            kubectl logs "$pod" -n fitness-platform-production --tail=50 || echo "No logs available"
-          done
+          echo "=== Logs for gateway deployment ==="
+          kubectl logs deployment/gateway -n fitness-platform-production --tail=100 || echo "No logs for gateway"
+          echo ""
+          echo "=== Logs for user-service deployment ==="
+          kubectl logs deployment/user-service -n fitness-platform-production --tail=100 || echo "No logs for user-service"
+          echo ""
+          echo "=== Logs for RabbitMQ (if exists) ==="
+          kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 || echo "RabbitMQ not running"
           echo ""
           echo "=== Recent events ==="
           kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | tail -20 || true
@@ -2182,9 +2185,9 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
           echo "Verifying deployment..."
-          echo "Waiting for gateway to be ready (up to 300s)..."
+          echo "Waiting for gateway to be ready (up to 50s)..."
           kubectl get pods -n fitness-platform-production
-          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=300s || echo "Gateway not ready yet"
+          kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=50s || echo "Gateway not ready yet"
           sleep 30
 
   # ============================================================================

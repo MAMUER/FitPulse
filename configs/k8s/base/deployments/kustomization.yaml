@@ -5,11 +5,11 @@ resources:
   - postgres-config.yaml
   - redis.yaml
   - redis-config.yaml
-  # - rabbitmq-statefulset.yaml   # временно отключено
+  - rabbitmq-statefulset.yaml
   - user-service.yaml
-  # - biometric-service.yaml      # временно отключено
-  # - training-service.yaml       # временно отключено
+  - biometric-service.yaml
+  - training-service.yaml
   - gateway.yaml
-  # - device-connector.yaml       # временно отключено
-  # - classifier.yaml             # временно отключено
-  # - ml-generator.yaml           # временно отключено
+  - device-connector.yaml
+  - classifier.yaml
+  - ml-generator.yaml
