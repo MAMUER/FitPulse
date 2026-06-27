@@ -66,7 +66,9 @@ func TestGetEnv(t *testing.T) {
 }
 
 func TestGetEnvWithFile(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_secret_*")
+	projectDir, err := os.Getwd()
+	require.NoError(t, err)
+	tmpFile, err := os.CreateTemp(projectDir, "test_secret_*")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, os.Remove(tmpFile.Name())) })
 
