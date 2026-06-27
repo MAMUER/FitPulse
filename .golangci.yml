@@ -35,6 +35,9 @@ linters:
       confidence: medium
       excludes:
         - G104 # Duplicate of errcheck
+        - G101 # Hardcoded credentials false positive on OAuth endpoint URLs
+        - G304 # Intentional file read for Kubernetes secrets
+        - G703 # Path traversal false positive on controlled secret paths
     govet:
       enable-all: true
       disable:

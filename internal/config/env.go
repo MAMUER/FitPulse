@@ -13,7 +13,7 @@ import (
 func GetEnv(key string, defaultValue ...string) string {
 	fileKey := key + "_FILE"
 	if filePath := os.Getenv(fileKey); filePath != "" {
-		data, err := os.ReadFile(filePath) //nolint:gosec // G304: intentional file read for Kubernetes secrets
+		data, err := os.ReadFile(filePath) //nolint:gosec // G304,G703: intentional file read for Kubernetes secrets via _FILE env vars
 		if err == nil {
 			return strings.TrimSpace(string(data))
 		}

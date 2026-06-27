@@ -619,7 +619,7 @@ jobs:
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
-          gosec -exclude=G710 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
+          gosec -exclude=G710 -exclude=G703 -exclude=G304 -exclude=G101 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
           if [ ! -s sarif-results/gosec.sarif ]; then
             echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
