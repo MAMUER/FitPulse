@@ -1919,7 +1919,13 @@ jobs:
           sleep 15
           echo "Ensuring local-path-provisioner is up-to-date..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
-
+      - name: Wait for RabbitMQ to be ready
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Waiting for RabbitMQ StatefulSet to be ready..."
+          kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
+          echo "RabbitMQ pod status:"
+          kubectl get pods -l app=rabbitmq -n fitness-platform-production
       - name: Ensure local-path-provisioner is running
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -2161,10 +2167,17 @@ jobs:
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Checking pod status..."
+          echo "=== Checking pod status ==="
           kubectl get pods -n fitness-platform-production -o wide || true
-          echo "Events for failing pods (if any):"
-          kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' | xargs -r -n1 kubectl describe pod -n fitness-platform-production 2>/dev/null | grep -A10 "Events:" || echo "No failing pods or no events"
+          echo ""
+          echo "=== Logs for failing pods (if any) ==="
+          for pod in $(kubectl get pods -n fitness-platform-production --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- Logs for $pod ---"
+            kubectl logs "$pod" -n fitness-platform-production --tail=50 || echo "No logs available"
+          done
+          echo ""
+          echo "=== Recent events ==="
+          kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | tail -20 || true
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
