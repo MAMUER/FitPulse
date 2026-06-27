@@ -26,7 +26,8 @@ set -euo pipefail
 # ----------------------------------------------------------------------------
 readonly RESOLV_CONF="/etc/resolv.conf"
 readonly DHCLIENT_CONF="/etc/dhcp/dhclient.conf"
-readonly BACKUP_FILE="${RESOLV_CONF}.bak.$(date +%Y%m%d_%H%M%S)"
+BACKUP_FILE="${RESOLV_CONF}.bak.$(date +%Y%m%d_%H%M%S)"
+readonly BACKUP_FILE
 
 # Working DNS resolvers
 readonly DNS_SERVERS=(
@@ -52,11 +53,11 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-log_info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+log_info() { echo -e "${CYAN}[INFO]${NC}  $*"; }
+log_ok() { echo -e "${GREEN}[OK]${NC}    $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-log_step()  { echo -e "\n${BOLD}==>${NC} ${BOLD}$*${NC}"; }
+log_step() { echo -e "\n${BOLD}==>${NC} ${BOLD}$*${NC}"; }
 
 # ----------------------------------------------------------------------------
 # Argument parsing
@@ -74,7 +75,7 @@ while [[ $# -gt 0 ]]; do
 			PROTECT_FILE=false
 			shift
 			;;
-		-h|--help)
+		-h | --help)
 			echo "Usage: $0 [--verify-only] [--no-protect]"
 			echo "  --verify-only   Only verify DNS works, don't modify anything"
 			echo "  --no-protect    Skip chattr +i (useful for debugging)"
@@ -86,6 +87,7 @@ while [[ $# -gt 0 ]]; do
 			;;
 	esac
 done
+
 # ----------------------------------------------------------------------------
 # Pre-flight checks
 # ----------------------------------------------------------------------------
@@ -102,6 +104,7 @@ preflight_checks() {
 	fi
 	log_ok "Pre-flight checks passed"
 }
+
 # ----------------------------------------------------------------------------
 # Remove immutable flag
 # ----------------------------------------------------------------------------
@@ -119,6 +122,7 @@ remove_immutable_flag() {
 		log_warn "${RESOLV_CONF} does not exist"
 	fi
 }
+
 # ----------------------------------------------------------------------------
 # Backup current resolv.conf
 # ----------------------------------------------------------------------------
@@ -132,6 +136,7 @@ backup_resolv_conf() {
 		log_warn "No existing ${RESOLV_CONF} to backup"
 	fi
 }
+
 # ----------------------------------------------------------------------------
 # Write new resolv.conf
 # ----------------------------------------------------------------------------
@@ -149,6 +154,7 @@ EOF
 	chmod 644 "$RESOLV_CONF"
 	log_ok "${RESOLV_CONF} written with ${#DNS_SERVERS[@]} nameservers"
 }
+
 # ----------------------------------------------------------------------------
 # Protect resolv.conf from being overwritten
 # ----------------------------------------------------------------------------
@@ -165,6 +171,7 @@ protect_resolv_conf() {
 		log_warn "Failed to set immutable flag (filesystem may not support it)"
 	fi
 }
+
 # ----------------------------------------------------------------------------
 # Configure dhclient to supersede broken DHCP DNS
 # ----------------------------------------------------------------------------
@@ -172,7 +179,10 @@ configure_dhclient() {
 	log_step "Configuring ${DHCLIENT_CONF}"
 
 	local dns_list
-	dns_list=$(IFS=', '; echo "${DNS_SERVERS[*]}")
+	dns_list=$(
+		IFS=', '
+		echo "${DNS_SERVERS[*]}"
+	)
 
 	cat > "$DHCLIENT_CONF" <<EOF
 # Override DNS settings - prevent broken DHCP DNS
@@ -182,15 +192,16 @@ configure_dhclient() {
 supersede domain-name-servers ${dns_list};
 
 request subnet-mask, broadcast-address, time-offset, routers,
-		domain-name, domain-search, host-name,
-		dhcp6.name-servers, dhcp6.domain-search, dhcp6.fqdn, dhcp6.sntp-servers,
-		netbios-name-servers, netbios-scope, interface-mtu,
-		rfc3442-classless-static-routes, ntp-servers;
+	domain-name, domain-search, host-name,
+	dhcp6.name-servers, dhcp6.domain-search, dhcp6.fqdn, dhcp6.sntp-servers,
+	netbios-name-servers, netbios-scope, interface-mtu,
+	rfc3442-classless-static-routes, ntp-servers;
 EOF
 
 	chmod 644 "$DHCLIENT_CONF"
 	log_ok "${DHCLIENT_CONF} configured"
 }
+
 # ----------------------------------------------------------------------------
 # Verify DNS resolution
 # ----------------------------------------------------------------------------
@@ -209,6 +220,7 @@ verify_dns() {
 			((failed++))
 		fi
 	done
+
 	echo ""
 	log_info "DNS verification: ${passed} passed, ${failed} failed"
 
@@ -219,8 +231,10 @@ verify_dns() {
 		cat "$RESOLV_CONF"
 		return 1
 	fi
+
 	return 0
 }
+
 # ----------------------------------------------------------------------------
 # Print final status
 # ----------------------------------------------------------------------------
@@ -239,9 +253,11 @@ print_final_status() {
 	else
 		log_warn "File is NOT protected"
 	fi
+
 	echo ""
 	log_ok "✅ DNS fix completed successfully!"
 }
+
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
@@ -260,6 +276,7 @@ main() {
 		verify_dns
 		exit $?
 	fi
+
 	remove_immutable_flag
 	backup_resolv_conf
 	write_resolv_conf
@@ -268,4 +285,5 @@ main() {
 	verify_dns
 	print_final_status
 }
+
 main "$@"
