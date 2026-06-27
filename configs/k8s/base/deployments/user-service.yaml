@@ -111,8 +111,8 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           ports:
-            - containerPort: 8081
-              name: http
+            - containerPort: 50051
+              name: grpc
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -183,10 +183,12 @@ spec:
               value: "/etc/secrets/GOOGLE_REDIRECT_URL"
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
+            - name: GRPC_SERVER_ADDRESS
+              value: "0.0.0.0:50051"
           livenessProbe:
             httpGet:
               path: /health
-              port: 8081
+              port: 50051
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 3
@@ -194,7 +196,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 8081
+              port: 50051
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
@@ -204,4 +206,4 @@ spec:
               memory: "32Mi"
             limits:
               cpu: "20m"
-              memory: "48Mi"   # было 24MiА
+              memory: "48Mi"

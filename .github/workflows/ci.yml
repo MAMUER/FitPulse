@@ -1358,19 +1358,29 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             echo '-> Checking for Let'\''s Encrypt certificate...'
             if [ ! -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
-              echo '⚠️ Certificate not found. Installing Certbot and issuing certificate...'
+              echo '⚠️ Certificate not found. Installing Certbot and issuing certificate (webroot)...'
               sudo apt-get update -qq
               sudo apt-get install -y -qq certbot
               sudo mkdir -p /var/www/certbot
-              sudo systemctl stop nginx 2>/dev/null || true
-              sudo certbot certonly --standalone --non-interactive --agree-tos \
+              # Проверяем, что Nginx запущен и доступен для проверки
+              sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
+              # Используем webroot, чтобы не останавливать Nginx
+              sudo certbot certonly --webroot --webroot-path /var/www/certbot \
+                --non-interactive --agree-tos \
                 --email admin@fittpulse.duckdns.org \
-                -d fittpulse.duckdns.org
-              sudo systemctl start nginx 2>/dev/null || true
-              echo '✅ Certificate issued successfully'
+                -d fittpulse.duckdns.org \
+                --keep-until-expiring
+              if [ $? -eq 0 ]; then
+                echo '✅ Certificate issued successfully'
+              else
+                echo '❌ Certificate issuance failed. Check logs.'
+                exit 1
+              fi
             else
               echo '✅ Let'\''s Encrypt certificate already exists'
             fi
+            # Показываем информацию о сертификате для отладки
+            sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
           "
       - name: Deploy Nginx configuration to VPS
         run: |
