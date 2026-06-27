@@ -1025,6 +1025,11 @@ jobs:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
     needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
     steps:
       - uses: actions/checkout@v7
       - uses: webfactory/ssh-agent@v0.10.0
@@ -1063,7 +1068,15 @@ jobs:
             echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
             sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
             sudo swapon /swapfile
-            echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+      
+            # ИСПРАВЛЕНИЕ: Проверяем наличие строки перед добавлением
+            if ! grep -q '/swapfile none swap sw 0 0' /etc/fstab; then
+              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+              echo '-> Swap entry added to /etc/fstab'
+            else
+              echo '-> Swap entry already exists in /etc/fstab, skipping'
+            fi
+      
             echo '-> Swap configuration:'
             free -h
           EOF
@@ -1507,6 +1520,18 @@ jobs:
             echo '✅ Postgres backups configured (daily at 2 AM)'
           "
 
+      - name: Deploy health check script
+        run: |
+          ./scripts/ssh-retry.sh scp scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            sudo chmod +x /usr/local/bin/check-server-health.sh
+            
+            # Setup cron for daily health check (silent mode - only alerts on issues)
+            (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
+            (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
+            
+            echo '✅ Health check script deployed and cron configured'
+          "
       - name: Generate kubeconfig with external domain
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1530,6 +1555,52 @@ jobs:
           name: kubeconfig
           path: ./k3s-config.yaml
           retention-days: 1
+
+  # ============================================================================
+  # HEALTH CHECK
+  # ============================================================================
+  health-check:
+    name: Server Health Check
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always() && needs.deploy-production.result == 'success'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+      - name: Deploy health check script
+        run: |
+          ./scripts/ssh-retry.sh scp scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            sudo chmod +x /usr/local/bin/check-server-health.sh
+            echo '✅ Health check script deployed'
+          "
+      - name: Run immediate health check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            export TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}'
+            export TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}'
+            /usr/local/bin/check-server-health.sh || true
+          "
+      - name: Setup daily health check cron
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            # Remove old cron job if exists
+            (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
+            
+            # Add new cron job (runs daily at 9 AM UTC)
+            (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
+            
+            echo '✅ Daily health check cron configured (9 AM UTC)'
+          "
 
   # ============================================================================
   # DEPLOY TEST
