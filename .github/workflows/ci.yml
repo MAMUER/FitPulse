@@ -1918,10 +1918,31 @@ jobs:
           echo "Waiting for ConfigMaps to propagate..."
           sleep 15
           echo "Ensuring local-path-provisioner is up-to-date..."
-          kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
+          # Проверка доступности API перед rollout
+          for retry in {1..10}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
+              break
+            fi
+            echo "API not available, attempt $retry/10, restarting k3s..."
+            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s" || true
+            sleep 30
+          done
       - name: Wait for RabbitMQ to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
+          # Проверяем доступность API
+          for i in {1..30}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "API not available after 30 attempts, restarting k3s..."
+              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
+              sleep 30
+            fi
+            sleep 5
+          done
           echo "Waiting for RabbitMQ StatefulSet to be ready..."
           kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
           echo "RabbitMQ pod status:"
@@ -1929,6 +1950,17 @@ jobs:
       - name: Ensure local-path-provisioner is running
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
+          for i in {1..30}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "API not available, restarting k3s..."
+              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
+              sleep 30
+            fi
+            sleep 5
+          done
           echo "Applying local-path-provisioner manifest..."
           kubectl apply -f configs/k8s/base/local-path-provisioner.yaml
           echo "Waiting for local-path-provisioner pod to be ready..."
@@ -2167,6 +2199,17 @@ jobs:
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |
+          for i in {1..30}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "API not available, restarting k3s..."
+              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
+              sleep 30
+            fi
+            sleep 5
+          done
           echo "=== Checking pod status ==="
           kubectl get pods -n fitness-platform-production -o wide || true
           echo ""
@@ -2184,6 +2227,17 @@ jobs:
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
+          for i in {1..30}; do
+            if kubectl get --raw=/healthz &>/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "API not available, restarting k3s..."
+              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
+              sleep 30
+            fi
+            sleep 5
+          done
           echo "Verifying deployment..."
           echo "Waiting for gateway to be ready (up to 50s)..."
           kubectl get pods -n fitness-platform-production
