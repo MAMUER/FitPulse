@@ -1069,7 +1069,7 @@ jobs:
             echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
             sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
             sudo swapon /swapfile
-      
+
             # ИСПРАВЛЕНИЕ: Проверяем наличие строки перед добавлением
             if ! grep -q '/swapfile none swap sw 0 0' /etc/fstab; then
               echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
@@ -1077,7 +1077,7 @@ jobs:
             else
               echo '-> Swap entry already exists in /etc/fstab, skipping'
             fi
-      
+
             echo '-> Swap configuration:'
             free -h
           EOF
@@ -1121,21 +1121,16 @@ jobs:
             systemctl daemon-reload
             echo \"Cleanup done\"
           "
-      - name: Fix DNS resolv.conf
+      - name: Fix DNS resolv.conf permanently
         run: |
+          echo "-> Uploading DNS fix script to VPS..."
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/fix-dns.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/fix-dns.sh"
+
+          echo "-> Running DNS fix script on VPS..."
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Fixing /etc/resolv.conf...\"
-            if [ -f /etc/resolv.conf ]; then
-              cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
-              {
-                grep -v \"^nameserver\" /etc/resolv.conf || true
-                echo \"nameserver 8.8.8.8\"
-                echo \"nameserver 1.1.1.1\"
-              } > /tmp/resolv.conf.new
-              mv /tmp/resolv.conf.new /etc/resolv.conf
-              echo \"New /etc/resolv.conf:\"
-              cat /etc/resolv.conf
-            fi
+            sudo chmod +x /tmp/fix-dns.sh
+            sudo /tmp/fix-dns.sh
+            rm -f /tmp/fix-dns.sh
           "
       - name: Prepare k3s config on VPS
         run: |

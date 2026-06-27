@@ -86,7 +86,6 @@ while [[ $# -gt 0 ]]; do
 			;;
 	esac
 done
-
 # ----------------------------------------------------------------------------
 # Pre-flight checks
 # ----------------------------------------------------------------------------
@@ -97,15 +96,12 @@ preflight_checks() {
 		log_error "This script must be run as root (use sudo)"
 		exit 1
 	fi
-
 	if [[ ! -d /etc/dhcp ]]; then
 		log_warn "/etc/dhcp does not exist, creating..."
 		mkdir -p /etc/dhcp
 	fi
-
 	log_ok "Pre-flight checks passed"
 }
-
 # ----------------------------------------------------------------------------
 # Remove immutable flag
 # ----------------------------------------------------------------------------
@@ -123,7 +119,6 @@ remove_immutable_flag() {
 		log_warn "${RESOLV_CONF} does not exist"
 	fi
 }
-
 # ----------------------------------------------------------------------------
 # Backup current resolv.conf
 # ----------------------------------------------------------------------------
@@ -137,7 +132,6 @@ backup_resolv_conf() {
 		log_warn "No existing ${RESOLV_CONF} to backup"
 	fi
 }
-
 # ----------------------------------------------------------------------------
 # Write new resolv.conf
 # ----------------------------------------------------------------------------
@@ -155,7 +149,6 @@ EOF
 	chmod 644 "$RESOLV_CONF"
 	log_ok "${RESOLV_CONF} written with ${#DNS_SERVERS[@]} nameservers"
 }
-
 # ----------------------------------------------------------------------------
 # Protect resolv.conf from being overwritten
 # ----------------------------------------------------------------------------
@@ -166,14 +159,12 @@ protect_resolv_conf() {
 		log_warn "Skipping protection (--no-protect flag set)"
 		return 0
 	fi
-
 	if chattr +i "$RESOLV_CONF" 2>/dev/null; then
 		log_ok "File protected with immutable flag"
 	else
 		log_warn "Failed to set immutable flag (filesystem may not support it)"
 	fi
 }
-
 # ----------------------------------------------------------------------------
 # Configure dhclient to supersede broken DHCP DNS
 # ----------------------------------------------------------------------------
@@ -200,7 +191,6 @@ EOF
 	chmod 644 "$DHCLIENT_CONF"
 	log_ok "${DHCLIENT_CONF} configured"
 }
-
 # ----------------------------------------------------------------------------
 # Verify DNS resolution
 # ----------------------------------------------------------------------------
@@ -219,7 +209,6 @@ verify_dns() {
 			((failed++))
 		fi
 	done
-
 	echo ""
 	log_info "DNS verification: ${passed} passed, ${failed} failed"
 
@@ -230,10 +219,8 @@ verify_dns() {
 		cat "$RESOLV_CONF"
 		return 1
 	fi
-
 	return 0
 }
-
 # ----------------------------------------------------------------------------
 # Print final status
 # ----------------------------------------------------------------------------
@@ -252,11 +239,9 @@ print_final_status() {
 	else
 		log_warn "File is NOT protected"
 	fi
-
 	echo ""
 	log_ok "✅ DNS fix completed successfully!"
 }
-
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
@@ -275,7 +260,6 @@ main() {
 		verify_dns
 		exit $?
 	fi
-
 	remove_immutable_flag
 	backup_resolv_conf
 	write_resolv_conf
@@ -284,5 +268,4 @@ main() {
 	verify_dns
 	print_final_status
 }
-
 main "$@"
