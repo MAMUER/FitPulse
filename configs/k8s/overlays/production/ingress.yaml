@@ -5,6 +5,10 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
+  tls:
+    - hosts:
+        - fittpulse.duckdns.org
+      secretName: tls-secret
   rules:
     - host: fittpulse.duckdns.org
       http:
@@ -15,4 +19,4 @@ spec:
               service:
                 name: gateway-service
                 port:
-                  number: 8080 # Проксируем на HTTP порт Gateway
+                  number: 8080

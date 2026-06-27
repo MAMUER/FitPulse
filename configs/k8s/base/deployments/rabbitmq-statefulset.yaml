@@ -59,22 +59,23 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
-            - name: RABBITMQ_DEFAULT_USER_FILE
-              value: "/etc/secrets/RABBITMQ_USER"
-            - name: RABBITMQ_DEFAULT_PASS_FILE
-              value: "/etc/secrets/RABBITMQ_PASS"
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RABBITMQ_PASS
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
-            - name: RABBITMQ_VM_MEMORY_HIGH_WATERMARK
-              value: "96MB"
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
             - name: tmp
               mountPath: /tmp
-            - name: secrets
-              mountPath: /etc/secrets
-              readOnly: true
           livenessProbe:
             tcpSocket:
               port: 5672
@@ -98,14 +99,6 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: secrets
-          secret:
-            secretName: app-secrets
-            items:
-              - key: RABBITMQ_USER
-                path: RABBITMQ_USER
-              - key: RABBITMQ_PASS
-                path: RABBITMQ_PASS
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage
