@@ -22,7 +22,6 @@ TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 if [[ "${1:-}" == "--silent" ]]; then
 	SILENT_MODE=true
 fi
-
 # Colors for output
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -33,7 +32,6 @@ NC='\033[0m' # No Color
 log() {
 	echo -e "${2:-}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}"
 }
-
 # Send Telegram notification
 send_telegram() {
 	local message="$1"
@@ -56,7 +54,6 @@ send_telegram() {
 		log "Failed to send Telegram notification: $response" "$RED"
 	fi
 }
-
 # Check /etc/fstab for duplicate swap entries
 check_fstab_swap() {
 	local swap_count
@@ -75,7 +72,6 @@ check_fstab_swap() {
 		return 0
 	fi
 }
-
 # Check memory usage
 check_memory() {
 	local mem_info
@@ -100,7 +96,6 @@ check_memory() {
 		return 0
 	fi
 }
-
 # Check disk usage
 check_disk() {
 	local disk_usage
@@ -121,7 +116,6 @@ check_disk() {
 		return 0
 	fi
 }
-
 # Check k3s status
 check_k3s() {
 	if ! command -v k3s &>/dev/null; then
@@ -152,7 +146,6 @@ check_k3s() {
 	echo "OK_K3S:${ready_nodes}:${node_count}"
 	return 0
 }
-
 # Check systemd failed units
 check_systemd() {
 	local failed_count
@@ -169,7 +162,6 @@ check_systemd() {
 		return 0
 	fi
 }
-
 # Check swap usage
 check_swap() {
 	local swap_info
@@ -194,7 +186,6 @@ check_swap() {
 		return 0
 	fi
 }
-
 # Main health check
 main() {
 	log "Starting server health check..."
@@ -224,24 +215,24 @@ main() {
 		message+="<code>$(hostname)</code>\n"
 		message+="<code>$(date '+%Y-%m-%d %H:%M:%S')</code>\n\n"
 		case "$status" in
-			"CRITICAL")
-				message+="🔴 <b>Status: CRITICAL</b>\n\n"
-				message+="<b>Critical Issues:</b>\n"
-				for issue in "${critical_issues[@]}"; do
-					message+="  ❌ ${issue}\n"
-				done
-				;;
-			"WARNING")
-				message+="🟡 <b>Status: WARNING</b>\n\n"
-				message+="<b>Warnings:</b>\n"
-				for warning in "${warnings[@]}"; do
-					message+="  ⚠️ ${warning}\n"
-				done
-				;;
-			"HEALTHY")
-				message+="🟢 <b>Status: HEALTHY</b>\n\n"
-				message+="All checks passed successfully ✅\n"
-				;;
+		"CRITICAL")
+			message+="🔴 <b>Status: CRITICAL</b>\n\n"
+			message+="<b>Critical Issues:</b>\n"
+			for issue in "${critical_issues[@]}"; do
+				message+="  ❌ ${issue}\n"
+			done
+			;;
+		"WARNING")
+			message+="🟡 <b>Status: WARNING</b>\n\n"
+			message+="<b>Warnings:</b>\n"
+			for warning in "${warnings[@]}"; do
+				message+="  ⚠️ ${warning}\n"
+			done
+			;;
+		"HEALTHY")
+			message+="🟢 <b>Status: HEALTHY</b>\n\n"
+			message+="All checks passed successfully ✅\n"
+			;;
 		esac
 		message+="\n<b>Summary:</b>\n"
 		message+="  • Fstab: ${fstab_result%%:*}\n"
@@ -258,5 +249,4 @@ main() {
 		exit 0
 	fi
 }
-
 main "$@"
