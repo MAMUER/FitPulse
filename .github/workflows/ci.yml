@@ -1029,6 +1029,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/Microservice_arc') ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
     steps:
       - uses: actions/checkout@v7
