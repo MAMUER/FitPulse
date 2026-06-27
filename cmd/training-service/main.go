@@ -6,11 +6,11 @@ import (
 	"errors"
 	"math"
 	"net"
-	"os"
 	"strings"
 	"time"
 
 	pb "github.com/MAMUER/project/api/gen/training"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
@@ -864,18 +864,15 @@ func main() {
 	log := logger.New("training-service")
 	defer func() { _ = log.Sync() }()
 
-	port := os.Getenv("TRAINING_SERVICE_PORT")
-	if port == "" {
-		port = "50053"
-	}
+	port := config.GetEnv("TRAINING_SERVICE_PORT", "50053")
 
 	dbCfg := db.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		Host:     config.GetEnv("DB_HOST"),
+		Port:     config.GetEnv("DB_PORT"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB"),
+		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
@@ -887,7 +884,7 @@ func main() {
 		}
 	}()
 
-	rabbitURL := os.Getenv("RABBITMQ_URL")
+	rabbitURL := config.GetEnv("RABBITMQ_URL")
 	queueName := "training_events"
 	var rabbitQueue queue.Publisher
 	if rabbitURL != "" {

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MAMUER/project/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,13 +97,13 @@ func TestSplitCSVEmpty(t *testing.T) {
 
 func TestGetEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("TEST_VAR", "hello"))
-	assert.Equal(t, "hello", getEnv("TEST_VAR", "fallback"))
+	assert.Equal(t, "hello", config.GetEnv("TEST_VAR", "fallback"))
 	require.NoError(t, os.Unsetenv("TEST_VAR"))
 }
 
 func TestGetEnvFallback(t *testing.T) {
 	require.NoError(t, os.Unsetenv("NONEXISTENT_VAR_XYZ"))
-	assert.Equal(t, "fallback", getEnv("NONEXISTENT_VAR_XYZ", "fallback"))
+	assert.Equal(t, "fallback", config.GetEnv("NONEXISTENT_VAR_XYZ", "fallback"))
 }
 
 func TestNewSender(t *testing.T) {

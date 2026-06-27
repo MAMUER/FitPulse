@@ -22,12 +22,12 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/oauth2"
-	oauth2google "golang.org/x/oauth2/google"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/cache"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/gorilla/mux"
@@ -64,42 +64,6 @@ type gateway struct {
 	totpRateLimiters sync.Map
 }
 
-//nolint:gocognit,gocyclo,funlen // Complexity due to sequential init of multiple services
-func getEnvOrFile(key string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-
-	filePath := os.Getenv(key + "_FILE")
-	if filePath == "" {
-		return ""
-	}
-
-	value, err := readSecretFile(filePath)
-	if err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(string(value))
-}
-
-func readSecretFile(filePath string) ([]byte, error) {
-	cleanPath := filepath.Clean(filePath)
-	if cleanPath == "." || cleanPath == string(filepath.Separator) {
-		return nil, fmt.Errorf("secret file path is invalid")
-	}
-
-	info, err := os.Stat(cleanPath)
-	if err != nil {
-		return nil, err
-	}
-	if info.IsDir() {
-		return nil, fmt.Errorf("secret file path is a directory")
-	}
-
-	return os.ReadFile(cleanPath) // #nosec G304 -- path is checked with os.Stat before reading
-}
-
 func main() {
 	log := logger.New("gateway")
 	defer func() {
@@ -112,10 +76,10 @@ func main() {
 	metrics := newGatewayMetrics()
 	cfg := loadGatewayConfig(log)
 
-	db, closeDB := openGatewayDatabase(log, os.Getenv("DATABASE_URL"))
+	db, closeDB := openGatewayDatabase(log, config.GetEnv("DATABASE_URL"))
 	defer closeDB()
 
-	redisPassword := getEnvOrFile("REDIS_PASSWORD")
+	redisPassword := config.GetEnv("REDIS_PASSWORD")
 	const redisMaxRetries = 10
 	const redisRetryDelay = 3 * time.Second
 
@@ -158,6 +122,79 @@ func main() {
 	g := buildGateway(log, cfg, metrics, db, sessionStore, rdb, rmqCh, userClient, mlAsync)
 	mainRouter := g.registerRoutes()
 	startGatewayServers(log, cfg, mainRouter)
+}
+
+func loadGatewayConfig(log *logger.Logger) gatewayConfig {
+	cfg := gatewayConfig{
+		port:                 config.GetEnv("GATEWAY_PORT", "8080"),
+		userServiceAddr:      config.GetEnv("USER_SERVICE_ADDR", "localhost:50051"),
+		biometricServiceAddr: config.GetEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052"),
+		trainingServiceAddr:  config.GetEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
+		classifierURL:        config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
+		mlGeneratorURL:       config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
+		deviceConnectorURL:   config.GetEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
+		mlAsync:              config.GetEnv("ML_ASYNC", "false") == "true",
+		redisAddr:            redisAddress(),
+		appBaseURL:           config.GetEnv("APP_BASE_URL"),
+		googleClientID:       config.GetEnv("GOOGLE_CLIENT_ID"),
+		googleClientSecret:   config.GetEnv("GOOGLE_CLIENT_SECRET"),
+	}
+
+	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
+		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
+	}
+
+	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqp://localhost:5672/")
+
+	jwtSecret := config.GetEnv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	cfg.jwtSecret = jwtSecret
+
+	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
+	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
+	return cfg
+}
+
+func extractPublicHost(appBaseURL string) string {
+	if appBaseURL == "" {
+		return ""
+	}
+	parsedAppURL, err := url.Parse(appBaseURL)
+	if err != nil {
+		return ""
+	}
+	return parsedAppURL.Host
+}
+
+func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
+	if cfg.googleClientID == "" || cfg.googleClientSecret == "" {
+		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
+		return nil
+	}
+
+	redirectURL := config.GetEnv("GOOGLE_REDIRECT_URL")
+	if redirectURL == "" && cfg.appBaseURL != "" {
+		redirectURL = cfg.appBaseURL + "/api/v1/auth/google/callback"
+	}
+
+	log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
+	return &oauth2.Config{
+		ClientID:     cfg.googleClientID,
+		ClientSecret: cfg.googleClientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"openid", "profile", "email"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
+			TokenURL: "https://oauth2.googleapis.com/token",
+		},
+	}
+}
+
+func redisAddress() string {
+	redisHost := config.GetEnv("REDIS_HOST", "redis")
+	return redisHost + ":6379"
 }
 
 type gatewayMetrics struct {
@@ -219,95 +256,6 @@ func newGatewayMetrics() gatewayMetrics {
 
 	prometheus.MustRegister(metrics.requestDuration, metrics.requestTotal, metrics.errorTotal)
 	return metrics
-}
-
-func loadGatewayConfig(log *logger.Logger) gatewayConfig {
-	cfg := gatewayConfig{
-		port:                 defaultEnv("GATEWAY_PORT", "8080"),
-		userServiceAddr:      defaultEnv("USER_SERVICE_ADDR", "localhost:50051"),
-		biometricServiceAddr: defaultEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052"),
-		trainingServiceAddr:  defaultEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
-		classifierURL:        defaultEnv("CLASSIFIER_URL", "http://classifier:8001"),
-		mlGeneratorURL:       defaultEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
-		deviceConnectorURL:   defaultEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
-		mlAsync:              envBool("ML_ASYNC"),
-		redisAddr:            redisAddress(),
-		appBaseURL:           os.Getenv("APP_BASE_URL"),
-		googleClientID:       os.Getenv("GOOGLE_CLIENT_ID"),
-		googleClientSecret:   os.Getenv("GOOGLE_CLIENT_SECRET"),
-	}
-
-	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
-		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
-	}
-
-	rabbitmqURL := getEnvOrFile("RABBITMQ_URL")
-	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://localhost:5672/"
-	}
-	cfg.rabbitmqURL = rabbitmqURL
-
-	jwtSecret := getEnvOrFile("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
-	}
-	cfg.jwtSecret = jwtSecret
-
-	cfg.publicHost = publicHostFromBaseURL(cfg.appBaseURL)
-	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
-	return cfg
-}
-
-func defaultEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func envBool(key string) bool {
-	value := os.Getenv(key)
-	return value == "true" || value == "True" || value == "1"
-}
-
-func redisAddress() string {
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "redis"
-	}
-	return redisHost + ":6379"
-}
-
-func publicHostFromBaseURL(appBaseURL string) string {
-	if appBaseURL == "" {
-		return ""
-	}
-	parsedAppURL, err := url.Parse(appBaseURL)
-	if err != nil {
-		return ""
-	}
-	return parsedAppURL.Host
-}
-
-func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
-	if cfg.googleClientID == "" || cfg.googleClientSecret == "" {
-		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
-		return nil
-	}
-
-	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
-	if redirectURL == "" && cfg.appBaseURL != "" {
-		redirectURL = cfg.appBaseURL + "/api/v1/auth/google/callback"
-	}
-
-	log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
-	return &oauth2.Config{
-		ClientID:     cfg.googleClientID,
-		ClientSecret: cfg.googleClientSecret,
-		RedirectURL:  redirectURL,
-		Scopes:       []string{"openid", "profile", "email"},
-		Endpoint:     oauth2google.Endpoint,
-	}
 }
 
 func validateMLGeneratorURL(mlGeneratorURL string) error {

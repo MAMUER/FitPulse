@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
-	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MAMUER/project/internal/config"
 )
 
 // Config holds SMTP server configuration.
@@ -29,21 +30,21 @@ type Config struct {
 // LoadConfig reads SMTP configuration from environment variables.
 func LoadConfig() Config {
 	port := 1025
-	if p := os.Getenv("SMTP_PORT"); p != "" {
+	if p := config.GetEnv("SMTP_PORT"); p != "" {
 		if parsed, err := strconv.Atoi(p); err == nil {
 			port = parsed
 		}
 	}
 
 	dailyLimit := 0
-	if limit := os.Getenv("EMAIL_DAILY_LIMIT"); limit != "" {
+	if limit := config.GetEnv("EMAIL_DAILY_LIMIT"); limit != "" {
 		if parsed, err := strconv.Atoi(limit); err == nil && parsed > 0 {
 			dailyLimit = parsed
 		}
 	}
 
 	skipDomains := []string{}
-	if domains := os.Getenv("EMAIL_SKIP_DOMAINS"); domains != "" {
+	if domains := config.GetEnv("EMAIL_SKIP_DOMAINS"); domains != "" {
 		for _, d := range splitCSV(domains) {
 			if d != "" {
 				skipDomains = append(skipDomains, d)
@@ -52,12 +53,12 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		Host:            getEnv("SMTP_HOST", "localhost"),
+		Host:            config.GetEnv("SMTP_HOST", "localhost"),
 		Port:            port,
-		User:            os.Getenv("SMTP_USER"),
-		Password:        os.Getenv("SMTP_PASSWORD"),
-		From:            getEnv("SMTP_FROM", "noreply@fitpulse.app"),
-		UseTLS:          getEnv("SMTP_TLS", "false") == "true",
+		User:            config.GetEnv("SMTP_USER"),
+		Password:        config.GetEnv("SMTP_PASSWORD"),
+		From:            config.GetEnv("SMTP_FROM", "noreply@fitpulse.app"),
+		UseTLS:          config.GetEnv("SMTP_TLS", "false") == "true",
 		DailyLimit:      dailyLimit,
 		SkipSendDomains: skipDomains,
 	}
@@ -70,13 +71,6 @@ func splitCSV(s string) []string {
 		result = append(result, strings.TrimSpace(part))
 	}
 	return result
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }
 
 // Sender is the SMTP client used to send emails.

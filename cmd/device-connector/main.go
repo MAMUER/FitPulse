@@ -10,6 +10,7 @@ import (
 	"time"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
@@ -470,24 +471,18 @@ func main() {
 		}
 	}()
 
-	port := os.Getenv("DEVICE_CONNECTOR_PORT")
-	if port == "" {
-		port = "8082"
-	}
+	port := config.GetEnv("DEVICE_CONNECTOR_PORT", "8082")
 
 	dbCfg := db.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		Host:     config.GetEnv("DB_HOST"),
+		Port:     config.GetEnv("DB_PORT"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB"),
+		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
 
-	biometricServiceAddr := os.Getenv("BIOMETRIC_SERVICE_ADDR")
-	if biometricServiceAddr == "" {
-		biometricServiceAddr = "localhost:50052"
-	}
+	biometricServiceAddr := config.GetEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052")
 
 	// Connect to PostgreSQL
 	database, err := db.NewConnection(dbCfg)

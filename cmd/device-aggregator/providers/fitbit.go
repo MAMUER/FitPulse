@@ -9,10 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/MAMUER/project/internal/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -29,9 +29,9 @@ type FitbitProvider struct {
 // NewFitbitProvider returns a new Fitbit provider bound to the given database and logger.
 func NewFitbitProvider(db *sql.DB, log *zap.Logger) *FitbitProvider {
 	return &FitbitProvider{
-		clientID:     os.Getenv("FITBIT_CLIENT_ID"),
-		clientSecret: os.Getenv("FITBIT_CLIENT_SECRET"),
-		redirectURI:  os.Getenv("FITBIT_REDIRECT_URI"),
+		clientID:     config.GetEnv("FITBIT_CLIENT_ID"),
+		clientSecret: config.GetEnv("FITBIT_CLIENT_SECRET"),
+		redirectURI:  config.GetEnv("FITBIT_REDIRECT_URI"),
 		db:           db,
 		log:          log,
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/MAMUER/project/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -111,7 +112,7 @@ func TestGetEnvOrDefault(t *testing.T) {
 					t.Setenv(tt.envKey, tt.envValue)
 				}
 			}
-			got := getEnvOrDefault(tt.envKey, tt.fallback)
+			got := config.GetEnv(tt.envKey, tt.fallback)
 			assert.Equal(t, tt.want, got)
 		})
 	}

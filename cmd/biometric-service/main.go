@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"net"
-	"os"
 	"time"
 
 	pb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
@@ -256,18 +256,15 @@ func (s *biometricServer) GetLatest(ctx context.Context, req *pb.GetLatestReques
 func main() {
 	log := logger.New("biometric-service")
 
-	port := os.Getenv("BIOMETRIC_SERVICE_PORT")
-	if port == "" {
-		port = "50052"
-	}
+	port := config.GetEnv("BIOMETRIC_SERVICE_PORT", "50052")
 
 	dbCfg := db.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		Host:     config.GetEnv("DB_HOST"),
+		Port:     config.GetEnv("DB_PORT"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB"),
+		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
 
 	grpcServer := grpc.NewServer(
@@ -284,7 +281,7 @@ func main() {
 		}
 	}()
 
-	rabbitURL := os.Getenv("RABBITMQ_URL")
+	rabbitURL := config.GetEnv("RABBITMQ_URL")
 	queueName := "biometric_events"
 	var rabbitQueue queue.Publisher
 	if rabbitURL != "" {

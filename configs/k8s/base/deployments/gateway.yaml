@@ -22,7 +22,7 @@ spec:
     metadata:
       labels:
         app: gateway
-        zone: dmz # было "dmz-zone"
+        zone: dmz
         environment: production
         app.kubernetes.io/name: gateway
         app.kubernetes.io/instance: gateway
@@ -54,6 +54,10 @@ spec:
             items:
               - key: JWT_SECRET
                 path: JWT_SECRET
+              - key: RABBITMQ_URL
+                path: RABBITMQ_URL
+              - key: REDIS_PASSWORD
+                path: REDIS_PASSWORD
       containers:
         - name: gateway
           image: ghcr.io/mamuer/project/gateway:latest
@@ -84,6 +88,8 @@ spec:
               value: "false"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: JWT_SECRET_FILE
+              value: "/etc/secrets/JWT_SECRET"
           livenessProbe:
             httpGet:
               path: /health

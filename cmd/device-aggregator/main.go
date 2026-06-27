@@ -2,10 +2,10 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/MAMUER/project/cmd/device-aggregator/providers"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
@@ -27,12 +27,12 @@ func main() {
 	defer func() { _ = log.Sync() }()
 
 	dbCfg := db.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		Host:     config.GetEnv("DB_HOST"),
+		Port:     config.GetEnv("DB_PORT"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB"),
+		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
 
 	database, err := db.NewConnection(dbCfg)

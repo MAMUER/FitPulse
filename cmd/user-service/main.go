@@ -7,13 +7,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	pb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/email"
@@ -904,48 +903,6 @@ func generateVerificationToken() string {
 	return hex.EncodeToString(b)
 }
 
-func getEnvOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func getEnvOrFile(key string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-
-	filePath := os.Getenv(key + "_FILE")
-	if filePath == "" {
-		return ""
-	}
-
-	value, err := readSecretFile(filePath)
-	if err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(string(value))
-}
-
-func readSecretFile(filePath string) ([]byte, error) {
-	cleanPath := filepath.Clean(filePath)
-	if cleanPath == "." || cleanPath == string(filepath.Separator) {
-		return nil, errors.New("secret file path is invalid")
-	}
-
-	info, err := os.Stat(cleanPath)
-	if err != nil {
-		return nil, err
-	}
-	if info.IsDir() {
-		return nil, errors.New("secret file path is a directory")
-	}
-
-	return os.ReadFile(cleanPath) // #nosec G304 -- path is checked with os.Stat before reading
-}
-
 func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWithInviteRequest) (*pb.RegisterResponse, error) {
 	s.log.Info("Register with invite code", zap.String("email", req.GetEmail()))
 
@@ -1223,18 +1180,15 @@ func main() {
 	log := logger.New("user-service")
 	defer func() { _ = log.Sync() }()
 
-	port := os.Getenv("USER_SERVICE_PORT")
-	if port == "" {
-		port = "50051"
-	}
+	port := config.GetEnv("USER_SERVICE_PORT", "50051")
 
 	dbCfg := db.Config{
-		Host:     getEnvOrDefault("DB_HOST", "localhost"),
-		Port:     getEnvOrDefault("DB_PORT", "5432"),
-		User:     getEnvOrFile("POSTGRES_USER"),
-		Password: getEnvOrFile("POSTGRES_PASSWORD"),
-		DBName:   getEnvOrDefault("POSTGRES_DB", "fitness"),
-		SSLMode:  getEnvOrDefault("DB_SSLMODE", "disable"),
+		Host:     config.GetEnv("DB_HOST", "localhost"),
+		Port:     config.GetEnv("DB_PORT", "5432"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB", "fitness"),
+		SSLMode:  config.GetEnv("DB_SSLMODE", "disable"),
 	}
 
 	database, err := db.NewConnection(dbCfg)
@@ -1247,12 +1201,12 @@ func main() {
 		}
 	}()
 
-	secret := getEnvOrFile("JWT_SECRET")
+	secret := config.GetEnv("JWT_SECRET")
 	if secret == "" {
 		log.Fatal("JWT_SECRET environment variable is required")
 	}
 
-	totpEncryptionKey := getEnvOrFile("TOTP_ENCRYPTION_KEY")
+	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
 	if totpEncryptionKey == "" {
 		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
 	}
@@ -1262,11 +1216,10 @@ func main() {
 		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
 	}
 
-	// SMTP email configuration
 	emailCfg := email.LoadConfig()
 	emailSender := email.NewSender(emailCfg)
-	baseURL := getEnvOrDefault("BASE_URL", "https://localhost:8443")
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
+	googleClientID := config.GetEnv("GOOGLE_CLIENT_ID")
 	if googleClientID == "" {
 		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
 	}
