@@ -1518,7 +1518,7 @@ jobs:
 
       - name: Deploy health check script
         run: |
-          ./scripts/ssh-retry.sh scp scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             sudo chmod +x /usr/local/bin/check-server-health.sh
             
@@ -1571,7 +1571,7 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Deploy health check script
         run: |
-          ./scripts/ssh-retry.sh scp scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             sudo chmod +x /usr/local/bin/check-server-health.sh
             echo '✅ Health check script deployed'
