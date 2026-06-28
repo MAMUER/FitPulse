@@ -1931,46 +1931,6 @@ jobs:
           done
           echo "Waiting for ConfigMaps to propagate..."
           sleep 15
-      - name: Check service logs for errors
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          echo "Waiting for pods to stabilize..."
-          sleep 30
-
-          echo "Checking pod status..."
-          kubectl get pods -n fitness-platform-production
-
-          echo "Checking logs for critical errors..."
-          ERROR_FOUND=0
-          for dep in user-service training-service rabbitmq; do
-            echo "=== Logs for $dep ==="
-            if [[ "$dep" == "rabbitmq" ]]; then
-              LOGS=$(kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
-            else
-              LOGS=$(kubectl logs deployment/$dep -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
-            fi
-            echo "$LOGS"
-            # Ищем известные критические ошибки
-            if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
-              echo "❌ Found critical error in $dep logs"
-              ERROR_FOUND=1
-            fi
-          done
-
-          # Дополнительно проверяем, что все поды с меткой app=<service> имеют статус Running
-          for app in user-service training-service biometric-service gateway device-connector classifier ml-generator redis; do
-            if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
-              echo "❌ Pod(s) for $app are not Running"
-              ERROR_FOUND=1
-            fi
-          done
-
-          if [ $ERROR_FOUND -eq 1 ]; then
-            echo "❌ Critical errors detected, failing the deployment"
-            exit 1
-          else
-            echo "✅ No critical errors found, all services are healthy"
-          fi
       - name: Wait for RabbitMQ to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -2214,6 +2174,46 @@ jobs:
           echo "-> Cleaning up completed job..."
           kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true 2>&1 || true
           echo "✅ seed-admin step completed"
+      - name: Check service logs for errors
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "Waiting for pods to stabilize..."
+          sleep 30
+
+          echo "Checking pod status..."
+          kubectl get pods -n fitness-platform-production
+
+          echo "Checking logs for critical errors..."
+          ERROR_FOUND=0
+          for dep in user-service training-service rabbitmq; do
+            echo "=== Logs for $dep ==="
+            if [[ "$dep" == "rabbitmq" ]]; then
+              LOGS=$(kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
+            else
+              LOGS=$(kubectl logs deployment/$dep -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
+            fi
+            echo "$LOGS"
+            # Ищем известные критические ошибки
+            if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
+              echo "❌ Found critical error in $dep logs"
+              ERROR_FOUND=1
+            fi
+          done
+
+          # Дополнительно проверяем, что все поды с меткой app=<service> имеют статус Running
+          for app in user-service training-service biometric-service gateway device-connector classifier ml-generator redis; do
+            if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
+              echo "❌ Pod(s) for $app are not Running"
+              ERROR_FOUND=1
+            fi
+          done
+
+          if [ $ERROR_FOUND -eq 1 ]; then
+            echo "❌ Critical errors detected, failing the deployment"
+            exit 1
+          else
+            echo "✅ No critical errors found, all services are healthy"
+          fi
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         run: |

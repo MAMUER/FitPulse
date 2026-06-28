@@ -39,8 +39,8 @@ spec:
               mountPath: /alertmanager
           resources:
             requests:
-              cpu: "5m"
-              memory: "12Mi"
+              cpu: "10m"
+              memory: "16Mi"
             limits:
               cpu: "20m"
               memory: "24Mi"
