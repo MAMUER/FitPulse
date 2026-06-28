@@ -44,20 +44,7 @@
    pip install -r requirements.txt  # для ML-сервисов
    ```
 
-5. **Настройте окружение**:
-
-   ```bash
-   cp .env.example .env
-   # Отредактируйте .env с необходимыми значениями
-   ```
-
-6. **Запустите локально**:
-
-   ```bash
-   scripts/run-local.bat  # Windows
-   # или
-   docker compose -f deployments/docker-compose.yml up -d  # Linux/Mac
-   ```
+5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск не поддерживается — deploy только на VPS.
 
 ## Как внести изменения
 
@@ -119,7 +106,7 @@ git checkout -b feature/your-feature-name
 ```bash
 feat(auth): добавить поддержку invite-кодов для регистрации админов
 
-docs(readme): обновить инструкции по локальной установке
+docs(readme): обновить документацию
 ```
 
 ## Стандарты кода
@@ -288,7 +275,7 @@ Fixes #123
 - [ ] Все тесты проходят (make test)
 - [ ] Покрытие тестами >= 80%
 - [ ] Документация обновлена
-- [ ] Изменения протестированы локально
+- [ ] Изменения протестированы (make test)
 ```
 
 ## Code Review
@@ -321,7 +308,7 @@ PR будет принят, если:
 
 - **GitHub Issues**: для багов и фич
 - **GitHub Discussions**: для общих вопросов
-- **Email**: <support@fitpulse.local> (если настроено)
+- **Email**: <support@fittpulse.duckdns.org>
 
 ### Кодекс поведения
 

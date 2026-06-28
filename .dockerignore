@@ -23,12 +23,6 @@ bin/
 logs/
 *.log
 
-# Environment — секреты в образе = уязвимость!
-.env
-.env.local
-.env.*.local
-!.env.example
-
 # ML models и датасеты — большие файлы
 datasets/
 

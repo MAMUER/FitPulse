@@ -59,16 +59,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
-            - name: RABBITMQ_DEFAULT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_USER
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_PASS
+            # Удалены RABBITMQ_DEFAULT_USER и RABBITMQ_DEFAULT_PASS
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
           volumeMounts:
@@ -103,8 +94,11 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: rabbitmq-config
-          configMap:
-            name: rabbitmq-config
+          secret:
+            secretName: rabbitmq-secret
+            items:
+              - key: rabbitmq.conf
+                path: rabbitmq.conf
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage

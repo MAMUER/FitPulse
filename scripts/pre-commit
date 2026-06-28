@@ -19,7 +19,7 @@ if ! trufflehog git file://. --since-commit HEAD --only-verified --fail; then
 	echo ""
 	echo "POTENTIAL SECRETS DETECTED!"
 	echo "   Remove sensitive data from your changes before committing."
-	echo "   Use .env.example as a template — never commit real credentials."
+	echo "   Do not hardcode real credentials — use GitHub Secrets for CI/CD or secure local vaults."
 	echo ""
 	exit 1
 fi

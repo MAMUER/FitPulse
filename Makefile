@@ -1,10 +1,5 @@
-# Загрузка переменных из .env
-ifneq (,$(wildcard ./.env))
-include .env
-export
-endif
 
-.PHONY: proto build run test test-integration test-cover docker-up docker-down clean dev fmt vet lint vulncheck docker-lint fmt-py fmt-shell lint-py lint-shell lint-json lint-markdown lint-dockerfile
+.PHONY: proto build test test-integration test-cover clean dev fmt vet lint vulncheck docker-lint fmt-py fmt-shell lint-py lint-shell lint-json lint-markdown lint-dockerfile
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 # Зависимости
@@ -132,14 +127,6 @@ proto-clean:
 	powershell -Command "if (Test-Path 'api/gen') { Remove-Item -Recurse -Force 'api/gen' }"
 	@echo "Done."
 
-run: build
-	.\bin\gateway.exe
-
-docker-up:
-	docker compose -f deployments/docker-compose.yml up -d
-
-docker-down:
-	docker compose -f deployments/docker-compose.yml down
 
 # Создание combined init-db.sql из миграций
 combine-migrations:
@@ -174,8 +161,8 @@ clean:
 	powershell -Command "if (Test-Path 'coverage.html') { Remove-Item 'coverage.html' }"
 	@echo "Clean complete."
 
-dev: docker-up
-	@echo "Services started. Run 'make run' to start gateway."
+dev:
+	@echo "Deploy to VPS via GitHub Actions CI/CD only."
 
 help:
 	@echo "Available commands:"
@@ -195,11 +182,8 @@ help:
 	@echo "  make check      - Run fmt, vet, lint, gosec, vulncheck, test, build"
 	@echo "  make proto      - Generate proto files"
 	@echo "  make build      - Build all services"
-	@echo "  make run        - Run gateway"
-	@echo "  make docker-up  - Start Docker services"
-	@echo "  make docker-down - Stop Docker services"
 	@echo "  make migrate    - Run database migrations (Python, cross-platform)"
 	@echo "  make api-test   - Run API test suite (Python, cross-platform)"
 	@echo "  make load-test  - Run load tests (requires k6)"
 	@echo "  make clean      - Clean generated files"
-	@echo "  make dev        - Start Docker services and run gateway"
+	@echo "  make dev        - Deploy target (VPS only; use GitHub Actions CI/CD)"

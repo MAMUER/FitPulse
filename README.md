@@ -134,34 +134,20 @@ FitPulse представляет собой комплексную платфо
 #### Требования
 
 - Docker 24+ / Docker Compose v2
-- Go 1.26+ (для локальной разработки)
+- Go 1.26+
 - Python 3.11+ (для ML-сервисов)
 - 4 ГБ ОЗУ минимум
-
-#### Развёртывание (Kubernetes)
-
-```bash
-minikube start
-kubectl apply -f configs/k8s/namespace.yaml
-kubectl apply -f configs/k8s/configmap.yaml
-kubectl apply -f configs/k8s/deployments/
-kubectl apply -f configs/k8s/services/
-kubectl get pods -n fitness-platform -w
-```
 
 #### Настройка SMTP (Yandex)
 
 1. Создать пароль приложения: [passport.yandex.ru/profile](https://passport.yandex.ru/profile) → Безопасность → Пароли приложений
-2. В `.env` указать:
-
-   ```env
-   SMTP_HOST=smtp.yandex.ru
-   SMTP_PORT=465
-   SMTP_USER=ваш_email@yandex.ru
-   SMTP_PASSWORD=пароль_приложения
-   SMTP_FROM=ваш_email@yandex.ru
-   SMTP_TLS=true
-   ```
+2. Указать параметры SMTP (в GitHub Secrets):
+   - `SMTP_HOST=smtp.yandex.ru`
+   - `SMTP_PORT=465`
+   - `SMTP_USER=ваш_email@yandex.ru`
+   - `SMTP_PASSWORD=пароль_приложения`
+   - `SMTP_FROM=ваш_email@yandex.ru`
+   - `SMTP_TLS=true`
 
 #### Регистрация первого администратора
 
@@ -576,11 +562,9 @@ API для валидации: `POST /api/v1/invite/validate`
 │   ├── init-db.sql         # Схема БД (8 таблиц)
 │   └── migrations/         # 002_invite_codes
 ├── configs/k8s/            # Kubernetes манифесты
-├── deployments/            # Docker Compose
 ├── deploy/                 # NGINX, TLS
 ├── models/                 # ML модели (classifier.keras, generator.keras)
 ├── .github/workflows/      # CI/CD Pipeline
-├── .env.example            # Шаблон переменных окружения
 ├── SECURITY.md             # Security Policy
 ├── .golangci.yml           # Линтер конфигурация
 ├── Makefile                # Команды сборки/тестов
@@ -591,14 +575,12 @@ API для валидации: `POST /api/v1/invite/validate`
 
 ```bash
 make build          # Собрать бинарники
-make run            # Запустить gateway
 make test           # Unit-тесты
 make test-cover     # Тесты с покрытием (coverage.html)
 make lint           # golangci-lint
 make check          # fmt + vet + lint + test + build
 make proto          # Перегенерировать .proto → Go
-make docker-up      # Docker Compose up
-make docker-down    # Docker Compose down
+make proto          # Перегенерировать .proto → Go
 make migrate        # Применить миграции БД
 make api-test       # Функциональные API-тесты
 make load-test      # Нагрузочное тестирование (k6)
@@ -616,25 +598,8 @@ push/PR → test → security-scan → secrets-scan → build → docker → dep
 - **secrets-scan**: TruffleHog, Gitleaks
 - **build**: компиляция Go бинарников
 - **docker**: сборка и push Docker образов
-- **deploy**: VPS (Docker Compose) + Kubernetes
+- **deploy**: VPS (k3s/Kubernetes)
 - **notify**: Telegram с полным отчётом
-
-### Kubernetes (опционально / на перспективу)
-
-Job `Deploy to Kubernetes` в CI/CD настроен как **опциональный**: если GitHub Secret `KUBECONFIG` пустой или отсутствует, шаг gracefully пропускается без ошибки.
-
-**Почему K8s не активен по умолчанию:**
-
-- Managed Kubernetes (Yandex Cloud, DO, AWS EKS, GKE) — платные сервисы, требуют отдельного бюджета.
-- Самостоятельная установка кластера через kubeadm/k3s/minikube на одном VPS неоправданно сложна и не даёт реальных преимуществ по сравнению с Docker Compose.
-- Текущий деплой полностью покрывает потребности через Docker Compose на VPS.
-
-**Для активации K8s-деплоя:**
-
-1. Создать кластер в облаке (Managed K8s).
-2. Скачать `kubeconfig` с панели управления.
-3. Сохранить содержимое YAML (или его base64-кодировку) в GitHub Secret `KUBECONFIG`.
-4. Тогда CI автоматически применит манифесты из `configs/k8s/`.
 
 ## Тестирование
 
@@ -735,9 +700,8 @@ MIT
 
 1. **Проверьте, не заведён ли баг ранее** — поищите в [Issues](https://github.com/MAMUER/Project/issues).
 2. **Используйте шаблон** — при создании issue выберите шаблон «Bug report».
-3. **Прикрепите логи** — если проблема воспроизводится локально, добавьте фрагменты логов из:
-   - `docker compose logs <service>` для Docker-окружения
-   - `journalctl` / логи Kubernetes-поднятого кластера
+3. **Прикрепите логи** — добавьте фрагменты логов из:
+   - `kubectl logs` / логи Kubernetes-поднятого кластера
 4. **Укажите окружение** — версия Docker/Compose, ОС, браузер, если имеет значение.
 5. **Для критических уязвимостей** — откройте issue с меткой `security` и опишите проблему максимально кратко (не раскрывайте PoC). Мы свяжемся с вами для дополнительных деталей.
 

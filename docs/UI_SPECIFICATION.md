@@ -2,7 +2,7 @@
 
 > **Scope:** Мобильное веб-приложение (SPA) для пользователя системы FitPulse.
 > **Target device:** Мобильный браузер (Viewport `390–430 px`, touch-first).
-> **Base URL:** `https://2.27.32.242:30443/` (локально — `https://localhost:8443`).
+> **Base URL:** `https://fittpulse.duckdns.org:30443/`
 
 ---
 

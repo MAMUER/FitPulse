@@ -17,7 +17,7 @@
 
 ### Как сообщить
 
-1. **Email**: Отправьте письмо на `security@fitpulse.local` (если настроено) или создайте приватный issue в репозитории.
+1. **Email**: Отправьте письмо на `security@fittpulse.duckdns.org` или создайте приватный issue в репозитории.
 
 2. **Информация для предоставления**:
    - Тип уязвимости (например, XSS, SQL Injection, CSRF, Authentication Bypass)
@@ -114,7 +114,7 @@
 ## Контакты
 
 - **GitHub Issues**: [Create a security advisory](https://github.com/your-org/fitpulse/security/advisories)
-- **Email**: [security@fitpulse.local](mailto:security@fitpulse.local) (если настроено)
+- **Email**: [security@fittpulse.duckdns.org](mailto:security@fittpulse.duckdns.org)
 
 ---
 
