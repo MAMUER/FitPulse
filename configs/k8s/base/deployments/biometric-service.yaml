@@ -116,6 +116,8 @@ spec:
               value: "/etc/secrets/REDIS_PASSWORD"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: GRPC_SERVER_ADDRESS
+              value: "0.0.0.0:50052"
           livenessProbe:
             tcpSocket:
               port: 50052
@@ -134,4 +136,4 @@ spec:
               memory: "32Mi"
             limits:
               cpu: "20m"
-              memory: "48Mi" # было 24Mi
+              memory: "48Mi"

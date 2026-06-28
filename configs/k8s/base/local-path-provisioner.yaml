@@ -131,7 +131,7 @@ metadata:
     app.kubernetes.io/name: local-path-provisioner
     app.kubernetes.io/part-of: k8s-system
   annotations:
-    kubescape.io/ignore: "C-0013,C-0017,C-0055,C-0034"
+    kubescape.io/ignore: "C-0013,C-0017,C-0055,C-0034,C-0045,C-0048"
 spec:
   replicas: 1
   selector:

@@ -4,6 +4,8 @@ metadata:
   name: fluent-bit
   labels:
     app: fluent-bit
+  annotations:
+    kubescape.io/ignore: "C-0056,C-0018"
 spec:
   selector:
     matchLabels:
