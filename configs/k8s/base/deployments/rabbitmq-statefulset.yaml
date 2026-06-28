@@ -99,19 +99,19 @@ spec:
               memory: "64Mi"
             limits:
               cpu: "200m"
-              memory: "384Mi" # Уменьшено с 512Mi, чтобы пройти LimitRange (max 384Mi)
+              memory: "384Mi"
       volumes:
         - name: tmp
           emptyDir: {}
         - name: secrets
           secret:
             secretName: app-secrets
-      volumeClaimTemplates:
-        - metadata:
-            name: rabbitmq-storage
-          spec:
-            accessModes: ["ReadWriteOnce"]
-            storageClassName: local-path
-            resources:
-              requests:
-                storage: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 256Mi

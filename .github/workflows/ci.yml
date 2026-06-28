@@ -436,10 +436,12 @@ jobs:
       - name: Install Kubescape
         run: |
           echo "Installing Kubescape..."
-          curl -sL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh -o /tmp/install-kubescape.sh
-          chmod +x /tmp/install-kubescape.sh
-          /tmp/install-kubescape.sh
-          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
+          # Direct binary download to avoid install.sh failures
+          KUBESCAPE_VERSION=$(curl -s https://api.github.com/repos/kubescape/kubescape/releases/latest | grep tag_name | cut -d '"' -f 4)
+          curl -L -o /tmp/kubescape "https://github.com/kubescape/kubescape/releases/download/${KUBESCAPE_VERSION}/kubescape-ubuntu-latest"
+          chmod +x /tmp/kubescape
+          sudo mv /tmp/kubescape /usr/local/bin/kubescape
+          kubescape version
       - name: Run Kubescape scan
         run: |
           kubescape scan configs/k8s/base/ \
@@ -1104,9 +1106,7 @@ jobs:
           "
       - name: Prepare k3s config on VPS
         run: |
-          # Генерируем конфиг из шаблона с подстановкой VPS_HOST
           ./configs/k8s/scripts/generate-k3s-config.sh "${{ secrets.VPS_HOST }}" /tmp/k3s-config-remote.yaml
-          # Валидация YAML перед отправкой
           if command -v python3 &>/dev/null; then
             python3 -c "import yaml; yaml.safe_load(open('/tmp/k3s-config-remote.yaml'))" || {
               echo "❌ Generated config is invalid YAML"
@@ -1115,13 +1115,11 @@ jobs:
             }
             echo "✅ Config YAML is valid"
           fi
-          # Копируем на VPS
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           mkdir -p /etc/rancher/k3s
           echo 'Directory /etc/rancher/k3s created'
           "
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
-          # Показать результат для отладки
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
           cat /etc/rancher/k3s/config.yaml
@@ -1130,7 +1128,6 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           set -euo pipefail
-          # Проверяем, установлен ли уже k3s (существует ли systemd-юнит или бинарник)
           if [ ! -f /etc/systemd/system/k3s.service ] && [ ! -f /usr/local/bin/k3s ]; then
             echo '✅ k3s is not installed yet, skipping restart (will be installed in next steps)'
             exit 0
@@ -1328,9 +1325,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq certbot
             sudo mkdir -p /var/www/certbot
-            # Проверяем, что Nginx запущен и доступен для проверки
             sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
-            # Используем webroot, чтобы не останавливать Nginx
             sudo certbot certonly --webroot --webroot-path /var/www/certbot \
               --non-interactive --agree-tos \
               --email admin@fittpulse.duckdns.org \
@@ -1345,7 +1340,6 @@ jobs:
           else
             echo '✅ Let'\''s Encrypt certificate already exists'
           fi
-          # Показываем информацию о сертификате для отладки
           sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
           "
       - name: Deploy Nginx configuration to VPS
@@ -1354,10 +1348,8 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           echo '-> Deploying Nginx configuration...'
           sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
-          # Удаляем все старые/конфликтующие конфиги, чтобы избежать ошибки 'duplicate default server'
           sudo rm -f /etc/nginx/sites-enabled/*
           sudo rm -f /etc/nginx/conf.d/*.conf
-          # Используем cp вместо mv, чтобы при повторных попытках (retry) файл не пропадал из /tmp/
           sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
           sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
           if sudo nginx -t; then
@@ -1431,12 +1423,9 @@ jobs:
           echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Setup Postgres automated backups
         run: |
-          # 1. Безопасная передача секрета на VPS (избегаем проблем с экранированием кавычек)
           if [ -n "${{ secrets.BACKUP_KEY }}" ]; then
-            # Сохраняем в локальный временный файл
             echo -n "${{ secrets.BACKUP_KEY }}" > /tmp/backup.key
             chmod 600 /tmp/backup.key
-            # Создаем директорию на VPS и копируем ключ по SSH
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /etc/fitpulse"
             ./scripts/ssh-retry.sh scp /tmp/backup.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/backup.key"
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1450,7 +1439,6 @@ jobs:
             echo "⚠️ BACKUP_KEY secret is not set in GitHub. Backups will NOT be encrypted."
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo rm -f /etc/fitpulse/backup.key || true"
           fi
-          # 2. Деплой самого скрипта бэкапа (уже БЕЗ hardcoded секретов)
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           sudo mkdir -p /opt/fitpulse/backups
           cat <<'BACKUP_EOF' | sudo tee /usr/local/bin/backup-postgres.sh > /dev/null
@@ -1462,10 +1450,8 @@ jobs:
           DATE=\$(date +%Y%m%d_%H%M%S)
           FILENAME=\"\$BACKUP_DIR/fitness_\$DATE.dump\"
           ENCRYPTED=\"\$FILENAME.enc\"
-          # Dump from inside the pod
           /usr/local/bin/k3s kubectl exec -n fitness-platform-production postgres-0 -- \
             pg_dump -U postgres -d fitness -F c > \"\$FILENAME\"
-          # Encrypt if key file exists
           if [ -f \"\$KEY_FILE\" ] && [ -s \"\$KEY_FILE\" ]; then
             openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:\"\$KEY_FILE\" -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
             rm -f \"\$FILENAME\"
@@ -1473,11 +1459,9 @@ jobs:
           else
             echo \"Backup created (unencrypted): \$FILENAME\"
           fi
-          # Cleanup old backups (keep last 7 days)
           find \"\$BACKUP_DIR\" -type f -mtime +7 -delete
           BACKUP_EOF
           sudo chmod +x /usr/local/bin/backup-postgres.sh
-          # Setup cron job
           (sudo crontab -l 2>/dev/null | grep -v backup-postgres; echo '0 2 * * * /usr/local/bin/backup-postgres.sh >> /var/log/backup-postgres.log 2>&1') | sudo crontab -
           echo '✅ Postgres backups configured (daily at 2 AM)'
           "
@@ -1486,7 +1470,6 @@ jobs:
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           sudo chmod +x /usr/local/bin/check-server-health.sh
-          # Setup cron for daily health check (silent mode - only alerts on issues)
           (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
           (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
           echo '✅ Health check script deployed and cron configured'
@@ -1552,9 +1535,7 @@ jobs:
       - name: Setup daily health check cron
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          # Remove old cron job if exists
           (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
-          # Add new cron job (runs daily at 9 AM UTC)
           (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
           echo '✅ Daily health check cron configured (9 AM UTC)'
           "
@@ -1875,9 +1856,7 @@ jobs:
           echo "Deleting immutable Jobs to allow updates..."
           kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
           echo "Deleting existing PVCs and PVs to force recreation with fixed provisioner..."
-          # Удаляем PVC
           kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true || true
-          # Удаляем все PV, которые ссылаются на этот namespace (чтобы они не блокировали новые)
           kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv || true
           cd configs/k8s/overlays/production
           kustomize build . > /tmp/manifests.yaml
@@ -1930,14 +1909,12 @@ jobs:
             echo "Attempt $i/60: waiting for RabbitMQ pod..."
             sleep 2
           done
-
           if [ -z "$POD_NAME" ]; then
             echo "❌ RabbitMQ pod not scheduled. Checking events..."
             kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | grep -i rabbitmq || true
             kubectl describe statefulset rabbitmq -n fitness-platform-production || true
             exit 1
           fi
-
           echo "Waiting for RabbitMQ StatefulSet to be ready..."
           kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=180s || {
             echo "❌ RabbitMQ not ready. Logs:"
@@ -2194,13 +2171,11 @@ jobs:
               LOGS=$(kubectl logs deployment/$dep -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
             fi
             echo "$LOGS"
-            # Ищем известные критические ошибки
             if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
               echo "❌ Found critical error in $dep logs"
               ERROR_FOUND=1
             fi
           done
-          # Дополнительно проверяем, что все поды с меткой app=<service> имеют статус Running
           for app in user-service training-service biometric-service gateway device-connector classifier ml-generator redis; do
             if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
               echo "❌ Pod(s) for $app are not Running"
@@ -2352,7 +2327,6 @@ jobs:
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
-          # Проверяем ВСЕ критические job'ы
           FAILED_JOBS=""
           if [[ "${{ needs.binary_build.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
           if [[ "${{ needs.docker.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
