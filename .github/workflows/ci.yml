@@ -1920,22 +1920,31 @@ jobs:
       - name: Wait for RabbitMQ to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          # Проверяем доступность API
-          for i in {1..30}; do
-            if kubectl get --raw=/healthz &>/dev/null; then
+          echo "Waiting for RabbitMQ pod to be scheduled..."
+          for i in {1..60}; do
+            POD_NAME=$(kubectl get pods -l app=rabbitmq -n fitness-platform-production -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+            if [ -n "$POD_NAME" ]; then
+              echo "✅ RabbitMQ pod found: $POD_NAME"
               break
             fi
-            if [ "$i" -eq 30 ]; then
-              echo "API not available after 30 attempts, restarting k3s..."
-              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
-              sleep 30
-            fi
-            sleep 5
+            echo "Attempt $i/60: waiting for RabbitMQ pod..."
+            sleep 2
           done
+
+          if [ -z "$POD_NAME" ]; then
+            echo "❌ RabbitMQ pod not scheduled. Checking events..."
+            kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | grep -i rabbitmq || true
+            kubectl describe statefulset rabbitmq -n fitness-platform-production || true
+            exit 1
+          fi
+
           echo "Waiting for RabbitMQ StatefulSet to be ready..."
-          kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
-          echo "RabbitMQ pod status:"
-          kubectl get pods -l app=rabbitmq -n fitness-platform-production
+          kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=180s || {
+            echo "❌ RabbitMQ not ready. Logs:"
+            kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=100 || true
+            exit 1
+          }
+          echo "✅ RabbitMQ is ready"
       - name: Verify Postgres StatefulSet
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
