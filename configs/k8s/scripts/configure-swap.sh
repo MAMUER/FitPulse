@@ -31,7 +31,7 @@ else
 fi
 
 # Перезаписываем файл с параметрами sysctl (вместо добавления)
-cat > "$SYSCTL_CONF" <<EOF
+cat >"$SYSCTL_CONF" <<EOF
 vm.swappiness=10
 vm.vfs_cache_pressure=50
 EOF
