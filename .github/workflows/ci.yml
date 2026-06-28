@@ -1849,6 +1849,28 @@ jobs:
             echo '-> Waiting 60s to let node recover from disk I/O...'
             sleep 60
           "
+      - name: Ensure local-path-provisioner is running and StorageClass is ready
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          set -euo pipefail
+          echo "Applying local-path-provisioner manifest..."
+          kubectl apply -f configs/k8s/base/local-path-provisioner.yaml
+          echo "Waiting for local-path-provisioner pod to be ready..."
+          kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m
+          echo "Verifying StorageClass local-path exists and is ready..."
+          for i in {1..30}; do
+            if kubectl get storageclass local-path &>/dev/null; then
+              echo "✅ StorageClass found"
+              break
+            fi
+            echo "Attempt $i/30: waiting for StorageClass..."
+            sleep 2
+          done
+          if ! kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' | grep -q true; then
+            echo "⚠️ StorageClass local-path is not default, patching..."
+            kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+          fi
+          echo "✅ local-path-provisioner and StorageClass are ready"
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1864,8 +1886,6 @@ jobs:
           done
           echo "Waiting for k8s API nodes..."
           kubectl wait --for=condition=Ready --timeout=5m nodes --all || { kubectl cluster-info; kubectl get nodes -o wide; exit 1; }
-          echo "Waiting for local-path-provisioner..."
-          kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
           echo "Deleting immutable Jobs to allow updates..."
           kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
           echo "Deleting existing PVCs and PVs to force recreation with fixed provisioner..."
@@ -1911,16 +1931,6 @@ jobs:
           done
           echo "Waiting for ConfigMaps to propagate..."
           sleep 15
-          echo "Ensuring local-path-provisioner is up-to-date..."
-          for retry in {1..10}; do
-            if kubectl get --raw=/healthz &>/dev/null; then
-              kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
-              break
-            fi
-            echo "API not available, attempt $retry/10, restarting k3s..."
-            ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s" || true
-            sleep 30
-          done
       - name: Check service logs for errors
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1977,28 +1987,9 @@ jobs:
             sleep 5
           done
           echo "Waiting for RabbitMQ StatefulSet to be ready..."
-          kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
-          echo "RabbitMQ pod status:"
-          kubectl get pods -l app=rabbitmq -n fitness-platform-production
-      - name: Ensure local-path-provisioner is running
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          for i in {1..30}; do
-            if kubectl get --raw=/healthz &>/dev/null; then
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "API not available, restarting k3s..."
-              ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo systemctl restart k3s"
-              sleep 30
-            fi
-            sleep 5
-          done
-          echo "Applying local-path-provisioner manifest..."
-          kubectl apply -f configs/k8s/base/local-path-provisioner.yaml
-          echo "Waiting for local-path-provisioner pod to be ready..."
-          kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m
-          kubectl get pods -n local-path-storage
+           kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
+           echo "RabbitMQ pod status:"
+           kubectl get pods -l app=rabbitmq -n fitness-platform-production
       - name: Verify Postgres StatefulSet
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -2017,34 +2008,28 @@ jobs:
           echo "=== Checking pods ==="
           kubectl get pods -n fitness-platform-production -o wide
 
-      - name: Wait for Postgres PVC to be bound
+      - name: Wait for Postgres PVC to be created and bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Waiting for Postgres PVC to be bound..."
-          for i in {1..20}; do
-            STATUS=$(kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-            if [ "$STATUS" = "Bound" ]; then
-              echo "✅ Postgres PVC bound after ${i}x5 seconds"
+          echo "Waiting for Postgres PVC to be created..."
+          for i in {1..30}; do
+            if kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production &>/dev/null; then
+              echo "✅ PVC created"
               break
             fi
-            if [ "$i" -eq 20 ]; then
-              echo "❌ Timeout waiting for Postgres PVC"
-              kubectl get nodes -o wide || true
-              kubectl get pvc -n fitness-platform-production || true
-              kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
-              kubectl get storageclass || true
-              echo "-> Checking local-path-provisioner logs..."
-              kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
-              kubectl describe pod -n local-path-storage -l app=local-path-provisioner || true
-              kubectl get events -n local-path-storage --sort-by='.lastTimestamp' || true
-              echo "-> Checking helper-pod status..."
-              kubectl get pods -n local-path-storage -o wide || true
-              kubectl get pods -n fitness-platform-production | grep helper || true
-              exit 1
-            fi
-            echo "Attempt $i/20: PVC status=$STATUS, waiting 5s..."
+            echo "Attempt $i/30: PVC not found yet, waiting 5s..."
             sleep 5
           done
+          echo "Waiting for PVC to be bound..."
+          kubectl wait --for=condition=Bound pvc/postgres-storage-postgres-0 -n fitness-platform-production --timeout=120s || {
+            echo "❌ Timeout waiting for Postgres PVC to bind"
+            kubectl get nodes -o wide || true
+            kubectl get pvc -n fitness-platform-production || true
+            kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
+            kubectl get storageclass || true
+            exit 1
+          }
+          echo "✅ Postgres PVC is bound"
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: |

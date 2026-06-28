@@ -8,7 +8,7 @@ metadata:
 data:
   ENVIRONMENT: "production"
   LOG_LEVEL: "INFO"
-  DB_HOST: "postgres-service"
+  DB_HOST: "postgres-service.fitness-platform-production.svc.cluster.local"
   DB_PORT: "5432"
   DB_SSLMODE: "disable"
   REDIS_HOST: "redis"

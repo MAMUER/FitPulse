@@ -184,7 +184,7 @@ spec:
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
             - name: GRPC_SERVER_ADDRESS
-              value: "0.0.0.0:50051"
+              value: ":50051" # <-- исправлено
           livenessProbe:
             httpGet:
               path: /health
