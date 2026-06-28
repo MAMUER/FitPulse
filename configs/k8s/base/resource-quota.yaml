@@ -5,9 +5,9 @@ metadata:
   namespace: fitness-platform-production
 spec:
   hard:
-    requests.cpu: "800m"
-    requests.memory: 800Mi
-    limits.cpu: "1500m"
-    limits.memory: 1600Mi # Жесткий потолок: 1.6GB на все поды (остальное на систему)
+    requests.cpu: "1000m"
+    requests.memory: 1000Mi
+    limits.cpu: "2000m"
+    limits.memory: 1900Mi # Увеличено с 1600Mi, чтобы хватило на seed-admin/migrate-db (по 96Mi)
     pods: "110"
     persistentvolumeclaims: "5"

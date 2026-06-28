@@ -436,9 +436,8 @@ jobs:
       - name: Install Kubescape
         run: |
           echo "Installing Kubescape..."
-          # Direct binary download to avoid install.sh failures
-          KUBESCAPE_VERSION=$(curl -s https://api.github.com/repos/kubescape/kubescape/releases/latest | grep tag_name | cut -d '"' -f 4)
-          curl -L -o /tmp/kubescape "https://github.com/kubescape/kubescape/releases/download/${KUBESCAPE_VERSION}/kubescape-ubuntu-latest"
+          # Direct binary download to avoid API rate limits and install.sh failures
+          curl -sL -o /tmp/kubescape "https://github.com/kubescape/kubescape/releases/latest/download/kubescape-ubuntu-latest"
           chmod +x /tmp/kubescape
           sudo mv /tmp/kubescape /usr/local/bin/kubescape
           kubescape version
