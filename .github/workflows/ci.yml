@@ -1868,8 +1868,11 @@ jobs:
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
           echo "Deleting immutable Jobs to allow updates..."
           kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
-          echo "Deleting existing PVCs to force recreation with fixed provisioner..."
+          echo "Deleting existing PVCs and PVs to force recreation with fixed provisioner..."
+          # Удаляем PVC
           kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true || true
+          # Удаляем все PV, которые ссылаются на этот namespace (чтобы они не блокировали новые)
+          kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv || true
           cd configs/k8s/overlays/production
           kustomize build . > /tmp/manifests.yaml
           kubectl delete pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true || true
