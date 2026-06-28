@@ -76,6 +76,9 @@ spec:
               mountPath: /var/lib/rabbitmq
             - name: tmp
               mountPath: /tmp
+            - name: rabbitmq-config
+              mountPath: /etc/rabbitmq/rabbitmq.conf
+              subPath: rabbitmq.conf
           livenessProbe:
             tcpSocket:
               port: 5672
@@ -99,6 +102,9 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: rabbitmq-config
+          configMap:
+            name: rabbitmq-config
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage
