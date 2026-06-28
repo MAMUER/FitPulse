@@ -1047,29 +1047,8 @@ jobs:
 
       - name: Configure swap on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
-            echo '-> Configuring 3GB swap...'
-            sudo swapoff -a
-            sudo rm -f /swapfile
-            sudo fallocate -l 3G /swapfile
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
-            echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.d/99-swappiness.conf
-            sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
-            sudo swapon /swapfile
-
-            # ИСПРАВЛЕНИЕ: Проверяем наличие строки перед добавлением
-            if ! grep -q '/swapfile none swap sw 0 0' /etc/fstab; then
-              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-              echo '-> Swap entry added to /etc/fstab'
-            else
-              echo '-> Swap entry already exists in /etc/fstab, skipping'
-            fi
-
-            echo '-> Swap configuration:'
-            free -h
-          EOF
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
       - name: Configure Docker and System log rotation
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
@@ -1789,7 +1768,7 @@ jobs:
           echo "Waiting for secrets to propagate..."
           sleep 10
           echo "Creating rabbitmq-secret with rabbitmq.conf..."
-          envsubst '$RABBITMQ_USER $RABBITMQ_PASS' < configs/k8s/base/secrets/rabbitmq-secret.yaml | kubectl apply -f -
+          envsubst "\$RABBITMQ_USER \$RABBITMQ_PASS" < configs/k8s/base/secrets/rabbitmq-secret.yaml | kubectl apply -f -
           echo "✅ rabbitmq-secret created"
           echo "Waiting for secrets to propagate..."
           sleep 10
