@@ -121,8 +121,7 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: ML_GENERATOR_PORT
-            - name: GRPC_SERVER_ADDRESS
-              value: ":50053" # <-- исправлено: без IP и протокола
+            # GRPC_SERVER_ADDRESS убрана – используется дефолт
           livenessProbe:
             httpGet:
               path: /health
