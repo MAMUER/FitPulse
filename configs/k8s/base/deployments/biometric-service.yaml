@@ -120,13 +120,13 @@ spec:
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50052"
           livenessProbe:
-            tcpSocket:
+            grpc:
               port: 50052
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 3
           readinessProbe:
-            tcpSocket:
+            grpc:
               port: 50052
             initialDelaySeconds: 10
             periodSeconds: 10

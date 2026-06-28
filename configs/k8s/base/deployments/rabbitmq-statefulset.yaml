@@ -71,9 +71,6 @@ spec:
               mountPath: /var/lib/rabbitmq
             - name: tmp
               mountPath: /tmp
-            - name: rabbitmq-config
-              mountPath: /etc/rabbitmq/rabbitmq.conf
-              subPath: rabbitmq.conf
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
@@ -100,12 +97,6 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: rabbitmq-config
-          secret:
-            secretName: rabbitmq-secret
-            items:
-              - key: rabbitmq.conf
-                path: rabbitmq.conf
         - name: secrets
           secret:
             secretName: app-secrets
