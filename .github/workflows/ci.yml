@@ -1838,6 +1838,9 @@ jobs:
           set -euo pipefail
           echo "Applying local-path-provisioner manifest..."
           kubectl apply -f configs/k8s/base/local-path-provisioner.yaml
+          echo "Restarting local-path-provisioner to clear any stuck state..."
+          kubectl rollout restart deployment/local-path-provisioner -n local-path-storage
+          kubectl rollout status deployment/local-path-provisioner -n local-path-storage --timeout=60s
           echo "Waiting for local-path-provisioner pod to be ready..."
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m
           echo "Verifying StorageClass local-path exists and is ready..."
@@ -1963,14 +1966,23 @@ jobs:
             sleep 5
           done
           echo "Waiting for PVC to be bound..."
-          kubectl wait --for=condition=Bound pvc/postgres-storage-postgres-0 -n fitness-platform-production --timeout=120s || {
-            echo "❌ Timeout waiting for Postgres PVC to bind"
-            kubectl get nodes -o wide || true
-            kubectl get pvc -n fitness-platform-production || true
-            kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
-            kubectl get storageclass || true
-            exit 1
-          }
+          for i in {1..30}; do
+            PHASE=$(kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+            if [ "$PHASE" = "Bound" ]; then
+              echo "✅ PVC is bound"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "❌ Timeout waiting for Postgres PVC to bind"
+              kubectl get nodes -o wide || true
+              kubectl get pvc -n fitness-platform-production || true
+              kubectl describe pvc postgres-storage-postgres-0 -n fitness-platform-production || true
+              kubectl get storageclass || true
+              exit 1
+            fi
+            echo "Attempt $i/30: PVC phase is $PHASE, waiting 5s..."
+            sleep 5
+          done
           echo "✅ Postgres PVC is bound"
       - name: Wait for Postgres to be ready
         if: steps.connectivity.outputs.reachable == 'true'

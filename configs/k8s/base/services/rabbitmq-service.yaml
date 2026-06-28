@@ -4,6 +4,7 @@ metadata:
   name: rabbitmq
   namespace: fitness-platform-production
 spec:
+  clusterIP: None
   selector:
     app: rabbitmq
   ports:
@@ -13,4 +14,3 @@ spec:
     - name: management
       port: 15672
       targetPort: 15672
-  type: ClusterIP
