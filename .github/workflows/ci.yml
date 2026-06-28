@@ -1892,6 +1892,8 @@ jobs:
           kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
           echo "Deleting immutable Jobs to allow updates..."
           kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
+          echo "Deleting existing PVCs to force recreation with fixed provisioner..."
+          kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true || true
           cd configs/k8s/overlays/production
           kustomize build . > /tmp/manifests.yaml
           kubectl delete pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true || true
@@ -1931,7 +1933,6 @@ jobs:
           echo "Waiting for ConfigMaps to propagate..."
           sleep 15
           echo "Ensuring local-path-provisioner is up-to-date..."
-          # Проверка доступности API перед rollout
           for retry in {1..10}; do
             if kubectl get --raw=/healthz &>/dev/null; then
               kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true

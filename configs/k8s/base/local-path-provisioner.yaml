@@ -118,6 +118,8 @@ data:
         - name: helper-pod
           image: busybox:latest
           imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args: ["echo 'Helper pod started'; sleep 3600"]
 ---
 apiVersion: apps/v1
 kind: Deployment

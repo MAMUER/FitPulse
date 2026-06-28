@@ -183,7 +183,8 @@ spec:
               value: "/etc/secrets/GOOGLE_REDIRECT_URL"
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
-            # GRPC_SERVER_ADDRESS убрана – используется дефолт
+            - name: GRPC_SERVER_ADDRESS
+              value: "0.0.0.0:50051"
           livenessProbe:
             httpGet:
               path: /health
