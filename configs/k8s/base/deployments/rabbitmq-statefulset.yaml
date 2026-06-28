@@ -32,6 +32,7 @@ spec:
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -59,16 +60,10 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
-            - name: RABBITMQ_DEFAULT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_USER
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_PASS
+            - name: RABBITMQ_DEFAULT_USER_FILE
+              value: "/etc/secrets/RABBITMQ_USER"
+            - name: RABBITMQ_DEFAULT_PASS_FILE
+              value: "/etc/secrets/RABBITMQ_PASS"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
           volumeMounts:
@@ -79,13 +74,16 @@ spec:
             - name: rabbitmq-config
               mountPath: /etc/rabbitmq/rabbitmq.conf
               subPath: rabbitmq.conf
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
           livenessProbe:
             tcpSocket:
               port: 5672
-            initialDelaySeconds: 45
+            initialDelaySeconds: 120
             periodSeconds: 20
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             tcpSocket:
               port: 5672
@@ -94,11 +92,11 @@ spec:
             timeoutSeconds: 5
           resources:
             requests:
-              cpu: "10m"
-              memory: "32Mi"
-            limits:
               cpu: "50m"
-              memory: "96Mi"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
       volumes:
         - name: tmp
           emptyDir: {}
@@ -108,6 +106,9 @@ spec:
             items:
               - key: rabbitmq.conf
                 path: rabbitmq.conf
+        - name: secrets
+          secret:
+            secretName: app-secrets
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage

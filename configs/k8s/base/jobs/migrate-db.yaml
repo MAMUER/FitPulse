@@ -28,6 +28,7 @@ spec:
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -68,8 +69,22 @@ spec:
               export POSTGRES_USER=$(cat /etc/secrets/POSTGRES_USER)
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+
+              echo "-> Waiting for PostgreSQL to accept connections..."
+              for i in $(seq 1 60); do
+                if psql -h "postgres-service" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
+                  echo "✅ PostgreSQL is ready"
+                  break
+                fi
+                if [ "$i" -eq 60 ]; then
+                  echo "❌ Timeout waiting for PostgreSQL"
+                  exit 1
+                fi
+                echo "  Attempt $i/60: PostgreSQL not ready yet, waiting 5s..."
+                sleep 5
+              done
+
               psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f /sql/init.sql -v ON_ERROR_STOP=1
-          # Блок env удалён – секреты используются только через файлы
           volumeMounts:
             - name: sql
               mountPath: /sql
@@ -77,7 +92,6 @@ spec:
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
-          # Пробы заменены на tcpSocket (без секретов)
           readinessProbe:
             tcpSocket:
               port: 5432

@@ -36,6 +36,7 @@ spec:
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 999
@@ -79,8 +80,8 @@ spec:
               mountPath: /var/run/postgresql
           resources:
             requests:
-              cpu: "10m" # было 5m
-              memory: "16Mi" # было 8Mi
+              cpu: "10m"
+              memory: "16Mi"
             limits:
               cpu: "20m"
               memory: "24Mi"

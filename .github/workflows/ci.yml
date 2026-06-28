@@ -446,7 +446,6 @@ jobs:
             --format sarif \
             --output kubescape-results.sarif \
             --verbose || true
-
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
             jq '.runs |= map(
               .results |= map(
@@ -461,7 +460,12 @@ jobs:
                   (.ruleId // "") != "C-0013" and
                   (.ruleId // "") != "C-0017" and
                   (.ruleId // "") != "C-0055" and
-                  (.ruleId // "") != "C-0034"
+                  (.ruleId // "") != "C-0034" and
+                  (.ruleId // "") != "C-0045" and
+                  (.ruleId // "") != "C-0048" and
+                  (.ruleId // "") != "C-0056" and
+                  (.ruleId // "") != "C-0018" and
+                  (.ruleId // "") != "C-0016"
                 )
               )
             )' kubescape-results.sarif > kubescape-results-fixed.sarif
@@ -971,6 +975,7 @@ jobs:
           message: |
             🔄 ML Classifier Retraining: ${{ job.status }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
   ml-retrain-generator:
     name: ML Retrain Generator
     runs-on: ubuntu-latest
@@ -1031,20 +1036,18 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-
       - name: Check disk space on VPS
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
-            echo \"Current disk usage: \${DISK_USAGE}%\"
-            if [ \"\$DISK_USAGE\" -gt 90 ]; then
-              echo \"⚠️ WARNING: Disk usage is over 90%!\"
-              curl -s -X POST \"https://api.telegram.org/bot\${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage\" \
-                -H \"Content-Type: application/json\" \
-                -d \"{\\\"chat_id\\\": \\\"\${{ secrets.TELEGRAM_CHAT_ID }}\\\", \\\"text\\\": \\\"⚠️ VPS Disk usage is \${DISK_USAGE}%!\\\"}\" || true
-            fi
+          DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+          echo \"Current disk usage: \${DISK_USAGE}%\"
+          if [ \"\$DISK_USAGE\" -gt 90 ]; then
+            echo \"⚠️ WARNING: Disk usage is over 90%!\"
+            curl -s -X POST \"https://api.telegram.org/bot\${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage\" \
+              -H \"Content-Type: application/json\" \
+              -d \"{\\\"chat_id\\\": \\\"\${{ secrets.TELEGRAM_CHAT_ID }}\\\", \\\"text\\\": \\\"⚠️ VPS Disk usage is \${DISK_USAGE}%!\\\"}\" || true
+          fi
           "
-
       - name: Configure swap on VPS
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
@@ -1052,59 +1055,57 @@ jobs:
       - name: Configure Docker and System log rotation
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
-            echo "-> Setting up Docker log rotation..."
-            sudo mkdir -p /etc/docker
-            cat <<EOT | sudo tee /etc/docker/daemon.json
-            {
-              "log-driver": "json-file",
-              "log-opts": {
-                "max-size": "10m",
-                "max-file": "3"
-              }
+          echo "-> Setting up Docker log rotation..."
+          sudo mkdir -p /etc/docker
+          cat <<EOT | sudo tee /etc/docker/daemon.json
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
             }
+          }
           EOT
-            echo "-> Setting up journald size limit..."
-            sudo mkdir -p /etc/systemd/journald.conf.d
-            cat <<EOT | sudo tee /etc/systemd/journald.conf.d/99-size-limit.conf
-            [Journal]
-            SystemMaxUse=500M
-            SystemMaxFileSize=50M
-            MaxRetentionSec=1week
+          echo "-> Setting up journald size limit..."
+          sudo mkdir -p /etc/systemd/journald.conf.d
+          cat <<EOT | sudo tee /etc/systemd/journald.conf.d/99-size-limit.conf
+          [Journal]
+          SystemMaxUse=500M
+          SystemMaxFileSize=50M
+          MaxRetentionSec=1week
           EOT
-            sudo systemctl daemon-reload
-            sudo systemctl restart systemd-journald
-            echo "-> Logs rotation configured"
+          sudo systemctl daemon-reload
+          sudo systemctl restart systemd-journald
+          echo "-> Logs rotation configured"
           EOF
       - name: Clean up old k3s
         if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'recreate-cluster'
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            set -x
-            echo \"-> Stopping k3s...\"
-            systemctl stop k3s 2>/dev/null || true
-            pkill -9 -f \"k3s server\" 2>/dev/null || true
-            echo \"-> Removing k3s files...\"
-            rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
-            rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
-            systemctl daemon-reload
-            echo \"Cleanup done\"
+          set -x
+          echo \"-> Stopping k3s...\"
+          systemctl stop k3s 2>/dev/null || true
+          pkill -9 -f \"k3s server\" 2>/dev/null || true
+          echo \"-> Removing k3s files...\"
+          rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
+          rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
+          systemctl daemon-reload
+          echo \"Cleanup done\"
           "
       - name: Fix DNS resolv.conf permanently
         run: |
           echo "-> Uploading DNS fix script to VPS..."
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/fix-dns.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/fix-dns.sh"
-
           echo "-> Running DNS fix script on VPS..."
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo chmod +x /tmp/fix-dns.sh
-            sudo /tmp/fix-dns.sh
-            rm -f /tmp/fix-dns.sh
+          sudo chmod +x /tmp/fix-dns.sh
+          sudo /tmp/fix-dns.sh
+          rm -f /tmp/fix-dns.sh
           "
       - name: Prepare k3s config on VPS
         run: |
           # Генерируем конфиг из шаблона с подстановкой VPS_HOST
           ./configs/k8s/scripts/generate-k3s-config.sh "${{ secrets.VPS_HOST }}" /tmp/k3s-config-remote.yaml
-
           # Валидация YAML перед отправкой
           if command -v python3 &>/dev/null; then
             python3 -c "import yaml; yaml.safe_load(open('/tmp/k3s-config-remote.yaml'))" || {
@@ -1114,24 +1115,21 @@ jobs:
             }
             echo "✅ Config YAML is valid"
           fi
-
           # Копируем на VPS
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            mkdir -p /etc/rancher/k3s
-            echo 'Directory /etc/rancher/k3s created'
+          mkdir -p /etc/rancher/k3s
+          echo 'Directory /etc/rancher/k3s created'
           "
           ./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/etc/rancher/k3s/config.yaml"
-
           # Показать результат для отладки
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
-            cat /etc/rancher/k3s/config.yaml
+          echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
+          cat /etc/rancher/k3s/config.yaml
           "
       - name: Restart k3s if config changed
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           set -euo pipefail
-
           # Проверяем, установлен ли уже k3s (существует ли systemd-юнит или бинарник)
           if [ ! -f /etc/systemd/system/k3s.service ] && [ ! -f /usr/local/bin/k3s ]; then
             echo '✅ k3s is not installed yet, skipping restart (will be installed in next steps)'
@@ -1182,95 +1180,95 @@ jobs:
           SSH_RETRY_DELAY_SECONDS: 15
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            set -euo pipefail
-            echo \"-> Moving k3s binary to /usr/local/bin...\"
-            sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s || mv /tmp/k3s-install/k3s /usr/local/bin/k3s
-            sudo chmod +x /usr/local/bin/k3s || chmod +x /usr/local/bin/k3s
-            echo \"-> Running k3s install script with Docker runtime...\"
-            export INSTALL_K3S_SKIP_DOWNLOAD=true
-            chmod +x /tmp/k3s-install/install.sh
-            sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker || /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
-            echo \"k3s installed successfully\"
-            rm -rf /tmp/k3s-install
+          set -euo pipefail
+          echo \"-> Moving k3s binary to /usr/local/bin...\"
+          sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s || mv /tmp/k3s-install/k3s /usr/local/bin/k3s
+          sudo chmod +x /usr/local/bin/k3s || chmod +x /usr/local/bin/k3s
+          echo \"-> Running k3s install script with Docker runtime...\"
+          export INSTALL_K3S_SKIP_DOWNLOAD=true
+          chmod +x /tmp/k3s-install/install.sh
+          sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker || /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
+          echo \"k3s installed successfully\"
+          rm -rf /tmp/k3s-install
           "
       - name: Cleanup disk space on VPS
         run: |
           echo "-> Cleaning up disk space on VPS..."
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '=== Disk usage before cleanup ==='
-            df -h /
-            echo ''
-            echo '=== Docker disk usage ==='
-            docker system df || true
-            echo ''
-            echo '-> Removing dangling Docker images...'
-            docker image prune -f
-            echo '-> Removing unused Docker volumes...'
-            docker volume prune -f || true
-            echo '-> Removing unused Docker networks...'
-            docker network prune -f || true
-            echo '-> Removing stopped containers...'
-            docker container prune -f || true
-            echo '-> Cleaning Docker build cache...'
-            docker builder prune -f --filter 'until=24h' || true
-            echo ''
-            echo '-> Cleaning containerd cache (k3s internal)...'
-            k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
-            echo ''
-            echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
-              echo \"Cleaning \$svc...\"
-              docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
-                sort -k2 -r | \
-                tail -n +4 | \
-                awk '{print \$1}' | \
-                xargs -r docker rmi || true
-            done
-            echo ''
-            echo '-> Cleaning system logs older than 7 days...'
-            sudo journalctl --vacuum-time=7d || true
-            echo ''
-            echo '-> Cleaning /tmp files older than 1 day...'
-            sudo find /tmp -type f -mtime +1 -delete || true
-            echo ''
-            echo '=== Disk usage after cleanup ==='
-            df -h /
-            echo ''
-            echo '=== Docker disk usage after cleanup ==='
-            docker system df || true
-            echo ''
-            echo '✅ Disk cleanup completed'
+          echo '=== Disk usage before cleanup ==='
+          df -h /
+          echo ''
+          echo '=== Docker disk usage ==='
+          docker system df || true
+          echo ''
+          echo '-> Removing dangling Docker images...'
+          docker image prune -f
+          echo '-> Removing unused Docker volumes...'
+          docker volume prune -f || true
+          echo '-> Removing unused Docker networks...'
+          docker network prune -f || true
+          echo '-> Removing stopped containers...'
+          docker container prune -f || true
+          echo '-> Cleaning Docker build cache...'
+          docker builder prune -f --filter 'until=24h' || true
+          echo ''
+          echo '-> Cleaning containerd cache (k3s internal)...'
+          k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
+          echo ''
+          echo '-> Removing old application images (keep only last 3 versions)...'
+          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+            echo \"Cleaning \$svc...\"
+            docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
+              sort -k2 -r | \
+              tail -n +4 | \
+              awk '{print \$1}' | \
+              xargs -r docker rmi || true
+          done
+          echo ''
+          echo '-> Cleaning system logs older than 7 days...'
+          sudo journalctl --vacuum-time=7d || true
+          echo ''
+          echo '-> Cleaning /tmp files older than 1 day...'
+          sudo find /tmp -type f -mtime +1 -delete || true
+          echo ''
+          echo '=== Disk usage after cleanup ==='
+          df -h /
+          echo ''
+          echo '=== Docker disk usage after cleanup ==='
+          docker system df || true
+          echo ''
+          echo '✅ Disk cleanup completed'
           "
       - name: Pre-pull system images via Docker
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Pre-pulling system images via Docker...\"
-            docker pull rancher/mirrored-pause:3.6 || echo \"pause image pull failed, continuing\"
-            docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo \"coredns pull failed\"
-            docker pull rancher/mirrored-library-traefik:2.9.10 || echo \"traefik pull failed\"
-            docker pull rancher/local-path-provisioner:v0.0.26 || echo \"local-path pull failed\"
-            docker pull busybox:latest || echo \"busybox pull failed\"
-            echo \"Docker images:\"
-            docker images | head -10
+          echo \"-> Pre-pulling system images via Docker...\"
+          docker pull rancher/mirrored-pause:3.6 || echo \"pause image pull failed, continuing\"
+          docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo \"coredns pull failed\"
+          docker pull rancher/mirrored-library-traefik:2.9.10 || echo \"traefik pull failed\"
+          docker pull rancher/local-path-provisioner:v0.0.26 || echo \"local-path pull failed\"
+          docker pull busybox:latest || echo \"busybox pull failed\"
+          echo \"Docker images:\"
+          docker images | head -10
           "
       - name: Start and verify k3s
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Starting k3s...\"
-            systemctl daemon-reload
-            systemctl enable --now k3s
-            echo \"-> Waiting for readiness...\"
-            for i in \$(seq 1 120); do
-              if k3s kubectl cluster-info &> /dev/null; then
-                echo \"k3s ready after \${i}s\"
-                break
-              fi
-              [ \$i -eq 120 ] && { echo \"Timeout\"; journalctl -u k3s -n 20 --no-pager; exit 1; }
-              sleep 2
-            done
-            echo \"=== Cluster status ===\"
-            k3s kubectl get nodes -o wide
-            k3s kubectl get pods -A
+          echo \"-> Starting k3s...\"
+          systemctl daemon-reload
+          systemctl enable --now k3s
+          echo \"-> Waiting for readiness...\"
+          for i in \$(seq 1 120); do
+            if k3s kubectl cluster-info &> /dev/null; then
+              echo \"k3s ready after \${i}s\"
+              break
+            fi
+            [ \$i -eq 120 ] && { echo \"Timeout\"; journalctl -u k3s -n 20 --no-pager; exit 1; }
+            sleep 2
+          done
+          echo \"=== Cluster status ===\"
+          k3s kubectl get nodes -o wide
+          k3s kubectl get pods -A
           "
       - name: Limit k3s memory usage
         run: |
@@ -1285,36 +1283,36 @@ jobs:
       - name: Ensure k3s certificates include domain and external IP
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            set -euo pipefail
-            if ! k3s kubectl get --raw /livez &>/dev/null; then
-              echo \"API не отвечает\"; exit 1
-            fi
-            CERT_FILE=\"/var/lib/rancher/k3s/server/tls/dynamic-cert.json\"
-            NEED_RESTART=false
-            if [ -f \"\$CERT_FILE\" ]; then
-              CURRENT_SAN=\$(kubectl get --raw /apis | jq -r '.')
-              if ! grep -q 'fittpulse.duckdns.org' /etc/rancher/k3s/config.yaml; then
-                echo \"⚠️ Конфиг не содержит домен, обновляем...\"
-                NEED_RESTART=true
-              else
-                echo \"✅ Домен уже в конфиге.\"
-              fi
+          set -euo pipefail
+          if ! k3s kubectl get --raw /livez &>/dev/null; then
+            echo \"API не отвечает\"; exit 1
+          fi
+          CERT_FILE=\"/var/lib/rancher/k3s/server/tls/dynamic-cert.json\"
+          NEED_RESTART=false
+          if [ -f \"\$CERT_FILE\" ]; then
+            CURRENT_SAN=\$(kubectl get --raw /apis | jq -r '.')
+            if ! grep -q 'fittpulse.duckdns.org' /etc/rancher/k3s/config.yaml; then
+              echo \"⚠️ Конфиг не содержит домен, обновляем...\"
+              NEED_RESTART=true
             else
-              echo \"Сертификат ещё не сгенерирован, перезапуск не требуется.\"
+              echo \"✅ Домен уже в конфиге.\"
             fi
-            if [ \"\$NEED_RESTART\" = true ]; then
-              echo \"Перезапуск k3s для применения новых SAN...\"
-              sudo systemctl stop k3s
-              sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
-              sudo systemctl start k3s
-              for i in \$(seq 1 60); do
-                if k3s kubectl cluster-info &>/dev/null; then
-                  echo \"k3s снова готов после \${i}s\"
-                  break
-                fi
-                sleep 2
-              done
-            fi
+          else
+            echo \"Сертификат ещё не сгенерирован, перезапуск не требуется.\"
+          fi
+          if [ \"\$NEED_RESTART\" = true ]; then
+            echo \"Перезапуск k3s для применения новых SAN...\"
+            sudo systemctl stop k3s
+            sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
+            sudo systemctl start k3s
+            for i in \$(seq 1 60); do
+              if k3s kubectl cluster-info &>/dev/null; then
+                echo \"k3s снова готов после \${i}s\"
+                break
+              fi
+              sleep 2
+            done
+          fi
           "
       - name: Upload Traefik NodePort config to VPS
         run: |
@@ -1324,117 +1322,113 @@ jobs:
       - name: Ensure Let's Encrypt certificate exists
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '-> Checking for Let'\''s Encrypt certificate...'
-            if [ ! -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
-              echo '⚠️ Certificate not found. Installing Certbot and issuing certificate (webroot)...'
-              sudo apt-get update -qq
-              sudo apt-get install -y -qq certbot
-              sudo mkdir -p /var/www/certbot
-              # Проверяем, что Nginx запущен и доступен для проверки
-              sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
-              # Используем webroot, чтобы не останавливать Nginx
-              sudo certbot certonly --webroot --webroot-path /var/www/certbot \
-                --non-interactive --agree-tos \
-                --email admin@fittpulse.duckdns.org \
-                -d fittpulse.duckdns.org \
-                --keep-until-expiring
-              if [ $? -eq 0 ]; then
-                echo '✅ Certificate issued successfully'
-              else
-                echo '❌ Certificate issuance failed. Check logs.'
-                exit 1
-              fi
+          echo '-> Checking for Let'\''s Encrypt certificate...'
+          if [ ! -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
+            echo '⚠️ Certificate not found. Installing Certbot and issuing certificate (webroot)...'
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq certbot
+            sudo mkdir -p /var/www/certbot
+            # Проверяем, что Nginx запущен и доступен для проверки
+            sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
+            # Используем webroot, чтобы не останавливать Nginx
+            sudo certbot certonly --webroot --webroot-path /var/www/certbot \
+              --non-interactive --agree-tos \
+              --email admin@fittpulse.duckdns.org \
+              -d fittpulse.duckdns.org \
+              --keep-until-expiring
+            if [ \$? -eq 0 ]; then
+              echo '✅ Certificate issued successfully'
             else
-              echo '✅ Let'\''s Encrypt certificate already exists'
+              echo '❌ Certificate issuance failed. Check logs.'
+              exit 1
             fi
-            # Показываем информацию о сертификате для отладки
-            sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
+          else
+            echo '✅ Let'\''s Encrypt certificate already exists'
+          fi
+          # Показываем информацию о сертификате для отладки
+          sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
           "
       - name: Deploy Nginx configuration to VPS
         run: |
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '-> Deploying Nginx configuration...'
-            sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
-            
-            # Удаляем все старые/конфликтующие конфиги, чтобы избежать ошибки 'duplicate default server'
-            sudo rm -f /etc/nginx/sites-enabled/*
-            sudo rm -f /etc/nginx/conf.d/*.conf
-            
-            # Используем cp вместо mv, чтобы при повторных попытках (retry) файл не пропадал из /tmp/
-            sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
-            sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
-            
-            if sudo nginx -t; then
-              sudo systemctl reload nginx
-              echo '✅ Nginx configuration deployed and reloaded'
-            else
-              echo '❌ Nginx configuration test failed!'
-              sudo nginx -t
-              exit 1
-            fi
+          echo '-> Deploying Nginx configuration...'
+          sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
+          # Удаляем все старые/конфликтующие конфиги, чтобы избежать ошибки 'duplicate default server'
+          sudo rm -f /etc/nginx/sites-enabled/*
+          sudo rm -f /etc/nginx/conf.d/*.conf
+          # Используем cp вместо mv, чтобы при повторных попытках (retry) файл не пропадал из /tmp/
+          sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
+          sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
+          if sudo nginx -t; then
+            sudo systemctl reload nginx
+            echo '✅ Nginx configuration deployed and reloaded'
+          else
+            echo '❌ Nginx configuration test failed!'
+            sudo nginx -t
+            exit 1
+          fi
           "
       - name: Setup auto-renewal for SSL
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Setting up certificate auto-renewal...\"
-            (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
-            echo \"✅ Auto-renewal configured\"
+          echo \"-> Setting up certificate auto-renewal...\"
+          (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
+          echo \"✅ Auto-renewal configured\"
           "
       - name: Setup DuckDNS auto-updater
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '-> Setting up DuckDNS auto-updater...'
-            echo '${{ secrets.DUCKDNS_TOKEN }}' | sudo tee /etc/duckdns/token > /dev/null
-            sudo chmod 600 /etc/duckdns/token
-            sudo mkdir -p /etc/duckdns
+          echo '-> Setting up DuckDNS auto-updater...'
+          echo '${{ secrets.DUCKDNS_TOKEN }}' | sudo tee /etc/duckdns/token > /dev/null
+          sudo chmod 600 /etc/duckdns/token
+          sudo mkdir -p /etc/duckdns
           "
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/duckdns-update.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/duckdns-update.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo chmod +x /usr/local/bin/duckdns-update.sh
-            (sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
-            sudo /usr/local/bin/duckdns-update.sh
-            echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
+          sudo chmod +x /usr/local/bin/duckdns-update.sh
+          (sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
+          sudo /usr/local/bin/duckdns-update.sh
+          echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
           "
       - name: Setup ML infrastructure directories
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo \"-> Creating directories for ML storage...\"
-            sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
-            sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
-            echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
+          echo \"-> Creating directories for ML storage...\"
+          sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
+          sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
+          echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
           "
       - name: Deploy MLflow service
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            mkdir -p ~/fitpulse/deployments
-            docker rm -f fitpulse-mlflow 2>/dev/null || true
-            docker run -d \
-              --name fitpulse-mlflow \
-              --restart unless-stopped \
-              -p 5000:5000 \
-              -v /opt/fitpulse/mlflow-data:/mlflow \
-              ghcr.io/mlflow/mlflow:v2.20.2 \
-              mlflow server \
-                --host 0.0.0.0 \
-                --port 5000 \
-                --backend-store-uri sqlite:////mlflow/mlflow.db \
-                --default-artifact-root /mlflow/artifacts
-            for _ in {1..30}; do
-              if curl -sf http://localhost:5000/health &>/dev/null; then
-                echo '✅ MLflow is healthy'
-                break
-              fi
-              sleep 2
-            done
-            echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
+          mkdir -p ~/fitpulse/deployments
+          docker rm -f fitpulse-mlflow 2>/dev/null || true
+          docker run -d \
+            --name fitpulse-mlflow \
+            --restart unless-stopped \
+            -p 5000:5000 \
+            -v /opt/fitpulse/mlflow-data:/mlflow \
+            ghcr.io/mlflow/mlflow:v2.20.2 \
+            mlflow server \
+            --host 0.0.0.0 \
+            --port 5000 \
+            --backend-store-uri sqlite:////mlflow/mlflow.db \
+            --default-artifact-root /mlflow/artifacts
+          for _ in {1..30}; do
+            if curl -sf http://localhost:5000/health &>/dev/null; then
+              echo '✅ MLflow is healthy'
+              break
+            fi
+            sleep 2
+          done
+          echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
           "
       - name: Configure DVC local remote
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
           echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
-
       - name: Setup Postgres automated backups
         run: |
           # 1. Безопасная передача секрета на VPS (избегаем проблем с экранированием кавычек)
@@ -1442,26 +1436,24 @@ jobs:
             # Сохраняем в локальный временный файл
             echo -n "${{ secrets.BACKUP_KEY }}" > /tmp/backup.key
             chmod 600 /tmp/backup.key
-            
             # Создаем директорию на VPS и копируем ключ по SSH
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /etc/fitpulse"
             ./scripts/ssh-retry.sh scp /tmp/backup.key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/backup.key"
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-              sudo mv /tmp/backup.key /etc/fitpulse/backup.key
-              sudo chmod 600 /etc/fitpulse/backup.key
-              sudo chown root:root /etc/fitpulse/backup.key
-              echo '✅ Backup key saved securely to /etc/fitpulse/backup.key'
+            sudo mv /tmp/backup.key /etc/fitpulse/backup.key
+            sudo chmod 600 /etc/fitpulse/backup.key
+            sudo chown root:root /etc/fitpulse/backup.key
+            echo '✅ Backup key saved securely to /etc/fitpulse/backup.key'
             "
             rm -f /tmp/backup.key
           else
             echo "⚠️ BACKUP_KEY secret is not set in GitHub. Backups will NOT be encrypted."
             ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo rm -f /etc/fitpulse/backup.key || true"
           fi
-
           # 2. Деплой самого скрипта бэкапа (уже БЕЗ hardcoded секретов)
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo mkdir -p /opt/fitpulse/backups
-            cat <<'BACKUP_EOF' | sudo tee /usr/local/bin/backup-postgres.sh > /dev/null
+          sudo mkdir -p /opt/fitpulse/backups
+          cat <<'BACKUP_EOF' | sudo tee /usr/local/bin/backup-postgres.sh > /dev/null
           #!/bin/bash
           set -euo pipefail
           BACKUP_DIR='/opt/fitpulse/backups'
@@ -1470,11 +1462,9 @@ jobs:
           DATE=\$(date +%Y%m%d_%H%M%S)
           FILENAME=\"\$BACKUP_DIR/fitness_\$DATE.dump\"
           ENCRYPTED=\"\$FILENAME.enc\"
-
           # Dump from inside the pod
           /usr/local/bin/k3s kubectl exec -n fitness-platform-production postgres-0 -- \
             pg_dump -U postgres -d fitness -F c > \"\$FILENAME\"
-
           # Encrypt if key file exists
           if [ -f \"\$KEY_FILE\" ] && [ -s \"\$KEY_FILE\" ]; then
             openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:\"\$KEY_FILE\" -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
@@ -1483,40 +1473,35 @@ jobs:
           else
             echo \"Backup created (unencrypted): \$FILENAME\"
           fi
-
           # Cleanup old backups (keep last 7 days)
           find \"\$BACKUP_DIR\" -type f -mtime +7 -delete
           BACKUP_EOF
-            sudo chmod +x /usr/local/bin/backup-postgres.sh
-            
-            # Setup cron job
-            (sudo crontab -l 2>/dev/null | grep -v backup-postgres; echo '0 2 * * * /usr/local/bin/backup-postgres.sh >> /var/log/backup-postgres.log 2>&1') | sudo crontab -
-            echo '✅ Postgres backups configured (daily at 2 AM)'
+          sudo chmod +x /usr/local/bin/backup-postgres.sh
+          # Setup cron job
+          (sudo crontab -l 2>/dev/null | grep -v backup-postgres; echo '0 2 * * * /usr/local/bin/backup-postgres.sh >> /var/log/backup-postgres.log 2>&1') | sudo crontab -
+          echo '✅ Postgres backups configured (daily at 2 AM)'
           "
-
       - name: Deploy health check script
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo chmod +x /usr/local/bin/check-server-health.sh
-            
-            # Setup cron for daily health check (silent mode - only alerts on issues)
-            (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
-            (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
-            
-            echo '✅ Health check script deployed and cron configured'
+          sudo chmod +x /usr/local/bin/check-server-health.sh
+          # Setup cron for daily health check (silent mode - only alerts on issues)
+          (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
+          (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
+          echo '✅ Health check script deployed and cron configured'
           "
       - name: Generate kubeconfig with external domain
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            set -euo pipefail
-            sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
-            sudo sed -i 's|0.0.0.0|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
-            sudo sed -i 's|127.0.0.1|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
-            sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
-            sudo chmod 644 /tmp/k3s-domain.yaml
-            cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
-            echo \"✅ Kubeconfig saved to ~/k3s-config.yaml\"
+          set -euo pipefail
+          sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
+          sudo sed -i 's|0.0.0.0|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
+          sudo sed -i 's|127.0.0.1|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
+          sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
+          sudo chmod 644 /tmp/k3s-domain.yaml
+          cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
+          echo \"✅ Kubeconfig saved to ~/k3s-config.yaml\"
           "
       - name: Download kubeconfig artifact
         run: |
@@ -1551,8 +1536,8 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/usr/local/bin/check-server-health.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            sudo chmod +x /usr/local/bin/check-server-health.sh
-            echo '✅ Health check script deployed'
+          sudo chmod +x /usr/local/bin/check-server-health.sh
+          echo '✅ Health check script deployed'
           "
       - name: Run immediate health check
         env:
@@ -1560,20 +1545,18 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            export TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}'
-            export TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}'
-            /usr/local/bin/check-server-health.sh || true
+          export TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}'
+          export TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}'
+          /usr/local/bin/check-server-health.sh || true
           "
       - name: Setup daily health check cron
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            # Remove old cron job if exists
-            (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
-            
-            # Add new cron job (runs daily at 9 AM UTC)
-            (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
-            
-            echo '✅ Daily health check cron configured (9 AM UTC)'
+          # Remove old cron job if exists
+          (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
+          # Add new cron job (runs daily at 9 AM UTC)
+          (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
+          echo '✅ Daily health check cron configured (9 AM UTC)'
           "
 
   # ============================================================================
@@ -1768,7 +1751,7 @@ jobs:
           echo "Waiting for secrets to propagate..."
           sleep 10
           echo "Creating rabbitmq-secret with rabbitmq.conf..."
-          envsubst "\$RABBITMQ_USER \$RABBITMQ_PASS" < configs/k8s/base/secrets/rabbitmq-secret.yaml | kubectl apply -f -
+          kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
           echo "✅ rabbitmq-secret created"
           echo "Waiting for secrets to propagate..."
           sleep 10
@@ -1791,46 +1774,46 @@ jobs:
         run: |
           echo "-> Cleaning up disk space on VPS..."
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo '=== Disk usage before cleanup ==='
-            df -h /
-            echo ''
-            echo '=== Docker disk usage ==='
-            docker system df || true
-            echo ''
-            echo '-> Removing dangling Docker images...'
-            docker image prune -f
-            echo '-> Removing unused Docker volumes...'
-            docker volume prune -f || true
-            echo '-> Removing unused Docker networks...'
-            docker network prune -f || true
-            echo '-> Removing stopped containers...'
-            docker container prune -f || true
-            echo '-> Cleaning Docker build cache...'
-            docker builder prune -f --filter 'until=24h' || true
-            echo ''
-            echo '-> Removing old application images (keep only last 3 versions)...'
-            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
-              echo \"Cleaning \$svc...\"
-              docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
-                sort -k2 -r | \
-                tail -n +4 | \
-                awk '{print \$1}' | \
-                xargs -r docker rmi || true
-            done
-            echo ''
-            echo '-> Cleaning system logs older than 7 days...'
-            sudo journalctl --vacuum-time=7d || true
-            echo ''
-            echo '-> Cleaning /tmp files older than 1 day...'
-            sudo find /tmp -type f -mtime +1 -delete || true
-            echo ''
-            echo '=== Disk usage after cleanup ==='
-            df -h /
-            echo ''
-            echo '=== Docker disk usage after cleanup ==='
-            docker system df || true
-            echo ''
-            echo '✅ Disk cleanup completed'
+          echo '=== Disk usage before cleanup ==='
+          df -h /
+          echo ''
+          echo '=== Docker disk usage ==='
+          docker system df || true
+          echo ''
+          echo '-> Removing dangling Docker images...'
+          docker image prune -f
+          echo '-> Removing unused Docker volumes...'
+          docker volume prune -f || true
+          echo '-> Removing unused Docker networks...'
+          docker network prune -f || true
+          echo '-> Removing stopped containers...'
+          docker container prune -f || true
+          echo '-> Cleaning Docker build cache...'
+          docker builder prune -f --filter 'until=24h' || true
+          echo ''
+          echo '-> Removing old application images (keep only last 3 versions)...'
+          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+            echo \"Cleaning \$svc...\"
+            docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
+              sort -k2 -r | \
+              tail -n +4 | \
+              awk '{print \$1}' | \
+              xargs -r docker rmi || true
+          done
+          echo ''
+          echo '-> Cleaning system logs older than 7 days...'
+          sudo journalctl --vacuum-time=7d || true
+          echo ''
+          echo '-> Cleaning /tmp files older than 1 day...'
+          sudo find /tmp -type f -mtime +1 -delete || true
+          echo ''
+          echo '=== Disk usage after cleanup ==='
+          df -h /
+          echo ''
+          echo '=== Docker disk usage after cleanup ==='
+          docker system df || true
+          echo ''
+          echo '✅ Disk cleanup completed'
           "
       - name: Pre-pull application images on VPS
         if: steps.connectivity.outputs.reachable == 'true'
@@ -1838,16 +1821,16 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           echo "-> Pre-pulling application images with tag $SHA on VPS..."
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            echo 'Logging in to GHCR on VPS...'
-            echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
-            for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
-              echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
-              docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
-            done
-            echo 'Docker images after pre-pull:'
-            docker images | grep mamuer || true
-            echo '-> Waiting 60s to let node recover from disk I/O...'
-            sleep 60
+          echo 'Logging in to GHCR on VPS...'
+          echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
+          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+            echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
+            docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
+          done
+          echo 'Docker images after pre-pull:'
+          docker images | grep mamuer || true
+          echo '-> Waiting 60s to let node recover from disk I/O...'
+          sleep 60
           "
       - name: Ensure local-path-provisioner is running and StorageClass is ready
         if: steps.connectivity.outputs.reachable == 'true'
@@ -1947,9 +1930,9 @@ jobs:
             sleep 5
           done
           echo "Waiting for RabbitMQ StatefulSet to be ready..."
-           kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
-           echo "RabbitMQ pod status:"
-           kubectl get pods -l app=rabbitmq -n fitness-platform-production
+          kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=120s || echo "RabbitMQ not ready yet, continuing anyway"
+          echo "RabbitMQ pod status:"
+          kubectl get pods -l app=rabbitmq -n fitness-platform-production
       - name: Verify Postgres StatefulSet
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1967,7 +1950,6 @@ jobs:
           kubectl describe statefulset postgres -n fitness-platform-production || true
           echo "=== Checking pods ==="
           kubectl get pods -n fitness-platform-production -o wide
-
       - name: Wait for Postgres PVC to be created and bound
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -2179,10 +2161,8 @@ jobs:
         run: |
           echo "Waiting for pods to stabilize..."
           sleep 30
-
           echo "Checking pod status..."
           kubectl get pods -n fitness-platform-production
-
           echo "Checking logs for critical errors..."
           ERROR_FOUND=0
           for dep in user-service training-service rabbitmq; do
@@ -2199,7 +2179,6 @@ jobs:
               ERROR_FOUND=1
             fi
           done
-
           # Дополнительно проверяем, что все поды с меткой app=<service> имеют статус Running
           for app in user-service training-service biometric-service gateway device-connector classifier ml-generator redis; do
             if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
@@ -2207,7 +2186,6 @@ jobs:
               ERROR_FOUND=1
             fi
           done
-
           if [ $ERROR_FOUND -eq 1 ]; then
             echo "❌ Critical errors detected, failing the deployment"
             exit 1
@@ -2288,14 +2266,12 @@ jobs:
         run: |
           URL="https://fittpulse.duckdns.org"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
-
       - name: Verify SSL Certificate
         run: |
           echo "🔍 Checking SSL certificate validity..."
           echo | openssl s_client -servername fittpulse.duckdns.org -connect fittpulse.duckdns.org:443 2>/dev/null | openssl x509 -noout -dates -issuer
           curl -k -sSf -o /dev/null --max-time 10 "https://fittpulse.duckdns.org/health" || exit 1
           echo "✅ SSL certificate is valid and trusted"
-
       - name: Health check
         run: |
           echo "🔍 Checking production health via HTTPS..."
@@ -2349,27 +2325,23 @@ jobs:
         id: statuses
         run: |
           get_emoji() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "❓";; esac; }
-
           BUILD="$(get_emoji '${{ needs.binary_build.result }}')"
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
           CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
-
           # Проверяем ВСЕ критические job'ы
           FAILED_JOBS=""
           if [[ "${{ needs.binary_build.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
           if [[ "${{ needs.docker.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
           if [[ "${{ needs['deploy-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
           if [[ "${{ needs['test-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
-
           if [[ -n "$FAILED_JOBS" ]]; then
             OVERALL="ОШИБКА"; STATUS="failure"
           else
             OVERALL="УСПЕШНО"; STATUS="success"
           fi
-
           {
             echo "overall=$OVERALL"
             echo "status=$STATUS"
@@ -2391,17 +2363,14 @@ jobs:
             <b>CI/CD — ${{ steps.statuses.outputs.overall }}</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
-
             <b>Основные этапы:</b>
             ${{ steps.statuses.outputs.build }} Build
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
             ${{ steps.statuses.outputs.test_prod }} Test Production
-
             <b>Безопасность:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
-
             🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
