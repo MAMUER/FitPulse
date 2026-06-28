@@ -5,10 +5,12 @@ resources:
   - resource-quota.yaml
   - limit-range.yaml
   - configmap.yaml
+  - postgres-config.yaml
+  - redis-config.yaml
   - serviceaccount.yaml
   - rbac
   - network-policies
   - deployments
   - services
   - jobs
-  # - ../../monitoring   # временно отключаем
+  - ../../monitoring
