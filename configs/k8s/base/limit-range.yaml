@@ -13,12 +13,12 @@ spec:
         memory: "32Mi"
         cpu: "25m"
       max:
-        memory: "256Mi" # Ни один контейнер не возьмёт больше 256MB
-        cpu: "200m"
+        memory: "384Mi" # Максимум на один контейнер (чтобы прошли RabbitMQ и ML)
+        cpu: "500m"
       min:
         memory: "16Mi"
         cpu: "10m"
     - type: Pod
       max:
-        memory: "512Mi" # Ни один под не займёт больше 512MB суммарно
-        cpu: "400m"
+        memory: "512Mi" # Максимум на один под
+        cpu: "1000m"

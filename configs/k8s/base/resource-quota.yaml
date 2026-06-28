@@ -5,9 +5,9 @@ metadata:
   namespace: fitness-platform-production
 spec:
   hard:
-    requests.cpu: "500m"
-    requests.memory: 1000Mi
-    limits.cpu: "1000m"
-    limits.memory: 1800Mi
+    requests.cpu: "800m"
+    requests.memory: 800Mi
+    limits.cpu: "1500m"
+    limits.memory: 1600Mi # Жесткий потолок: 1.6GB на все поды (остальное на систему)
     pods: "110"
     persistentvolumeclaims: "5"

@@ -29,7 +29,7 @@ spec:
               memory: "4Mi"
             limits:
               cpu: "15m"
-              memory: "12Mi"
+              memory: "16Mi"
           volumeMounts:
             - name: config
               mountPath: /fluent-bit/etc/
