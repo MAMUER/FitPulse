@@ -1,4 +1,4 @@
-﻿name: CI/CD Pipeline
+name: CI/CD Pipeline
 on:
   push:
     branches: [main, master, Microservice_arc]
@@ -394,7 +394,7 @@ jobs:
           category: codeql-${{ matrix.language }}
           wait-for-processing: true
       - name: Cache CodeQL databases
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.codeql
           key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py') }}
