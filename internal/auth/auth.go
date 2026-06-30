@@ -2,6 +2,13 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"time"
 
@@ -16,38 +23,105 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID, email, role, secret string, expirationHours int) (string, error) {
-	if secret == "" {
-		return "", errors.New("secret cannot be empty")
+func GenerateES256KeyPair() (string, string, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", "", err
 	}
-	if expirationHours <= 0 {
-		expirationHours = 24
+	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return "", "", err
+	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	})
+
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return "", "", err
+	}
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	})
+
+	return string(privateKeyPEM), string(publicKeyPEM), nil
+}
+
+func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(privateKeyPEM))
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing EC private key")
+	}
+	return x509.ParseECPrivateKey(block.Bytes)
+}
+
+func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing public key")
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	ecdsaPub, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("not an ECDSA public key")
+	}
+	return ecdsaPub, nil
+}
+
+func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Duration) (string, error) {
+	if privateKeyPEM == "" {
+		return "", errors.New("private key PEM cannot be empty")
+	}
+	privateKey, err := ParseECPrivateKey(privateKeyPEM)
+	if err != nil {
+		return "", err
 	}
 
+	now := time.Now()
 	claims := Claims{
 		UserID: userID,
 		Email:  email,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expirationHours) * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			ID:        uuid.New().String(),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	return token.SignedString(privateKey)
 }
 
-func ValidateJWT(tokenString, secret string) (*Claims, error) {
+func GenerateRefreshToken() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
 	if tokenString == "" {
 		return nil, errors.New("token is empty")
 	}
-	if secret == "" {
-		return nil, errors.New("secret cannot be empty")
+	if publicKeyPEM == "" {
+		return nil, errors.New("public key PEM cannot be empty")
+	}
+
+	publicKey, err := ParseECPublicKey(publicKeyPEM)
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secret), nil
+		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return publicKey, nil
 	})
 	if err != nil {
 		return nil, err
@@ -56,4 +130,9 @@ func ValidateJWT(tokenString, secret string) (*Claims, error) {
 		return claims, nil
 	}
 	return nil, errors.New("invalid token")
+}
+
+func ComputeTokenFingerprint(tokenString string) string {
+	hash := sha256.Sum256([]byte(tokenString))
+	return base64.RawURLEncoding.EncodeToString(hash[:])
 }

@@ -2,20 +2,46 @@ package middleware
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/MAMUER/project/internal/auth"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
 
-const testSecretMW = "test-secret-mw"
+var (
+	//nolint:gochecknoglobals
+	testPrivateKeyPEMMW string
+	//nolint:gochecknoglobals
+	testPublicKeyPEMMW string
+)
+
+func init() {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	b, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		panic(err)
+	}
+	testPrivateKeyPEMMW = string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: b}))
+	pub, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+	testPublicKeyPEMMW = string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pub}))
+}
 
 func TestRequestID(t *testing.T) {
 	tests := []struct {
@@ -94,10 +120,9 @@ func TestRequestIDMultipleRequests(t *testing.T) {
 }
 
 func TestAuthMiddleware(t *testing.T) {
-	secret := testSecretMW
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateJWT("user-123", "test@example.com", "client", secret, 24)
+	validToken, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -138,7 +163,7 @@ func TestAuthMiddleware(t *testing.T) {
 		},
 		{
 			name:           "expired token",
-			authHeader:     "Bearer " + generateExpiredToken(secret),
+			authHeader:     "Bearer " + generateExpiredAccessToken(),
 			expectedStatus: http.StatusNotFound, // изменено с 401 на 404
 		},
 	}
@@ -162,7 +187,7 @@ func TestAuthMiddleware(t *testing.T) {
 			}
 			rr := httptest.NewRecorder()
 
-			middleware := AuthMiddleware(secret, log)(handler)
+			middleware := AuthMiddleware(testPublicKeyPEMMW, log)(handler)
 			middleware.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
@@ -170,25 +195,18 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 }
 
-func generateExpiredToken(secret string) string {
-	claims := auth.Claims{
-		UserID: "user-123",
-		Email:  "test@example.com",
-		Role:   "client",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
-		},
+func generateExpiredAccessToken() string {
+	token, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, -1*time.Hour)
+	if err != nil {
+		panic(err)
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte(secret))
-	return tokenString
+	return token
 }
 
 func TestAuthMiddlewareWithContext(t *testing.T) {
-	secret := testSecretMW
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateJWT("user-456", "test@example.com", "admin", secret, 24)
+	validToken, err := auth.GenerateAccessToken("user-456", "test@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -204,14 +222,13 @@ func TestAuthMiddlewareWithContext(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+validToken)
 	rr := httptest.NewRecorder()
 
-	middleware := AuthMiddleware(secret, log)(handler)
+	middleware := AuthMiddleware(testPublicKeyPEMMW, log)(handler)
 	middleware.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
 func TestAuthMiddlewareLogging(t *testing.T) {
-	secret := testSecretMW
 	core, recorded := observer.New(zap.DebugLevel)
 	log := zap.New(core)
 
@@ -225,7 +242,7 @@ func TestAuthMiddlewareLogging(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+invalidToken)
 	rr := httptest.NewRecorder()
 
-	middleware := AuthMiddleware(secret, log)(handler)
+	middleware := AuthMiddleware(testPublicKeyPEMMW, log)(handler)
 	middleware.ServeHTTP(rr, req)
 
 	logs := recorded.All()
@@ -665,10 +682,9 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 }
 
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
-	secret := testSecretMW
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateJWT("user-789", "admin@example.com", "admin", secret, 24)
+	validToken, err := auth.GenerateAccessToken("user-789", "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -682,7 +698,7 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 	})
 
 	// Chain: AuthMiddleware -> RequireRole -> handler
-	handler := AuthMiddleware(secret, log)(RequireRole("admin")(nextHandler))
+	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole("admin")(nextHandler))
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin/panel", nil)
 	req.Header.Set("Authorization", "Bearer "+validToken)
@@ -695,11 +711,10 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 }
 
 func TestRequireRoleChainWithWrongRole(t *testing.T) {
-	secret := testSecretMW
 	log := zap.NewNop()
 
 	// User has "client" role but endpoint requires "admin"
-	validToken, err := auth.GenerateJWT("user-client", "user@example.com", "client", secret, 24)
+	validToken, err := auth.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -708,7 +723,7 @@ func TestRequireRoleChainWithWrongRole(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := AuthMiddleware(secret, log)(RequireRole("admin")(nextHandler))
+	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole("admin")(nextHandler))
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin", nil)
 	req.Header.Set("Authorization", "Bearer "+validToken)

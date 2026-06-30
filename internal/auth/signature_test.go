@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testSecret = "test-secret-key-for-auth-tests"
+
 func TestSignResponse(t *testing.T) {
 	secret := testSecret
 	data := []byte(`{"key":"value"}`)

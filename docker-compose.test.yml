@@ -1,7 +1,7 @@
 # Лёгкая тестовая среда для CI и локальной разработки
 services:
   postgres-test:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass
@@ -28,7 +28,7 @@ services:
       retries: 5
 
   rabbitmq-test:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: testuser
       RABBITMQ_DEFAULT_PASS: testpass
@@ -55,7 +55,7 @@ services:
       REDIS_HOST: redis-test
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://testuser:testpass@rabbitmq-test:5672/
-      JWT_SECRET: test_jwt_secret_for_smoke_tests_only
+      JWT_PRIVATE_KEY_PEM: test_ec_private_key_placeholder_for_smoke_tests_only
       TOTP_ENCRYPTION_KEY: test_totp_key_32bytes_long_str!!
       GOOGLE_CLIENT_ID: test-google-client-id.apps.googleusercontent.com
       SMTP_HOST: mailhog
@@ -77,7 +77,8 @@ services:
       dockerfile: cmd/gateway/Dockerfile
     environment:
       USER_SERVICE_ADDR: user-service-test:50051
-      JWT_SECRET: test_jwt_secret_for_smoke_tests_only
+      JWT_PRIVATE_KEY_PEM: test_ec_private_key_placeholder_for_smoke_tests_only
+      JWT_PUBLIC_KEY_PEM: test_ec_public_key_placeholder_for_smoke_tests_only
       REDIS_HOST: redis-test
       REDIS_PORT: 6379
       DATABASE_URL: postgres://testuser:testpass@postgres-test:5432/testdb?sslmode=disable

@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 100
-target-version = ['py311']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -24,7 +24,7 @@ ensure_newline_before_comments = true
 skip_glob = ["vendor/*", "build/*", "dist/*"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

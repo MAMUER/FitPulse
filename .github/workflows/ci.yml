@@ -435,11 +435,9 @@ jobs:
         uses: actions/checkout@v7
       - name: Install Kubescape
         run: |
-          echo "Installing Kubescape..."
-          # Direct binary download to avoid API rate limits and install.sh failures
-          curl -sL -o /tmp/kubescape "https://github.com/kubescape/kubescape/releases/latest/download/kubescape-ubuntu-latest"
-          chmod +x /tmp/kubescape
-          sudo mv /tmp/kubescape /usr/local/bin/kubescape
+          echo "Installing Kubescape via official installer..."
+          curl -sL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | sudo bash -s -- --binary-folder /usr/local/bin
+          echo "Verifying installation..."
           kubescape version
       - name: Run Kubescape scan
         run: |
@@ -661,6 +659,14 @@ jobs:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: Generate SBOM with syft
+        run: |
+          mkdir -p sbom
+          syft . -o spdx-json=sbom/sbom.spdx.json -o cyclone-json=sbom/sbom.cyclonedx.json
+          ls -la sbom/
       - name: Security Gate — enforce quality thresholds
         run: |
           echo "============================================"
@@ -874,6 +880,24 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
+      - name: Install cosign
+        run: |
+          go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+      - name: Sign Docker images with cosign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          services="user-service biometric-service training-service gateway device-connector"
+          for svc in $services; do
+            echo "Signing $svc..."
+            echo "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+            cosign sign --yes --key /tmp/cosign.key \
+              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
+            rm -f /tmp/cosign.key
+          done
 
   # ============================================================================
   # SLSA PROVENANCE
@@ -1702,7 +1726,8 @@ jobs:
             --from-literal=POSTGRES_USER=postgres \
             --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
             --from-literal=POSTGRES_DB=fitness \
-            --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            --from-literal=JWT_PRIVATE_KEY_PEM=${{ secrets.JWT_PRIVATE_KEY_PEM }} \
+            --from-literal=JWT_PUBLIC_KEY_PEM=${{ secrets.JWT_PUBLIC_KEY_PEM }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
             --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \

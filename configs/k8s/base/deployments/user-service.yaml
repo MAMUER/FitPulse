@@ -59,8 +59,8 @@ spec:
                 path: POSTGRES_PASSWORD
               - key: POSTGRES_DB
                 path: POSTGRES_DB
-              - key: JWT_SECRET
-                path: JWT_SECRET
+              - key: JWT_PRIVATE_KEY_PEM
+                path: JWT_PRIVATE_KEY_PEM
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
               - key: REDIS_PASSWORD
@@ -142,8 +142,8 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: DB_SSLMODE
-            - name: JWT_SECRET_FILE
-              value: "/etc/secrets/JWT_SECRET"
+            - name: JWT_PRIVATE_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: REDIS_HOST

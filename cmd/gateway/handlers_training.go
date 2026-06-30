@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
@@ -272,8 +272,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	planID := vars["plan_id"]
+	planID := chi.URLParam(r, "plan_id")
 	if planID == "" {
 		http.Error(w, "plan_id требуется", http.StatusBadRequest)
 		return

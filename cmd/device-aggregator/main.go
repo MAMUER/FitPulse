@@ -9,7 +9,7 @@ import (
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
@@ -45,17 +45,17 @@ func main() {
 	agg := newAggregator(database, log, fitbit)
 	s := newServer(agg)
 
-	r := mux.NewRouter()
+	r := chi.NewRouter()
 
 	// Apply middleware
 	r.Use(middleware.CorrelationIDHTTP)
 
-	r.HandleFunc("/health", s.agg.healthHandler).Methods("GET")
-	r.HandleFunc("/api/v1/devices/fitbit/auth", s.agg.fitbitAuthHandler).Methods("GET")
-	r.HandleFunc("/api/v1/devices/fitbit/callback", s.agg.fitbitCallbackHandler).Methods("GET")
-	r.HandleFunc("/api/v1/devices/fitbit/webhook", fitbitWebhookHandler).Methods("POST")
-	r.HandleFunc("/api/v1/devices/fitbit/disconnect", s.agg.fitbitDisconnectHandler).Methods("POST")
-	r.HandleFunc("/api/v1/devices/providers", s.agg.listProvidersHandler).Methods("GET")
+	r.Get("/health", s.agg.healthHandler)
+	r.Get("/api/v1/devices/fitbit/auth", s.agg.fitbitAuthHandler)
+	r.Get("/api/v1/devices/fitbit/callback", s.agg.fitbitCallbackHandler)
+	r.Post("/api/v1/devices/fitbit/webhook", fitbitWebhookHandler)
+	r.Post("/api/v1/devices/fitbit/disconnect", s.agg.fitbitDisconnectHandler)
+	r.Get("/api/v1/devices/providers", s.agg.listProvidersHandler)
 
 	srv := &http.Server{
 		Addr:         ":8083",

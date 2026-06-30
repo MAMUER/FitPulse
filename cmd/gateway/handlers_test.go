@@ -3,16 +3,20 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
-	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/logger"
 )
 
 type mockUserServiceClient struct{}
@@ -92,9 +96,15 @@ func (m *mockUserServiceClient) DisableTOTP(ctx context.Context, req *userpb.Dis
 
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
+	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
+	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 	return &gateway{
-		log:       log,
-		jwtSecret: "test-secret",
+		log:              log,
+		jwtPrivateKeyPEM: privateKeyPEM,
+		jwtPublicKeyPEM:  publicKeyPEM,
 	}
 }
 

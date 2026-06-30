@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
 )
 
@@ -15,7 +18,7 @@ func RemoveServerHeader(next http.Handler) http.Handler {
 
 // SecurityHeaders добавляет заголовки безопасности
 // Требование #5: Удаление информации о версии
-// Требование #12: Строгая Content Security Policy
+// Требование #12: Строгая Content Security Policy (nonce-based)
 func SecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Требование #5: Удаляем все заголовки с версиями ПО
@@ -36,13 +39,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// Политика реферера
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Требование #12: Строгая Content Security Policy
-		// Унифицировано с NGINX CSP (deploy/lb/nginx.conf)
-		// style-src 'self' 'unsafe-inline' — допустимо, т.к. inline-styles не исполняют код
+		nonce := generateNonce()
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, nonceContextKey{}, nonce)
+
 		w.Header().Set("Content-Security-Policy",
-			"default-src 'none'; "+
-				"script-src 'self' https://cdn.jsdelivr.net; "+
-				"style-src 'self' 'unsafe-inline'; "+
+			"default-src 'self'; "+
+				"script-src 'self' 'nonce-"+nonce+"' https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'nonce-"+nonce+"' 'unsafe-inline'; "+
 				"img-src 'self' data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+
@@ -72,8 +76,22 @@ func SecurityHeaders(next http.Handler) http.Handler {
 			w.Header().Set("Expires", "0")
 		}
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+type nonceContextKey struct{}
+
+// GetNonce извлекает CSP nonce из контекста запроса
+func GetNonce(r *http.Request) string {
+	v, _ := r.Context().Value(nonceContextKey{}).(string)
+	return v
+}
+
+func generateNonce() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // LogoutHeaders добавляет заголовки для принудительной инвалидации сессии

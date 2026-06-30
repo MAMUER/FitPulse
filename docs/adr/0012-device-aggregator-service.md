@@ -10,7 +10,7 @@
 
 ## Решение
 
-Выделить отдельный микросервис `device-aggregator` (Go, gorilla/mux, порт 8083) для:
+Выделить отдельный микросервис `device-aggregator` (Go, chi/v5, порт 8083) для:
 
 - унифицированного OAuth-flow по Fitbit, Garmin и последующим провайдерам;
 - хранения и обновления OAuth-токенов в БД (`device_provider_accounts`);

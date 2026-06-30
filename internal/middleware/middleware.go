@@ -29,8 +29,8 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
-// AuthMiddleware проверяет JWT токен и добавляет пользователя в контекст
-func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Handler {
+// AuthMiddleware проверяет JWT ES256 токен и добавляет пользователя в контекст
+func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -46,7 +46,7 @@ func AuthMiddleware(secret string, log *zap.Logger) func(http.Handler) http.Hand
 				return
 			}
 			token := parts[1]
-			claims, err := auth.ValidateJWT(token, secret)
+			claims, err := auth.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, "Не найдено", http.StatusNotFound)

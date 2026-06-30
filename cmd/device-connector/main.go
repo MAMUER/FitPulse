@@ -17,8 +17,8 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -205,8 +205,7 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 // ========== Data Ingestion ==========
 
 func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	deviceID := vars["device_id"]
+	deviceID := chi.URLParam(r, "device_id")
 
 	if deviceID == "" {
 		http.Error(w, "device_id обязателен", http.StatusBadRequest)
@@ -522,25 +521,24 @@ func main() {
 		log:             log,
 	}
 
-	// Setup routes
-	r := mux.NewRouter()
-
-	// Health check (public)
-	r.HandleFunc("/health", s.healthHandler).Methods("GET")
-
-	// Device management routes
-	r.HandleFunc("/api/v1/devices/register", s.registerDeviceHandler).Methods("POST")
-	r.HandleFunc("/api/v1/devices/{device_id}/ingest", s.ingestHandler).Methods("POST")
+	// Setup router
+	r := chi.NewRouter()
 
 	// Apply middleware
-	handler := http.Handler(r)
-	handler = middleware.CorrelationIDHTTP(handler)
-	handler = middleware.RequestID(handler)
-	handler = middleware.LoggingMiddleware(log.Logger, nil, nil, nil)(handler)
+	r.Use(middleware.CorrelationIDHTTP)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.LoggingMiddleware(log.Logger, nil, nil, nil))
+
+	// Health check (public)
+	r.Get("/health", s.healthHandler)
+
+	// Device management routes
+	r.Post("/api/v1/devices/register", s.registerDeviceHandler)
+	r.Post("/api/v1/devices/{device_id}/ingest", s.ingestHandler)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      handler,
+		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,

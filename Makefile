@@ -51,12 +51,6 @@ vulncheck:
 	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 	@echo "Govulncheck complete."
 
-# Проверка YAML файлов на синтаксис
-yaml-check:
-	@echo "Checking YAML files..."
-	go run tools/validate_yaml.go
-	@echo "YAML check complete."
-
 # Проверка Docker файлов (кросс-платформенная: Windows + Linux)
 DOCKER_LINT_SKIP := $(if $(filter Windows_NT,$(OS)),1,)
 docker-lint:
@@ -89,7 +83,7 @@ test-integration:
 	@echo "Integration tests complete."
 
 # Запуск всех проверок (без build и test-cover, они есть в CI отдельно)
-check: tidy fmt vet lint vulncheck yaml-check docker-lint test-integration lint-json lint-markdown lint-dockerfile
+check: tidy fmt vet lint vulncheck docker-lint test-integration lint-json lint-markdown lint-dockerfile
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

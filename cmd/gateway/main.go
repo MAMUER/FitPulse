@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls" // #nosec G304 -- imported for server TLS config, not file access
 	"database/sql"
 	"fmt"
 	"io"
@@ -30,7 +31,7 @@ import (
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -47,7 +48,8 @@ type gateway struct {
 	mlGeneratorURL     string
 	deviceConnectorURL string
 	log                *logger.Logger
-	jwtSecret          string
+	jwtPrivateKeyPEM   string
+	jwtPublicKeyPEM    string
 	db                 *sql.DB
 	sessionStore       *cache.SessionStore
 	rdb                *redis.Client
@@ -146,11 +148,16 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqp://localhost:5672/")
 
-	jwtSecret := config.GetEnv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
+	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	if jwtPrivateKeyPEM == "" {
+		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
 	}
-	cfg.jwtSecret = jwtSecret
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	if jwtPublicKeyPEM == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
+	}
+	cfg.jwtPrivateKeyPEM = jwtPrivateKeyPEM
+	cfg.jwtPublicKeyPEM = jwtPublicKeyPEM
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
@@ -213,7 +220,8 @@ type gatewayConfig struct {
 	deviceConnectorURL   string
 	rabbitmqURL          string
 	redisAddr            string
-	jwtSecret            string
+	jwtPrivateKeyPEM     string
+	jwtPublicKeyPEM      string
 	appBaseURL           string
 	publicHost           string
 	googleClientID       string
@@ -222,7 +230,7 @@ type gatewayConfig struct {
 	googleOAuthConfig    *oauth2.Config
 }
 
-type tlsMode struct {
+type gatewayTLSConfig struct {
 	available bool
 	certFile  string
 	keyFile   string
@@ -395,7 +403,8 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		mlGeneratorURL:     cfg.mlGeneratorURL,
 		deviceConnectorURL: cfg.deviceConnectorURL,
 		log:                log,
-		jwtSecret:          cfg.jwtSecret,
+		jwtPrivateKeyPEM:   cfg.jwtPrivateKeyPEM,
+		jwtPublicKeyPEM:    cfg.jwtPublicKeyPEM,
 		db:                 db,
 		sessionStore:       sessionStore,
 		rdb:                rdb,
@@ -408,8 +417,8 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 	}
 }
 
-func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.Router) {
-	tls := detectTLSMode(log, cfg)
+func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.Handler) {
+	tlsCfg := detectTLSMode(log, cfg)
 	httpsSrv := &http.Server{
 		Addr:              ":8443",
 		Handler:           mainRouter,
@@ -419,8 +428,8 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
-	var httpHandler http.Handler = mainRouter
-	if tls.available {
+	httpHandler := mainRouter
+	if tlsCfg.available {
 		httpHandler = buildHTTPRedirectHandler(cfg.publicHost, cfg.port)
 	} else {
 		log.Info("TLS is not available, serving application directly over HTTP")
@@ -435,20 +444,24 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.
 	}
 
 	go func() {
-		log.Info("HTTP server starting", zap.String("port", cfg.port), zap.Bool("redirect_to_https", tls.available))
+		log.Info("HTTP server starting", zap.String("port", cfg.port), zap.Bool("redirect_to_https", tlsCfg.available))
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("HTTP server failed", zap.Error(err))
 		}
 	}()
 
-	if tls.available {
+	if tlsCfg.available {
 		go func() {
 			log.Info("HTTPS server starting",
 				zap.String("port", "8443"),
-				zap.String("cert", tls.certFile),
+				zap.String("cert", tlsCfg.certFile),
 				zap.String("classifier", cfg.classifierURL),
 				zap.String("ml_generator", cfg.mlGeneratorURL))
-			if err := httpsSrv.ListenAndServeTLS(tls.certFile, tls.keyFile); err != nil && err != http.ErrServerClosed {
+			httpsSrv.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS13,
+				MaxVersion: tls.VersionTLS13,
+			}
+			if err := httpsSrv.ListenAndServeTLS(tlsCfg.certFile, tlsCfg.keyFile); err != nil && err != http.ErrServerClosed {
 				log.Fatal("Failed to start HTTPS server", zap.Error(err))
 			}
 		}()
@@ -463,14 +476,14 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter *mux.
 	defer cancel()
 
 	_ = httpSrv.Shutdown(ctx)
-	if tls.available {
+	if tlsCfg.available {
 		_ = httpsSrv.Shutdown(ctx)
 	}
 	log.Info("Servers stopped")
 }
 
-func detectTLSMode(log *logger.Logger, _ gatewayConfig) tlsMode {
-	mode := tlsMode{
+func detectTLSMode(log *logger.Logger, _ gatewayConfig) gatewayTLSConfig {
+	mode := gatewayTLSConfig{
 		certFile: os.Getenv("TLS_CERT_FILE"),
 		keyFile:  os.Getenv("TLS_KEY_FILE"),
 	}
@@ -481,12 +494,12 @@ func detectTLSMode(log *logger.Logger, _ gatewayConfig) tlsMode {
 	if _, err := os.Stat(filepath.Clean(mode.certFile)); err != nil {
 		log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
 			zap.String("cert_file", mode.certFile), zap.Error(err))
-		return tlsMode{}
+		return gatewayTLSConfig{}
 	}
 	if _, err := os.Stat(filepath.Clean(mode.keyFile)); err != nil {
 		log.Warn("TLS key file not found, falling back to HTTP-only mode",
 			zap.String("key_file", mode.keyFile), zap.Error(err))
-		return tlsMode{}
+		return gatewayTLSConfig{}
 	}
 
 	mode.available = true
@@ -538,8 +551,8 @@ func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
 }
 
 // registerRoutes registers all HTTP routes on the router
-func (g *gateway) registerRoutes() *mux.Router {
-	r := mux.NewRouter()
+func (g *gateway) registerRoutes() *chi.Mux {
+	r := chi.NewRouter()
 
 	// ========== Security middleware (applied to ALL routes) ==========
 	r.Use(middleware.RemoveServerHeader)
@@ -550,86 +563,96 @@ func (g *gateway) registerRoutes() *mux.Router {
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 	r.Use(middleware.CorrelationIDHTTP)
 	// ========== Public routes (без авторизации) ==========
-	r.HandleFunc("/api/v1/register", g.registerHandler).Methods("POST")
-	r.HandleFunc("/api/v1/register/invite", g.registerWithInviteHandler).Methods("POST")
-	r.HandleFunc("/api/v1/invite/validate", g.validateInviteCodeHandler).Methods("POST")
-	r.HandleFunc("/api/v1/login", g.loginHandler).Methods("POST")
-	r.HandleFunc("/api/v1/auth/confirm", g.confirmEmailHandler).Methods("POST")
-	r.HandleFunc("/api/v1/auth/verify-status", g.checkVerificationStatusHandler).Methods("GET")
-	r.HandleFunc("/api/v1/auth/google", g.googleLoginHandler).Methods("GET")
-	r.HandleFunc("/api/v1/auth/google/callback", g.googleCallbackHandler).Methods("GET")
-	r.HandleFunc("/health", g.healthHandler).Methods("GET")
+	r.Post("/api/v1/register", g.registerHandler)
+	r.Post("/api/v1/register/invite", g.registerWithInviteHandler)
+	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
+	r.Post("/api/v1/login", g.loginHandler)
+	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
+	r.Get("/api/v1/auth/verify-status", g.checkVerificationStatusHandler)
+	r.Get("/api/v1/auth/google", g.googleLoginHandler)
+	r.Get("/api/v1/auth/google/callback", g.googleCallbackHandler)
+	r.Get("/health", g.healthHandler)
 	// Webhook endpoint - БЕЗ authMiddleware
-	r.HandleFunc("/api/v1/devices/withings/webhook", g.proxyToDeviceAggregator).Methods("POST")
+	r.Post("/api/v1/devices/withings/webhook", g.proxyToDeviceAggregator)
 	// Metrics endpoint
-	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
+	r.Method("GET", "/metrics", promhttp.Handler())
 
 	// Email confirmation page
-	r.HandleFunc("/confirm", g.emailConfirmPageHandler).Methods("GET")
+	r.Get("/confirm", g.emailConfirmPageHandler)
 
-	authMiddleware := middleware.AuthMiddleware(g.jwtSecret, g.log.Logger)
+	authMiddleware := middleware.AuthMiddleware(g.jwtPublicKeyPEM, g.log.Logger)
 
-	protected := r.PathPrefix("/api/v1").Subrouter()
-	protected.Use(authMiddleware)
+	// Protected routes under /api/v1
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Use(middleware.UserRateLimit)
 
-	// Profile
-	protected.HandleFunc("/profile", g.getProfileHandler).Methods("GET")
-	protected.HandleFunc("/profile", g.updateProfileHandler).Methods("PUT")
+		// Profile
+		r.Get("/profile", g.getProfileHandler)
+		r.Put("/profile", g.updateProfileHandler)
 
-	// 2FA TOTP (protected routes - require auth)
-	protected.HandleFunc("/auth/2fa/setup", g.setupTOTPHandler).Methods("POST")
-	protected.HandleFunc("/auth/2fa/confirm", g.confirmTOTPHandler).Methods("POST")
-	protected.HandleFunc("/auth/2fa/status", g.totpStatusHandler).Methods("GET")
-	protected.HandleFunc("/auth/2fa/disable", g.disableTOTPHandler).Methods("POST")
+		// 2FA TOTP (protected routes - require auth)
+		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
+		r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
+		r.Get("/auth/2fa/status", g.totpStatusHandler)
+		r.Post("/auth/2fa/disable", g.disableTOTPHandler)
+
+		// Biometrics
+		r.Post("/biometrics", g.addBiometricRecordHandler)
+		r.Get("/biometrics", g.getBiometricRecordsHandler)
+
+		// Training
+		r.Get("/training/plans", g.listPlansHandler)
+		r.Post("/training/plans/generate", g.generatePlanHandler)
+		r.Get("/training/plans/{plan_id}", g.getPlanHandler)
+		r.Get("/training/progress", g.getProgressHandler)
+		r.Post("/training/workouts/{workout_id}/complete", g.completeWorkoutHandler)
+
+		// ML
+		r.Post("/ml/classify", g.classifyHandler)
+		r.Post("/ml/generate", g.mlGenerateHandler)
+
+		// Devices — проксирование на device-connector
+		r.Post("/devices/register", g.proxyToDeviceConnector)
+		r.Post("/devices/{device_id}/ingest", g.proxyToDeviceConnector)
+		r.Get("/devices", g.listDevicesHandler)
+		r.Post("/devices", g.registerDeviceHandler)
+
+		// Logout
+		r.Post("/logout", g.logoutHandler)
+
+		// Device aggregator proxy
+		r.Get("/devices/fitbit/auth", g.proxyToDeviceAggregator)
+		r.Get("/devices/fitbit/callback", g.proxyToDeviceAggregator)
+		r.Post("/devices/fitbit/disconnect", g.proxyToDeviceAggregator)
+		r.Get("/devices/providers", g.proxyToDeviceAggregator)
+
+		r.Get("/devices/withings/auth", g.proxyToDeviceAggregator)
+		r.Get("/devices/withings/callback", g.proxyToDeviceAggregator)
+		r.Post("/devices/withings/disconnect", g.proxyToDeviceAggregator)
+	})
 
 	// 2FA TOTP verify (public route - uses temp_token)
-	r.HandleFunc("/api/v1/auth/2fa/verify", g.verifyTOTPHandler).Methods("POST")
+	r.Post("/api/v1/auth/2fa/verify", g.verifyTOTPHandler)
 
-	// Biometrics
-	protected.HandleFunc("/biometrics", g.addBiometricRecordHandler).Methods("POST")
-	protected.HandleFunc("/biometrics", g.getBiometricRecordsHandler).Methods("GET")
+	// Refresh token (public - uses opaque refresh token)
+	r.Post("/api/v1/auth/refresh", g.refreshHandler)
 
-	// Training
-	protected.HandleFunc("/training/plans", g.listPlansHandler).Methods("GET")
-	protected.HandleFunc("/training/plans/generate", g.generatePlanHandler).Methods("POST")
-	protected.HandleFunc("/training/plans/{plan_id}", g.getPlanHandler).Methods("GET")
-	protected.HandleFunc("/training/progress", g.getProgressHandler).Methods("GET")
-	protected.HandleFunc("/training/workouts/{workout_id}/complete", g.completeWorkoutHandler).Methods("POST")
-
-	// ML
-	protected.HandleFunc("/ml/classify", g.classifyHandler).Methods("POST")
-	protected.HandleFunc("/ml/generate", g.mlGenerateHandler).Methods("POST")
-
-	// Devices — проксирование на device-connector
-	protected.HandleFunc("/devices/register", g.proxyToDeviceConnector).Methods("POST")
-	protected.HandleFunc("/devices/{device_id}/ingest", g.proxyToDeviceConnector).Methods("POST")
-	protected.HandleFunc("/devices", g.listDevicesHandler).Methods("GET")
-	protected.HandleFunc("/devices", g.registerDeviceHandler).Methods("POST")
-
-	// Logout
-	protected.HandleFunc("/logout", g.logoutHandler).Methods("POST")
-
-	// Device aggregator proxy
-	protected.HandleFunc("/devices/fitbit/auth", g.proxyToDeviceAggregator).Methods("GET")
-	protected.HandleFunc("/devices/fitbit/callback", g.proxyToDeviceAggregator).Methods("GET")
-	protected.HandleFunc("/devices/fitbit/disconnect", g.proxyToDeviceAggregator).Methods("POST")
-	protected.HandleFunc("/devices/providers", g.proxyToDeviceAggregator).Methods("GET")
-
-	protected.HandleFunc("/devices/withings/auth", g.proxyToDeviceAggregator).Methods("GET")
-	protected.HandleFunc("/devices/withings/callback", g.proxyToDeviceAggregator).Methods("GET")
-	protected.HandleFunc("/devices/withings/disconnect", g.proxyToDeviceAggregator).Methods("POST")
 	// ========== Admin routes (требуют роль admin) ==========
-	admin := r.PathPrefix("/api/v1/admin").Subrouter()
-	admin.Use(authMiddleware)
-	admin.Use(middleware.RequireRole("admin"))
-	admin.HandleFunc("/users", g.adminListUsersHandler).Methods("GET")
-	admin.HandleFunc("/invites", g.adminListInvitesHandler).Methods("GET")                 // ← НОВОЕ
-	admin.HandleFunc("/invites", g.adminCreateInviteHandler).Methods("POST")               // ← НОВОЕ
-	admin.HandleFunc("/invites/{code}/revoke", g.adminRevokeInviteHandler).Methods("POST") // ← НОВОЕ
+	r.Route("/api/v1/admin", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Use(middleware.RequireRole("admin"))
+		r.Get("/users", g.adminListUsersHandler)
+		r.Get("/invites", g.adminListInvitesHandler)                 // ← НОВОЕ
+		r.Post("/invites", g.adminCreateInviteHandler)               // ← НОВОЕ
+		r.Post("/invites/{code}/revoke", g.adminRevokeInviteHandler) // ← НОВОЕ
+	})
 
 	// ========== Static files ==========
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
+	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/")))
+	fsRoot := http.FileServer(http.Dir("./web/"))
+	r.Get("/static/*", fsStatic.ServeHTTP)
+	r.Get("/*", fsRoot.ServeHTTP)
 
 	return r
 }

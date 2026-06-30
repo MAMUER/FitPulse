@@ -2,7 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -17,10 +22,13 @@ import (
 
 func setupUserService(db *sql.DB) *userServer {
 	zapLog, _ := zap.NewDevelopment()
+	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
 	return &userServer{
-		db:     db,
-		log:    &logger.Logger{Logger: zapLog},
-		secret: "test-secret-key-for-jwt",
+		db:               db,
+		log:              &logger.Logger{Logger: zapLog},
+		jwtPrivateKeyPEM: privateKeyPEM,
 	}
 }
 

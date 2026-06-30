@@ -29,6 +29,7 @@ service UserService {
     rpc ConfirmTOTP(ConfirmTOTPRequest) returns (ConfirmTOTPResponse);
     rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
     rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
 }
 
 message RegisterRequest {
@@ -63,6 +64,7 @@ message LoginResponse {
     int64 expires_in = 3;
     string user_id = 4;
     string role = 5;
+    string refresh_token = 6;
 }
 
 message AuthenticateGoogleRequest {
@@ -305,4 +307,17 @@ message DisableTOTPRequest {
 message DisableTOTPResponse {
     bool success = 1;
     string message = 2;
+}
+
+message RefreshTokenRequest {
+    string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+    string access_token = 1;
+    string token_type = 2;
+    int64 expires_in = 3;
+    string user_id = 4;
+    string role = 5;
+    string refresh_token = 6;
 }

@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"net"
@@ -24,7 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/argon2"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -44,13 +46,49 @@ type User struct {
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
-	db             *sql.DB
-	log            *logger.Logger
-	secret         string
-	emailSender    *email.Sender
-	baseURL        string
-	googleClientID string
-	totpService    *totp.Service
+	db               *sql.DB
+	log              *logger.Logger
+	jwtPrivateKeyPEM string
+	emailSender      *email.Sender
+	baseURL          string
+	googleClientID   string
+	totpService      *totp.Service
+}
+
+const argon2idParams = "m=65536,t=3,p=4"
+
+func hashPasswordArgon2id(password string) (string, error) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
+	return "$argon2id$v=19$" + argon2idParams + "$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(hash), nil
+}
+
+func verifyPasswordArgon2id(stored, password string) bool {
+	parts := strings.Split(stored, "$")
+	if len(parts) != 6 {
+		return false
+	}
+	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	if err != nil {
+		return false
+	}
+	expectedLen := 32
+	if len(parts[5]) > expectedLen {
+		return false
+	}
+	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
+	if err != nil {
+		return false
+	}
+	hashLen := len(hash)
+	if uint64(hashLen) > uint64(^uint32(0)) {
+		return false
+	}
+	computed := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, uint32(hashLen))
+	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -78,7 +116,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	}
 
 	// Хэширование пароля
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashed, err := hashPasswordArgon2id(req.Password)
 	if err != nil {
 		s.log.Error("Failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to hash password")
@@ -227,13 +265,13 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	}
 
 	// Проверка пароля
-	if cmpErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); cmpErr != nil {
+	if !verifyPasswordArgon2id(user.PasswordHash, req.Password) {
 		s.log.Info("Invalid login attempt", zap.String("email", req.Email))
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 	}
 
 	// Генерация JWT
-	token, err := auth.GenerateJWT(user.ID, user.Email, user.Role, s.secret, 24)
+	token, err := auth.GenerateAccessToken(user.ID, user.Email, user.Role, s.jwtPrivateKeyPEM, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -326,7 +364,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 		return nil, status.Error(codes.Unauthenticated, "email not confirmed")
 	}
 
-	token, tokenErr := auth.GenerateJWT(userID, emailVal, role, s.secret, 24)
+	token, tokenErr := auth.GenerateAccessToken(userID, emailVal, role, s.jwtPrivateKeyPEM, 15*time.Minute)
 	if tokenErr != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(tokenErr))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -540,13 +578,13 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 	}
 
 	// Verify current password
-	if err = bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.CurrentPassword)); err != nil {
+	if !verifyPasswordArgon2id(currentHash, req.CurrentPassword) {
 		s.log.Warn("Password change failed: incorrect current password", zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
 	}
 
 	// Hash new password
-	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	newHash, err := hashPasswordArgon2id(req.NewPassword)
 	if err != nil {
 		s.log.Error("Failed to hash new password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to hash new password")
@@ -922,7 +960,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	finalRole := role
 
 	// Хешируем пароль
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
+	hashedPassword, err := hashPasswordArgon2id(req.GetPassword())
 	if err != nil {
 		s.log.Error("Failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "internal error")
@@ -945,7 +983,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	}
 
 	// Генерируем JWT (токен возвращается при login, не при регистрации)
-	_, err = auth.GenerateJWT(userID, req.GetEmail(), finalRole, s.secret, 24)
+	_, err = auth.GenerateAccessToken(userID, req.GetEmail(), finalRole, s.jwtPrivateKeyPEM, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "internal error")
@@ -1201,9 +1239,9 @@ func main() {
 		}
 	}()
 
-	secret := config.GetEnv("JWT_SECRET")
-	if secret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
+	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	if jwtPrivateKeyPEM == "" {
+		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
 	}
 
 	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
@@ -1233,13 +1271,13 @@ func main() {
 		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
 	)
 	pb.RegisterUserServiceServer(s, &userServer{
-		db:             database,
-		log:            log,
-		secret:         secret,
-		emailSender:    emailSender,
-		baseURL:        baseURL,
-		googleClientID: googleClientID,
-		totpService:    totp.NewService(totpEncryptor),
+		db:               database,
+		log:              log,
+		jwtPrivateKeyPEM: jwtPrivateKeyPEM,
+		emailSender:      emailSender,
+		baseURL:          baseURL,
+		googleClientID:   googleClientID,
+		totpService:      totp.NewService(totpEncryptor),
 	})
 
 	// Register gRPC health server

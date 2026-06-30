@@ -1,5 +1,5 @@
-# Используем Python 3.12, так как TensorFlow 2.19 не поддерживает 3.13+
-# См.: https://pypi.org/project/tensorflow/2.19.0/#files
+# Используем Python 3.12, так как TensorFlow 2.21.0 оптимален для этой версии
+# См.: https://pypi.org/project/tensorflow/2.21.0/#files
 FROM python:3.12-slim
 
 # Security: non-root user and venv setup in one RUN

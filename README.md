@@ -1,5 +1,6 @@
 # FitPulse — Интеллектуальная платформа персонализированных тренировок
 
+> **Примечание:** ТЗ вынесено в docs/TECHNICAL_SPECIFICATION.md. API-справочник — в docs/API.md. Security policy — в SECURITY.md.
 ---
 
 ## Технические сведения о программе
@@ -18,7 +19,7 @@
 - Серверная часть: Linux (Docker, Kubernetes), Windows (разработка)
 - Клиентская часть: мобильный веб-браузер (Chrome, Firefox, Edge, Safari)
 
-**Языки разработки:** Go 1.26, Python 3.11, JavaScript (ES2022), SQL.
+**Языки разработки:** Go 1.26, Python 3.12, JavaScript (ES2026), SQL.
 
 ### 2. Функциональное назначение
 
@@ -81,12 +82,12 @@ FitPulse представляет собой комплексную платфо
    │       │         │
    ▼       ▼         ▼
 ┌──────────────────────────────────────┐
-│           PostgreSQL 15              │
+│           PostgreSQL 17              │
 └──────────────────────────────────────┘
-       │              │              │
+       │             │             │
    ┌───▼───┐    ┌────▼────┐   ┌────▼─────┐
    │ Redis │    │RabbitMQ │   │ML Engines│
-   │   7   │    │  3.12   │   │Classifier│
+   │   7   │    │  3.13   │   │Classifier│
    └───────┘    └────┬────┘   │+ GAN     │
                      │        └──────────┘
               ┌──────▼──────┐
@@ -99,17 +100,18 @@ FitPulse представляет собой комплексную платфо
 
 |Компонент|Технология|Порт|Назначение|
 |---|---|---|---|
-|Gateway|Go, gorilla/mux|8080|HTTP REST API, проксирование к gRPC|
+|Gateway|Go, chi/v5|8080|HTTP REST API, проксирование к gRPC|
 |User Service|Go, gRPC|50051|Регистрация, авторизация, профили, email-верификация, invite-коды|
 |Biometric Service|Go, gRPC|50052|Сбор и хранение биометрических данных|
 |Training Service|Go, gRPC|50053|Управление тренировочными планами|
 |Device Connector|Go, HTTP|8082|Подключение внешних устройств|
+|Device Aggregator|Go, chi/v5|8083|OAuth-агрегатор носимых устройств (Fitbit, Garmin)|
 |ML Classifier|Python, FastAPI|8001|Классификация состояния (6 классов)|
 |ML Generator|Python, FastAPI|8002|Генерация планов (GAN, 19-dim output, 64-latent)|
 |NGINX LB|Nginx, Alpine|8443|SSL termination, балансировка, CSP|
-|PostgreSQL|15|5432|Основная база данных|
+|PostgreSQL|17|5432|Основная база данных|
 |Redis|7|6379|Кэширование, сессии, auth-коды|
-|RabbitMQ|3.12|5672|Асинхронный обмен (ML jobs, биометрия)|
+|RabbitMQ|3.13|5672|Асинхронный обмен (ML jobs, биометрия)|
 
 ### 5. Описание взаимодействия с другими компонентами
 
@@ -135,7 +137,7 @@ FitPulse представляет собой комплексную платфо
 
 - Docker 24+ / Docker Compose v2
 - Go 1.26+
-- Python 3.11+ (для ML-сервисов)
+- Python 3.12+ (для ML-сервисов)
 - 4 ГБ ОЗУ минимум
 
 #### Настройка SMTP (Yandex)
@@ -172,12 +174,12 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 
 **Выходные данные:**
 
-- JWT access token (HS256, TTL 24 ч)
+- JWT access token (ES256, TTL 15 мин) + Refresh Token (opaque, TTL 7 дней)
 - Тренировочный план (JSON: упражнения, подходы, повторения, длительность, расписание по дням и времени суток)
 - Рекомендованная диета (JSON: приёмы пищи, калории, макронутриенты)
 - Классификация состояния (JSON: класс, уверенность, рекомендации)
 - Письмо верификации email (HTML)
-- HMAC-SHA256 подпись критических ответов
+- mTLS для внутреннего контура и JWS (JSON Web Signature) для критических payload
 
 ---
 
@@ -249,7 +251,7 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 
 - регистрацию пользователей с подтверждением email (SMTP);
 - отдельную регистрацию администраторов через invite-коды;
-- аутентификацию по JWT (HS256, TTL 24 ч);
+- аутентификацию по JWT (ES256, TTL 15 мин access + Refresh Token с rotation);
 - CRUD-операции над профилем пользователя;
 - добавление и получение биометрических данных;
 - регистрацию и приём данных с носимых устройств;
@@ -258,7 +260,7 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 - генерацию диеты с расчётом макронутриентов;
 - ежедневную адаптивную модификацию плана тренировок;
 - разграничение ролей (client, admin);
-- логирование всех операций (zap, уровень info/warn/error);
+- логирование всех операций (slog, уровень info/warn/error) + OpenTelemetry traces;
 - HMAC-SHA256 подпись критических ответов;
 - принудительную инвалидацию сессии при logout;
 - однократное использование auth-кодов;
@@ -307,8 +309,8 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 **4.3.1.** Технические условия:
 
 - сервер: Linux x86_64, 4 ГБ ОЗУ, 20 ГБ диска;
-- клиент: мобильный веб-браузер с поддержкой ES2022;
-- сеть: HTTPS (порт 8443), TLS 1.2+.
+- клиент: мобильный веб-браузер с поддержкой ES2026;
+- сеть: HTTPS (порт 8443), TLS 1.3 only.
 
 **4.3.2.** Требования к персоналу:
 
@@ -341,7 +343,7 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 
 #### 4.6. Требования к транспортным протоколам и уровням взаимодействия
 
-**4.6.1.** Клиент ↔ Сервер: HTTPS (TLS 1.2+), JSON REST API.
+**4.6.1.** Клиент ↔ Сервер: HTTPS (TLS 1.3 only), JSON REST API.
 **4.6.2.** Gateway ↔ Микросервисы: gRPC over HTTP/2.
 **4.6.3.** Сервер ↔ SMTP: SMTP over TLS (порт 465).
 **4.6.4.** Микросервисы ↔ RabbitMQ: AMQP 0.9.1.
@@ -481,9 +483,9 @@ API для валидации: `POST /api/v1/invite/validate`
 |9|Единая точка входа|Gateway для всех запросов|
 |10|Серверная проверка ролей|Прямой запрос к БД при привилегированных операциях|
 |11|Подпись ответов|HMAC-SHA256 для критических JSON|
-|12|Content Security Policy|Строгая CSP с ограничением скриптов|
-|13|bcrypt|Хеширование паролей (cost 10)|
-|14|Rate limiting|NGINX + Go per-IP (10 r/s, burst 20)|
+|12|Content Security Policy|Строгая CSP nonce-based (nonce-xxxx) или hash-based (sha256-xxxx) для inline-скриптов|
+|13|Argon2id|Хеширование паролей (memory 64MB, iterations 3, parallelism 4)|
+|14|Rate limiting|NGINX + Go per-IP + per-user (10 r/s IP, 100 r/s user, burst 20) + sliding window algorithm|
 |15|Code smells принципы|DRY, KISS, YAGNI, SOLID, чистые функции, отсутствие god-объектов, линтинг (golangci-lint: gosec, bodyclose, noctx, errorlint)|
 |16|Принципы Вирта|Поэтапное уточнение (stepwise refinement), разделение данных и алгоритмов, минимизация побочных эффектов, структурное программирование, инкапсуляция структур данных за интерфейсами|
 
@@ -536,9 +538,12 @@ API для валидации: `POST /api/v1/invite/validate`
 │   ├── biometric-service/  # Biometric Service (gRPC)
 │   ├── training-service/   # Training Service (gRPC)
 │   ├── device-connector/   # Device Connector (HTTP)
+│   ├── device-aggregator/  # Device Aggregator (OAuth, HTTP)
 │   ├── data-processor/     # RabbitMQ Consumer
-│   ├── classifier/          # Go Classifier Service
-│   └── ml_generator/       # Python GAN Generator
+│   ├── classifier/         # Go Classifier Service
+│   ├── ml_generator/       # Python GAN Generator
+│   ├── ml_engine/          # Python ML Engine (Diet, Adaptive)
+│   └── notification-svc/   # Notification Service (Email/Push)
 ├── internal/               # Общие пакеты
 │   ├── auth/               # JWT, HMAC подпись
 │   ├── cache/              # Redis (сессии, auth-коды)
@@ -580,7 +585,6 @@ make test-cover     # Тесты с покрытием (coverage.html)
 make lint           # golangci-lint
 make check          # fmt + vet + lint + test + build
 make proto          # Перегенерировать .proto → Go
-make proto          # Перегенерировать .proto → Go
 make migrate        # Применить миграции БД
 make api-test       # Функциональные API-тесты
 make load-test      # Нагрузочное тестирование (k6)
@@ -594,7 +598,7 @@ push/PR → test → security-scan → secrets-scan → build → docker → dep
 ```
 
 - **test**: go vet, golangci-lint, go test
-- **security-scan**: gosec (SAST), govulncheck, Trivy
+- **security-scan**: gosec (SAST), govulncheck, Trivy, cosign (image signing), SBOM generation (syft)
 - **secrets-scan**: TruffleHog, Gitleaks
 - **build**: компиляция Go бинарников
 - **docker**: сборка и push Docker образов
@@ -696,7 +700,7 @@ MIT
 
 Мы внимательно относимся к bug-репортам и улучшаем проект с помощью сообщества.
 
-### Как correctly заполнить issue
+### Как правильно заполнить issue
 
 1. **Проверьте, не заведён ли баг ранее** — поищите в [Issues](https://github.com/MAMUER/Project/issues).
 2. **Используйте шаблон** — при создании issue выберите шаблон «Bug report».

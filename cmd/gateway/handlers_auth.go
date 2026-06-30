@@ -81,7 +81,36 @@ func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
 		return "", err
 	}
 
-	return auth.GenerateJWT(userID, email, role, g.jwtSecret, 24)
+	return auth.GenerateAccessToken(userID, email, role, g.jwtPrivateKeyPEM, 15*time.Minute)
+}
+
+func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string, error) {
+	if g.rdb == nil {
+		return "", errors.New("redis unavailable")
+	}
+	token := auth.GenerateRefreshToken()
+	key := "refresh:" + token
+	if err := g.rdb.Set(ctx, key, userID, 7*24*time.Hour).Err(); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
+	userID, err := g.rdb.Get(ctx, "refresh:"+oldToken).Result()
+	if err != nil {
+		return "", "", errors.New("invalid refresh token")
+	}
+	_ = g.rdb.Del(ctx, "refresh:"+oldToken).Err()
+	newRefresh, err := g.issueRefreshToken(ctx, userID)
+	if err != nil {
+		return "", "", err
+	}
+	newAccess, err := g.issueJWT(ctx, userID)
+	if err != nil {
+		return "", "", err
+	}
+	return newAccess, newRefresh, nil
 }
 
 func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
@@ -297,9 +326,15 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 		"status":       "ok",
 		"access_token": resp.GetAccessToken(),
 		"token_type":   resp.GetTokenType(),
-		"expires_in":   resp.GetExpiresIn(),
+		"expires_in":   900,
 	}
-	if err := middleware.SignAndSendJSON(w, loginResp, g.jwtSecret, g.log.Logger); err != nil {
+	refreshToken, rtErr := g.issueRefreshToken(r.Context(), resp.GetUserId())
+	if rtErr == nil {
+		loginResp["refresh_token"] = refreshToken
+	} else {
+		g.log.Warn("Failed to issue refresh token", zap.Error(rtErr))
+	}
+	if err := middleware.SignAndSendJSON(w, loginResp, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -522,7 +557,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		"status":       "ok",
 		"access_token": grpcResp.GetAccessToken(),
 		"token_type":   grpcResp.GetTokenType(),
-		"expires_in":   grpcResp.GetExpiresIn(),
+		"expires_in":   900,
 		"user_id":      grpcResp.GetUserId(),
 		"role":         grpcResp.GetRole(),
 	}); err != nil {
@@ -669,11 +704,17 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refreshToken, rtErr := g.issueRefreshToken(r.Context(), userID)
+	if rtErr != nil {
+		g.log.Warn("Failed to issue refresh token after 2FA", zap.Error(rtErr))
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"access_token":           token,
 		"token_type":             "Bearer",
-		"expires_in":             24 * 3600,
+		"expires_in":             900,
+		"refresh_token":          refreshToken,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
 	}); err != nil {
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
@@ -746,6 +787,39 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"backup_codes_remaining": remaining,
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP status response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+	if req.RefreshToken == "" {
+		http.Error(w, "refresh_token обязателен", http.StatusBadRequest)
+		return
+	}
+
+	accessToken, newRefresh, err := g.rotateRefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		g.log.Warn("Refresh token rotation failed", zap.Error(err))
+		http.Error(w, "Неверный или истёкший refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": newRefresh,
+		"token_type":    "Bearer",
+		"expires_in":    900,
+	}); err != nil {
+		g.log.Error("Failed to encode refresh response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
 	}

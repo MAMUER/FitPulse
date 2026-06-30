@@ -644,6 +644,19 @@ CREATE TABLE IF NOT EXISTS device_sync_log (
 
 CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
 
+-- JWT opaque refresh tokens (access token TTL 15m, refresh TTL 7d)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token       VARCHAR(255) UNIQUE NOT NULL,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+
 -- V12__oauth_providers.sql
 -- OAuth providers support (Google OAuth)
 -- Make password optional for OAuth users

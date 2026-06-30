@@ -131,7 +131,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Требование #11: HMAC-SHA256 подпись критического ответа
-	if err := middleware.SignAndSendJSON(w, response, g.jwtSecret, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, response, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

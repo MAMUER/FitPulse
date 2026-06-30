@@ -13,7 +13,7 @@ import (
 
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
@@ -89,7 +89,7 @@ func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	adminResp := map[string]interface{}{"status": "ok", "users": users, "total": len(users)}
-	if err := middleware.SignAndSendJSON(w, adminResp, g.jwtSecret, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, adminResp, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -262,8 +262,7 @@ func (g *gateway) adminRevokeInviteHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	vars := mux.Vars(r)
-	code := vars["code"]
+	code := chi.URLParam(r, "code")
 	if code == "" {
 		http.Error(w, "Код инвайта не указан", http.StatusBadRequest)
 		return
