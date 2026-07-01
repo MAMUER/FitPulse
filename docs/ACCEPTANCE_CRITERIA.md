@@ -31,7 +31,7 @@
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
 - [ ] Шифрование: pgcrypto, volumes, secrets
-- [ ] mTLS для внутренних gRPC-коммуникаций (Linkerd с встроенным mTLS или Istio + cert-manager)
+- [x] mTLS для внутренних gRPC-коммуникаций (TLS 1.3, сертификаты в Kubernetes Secret)
 - [ ] WAF настроен с базовым набором правил
 
 ### Релизный процесс

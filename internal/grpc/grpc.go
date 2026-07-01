@@ -1,3 +1,4 @@
+// Package grpc provides gRPC server utilities with optional mutual TLS.
 package grpc
 
 import (

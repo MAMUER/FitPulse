@@ -1,3 +1,4 @@
+// Package telemetry provides OpenTelemetry tracing for gRPC and HTTP services.
 package telemetry
 
 import (
@@ -12,6 +13,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
+//nolint:gochecknoglobals
 var (
 	shutdownOnce sync.Once
 	tp           *sdktrace.TracerProvider
@@ -25,7 +27,7 @@ func InitTracer() func(context.Context) error {
 
 	ctx := context.Background()
 
-	exp, err := otlptracegrpc.New(ctx)
+	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
 		return func(context.Context) error { return nil }
 	}

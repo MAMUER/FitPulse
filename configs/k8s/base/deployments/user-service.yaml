@@ -99,6 +99,20 @@ spec:
                 path: GOOGLE_REDIRECT_URL
               - key: TOTP_ENCRYPTION_KEY
                 path: TOTP_ENCRYPTION_KEY
+        - name: grpc-tls
+          secret:
+            secretName: app-secrets
+            items:
+              - key: GRPC_TLS_CERT
+                path: tls.crt
+              - key: GRPC_TLS_KEY
+                path: tls.key
+              - key: GRPC_TLS_CA_CERT
+                path: ca.crt
+              - key: GRPC_TLS_CLIENT_CERT
+                path: client.crt
+              - key: GRPC_TLS_CLIENT_KEY
+                path: client.key
       containers:
         - name: user-service
           image: ghcr.io/mamuer/project/user-service:latest
@@ -119,6 +133,9 @@ spec:
               mountPath: /tmp
             - name: secrets
               mountPath: /etc/secrets
+              readOnly: true
+            - name: grpc-tls
+              mountPath: /etc/grpc-tls
               readOnly: true
           env:
             - name: DB_HOST

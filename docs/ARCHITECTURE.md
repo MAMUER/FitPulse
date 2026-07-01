@@ -222,7 +222,7 @@ verification:
 **In transit**:
 
 - TLS 1.3 минимум для всех внешних эндпоинтов
-- mTLS для gRPC-коммуникации между микросервисами (istio/linkerd)
+- mTLS для gRPC-коммуникации между микросервисами (TLS 1.3, сертификаты в Kubernetes Secret)
 - HSTS + Certificate Transparency logs вместо certificate pinning (SPA в браузере не поддерживает кастомный пиннинг сертификатов)
 
 ### 4.4 Управление зависимостями
@@ -492,7 +492,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
 - [ ] Шифрование: TDE/БД, volumes, secrets
-- [ ] mTLS для внутренних gRPC-вызовов
+- [x] mTLS для внутренних gRPC-вызовов
 - [ ] WAF настроен с базовым набором правил
 
 ### Релизный процесс

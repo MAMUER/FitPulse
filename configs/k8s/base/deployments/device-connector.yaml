@@ -61,6 +61,20 @@ spec:
                 path: POSTGRES_DB
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
+        - name: grpc-tls
+          secret:
+            secretName: app-secrets
+            items:
+              - key: GRPC_TLS_CERT
+                path: tls.crt
+              - key: GRPC_TLS_KEY
+                path: tls.key
+              - key: GRPC_TLS_CA_CERT
+                path: ca.crt
+              - key: GRPC_TLS_CLIENT_CERT
+                path: client.crt
+              - key: GRPC_TLS_CLIENT_KEY
+                path: client.key
       containers:
         - name: device-connector
           image: ghcr.io/mamuer/project/device-connector:latest
@@ -81,6 +95,9 @@ spec:
               mountPath: /tmp
             - name: secrets
               mountPath: /etc/secrets
+              readOnly: true
+            - name: grpc-tls
+              mountPath: /etc/grpc-tls
               readOnly: true
           env:
             - name: DB_HOST

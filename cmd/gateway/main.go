@@ -581,6 +581,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	r.Use(middleware.RemoveServerHeader)
 	r.Use(middleware.ErrorPages)
 	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.HTMLNonceInject)
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
 	r.Use(middleware.RateLimit)
 	r.Use(middleware.RequestID)

@@ -2,7 +2,7 @@
 
 > **Scope:** Мобильное веб-приложение (SPA) для пользователя системы FitPulse.
 > **Target device:** Мобильный браузер (Viewport `390–430 px`, touch-first).
-> **Base URL:** `https://fitpulse.duckdns.org:8443/` (development). Production: платный домен (duckdns — dynamic DNS, неприемлем для production).
+> **Base URL:** `https://fittpulse.duckdns.org:8443/` (development). Production: платный домен (duckdns — dynamic DNS, неприемлем для production).
 
 ---
 
@@ -433,11 +433,12 @@ nav.tab-bar
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
-  --font-mono: 'SF Mono', 'Fira Code', monospace;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
+
 ```
 
-> **Note**: В `web/index.html` добавьте Google Fonts CDN: `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">, а в CSS установите`@font-face` или `:root { --font-mono: 'JetBrains Mono', 'Fira Code', monospace; }` для кроссплатформенного отображения вместо проприетарного SF Mono.
+Шрифты self-hosted: `web/static/fonts/fonts.css` подключает локальные `.woff2` JetBrains Mono и Inter. Без внешних запросов к Google Fonts.
 
 Тёмная тема (dark-mode-only). Контраст WCAG AA.
 

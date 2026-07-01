@@ -45,17 +45,16 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'nonce-"+nonce+"' https://cdn.jsdelivr.net; "+
-				"style-src 'self' 'nonce-"+nonce+"' 'unsafe-inline'; "+
-				"img-src 'self' data:; "+
-				"font-src 'self'; "+
+				"script-src 'self' 'nonce-"+nonce+"'; "+
+				"style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data: https:; "+
+				"font-src 'self' https://fonts.gstatic.com; "+
 				"connect-src 'self'; "+
 				"media-src 'self'; "+
 				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
-				"form-action 'self'; "+
-				"upgrade-insecure-requests;",
+				"form-action 'self';",
 		)
 
 		// Permissions Policy — запрет доступа к аппаратным средствам

@@ -1,3 +1,4 @@
+// Package grpc provides gRPC server utilities with optional mutual TLS.
 package grpc
 
 import (
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+//nolint:gochecknoglobals
 var certCache struct {
 	serverCreds credentials.TransportCredentials
 	clientCreds credentials.TransportCredentials
@@ -19,18 +21,28 @@ var certCache struct {
 	clientErr   error
 }
 
-func getEnv(name, defaultValue string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		return defaultValue
+const (
+	defaultCertFile       = "/etc/grpc-tls/tls.crt"
+	defaultKeyFile        = "/etc/grpc-tls/tls.key"
+	defaultCAFile         = "/etc/grpc-tls/ca.crt"
+	defaultClientCertFile = "/etc/grpc-tls/client.crt"
+	defaultClientKeyFile  = "/etc/grpc-tls/client.key"
+)
+
+func getTLSPath(envKey, defaultPath string) string {
+	if v := os.Getenv(envKey); v != "" {
+		return v
 	}
-	return value
+	if _, err := os.Stat(defaultPath); err == nil {
+		return defaultPath
+	}
+	return ""
 }
 
 func loadServerTLSCredentials() (credentials.TransportCredentials, error) {
-	certFile := getEnv("GRPC_TLS_CERT_FILE", "")
-	keyFile := getEnv("GRPC_TLS_KEY_FILE", "")
-	caFile := getEnv("GRPC_TLS_CA_FILE", "")
+	certFile := getTLSPath("GRPC_TLS_CERT_FILE", defaultCertFile)
+	keyFile := getTLSPath("GRPC_TLS_KEY_FILE", defaultKeyFile)
+	caFile := getTLSPath("GRPC_TLS_CA_FILE", defaultCAFile)
 
 	if certFile == "" || keyFile == "" {
 		return nil, fmt.Errorf("GRPC_TLS_CERT_FILE and GRPC_TLS_KEY_FILE must be set for gRPC TLS")
@@ -62,9 +74,9 @@ func loadServerTLSCredentials() (credentials.TransportCredentials, error) {
 }
 
 func loadClientTLSCredentials() (credentials.TransportCredentials, error) {
-	caFile := getEnv("GRPC_TLS_CA_FILE", "")
-	certFile := getEnv("GRPC_TLS_CLIENT_CERT_FILE", "")
-	keyFile := getEnv("GRPC_TLS_CLIENT_KEY_FILE", "")
+	caFile := getTLSPath("GRPC_TLS_CA_FILE", defaultCAFile)
+	certFile := getTLSPath("GRPC_TLS_CLIENT_CERT_FILE", defaultClientCertFile)
+	keyFile := getTLSPath("GRPC_TLS_CLIENT_KEY_FILE", defaultClientKeyFile)
 
 	if caFile == "" {
 		return nil, fmt.Errorf("GRPC_TLS_CA_FILE must be set for gRPC client TLS")

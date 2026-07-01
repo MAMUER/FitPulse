@@ -1,3 +1,4 @@
+// Package telemetry provides OpenTelemetry tracing for gRPC and HTTP services.
 package telemetry
 
 import (

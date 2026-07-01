@@ -59,6 +59,20 @@ spec:
                 path: RABBITMQ_URL
               - key: REDIS_PASSWORD
                 path: REDIS_PASSWORD
+        - name: grpc-tls
+          secret:
+            secretName: app-secrets
+            items:
+              - key: GRPC_TLS_CERT
+                path: tls.crt
+              - key: GRPC_TLS_KEY
+                path: tls.key
+              - key: GRPC_TLS_CA_CERT
+                path: ca.crt
+              - key: GRPC_TLS_CLIENT_CERT
+                path: client.crt
+              - key: GRPC_TLS_CLIENT_KEY
+                path: client.key
       containers:
         - name: gateway
           image: ghcr.io/mamuer/project/gateway:latest
@@ -79,6 +93,9 @@ spec:
               mountPath: /tmp
             - name: secrets
               mountPath: /etc/secrets
+              readOnly: true
+            - name: grpc-tls
+              mountPath: /etc/grpc-tls
               readOnly: true
           env:
             - name: REDIS_HOST

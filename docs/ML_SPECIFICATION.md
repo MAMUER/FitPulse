@@ -91,14 +91,20 @@ pip install -r cmd/ml_generator/requirements.txt
 
 **Usage:**
 
-Direct generation:
+#### Загрузка модели (`tf.keras.models.load_model`) внутри обработчика запроса или при каждом вызове `predict` — критическая ошибка производительности (I/O операция + инициализация графа TF занимает сотни миллисекунд). Модель должна загружаться один раз при старте сервиса (global scope) и переиспользоваться
 
 ```python
+# Best Practice: Загрузка модели на уровне модуля при старте FastAPI
 import tensorflow as tf
-import numpy as np
+from fastapi import FastAPI
 
 model = tf.keras.models.load_model('models/generator.keras')
-plan = model.predict(np.random.randn(1, 64), verbose=0)[0]
+app = FastAPI()
+
+@app.post("/ml/generate-plan")
+async def generate_plan(payload: dict):
+    plan = model.predict(np.random.randn(1, 64), verbose=0)[0]
+    return {"plan": plan.tolist()}
 ```
 
 Via `TrainingPlanGAN`:

@@ -26,6 +26,8 @@
 | [Architecture Decision Records](docs/adr/) | Обоснование архитектурных решений |
 | [UI Specification](docs/UI_SPECIFICATION.md) | Спецификация мобильного веб-интерфейса |
 | [Runbooks](docs/runbooks/) | Операционные инструкции и response playbooks |
+| [Phase 2 Roadmap](docs/phase2-roadmap.md) | Бэклог инфраструктуры (план на Phase 2): Vault, mTLS/Service Mesh, HA, CAPTCHA, Secrets Rotation |
+| [Bug Bounty Scope](BUG_BOUNTY_SCOPE.md) | Условия программы Bug Bounty, scope, severity tiers |
 | [Contributing Guide](CONTRIBUTING.md) | Как внести вклад, стандарты кода, тестирование |
 
 ---
@@ -60,7 +62,7 @@ FitPulse реализует комплексные меры безопаснос
 - Content Security Policy (nonce-based)
 - Rate limiting (sliding window)
 - Сетевая сегментация (Kubernetes Network Policies)
-- mTLS для внутренних коммуникаций
+- mTLS для внутренних коммуникаций (TLS 1.3, mutual auth через Kubernetes Secret)
 - Соответствие 152-ФЗ
 
 **Полный список мер**: [Security Policy](SECURITY.md) • [ADR-0006](docs/adr/0006-security-deployment.md)
@@ -106,31 +108,6 @@ FitPulse реализует комплексные меры безопаснос
 | GET | `/api/v1/admin/users` | Список пользователей |
 
 **Полная спецификация**: [docs/API.md](docs/API.md)
-
----
-
-## Быстрый старт (Quick Start)
-
-```bash
-# 1. Клонировать репозиторий
-git clone https://github.com/MAMUER/fitpulse.git && cd fitpulse
-
-# 2. Создать namespace и применить манифесты
-kubectl create namespace fitness-platform
-kubectl apply -k configs/k8s/base/ -n fitness-platform
-
-# 3. Применить миграции БД
-kubectl apply -f configs/k8s/base/jobs/init-db.yaml -n fitness-platform
-
-# 4. Проверить статус подов
-kubectl get pods -n fitness-platform
-
-# 5. Health check
-kubectl port-forward svc/gateway 8443:8443 -n fitness-platform
-curl -k https://localhost:8443/health
-```
-
-**Требования**: Kubernetes 1.28+, 4+ ядер CPU, 8+ ГБ RAM, 40+ ГБ SSD.
 
 **Подробная инструкция**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 

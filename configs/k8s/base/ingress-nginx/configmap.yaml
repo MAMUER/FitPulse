@@ -20,13 +20,6 @@ data:
   hsts-preload: "true"
 
   # ===== ModSecurity WAF =====
-  # Phase 1: ModSecurity at ingress-nginx requires controller image built with --with-modsecurity.
-  # Current image: registry.k8s.io/ingress-nginx/controller:v1.11.3 (no ModSecurity module).
-  # Primary WAF is still Host Nginx + ModSecurity + OWASP CRS v4.
-  # To enable ingress-nginx ModSecurity in Phase 2:
-  #   1. Build controller image with ModSecurity support
-  #   2. Set enable-modsecurity: "true"
-  #   3. Mount CRS rules via crs-rules ConfigMap
   enable-modsecurity: "false"
   modsecurity-snippet: |
     SecRuleEngine On

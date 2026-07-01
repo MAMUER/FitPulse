@@ -17,8 +17,7 @@
 
 ### Как сообщить
 
-1. **Email**: Отправьте письмо на `mihnikolaenko12@yandex.ru` (будет заменён на `security@fitpulse.app` в Phase 2) или создайте приватный advisory в репозитории.
-**Важно**: Для шифрования чувствительных данных используйте наш PGP-ключ (fingerprint будет опубликован в Phase 2).
+1. **Email**: Отправьте письмо на `mihnikolaenko12@yandex.ru` или создайте приватный advisory в репозитории.
 
 2. **Информация для предоставления**:
    - Тип уязвимости (XSS, SQL Injection, CSRF, Authentication Bypass или иная)
@@ -74,7 +73,8 @@
 
 ### Защита API
 
-- **CSP**: строгая nonce-based политика для всех ответов
+- **CSP**: строгая nonce-based политика для всех ответов + `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp` для предотвращения cross-origin утечек и изоляции контекста. **Статус**: реализовано в NGINX конфигурации `deploy/lb/production.conf`.
+- **Subresource Integrity (SRI)**: все CDN-ресурсы (Chart.js, Google Fonts) загружаются с атрибутом `integrity` и `crossorigin="anonymous"` для предотвращения подмены скриптов. **Статус**: реализовано в `web/index.html`.
 - **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window; для auth endpoints отдельно: 5 attempts/minute per IP для `/login` и `/register` для защиты от brute-force атак (OWASP Authentication Cheat Sheet).
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
 - **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
@@ -91,11 +91,9 @@
 **In transit:**
 
 - TLS 1.3 для всех внешних эндпоинтов (terminated на host Nginx)
-- mTLS для внутренних gRPC-коммуникаций между микросервисами (Linkerd с встроенным mTLS или Istio + cert-manager)
+- mTLS для внутренних gRPC-коммуникаций между микросервисами (TLS 1.3, mutual auth, сертификаты в Kubernetes Secret)
 - HSTS + OCSP Must-Staple + Certificate Transparency: Let's Encrypt сертификаты автоматически логируются в CT-логи; `ssl_trusted_certificate` configured в `deploy/lb/production.conf`; верификация CT и OCSP в CI/CD шаге "Verify Certificate Transparency and OCSP Stapling".
-- L7 WAF:
-  1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).
-  2. In-cluster ingress-nginx c `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Фактический ModSecurity module требует кастомной сборки образа контроллера (`Phase 2`). Пока primary WAF остаётся host Nginx.
+- L7 WAF: См. раздел "Инфраструктура" → "WAF"
 
 ### CI/CD безопасность
 
@@ -115,7 +113,7 @@
 - **Secrets**: JWT, API keys и TLS private keys.
 - **WAF**:
   1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).
-  2. In-cluster ingress-nginx (Namespace `ingress-nginx`, NodePort 30080) с `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Фактический ModSecurity module требует кастомной сборки образа контроллера (`Phase 2`). Пока primary WAF остаётся host Nginx.
+  2. In-cluster ingress-nginx (Namespace `ingress-nginx`, NodePort 30080) с `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Пока primary WAF остаётся host Nginx.
 - **Observability**: структурированное логирование (slog), Prometheus метрики, OpenTelemetry traces
 
 ## Процесс исправления

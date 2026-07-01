@@ -18,6 +18,11 @@ git clone https://github.com/MAMUER/fitpulse.git && cd fitpulse
 
 # 2. Создать namespace и применить манифесты
 kubectl create namespace fitness-platform
+# 2.1. Создать секреты (обязательно перед apply манифестов!)
+kubectl create secret generic app-secrets -n fitness-platform \
+    --from-literal=POSTGRES_USER=postgres \
+    --from-literal=POSTGRES_PASSWORD=<your-password> \
+    --from-literal=POSTGRES_DB=fitness
 kubectl apply -k configs/k8s/base/ -n fitness-platform
 
 # 3. Применить миграции БД
@@ -85,22 +90,22 @@ kubectl wait --for=condition=ready pod --all -n fitness-platform --timeout=300s
 ```bash
 # Создание секретов из файлов (предотвращает утечку в bash history / ps)
 kubectl create secret generic app-secrets -n fitness-platform \
-    --from-file=POSTGRES_USER=postgres \
-    --from-file=POSTGRES_PASSWORD=<your-password> \
-    --from-file=POSTGRES_DB=fitness \
+    --from-literal=POSTGRES_USER=postgres \
+    --from-literal=POSTGRES_PASSWORD=<your-password> \
+    --from-literal=POSTGRES_DB=fitness \
     --from-file=JWT_PRIVATE_KEY_PEM=./key.pem \
     --from-file=JWT_PUBLIC_KEY_PEM=./key.pub \
-    --from-file=RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/ \
-    --from-file=REDIS_PASSWORD=<redis-password> \
-    --from-file=SMTP_HOST=smtp.yandex.ru \
-    --from-file=SMTP_PORT=465 \
-    --from-file=SMTP_USER=<your-email> \
-    --from-file=SMTP_PASSWORD=<app-password> \
-    --from-file=SMTP_FROM=<your-email> \
-    --from-file=APP_BASE_URL=https://your-domain.com \
-    --from-file=SEED_ADMIN_EMAIL=<admin-email> \
-    --from-file=SEED_ADMIN_PASSWORD=<admin-password> \
-    --from-file=TOTP_ENCRYPTION_KEY=<32-byte-key>
+    --from-literal=RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/ \
+    --from-literal=REDIS_PASSWORD=<redis-password> \
+    --from-literal=SMTP_HOST=smtp.yandex.ru \
+    --from-literal=SMTP_PORT=465 \
+    --from-literal=SMTP_USER=<your-email> \
+    --from-literal=SMTP_PASSWORD=<app-password> \
+    --from-literal=SMTP_FROM=<your-email> \
+    --from-literal=APP_BASE_URL=https://your-domain.com \
+    --from-literal=SEED_ADMIN_EMAIL=<admin-email> \
+    --from-literal=SEED_ADMIN_PASSWORD=<admin-password> \
+    --from-literal=TOTP_ENCRYPTION_KEY=<32-byte-key>
 ```
 
 ### 4. Настройка ingress (опционально)

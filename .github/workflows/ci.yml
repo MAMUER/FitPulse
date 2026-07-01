@@ -853,6 +853,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
+ 
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -1778,6 +1779,23 @@ jobs:
           RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
           RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
         run: |
+          echo "Generating gRPC mTLS certificates..."
+          mkdir -p /tmp/grpc-certs
+          cd /tmp/grpc-certs
+          openssl genrsa -out ca.key 4096
+          openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/CN=fitpulse-ca"
+          openssl genrsa -out server.key 2048
+          openssl req -new -key server.key -out server.csr -subj "/CN=*.fitness-platform-production.svc.cluster.local"
+          cat > server-ext.cnf <<'EOF'
+          [v3_ext]
+          subjectAltName = DNS:*.fitness-platform-production.svc.cluster.local,DNS:fitness-platform-production.svc.cluster.local
+          EOF
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile server-ext.cnf -extensions v3_ext
+          openssl genrsa -out client.key 2048
+          openssl req -new -key client.key -out client.csr -subj "/CN=fitpulse-client"
+          openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 365 -sha256
+          echo "✅ gRPC mTLS certificates generated"
+
           echo "Creating app-secrets..."
           RABBITMQ_URL="amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASS }}@rabbitmq:5672/"
           kubectl create secret generic app-secrets -n fitness-platform-production \
@@ -1809,6 +1827,11 @@ jobs:
             --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
             --from-literal=GOOGLE_REDIRECT_URL=${{ vars.GOOGLE_REDIRECT_URL }} \
             --from-literal=TOTP_ENCRYPTION_KEY=${{ secrets.TOTP_ENCRYPTION_KEY }} \
+            --from-file=GRPC_TLS_CERT=/tmp/grpc-certs/server.crt \
+            --from-file=GRPC_TLS_KEY=/tmp/grpc-certs/server.key \
+            --from-file=GRPC_TLS_CA_CERT=/tmp/grpc-certs/ca.crt \
+            --from-file=GRPC_TLS_CLIENT_CERT=/tmp/grpc-certs/client.crt \
+            --from-file=GRPC_TLS_CLIENT_KEY=/tmp/grpc-certs/client.key \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
           echo "✅ app-secrets created"
           echo "Waiting for secrets to propagate..."

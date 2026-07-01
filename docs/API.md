@@ -1,6 +1,6 @@
 # FitPulse — API Reference
 
-> Полная спецификация REST/gRPC endpoints. Base URL: `https://fitpulse.duckdns.org:8443/` (development). Production: `https://fitpulse.example.com` (платный домен).
+> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.duckdns.org:8443/` (development). Production: `https://fitpulse.example.com` (платный домен).
 
 ## Аутентификация
 
@@ -36,30 +36,30 @@ Refresh token используется для ротации через `POST /a
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
 |POST|`/api/v1/logout`|Выход с инвалидацией сессии|—|`{message}`|
-|GET|`/profile`|Получить профиль|—|`UserProfile`|
-|PUT|`/profile`|Обновить профиль|`{full_name?, nickname?, age?, gender?, height_cm?, weight_kg?, fitness_level?, goals?, contraindications?, nutrition?, sleep_hours?}`|`UserProfile`|
-|DELETE|`/profile`|Удалить профиль|`{password}`|`{message}`|
-|POST|`/biometrics`|Добавить биометрию|`{type, value, timestamp, device_id?}`|`{message}`|
-|GET|`/biometrics`|Получить биометрию|Query: `?type=&from=&to=`|`[{type, value, timestamp, device_id}]`|
-|PUT|`/profile/security/password`|Сменить пароль|`{current_password, new_password}`|`{message}`|
-|PUT|`/profile/security/email`|Сменить email|`{new_email, password}`|`{message}`|
-|POST|`/training/generate`|Сгенерировать план|`{duration_weeks, max_duration, preferred_time, days, equipment, goal}`|`TrainingPlan`|
-|GET|`/training/plans`|Список планов|Query: `?status=`|`[{plan_id, name, status, created_at}]`|
-|POST|`/training/complete`|Завершить тренировку|`{plan_id}`|`{message}`|
-|GET|`/training/progress`|Прогресс|Query: `?from=&to=`|`{total_workouts, completed_workouts, average_duration_minutes, total_calories_burned}`|
-|POST|`/ml/classify`|Классификация состояния|`{biometrics: {hr, hrv, spo2, temp, bp}}`|`{state, confidence, recommendation}`|
-|POST|`/ml/generate-plan`|Генерация плана (GAN)|`{user_profile, goal, constraints}`|`{training_plan, diet_plan}`|
-|POST|`/auth/2fa/setup`|Настройка TOTP|`{user_id}`|`{qr_code_url, secret, backup_codes}`|
-|POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{user_id, passcode, temp_secret, backup_codes}`|`{success, message}`|
-|POST|`/auth/2fa/verify`|Проверка TOTP|`{user_id, passcode, is_backup_code?}`|`{valid, backup_codes_remaining}`|
-|POST|`/auth/2fa/disable`|Отключение TOTP|`{user_id, passcode}`|`{success, message}`|
-|GET|`/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
+|GET|`/api/v1/profile`|Получить профиль|—|`UserProfile`|
+|PUT|`/api/v1/profile`|Обновить профиль|`{full_name?, nickname?, age?, gender?, height_cm?, weight_kg?, fitness_level?, goals?, contraindications?, nutrition?, sleep_hours?}`|`UserProfile`|
+|DELETE|`/api/v1/profile`|Удалить профиль|`{password}`|`{message}`|
+|POST|`/api/v1/biometrics`|Добавить биометрию|`{type, value, timestamp, device_id?}`|`{message}`|
+|GET|`/api/v1/biometrics`|Получить биометрию|Query: `?type=&from=&to=`|`[{type, value, timestamp, device_id}]`|
+|PUT|`/api/v1/profile/security/password`|Сменить пароль|`{current_password, new_password}`|`{message}`|
+|PUT|`/api/v1/profile/security/email`|Сменить email|`{new_email, password}`|`{message}`|
+|POST|`/api/v1/training/generate`|Сгенерировать план|`{duration_weeks, max_duration, preferred_time, days, equipment, goal}`|`TrainingPlan`|
+|GET|`/api/v1/training/plans`|Список планов|Query: `?status=`|`[{plan_id, name, status, created_at}]`|
+|POST|`/api/v1/training/complete`|Завершить тренировку|`{plan_id}`|`{message}`|
+|GET|`/api/v1/training/progress`|Прогресс|Query: `?from=&to=`|`{total_workouts, completed_workouts, average_duration_minutes, total_calories_burned}`|
+|POST|`/api/v1/ml/classify`|Классификация состояния|`{biometrics: {hr, hrv, spo2, temp, bp}}`|`{state, confidence, recommendation}`|
+|POST|`/api/v1/ml/generate-plan`|Генерация плана (GAN)|`{user_profile, goal, constraints}`|`{training_plan, diet_plan}`|
+|POST|`/api/v1/auth/2fa/setup`|Настройка TOTP|`{user_id}`|`{qr_code_url, secret, backup_codes}`|
+|POST|`/api/v1/auth/2fa/confirm`|Подтверждение TOTP|`{user_id, passcode, temp_secret, backup_codes}`|`{success, message}`|
+|POST|`/api/v1/auth/2fa/verify`|Проверка TOTP|`{user_id, passcode, is_backup_code?}`|`{valid, backup_codes_remaining}`|
+|POST|`/api/v1/auth/2fa/disable`|Отключение TOTP|`{user_id, passcode}`|`{success, message}`|
+|GET|`/api/v1/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
 
 ## Админ endpoints (JWT + role=admin)
 
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
-|GET|`/admin/users`|Список пользователей|Query: `?page=&page_size=&role=`|`{users: [UserProfile], total}`|
+|GET|`/api/v1/admin/users`|Список пользователей|Query: `?page=&page_size=&role=`|`{users: [UserProfile], total}`|
 
 ## gRPC services
 
