@@ -1,8 +1,20 @@
 # Service Level Agreement (SLA)
 
-| Приоритет                   | Время реакции   | Время исправления      |
-|-----------------------------|-----------------|------------------------|
-| 🔴 Critical (Security)      | 4 часа          | 24 часа                |
-| 🟠 High (Bug blocking)      | 1 день          | 3 дня                  |
-| 🟡 Medium (Feature)         | 3 дня           | 2 недели               |
-| 🟢 Low (Nice to have)       | 1 неделя        | Следующий релиз        |
+## Scope
+
+- Применяется к production-окружению (`fitness-platform-production` namespace)
+- Охватывает доступность API endpoints и микросервисов
+- Не охватывает сторонние сервисы (SMTP, OAuth провайдеры)
+
+## Exclusions
+
+- Плановые технические работы (объявляются заранее)
+- Force majeure (стихийные бедствия, DDoS)
+- Ошибки внешних провайдеров
+
+| Priority | Response Time | Resolution Time |
+| ---------- | --------------- | ----------------- |
+| 🔴 Critical (Security) | 4 hours | 24 hours |
+| 🟠 High (Bug blocking) | 1 day | 3 days |
+| 🟡 Medium (Feature) | 3 days | 2 weeks |
+| 🟢 Low (Nice to have) | 1 week | Next release |

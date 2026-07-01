@@ -17,12 +17,12 @@ services:
       - postgres_test_data:/var/lib/postgresql/data
       - ./configs/k8s/base/jobs/init-db.sql:/docker-entrypoint-initdb.d/init.sql
 
-  redis-test:
-    image: redis:7-alpine
+  valkey-test:
+    image: valkey/valkey:9-alpine
     ports:
       - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -52,7 +52,7 @@ services:
       POSTGRES_PASSWORD: testpass
       POSTGRES_DB: testdb
       DB_SSLMODE: disable
-      REDIS_HOST: redis-test
+      REDIS_HOST: valkey-test
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://testuser:testpass@rabbitmq-test:5672/
       JWT_PRIVATE_KEY_PEM: test_ec_private_key_placeholder_for_smoke_tests_only
@@ -61,12 +61,12 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_FROM: noreply@fitpulse.test
-    depends_on:
-      postgres-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
-      rabbitmq-test:
+depends_on:
+       postgres-test:
+         condition: service_healthy
+       valkey-test:
+         condition: service_healthy
+       rabbitmq-test:
         condition: service_healthy
     ports:
       - "50054:50051"
@@ -79,13 +79,13 @@ services:
       USER_SERVICE_ADDR: user-service-test:50051
       JWT_PRIVATE_KEY_PEM: test_ec_private_key_placeholder_for_smoke_tests_only
       JWT_PUBLIC_KEY_PEM: test_ec_public_key_placeholder_for_smoke_tests_only
-      REDIS_HOST: redis-test
+      REDIS_HOST: valkey-test
       REDIS_PORT: 6379
       DATABASE_URL: postgres://testuser:testpass@postgres-test:5432/testdb?sslmode=disable
-    depends_on:
-      user-service-test:
-        condition: service_started
-      redis-test:
+depends_on:
+       user-service-test:
+         condition: service_started
+       valkey-test:
         condition: service_healthy
     ports:
       - "8081:8080"

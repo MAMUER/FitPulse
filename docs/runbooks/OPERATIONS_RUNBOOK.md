@@ -18,10 +18,10 @@
 
 **Шаги**:
 
-1. **Подтвердить алерт** (Slack/PagerDuty)
+1. **Подтвердить алерт** (Slack/Grafana OnCall)
 
-   ```bash
-   # Реакция :ack: в Slack или подтверждение в PagerDuty
+    ```bash
+    # Реакция :ack: в Slack или подтверждение в Grafana OnCall
    ```
 
 2. **Проверить статус сервисов**
@@ -57,7 +57,7 @@
 
 ### SEV-2: Высокий error rate (15–30 минут расследования)
 
-**Симптомы**: error rate > 5%, p95 latency > 5s.
+**Симптомы**: error rate > 1%, p95 latency > 5s.
 
 **Шаги**:
 
@@ -135,8 +135,8 @@ kubectl set image deployment/gateway \
 # Дашборды: Error Rate, Latency, ML Confidence, DB Pool, Backup Status
 
 # Этап 9: Автоматический откат при нарушении критериев:
-# - error_rate > 5% в течение 15 минут
-# - latency p95 > 10s в течение 15 минут
+# - error_rate > baseline + 1% в течение 15 минут
+# - latency p95 > 5s в течение 15 минут
 # - КРИТИЧЕСКАЯ security-проблема
 kubectl rollout undo deployment/gateway -n fitness-platform
 ```
@@ -287,7 +287,7 @@ kubectl logs -f deployment/gateway -n fitness-platform
 
 |Метрика|Порог|Частота проверки|
 |---|---|---|
-|Error Rate|< 5%|Непрерывно (1 мин)|
+|Error Rate|< 1%|Непрерывно (1 мин)|
 |p95 Latency|< 5s|Непрерывно (1 мин)|
 |Uptime|> 99.9%|Ежедневно|
 |DB Pool Usage|< 80%|Каждые 5 мин|
@@ -383,7 +383,7 @@ curl "elasticsearch:9200/_cat/indices?v" | grep restored
 
 ## Контакты и эскалация
 
-- **Дежурный инженер**: расписание в PagerDuty
+- **Дежурный инженер**: расписание в Grafana OnCall
 - **Tech Lead**: [tech-lead@fitpulse.app](mailto:tech-lead@fitpulse.app)
 - **CTO**: [cto@fitpulse.app](mailto:cto@fitpulse.app) (только SEV-1, эскалация после 15 мин)
 

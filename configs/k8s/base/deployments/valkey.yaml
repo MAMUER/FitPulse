@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: valkey
   namespace: fitness-platform-production
   labels:
-    app: redis
+    app: valkey
     tier: infrastructure
     environment: production
-    app.kubernetes.io/name: redis
-    app.kubernetes.io/instance: redis
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: valkey
     app.kubernetes.io/component: cache
     app.kubernetes.io/part-of: fitness-platform
     app.kubernetes.io/managed-by: kustomize
@@ -17,15 +17,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis
+      app: valkey
   template:
     metadata:
       labels:
-        app: redis
+        app: valkey
         zone: data-zone
         environment: production
-        app.kubernetes.io/name: redis
-        app.kubernetes.io/instance: redis
+        app.kubernetes.io/name: valkey
+        app.kubernetes.io/instance: valkey
         app.kubernetes.io/component: cache
         app.kubernetes.io/part-of: fitness-platform
         app.kubernetes.io/managed-by: kustomize
@@ -46,16 +46,16 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: redis-config
+        - name: valkey-config
           configMap:
-            name: redis-config
+            name: valkey-config
       containers:
-        - name: redis
-          image: redis:7-alpine
+        - name: valkey
+          image: valkey/valkey:9-alpine
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379
-              name: redis
+              name: valkey
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -63,13 +63,13 @@ spec:
             capabilities:
               drop: ["ALL"]
           command:
-            - redis-server
-            - /etc/redis/redis.conf
+            - valkey-server
+            - /etc/valkey/valkey.conf
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            - name: redis-config
-              mountPath: /etc/redis
+            - name: valkey-config
+              mountPath: /etc/valkey
           livenessProbe:
             tcpSocket:
               port: 6379

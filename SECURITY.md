@@ -66,7 +66,7 @@
 
 - **JWT**: ES256, access token TTL 15 минут
 - **Refresh Token**: opaque, TTL 7 дней, rotation при каждом использовании
-- **Хеширование паролей**: Argon2id (memory 64MB, iterations 3, parallelism 4)
+- **Хеширование паролей**: Argon2id (memory 19–64 MB, iterations 2–3, parallelism 1–4). По OWASP: 19 MB / 2 iter / 1 parallel для web. Для high-security: 64 MB / 3 iter / 4 parallel.
 - **2FA**: TOTP (Google Authenticator) с backup-кодами
 - **Сессии**: принудительная инвалидация при logout, отдельные хранилища для критических действий
 - **Авторизация**: серверная проверка ролей через прямой запрос к БД
@@ -74,10 +74,10 @@
 ### Защита API
 
 - **CSP**: строгая nonce-based политика для всех ответов
-- **Rate limiting**: per-IP (10 r/s) + per-user (100 r/s), burst 20, sliding window
+- **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
 - **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
-- **Подпись ответов**: HMAC-SHA256 для критических JSON (login, register, profile, biometrics, plans)
+- **Подпись ответов**: HMAC-SHA256 для критических JSON (login, register, profile, biometrics, plans). Ключи хранятся в Vault/AWS KMS с автоматической ротацией (см. runbooks/secrets.md).
 
 ### Безопасность данных
 
@@ -90,8 +90,8 @@
 **In transit:**
 
 - TLS 1.3 для всех внешних эндпоинтов
-- mTLS для gRPC-коммуникаций между микросервисами (SPIRE SPIFFE ID / cert-manager + linkerd)
-- Certificate pinning для мобильных клиентов
+- mTLS для внутренних gRPC-коммуникаций между микросервисами (Linkerd с встроенным mTLS или Istio + cert-manager)
+- Certificate pinning неприменим для SPA в мобильном браузере. Вместо этого: HSTS + Certificate Transparency logs.
 
 ### CI/CD безопасность
 

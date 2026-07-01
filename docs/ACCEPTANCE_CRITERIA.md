@@ -14,9 +14,9 @@
 ### Инфраструктура
 
 - [ ] Матрица окружений применена ко всем компонентам
-- [ ] PostgreSQL 18 с pgcrypto + LUKS (dm-crypt) + Vault Transit для sensitive fields
+- [ ] PostgreSQL 18 с pgcrypto для at-rest columns, Vault Transit для key management (envelope encryption, не двойное шифрование)
 - [ ] RabbitMQ 4 с persistent queues и DLQ
-- [ ] Redis 7 с persistence и кластеризацией
+- [ ] Redis 7.4+ GA или Valkey 9
 - [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
 - [ ] Prometheus: service discovery, recording rules, Alertmanager
 
@@ -31,7 +31,7 @@
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
 - [ ] Шифрование: pgcrypto, KMS/volumes, Vault/secrets
-- [ ] mTLS для внутренних gRPC-вызовов (SPIRE / cert-manager + linkerd)
+- [ ] mTLS для внутренних gRPC-коммуникаций (Linkerd с встроенным mTLS или Istio + cert-manager)
 - [ ] WAF настроен с базовым набором правил
 - [ ] Secrets rotation: 90 дней, автоматизировано через Vault
 
@@ -39,15 +39,15 @@
 
 - [ ] Пайплайн включает все 9 этапов
 - [ ] Canary-деплой с критериями успеха/отката
-- [ ] Автоматический rollback при error rate > baseline + 5%
-- [ ] Cosign подпись образов, SBOM generation (syft)
+- [ ] Автоматический rollback при error rate > baseline + 1%
+- [ ] Cosign подпись образов, SBOM (syft) → OCI artifact рядом с образом, проверка через cosign verify + admission webhook (Kyverno/OPA)
 
 ### Приемка
 
 - [ ] Availability: 99.9%
-- [ ] Latency p95: < 5s
+- [ ] Latency p95: < 2s (SLO), canary gate < 3s, rollback при p95 > 5s
 - [ ] MTTR: < 5 мин
-- [ ] RTO: < 1 час, RPO = 0 (синхронные реплики)
+- [ ] RTO: < 1 час. RPO = 0 только при multi-AZ; single-VPS: RPO < 1 мин (WAL shipping)
 - [ ] Пентест запланирован и пройден
 - [ ] Реализованы механизмы соответствия 152-ФЗ
 

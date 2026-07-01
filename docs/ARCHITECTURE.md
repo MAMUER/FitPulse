@@ -83,7 +83,7 @@ requirements:
 |---|---|---|---|---|
 |**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
 |**PostgreSQL topology**|1 инстанс (локальный)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async)|
-|**Redis topology**|1 узел|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
+|**Valkey topology**|1 узел|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
 |**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
 |**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|
 |**Backup strategy**|Нет|Ежедневно (pg_dump)|Каждые 12 часов (WAL-архивация)|Каждые 6 часов (WAL) + PITR|
@@ -145,21 +145,21 @@ prometheus_metrics:
 
 |Алерт|Условие|Каналы|
 |---|---|---|
-|`ServiceDown`|`up{job=~'fitness-.*'} == 0` за 2 мин|Slack + PagerDuty|
-|`DBConnectionPoolExhausted`|`db_connection_pool_usage > 0.9` за 1 мин|PagerDuty|
-|`BackupFailed`|`backup_success{type='full'} == 0`|PagerDuty|
+|`ServiceDown`|`up{job=~'fitness-.*'} == 0` за 2 мин|Slack + Grafana OnCall|
+|`DBConnectionPoolExhausted`|`db_connection_pool_usage > 0.9` за 1 мин|Grafana OnCall|
+|`BackupFailed`|`backup_success{type='full'} == 0`|Grafana OnCall|
 
 #### Предупреждения (SEV-3)
 
 |Алерт|Условие|Каналы|
 |---|---|---|
-|`HighErrorRate`|`rate(error_total[5m]) / rate(request_total[5m]) > 0.05` за 5 мин|Slack|
+|`HighErrorRate`|`rate(error_total[5m]) / rate(request_total[5m]) > 0.01` за 5 мин|Slack|
 |`HighLatency`|`histogram_quantile(0.95, ...) > 5` за 10 мин|Slack|
 |`LowMLConfidence`|`classification_confidence < 0.7` за 15 мин|Slack|
 
 **Политика эскалации**:
 
-- `SEV-1`: немедленно → PagerDuty → on-call engineer → Tech Lead → CTO
+- `SEV-1`: немедленно → Grafana OnCall → on-call engineer → Tech Lead → CTO
 - `SEV-2`: 15 мин → Slack → on-call engineer → Tech Lead
 - `SEV-3`: 1 час → Slack → on-call engineer
 - `SEV-4`: 24 часа → ticket queue

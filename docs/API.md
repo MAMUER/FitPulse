@@ -1,16 +1,20 @@
 # FitPulse — API Reference
 
-> Полная спецификация REST/gRPC endpoints. Base URL: `https://fitpulse.duckdns.org:8443/`
+> Полная спецификация REST/gRPC endpoints. Base URL: `https://fitpulse.duckdns.org:8443/` (development). Production: `https://fitpulse.example.com` (платный домен).
 
 ## Аутентификация
 
-Все защищённые запросы требуют JWT access token (ES256) в заголовке:
+Все защищённые запросы требуют JWT access token (ES256, ECDSA P-256) в заголовке:
 
 ```text
 Authorization: Bearer <access_token>
 ```
 
-Access token TTL: 15 минут. Refresh token (opaque, 7 дней) используется для ротации через `POST /api/v1/auth/refresh`.
+- **access_token TTL**: 15 минут
+- **refresh_token TTL**: 7 дней, rotation при каждом использовании
+- **JWKS endpoint**: `GET /.well-known/jwks.json` (для публичного ключа)
+
+Refresh token используется для ротации через `POST /api/v1/auth/refresh`.
 
 ## Публичные endpoints
 
@@ -31,7 +35,7 @@ Access token TTL: 15 минут. Refresh token (opaque, 7 дней) исполь
 
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
-|POST|`/logout`|Выход с инвалидацией сессии|—|`{message}`|
+|POST|`/api/v1/logout`|Выход с инвалидацией сессии|—|`{message}`|
 |GET|`/profile`|Получить профиль|—|`UserProfile`|
 |PUT|`/profile`|Обновить профиль|`{full_name?, nickname?, age?, gender?, height_cm?, weight_kg?, fitness_level?, goals?, contraindications?, nutrition?, sleep_hours?}`|`UserProfile`|
 |DELETE|`/profile`|Удалить профиль|`{password}`|`{message}`|

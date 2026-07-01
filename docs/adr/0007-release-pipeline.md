@@ -16,7 +16,7 @@
 6. **Release Candidate**: Git tags, changelogs, migration plans.
 7. **Deploy Production**: canary (10% трафика, 1ч) затем rolling (30%→60%→100%, интервалы 30 мин).
 8. **Post-Deploy Monitoring**: 24ч наблюдение с определёнными метриками.
-9. **Rollback Trigger**: автоматический откат при error rate >5%, latency >10s, security issues или data loss >0.1%.
+9. **Rollback Trigger**: автоматический откат при error rate > baseline + 1% или latency p95 > 5s, security issues или data loss > 0.1%.
 
 ## Последствия
 

@@ -47,8 +47,8 @@
 - замену 403 на 404;
 - маскировку версий ПО;
 - строгую CSP nonce-based;
-- Rate limiting (per-IP 10r/s, per-user 100r/s, burst 20);
-- Argon2id хеширование паролей (128MB+ memory, 3 iters, 4 parallelism).
+- Rate limiting (per-IP 10r/s, burst 50; per-user 100r/s, burst 200);
+- Argon2id хеширование паролей (19–64 MB memory, 2–3 iterations, 1–4 parallelism).
 
 **4.1.2.** Состав подсистем:
 
@@ -58,7 +58,7 @@
 |Biometric Service|Приём и хранение биометрических данных|
 |Training Service|CRUD тренировочных планов, история, достижения|
 |Device Connector|Подключение и приём данных с носимых устройств|
-|ML Classifier|Классификация состояния (6 классов, Keras, TensorFlow)|
+|Classifier|Классификация состояния (6 классов, Go-алгоритм)|
 |ML Generator|Генерация планов (GAN)|
 |ML Engine|Комплексная логика: диета, адаптивные тренировки|
 |Gateway|Единая точка входа (REST → gRPC)|
@@ -114,7 +114,7 @@
 ## 6. Технико-экономические показатели
 
 - Программа распространяется бесплатно.
-- Используемые компоненты: open-source (Go, Python, PostgreSQL, Redis, RabbitMQ, NGINX).
+- Используемые компоненты: open-source (Go, Python, PostgreSQL, Valkey, RabbitMQ, NGINX).
 - SMTP: Yandex Mail (бесплатно, ~500 писем/день).
 
 ## 7. Стадии разработки
@@ -143,7 +143,7 @@
 
 ### 8.3. Нагрузочное тестирование
 
-- k6 (script: `scripts/load-test/load-test.js`), 50 VU, 2 min.
+- k6 сценарии: smoke (10 VU/1m), average (100 VU/10m), stress (500 VU/5m) + soak (50 VU/1h).
 
 ### 8.4. Критерии приёмки
 

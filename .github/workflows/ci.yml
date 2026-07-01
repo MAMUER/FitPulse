@@ -758,7 +758,18 @@ jobs:
       - name: Run make check
         run: make check
         env:
-          DOCKER_HOST: ""
+           DOCKER_HOST: ""
+      - name: Coverage Check (80% threshold)
+        run: |
+           echo "Running coverage check..."
+           go test -v -coverprofile=coverage.out ./...
+           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+           echo "Total coverage: $COVERAGE%"
+           if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+             echo "::error::Coverage $COVERAGE% is below 80% threshold"
+             exit 1
+           fi
+           echo "✅ Coverage check passed"
 
   # ============================================================================
   # BUILD BINARIES
@@ -2199,7 +2210,7 @@ jobs:
               ERROR_FOUND=1
             fi
           done
-          for app in user-service training-service biometric-service gateway device-connector classifier ml-generator redis; do
+          for app in user-service training-service biometric-service gateway device-connector classifier ml-generator valkey; do
             if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
               echo "❌ Pod(s) for $app are not Running"
               ERROR_FOUND=1

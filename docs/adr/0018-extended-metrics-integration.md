@@ -19,7 +19,7 @@
   - `NotificationQueueDepth` (`queue_name`, `priority`)
   - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
 
-### ML-сервисы
+- **ML-сервисы**: Добавить `ml_inference_duration_seconds` histogram для tracking latency ML-моделей. Без него невозможно построить RED-дашборд для ML-сервиса.
 
 В `cmd/classifier/main.go` и `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной классификации/генерации происходит `labels(model_version, class).set(confidence)`.
 

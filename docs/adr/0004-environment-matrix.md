@@ -17,7 +17,7 @@
 
 - K8s подов на сервис (1 → 2 → 3 → 5+ с HPA)
 - PostgreSQL топология (один инстанс → primary+replica → primary+2 replicas → primary+3 replicas с sync/async)
-- Redis топология (single node → Sentinel → Cluster mode)
+- Valkey топология (single node → Sentinel → Cluster mode) — Redis 7.4+ заменён на Valkey 9 из-за RSALv2 лицензии
 - GPU ресурсы (только CPU → T4 → A10 для ML-инференса)
 - Стек мониторинга (basic → полный ELK+Prometheus → с алертами → on-call rotation)
 - Стратегия бэкапов (нет → ежедневные дампы → WAL архивация → PITR)

@@ -2,7 +2,7 @@
 
 > **Scope:** Мобильное веб-приложение (SPA) для пользователя системы FitPulse.
 > **Target device:** Мобильный браузер (Viewport `390–430 px`, touch-first).
-> **Base URL:** `https://fitpulse.duckdns.org:8443/`
+> **Base URL:** `https://fitpulse.duckdns.org:8443/` (development). Production: платный домен (duckdns — dynamic DNS, неприемлем для production).
 
 ---
 
@@ -349,9 +349,9 @@ nav.tab-bar
 
 ### 10.2. Сетеые ошибки в SPA
 
-- Таймаут `fetch` — 10 секунд.
-- При 401 — переход на экран авторизации.
+- Таймаут `fetch` — 10 секунд (AbortController + setTimeout).
 - При 403 — показ `403.html` (сервер возвращает 403 как 404 для предотвращения перечисления ресурсов; в SPA показ 403.html используется для внутренних проверок прав).
+- При 401 — попытка refresh токена → если fail → logout.
 - При 5xx — показ `500.html` + retry-кнопка.
 
 ---
@@ -380,18 +380,18 @@ nav.tab-bar
 |`registerWithInvite(code, name, email, password)`|POST|`/api/v1/register/invite`|
 |`login(email, password)`|POST|`/api/v1/login`|
 |`confirmEmail(token)`|POST|`/api/v1/auth/confirm`|
-|`logout()`|POST|`/logout`|
-|`getProfile()`|GET|`/profile`|
-|`updateProfile(data)`|PUT|`/profile`|
-|`addBiometric(type, value)`|POST|`/biometrics`|
-|`getBiometrics(type)`|GET|`/biometrics`|
-|`generatePlan(params)`|POST|`/training/generate`|
-|`getPlans()`|GET|`/training/plans`|
-|`completeTraining(planId)`|POST|`/training/complete`|
-|`getProgress()`|GET|`/training/progress`|
-|`classifyState()`|POST|`/ml/classify`|
-|`registerDevice(type)`|POST|`/devices/register`|
-|`ingestDevice(id, data)`|POST|`/devices/{id}/ingest`|
+|`logout()`|POST|`/api/v1/logout`|
+|`getProfile()`|GET|`/api/v1/profile`|
+|`updateProfile(data)`|PUT|`/api/v1/profile`|
+|`addBiometric(type, value)`|POST|`/api/v1/biometrics`|
+|`getBiometrics(type)`|GET|`/api/v1/biometrics`|
+|`generatePlan(params)`|POST|`/api/v1/training/generate`|
+|`getPlans()`|GET|`/api/v1/training/plans`|
+|`completeTraining(planId)`|POST|`/api/v1/training/complete`|
+|`getProgress()`|GET|`/api/v1/training/progress`|
+|`classifyState()`|POST|`/api/v1/ml/classify`|
+|`registerDevice(type)`|POST|`/api/v1/devices/register`|
+|`ingestDevice(id, data)`|POST|`/api/v1/devices/{id}/ingest`|
 
 Все ответы — JSON. Ошибки имеют формат `{error: string}`.
 
@@ -436,6 +436,8 @@ nav.tab-bar
   --font-mono: 'SF Mono', 'Fira Code', monospace;
 }
 ```
+
+> **Note**: SF Mono — проприетарный Apple-шрифт, fallback на Fira Code (open-source). Добавить @font-face для Fira Code из CDN в `index.html` для непрерывного моноширинного отображения на Android/Windows.
 
 Тёмная тема (dark-mode-only). Контраст WCAG AA.
 

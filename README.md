@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/MAMUER/fitpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/MAMUER/fitpulse/actions)
 [![Docker Pulls](https://img.shields.io/docker/pulls/fitpulse/gateway.svg)](https://hub.docker.com/u/fitpulse)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5.svg)](https://kubernetes.io/)
-[![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](docs/SECURITY.md)
+[![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -22,7 +22,7 @@
 | [Техническое задание](docs/TECHNICAL_SPECIFICATION.md) | Полное ТЗ с требованиями, стадиями разработки и критериями приемки |
 | [Архитектура](docs/ARCHITECTURE.md) | Инфраструктура, наблюдаемость, безопасность, релизный процесс |
 | [API Reference](docs/API.md) | Полная спецификация REST/gRPC endpoints |
-| [Security Policy](docs/SECURITY.md) | Меры безопасности, compliance, аудит |
+| [Security Policy](SECURITY.md) | Меры безопасности, compliance, аудит |
 | [Architecture Decision Records](docs/adr/) | Обоснование архитектурных решений |
 | [UI Specification](docs/UI_SPECIFICATION.md) | Спецификация мобильного веб-интерфейса |
 | [Runbooks](docs/runbooks/) | Операционные инструкции и response playbooks |
