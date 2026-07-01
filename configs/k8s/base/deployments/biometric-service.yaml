@@ -112,7 +112,7 @@ spec:
                   name: app-config
                   key: BIOMETRIC_SERVICE_PORT
             - name: REDIS_HOST
-              value: "redis"
+              value: "valkey"
             - name: REDIS_PASSWORD_FILE
               value: "/etc/secrets/REDIS_PASSWORD"
             - name: RABBITMQ_URL_FILE

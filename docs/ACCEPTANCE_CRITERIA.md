@@ -5,7 +5,7 @@
 - [ ] Все unit-тесты проходят (`go test ./...`)
 - [ ] Линтер без ошибок (`golangci-lint run` → 0 issues)
 - [ ] Security-scan без критических уязвимостей (gosec, govulncheck, Trivy)
-- [ ] Приложение разворачивается через `docker compose up -d`
+- [ ] Приложение разворачивается через `kubectl apply -k configs/k8s/base/`
 - [ ] Регистрация → верификация email → логин → получение профиля работают последовательно
 - [ ] Документация обновлена (README, API.md, ARCHITECTURE.md)
 
@@ -16,7 +16,7 @@
 - [ ] Матрица окружений применена ко всем компонентам
 - [ ] PostgreSQL 18 с pgcrypto для at-rest columns, Vault Transit для key management (envelope encryption, не двойное шифрование)
 - [ ] RabbitMQ 4 с persistent queues и DLQ
-- [ ] Redis 7.4+ GA или Valkey 9
+- [ ] Valkey 9
 - [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
 - [ ] Prometheus: service discovery, recording rules, Alertmanager
 

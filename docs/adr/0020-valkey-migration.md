@@ -24,5 +24,6 @@ Redis 7.4+ перешёл на RSALv2 лицензии (Redis Source Available L
 ## Реализация
 
 - `docker-compose.test.yml`: `valkey/valkey:9-alpine` вместо `redis:7-alpine`
-- `configs/k8s/base/deployments/`: `valkey/valkey:9-alpine` вместо `redis:7-alpine`
+- `configs/k8s/base/deployments`: `valkey/valkey:9-alpine` вместо `redis:7-alpine`
 - `go.mod`: redis/go-redis совместим (Valkey — форк Redis без изменения протокола)
+- Env vars (`REDIS_HOST`, `REDIS_PASSWORD`) сохранены для обратной совместимости с кодом

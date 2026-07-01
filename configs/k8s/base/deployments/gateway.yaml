@@ -82,7 +82,7 @@ spec:
               readOnly: true
           env:
             - name: REDIS_HOST
-              value: "redis"
+              value: "valkey"
             - name: REDIS_PASSWORD_FILE
               value: "/etc/secrets/REDIS_PASSWORD"
             - name: ML_ASYNC

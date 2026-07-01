@@ -437,7 +437,7 @@ nav.tab-bar
 }
 ```
 
-> **Note**: SF Mono — проприетарный Apple-шрифт, fallback на Fira Code (open-source). Добавить @font-face для Fira Code из CDN в `index.html` для непрерывного моноширинного отображения на Android/Windows.
+> **Note**: SF Mono — проприетарный Apple-шрифт. В качестве open-source fallback рекомендуется использовать `JetBrains Mono` или `Fira Code`, подключая их через `@font-face` или Google Fonts в `index.html` для кроссплатформенного отображения.
 
 Тёмная тема (dark-mode-only). Контраст WCAG AA.
 

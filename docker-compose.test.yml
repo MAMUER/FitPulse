@@ -61,7 +61,7 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_FROM: noreply@fitpulse.test
-depends_on:
+    depends_on:
        postgres-test:
          condition: service_healthy
        valkey-test:
@@ -82,7 +82,7 @@ depends_on:
       REDIS_HOST: valkey-test
       REDIS_PORT: 6379
       DATABASE_URL: postgres://testuser:testpass@postgres-test:5432/testdb?sslmode=disable
-depends_on:
+    depends_on:
        user-service-test:
          condition: service_started
        valkey-test:

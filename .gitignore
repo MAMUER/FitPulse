@@ -99,8 +99,6 @@ datasets/raw/
 *.tar.xz
 *.tar.zst
 
-*tree.txt
-SECURITY.md
 results.json
 *temp*
 *.docx

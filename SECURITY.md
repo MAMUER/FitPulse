@@ -66,7 +66,7 @@
 
 - **JWT**: ES256, access token TTL 15 минут
 - **Refresh Token**: opaque, TTL 7 дней, rotation при каждом использовании
-- **Хеширование паролей**: Argon2id (memory 19–64 MB, iterations 2–3, parallelism 1–4). По OWASP: 19 MB / 2 iter / 1 parallel для web. Для high-security: 64 MB / 3 iter / 4 parallel.
+- **Хеширование паролей**: Argon2id (memory 64 MB, iterations 3, parallelism 4). Согласно современным рекомендациям OWASP и RFC 9106, минимальный порог памяти для Argon2id должен составлять 64 МБ для устойчивости к GPU-атакам.
 - **2FA**: TOTP (Google Authenticator) с backup-кодами
 - **Сессии**: принудительная инвалидация при logout, отдельные хранилища для критических действий
 - **Авторизация**: серверная проверка ролей через прямой запрос к БД
