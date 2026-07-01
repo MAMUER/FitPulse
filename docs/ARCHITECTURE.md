@@ -21,7 +21,7 @@ requirements:
 
 **Конфигурация**:
 
-- Replicated queues: `x-ha-policy: all` для отказоустойчивости
+- Quorum queues (Raft consensus) для отказоустойчивости (classic mirrored queues deprecated)
 - DLQ: `<queue-name>.dlq` для анализа ошибок
 - TTL на сообщениях: 24 часа для сообщений уведомлений
 
@@ -216,15 +216,14 @@ verification:
 
 **At rest**:
 
-- PostgreSQL: TDE (Transparent Data Encryption) или pgcrypto для чувствительных полей
+- PostgreSQL: `pgcrypto` для чувствительных полей (PII, токены) + шифрование tablespace на уровне ОС (dm-crypt/LUKS)
 - Volumes: шифрование через KMS (AWS KMS / HashiCorp Vault Transit)
-- Secrets: только в Vault, никогда в ConfigMap/etcd в открытом виде
 
 **In transit**:
 
 - TLS 1.3 минимум для всех внешних эндпоинтов
 - mTLS для gRPC-коммуникации между микросервисами (istio/linkerd)
-- Certificate pinning для мобильных клиентов
+- HSTS + Certificate Transparency logs вместо certificate pinning (SPA в браузере не поддерживает кастомный пиннинг сертификатов)
 
 ### 4.4 Управление зависимостями
 

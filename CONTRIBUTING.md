@@ -18,7 +18,7 @@
 
 - **Go**: версия 1.26+
 - **Python**: версия 3.12+ (для ML-сервисов)
-- **Docker**: версия 24+ / Docker Compose v2
+- **Docker**: версия 29+ / Docker Compose v2
 - **Git**: для управления версиями
 
 ### Первая настройка
@@ -34,7 +34,7 @@
 3. **Добавьте upstream remote**:
 
    ```bash
-   git remote add upstream https://github.com/original-org/fitpulse.git
+   git remote add upstream https://github.com/MAMUER/fitpulse.git
    ```
 
 4. **Установите зависимости**:
@@ -50,23 +50,23 @@
 
 ### Ветвление
 
-Мы используем модель ветвления GitFlow:
+Мы используем модель ветвления **Trunk-Based Development** для CI/CD с частыми релизами:
 
-- `main` — основная ветка production
-- `develop` — ветка разработки
-- `feature/*` — новые функции
-- `bugfix/*` — исправления ошибок
-- `hotfix/*` — срочные исправления для production
-- `release/*` — подготовка релиза
+- `main` — единственная долгоживущая ветка (trunk), всегда деплоибельна
+- `feature/*` — короткоживущие ветки функций (≤ 2 дней), напрямую в `main` через PR
+- `bugfix/*` — исправления ошибок (≤ 1 дня), напрямую в `main` через PR
+- `hotfix/*` — срочные исправления для production через отдельный PR в `main`
+
+> **Нет** веток `develop` и `release/*` — все изменения попадают в `main` через короткоживущие ветки с feature flags.
 
 ### Создание ветки
 
 ```bash
-# Всегда начинайте от актуальной develop
-git checkout develop
-git pull upstream develop
+# Всегда начинайте от актуального main
+git checkout main
+git pull upstream main
 
-# Создайте новую ветку
+# Создайте новую короткоживущую ветку
 git checkout -b feature/your-feature-name
 ```
 
@@ -77,7 +77,6 @@ git checkout -b feature/your-feature-name
 | Feature | `feature/<описание>` | `feature/email-verification` |
 | Bugfix | `bugfix/<описание>` | `bugfix/login-timeout` |
 | Hotfix | `hotfix/<описание>` | `hotfix/security-patch` |
-| Release | `release/<версия>` | `release/2.0.0` |
 
 ### Коммиты
 
@@ -128,7 +127,7 @@ docs(readme): обновить документацию
 3. **Структура проекта**: Следуйте структуре, описанной в README.md
    - Domain модели в `internal/domain/`
    - Repository слой в `internal/repository/`
-   - Service логика в `cmd/*/`
+   - Domain/Service логика в `internal/*/`, entrypoints в `cmd/*/`
    - Adapters в `internal/*/adapters/`
 
 4. **Обработка ошибок**:
@@ -222,11 +221,11 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 
 ### Перед отправкой PR
 
-1. **Обновите ветку** от upstream develop:
+1. **Обновите ветку** от upstream main:
 
    ```bash
    git fetch upstream
-   git rebase upstream/develop
+   git rebase upstream/main
    ```
 
 2. **Запустите все проверки**:
@@ -246,7 +245,7 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 ### Создание PR
 
 1. Перейдите на GitHub и создайте Pull Request
-2. Выберите базовую ветку: `develop`
+2. Выберите базовую ветку: `main`
 3. Заполните шаблон PR:
    - Описание изменений
    - Связанные issue
@@ -272,7 +271,6 @@ Fixes #123
 
 ## Чеклист
 - [ ] Код отформатирован (go fmt)
-- [ ] Все тесты проходят (make test)
 - [ ] Покрытие тестами >= 80%
 - [ ] Документация обновлена
 - [ ] Изменения протестированы (make test)
@@ -308,7 +306,7 @@ PR будет принят, если:
 
 - **GitHub Issues**: для багов и фич
 - **GitHub Discussions**: для общих вопросов
-- **Email**: <support@fittpulse.duckdns.org>
+- **Email**: <mihnikolaenko12@yandex.ru>
 
 ### Кодекс поведения
 

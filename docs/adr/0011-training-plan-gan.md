@@ -6,7 +6,7 @@
 
 ## Контекст
 
-ML Generator service должен был производить персонализированные тренировочные планы на основе профилей пользователей и биометрических данных. Начальная реализация использовала placeholder-модель с синтетическими данными. Реальные данные об упражнениях из `exercisedb_v1_sample` были доступны на диске D:\.
+ML Generator service должен был производить персонализированные тренировочные планы на основе профилей пользователей и биометрических данных.
 
 Требования:
 
@@ -27,7 +27,7 @@ ML Generator service должен был производить персонал
 2. **Архитектура модели**
    - Generator: 64-dim latent → 256 → 512 → 256 → 19 (sigmoid)
    - Discriminator: 19 → 512 → 256 → 128 → 1 (sigmoid)
-   - Loss: MSE для generator, binary_crossentropy для discriminator
+   - Loss: binary crossentropy + L1 distance penalty для generator, binary_crossentropy для discriminator
    - Optimizer: Adam (lr=0.0002, beta_1=0.5)
 
 3. **Конфигурация обучения**

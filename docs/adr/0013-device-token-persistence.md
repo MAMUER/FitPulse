@@ -27,10 +27,10 @@
 
 - **Плюсы**: атомарное обновление токенов без дублирования записей, возможность отладки синхронизаций, compliance-аудит.
 - **Нейтрально**: требуется миграция БД при деплое.
-- **Риски**: токены хранятся в plaintext; необходимо шифрование на уровне приложения или TDE БД.
+- **Риски**: хранение refresh-токенов в открытом виде нарушает OWASP. Требуется внедрить envelope encryption (AES-256-GCM) на уровне репозитория до INSERT или использовать Vault Transit API.
 
 ## Реализация
 
-- Миграция: `db/migrations/db/migrations/V11__device_providers.sql`
+- Миграция: `scripts/migrations/V11__device_providers.sql`
 - Репозитории/сервисы в `cmd/device-aggregator/providers/`.
 - Использование `ON CONFLICT (user_id, provider) DO UPDATE`.

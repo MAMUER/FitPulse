@@ -1,7 +1,7 @@
-name: CI/CD Pipeline
+﻿name: CI/CD Pipeline
 on:
   push:
-    branches: [main, master, Microservice_arc]
+    branches: [main]
     paths:
       - ".github/workflows/ci.yml"
       - ".github/dependabot.yml"
@@ -21,7 +21,7 @@ on:
       - "datasets/**"
       - "*.py"
   pull_request:
-    branches: [main, master, Microservice_arc]
+    branches: [main]
     paths:
       - ".github/workflows/ci.yml"
       - ".github/dependabot.yml"
@@ -325,7 +325,7 @@ jobs:
         uses: super-linter/super-linter@v8
         env:
           PYTHON_BLACK_VERSION: "26.5.1"
-          DEFAULT_BRANCH: "Microservice_arc"
+          DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_COMMIT_STATUS_ENABLED: false
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
@@ -1048,7 +1048,6 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/Microservice_arc') ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
     steps:
       - uses: actions/checkout@v7

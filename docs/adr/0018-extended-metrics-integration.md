@@ -25,7 +25,7 @@
 
 ### База данных
 
-В `internal/db/db.go` после `sql.Open` запускается `sync.Once`-горутина, которая раз в 15 секунд считывает `db.Stats()` и пишет:
+В `internal/db/db.go` используется `prometheus.NewGaugeFunc` для ленивого сбора `db.Stats()` при скрейпинге Prometheus, что исключает фоновые горутины и таймеры.
 
 ```text
 usage = InUse / max(MaxOpenConnections, 1)
@@ -68,6 +68,6 @@ metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(l
 
 ## Рассмотренные альтернативы
 
-- Оставить все метрики в одном файле — рост конфликтов имён при добавлении new domain.
+- Оставить все метрики в одном файле — рост конфликтов имён при добавлении новых доменных метрик.
 - Сделать отдельный пакет `metrics/ml`, `metrics/db` — избыточная модульность для текущего объёма (4 метрики).
 - Мониторить lag через external exporter polling DB — выше latency, больше нагрузки на БД.

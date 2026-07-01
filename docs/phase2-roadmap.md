@@ -1,6 +1,6 @@
 # Phase 2 Backlog
 
-> Детализационный бэклог. См. также `docs/phase2-roadmap.md`.
+> Детализационный бэклог инфраструктуры и масштабирования.
 
 ## 1. Секрет-хранилище: HashiCorp Vault
 
@@ -32,14 +32,14 @@
 
 - mutual TLS для всех внутренних коммуникаций
 - авторизация на уровне сервиса (SPIFFE ID)
-- observability и treasury через mesh
+- observability и telemetry через mesh
 
 ### 2.2 Задачи
 
-1. Выбор: Istio (полноценный mesh) или lightweight вариант (OpenSSL + cert-manager + Waldur)
-2. Настройка cert-manager + внутреннего CA
-3. Включение strict mTLS для всех namespace
-4. Добавление PeerAuthentication и AuthorizationPolicy
+1. Выбор: Istio (полноценный mesh) или lightweight вариант (SPIRE для SPIFFE ID / cert-manager + linkerd)
+2. Настройка `cert-manager` + внутреннего CA
+3. Включение strict mTLS для всех namespace (через `linkerd` или `istio`)
+4. Добавление `PeerAuthentication` и `AuthorizationPolicy`
 5. Включение tracing (Jaeger/Zipkin) через mesh sidecar
 
 ### 2.3 Acceptance Criteria

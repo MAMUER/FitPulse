@@ -1,4 +1,4 @@
-# Security Policy
+# FitPulse — Security Policy
 
 ## Поддерживаемые версии
 
@@ -17,10 +17,10 @@
 
 ### Как сообщить
 
-1. **Email**: Отправьте письмо на `security@fittpulse.duckdns.org` или создайте приватный issue в репозитории.
+1. **Email**: Отправьте письмо на `mihnikolaenko12@yandex.ru` или создайте приватный advisory в репозитории.
 
 2. **Информация для предоставления**:
-   - Тип уязвимости (например, XSS, SQL Injection, CSRF, Authentication Bypass)
+   - Тип уязвимости (XSS, SQL Injection, CSRF, Authentication Bypass)
    - Подробное описание шагов для воспроизведения
    - Версия FitPulse, где обнаружена уязвимость
    - Возможные последствия эксплуатации
@@ -62,41 +62,52 @@
 
 ## Меры безопасности в FitPulse
 
-### Реализованные защиты
+### Аутентификация и авторизация
 
-1. **Аутентификация и авторизация**:
-   - JWT токены с TTL 24 часа
-   - HMAC-SHA256 подпись критических ответов
-   - Принудительная инвалидация сессий при logout
-   - Однократное использование auth-кодов
-   - Разделение хранилищ сессий для критических действий
-   - Серверная валидация привилегий через прямой запрос к БД
+- **JWT**: ES256, access token TTL 15 минут
+- **Refresh Token**: opaque, TTL 7 дней, rotation при каждом использовании
+- **Хеширование паролей**: Argon2id (memory 64MB, iterations 3, parallelism 4)
+- **2FA**: TOTP (Google Authenticator) с backup-кодами
+- **Сессии**: принудительная инвалидация при logout, отдельные хранилища для критических действий
+- **Авторизация**: серверная проверка ролей через прямой запрос к БД
 
-2. **Защита API**:
-   - Content Security Policy (CSP)
-   - Rate limiting на уровне NGINX и middleware
-   - Маскировка версий серверного ПО
-   - Кастомизация страниц ошибок
-   - Замена 403 на 404 для скрытия существования ресурсов
+### Защита API
 
-3. **Безопасность данных**:
-   - Хеширование паролей (bcrypt)
-   - Шифрование резервных копий
-   - Валидация всех входных данных
-   - Sanitization выходных данных
+- **CSP**: строгая nonce-based политика для всех ответов
+- **Rate limiting**: per-IP (10 r/s) + per-user (100 r/s), burst 20, sliding window
+- **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
+- **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
+- **Подпись ответов**: HMAC-SHA256 для критических JSON (login, register, profile, biometrics, plans)
 
-4. **CI/CD безопасность**:
-   - SAST анализ (gosec)
-   - Проверка зависимостей (govulncheck, Trivy)
-   - Сканирование Docker образов (Trivy)
-   - Поиск утечек секретов (TruffleHog, Gitleaks)
+### Безопасность данных
 
-5. **Инфраструктура**:
-   - Сетевая сегментация (dmz/app/data/monitoring)
-   - RBAC с минимальными правами
-   - mTLS для внутренних gRPC вызовов
-   - WAF с базовым набором правил
-   - Ротация секретов каждые 90 дней
+**At rest:**
+
+- PostgreSQL: `pgcrypto` для чувствительных полей (PII, токены)
+- Шифрование tablespace на уровне ОС (fsCrypt)
+- Резервные копии: AES-256, ключ в Vault
+
+**In transit:**
+
+- TLS 1.3 для всех внешних эндпоинтов
+- mTLS для gRPC-коммуникаций между микросервисами (SPIRE SPIFFE ID / cert-manager + linkerd)
+- Certificate pinning для мобильных клиентов
+
+### CI/CD безопасность
+
+- **SAST**: gosec
+- **Vulnerability scanning**: govulncheck, Trivy
+- **Secrets scanning**: TruffleHog, Gitleaks
+- **Image signing**: cosign
+- **SBOM generation**: syft (SPDX, CycloneDX)
+
+### Инфраструктура
+
+- **Сетевая сегментация**: Kubernetes Network Policies (dmz/app/data/monitoring)
+- **RBAC**: минимальные права, отдельные ServiceAccount на сервис
+- **Secrets**: хранение в Vault, автоматическая ротация каждые 90 дней
+- **WAF**: Nginx + ModSecurity или managed WAF
+- **Observability**: структурированное логирование (slog), Prometheus метрики, OpenTelemetry traces
 
 ## Процесс исправления
 
@@ -113,9 +124,9 @@
 
 ## Контакты
 
-- **GitHub Issues**: [Create a security advisory](https://github.com/your-org/fitpulse/security/advisories)
-- **Email**: [security@fittpulse.duckdns.org](mailto:security@fittpulse.duckdns.org)
+- **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)
+- **Email**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru)
 
 ---
 
-### Последнее обновление: 2026-05-15
+### Последнее обновление: 2026-07-01

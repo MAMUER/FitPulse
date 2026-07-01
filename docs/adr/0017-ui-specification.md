@@ -20,7 +20,7 @@ Frontend начал оформляться как SPA на vanilla JS/ES2026 с 
 6. **Achievements**: сетка карточек достижений и список соревнований.
 7. **Diet**: карточки приёмов пищи (калории, БЖУ).
 8. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
-9. **Безопасность**: XSS (`textContent`), CSP, HTTPS-only, JWT в `localStorage`, rate-limit UI на 429.
+9. **Безопасность**: XSS (`textContent`), CSP nonce-based, HTTPS-only, JWT в `httpOnly` cookie (`Secure`, `SameSite=Strict`), rate-limit UI на 429.
 10. **API-слой**: `web/static/js/api.js` централизует все 16 REST-вызовов.
 
 ## Последствия

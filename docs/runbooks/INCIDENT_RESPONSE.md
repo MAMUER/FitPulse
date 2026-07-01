@@ -59,7 +59,7 @@
 kubectl get pods -n fitness-platform
 
 # 2. Посмотреть последние deployment'ы
-kubectlectl rollout history deployment/gateway -n fitness-platform
+kubectl rollout history deployment/gateway -n fitness-platform
 
 # 3. Быстрый перезапуск подозрительного пода (OOMKilled / CrashLoopBackOff)
 kubectl delete pod <pod-name> -n fitness-platform
