@@ -437,7 +437,7 @@ nav.tab-bar
 }
 ```
 
-> **Note**: SF Mono — проприетарный Apple-шрифт. В качестве open-source fallback рекомендуется использовать `JetBrains Mono` или `Fira Code`, подключая их через `@font-face` или Google Fonts в `index.html` для кроссплатформенного отображения.
+> **Note**: В `web/index.html` добавьте Google Fonts CDN: `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">, а в CSS установите`@font-face` или `:root { --font-mono: 'JetBrains Mono', 'Fira Code', monospace; }` для кроссплатформенного отображения вместо проприетарного SF Mono.
 
 Тёмная тема (dark-mode-only). Контраст WCAG AA.
 

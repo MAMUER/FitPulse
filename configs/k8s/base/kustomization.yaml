@@ -10,5 +10,6 @@ resources:
   - network-policies
   - deployments
   - services
+  - ingress-nginx
   - jobs
   - ../../monitoring

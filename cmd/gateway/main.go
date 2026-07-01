@@ -587,10 +587,10 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 	r.Use(middleware.CorrelationIDHTTP)
 	// ========== Public routes (без авторизации) ==========
-	r.Post("/api/v1/register", g.registerHandler)
+	r.With(middleware.AuthRateLimit).Post("/api/v1/register", g.registerHandler)
 	r.Post("/api/v1/register/invite", g.registerWithInviteHandler)
 	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
-	r.Post("/api/v1/login", g.loginHandler)
+	r.With(middleware.AuthRateLimit).Post("/api/v1/login", g.loginHandler)
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
 	r.Get("/api/v1/auth/verify-status", g.checkVerificationStatusHandler)
 	r.Get("/api/v1/auth/google", g.googleLoginHandler)

@@ -6,6 +6,7 @@ tls-san:
   - "127.0.0.1"
 disable:
   - local-storage
+  - traefik
 flannel-backend: wireguard-native
 write-kubeconfig-mode: "644"
 docker: true

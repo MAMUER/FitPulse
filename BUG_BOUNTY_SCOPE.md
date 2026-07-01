@@ -75,27 +75,6 @@ FitPulse — open-source fitness platform.
 
 ---
 
-## Phase 2 Plans (Future)
-
-### Вариант B: Self-hosted policy (рекомендуемый для старта)
-
-Создать документы:
-
-- `BUG_BOUNTY.md` с полным scope, severity tiers, reward policy
-- Обновить `SECURITY.md` разделом `## Отчеты об уязвимостях` с email, PGP key, expected response time
-
-### Вариант C: Платформа (HackerOne / Bugcrowd / Intigriti)
-
-- Регистрация организации на HackerOne
-- Настройка program:
-  - Target: production domain + API
-  - In-scope: `fittpulse.duckdns.org`, все API endpoints
-  - Out-of-scope: infrastructure internal IPs
-- Интеграция со Slack/Telegram алертами (возможно переиспользовать существующий Telegram-бот)
-- Добавить ссылку на программу в `SECURITY.md`
-
----
-
 ## Контакты
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)

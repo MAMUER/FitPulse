@@ -217,7 +217,7 @@ verification:
 **At rest**:
 
 - PostgreSQL: `pgcrypto` для чувствительных полей (PII, токены) + шифрование tablespace на уровне ОС (dm-crypt/LUKS)
-- Volumes: шифрование через KMS (AWS KMS)
+- Volumes: шифрование
 
 **In transit**:
 
@@ -491,7 +491,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: TDE/БД, KMS/volumes, secrets
+- [ ] Шифрование: TDE/БД, volumes, secrets
 - [ ] mTLS для внутренних gRPC-вызовов
 - [ ] WAF настроен с базовым набором правил
 

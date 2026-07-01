@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+data:
+  # Proxy settings
+  proxy-body-size: "10m"
+  proxy-read-timeout: "60"
+  proxy-send-timeout: "60"
+  proxy-connect-timeout: "5"
+
+  # Hide version
+  server-tokens: "false"
+
+  # HSTS
+  hsts: "true"
+  hsts-max-age: "63072000"
+  hsts-include-subdomains: "true"
+  hsts-preload: "true"
+
+  # ===== ModSecurity WAF =====
+  # Phase 1: ModSecurity at ingress-nginx requires controller image built with --with-modsecurity.
+  # Current image: registry.k8s.io/ingress-nginx/controller:v1.11.3 (no ModSecurity module).
+  # Primary WAF is still Host Nginx + ModSecurity + OWASP CRS v4.
+  # To enable ingress-nginx ModSecurity in Phase 2:
+  #   1. Build controller image with ModSecurity support
+  #   2. Set enable-modsecurity: "true"
+  #   3. Mount CRS rules via crs-rules ConfigMap
+  enable-modsecurity: "false"
+  modsecurity-snippet: |
+    SecRuleEngine On
+    SecRequestBodyAccess On
+    SecResponseBodyAccess Off
+    SecRequestBodyLimit 13107200
+    SecRequestBodyNoFilesLimit 131072
+    SecAuditEngine RelevantOnly
+    SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+    SecAuditLogParts ABIJDEFHZ
+    SecAuditLogType Serial
+    SecAuditLog /var/log/nginx/modsecurity_audit.log
+    SecDebugLog /var/log/nginx/modsecurity_debug.log
+    SecDebugLogLevel 0
+  modsecurity-crs-rules-path: "/etc/nginx/modsecurity-crs/rules"

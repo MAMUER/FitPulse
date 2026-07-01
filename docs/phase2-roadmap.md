@@ -194,6 +194,10 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Phase
 3. Sealed Secrets или External Secrets Operator для секретов
 4. Policy as Code: OPA Gatekeeper
 
+### 8.3 Phase 2 Quick Wins (не ждут полного рерайта)
+
+1. **dm-crypt/LUKS**: запустить `configs/k8s/scripts/configure-storage-encryption.sh` на VPS с дополнительным volume; в CI добавлен подготовительный шаг.
+
 ---
 
 ## 9. Disaster Recovery
@@ -230,6 +234,39 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Phase
 - Любой deployment в production проходит через canary-фазу автоматически
 - Rollback происходит без участия человека при error rate > baseline + 1%
 - Время canary-фазы ≤ 10 минут до full rollout
+
+## 11. Bug Bounty / Researcher Program
+
+### 11.1 Контекст
+
+Сейчас проект предоставляет только внутренний reporting через GitHub Security Advisory + email, без бюджета/вознаграждения. В Phase 2 требуется:
+
+- детализированный scope;
+- explicit reward tiers;
+- вариант self-hosted policy или платформенной интеграции;
+- transparent SLA по ответу.
+
+### 11.2 Задачи
+
+1. Подготовить `BUG_BOUNTY_SCOPE.md` со scope, severity tiers, rules, expected response time.
+2. Оценить бюджет/возможность денежного вознаграждения.
+3. Настроить PGP key fingerprint для шифрования чувствительных отчётов об уязвимостях, чтобы предотвратить перехват информации о zero-day уязвимостях при передаче по email.
+4. **Вариант B (self-hosted)**:
+    - Создать `BUG_BOUNTY.md` с полной политикой;
+    - Добавить в `SECURITY.md` раздел `## Отчеты об уязвимостях` с email, PGP key, SLA.
+5. **Вариант C (platform)**:
+    - Зарегистрировать программу на HackerOne / Bugcrowd / Intigriti;
+    - Определить in-scope: `fittpulse.duckdns.org`, API endpoints;
+    - Интегрировать алерты в Slack/Telegram;
+    - Добавить ссылку на программу в `SECURITY.md`.
+
+### 11.3 Acceptance Criteria
+
+- PGP key fingerprint опубликован в `SECURITY.md` и `BUG_BOUNTY.md` для безопасной коммуникации.
+- Исследователи могут использовать PGP для шифрования отчётов об уязвимостях.
+- Документы `BUG_BOUNTY_SCOPE.md` и `BUG_BOUNTY.md` готовы и public.
+- Решение по Варианту B или C принято.
+- SLA по ответу задокументирован и публичен.
 
 ## Сроки (оценочно)
 

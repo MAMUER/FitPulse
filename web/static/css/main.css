@@ -21,6 +21,7 @@
     --radius-xl: 24px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --font-mono: 'JetBrains Mono', monospace;
 }
 
 * {
@@ -253,7 +254,7 @@ body {
     background: var(--bg-input);
     padding: 12px;
     border-radius: var(--radius-sm);
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     word-break: break-all;
     cursor: pointer;
@@ -275,7 +276,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     font-size: 15px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     outline: none;
     margin-top: 8px;
 }

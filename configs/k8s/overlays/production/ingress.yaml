@@ -2,13 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: gateway-ingress
+  namespace: fitness-platform-production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    # Host Nginx terminates TLS + ModSecurity WAF.
+    # Traffic: Host Nginx:443 -> ingress-nginx NodePort 30080 -> gateway ClusterIP 8080.
 spec:
-  tls:
-    - hosts:
-        - fittpulse.duckdns.org
-      secretName: tls-secret
+  ingressClassName: nginx
   rules:
     - host: fittpulse.duckdns.org
       http:

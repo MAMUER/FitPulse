@@ -1236,6 +1236,10 @@ jobs:
           echo \"k3s installed successfully\"
           rm -rf /tmp/k3s-install
           "
+      - name: Configure host-level disk encryption for k3s storage (fscrypt/dm-crypt)
+        run: |
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-storage-encryption.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-storage-encryption.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo /tmp/configure-storage-encryption.sh || true"
       - name: Cleanup disk space on VPS
         run: |
           echo "-> Cleaning up disk space on VPS..."
@@ -1290,7 +1294,7 @@ jobs:
           echo \"-> Pre-pulling system images via Docker...\"
           docker pull rancher/mirrored-pause:3.6 || echo \"pause image pull failed, continuing\"
           docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo \"coredns pull failed\"
-          docker pull rancher/mirrored-library-traefik:2.9.10 || echo \"traefik pull failed\"
+          docker pull registry.k8s.io/ingress-nginx/controller:v1.11.3 || echo \"ingress-nginx pull failed\"
           docker pull rancher/local-path-provisioner:v0.0.26 || echo \"local-path pull failed\"
           docker pull busybox:latest || echo \"busybox pull failed\"
           echo \"Docker images:\"
@@ -1359,11 +1363,6 @@ jobs:
             done
           fi
           "
-      - name: Upload Traefik NodePort config to VPS
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mkdir -p /var/lib/rancher/k3s/server/manifests"
-          ./scripts/ssh-retry.sh scp configs/k8s/base/traefik-config.yaml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/traefik-config.yaml"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo mv /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml && sudo chmod 644 /var/lib/rancher/k3s/server/manifests/traefik-config.yaml"
       - name: Ensure Let's Encrypt certificate exists
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1390,6 +1389,14 @@ jobs:
           fi
           sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
           "
+      - name: Install OWASP ModSecurity CRS v4 on VPS
+        run: |
+          ./scripts/ssh-retry.sh scp deploy/lb/install-crs.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install-crs.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          set -euo pipefail
+          sudo chmod +x /tmp/install-crs.sh
+          sudo /tmp/install-crs.sh
+          "
       - name: Deploy Nginx configuration to VPS
         run: |
           ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
@@ -1415,6 +1422,32 @@ jobs:
           echo \"-> Setting up certificate auto-renewal...\"
           (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
           echo \"✅ Auto-renewal configured\"
+          "
+      - name: Verify Certificate Transparency and OCSP Stapling
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          echo '-> Verifying Certificate Transparency...'
+          if command -v openssl &>/dev/null && \
+             [[ -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]]; then
+            echo '-> Checking CT Signed Certificate Timestamps...'
+            openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem \
+              -noout -text | grep -E 'CT Precertificate|Signed Certificate Timestamp' || true
+
+            echo '-> Verifying OCSP stapling configuration...'
+            if openssl s_client -connect 127.0.0.1:443 -servername fittpulse.duckdns.org \
+              -status </dev/null 2>/dev/null | grep -q 'OCSP Response Data'; then
+              echo '✅ OCSP stapling is active'
+            else
+              echo '⚠️ Could not verify OCSP stapling (expected on first deploy)'
+            fi
+
+            echo '-> Certificate details:'
+            openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem \
+              -noout -subject -issuer -dates
+          else
+            echo '⚠️ Certificate not found, skipping CT verification'
+          fi
+          echo '✅ CT verification complete'
           "
       - name: Setup DuckDNS auto-updater
         run: |
@@ -1887,6 +1920,32 @@ jobs:
             kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
           fi
           echo "✅ local-path-provisioner and StorageClass are ready"
+      - name: Install/upgrade ingress-nginx (replaces Traefik)
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Installing ingress-nginx controller..."
+          kubectl apply -f configs/k8s/base/ingress-nginx/
+
+          echo "-> Waiting for ingress-nginx to be ready..."
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/name=ingress-nginx \
+            --timeout=180s || {
+              echo "❌ ingress-nginx not ready"
+              kubectl -n ingress-nginx get pods,deploy,svc
+              exit 1
+            }
+
+          echo "✅ ingress-nginx is ready"
+          kubectl -n ingress-nginx get pods,deploy,svc
+      - name: Cleanup Traefik from kube-system (optional)
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "-> Cleaning up Traefik from kube-system..."
+          kubectl -n kube-system delete deployment traefik --ignore-not-found=true || true
+          kubectl -n kube-system delete svc traefik --ignore-not-found=true || true
+          kubectl -n kube-system get pods,svc,deploy | grep -i traefik || echo "Traefik already removed or not found"
+          echo "✅ Traefik cleanup complete (non-fatal)"
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
         run: |

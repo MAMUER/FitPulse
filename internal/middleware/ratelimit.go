@@ -18,6 +18,11 @@ type userVisitor struct {
 	lastSeen time.Time
 }
 
+type authVisitor struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
 // rateLimiter manages rate limiting state for IP-based limiting
 type rateLimiter struct {
 	visitors sync.Map
@@ -28,6 +33,11 @@ type userRateLimiter struct {
 	visitors sync.Map
 }
 
+// authRateLimiter manages rate limiting state for IP-based auth endpoints limiting
+type authRateLimiter struct {
+	visitors sync.Map
+}
+
 // Package-level singletons initialized at startup
 //
 //nolint:gochecknoglobals
@@ -35,6 +45,9 @@ var rateLimiterInstance = &rateLimiter{}
 
 //nolint:gochecknoglobals
 var userRateLimiterInstance = &userRateLimiter{}
+
+//nolint:gochecknoglobals
+var authRateLimiterInstance = &authRateLimiter{}
 
 func init() {
 	go func() {
@@ -55,8 +68,39 @@ func init() {
 				}
 				return true
 			})
+			authRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+				v := value.(*authVisitor)
+				if time.Since(v.lastSeen) > 10*time.Minute {
+					authRateLimiterInstance.visitors.Delete(key)
+				}
+				return true
+			})
 		}
 	}()
+}
+
+// AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5)
+func AuthRateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/login" && r.URL.Path != "/api/v1/register" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ip := r.RemoteAddr
+		v, ok := authRateLimiterInstance.visitors.Load(ip)
+		if !ok {
+			limiter := rate.NewLimiter(5.0/60.0, 5)
+			authRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
+			v, _ = authRateLimiterInstance.visitors.Load(ip)
+		}
+		av := v.(*authVisitor)
+		av.lastSeen = time.Now()
+		if !av.limiter.Allow() {
+			http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // RateLimit enforces per-IP rate limiting (10 r/s, burst 50)

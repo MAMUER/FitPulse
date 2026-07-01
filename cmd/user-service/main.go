@@ -57,14 +57,14 @@ type userServer struct {
 	totpService      *totp.Service
 }
 
-const argon2idParams = "m=65536,t=3,p=4"
+const argon2idParams = "m=65536,t=4,p=4"
 
 func hashPasswordArgon2id(password string) (string, error) {
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
+	hash := argon2.IDKey([]byte(password), salt, 4, 64*1024, 4, 32)
 	return "$argon2id$v=19$" + argon2idParams + "$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(hash), nil
 }
 
@@ -89,7 +89,7 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	if uint64(hashLen) > uint64(^uint32(0)) {
 		return false
 	}
-	computed := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, uint32(hashLen))
+	computed := argon2.IDKey([]byte(password), salt, 4, 64*1024, 4, uint32(hashLen))
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 
