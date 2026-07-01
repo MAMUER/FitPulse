@@ -1,14 +1,111 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: app-service-role
+  name: gateway-role
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "secrets"]
     verbs: ["get"]
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backend-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
     verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: device-connector-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: classifier-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ml-generator-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: gateway-sa
+roleRef:
+  kind: Role
+  name: gateway-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backend-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: user-service-sa
+  - kind: ServiceAccount
+    name: biometric-service-sa
+  - kind: ServiceAccount
+    name: training-service-sa
+roleRef:
+  kind: Role
+  name: backend-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: device-connector-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: device-connector-sa
+roleRef:
+  kind: Role
+  name: device-connector-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: classifier-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: classifier-sa
+roleRef:
+  kind: Role
+  name: classifier-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ml-generator-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: ml-generator-sa
+roleRef:
+  kind: Role
+  name: ml-generator-role
+  apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

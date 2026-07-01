@@ -89,7 +89,7 @@ func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	adminResp := map[string]interface{}{"status": "ok", "users": users, "total": len(users)}
-	if err := middleware.SignAndSendJSON(w, adminResp, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, adminResp, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -169,11 +169,11 @@ func (g *gateway) adminListInvitesHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
 		"status":  "ok",
 		"invites": invites,
 		"page":    page,
-	}); err != nil {
+	}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode invites response", zap.Error(err))
 	}
 }
@@ -242,15 +242,14 @@ func (g *gateway) adminCreateInviteHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
 		"status":     "ok",
 		"code":       code,
 		"role":       req.Role,
 		"max_uses":   req.MaxUses,
 		"specialty":  req.Specialty,
 		"invite_url": fmt.Sprintf("%s/register?invite=%s", baseURL, code),
-	}); err != nil {
+	}, g.responseSigningSecret, g.log.Logger, http.StatusCreated); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
@@ -284,7 +283,7 @@ func (g *gateway) adminRevokeInviteHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+	if err := middleware.SignAndSendJSON(w, map[string]string{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

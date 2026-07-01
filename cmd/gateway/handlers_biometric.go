@@ -57,8 +57,8 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "created"}); err != nil {
+	// Требование #11: HMAC-SHA256 подпись критического ответа
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "created"}, g.responseSigningSecret, g.log.Logger, http.StatusCreated); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -131,7 +131,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Требование #11: HMAC-SHA256 подпись критического ответа
-	if err := middleware.SignAndSendJSON(w, response, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

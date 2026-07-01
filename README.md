@@ -88,22 +88,22 @@ FitPulse реализует комплексные меры безопаснос
 | ------- | ------ | ---------- |
 | POST | `/api/v1/logout` | Выход с инвалидацией сессии |
 | GET | `/api/v1/profile` | Получить профиль |
-| PUT | `/profile` | Обновить профиль |
-| DELETE | `/profile` | Удалить профиль |
-| POST | `/biometrics` | Добавить биометрию |
-| GET | `/biometrics` | Получить биометрию |
-| POST | `/training/generate` | Сгенерировать план |
-| GET | `/training/plans` | Список планов |
-| POST | `/training/complete` | Завершить тренировку |
-| GET | `/training/progress` | Прогресс |
-| POST | `/ml/classify` | Классификация состояния |
-| POST | `/ml/generate-plan` | Генерация плана (GAN) |
+| PUT | `/api/v1/profile` | Обновить профиль |
+| DELETE | `/api/v1/profile` | Удалить профиль |
+| POST | `/api/v1/biometrics` | Добавить биометрию |
+| GET | `/api/v1/biometrics` | Получить биометрию |
+| POST | `/api/v1/training/generate` | Сгенерировать план |
+| GET | `/api/v1/training/plans` | Список планов |
+| POST | `/api/v1/training/complete` | Завершить тренировку |
+| GET | `/api/v1/training/progress` | Прогресс |
+| POST | `/api/v1/ml/classify` | Классификация состояния |
+| POST | `/api/v1/ml/generate-plan` | Генерация плана (GAN) |
 
 ### Админ (JWT + role=admin)
 
 | Метод | Путь | Описание |
 | ------- | ------ | ---------- |
-| GET | `/admin/users` | Список пользователей |
+| GET | `/api/v1/admin/users` | Список пользователей |
 
 **Полная спецификация**: [docs/API.md](docs/API.md)
 

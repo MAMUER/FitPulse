@@ -8,17 +8,21 @@
 
 Текущий подход — Kubernetes Secrets + CI-секреты — не покрывает требования к ротации, динамическим учётным данным и audit trail на уровне хранилища.
 
+Vault будет центральным хранилищем всех паролей, секретов (JWT_SECRET, database credentials, API keys, TLS private keys и т.д.) с автоматической ротацией **каждые 30 дней** для ключей и credentials приложений.
+
 ### 1.2 Задачи
 
 1. Развёртывание Vault на отдельном инстансе (или managed)
 2. Kubernetes auth method: сервисы получают динамические credentials
 3. Автоматическая ротация PostgreSQL и RabbitMQ паролей (30 дней)
 4. Интеграция с CI/CD: `VAULT_ADDR`, `VAULT_TOKEN` через GitHub OIDC
-5. Бэкап Vault storage (Shamir secret shares + sealed keys)
+5. Автоматическая ротация всех секретов (JWT_SECRET, API keys, TLS keys) раз в 30 дней
+6. Бэкап Vault storage (Shamir secret shares + sealed keys)
 
 ### 1.3 Acceptance Criteria
 
 - Все секреты POSTGRES_PASSWORD, JWT_SECRET и т.д. живут в Vault
+- Автоматическая ротация всех секретов (включая database credentials, JWT_SECRET, API keys, TLS keys) раз в 30 дней
 - При компрометации pod можно отозвать доступ за < 5 минут
 - Vault audit log отправляется в ELK
 

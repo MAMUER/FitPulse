@@ -102,9 +102,10 @@ func setupGateway() *gateway {
 	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 	return &gateway{
-		log:              log,
-		jwtPrivateKeyPEM: privateKeyPEM,
-		jwtPublicKeyPEM:  publicKeyPEM,
+		log:                   log,
+		jwtPrivateKeyPEM:      privateKeyPEM,
+		jwtPublicKeyPEM:       publicKeyPEM,
+		responseSigningSecret: "test-response-secret",
 	}
 }
 

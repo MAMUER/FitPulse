@@ -45,7 +45,7 @@ spec:
       terminationGracePeriodSeconds: 30
       imagePullSecrets:
         - name: ghcr-pull-secret
-      serviceAccountName: app-service-account
+      serviceAccountName: device-connector-sa
       volumes:
         - name: tmp
           emptyDir: {}

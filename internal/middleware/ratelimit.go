@@ -59,7 +59,7 @@ func init() {
 	}()
 }
 
-// RateLimit enforces per-IP rate limiting (10 r/s, burst 20)
+// RateLimit enforces per-IP rate limiting (10 r/s, burst 50)
 func RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" || r.URL.Path == "/api/v1/auth/refresh" {
@@ -69,7 +69,7 @@ func RateLimit(next http.Handler) http.Handler {
 		ip := r.RemoteAddr
 		v, ok := rateLimiterInstance.visitors.Load(ip)
 		if !ok {
-			limiter := rate.NewLimiter(10, 20)
+			limiter := rate.NewLimiter(10, 50)
 			rateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
 			v, _ = rateLimiterInstance.visitors.Load(ip)
 		}
@@ -83,7 +83,7 @@ func RateLimit(next http.Handler) http.Handler {
 	})
 }
 
-// UserRateLimit enforces per-user rate limiting (100 r/s, burst 20)
+// UserRateLimit enforces per-user rate limiting (100 r/s, burst 200)
 func UserRateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := r.Context().Value(UserIDKey).(string)
@@ -97,7 +97,7 @@ func UserRateLimit(next http.Handler) http.Handler {
 		}
 		v, ok := userRateLimiterInstance.visitors.Load(userID)
 		if !ok {
-			limiter := rate.NewLimiter(100, 20)
+			limiter := rate.NewLimiter(100, 200)
 			userRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
 			v, _ = userRateLimiterInstance.visitors.Load(userID)
 		}

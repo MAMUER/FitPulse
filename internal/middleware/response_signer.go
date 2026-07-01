@@ -88,7 +88,7 @@ func SignCriticalResponses(secret string, log *zap.Logger) func(http.Handler) ht
 
 // SignAndSendJSON — helper для хендлеров: сериализует, подписывает, отправляет
 // Требование #11: Гарантирует, что подпись соответствует отправленным байтам
-func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log *zap.Logger) error {
+func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log *zap.Logger, statusCode ...int) error {
 	// 1. Сериализуем в байты
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
@@ -109,7 +109,11 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 
 	// 3. Отправляем ТЕ ЖЕ байты, что были подписаны
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	code := http.StatusOK
+	if len(statusCode) > 0 {
+		code = statusCode[0]
+	}
+	w.WriteHeader(code)
 	buf := bytes.NewBuffer(jsonBytes)
 	_, err = buf.WriteTo(w)
 	return err

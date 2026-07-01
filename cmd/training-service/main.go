@@ -12,10 +12,12 @@ import (
 	pb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
+	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -864,6 +866,13 @@ func main() {
 	log := logger.New("training-service")
 	defer func() { _ = log.Sync() }()
 
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+		}
+	}()
+
 	port := config.GetEnv("TRAINING_SERVICE_PORT", "50053")
 
 	dbCfg := db.Config{
@@ -903,9 +912,13 @@ func main() {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(middleware.CorrelationIDGRPC()),
-	)
+	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
+		middleware.CorrelationIDGRPC(),
+	), telemetry.ServerHandlerOption()}
+	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+	s := grpc.NewServer(serverOpts...)
 	pb.RegisterTrainingServiceServer(s, &trainingServer{
 		db:          database,
 		log:         log,

@@ -12,10 +12,12 @@ import (
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
+	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -470,6 +472,13 @@ func main() {
 		}
 	}()
 
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+		}
+	}()
+
 	port := config.GetEnv("DEVICE_CONNECTOR_PORT", "8082")
 
 	dbCfg := db.Config{
@@ -500,11 +509,16 @@ func main() {
 	}
 
 	// Connect to biometric-service via gRPC
-	biometricConn, err := grpc.NewClient(biometricServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
-	)
+	var dialOpts []grpc.DialOption
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")))
+	dialOpts = append(dialOpts, telemetry.ClientHandlerOption())
+	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	biometricConn, err := grpc.NewClient(biometricServiceAddr, dialOpts...)
 	if err != nil {
 		log.Fatal("Failed to connect to biometric service", zap.Error(err))
 	}

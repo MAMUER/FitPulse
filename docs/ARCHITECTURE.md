@@ -82,8 +82,8 @@ requirements:
 |Параметр|Dev|Test|Staging|Prod|
 |---|---|---|---|---|
 |**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
-|**PostgreSQL topology**|1 инстанс (локальный, PG 16)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 16)|
-|**Valkey topology**|1 узел (Valkey 8)|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
+|**PostgreSQL topology**|1 инстанс (локальный, PG 18)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 16)|
+|**Valkey topology**|1 узел (Valkey 9)|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
 |**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
 |**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|
 |**Backup strategy**|Нет|Ежедневно (pg_dump)|Каждые 12 часов (WAL-архивация)|Каждые 6 часов (WAL) + PITR|
@@ -217,7 +217,7 @@ verification:
 **At rest**:
 
 - PostgreSQL: `pgcrypto` для чувствительных полей (PII, токены) + шифрование tablespace на уровне ОС (dm-crypt/LUKS)
-- Volumes: шифрование через KMS (AWS KMS / HashiCorp Vault Transit)
+- Volumes: шифрование через KMS (AWS KMS)
 
 **In transit**:
 
@@ -275,12 +275,11 @@ verification:
 
 ```yaml
 policy:
-  - "Автоматическая ротация каждые 90 дней (Vault)"
   - "Динамические секреты для БД: короткоживущие креды"
   - "Сервисы получают новые ключи без перезапуска (hot reload)"
 
 verification:
-  - "Compliance check: аудит политик Vault"
+  - "Compliance check: аудит политик"
   - "Тест отката: восстановление работы при компрометации ключа"
 ```
 
@@ -492,10 +491,9 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: TDE/БД, KMS/volumes, Vault/secrets
+- [ ] Шифрование: TDE/БД, KMS/volumes, secrets
 - [ ] mTLS для внутренних gRPC-вызовов
 - [ ] WAF настроен с базовым набором правил
-- [ ] Secrets rotation: 90 дней, автоматизировано через Vault
 
 ### Релизный процесс
 

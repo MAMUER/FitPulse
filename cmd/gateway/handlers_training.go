@@ -110,7 +110,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		"training_type": class,
 	}
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -194,7 +194,7 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		"total":  resp.Total,
 	}
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 	}
@@ -234,7 +234,7 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -264,7 +264,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -321,11 +321,11 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
 		"status":    "ok",
 		"plan_id":   resp.GetId(),
 		"plan_data": planData,
-	}); err != nil {
+	}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

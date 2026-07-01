@@ -18,25 +18,21 @@ func TestRateLimit(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	req.RemoteAddr = "192.0.2.1:12345"
 
-	// Первые 20 запросов должны пройти
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 		assert.Equal(t, http.StatusOK, rr.Code)
 	}
 
-	// 21-й запрос должен быть отклонён
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusTooManyRequests, rr.Code)
 
-	// Ждём 1 секунду – токены восполнятся
 	time.Sleep(1 * time.Second)
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	// Health check должен всегда проходить (bypass)
 	healthReq := httptest.NewRequestWithContext(context.Background(), "GET", "/health", nil)
 	healthReq.RemoteAddr = "192.0.2.1:12345"
 	rr = httptest.NewRecorder()

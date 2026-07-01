@@ -29,8 +29,10 @@ import (
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
+	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -38,26 +40,27 @@ import (
 )
 
 type gateway struct {
-	userClient         userpb.UserServiceClient
-	userConn           *grpc.ClientConn
-	biometricAddr      string
-	biometricClient    biometricpb.BiometricServiceClient
-	trainingAddr       string
-	trainingClient     trainingpb.TrainingServiceClient
-	classifierURL      string
-	mlGeneratorURL     string
-	deviceConnectorURL string
-	log                *logger.Logger
-	jwtPrivateKeyPEM   string
-	jwtPublicKeyPEM    string
-	db                 *sql.DB
-	sessionStore       *cache.SessionStore
-	rdb                *redis.Client
-	rmqCh              *amqp.Channel
-	mlAsync            bool
-	requestDuration    *prometheus.HistogramVec
-	requestTotal       *prometheus.CounterVec
-	errorTotal         *prometheus.CounterVec
+	userClient            userpb.UserServiceClient
+	userConn              *grpc.ClientConn
+	biometricAddr         string
+	biometricClient       biometricpb.BiometricServiceClient
+	trainingAddr          string
+	trainingClient        trainingpb.TrainingServiceClient
+	classifierURL         string
+	mlGeneratorURL        string
+	deviceConnectorURL    string
+	log                   *logger.Logger
+	jwtPrivateKeyPEM      string
+	jwtPublicKeyPEM       string
+	responseSigningSecret string
+	db                    *sql.DB
+	sessionStore          *cache.SessionStore
+	rdb                   *redis.Client
+	rmqCh                 *amqp.Channel
+	mlAsync               bool
+	requestDuration       *prometheus.HistogramVec
+	requestTotal          *prometheus.CounterVec
+	errorTotal            *prometheus.CounterVec
 
 	googleOAuthConfig *oauth2.Config
 
@@ -71,6 +74,13 @@ func main() {
 	defer func() {
 		if syncErr := log.Sync(); syncErr != nil {
 			fmt.Fprintf(os.Stderr, "Failed to sync logger: %v\n", syncErr)
+		}
+	}()
+
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
 		}
 	}()
 
@@ -123,7 +133,8 @@ func main() {
 
 	g := buildGateway(log, cfg, metrics, db, sessionStore, rdb, rmqCh, userClient, mlAsync)
 	mainRouter := g.registerRoutes()
-	startGatewayServers(log, cfg, mainRouter)
+	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
+	startGatewayServers(log, cfg, mainRouterHandler)
 }
 
 func loadGatewayConfig(log *logger.Logger) gatewayConfig {
@@ -156,8 +167,13 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 	if jwtPublicKeyPEM == "" {
 		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
 	}
+	responseSigningSecret := config.GetEnv("RESPONSE_SIGNING_SECRET")
+	if responseSigningSecret == "" {
+		log.Fatal("RESPONSE_SIGNING_SECRET environment variable is required")
+	}
 	cfg.jwtPrivateKeyPEM = jwtPrivateKeyPEM
 	cfg.jwtPublicKeyPEM = jwtPublicKeyPEM
+	cfg.responseSigningSecret = responseSigningSecret
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
@@ -211,23 +227,24 @@ type gatewayMetrics struct {
 }
 
 type gatewayConfig struct {
-	port                 string
-	userServiceAddr      string
-	biometricServiceAddr string
-	trainingServiceAddr  string
-	classifierURL        string
-	mlGeneratorURL       string
-	deviceConnectorURL   string
-	rabbitmqURL          string
-	redisAddr            string
-	jwtPrivateKeyPEM     string
-	jwtPublicKeyPEM      string
-	appBaseURL           string
-	publicHost           string
-	googleClientID       string
-	googleClientSecret   string
-	mlAsync              bool
-	googleOAuthConfig    *oauth2.Config
+	port                  string
+	userServiceAddr       string
+	biometricServiceAddr  string
+	trainingServiceAddr   string
+	classifierURL         string
+	mlGeneratorURL        string
+	deviceConnectorURL    string
+	rabbitmqURL           string
+	redisAddr             string
+	jwtPrivateKeyPEM      string
+	jwtPublicKeyPEM       string
+	responseSigningSecret string
+	appBaseURL            string
+	publicHost            string
+	googleClientID        string
+	googleClientSecret    string
+	mlAsync               bool
+	googleOAuthConfig     *oauth2.Config
 }
 
 type gatewayTLSConfig struct {
@@ -383,10 +400,15 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 }
 
 func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
-	userConn, err := grpc.NewClient(userServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
-	)
+	tlsCreds, _ := grpctls.GetClientTLSCredentials()
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+	if tlsCreds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	userConn, err := grpc.NewClient(userServiceAddr, opts...)
 	if err != nil {
 		log.Fatal("Failed to connect to user service", zap.Error(err))
 	}
@@ -396,24 +418,25 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 
 func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, rdb *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
 	return &gateway{
-		userClient:         userClient,
-		biometricAddr:      cfg.biometricServiceAddr,
-		trainingAddr:       cfg.trainingServiceAddr,
-		classifierURL:      cfg.classifierURL,
-		mlGeneratorURL:     cfg.mlGeneratorURL,
-		deviceConnectorURL: cfg.deviceConnectorURL,
-		log:                log,
-		jwtPrivateKeyPEM:   cfg.jwtPrivateKeyPEM,
-		jwtPublicKeyPEM:    cfg.jwtPublicKeyPEM,
-		db:                 db,
-		sessionStore:       sessionStore,
-		rdb:                rdb,
-		rmqCh:              rmqCh,
-		mlAsync:            mlAsync,
-		requestDuration:    metrics.requestDuration,
-		requestTotal:       metrics.requestTotal,
-		errorTotal:         metrics.errorTotal,
-		googleOAuthConfig:  cfg.googleOAuthConfig,
+		userClient:            userClient,
+		biometricAddr:         cfg.biometricServiceAddr,
+		trainingAddr:          cfg.trainingServiceAddr,
+		classifierURL:         cfg.classifierURL,
+		mlGeneratorURL:        cfg.mlGeneratorURL,
+		deviceConnectorURL:    cfg.deviceConnectorURL,
+		log:                   log,
+		jwtPrivateKeyPEM:      cfg.jwtPrivateKeyPEM,
+		jwtPublicKeyPEM:       cfg.jwtPublicKeyPEM,
+		responseSigningSecret: cfg.responseSigningSecret,
+		db:                    db,
+		sessionStore:          sessionStore,
+		rdb:                   rdb,
+		rmqCh:                 rmqCh,
+		mlAsync:               mlAsync,
+		requestDuration:       metrics.requestDuration,
+		requestTotal:          metrics.requestTotal,
+		errorTotal:            metrics.errorTotal,
+		googleOAuthConfig:     cfg.googleOAuthConfig,
 	}
 }
 
@@ -556,6 +579,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 	// ========== Security middleware (applied to ALL routes) ==========
 	r.Use(middleware.RemoveServerHeader)
+	r.Use(middleware.ErrorPages)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
 	r.Use(middleware.RateLimit)
@@ -671,16 +695,19 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 		return nil, fmt.Errorf("biometric service address not configured")
 	}
 
-	conn, err := grpc.NewClient(g.biometricAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
-		grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()),
-	)
+	var dialOpts []grpc.DialOption
+	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()))
+	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	conn, err := grpc.NewClient(g.biometricAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
 		return nil, err
 	}
-
 	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
 	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
 	return g.biometricClient, nil
@@ -698,11 +725,14 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 		return nil, fmt.Errorf("training service address not configured")
 	}
 
-	conn, err := grpc.NewClient(g.trainingAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
-		grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()),
-	)
+	var dialOpts []grpc.DialOption
+	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true)))
+	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	conn, err := grpc.NewClient(g.trainingAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
 		return nil, err

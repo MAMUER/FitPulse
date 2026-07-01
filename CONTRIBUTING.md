@@ -41,7 +41,7 @@
 
    ```bash
    go mod tidy
-   pip install -r requirements.txt  # для ML-сервисов
+   pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
    ```
 
 5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск не поддерживается — deploy только на VPS.

@@ -48,7 +48,7 @@
 - маскировку версий ПО;
 - строгую CSP nonce-based;
 - Rate limiting (per-IP 10r/s, burst 50; per-user 100r/s, burst 200);
-- Argon2id хеширование паролей (19–64 MB memory, 2–3 iterations, 1–4 parallelism).
+- Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 4).
 
 **4.1.2.** Состав подсистем:
 
@@ -84,7 +84,7 @@
 ### 4.4. Минимальные требования к серверу
 
 - CPU: 2 ядра
-- RAM: 4 ГБ
+- RAM: 8+ ГБ (для ML-сервисов)
 - Диск: 20 ГБ (SSD рекомендуется)
 - Сеть: 100 Мбит/с
 

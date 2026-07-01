@@ -45,7 +45,7 @@ spec:
       terminationGracePeriodSeconds: 60
       imagePullSecrets:
         - name: ghcr-pull-secret
-      serviceAccountName: app-service-account
+      serviceAccountName: ml-generator-sa
       volumes:
         - name: tmp
           emptyDir:

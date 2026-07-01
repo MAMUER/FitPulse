@@ -17,7 +17,7 @@
 2. **RBAC и привилегии**: Kubernetes RBAC с отдельным ServiceAccount на сервис, принцип минимальных привилегий, отдельные аккаунты для CI/CD и runtime.
 
 3. **Шифрование**:
-   - At rest: TDE для PostgreSQL, KMS для volumes, Vault для секретов
+   - At rest: TDE для PostgreSQL, KMS для volumes
    - In transit: TLS 1.3, mTLS для gRPC, certificate pinning
 
 4. **Управление зависимостями**: Dependabot и Snyk для сканирования уязвимостей, политики remediaton CVE.
@@ -26,7 +26,7 @@
 
 6. **WAF**: Nginx + ModSecurity или managed WAF с защитой от SQL-инъекций, XSS, rate limiting.
 
-7. **Ротация секретов**: 90-дневная автоматическая ротация через Vault, динамические учётные данные БД.
+7. **Ротация секретов**: динамические учётные данные БД.
 
 ## Последствия
 

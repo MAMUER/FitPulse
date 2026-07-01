@@ -36,7 +36,7 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"profile": resp,
 	}
-	if err := middleware.SignAndSendJSON(w, profileResp, g.jwtPublicKeyPEM, g.log.Logger); err != nil {
+	if err := middleware.SignAndSendJSON(w, profileResp, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -92,7 +92,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

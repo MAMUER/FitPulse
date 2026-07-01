@@ -14,7 +14,7 @@
 ### Инфраструктура
 
 - [ ] Матрица окружений применена ко всем компонентам
-- [ ] PostgreSQL 18 с pgcrypto для at-rest columns, Vault Transit для key management (envelope encryption, не двойное шифрование)
+- [ ] PostgreSQL 18 с pgcrypto для at-rest columns, key management (envelope encryption, не двойное шифрование)
 - [ ] RabbitMQ 4 с persistent queues и DLQ
 - [ ] Valkey 9
 - [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
@@ -30,10 +30,9 @@
 
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: pgcrypto, KMS/volumes, Vault/secrets
+- [ ] Шифрование: pgcrypto, KMS/volumes, secrets
 - [ ] mTLS для внутренних gRPC-коммуникаций (Linkerd с встроенным mTLS или Istio + cert-manager)
 - [ ] WAF настроен с базовым набором правил
-- [ ] Secrets rotation: 90 дней, автоматизировано через Vault
 
 ### Релизный процесс
 
