@@ -363,7 +363,7 @@ nav.tab-bar
 |1|XSS-защита|Везде `textContent` вместо `innerHTML` для пользовательских данных.|
 |2|CSP|`Content-Security-Policy` через NGINX + мета-тег в `index.html`.|
 |3|HTTPS-only|Все запросы идут на `https://` (HSTS).|
-|4|JWT в `httpOnly` cookie|Хранится в cookie с флагами `HttpOnly`, `Secure`, `SameSite=Strict`. При logout — удаление cookie сервером.|
+|4|JWT в `httpOnly` cookie|Хранится в cookie с флагами `HttpOnly`, `Secure`, `SameSite=Strict`. При logout — сервер возвращает `Set-Cookie: jwt=; Max-Age=0; Path=/` (клиент не может удалить `httpOnly` cookie через JS).|
 |5|Валидация на клиенте|Все поля имеют `type`, `min`, `max`, `pattern`, `required`.|
 |6|Подпись ответов|`api.js` проверяет HMAC-подпись критических ответов (опционально).|
 |7|Rate limit UI|При 429 — показ сообщения «Слишком много запросов, попробуйте через минуту».|

@@ -56,7 +56,7 @@ FitPulse реализует комплексные меры безопаснос
 
 - JWT (ES256) + Refresh Token rotation
 - HMAC-SHA256 подпись критических ответов
-- Argon2id хеширование паролей
+- Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 1)
 - Content Security Policy (nonce-based)
 - Rate limiting (sliding window)
 - Сетевая сегментация (Kubernetes Network Policies)
@@ -133,6 +133,21 @@ curl -k https://localhost:8443/health
 **Требования**: Kubernetes 1.28+, 4+ ядер CPU, 8+ ГБ RAM, 40+ ГБ SSD.
 
 **Подробная инструкция**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+
+---
+
+## Инфраструктура
+
+### Текущий сервер
+
+| Параметр | Значение |
+| --- | --- |
+| CPU | 1 vCPU |
+| RAM | 2 ГБ |
+| Storage | 30 ГБ |
+| Виртуализация | KVM |
+
+Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 

@@ -69,7 +69,7 @@ Single PostgreSQL инстанс сейчас работает на том же 
 1. Развёртывание Patroni + etcd (или managed Aurora/CloudSQL)
 2. Настройка 1 primary + 2 synchronous replicas
 3. Настройка pg_basebackup + WAL-архивации в S3
-4. Настройка HAProxy/ProxySQL как единой точки дохода
+4. Настройка HAProxy/ProxySQL как единой точки входа (connection pooling, health checks, read/write splitting)
 5. Интеграция с мониторингом: `pg_stat_replication`, `pg_stat_activity`
 
 ### 3.3 Acceptance Criteria
@@ -84,7 +84,7 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ### 4.1 Контекст
 
-Valkey используется для кэширования и сессий
+Valkey используется для кэширования, сессий и rate limiting.
 
 ### 4.2 Задачи
 
@@ -180,19 +180,24 @@ Phase 1: Prometheus + Grafana + ELK. Phase 2 расширяет:
 
 ### 8.1 Контекст
 
-Phase 1 использует Kustomize + inline-скрипты для k3s. Phase 2 требует:
+Phase 1 использует Kustomize + inline-скрипты для k3s. Текущая инфраструктура (1 vCPU / 2 ГБ RAM / 30 ГБ Storage, KVM, РФ) ограничена для production-нагрузок, поэтому Phase 2 требует:
 
-- увеличение ресурсов VPS (обязательно, для поддержки HA-компонентов, Vault, Istio и бóльшего числа подов)
+- аппаратного апгрейда/реновации VPS (обязательно, для поддержки HA-компонентов, Vault, Istio и бóльшего числа подов)
+- после увеличения ресурсов VPS необходимо пересчитать параметры Argon2id
+
+Примечание: текущие параметры Argon2id (memory 64 MB, iterations 3, parallelism 1) установлены с учётом ограничений текущего 1-vCPU сервера. После переезда на более мощный VPS параметры требуется пересчитать с учётом доступных ядер CPU и объёма RAM.
+
 - Terraform для управления инфраструктурой
 - ArgoCD или Flux для GitOps
 - единый репозиторий конфигураций
 
 ### 8.2 Задачи
 
-1. Terraform модули: VPS, K8s cluster, DB, Valkey 9, Vault
-2. ArgoCD для declarative deploy'а
-3. Sealed Secrets или External Secrets Operator для секретов
-4. Policy as Code: OPA Gatekeeper
+1. Аренда более мощного VPS на территории РФ для покрытия нагрузок Phase 2.
+2. Terraform модули: VPS, K8s cluster, DB, Valkey 9, Vault
+3. ArgoCD для declarative deploy'а
+4. Sealed Secrets или External Secrets Operator для секретов
+5. Policy as Code: OPA Gatekeeper
 
 ### 8.3 Phase 2 Quick Wins (не ждут полного рерайта)
 
@@ -268,6 +273,34 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Phase
 - Решение по Варианту B или C принято.
 - SLA по ответу задокументирован и публичен.
 
+## 12. Корпоративный почтовый ящик для security-отчётов
+
+### 12.1 Контекст
+
+Текущий security reporting использует личный email (`mihnikolaenko12@yandex.ru`), что нарушает best practices:
+
+- нет контроля доступа и audit trail на уровне почты;
+- риски компрометации личного аккаунта;
+- неформальный домен снижает доверие к программе;
+- сложность с делегированием доступа в случае смены ответственного.
+
+### 12.2 Задачи
+
+1. Приобрести корпоративный домен/почтовый аккаунт для security отчётов.
+2. Выделить алиас `security@<corporate-domain>` (или аналогичный).
+3. Обновить `SECURITY.md`, `BUG_BOUNTY_SCOPE.md`, `BUG_BOUNTY.md` с новым корпоративным контактом.
+4. Настроить PGP-ключ для корпоративного ящика.
+5. Документировать процесс доступа к ящику (ротация, аудит).
+
+### 12.3 Acceptance Criteria
+
+- Все security-отчёты принимаются на корпоративный ящик.
+- Личный email больше не указан как primary контакт.
+- PGP-ключ опубликован и защищает in-transmit отчёты.
+- Есть процедура ротации доступа к ящику.
+
+---
+
 ## Сроки (оценочно)
 
 |Этап|Срок|Ответственный|
@@ -280,7 +313,11 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Phase
 |Compliance (152-ФЗ)|4-6 недель|Legal/DevOps|
 |Backup DR|1-2 недели|DevOps|
 |Observability расширение|1 неделя|Platform|
+|Security email + PGP|3 дня|DevOps/Security|
+|Bug Bounty program setup|1 неделя|Security/Legal|
 
 ### Итого Phase 2: 3-4 месяца
 
 В Phase 2 может работать параллельно над новыми фичами из `docs/UI_SPECIFICATION.md` (Achievements, Diet, Devices) — они не зависят от инфраструктурных изменений.
+
+**Важно**: Раздел 12 (корпоративная почта) и раздел 11.2 задача 3 (PGP-ключ) должны быть выполнены **до** публикации `SECURITY.md` с новыми контактами. Текущий `SECURITY.md` указывает личный email `mihnikolaenko12@yandex.ru`, что нарушает best practices и создаёт single point of failure.

@@ -82,7 +82,7 @@ requirements:
 |Параметр|Dev|Test|Staging|Prod|
 |---|---|---|---|---|
 |**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
-|**PostgreSQL topology**|1 инстанс (локальный, PG 18)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 16)|
+|**PostgreSQL topology**|1 инстанс (локальный, PG 18)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 18)|
 |**Valkey topology**|1 узел (Valkey 9)|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
 |**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
 |**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|

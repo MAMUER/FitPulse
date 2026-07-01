@@ -48,7 +48,7 @@
 - маскировку версий ПО;
 - строгую CSP nonce-based;
 - Rate limiting (per-IP 10r/s, burst 50; per-user 100r/s, burst 200);
-- Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 4).
+- Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 1).
 
 **4.1.2.** Состав подсистем:
 

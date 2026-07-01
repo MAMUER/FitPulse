@@ -96,10 +96,10 @@ spec:
                 echo "✅ Admin user already exists: ${SEED_ADMIN_EMAIL}"
                 exit 0
               fi
-              echo "-> Generating password hash (Argon2id, 64MB, 3 iters, 4 parallelism)..."
+              echo "-> Generating password hash (Argon2id, 64MB, 3 iters, 1 parallelism)..."
               HASH=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
-                "SELECT crypt('${SEED_ADMIN_PASSWORD}', gen_salt('argon2id', 'm=65536,t=3,p=4'))" 2>/dev/null)
+                "SELECT crypt('${SEED_ADMIN_PASSWORD}', gen_salt('argon2id', 'm=65536,t=3,p=1'))" 2>/dev/null)
               if [ -z "${HASH}" ]; then
                 echo "❌ Failed to generate password hash (is pgcrypto extension installed?)"
                 exit 1

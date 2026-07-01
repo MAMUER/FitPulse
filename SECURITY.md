@@ -17,7 +17,8 @@
 
 ### Как сообщить
 
-1. **Email**: Отправьте письмо на `mihnikolaenko12@yandex.ru` или создайте приватный advisory в репозитории.
+1. **Email**: Отправьте письмо на `mihnikolaenko12@yandex.ru` (будет заменён на `security@fitpulse.app` в Phase 2) или создайте приватный advisory в репозитории.
+**Важно**: Для шифрования чувствительных данных используйте наш PGP-ключ (fingerprint будет опубликован в Phase 2).
 
 2. **Информация для предоставления**:
    - Тип уязвимости (XSS, SQL Injection, CSRF, Authentication Bypass или иная)
@@ -66,7 +67,7 @@
 
 - **JWT**: ES256, access token TTL 15 минут
 - **Refresh Token**: opaque, TTL 7 дней, rotation при каждом использовании
-- **Хеширование паролей**: Argon2id (memory 64 MB, iterations 4, parallelism 4). Согласно OWASP Password Storage Cheat Sheet 2024, увеличение time cost до 4 обеспечивает баланс между безопасностью (защита от GPU-атак) и производительностью.
+- **Хеширование паролей**: Argon2id (memory 64 MB, iterations 3, parallelism 1)
 - **2FA**: TOTP (Google Authenticator) с backup-кодами
 - **Сессии**: принудительная инвалидация при logout, отдельные хранилища для критических действий
 - **Авторизация**: серверная проверка ролей через прямой запрос к БД
