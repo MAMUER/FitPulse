@@ -19,13 +19,11 @@
   - `NotificationQueueDepth` (`queue_name`, `priority`)
   - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
 
-- **ML-сервисы**: Добавить `ml_inference_duration_seconds` histogram для tracking latency ML-моделей. Без него невозможно построить RED-дашборд для ML-сервиса.
-
-В `cmd/classifier/main.go` и `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной классификации/генерации происходит `labels(model_version, class).set(confidence)`.
+- В `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной генерации происходит `labels(model_version, class).set(confidence)`.
 
 ### База данных
 
-В `internal/db/db.go` используется `prometheus.NewGaugeFunc` для ленивого сбора `db.Stats()` при скрейпинге Prometheus, что исключает фоновые горутины и таймеры.
+В `internal/db/db.go` при открытии соединения вызывается `metrics.DBConnectionPoolUsage.WithLabelValues(dbName, "main").Set(usage)` внутри `poolMetricOnce.Do`, что исключает фоновые горутины и таймеры.
 
 ```text
 usage = InUse / max(MaxOpenConnections, 1)
@@ -60,7 +58,6 @@ metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(l
 - `internal/db/db.go`
 - `internal/queue/queue.go`
 - `cmd/biometric-service/main.go`
-- `cmd/classifier/main.go`
 - `cmd/ml_generator/main.py`
 - `cmd/device-aggregator/aggregator.go`
 - `cmd/device-aggregator/webhooks.go`

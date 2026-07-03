@@ -3,6 +3,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -59,17 +60,34 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 	}
 }
 
-// RequireRole проверяет роль пользователя
-func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
+// RequireRole проверяет роль пользователя через базу данных для предотвращения
+// использования отозванных/устаревших claims.
+func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role, ok := r.Context().Value(RoleKey).(string)
-			if !ok {
+			userID, ok := r.Context().Value(UserIDKey).(string)
+			if !ok || userID == "" {
 				http.Error(w, "Не найдено", http.StatusNotFound)
 				return
 			}
+			if db == nil {
+				log.Error("Database not available for role verification")
+				http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
+				return
+			}
+			var actualRole string
+			err := db.QueryRowContext(r.Context(), "SELECT role FROM users WHERE id = $1", userID).Scan(&actualRole)
+			if err == sql.ErrNoRows {
+				http.Error(w, "Не найдено", http.StatusNotFound)
+				return
+			}
+			if err != nil {
+				log.Error("Role verification DB error", zap.Error(err), zap.String("user_id", userID))
+				http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
+				return
+			}
 			for _, allowed := range allowedRoles {
-				if role == allowed {
+				if actualRole == allowed {
 					next.ServeHTTP(w, r)
 					return
 				}

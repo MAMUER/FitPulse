@@ -56,27 +56,27 @@
 
 ```bash
 # 1. Проверить статус подов по namespace
-kubectl get pods -n fitness-platform
+kubectl get pods -n fitness-platform-production
 
 # 2. Посмотреть последние deployment'ы
-kubectl rollout history deployment/gateway -n fitness-platform
+kubectl rollout history deployment/gateway -n fitness-platform-production
 
 # 3. Быстрый перезапуск подозрительного пода (OOMKilled / CrashLoopBackOff)
-kubectl delete pod <pod-name> -n fitness-platform
+kubectl delete pod <pod-name> -n fitness-platform-production
 
 # 4. Если проблема после недавнего деплоя — откат
-kubectl rollout undo deployment/gateway -n fitness-platform
+kubectl rollout undo deployment/gateway -n fitness-platform-production
 
 # 5. Логи по сервисам (Kibana или kubectl)
-kubectl logs -f deployment/gateway -n fitness-platform --tail=200
+kubectl logs -f deployment/gateway -n fitness-platform-production --tail=200
 ```
 
 **Проверка новых сервисов**:
 
 ```bash
 # Device Aggregator (OAuth, Fitbit/Garmin/Withings)
-kubectl get pods -n fitness-platform -l app=device-aggregator
-kubectl logs -f deployment/device-aggregator -n fitness-platform | grep -i "error\|panic"
+kubectl get pods -n fitness-platform-production -l app=device-aggregator
+kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
 
 # Проверить health endpoints
 curl -k https://<gateway-host>:8443/health
@@ -125,18 +125,18 @@ curl "http://prometheus:9090/api/v1/query" \
   --data-urlencode 'query=rate(error_total[5m])' | jq .
 
 # 2. Определить сервис с наибольшим числом ошибок
-kubectl get pods -n fitness-platform -l app=biometric-service
-kubectl logs -f deployment/biometric-service -n fitness-platform | grep -i "error"
+kubectl get pods -n fitness-platform-production -l app=biometric-service
+kubectl logs -f deployment/biometric-service -n fitness-platform-production | grep -i "error"
 
 # 3. Проверить соединения с БД
-kubectl exec -it deploy/postgres -n fitness-platform -- \
+kubectl exec -it deploy/postgres -n fitness-platform-production -- \
   psql -U postgres -c "SELECT count(*) FROM pg_stat_activity;"
 
 # 4. Масштабировать при необходимости
-kubectl scale deployment biometric-service --replicas=5 -n fitness-platform
+kubectl scale deployment biometric-service --replicas=5 -n fitness-platform-production
 
 # 5. Мониторить восстановление
-kubectl top pod -n fitness-platform --containers
+kubectl top pod -n fitness-platform-production --containers
 
 # 6. Оповестить команду в #incidents
 ```

@@ -16,7 +16,7 @@ type server struct {
 	log *zap.Logger
 }
 
-const trainingClassCount = 4
+const trainingClassCount = 6
 
 var trainingClasses = map[int]struct {
 	Name            string   `json:"name"`
@@ -81,6 +81,34 @@ var trainingClasses = map[int]struct {
 			"Силовые тренировки",
 			"Спринты",
 			"CrossFit/WOD",
+		},
+	},
+	4: {
+		Name:        "overtraining",
+		NameRu:      "Перетренированность",
+		Description: "Повышенный пульс в покое + низкий HRV + усталость + ухудшение сна",
+		HrRange:     "Повышение в покое на 5-10% от нормы",
+		Hrv:         "Значительно снижен",
+		Spo2:        "95-98%",
+		Recommendations: []string{
+			"Полный отдых 1-3 дня",
+			"Снижение объёма тренировок на 50%",
+			"Консультация с тренером/спорт-медиком",
+			"Акцент на сон и питание",
+		},
+	},
+	5: {
+		Name:        "illness",
+		NameRu:      "Заболевание",
+		Description: "Повышение температуры + общая слабость + отклонения в детоксикации",
+		HrRange:     "Повышение на 10-20% от нормы",
+		Hrv:         "Сниженный",
+		Spo2:        "<95% при лихорадке",
+		Recommendations: []string{
+			"Прекратить все тренировки",
+			"Обратиться к врачу при температуре >37.5°C",
+			"Обильное питьё и постельный режим",
+			"Возобновить тренировки только после выздоровления",
 		},
 	},
 }
@@ -168,6 +196,29 @@ func defaultIfZero(val, def float64) float64 {
 }
 
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
+	if data.Temperature > 37.5 {
+		probs := map[string]float64{
+			"recovery":          0.0,
+			"endurance_e1e2":    0.0,
+			"threshold_e3":      0.0,
+			"strength_hiit":     0.02,
+			"overtraining":      0.05,
+			"illness":           0.93,
+		}
+		return 5, 0.93, probs
+	}
+	if data.Temperature > 37.3 {
+		probs := map[string]float64{
+			"recovery":          0.05,
+			"endurance_e1e2":    0.05,
+			"threshold_e3":      0.02,
+			"strength_hiit":     0.03,
+			"overtraining":      0.10,
+			"illness":           0.75,
+		}
+		return 5, 0.75, probs
+	}
+
 	hrMax := 220.0 - float64(age)
 	if hrMax <= 0 {
 		hrMax = 200.0
@@ -186,6 +237,18 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 		zone = 3
 	}
 
+	if data.HeartRateVariability < 30 && hrPct < 0.6 {
+		topProbs := map[string]float64{
+			"recovery":          0.03,
+			"endurance_e1e2":    0.05,
+			"threshold_e3":      0.02,
+			"strength_hiit":     0.05,
+			"overtraining":      0.85,
+			"illness":           0.05,
+		}
+		return 4, 0.85, topProbs
+	}
+
 	boundaries := []float64{0.0, 0.65, 0.80, 0.90, 1.0}
 	center := (boundaries[zone] + boundaries[zone+1]) / 2.0
 	halfWidth := (boundaries[zone+1] - boundaries[zone]) / 2.0
@@ -197,8 +260,8 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 	confidence := math.Round(rawConf*10000) / 10000.0
 
 	probs := make(map[string]float64)
-	classNames := []string{"recovery", "endurance_e1e2", "threshold_e3", "strength_hiit"}
-	remainder := (1.0 - confidence) / 3.0
+	classNames := []string{"recovery", "endurance_e1e2", "threshold_e3", "strength_hiit", "overtraining", "illness"}
+	remainder := (1.0 - confidence) / 5.0
 	for i, name := range classNames {
 		if i == zone {
 			probs[name] = confidence

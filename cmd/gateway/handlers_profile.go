@@ -2,9 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"strings"
+
+	"golang.org/x/crypto/argon2"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
@@ -12,6 +19,41 @@ import (
 )
 
 // ========== Profile Handlers ==========
+
+const argon2idParams = "m=65536,t=3,p=1"
+
+func verifyPasswordArgon2id(stored, password string) bool {
+	parts := strings.Split(stored, "$")
+	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" || parts[3] != argon2idParams {
+		return false
+	}
+	params := strings.Split(parts[3], ",")
+	if len(params) != 3 {
+		return false
+	}
+	var memory uint32
+	var iterations uint32
+	var parallelism uint8
+	if _, err := fmt.Sscanf(params[0], "m=%d", &memory); err != nil {
+		return false
+	}
+	if _, err := fmt.Sscanf(params[1], "t=%d", &iterations); err != nil {
+		return false
+	}
+	if _, err := fmt.Sscanf(params[2], "p=%d", &parallelism); err != nil {
+		return false
+	}
+	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	if err != nil {
+		return false
+	}
+	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
+	if err != nil {
+		return false
+	}
+	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash))) //nolint:gosec
+	return subtle.ConstantTimeCompare(hash, computed) == 1
+}
 
 func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -118,4 +160,80 @@ func (g *gateway) verifyUserRole(ctx context.Context, userID, requiredRole strin
 		return false
 	}
 	return actualRole == requiredRole
+}
+
+func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+	if req.Password == "" {
+		http.Error(w, "password требуется", http.StatusBadRequest)
+		return
+	}
+
+	if g.db == nil {
+		http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	tx, err := g.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		g.log.Error("Failed to begin delete profile transaction", zap.Error(err))
+		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+		return
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			g.log.Warn("Failed to rollback delete profile transaction", zap.Error(rollbackErr))
+		}
+	}()
+
+	var passwordHash string
+	if queryErr := tx.QueryRowContext(r.Context(), "SELECT password_hash FROM users WHERE id = $1", userID).Scan(&passwordHash); queryErr != nil {
+		if queryErr == sql.ErrNoRows {
+			http.Error(w, "Не найдено", http.StatusNotFound)
+			return
+		}
+		g.log.Error("Failed to load user for deletion", zap.Error(queryErr))
+		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+		return
+	}
+
+	if !verifyPasswordArgon2id(passwordHash, req.Password) {
+		http.Error(w, "Неверный пароль", http.StatusUnauthorized)
+		return
+	}
+
+	result, err := tx.ExecContext(r.Context(), "DELETE FROM users WHERE id = $1", userID)
+	if err != nil {
+		g.log.Error("Failed to delete user", zap.Error(err))
+		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+		return
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		http.Error(w, "Не найдено", http.StatusNotFound)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		g.log.Error("Failed to commit delete profile transaction", zap.Error(err))
+		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+		return
+	}
+
+	if err := middleware.SignAndSendJSON(w, map[string]string{"status": "deleted"}, g.responseSigningSecret, g.log.Logger); err != nil {
+		g.log.Error("Failed to encode delete profile response", zap.Error(err))
+	}
 }

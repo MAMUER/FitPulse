@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Обсуждение в Telegram
+    url: https://t.me/fitpulse_community
+    about: Задавайте вопросы и обсуждайте идеи в нашем чате
+
+  - name: 📚 Документация
+    url: https://github.com/MAMUER/Project/blob/main/README.md
+    about: Проверьте документацию перед созданием issue
+
+  - name: 🔐 Сообщить об уязвимости
+    url: https://github.com/MAMUER/Project/security/advisories/new
+    about: Для сообщений о безопасности используйте GitHub Security Advisories

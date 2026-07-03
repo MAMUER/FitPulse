@@ -1,4 +1,4 @@
-# ADR 0017: UI Specification — Мобильное веб-приложение с 6 вкладками и Chart.js
+# ADR 0017: UI Specification — Мобильное веб-приложение с 7 вкладками и Chart.js
 
 ## Статус
 
@@ -12,14 +12,15 @@ Frontend начал оформляться как SPA на vanilla JS/ES2026 с 
 
 Создать `docs/UI_SPECIFICATION.md`:
 
-1. **Архитектура**: единый `web/index.html` с view-переключением по классу `active`; `tab-bar` с 6 вкладками (Обзор, Профиль, Тренировки, Устройства, Достижения, Диета).
-2. **Auth flow**: экран авторизации с тремя состояниями — login, register, verify (dev-token mode + production email confirmation).
+1. **Архитектура**: единый `web/index.html` с view-переключением по классу `active`; `tab-bar` с 7 вкладок (Обзор, Профиль, Тренировки, Устройства, Достижения, Диета, Админ).
+2. **Auth flow**: экран авторизации с состояниями login, register, verify и 2FA (`login2FAForm`) — dev-token mode + production email confirmation.
 3. **Dashboard**: 4 health-summary карточки (пульс, SpO₂, сон, давление), Chart.js график пульса, AI-рекомендации, today’s workout карточка.
 4. **Profile**: форма с groups (основное, параметры тела, образ жизни, цели) + модалки смены пароля/email + danger-zone с удалением аккаунта.
 5. **Training**: список планов, пустое состояние, FAB для генерации через форму параметров (durationWeeks, maxDuration, preferredTime, days, equipment).
 6. **Achievements**: сетка карточек достижений и список соревнований.
 7. **Diet**: карточки приёмов пищи (калории, БЖУ).
-8. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
+8. **Admin** (`adminTab`, `adminView`): панель администратора с управлением пользователями/приглашениями (только для роли admin).
+9. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
 9. **Безопасность**: XSS (`textContent`), CSP nonce-based, HTTPS-only, JWT в `httpOnly` cookie (`Secure`, `SameSite=Strict`), rate-limit UI на 429.
 10. **API-слой**: `web/static/js/api.js` централизует все 16 REST-вызовов.
 

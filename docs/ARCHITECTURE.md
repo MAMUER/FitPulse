@@ -1,5 +1,102 @@
 # FitPulse — Полная архитектура и операционная документация
 
+## Структура проекта
+
+```text
+.
+├── api/
+│   ├── proto/
+│   │   ├── user.proto
+│   │   ├── biometric.proto
+│   │   ├── training.proto
+│   │   └── ml.proto
+│   └── gen/                          # сгенерированные .go файлы (gitignore)
+├── cmd/
+│   ├── gateway/                      # HTTP/gRPC gateway (nginx ingress)
+│   ├── user-service/                 # Users, auth, profile
+│   ├── biometric-service/            # Biometric data ingestion
+│   ├── training-service/             # Training plans
+│   ├── device-connector/             # External device sync (Fitbit/Withings)
+│   ├── device-aggregator/            # OAuth/webhook aggregator for devices
+│   ├── classifier/                   # ML classifier service
+│   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
+│   └── data-processor/               # Background data processing
+├── configs/
+│   └── k8s/
+│       ├── base/
+│       │   ├── deployments/          # Deployment манифесты
+│       │   ├── services/             # Service манифесты
+│       │   ├── ingress-nginx/        # NGINX Ingress Controller
+│       │   ├── configmap.yaml
+│       │   ├── limit-range.yaml
+│       │   ├── local-path-provisioner.yaml
+│       │   ├── namespace.yaml
+│       │   ├── resource-quota.yaml
+│       │   ├── serviceaccount.yaml
+│       │   ├── storage-class-encrypted.yaml
+│       │   └── kustomization.yaml
+│       ├── overlays/
+│       │   └── production/
+│       │       └── kustomization.yaml
+│       └── scripts/                  # Helper scripts for k8s bootstrap
+├── db/
+│   └── migrations/                   # SQL миграции (версионированные)
+├── deploy/
+│   ├── lb/
+│   │   ├── production.conf           # Host NGINX конфигурация
+│   │   └── install-crs.sh            # ModSecurity CRS установка
+│   └── compose/                      # Docker Compose окружения
+├── docs/                             # Документация
+├── internal/
+│   ├── apperrors/                    # Application error types
+│   ├── auth/                         # JWT, TOTP, refresh tokens
+│   ├── biometric/                    # Domain, repository, service (biometric)
+│   ├── cache/                        # Valkey cache abstraction
+│   ├── config/                       # Configuration loader
+│   ├── crypto/                       # Encryption utilities
+│   ├── db/                           # Database connection, PGP encryption
+│   ├── domain/                       # Shared domain models
+│   ├── email/                        # Email sender, templates
+│   ├── grpc/                         # gRPC server/client utilities, mTLS
+│   ├── logger/                       # Structured logging
+│   ├── metrics/                      # Prometheus metrics
+│   ├── middleware/                    # HTTP middleware (auth, rate limit, etc.)
+│   ├── queue/                        # RabbitMQ publisher/consumer
+│   ├── repository/                   # Generic repositories
+│   ├── sanitize/                     # HTML/XSS sanitization
+│   ├── telemetry/                    # OpenTelemetry tracing
+│   ├── totp/                         # TOTP 2FA
+│   └── validator/                    # Request validators
+├── models/                           # ML модели
+├── pkg/                              # Публичные пакеты
+├── scripts/                          # Вспомогательные скрипты
+├── web/                              # SPA фронтенд
+│   ├── index.html                    # Основное SPA (auth + views)
+│   └── templates/
+│       └── confirm.html              # Шаблон страницы подтверждения email
+│   ├── static/
+│       │   ├── css/
+│       │   │   ├── main.css
+│       │   │   └── modules.css
+│       │   ├── fonts/
+│       │   │   ├── fonts.css
+│       │   │   └── *.woff2
+│       │   ├── js/
+│       │   │   ├── api.js
+│       │   │   ├── app.js
+│       │   │   └── modules.js
+│       │   └── errors/               # HTML шаблоны ошибок
+├── .github/
+│   └── workflows/
+│       └── ci.yml                   # Полный CI/CD пайплайн
+├── Makefile
+├── go.mod
+├── go.sum
+└── README.md
+```
+
+---
+
 ## 1. Компоненты инфраструктуры
 
 ### 1.1 Message Broker: RabbitMQ
@@ -492,7 +589,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
 - [ ] Шифрование: TDE/БД, volumes, secrets
-- [x] mTLS для внутренних gRPC-вызовов
+- [ ] mTLS для внутренних gRPC-вызовов
 - [ ] WAF настроен с базовым набором правил
 
 ### Релизный процесс

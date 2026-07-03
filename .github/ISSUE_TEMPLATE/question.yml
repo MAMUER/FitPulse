@@ -1,0 +1,20 @@
+---
+name: Вопрос (не баг)
+description: Задать вопрос по использованию проекта
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Ваш вопрос
+      description: Опишите, что вы хотите узнать
+    validations:
+      required: true
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Вы искали ответ в документации?
+      options:
+        - label: Да, я проверил README.md и документацию
+          required: true

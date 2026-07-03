@@ -32,6 +32,6 @@
 
 ## Реализация
 
-- Миграция: `scripts/migrations/V11__device_providers.sql`
+- Миграция: `db/migrations/V11__device_providers.sql`
 - Репозитории/сервисы в `cmd/device-aggregator/providers/`.
 - Использование `ON CONFLICT (user_id, provider) DO UPDATE`.

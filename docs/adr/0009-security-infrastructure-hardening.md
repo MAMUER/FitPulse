@@ -10,7 +10,7 @@
 
 1. **Зоны безопасности**: Полные Network Policies для dmz, app-zone, data-zone, monitoring-zone.
 2. **RBAC**: Принцип минимальных привилегий с выделенными ServiceAccounts и минимальными ролями.
-3. **Шифрование**: расширение pgcrypto для PostgreSQL для функциональности, аналогичной TDE.
+3. **Шифрование**: pgcrypto для PostgreSQL (функциональность, аналогичная TDE).
 4. **Бэкапы**: WAL-based инкрементальные бэкапы с поддержкой PITR.
 5. **Метрики**: дополнительные Prometheus-метрики для трейкинга ошибок, ML-уверенности, пулов БД, очередей, sync lag.
 6. **CI/CD**: 9-этапный пайплайн с canary-деплоем, триггерами отката, security gates.
@@ -25,8 +25,8 @@
 
 ## Реализация
 
-- обновлены Network Policies в `configs/k8s/network-policies/security-zones.yaml`;
-- усиленный RBAC в `configs/k8s/rbac/rbac.yaml`;
+- обновлены Network Policies в `configs/k8s/base/security-zones.yaml`;
+- усиленный RBAC в `configs/k8s/base/rbac/rbac.yaml`;
 - создан скрипт `backup-wal.sh`;
 - расширены метрики в `internal/metrics/metrics.go`;
 - расширен CI/CD пайплайн в `.github/workflows/ci.yml`;

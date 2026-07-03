@@ -1,7 +1,0 @@
-# PostgreSQL needs writable filesystem for data files
-# KSV-0014: readOnlyRootFilesystem not applicable for database with persistent storage
-# KSV-0118: Pod security context defaults expected for StatefulSet with volume mounts
-KSV-0014
-KSV-0118
-# PostgreSQL-specific: allow writable root filesystem for data persistence
-# These are expected security findings for database workloads

@@ -18,7 +18,7 @@
 
 - **Go**: версия 1.26+
 - **Python**: версия 3.12+ (для ML-сервисов)
-- **Docker**: версия 28+ / Docker Compose v2 (или современный Docker Engine)
+- **Docker**: Docker Desktop / Docker Engine с поддержкой BuildKit (современные версии)
 - **Git**: для управления версиями
 
 ### Первая настройка
@@ -170,17 +170,23 @@ docs(readme): обновить документацию
 # Unit-тесты
 make test
 
-# С покрытием
+# С покрытием (проверка порога 80%)
 make test-cover
 
-# Интеграционные тесты
+# Интеграционные тесты (требуют тега `-tags=integration`, добавляется автоматически через make)
 make test-integration
+
+# Или вручную:
+go test -v -tags=integration ./...
 
 # API тесты
 make api-test
 
-# Нагрузочное тестирование
+# Нагрузочное тестирование (требует k6)
 make load-test
+
+# Полный набор проверок (tidy + fmt + vet + lint + tests + утилиты)
+make check
 ```
 
 ### Покрытие кодом
@@ -188,6 +194,12 @@ make load-test
 Минимальное требование покрытия: **80%** для нового кода.
 
 Проверка покрытия:
+
+```bash
+make test-cover
+```
+
+Или вручную:
 
 ```bash
 go test -v -coverprofile=coverage.out ./...
@@ -231,7 +243,7 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 2. **Запустите все проверки**:
 
    ```bash
-   make check  # fmt + vet + lint + test + build
+   make check  # tidy + fmt + vet + lint + vulncheck + integration tests + markdown check
    ```
 
 3. **Проверьте покрытие тестами**:
@@ -251,6 +263,8 @@ func TestMedicalService_ClassifyState(t *testing.T) {
    - Связанные issue
    - Тип изменений (feat/fix/docs/etc.)
    - Чеклист проверок
+4. Дождитесь прохождения всех CI/CD проверок (lint, test, build, security scan)
+5. Получите approval от мейнтейнера
 
 ### Шаблон PR
 
@@ -270,10 +284,12 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 Fixes #123
 
 ## Чеклист
-- [ ] Код отформатирован (go fmt)
-- [ ] Покрытие тестами >= 80%
+- [ ] Код отформатирован (`go fmt ./...`)
+- [ ] Линтер пройден (`make lint`)
+- [ ] Покрытие тестами >= 80% (проверяется через `make test-cover`)
 - [ ] Документация обновлена
-- [ ] Изменения протестированы (make test)
+- [ ] Изменения протестированы (`make check`)
+- [ ] Все CI/CD проверки прошли успешно
 ```
 
 ## Code Review
@@ -295,10 +311,11 @@ PR будет принят, если:
 
 ### Процесс ревью
 
-1. Автоматические проверки (CI/CD)
-2. Ревью от минимум одного мейнтейнера
-3. Исправление замечаний
-4. Approval и merge
+1. Автоматические проверки (CI/CD) — все джобы должны пройти успешно (lint, test, security scan)
+2. Проверка на соответствие стандартам проекта
+3. Ревью от минимум одного мейнтейнера
+4. Исправление замечаний
+5. Approval и merge
 
 ## Сообщество и коммуникация
 

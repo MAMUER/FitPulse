@@ -20,7 +20,5 @@
 
 ## Реализация
 
-- добавлен `configs/k8s/deployments/gateway-canary.yaml`;
-- добавлен `configs/k8s/services/gateway-canary-service.yaml`;
-- добавлен `configs/k8s/ingress-canary.yaml`;
-- добавлены `scripts/backup-db.sh` и `scripts/restore-db.sh`.
+- добавлены `scripts/backup-db.sh` и `scripts/restore-db.sh`;
+- канарный деплой запроектирован, но файлы манифестов ещё не добавлены в репозиторий.

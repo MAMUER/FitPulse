@@ -1070,7 +1070,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes]
+    needs: [detect-changes, security-scan, secrets-scan, check, super-linter, kubescape, fuzz-tests]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||

@@ -17,12 +17,12 @@
      - Medium: 3 дня / 2 недели
      - Low: 1 неделя / следующий релиз
 
-2. **GitHub Issue Automation (`.github/workflows/issue-automation.yml`)**:
-   - автоматическое triage-лейблирование новых issues;
-   - назначение ответственных по ключевым словам (`gateway`, `biometric`, `ml`, `device`, `frontend`, `k8s`, `docker`, `ci/cd`);
-   - приветствие новых контрибьюторов;
-   - секретный канал для security-labeled issues;
-   - Telegram-уведомление о `priority:critical`.
+2. **GitHub Issue Automation (не реализовано)**:
+   - автоматическое triage-лейблирование новых issues: не реализовано;
+   - назначение ответственных по ключевым словам (`gateway`, `biometric`, `ml`, `device`, `frontend`, `k8s`, `docker`, `ci/cd`): не реализовано;
+   - приветствие новых контрибьюторов: не реализовано;
+   - секретный канал для security-labeled issues: не реализовано;
+   - Telegram-уведомление о `priority:critical`: не реализовано.
 
 3. **Incident Response Runbook (`docs/runbooks/INCIDENT_RESPONSE.md`)**:
    - классификация по SEV-1..SEV-4;
@@ -38,6 +38,5 @@
 ## Реализация
 
 - `.github/SLA.md`
-- `.github/workflows/issue-automation.yml`
 - `docs/runbooks/INCIDENT_RESPONSE.md`
 - `docs/runbooks/OPERATIONS_RUNBOOK.md` (отмечен как зависимость в playbook).

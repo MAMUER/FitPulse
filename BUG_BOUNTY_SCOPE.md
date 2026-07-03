@@ -1,15 +1,15 @@
 # FitPulse — Bug Bounty Scope
 
-FitPulse — open-source fitness platform.  
-Программа не является платной: на текущем этапе **бюджета/финансового вознаграждения нет**.  
-Мы принимаем добровольные сообщения об уязвимостях и публично атрибутируем исследователей.
+FitPulse — open-source fitness platform.
+На текущем этапе программа **не предполагает денежного вознаграждения**: проект запускается без бюджета на выплаты.
+Мы принимаем добровольные сообщения об уязвимостях и публично атрибутируем исследователей в Security Advisories и `SECURITY.md`.
 
 ---
 
 ## Статус
 
-- **Текущий статус**: неактивна в денежном выражении
-- **Why**: проект без бюджета, free open-source
+- **Текущий статус**: не подразумевает денежное вознаграждение
+- **Причина**: проект без бюджета, free open-source
 - **Форма признания**: honourable mention в Security Advisories + публичное спасибо в `SECURITY.md`
 - **Вознаграждение**: нет денежного вознаграждения на текущем этапе
 
@@ -19,26 +19,28 @@ FitPulse — open-source fitness platform.
 
 | Target | Notes |
 | -------- | ------- |
-| `https://fittpulse.duckdns.org` | production domain |
-| Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, ML classification |
-| `cmd/*`, `api/*`, `internal/*` | исходный код сервисов |
-| Инфраструктура: K8s deployment manifests, NGINX configs, scripts | без доступа к реальному кластеру |
+| `https://fittpulse.duckdns.org` | production domain + все поддомены при их появлении |
+| Веб-интерфейс (`web/`, `web/static/`, `web/templates/`) | frontend, статика, шаблоны |
+| Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
+| Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
+| Инфраструктура: K8s deployment manifests, NGINX configs (`deploy/lb/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |
 | CI/CD workflows и secrets handling | без доступа к GitHub Secrets |
 
 ### Исключения из in-scope
 
-- `docs/`, `*.md` без sensitive data
-- CI configs без disclosure secrets
-- Инфраструктурные ресурсы, доступ к которым у вас нет (локальный dev)
+- GitHub Secrets и другие реальные секреты инфраструктуры недоступны для тестирования
+- Живой кластер, PostgreSQL, Valkey, RabbitMQ — не предоставляются для тестирования; уязвимости в них принимаются только как доказательства через публичный интерфейс
 
 ---
 
 ## Out of Scope
 
-- Документация без sensitive data
+- Документация (`docs/`, `*.md`) без sensitive data
 - Dev-окружение без production данных
 - Внутренние IP и сервисы без публичного доступа
+- Внутренние gRPC-сервисы и базы данных, не exposed через интернет
 - DoS-атаки, фuzzing без явного разрешения
+- Социальная инженерия за пределами взаимодействия с публичным интерфейсом проекта
 
 ---
 
@@ -57,11 +59,11 @@ FitPulse — open-source fitness platform.
 ## Severity & Response
 
 | Severity | Примеры | Время ответа |
-| ---------- | --------- | -------------- |
-| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens | 24–48 часов |
-| High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация | 3–7 дней |
-| Medium | Missing security headers, weak crypto, info disclosure | 7–14 дней |
-| Low | Missing rate limiting, verbose errors, missing CSP | 14–30 дней |
+| ---------- | ---------- | -------------- |
+| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 24–48 часов |
+| High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация, обход rate limit/auth middleware | 3–7 дней |
+| Medium | Missing security headers, weak crypto, info disclosure, небезопасная конфигурация NGINX/K8s | 7–14 дней |
+| Low | Missing rate limiting, verbose errors, missing CSP directives | 14–30 дней |
 
 ---
 
@@ -82,4 +84,4 @@ FitPulse — open-source fitness platform.
 
 ---
 
-## Последнее обновление: 2026-07-01
+### Последнее обновление: 2026-07-03

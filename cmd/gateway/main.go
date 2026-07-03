@@ -615,6 +615,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 		// Profile
 		r.Get("/profile", g.getProfileHandler)
 		r.Put("/profile", g.updateProfileHandler)
+		r.Delete("/profile", g.deleteProfileHandler)
 
 		// 2FA TOTP (protected routes - require auth)
 		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
@@ -628,14 +629,14 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 		// Training
 		r.Get("/training/plans", g.listPlansHandler)
-		r.Post("/training/plans/generate", g.generatePlanHandler)
+		r.Post("/training/generate", g.generatePlanHandler)
 		r.Get("/training/plans/{plan_id}", g.getPlanHandler)
 		r.Get("/training/progress", g.getProgressHandler)
-		r.Post("/training/workouts/{workout_id}/complete", g.completeWorkoutHandler)
+		r.Post("/training/complete", g.completeWorkoutHandler)
 
 		// ML
 		r.Post("/ml/classify", g.classifyHandler)
-		r.Post("/ml/generate", g.mlGenerateHandler)
+		r.Post("/ml/generate-plan", g.mlGenerateHandler)
 
 		// Devices — проксирование на device-connector
 		r.Post("/devices/register", g.proxyToDeviceConnector)
@@ -666,7 +667,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	// ========== Admin routes (требуют роль admin) ==========
 	r.Route("/api/v1/admin", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.Use(middleware.RequireRole("admin"))
+		r.Use(middleware.RequireRole(g.db, g.log.Logger, "admin"))
 		r.Get("/users", g.adminListUsersHandler)
 		r.Get("/invites", g.adminListInvitesHandler)                 // ← НОВОЕ
 		r.Post("/invites", g.adminCreateInviteHandler)               // ← НОВОЕ

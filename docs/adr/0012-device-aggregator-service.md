@@ -39,4 +39,4 @@
 - `cmd/device-aggregator/aggregator.go` — общий интерфейс провайдеров.
 - `cmd/device-aggregator/webhooks.go` — обработка webhook’ов.
 - `cmd/device-aggregator/Dockerfile` — контейнеризация.
-- `configs/k8s/deployments/device-aggregator.yaml` — K8s манифест.
+- K8s манифест `configs/k8s/base/deployments/device-aggregator.yaml` пока не добавлен.

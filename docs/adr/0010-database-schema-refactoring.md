@@ -37,7 +37,7 @@
 - добавлен `cmd/data-processor/data_processor_unit_test.go`;
 - создан `cmd/training-service/training_service_integration_test.go`;
 - добавлен `cmd/training-service/training_service_unit_test.go`;
-- обновлён `go.mod` для удаления неиспользуемой зависимости.
+- `go.mod`: неиспользуемая зависимость `postgres` планировалась к удалению, но на текущий момент `github.com/lib/pq` остаётся в графе зависимостей.
 
 ## Рассмотренные альтернативы
 

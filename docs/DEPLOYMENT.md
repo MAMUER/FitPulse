@@ -17,22 +17,22 @@
 git clone https://github.com/MAMUER/fitpulse.git && cd fitpulse
 
 # 2. Создать namespace и применить манифесты
-kubectl create namespace fitness-platform
+kubectl create namespace fitness-platform-production
 # 2.1. Создать секреты (обязательно перед apply манифестов!)
-kubectl create secret generic app-secrets -n fitness-platform \
+kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=POSTGRES_USER=postgres \
     --from-literal=POSTGRES_PASSWORD=<your-password> \
     --from-literal=POSTGRES_DB=fitness
-kubectl apply -k configs/k8s/base/ -n fitness-platform
+kubectl apply -k configs/k8s/base/ -n fitness-platform-production
 
 # 3. Применить миграции БД
-kubectl apply -f configs/k8s/base/jobs/init-db.yaml -n fitness-platform
+kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 
 # 4. Проверить статус подов
-kubectl get pods -n fitness-platform
+kubectl get pods -n fitness-platform-production
 
 # 5. Health check
-kubectl port-forward svc/gateway 8443:8443 -n fitness-platform
+kubectl port-forward svc/gateway 8443:8443 -n fitness-platform-production
 curl -k https://localhost:8443/health
 ```
 
@@ -71,25 +71,25 @@ kubectl get pods -n kube-system
 
 ```bash
 # Создать namespace
-kubectl create namespace fitness-platform
+kubectl create namespace fitness-platform-production
 
 # Применить все манифесты
-kubectl apply -k configs/k8s/base/ -n fitness-platform
+kubectl apply -k configs/k8s/base/ -n fitness-platform-production
 
 # Применить миграции БД
-kubectl apply -f configs/k8s/base/jobs/init-db.yaml -n fitness-platform
+kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 
 # Дождаться готовности
-kubectl wait --for=condition=ready pod --all -n fitness-platform --timeout=300s
+kubectl wait --for=condition=ready pod --all -n fitness-platform-production --timeout=300s
 ```
 
 ### 3. Создание secrets
 
-Создайте секрет `app-secrets` в namespace `fitness-platform`:
+Создайте секрет `app-secrets` в namespace `fitness-platform-production`:
 
 ```bash
 # Создание секретов из файлов (предотвращает утечку в bash history / ps)
-kubectl create secret generic app-secrets -n fitness-platform \
+kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=POSTGRES_USER=postgres \
     --from-literal=POSTGRES_PASSWORD=<your-password> \
     --from-literal=POSTGRES_DB=fitness \
@@ -113,7 +113,7 @@ kubectl create secret generic app-secrets -n fitness-platform \
 Если используете внешний ingress controller:
 
 ```bash
-kubectl apply -f configs/k8s/base/ingress/ -n fitness-platform
+kubectl apply -f configs/k8s/base/ingress-nginx/ -n fitness-platform-production
 ```
 
 ## Оптимизация для слабых серверов
@@ -123,7 +123,7 @@ kubectl apply -f configs/k8s/base/ingress/ -n fitness-platform
 Для серверов с <4GB RAM примените resource quotas:
 
 ```bash
-kubectl apply -f configs/k8s/base/resource-quota.yaml -n fitness-platform
+kubectl apply -f configs/k8s/base/resource-quota.yaml -n fitness-platform-production
 ```
 
 ### Отключение ML-сервисов
@@ -131,9 +131,8 @@ kubectl apply -f configs/k8s/base/resource-quota.yaml -n fitness-platform
 На слабых серверах отключите ML-сервисы:
 
 ```bash
-kubectl scale deployment classifier --replicas=0 -n fitness-platform
-kubectl scale deployment ml-generator --replicas=0 -n fitness-platform
-kubectl scale deployment ml-engine --replicas=0 -n fitness-platform
+kubectl scale deployment classifier --replicas=0 -n fitness-platform-production
+kubectl scale deployment ml-generator --replicas=0 -n fitness-platform-production
 ```
 
 ### Swap для серверов с <4GB RAM
@@ -173,10 +172,10 @@ SELECT create_invite_code('admin', NULL, 1, 365);
 
 ```bash
 # Проверить логи
-kubectl logs <pod-name> -n fitness-platform --previous
+kubectl logs <pod-name> -n fitness-platform-production --previous
 
 # Проверить события
-kubectl describe pod <pod-name> -n fitness-platform
+kubectl describe pod <pod-name> -n fitness-platform-production
 ```
 
 ### ML-сервисы потребляют слишком много памяти
@@ -187,11 +186,11 @@ kubectl describe pod <pod-name> -n fitness-platform
 
 ```bash
 # Проверить статус PostgreSQL
-kubectl get pods -l app=postgres -n fitness-platform
+kubectl get pods -l app=postgres -n fitness-platform-production
 
 # Выполнить миграции повторно
-kubectl delete job init-db -n fitness-platform
-kubectl apply -f configs/k8s/base/jobs/init-db.yaml -n fitness-platform
+kubectl delete job migrate-db -n fitness-platform-production
+kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 ```
 
 ### NGINX не стартует

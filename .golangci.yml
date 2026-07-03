@@ -2,7 +2,6 @@ version: "2"
 
 run:
   timeout: 10m
-  allow-parallel-runners: true
 
 linters:
   enable:
@@ -12,84 +11,50 @@ linters:
     - ineffassign
     - unused
     - staticcheck
+    - gofmt
+    - goimports
     # Security-oriented
-    - gosec # Security vulnerability detection
-    - goconst # Повторяющиеся строковые литералы (potential secrets/hardcoded values)
-    - gochecknoglobals # Запрет глобальных переменных (code quality)
-    - nilerr # Проверка ошибок nil
-    - bodyclose # Проверка закрытия HTTP response bodies
-    - noctx # Требование context в HTTP/gRPC запросах
-    - prealloc # Предварительное выделение слайсов (performance)
-    - errorlint # Правильная обработка ошибок
-    - exhaustive # Проверка полноты switch statement
-    - copyloopvar # Обнаружение копирования переменных цикла
-    - fatcontext # Обнаружение больших context
-    # Complexity & maintainability (code-smells)
-    - gocyclo # Цикломатическая сложность (Вирт: прозрачность алгоритмов)
-    - gocognit # Когнитивная сложность (code-smell: сложные функции)
-    - funlen # Слишком длинные функции (code-smell: Long Method)
-    - dupl # Дублирование кода (code-smell: Duplicate Code)
+    - gosec
+    - goconst
+    - gochecknoglobals
+    - nilerr
+    - bodyclose
+    - noctx
+    - prealloc
+    - errorlint
+    - exhaustive
+    - copyloopvar
+    - fatcontext
+    - wrapcheck
+    - rowserrcheck
+    # Complexity & maintainability
+    - gocyclo
+    - gocognit
+    - funlen
+    - dupl
+    - nestif
+    # Code style
+    - misspell
+    - wsl
   settings:
     gosec:
       severity: medium
       confidence: medium
-      excludes:
-        - G104 # Duplicate of errcheck
-        - G101 # Hardcoded credentials false positive on OAuth endpoint URLs
-        - G304 # Intentional file read for Kubernetes secrets
-        - G703 # Path traversal false positive on controlled secret paths
     govet:
       enable-all: true
-      disable:
-        - fieldalignment # Не критично для production
     staticcheck:
-      checks: ["all", "-SA1029"] # Allow string keys for context
+      checks: ["all", "-SA1029"]
     # Code-smell thresholds (Вирт: «простота — основа надёжности»)
     # Установлены ВЫШЕ худшего существующего кода.
     # Новые функции должны быть ПРОЩЕ. Со временем пороги снижать.
     gocyclo:
-      min-complexity: 40 # Худший в коде: gateway main=34
+      min-complexity: 30
     gocognit:
-      min-complexity: 60 # Худший в коде: gateway main=51
+      min-complexity: 45
     funlen:
-      lines: 260 # Худший в коде: gateway main=256, ingestHandler=174
-      statements: 110 # Худший в коде: gateway main=104, ingestHandler=87
+      lines: 220
+      statements: 90
     dupl:
-      threshold: 200 # Пропускает мелкие и тестовые дубликаты
-  exclusions:
-    generated: lax
-    rules:
-      - linters:
-          - gosec
-        path: "_test\\.go"
-      - linters:
-          - gochecknoglobals
-        path: "internal/metrics|internal/logger|internal/db|internal/queue|cmd/classifier"
-      # Тесты могут быть длинными, сложными и содержать шаблонные дубликаты
-      - linters:
-          - funlen
-          - gocyclo
-          - gocognit
-          - dupl
-        path: "_test\\.go$"
-      # Сгенерированный proto-код может содержать дубликаты
-      - linters:
-          - dupl
-        path: "api/gen/"
-      # Дубликаты goals/contraindications в user-service — намеренный паттерн
-      - linters:
-          - dupl
-        path: "cmd/user-service/main\\.go"
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
-  exclusions:
-    generated: lax
-    paths:
-      - api/gen/
+      threshold: 160
+    misspell:
+      locale: "US"

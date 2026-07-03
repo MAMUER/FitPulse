@@ -1,15 +1,13 @@
 # FitPulse — Интеллектуальная платформа персонализированных тренировок
 
 [![Build Status](https://github.com/MAMUER/fitpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/MAMUER/fitpulse/actions)
-[![Docker Pulls](https://img.shields.io/docker/pulls/fitpulse/gateway.svg)](https://hub.docker.com/u/fitpulse)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5.svg)](https://kubernetes.io/)
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Coverage](https://codecov.io/gh/MAMUER/fitpulse/branch/main/graph/badge.svg)](https://codecov.io/gh/MAMUER/fitpulse)
 
-**FitPulse** — микросервисная платформа для персонализированных тренировок, ML-анализа биометрии и интеграции с носимыми устройствами (Apple Watch, Samsung, Huawei, Amazfit).
+**FitPulse** — микросервисная платформа для персонализированных тренировок, ML-анализа биометрии и интеграции с носимыми устройствами.
 
 ---
 
@@ -26,7 +24,7 @@
 | [Architecture Decision Records](docs/adr/) | Обоснование архитектурных решений |
 | [UI Specification](docs/UI_SPECIFICATION.md) | Спецификация мобильного веб-интерфейса |
 | [Runbooks](docs/runbooks/) | Операционные инструкции и response playbooks |
-| [Phase 2 Roadmap](docs/phase2-roadmap.md) | Бэклог инфраструктуры (план на Phase 2): Vault, mTLS/Service Mesh, HA, CAPTCHA, Secrets Rotation |
+| [Phase 2 Roadmap](docs/phase2-roadmap.md) | Бэклог инфраструктуры (план на Phase 2): Vault, Service Mesh, HA, CAPTCHA, Secrets Rotation |
 | [Bug Bounty Scope](BUG_BOUNTY_SCOPE.md) | Условия программы Bug Bounty, scope, severity tiers |
 | [Contributing Guide](CONTRIBUTING.md) | Как внести вклад, стандарты кода, тестирование |
 
@@ -39,7 +37,7 @@
 - Персонализированные тренировочные планы (GAN)
 - Автоматическая генерация диеты
 - Интеграция с носимыми устройствами
-- ML-классификация состояния (6 классов)
+- ML-классификация состояния (4 класса)
 - Мониторинг биометрии в реальном времени
 
 **Для администраторов:**

@@ -14,6 +14,7 @@ htmlcov/
 build/
 dist/
 target/
+bin/
 
 # Dependencies
 vendor/
@@ -72,8 +73,10 @@ deploy/tls/certs/
 .minikube/
 kubeconfig
 
-# Large generated data
-datasets/raw/
+# Environment secrets & local overrides
+.env
+.env.local
+.env.*.local
 
 # Compressed files
 *.zip
@@ -100,9 +103,7 @@ datasets/raw/
 *.tar.zst
 
 results.json
-*temp*
+*temp
 *.docx
-bin/
-coverage.html
-config/production.json
+
 .kilo

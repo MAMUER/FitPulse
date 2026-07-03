@@ -4,50 +4,33 @@
 
 FitPulse использует два компонента:
 
-1. **Classifier** — алгоритм классификации состояния пользователя (6 классов), реализованный на Go.
-2. **Generator (GAN)** — генерация индивидуальных тренировочных планов и диеты
+1. **Classifier** — правила-на-основе классификации состояния пользователя, реализованный на Go.
+2. **Generator (GAN)** — генерация индивидуальных тренировочных планов (обученная модель `models/generator.keras`).
 
 ## Архитектура моделей
 
-### Classifier (Go-алгоритм, 6 классов)
+### Classifier (Go-правила, 6 классов)
 
-**Входные признаки (64-dim):**
+**Входные признаки (7 признаков):**
 
-Windowed features (24h история + агрегация):
+- HeartRate (float64)
+- HeartRateVariability (float64)
+- SpO2 (float64)
+- Temperature (float64) — ключевой признак для класса "Заболевание"
+- BloodPressureSystolic (float64)
+- BloodPressureDiastolic (float64)
+- SleepHours (float64)
 
-- HR (средний, min, max, вариабельность) × 4 временных окна: 16 признаков
-- HRV (средний, RMSSD, pNN50) × 4 окна: 12 признаков
-- SpO₂ (средний, мин) × 2 окна: 4 признака
-- Температура (средняя, пик): 2 признака
-- Артериальное давление (систолическое, диастолическое): 2 признака
-- Сон (длительность, deep sleep, REM): 3 признака
-- Шаги (сумма, активные периоды): 2 признака
-- Время суток (час, день недели): 2 признаки
-- Возраст, пол, рост, вес, опыт тренировок: 5 признаков
-- Неделя плана (прогресс): 1 признак
-- Историческая нагрузка (7д/14д/30д): 3 признака
-- **Доп. признаки (12):**
-  - Калории потраченные (daily/weekly totals): 2
-  - Достижения (completed count, streak): 2
-  - Процент выполнения плана: 1
-  - Среднее время выполнения тренировок: 1
-  - Последний тип тренировки: 1
-  - Исторические макросы (protein/fat/carbs): 3
-  - Статус 2FA: 1
-  - Итого: 52 + 12 = 64
+**Выход:**
 
-**Выход (19-dim):**
-
-- Вероятности 6 классов состояния (softmax)
-- Уверенность (max probability, 0–1)
-- Рекомендация по интенсивности (0–1)
-- Рекомендация по типу тренировки (one-hot 5: cardio, strength, hiit, yoga, rest)
-- Длительность рекомендованной тренировки (мин)
-- Сдвиг плана (days: -3..+3)
-- Флаг «обратиться к врачу» (binary)
-- Уровень усталости (fatigue_level, 0–1)
-- Мотивация (motivation_score, 0–1)
-- Качество восстановления (recovery_quality, 0–1)
+- PredictedClass (String)
+- PredictedClassRu (String)
+- Confidence (0–1)
+- Probabilities (map[string]float64)
+- Description (String)
+- HrRange (String)
+- Recommendations ([]string)
+- PersonalizedNotes (*string)
 
 **6 классов:**
 
@@ -55,27 +38,23 @@ Windowed features (24h история + агрегация):
 2. Базовая выносливость E1-E2 (Endurance Basic)
 3. Пороговая выносливость E3 (Endurance Threshold)
 4. Силовая/HIIT (Power/HIIT)
-5. Перетренированность (Overtraining)
-6. Заболевание (Illness)
+5. Перетренированность (Overtraining) — определя через HRV < 30 и низкую частоту пульса
+6. Заболевание (Illness) — определя через температуру > 37.5°C
+
+**Endpoint:** `POST /classify`
 
 ### Generator (Conditional GAN)
 
 **Generator:**
-
-- Вход: latent vector (64-dim) + conditioning vector (19-dim, output Classifier)
-- Архитектура: 3 Dense-блока (256→512→1024→19), LeakyReLU, BatchNorm
+- Вход: latent vector (64-dim)
+- Архитектура: 64 → 256 → 512 → 256 → 19 (sigmoid), BatchNorm, Dropout
+- Loss: MSE
 - Выход: 19-dim plan vector
 
 **Discriminator:**
-
-- Вход: 19-dim plan vector + 19-dim conditioning vector
-- Архитектура: Dense 256→128→1, sigmoid
-
-**Loss:**
-
-- adversarial loss (binary crossentropy)
-- L1 distance between generated plan и средний план для класса
-- penalty за выход за пределы безопасных диапазонов
+- Вход: 19-dim plan vector
+- Архитектура: 19 → 512 → 256 → 128 → 1 (sigmoid)
+- Loss: binary_crossentropy
 
 ### Generator Details
 
@@ -123,14 +102,21 @@ Via API:
 uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 ```
 
-`POST /ml/generate-plan` with:
+`POST /generate-plan` with:
 
 ```json
 {
   "training_class": "endurance_e3",
   "user_profile": {
     "age": 30,
-    "fitness_level": "intermediate"
+    "fitness_level": "intermediate",
+    "weight": 70,
+    "height": 170,
+    "gender": "male"
+  },
+  "preferences": {
+    "time": "morning",
+    "equipment": ["dumbbell", "resistance_band"]
   }
 }
 ```
@@ -164,14 +150,12 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 
 ## Интеграция
 
-**Endpoint:** `POST /ml/classify`
+**Endpoint:** `POST /classify` (service на порту 8001)
 
-- Вход: текущая биометрия + контекст
+- Вход: физиологические данные (heart_rate, hrv, spo2, temperature, blood_pressure, sleep_hours)
 - Выход: класс, уверенность, рекомендации
 
-**Endpoint:** `POST /ml/generate-plan`
+**Endpoint:** `POST /generate-plan` (service на порту 8002)
 
-- Вход: пользовательский профиль + цель + ограничения
-- Выход: тренировочный план + диетический план
-
-**Fallback:** если ML-сервис недоступен — используется rule-based движок.
+- Вход: user_id, цель, ограничения
+- Выход: тренировочный план

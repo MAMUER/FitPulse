@@ -27,7 +27,7 @@ ML Generator service должен был производить персонал
 2. **Архитектура модели**
    - Generator: 64-dim latent → 256 → 512 → 256 → 19 (sigmoid)
    - Discriminator: 19 → 512 → 256 → 128 → 1 (sigmoid)
-   - Loss: binary crossentropy + L1 distance penalty для generator, binary_crossentropy для discriminator
+   - Loss: MSE для generator, binary_crossentropy для discriminator
    - Optimizer: Adam (lr=0.0002, beta_1=0.5)
 
 3. **Конфигурация обучения**

@@ -27,28 +27,28 @@
 2. **Проверить статус сервисов**
 
    ```bash
-   kubectl get pods -n fitness-platform
-   kubectl describe pod <pod-name> -n fitness-platform
+   kubectl get pods -n fitness-platform-production
+   kubectl describe pod <pod-name> -n fitness-platform-production
    ```
 
 3. **Проверить логи**
 
    ```bash
-   kubectl logs <pod-name> -n fitness-platform --tail=100
+   kubectl logs <pod-name> -n fitness-platform-production --tail=100
    # Или через Kibana: индекс "fitness-logs-*", фильтр service="gateway"
    ```
 
 4. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
 
    ```bash
-   kubectl delete pod <pod-name> -n fitness-platform
+   kubectl delete pod <pod-name> -n fitness-platform-production
    # Pod будет пересоздан deployment controller'ом
    ```
 
 5. **Откат** если проблема появилась после недавнего деплоя
 
    ```bash
-   kubectl rollout undo deployment/gateway -n fitness-platform
+   kubectl rollout undo deployment/gateway -n fitness-platform-production
    ```
 
 6. **Эскалировать Tech Lead**, если проблема не решена за 5 минут.
@@ -75,7 +75,7 @@
 3. Масштабировать сервис, если исчерпан пул соединений к БД:
 
    ```bash
-   kubectl scale deployment biometric-service --replicas=3 -n fitness-platform
+   kubectl scale deployment biometric-service --replicas=3 -n fitness-platform-production
    ```
 
 4. Проверить репликацию БД:
@@ -96,15 +96,15 @@
 # Этап 4: Деплой в Test
 kubectl set image deployment/gateway-test \
   gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform
+  -n fitness-platform-production
 
 # Подождать 5 минут, проверить health
-kubectl get pods -n fitness-platform -l app=gateway-test
+kubectl get pods -n fitness-platform-production -l app=gateway-test
 
 # Этап 5: Деплой в Staging (UAT, perf/security тесты)
 kubectl set image deployment/gateway-staging \
   gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform
+  -n fitness-platform-production
 
 # Запустить нагрузочные и security-тесты
 make k6-load-test
@@ -119,7 +119,7 @@ kubectl patch service gateway-canary -p \
   '{"spec":{"selector":{"version":"canary"}}}'
 
 # Мониторить в течение 1 часа
-kubectl get hpa -n fitness-platform -w
+kubectl get hpa -n fitness-platform-production -w
 
 # Критерии успеха:
 # - Error rate < 1%
@@ -129,7 +129,7 @@ kubectl get hpa -n fitness-platform -w
 # Этап 7b: Rolling Deploy (30% → 60% → 100%, интервалы 30 мин)
 kubectl set image deployment/gateway \
   gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform
+  -n fitness-platform-production
 
 # Этап 8: Пост-деплойный мониторинг (24 часа)
 # Дашборды: Error Rate, Latency, ML Confidence, DB Pool, Backup Status
@@ -138,24 +138,24 @@ kubectl set image deployment/gateway \
 # - error_rate > baseline + 1% в течение 15 минут
 # - latency p95 > 5s в течение 15 минут
 # - КРИТИЧЕСКАЯ security-проблема
-kubectl rollout undo deployment/gateway -n fitness-platform
+kubectl rollout undo deployment/gateway -n fitness-platform-production
 ```
 
 ### Ручной откат
 
 ```bash
 # Просмотреть историю rollout
-kubectl rollout history deployment/gateway -n fitness-platform
+kubectl rollout history deployment/gateway -n fitness-platform-production
 
 # Откатиться на предыдущую версию
-kubectl rollout undo deployment/gateway -n fitness-platform
+kubectl rollout undo deployment/gateway -n fitness-platform-production
 
 # Откатиться на определённую ревизию
-kubectl rollout undo deployment/gateway --to-revision=5 -n fitness-platform
+kubectl rollout undo deployment/gateway --to-revision=5 -n fitness-platform-production
 
 # Проверить результат отката
-kubectl get pods -n fitness-platform -l app=gateway
-kubectl logs -f deployment/gateway -n fitness-platform
+kubectl get pods -n fitness-platform-production -l app=gateway
+kubectl logs -f deployment/gateway -n fitness-platform-production
 ```
 
 ---
@@ -184,7 +184,7 @@ kubectl logs -f deployment/gateway -n fitness-platform
 3. **Масштабировать реплики сервиса**
 
    ```bash
-   kubectl scale deployment user-service --replicas=5 -n fitness-platform
+   kubectl scale deployment user-service --replicas=5 -n fitness-platform-production
    ```
 
 4. **Мониторить восстановление пула**
@@ -202,8 +202,8 @@ kubectl logs -f deployment/gateway -n fitness-platform
 1. **Проверить логи job'ы бэкапа**
 
    ```bash
-   kubectl get pods -n fitness-platform -l job-name=backup
-   kubectl logs -f backup-job -n fitness-platform
+   kubectl get pods -n fitness-platform-production -l job-name=backup
+   kubectl logs -f backup-job -n fitness-platform-production
    ```
 
 2. **Проверить свободное место**
@@ -259,7 +259,7 @@ kubectl logs -f deployment/gateway -n fitness-platform
 1. **Проверить logs device-aggregator**
 
    ```bash
-   kubectl logs -f deployment/device-aggregator -n fitness-platform | grep -i "error\|panic"
+   kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
    ```
 
 2. **Проверить health**
@@ -340,7 +340,7 @@ aws s3 cp elasticsearch-snapshot-2026.01.01.tar.gz s3://fitness-logs-archive/
 
 ```bash
 # 1. Остановить текущий инстанс PostgreSQL
-kubectl scale deployment/postgres --replicas=0 -n fitness-platform
+kubectl scale deployment/postgres --replicas=0 -n fitness-platform-production
 
 # 2. Восстановить из бэкапа
 scripts/restore-db.sh --backup-file=fitness-backup-2026-05-05.sql.enc \
@@ -352,10 +352,10 @@ psql -h localhost -U postgres -d fitness \
   -c "SELECT COUNT(*) FROM users; SELECT MAX(created_at) FROM biometric_data;"
 
 # 4. Запустить PostgreSQL
-kubectl scale deployment/postgres --replicas=1 -n fitness-platform
+kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 
 # 5. Мониторить репликацию на реплики
-kubectl logs -f postgres-replica-0 -n fitness-platform
+kubectl logs -f postgres-replica-0 -n fitness-platform-production
 ```
 
 ### Восстановление Elasticsearch

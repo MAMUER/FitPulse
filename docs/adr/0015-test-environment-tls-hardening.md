@@ -10,21 +10,21 @@
 
 ## Решение
 
-Привести тестовое окружение к требованиям production-grade, но с self-signed инфраструктурой:
+Привести тестовое окружение к TLS-ready состоянию, но без реальных сертификатов в репозитории:
 
-1. **Self-signed сертификаты** в `deploy/tls/certs/`:
-   - генерация через OpenSSL (`make certs`);
-   - CN=localhost, SAN=DNS:localhost,IP:127.0.0.1;
+1. **Self-signed сертификаты**:
+   - планировалась генерация через OpenSSL (`make certs`), но цель в Makefile не добавлена;
+   - предполагаемый контур: CN=localhost, SAN=DNS:localhost,IP:127.0.0.1;
    - короткий TTL (1 день) чтобы случайно не попало в production.
 
 2. **Docker Compose Test**:
-   - монтировать директорию с сертификатами в `/etc/tls/certs:ro`;
-   - передавать `TLS_CERT_FILE` и `TLS_KEY_FILE`;
-   - открывать оба порта: `8080` (HTTP redirect) и `8443` (HTTPS);
-   - health-check через `curl -f -k https://localhost:8443/health`.
+   - планировался volume `/etc/tls/certs:ro`, но в текущем `docker-compose.test.yml` не смонтирован;
+   - env-переменные `TLS_CERT_FILE`/`TLS_KEY_FILE` поддерживаются кодом Gateway, но не заданы в compose;
+   - оба порта `8080` (HTTP redirect) и `8443` (HTTPS) задокументированы, но в текущем compose открыт только `8081:8080`;
+   - health-check выполняется по HTTP (`http://localhost:8080/health`).
 
 3. **Graceful TLS skip**:
-   - Gateway продолжит стартовать, даже если переменных нет (логирует warn), что позволяет запускать unit-тесты без Docker.
+   - Gateway стартует без паники при отсутствии TLS-переменных, что позволяет запускать unit-тесты без Docker.
 
 ## Последствия
 
@@ -34,6 +34,6 @@
 
 ## Реализация
 
-- `Makefile` — цель `certs`.
-- `docker-compose.test.yml` — volumes/env/ports/healthcheck изменения.
-- `cmd/gateway/main.go` — логика fallback’а.
+- `Makefile` — цель `certs` не добавлена.
+- `docker-compose.test.yml` — env-переменные заданы, но volume и HTTPS-порт не открыты.
+- `cmd/gateway/main.go` — логика graceful TLS fallback реализована.

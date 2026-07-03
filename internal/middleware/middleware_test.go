@@ -6,12 +6,14 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"database/sql"
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/MAMUER/project/internal/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,8 @@ var (
 	testPrivateKeyPEMMW string
 	//nolint:gochecknoglobals
 	testPublicKeyPEMMW string
+	//nolint:gochecknoglobals
+	testUserID = "user-789"
 )
 
 func init() {
@@ -556,6 +560,26 @@ func TestRecoveryMiddlewareNextHandlerCompletes(t *testing.T) {
 // RequireRole Tests
 // ==========================================
 
+func setupRequireRoleDB(t *testing.T, expectedRole string, userID string) (*sql.DB, *zap.Logger) {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mock.ExpectClose()
+
+	if expectedRole == "" {
+		mock.ExpectQuery("SELECT role FROM users WHERE id =").
+			WithArgs(userID).
+			WillReturnError(sql.ErrNoRows)
+	} else {
+		mock.ExpectQuery("SELECT role FROM users WHERE id =").
+			WithArgs(userID).
+			WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow(expectedRole))
+	}
+
+	logger, _ := zap.NewDevelopment()
+	return db, logger
+}
+
 func TestRequireRole(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -563,6 +587,7 @@ func TestRequireRole(t *testing.T) {
 		allowedRoles   []string
 		expectedStatus int
 		nextCalled     bool
+		mockRole       string
 	}{
 		{
 			name:           "allowed role - admin",
@@ -570,6 +595,7 @@ func TestRequireRole(t *testing.T) {
 			allowedRoles:   []string{"admin"},
 			expectedStatus: http.StatusOK,
 			nextCalled:     true,
+			mockRole:       "admin",
 		},
 		{
 			name:           "allowed role - one of many",
@@ -577,6 +603,7 @@ func TestRequireRole(t *testing.T) {
 			allowedRoles:   []string{"admin", "editor", "viewer"},
 			expectedStatus: http.StatusOK,
 			nextCalled:     true,
+			mockRole:       "viewer",
 		},
 		{
 			name:           "disallowed role",
@@ -584,6 +611,7 @@ func TestRequireRole(t *testing.T) {
 			allowedRoles:   []string{"admin", "editor"},
 			expectedStatus: http.StatusNotFound,
 			nextCalled:     false,
+			mockRole:       "viewer",
 		},
 		{
 			name:           "no role in context",
@@ -591,6 +619,7 @@ func TestRequireRole(t *testing.T) {
 			allowedRoles:   []string{"admin"},
 			expectedStatus: http.StatusNotFound,
 			nextCalled:     false,
+			mockRole:       "",
 		},
 		{
 			name:           "wrong type in context",
@@ -598,6 +627,7 @@ func TestRequireRole(t *testing.T) {
 			allowedRoles:   []string{"admin"},
 			expectedStatus: http.StatusNotFound,
 			nextCalled:     false,
+			mockRole:       "",
 		},
 	}
 
@@ -609,11 +639,14 @@ func TestRequireRole(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := RequireRole(tt.allowedRoles...)(nextHandler)
+			db, log := setupRequireRoleDB(t, tt.mockRole, testUserID)
+
+			handler := RequireRole(db, log, tt.allowedRoles...)(nextHandler)
 
 			var ctx context.Context
 			if tt.roleInContext != nil {
-				ctx = context.WithValue(context.Background(), RoleKey, tt.roleInContext)
+				ctx = context.WithValue(context.Background(), UserIDKey, testUserID)
+				ctx = context.WithValue(ctx, RoleKey, tt.roleInContext)
 			} else {
 				ctx = context.Background()
 			}
@@ -636,9 +669,11 @@ func TestRequireRoleMultipleRoles(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := RequireRole("admin", "moderator", "editor")(nextHandler)
+	db, log := setupRequireRoleDB(t, "moderator", testUserID)
 
-	ctx := context.WithValue(context.Background(), RoleKey, "moderator")
+	handler := RequireRole(db, log, "admin", "moderator", "editor")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), UserIDKey, testUserID)
 	req := httptest.NewRequestWithContext(ctx, "GET", "/moderate", nil)
 	rr := httptest.NewRecorder()
 
@@ -653,9 +688,11 @@ func TestRequireRoleEmptyAllowedRoles(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := RequireRole()(nextHandler)
+	db, log := setupRequireRoleDB(t, "admin", testUserID)
 
-	ctx := context.WithValue(context.Background(), RoleKey, "admin")
+	handler := RequireRole(db, log)(nextHandler)
+
+	ctx := context.WithValue(context.Background(), UserIDKey, testUserID)
 	req := httptest.NewRequestWithContext(ctx, "GET", "/", nil)
 	rr := httptest.NewRecorder()
 
@@ -669,9 +706,11 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := RequireRole("admin")(nextHandler)
+	db, log := setupRequireRoleDB(t, "client", testUserID)
 
-	ctx := context.WithValue(context.Background(), RoleKey, "client")
+	handler := RequireRole(db, log, "admin")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), UserIDKey, testUserID)
 	req := httptest.NewRequestWithContext(ctx, "GET", "/admin", nil)
 	rr := httptest.NewRecorder()
 
@@ -684,7 +723,7 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-789", "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := auth.GenerateAccessToken(testUserID, "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -692,13 +731,14 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 		called = true
 		userID := r.Context().Value(UserIDKey).(string)
 		role := r.Context().Value(RoleKey).(string)
-		assert.Equal(t, "user-789", userID)
+		assert.Equal(t, testUserID, userID)
 		assert.Equal(t, "admin", role)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// Chain: AuthMiddleware -> RequireRole -> handler
-	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole("admin")(nextHandler))
+	db, logger := setupRequireRoleDB(t, "admin", testUserID)
+
+	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole(db, logger, "admin")(nextHandler))
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin/panel", nil)
 	req.Header.Set("Authorization", "Bearer "+validToken)
@@ -713,7 +753,6 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	log := zap.NewNop()
 
-	// User has "client" role but endpoint requires "admin"
 	validToken, err := auth.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
@@ -723,7 +762,9 @@ func TestRequireRoleChainWithWrongRole(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole("admin")(nextHandler))
+	db, logger := setupRequireRoleDB(t, "client", "user-client")
+
+	handler := AuthMiddleware(testPublicKeyPEMMW, log)(RequireRole(db, logger, "admin")(nextHandler))
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/admin", nil)
 	req.Header.Set("Authorization", "Bearer "+validToken)
