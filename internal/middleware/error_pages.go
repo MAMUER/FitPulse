@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -67,15 +68,9 @@ func ErrorPages(next http.Handler) http.Handler {
 		wantsHTML := strings.Contains(accept, "text/html")
 
 		if wantsHTML && (status == http.StatusNotFound || status == http.StatusInternalServerError) {
-			var file string
-			if status == http.StatusNotFound {
-				file = errorPageDir + "/error.html"
-			} else {
-				file = errorPageDir + "/error-500.html"
-			}
-
-			data, err := os.ReadFile(file)
-			if err == nil {
+			file := errorPageFileForStatus(status)
+			data, readErr := os.ReadFile(file)
+			if readErr == nil {
 				if recorder.headers != nil {
 					for k, v := range recorder.headers {
 						w.Header()[k] = v
@@ -92,4 +87,11 @@ func ErrorPages(next http.Handler) http.Handler {
 
 		recorder.replay(status, recorder.body.Bytes())
 	})
+}
+
+func errorPageFileForStatus(status int) string {
+	if status == http.StatusNotFound {
+		return filepath.Clean(errorPageDir + "/error.html")
+	}
+	return filepath.Clean(errorPageDir + "/error-500.html")
 }

@@ -229,6 +229,74 @@ async function logout() {
     }
 }
 
+// Health features
+async function listHealthConditions(conditionType = '') {
+    let url = '/health/conditions';
+    if (conditionType) url += `?condition_type=${encodeURIComponent(conditionType)}`;
+    return apiRequest(url);
+}
+
+async function upsertHealthCondition(data) {
+    return apiRequest('/health/conditions', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+async function deleteHealthCondition(conditionId) {
+    return apiRequest(`/health/conditions/${conditionId}`, { method: 'DELETE' });
+}
+
+async function listBodyComposition(from, to, limit = 100) {
+    let url = `/health/body-composition?limit=${limit}`;
+    if (from) url += `&from=${encodeURIComponent(from)}`;
+    if (to) url += `&to=${encodeURIComponent(to)}`;
+    return apiRequest(url);
+}
+
+async function createBodyComposition(data) {
+    return apiRequest('/health/body-composition', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+async function listMenstrualCycles() {
+    return apiRequest('/health/menstrual-cycles');
+}
+
+async function createMenstrualCycle(data) {
+    return apiRequest('/health/menstrual-cycles', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+async function updateMenstrualCycle(cycleId, data) {
+    return apiRequest(`/health/menstrual-cycles/${cycleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+async function deleteMenstrualCycle(cycleId) {
+    return apiRequest(`/health/menstrual-cycles/${cycleId}`, { method: 'DELETE' });
+}
+
+async function syncFlo(accessToken, refreshToken) {
+    return apiRequest('/health/sync/flo', {
+        method: 'POST',
+        body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken })
+    });
+}
+
+async function syncOKOK(accessToken, refreshToken) {
+    return apiRequest('/health/sync/okok', {
+        method: 'POST',
+        body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken })
+    });
+}
+
 // Export shared functions for use by other modules
 window.apiRequest = apiRequest;
 window.setAuthToken = setAuthToken;
@@ -238,3 +306,15 @@ window.setup2FA = setup2FA;
 window.confirm2FA = confirm2FA;
 window.verify2FA = verify2FA;
 window.disable2FA = disable2FA;
+window.logout = logout;
+window.listHealthConditions = listHealthConditions;
+window.upsertHealthCondition = upsertHealthCondition;
+window.deleteHealthCondition = deleteHealthCondition;
+window.listBodyComposition = listBodyComposition;
+window.createBodyComposition = createBodyComposition;
+window.listMenstrualCycles = listMenstrualCycles;
+window.createMenstrualCycle = createMenstrualCycle;
+window.updateMenstrualCycle = updateMenstrualCycle;
+window.deleteMenstrualCycle = deleteMenstrualCycle;
+window.syncFlo = syncFlo;
+window.syncOKOK = syncOKOK;

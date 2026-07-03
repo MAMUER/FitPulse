@@ -125,7 +125,7 @@ func (s *Sender) SendVerificationEmail(toEmail, verifyToken, baseURL string) err
 		s.dailySent++
 	}
 
-	return err
+	return fmt.Errorf("send mail: %w", err)
 }
 
 // sendWithTLS sends email using TLS connection (для Yandex, Mail.ru, Gmail).

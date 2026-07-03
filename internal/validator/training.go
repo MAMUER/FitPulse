@@ -3,6 +3,7 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 
 	pb "github.com/MAMUER/project/api/gen/training"
 	"google.golang.org/grpc/codes"
@@ -38,10 +39,10 @@ func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 		req.DurationWeeks = 4
 	}
 	if req.DurationWeeks < 0 {
-		return status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error())
+		return fmt.Errorf("duration_weeks invalid: %w", status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error()))
 	}
 	if req.DurationWeeks > MaxDurationWeeks {
-		return status.Error(codes.InvalidArgument, ErrDurationWeeksTooLarge.Error())
+		return fmt.Errorf("duration_weeks too large: %w", status.Error(codes.InvalidArgument, ErrDurationWeeksTooLarge.Error()))
 	}
 	if len(req.AvailableDays) == 0 {
 		return status.Error(codes.InvalidArgument, ErrAvailableDaysRequired.Error())

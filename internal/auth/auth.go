@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -26,11 +27,11 @@ type Claims struct {
 func GenerateES256KeyPair() (string, string, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("generate ECDSA key: %w", err)
 	}
 	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("marshal EC private key: %w", err)
 	}
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "EC PRIVATE KEY",
@@ -39,7 +40,7 @@ func GenerateES256KeyPair() (string, string, error) {
 
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("marshal PKIX public key: %w", err)
 	}
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "PUBLIC KEY",
@@ -54,7 +55,11 @@ func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
 	if block == nil {
 		return nil, errors.New("failed to decode PEM block containing EC private key")
 	}
-	return x509.ParseECPrivateKey(block.Bytes)
+	privKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse EC private key: %w", err)
+	}
+	return privKey, nil
 }
 
 func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
@@ -62,9 +67,9 @@ func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
 	if block == nil {
 		return nil, errors.New("failed to decode PEM block containing public key")
 	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
+	pub, parseErr := x509.ParsePKIXPublicKey(block.Bytes)
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse PKIX public key: %w", parseErr)
 	}
 	ecdsaPub, ok := pub.(*ecdsa.PublicKey)
 	if !ok {
@@ -95,7 +100,11 @@ func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Dur
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
-	return token.SignedString(privateKey)
+	signedToken, signErr := token.SignedString(privateKey)
+	if signErr != nil {
+		return "", fmt.Errorf("sign access token: %w", signErr)
+	}
+	return signedToken, nil
 }
 
 func GenerateRefreshToken() string {
@@ -114,17 +123,17 @@ func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
 
 	publicKey, err := ParseECPublicKey(publicKeyPEM)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse EC public key: %w", err)
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, parseErr := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
 		return publicKey, nil
 	})
-	if err != nil {
-		return nil, err
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse access token: %w", parseErr)
 	}
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		return claims, nil

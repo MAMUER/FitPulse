@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 )
 
 // SignResponse вычисляет HMAC-SHA256 подпись байтов ответа
@@ -20,7 +21,7 @@ func SignResponse(data []byte, secret string) (string, error) {
 func SignResponseObject(data interface{}, secret string) (string, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal object: %w", err)
 	}
 	return SignResponse(jsonData, secret)
 }

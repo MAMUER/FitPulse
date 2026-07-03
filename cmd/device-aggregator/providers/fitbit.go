@@ -45,7 +45,7 @@ func (p *FitbitProvider) GetAuthURL(userID string) (string, error) {
 		INSERT INTO oauth_states (state, user_id, provider, expires_at)
 		VALUES ($1, $2, 'fitbit', NOW() + INTERVAL '10 minutes')
 	`, state, userID); err != nil {
-		return "", err
+		return "", fmt.Errorf("insert oauth state: %w", err)
 	}
 
 	scopes := "activity heartrate sleep profile weight"
@@ -74,12 +74,12 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 
 	tokenResp, err := p.exchangeCodeForTokens(code)
 	if err != nil {
-		return err
+		return fmt.Errorf("exchange code for tokens: %w", err)
 	}
 
 	profile, err := p.getProfile(tokenResp.AccessToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("get profile: %w", err)
 	}
 
 	_, err = p.db.ExecContext(ctx, `
@@ -97,7 +97,7 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 		time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second),
 		strings.Split(tokenResp.Scope, " "))
 
-	return err
+	return fmt.Errorf("upsert device provider account: %w", err)
 }
 
 func (p *FitbitProvider) exchangeCodeForTokens(code string) (*FitbitTokenResponse, error) {
@@ -116,7 +116,7 @@ func (p *FitbitProvider) exchangeCodeForTokens(code string) (*FitbitTokenRespons
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do token request: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -147,7 +147,7 @@ func (p *FitbitProvider) getProfile(accessToken string) (*FitbitProfile, error) 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -171,19 +171,25 @@ func (p *FitbitProvider) Disconnect(ctx context.Context, userID string) error {
 		SET is_active = FALSE, updated_at = NOW()
 		WHERE user_id = $1 AND provider = 'fitbit'
 	`, userID)
-	return err
+	return fmt.Errorf("disconnect fitbit account: %w", err)
 }
 
 // ListProviders returns connected Fitbit accounts for the user.
 func (p *FitbitProvider) ListProviders(ctx context.Context, userID string) (map[string]interface{}, error) {
-	rows, err := p.db.QueryContext(ctx, `
+	return listAccountProviders(ctx, p.db, userID, "fitbit")
+}
+
+// listAccountProviders queries device_provider_accounts for the given provider
+// and returns a summary map.
+func listAccountProviders(ctx context.Context, db *sql.DB, userID, providerName string) (map[string]interface{}, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT provider, provider_user_id, is_active, last_sync_at, created_at
 		FROM device_provider_accounts
-		WHERE user_id = $1
+		WHERE user_id = $1 AND provider = $2
 		ORDER BY created_at DESC
-	`, userID)
+	`, userID, providerName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query provider accounts: %w", err)
 	}
 	defer func() {
 		_ = rows.Close()

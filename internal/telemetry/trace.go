@@ -3,6 +3,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 
@@ -51,7 +52,10 @@ func InitTracer() func(context.Context) error {
 				shutdownErr = tp.Shutdown(ctx)
 			}
 		})
-		return shutdownErr
+		if shutdownErr != nil {
+			return fmt.Errorf("shutdown tracer: %w", shutdownErr)
+		}
+		return nil
 	}
 
 	return shutdownFn

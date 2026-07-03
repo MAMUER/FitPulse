@@ -39,12 +39,12 @@ func newBaseAdapter(deviceType, baseURL, apiKey string, timeout time.Duration) *
 func (b *baseAdapter) HealthCheck(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", b.baseURL+"/health", nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("create health check request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+b.apiKey)
 	resp, err := b.client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("execute health check: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()

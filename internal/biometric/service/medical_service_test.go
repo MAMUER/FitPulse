@@ -3,6 +3,7 @@ package medical
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/MAMUER/project/internal/biometric/domain"
@@ -18,22 +19,22 @@ type MockMedicalRepository struct {
 
 func (m *MockMedicalRepository) GetActiveConstraints(ctx context.Context, userID string) ([]domain.MedicalConstraint, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]domain.MedicalConstraint), args.Error(1)
+	return args.Get(0).([]domain.MedicalConstraint), fmt.Errorf("mock: %w", args.Error(1))
 }
 
 func (m *MockMedicalRepository) SaveConstraint(ctx context.Context, constraint domain.MedicalConstraint) error {
 	args := m.Called(ctx, constraint)
-	return args.Error(0)
+	return fmt.Errorf("mock: %w", args.Error(0))
 }
 
 func (m *MockMedicalRepository) DeleteConstraint(ctx context.Context, constraintID string) error {
 	args := m.Called(ctx, constraintID)
-	return args.Error(0)
+	return fmt.Errorf("mock: %w", args.Error(0))
 }
 
 func (m *MockMedicalRepository) GetConstraintByCode(ctx context.Context, code string) ([]domain.MedicalConstraint, error) {
 	args := m.Called(ctx, code)
-	return args.Get(0).([]domain.MedicalConstraint), args.Error(1)
+	return args.Get(0).([]domain.MedicalConstraint), fmt.Errorf("mock: %w", args.Error(1))
 }
 
 func TestNewMedicalService(t *testing.T) {
@@ -46,238 +47,175 @@ func TestNewMedicalService(t *testing.T) {
 
 const testUserID = "user123"
 
-func TestMedicalServiceEvaluateWorkout(t *testing.T) {
+func TestMedicalServiceEvaluateWorkout_Case1(t *testing.T) {
+	runTestCase(t, "no constraints", []domain.MedicalConstraint{}, nil, &domain.WorkoutPlan{
+		TargetHeartRate: 140,
+		MaxHeartRate:    180,
+	}, nil, false)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case2(t *testing.T) {
+	runTestCase(t, "repository error", nil, errors.New("database error"), &domain.WorkoutPlan{
+		TargetHeartRate: 140,
+	}, nil, false)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case3(t *testing.T) {
+	constraint := domain.MedicalConstraint{
+		ID:    "constraint1",
+		Code:  "I10",
+		Label: "Hypertension",
+		ImpactOnTraining: []domain.ImpactRule{{
+			Metric:       "heart_rate_max",
+			ThresholdMax: func() *float64 { v := 160.0; return &v }(),
+			Action:       "caution",
+		}},
+	}
+	runTestCase(t, "heart rate above threshold", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+		TargetHeartRate: 150,
+		MaxHeartRate:    170,
+	}, []domain.ConstraintViolation{{
+		ConstraintID: "constraint1",
+		Type:         "above_threshold",
+		Metric:       "heart_rate_max",
+		ActualValue:  170.0,
+		Threshold:    160.0,
+		Description:  "heart_rate_max exceeds maximum threshold (160.0)",
+		Action:       "caution",
+	}}, false)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case4(t *testing.T) {
+	constraint := domain.MedicalConstraint{
+		ID:    "constraint2",
+		Code:  "I10",
+		Label: "Hypertension",
+		ImpactOnTraining: []domain.ImpactRule{{
+			Metric:       "blood_pressure_systolic",
+			ThresholdMax: func() *float64 { v := 140.0; return &v }(),
+			Action:       "require_approval",
+		}},
+	}
+	runTestCase(t, "blood pressure violation requiring approval", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+		BloodPressureSystolic: 150,
+	}, []domain.ConstraintViolation{{
+		ConstraintID: "constraint2",
+		Type:         "above_threshold",
+		Metric:       "blood_pressure_systolic",
+		ActualValue:  150.0,
+		Threshold:    140.0,
+		Description:  "blood_pressure_systolic exceeds maximum threshold (140.0)",
+		Action:       "require_approval",
+	}}, true)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case5(t *testing.T) {
+	constraint := domain.MedicalConstraint{
+		ID:    "constraint3",
+		Code:  "I50",
+		Label: "Heart Failure",
+		ImpactOnTraining: []domain.ImpactRule{{
+			Metric:       "heart_rate",
+			ThresholdMin: func() *float64 { v := 100.0; return &v }(),
+			Action:       "modify",
+		}},
+	}
+	runTestCase(t, "below threshold violation", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+		TargetHeartRate: 90,
+	}, []domain.ConstraintViolation{{
+		ConstraintID: "constraint3",
+		Type:         "below_threshold",
+		Metric:       "heart_rate",
+		ActualValue:  90.0,
+		Threshold:    100.0,
+		Description:  "heart_rate below minimum threshold (100.0)",
+		Action:       "modify",
+	}}, false)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case6(t *testing.T) {
+	constraint := domain.MedicalConstraint{
+		ID:    "constraint4",
+		Code:  "E11",
+		Label: "Diabetes",
+		ImpactOnTraining: []domain.ImpactRule{{
+			Metric: "glucose_level",
+			Action: "caution",
+		}},
+	}
+	runTestCase(t, "unknown metric", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+		TargetHeartRate: 140,
+	}, []domain.ConstraintViolation{{
+		ConstraintID: "constraint4",
+		Type:         "unknown_metric",
+		Description:  "Metric 'glucose_level' not recognized, requires manual review",
+		Action:       "require_approval",
+	}}, true)
+}
+
+func TestMedicalServiceEvaluateWorkout_Case7(t *testing.T) {
+	constraints := []domain.MedicalConstraint{
+		{
+			ID:    "constraint5",
+			Code:  "I10",
+			Label: "Hypertension",
+			ImpactOnTraining: []domain.ImpactRule{{
+				Metric:       "heart_rate_max",
+				ThresholdMax: func() *float64 { v := 160.0; return &v }(),
+				Action:       "caution",
+			}},
+		},
+		{
+			ID:    "constraint6",
+			Code:  "I50",
+			Label: "Heart Failure",
+			ImpactOnTraining: []domain.ImpactRule{{
+				Metric:       "blood_pressure_diastolic",
+				ThresholdMax: func() *float64 { v := 85.0; return &v }(),
+				Action:       "require_approval",
+			}},
+		},
+	}
+	runTestCase(t, "multiple constraints with mixed violations", constraints, nil, &domain.WorkoutPlan{
+		MaxHeartRate:           165,
+		BloodPressureDiastolic: 90,
+	}, []domain.ConstraintViolation{
+		{
+			ConstraintID: "constraint5",
+			Type:         "above_threshold",
+			Metric:       "heart_rate_max",
+			ActualValue:  165.0,
+			Threshold:    160.0,
+			Description:  "heart_rate_max exceeds maximum threshold (160.0)",
+			Action:       "caution",
+		},
+		{
+			ConstraintID: "constraint6",
+			Type:         "above_threshold",
+			Metric:       "blood_pressure_diastolic",
+			ActualValue:  90.0,
+			Threshold:    85.0,
+			Description:  "blood_pressure_diastolic exceeds maximum threshold (85.0)",
+			Action:       "require_approval",
+		},
+	}, true)
+}
+
+func runTestCase(t *testing.T, name string, constraints []domain.MedicalConstraint, repoError error,
+	workout *domain.WorkoutPlan,
+	expectedViolations []domain.ConstraintViolation, expectedReview bool) {
 	ctx := context.Background()
 	userID := testUserID
 
-	tests := []struct {
-		name               string
-		constraints        []domain.MedicalConstraint
-		repoError          error
-		workout            *domain.WorkoutPlan
-		expectedViolations []domain.ConstraintViolation
-		expectedReview     bool
-	}{
-		{
-			name:        "no constraints",
-			constraints: []domain.MedicalConstraint{},
-			repoError:   nil,
-			workout: &domain.WorkoutPlan{
-				TargetHeartRate: 140,
-				MaxHeartRate:    180,
-			},
-			expectedViolations: nil,
-			expectedReview:     false,
-		},
-		{
-			name:        "repository error",
-			constraints: nil,
-			repoError:   errors.New("database error"),
-			workout: &domain.WorkoutPlan{
-				TargetHeartRate: 140,
-			},
-			expectedViolations: nil,
-			expectedReview:     false,
-		},
-		{
-			name: "heart rate above threshold",
-			constraints: []domain.MedicalConstraint{
-				{
-					ID:    "constraint1",
-					Code:  "I10",
-					Label: "Hypertension",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric:       "heart_rate_max",
-							ThresholdMax: func() *float64 { v := 160.0; return &v }(),
-							Action:       "caution",
-						},
-					},
-				},
-			},
-			repoError: nil,
-			workout: &domain.WorkoutPlan{
-				TargetHeartRate: 150,
-				MaxHeartRate:    170, // Above threshold
-			},
-			expectedViolations: []domain.ConstraintViolation{
-				{
-					ConstraintID: "constraint1",
-					Type:         "above_threshold",
-					Metric:       "heart_rate_max",
-					ActualValue:  170.0,
-					Threshold:    160.0,
-					Description:  "heart_rate_max exceeds maximum threshold (160.0)",
-					Action:       "caution",
-				},
-			},
-			expectedReview: false,
-		},
-		{
-			name: "blood pressure violation requiring approval",
-			constraints: []domain.MedicalConstraint{
-				{
-					ID:    "constraint2",
-					Code:  "I10",
-					Label: "Hypertension",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric:       "blood_pressure_systolic",
-							ThresholdMax: func() *float64 { v := 140.0; return &v }(),
-							Action:       "require_approval",
-						},
-					},
-				},
-			},
-			repoError: nil,
-			workout: &domain.WorkoutPlan{
-				BloodPressureSystolic: 150, // Above threshold
-			},
-			expectedViolations: []domain.ConstraintViolation{
-				{
-					ConstraintID: "constraint2",
-					Type:         "above_threshold",
-					Metric:       "blood_pressure_systolic",
-					ActualValue:  150.0,
-					Threshold:    140.0,
-					Description:  "blood_pressure_systolic exceeds maximum threshold (140.0)",
-					Action:       "require_approval",
-				},
-			},
-			expectedReview: true,
-		},
-		{
-			name: "below threshold violation",
-			constraints: []domain.MedicalConstraint{
-				{
-					ID:    "constraint3",
-					Code:  "I50",
-					Label: "Heart Failure",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric:       "heart_rate",
-							ThresholdMin: func() *float64 { v := 100.0; return &v }(),
-							Action:       "modify",
-						},
-					},
-				},
-			},
-			repoError: nil,
-			workout: &domain.WorkoutPlan{
-				TargetHeartRate: 90, // Below threshold
-			},
-			expectedViolations: []domain.ConstraintViolation{
-				{
-					ConstraintID: "constraint3",
-					Type:         "below_threshold",
-					Metric:       "heart_rate",
-					ActualValue:  90.0,
-					Threshold:    100.0,
-					Description:  "heart_rate below minimum threshold (100.0)",
-					Action:       "modify",
-				},
-			},
-			expectedReview: false,
-		},
-		{
-			name: "unknown metric",
-			constraints: []domain.MedicalConstraint{
-				{
-					ID:    "constraint4",
-					Code:  "E11",
-					Label: "Diabetes",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric: "glucose_level",
-							Action: "caution",
-						},
-					},
-				},
-			},
-			repoError: nil,
-			workout: &domain.WorkoutPlan{
-				TargetHeartRate: 140,
-			},
-			expectedViolations: []domain.ConstraintViolation{
-				{
-					ConstraintID: "constraint4",
-					Type:         "unknown_metric",
-					Description:  "Metric 'glucose_level' not recognized, requires manual review",
-					Action:       "require_approval",
-				},
-			},
-			expectedReview: true,
-		},
-		{
-			name: "multiple constraints with mixed violations",
-			constraints: []domain.MedicalConstraint{
-				{
-					ID:    "constraint5",
-					Code:  "I10",
-					Label: "Hypertension",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric:       "heart_rate_max",
-							ThresholdMax: func() *float64 { v := 160.0; return &v }(),
-							Action:       "caution",
-						},
-					},
-				},
-				{
-					ID:    "constraint6",
-					Code:  "I50",
-					Label: "Heart Failure",
-					ImpactOnTraining: []domain.ImpactRule{
-						{
-							Metric:       "blood_pressure_diastolic",
-							ThresholdMax: func() *float64 { v := 85.0; return &v }(),
-							Action:       "require_approval",
-						},
-					},
-				},
-			},
-			repoError: nil,
-			workout: &domain.WorkoutPlan{
-				MaxHeartRate:           165, // Violates first constraint
-				BloodPressureDiastolic: 90,  // Violates second constraint
-			},
-			expectedViolations: []domain.ConstraintViolation{
-				{
-					ConstraintID: "constraint5",
-					Type:         "above_threshold",
-					Metric:       "heart_rate_max",
-					ActualValue:  165.0,
-					Threshold:    160.0,
-					Description:  "heart_rate_max exceeds maximum threshold (160.0)",
-					Action:       "caution",
-				},
-				{
-					ConstraintID: "constraint6",
-					Type:         "above_threshold",
-					Metric:       "blood_pressure_diastolic",
-					ActualValue:  90.0,
-					Threshold:    85.0,
-					Description:  "blood_pressure_diastolic exceeds maximum threshold (85.0)",
-					Action:       "require_approval",
-				},
-			},
-			expectedReview: true,
-		},
-	}
+	mockRepo := &MockMedicalRepository{}
+	mockRepo.On("GetActiveConstraints", ctx, userID).Return(constraints, repoError)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockMedicalRepository{}
-			mockRepo.On("GetActiveConstraints", ctx, userID).Return(tt.constraints, tt.repoError)
+	service := NewMedicalService(mockRepo)
+	violations, requiresReview := service.EvaluateWorkout(ctx, userID, workout)
 
-			service := NewMedicalService(mockRepo)
-			violations, requiresReview := service.EvaluateWorkout(ctx, userID, tt.workout)
-
-			assert.Equal(t, tt.expectedViolations, violations)
-			assert.Equal(t, tt.expectedReview, requiresReview)
-			mockRepo.AssertExpectations(t)
-		})
-	}
+	assert.Equal(t, expectedViolations, violations)
+	assert.Equal(t, expectedReview, requiresReview)
+	mockRepo.AssertExpectations(t)
 }
 
 func TestMedicalServiceGetRecommendedModifications(t *testing.T) {

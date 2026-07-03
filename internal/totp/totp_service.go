@@ -108,7 +108,8 @@ func (s *Service) EncryptSecret(secret string) ([]byte, error) {
 	if s == nil || s.encryptor == nil {
 		return nil, errors.New("TOTP encryption service not initialized")
 	}
-	return s.encryptor.Encrypt([]byte(secret))
+	ciphertext, err := s.encryptor.Encrypt([]byte(secret))
+	return ciphertext, fmt.Errorf("encrypt secret: %w", err)
 }
 
 func (s *Service) DecryptSecret(ciphertext []byte) (string, error) {
@@ -117,7 +118,7 @@ func (s *Service) DecryptSecret(ciphertext []byte) (string, error) {
 	}
 	plaintext, err := s.encryptor.Decrypt(ciphertext)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decrypt totp secret: %w", err)
 	}
 	return string(plaintext), nil
 }
@@ -127,7 +128,7 @@ func generateBackupCodes() ([]string, error) {
 	for i := 0; i < BackupCodesCount; i++ {
 		bytes := make([]byte, BackupCodeLength/2)
 		if _, err := rand.Read(bytes); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("generate backup codes: %w", err)
 		}
 		raw := hex.EncodeToString(bytes)
 		codes[i] = fmt.Sprintf("%s-%s", raw[:4], raw[4:])

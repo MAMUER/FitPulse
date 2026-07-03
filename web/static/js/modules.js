@@ -637,6 +637,184 @@ ${totalFat}г жиров
             return schedule;
         }
     };
+    const HealthModule = {
+        CONDITIONS: {
+            allergy: 'Аллергия',
+            disease: 'Заболевание',
+            disability: 'Инвалидность',
+            other: 'Другое'
+        },
+        empty(label) {
+            return `<div class="empty-state"><div class="empty-icon">📋</div><h3>Нет данных</h3><p>${label}</p></div>`;
+        },
+        renderConditions(list) {
+            const container = document.getElementById('healthConditionsList');
+            if (!container) return;
+            if (!list || !list.length) {
+                container.innerHTML = this.empty('Добавьте особенности здоровья');
+                return;
+            }
+            container.innerHTML = list.map(item => `
+                <div class="health-card" data-id="${item.id}">
+                    <div class="health-card-header">
+                        <strong>${item.condition_name}</strong>
+                        <span class="badge">${this.CONDITIONS[item.condition_type] || item.condition_type}</span>
+                    </div>
+                    <div class="health-card-meta">
+                        ${item.severity ? `<span>Серьёзность: ${item.severity}</span>` : ''}
+                        ${item.diagnosed_at ? `<span>Дата: ${item.diagnosed_at}</span>` : ''}
+                        <span>Активно: ${item.is_active ? 'Да' : 'Нет'}</span>
+                    </div>
+                    ${item.notes ? `<p class="health-card-notes">${item.notes}</p>` : ''}
+                    <div class="health-card-actions">
+                        <button class="btn-danger-ghost" data-action="delete" data-id="${item.id}">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        },
+        renderBodyComposition(list) {
+            const container = document.getElementById('bodyCompositionList');
+            if (!container) return;
+            if (!list || !list.length) {
+                container.innerHTML = this.empty('Добавьте запись веса/состава тела');
+                return;
+            }
+            container.innerHTML = list.map(item => `
+                <div class="health-card" data-id="${item.id}">
+                    <div class="health-card-header">
+                        <strong>${item.recorded_at ? new Date(item.recorded_at).toLocaleString('ru-RU') : 'Запись'}</strong>
+                        <span class="badge">${item.source === 'okok' ? 'OKOK' : 'Ручной ввод'}</span>
+                    </div>
+                    <div class="health-card-meta">
+                        ${item.weight_kg ? `<span>Вес: ${item.weight_kg} кг</span>` : ''}
+                        ${item.height_cm ? `<span>Рост: ${item.height_cm} см</span>` : ''}
+                        ${item.bmi ? `<span>ИМТ: ${item.bmi}</span>` : ''}
+                    </div>
+                    <div class="health-card-meta">
+                        ${item.body_fat_percentage ? `<span>Жир: ${item.body_fat_percentage}%</span>` : ''}
+                        ${item.muscle_mass_percentage ? `<span>Мышцы: ${item.muscle_mass_percentage}%</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        },
+        renderMenstrualCycles(list) {
+            const container = document.getElementById('menstrualCyclesList');
+            if (!container) return;
+            if (!list || !list.length) {
+                container.innerHTML = this.empty('Добавьте запись цикла');
+                return;
+            }
+            container.innerHTML = list.map(item => `
+                <div class="health-card" data-id="${item.id}">
+                    <div class="health-card-header">
+                        <strong>${item.cycle_start_date}${item.cycle_end_date ? ` — ${item.cycle_end_date}` : ''}</strong>
+                        <span class="badge">${item.flow_intensity || '—'}</span>
+                    </div>
+                    <div class="health-card-meta">
+                        ${item.symptoms && item.symptoms.length ? `<span>Симптомы: ${item.symptoms.join(', ')}</span>` : ''}
+                        ${item.moods && item.moods.length ? `<span>Настроение: ${item.moods.join(', ')}</span>` : ''}
+                    </div>
+                    ${item.notes ? `<p class="health-card-notes">${item.notes}</p>` : ''}
+                    <div class="health-card-actions">
+                        <button class="btn-danger-ghost" data-action="delete-cycle" data-id="${item.id}">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        },
+        async loadConditions() {
+            try {
+                const data = await window.listHealthConditions();
+                this.renderConditions(data.conditions || []);
+            } catch (err) {
+                console.error('Failed to load health conditions:', err);
+            }
+        },
+        async loadBodyComposition() {
+            try {
+                const data = await window.listBodyComposition();
+                this.renderBodyComposition(data.records || []);
+            } catch (err) {
+                console.error('Failed to load body composition:', err);
+            }
+        },
+        async loadMenstrualCycles() {
+            try {
+                const data = await window.listMenstrualCycles();
+                this.renderMenstrualCycles(data.cycles || []);
+            } catch (err) {
+                console.error('Failed to load menstrual cycles:', err);
+            }
+        },
+        async loadAll() {
+            await this.loadConditions();
+            await this.loadBodyComposition();
+            await this.loadMenstrualCycles();
+        },
+        bindEvents() {
+            document.getElementById('addConditionBtn')?.addEventListener('click', () => {
+                const name = prompt('Название состояния:');
+                if (!name) return;
+                const type = prompt('Тип (allergy, disease, disability, other):', 'other') || 'other';
+                window.upsertHealthCondition({ condition_type: type, condition_name: name, is_active: true })
+                    .then(() => this.loadConditions())
+                    .catch(err => showToast('Ошибка: ' + err.message, 'error'));
+            });
+            document.getElementById('addBodyCompositionBtn')?.addEventListener('click', () => {
+                const weightKg = parseFloat(prompt('Вес, кг:'));
+                if (!weightKg || weightKg <= 0) return;
+                const heightCm = prompt('Рост, см:');
+                window.createBodyComposition({
+                    weight_kg: weightKg,
+                    height_cm: heightCm ? parseInt(heightCm, 10) : null,
+                    source: 'manual'
+                }).then(() => this.loadBodyComposition())
+                  .catch(err => showToast('Ошибка: ' + err.message, 'error'));
+            });
+            document.getElementById('addMenstrualCycleBtn')?.addEventListener('click', () => {
+                const startDate = prompt('Дата начала цикла (YYYY-MM-DD):');
+                if (!startDate) return;
+                window.createMenstrualCycle({ cycle_start_date: startDate })
+                    .then(() => this.loadMenstrualCycles())
+                    .catch(err => showToast('Ошибка: ' + err.message, 'error'));
+            });
+            document.getElementById('syncFloBtn')?.addEventListener('click', async () => {
+                const accessToken = prompt('Flo access_token:');
+                const refreshToken = prompt('Flo refresh_token:');
+                if (!accessToken) return;
+                try {
+                    const res = await window.syncFlo(accessToken, refreshToken || '');
+                    showToast(`Синхронизировано циклов: ${res.synced_cycles || 0}`, 'success');
+                } catch (err) {
+                    showToast('Ошибка синхронизации Flo: ' + err.message, 'error');
+                }
+            });
+            document.getElementById('syncOKOKBtn')?.addEventListener('click', async () => {
+                const accessToken = prompt('OKOK access_token:');
+                const refreshToken = prompt('OKOK refresh_token:');
+                if (!accessToken) return;
+                try {
+                    const res = await window.syncOKOK(accessToken, refreshToken || '');
+                    showToast(`Синхронизировано записей: ${res.synced_records || 0}`, 'success');
+                } catch (err) {
+                    showToast('Ошибка синхронизации OKOK: ' + err.message, 'error');
+                }
+            });
+            document.getElementById('healthView')?.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('[data-action="delete"]');
+                const deleteCycleBtn = e.target.closest('[data-action="delete-cycle"]');
+                if (deleteBtn) {
+                    const id = deleteBtn.dataset.id;
+                    if (!confirm('Удалить запись?')) return;
+                    window.deleteHealthCondition(id).then(() => this.loadConditions()).catch(err => showToast('Ошибка: ' + err.message, 'error'));
+                }
+                if (deleteCycleBtn) {
+                    const id = deleteCycleBtn.dataset.id;
+                    if (!confirm('Удалить цикл?')) return;
+                    window.deleteMenstrualCycle(id).then(() => this.loadMenstrualCycles()).catch(err => showToast('Ошибка: ' + err.message, 'error'));
+                }
+            });
+        }
+    };
     // ===== Toast Notifications =====
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -651,12 +829,16 @@ ${totalFat}г жиров
     function init(user) {
         currentUser = user;
         DeviceModule.init();
+        if (HealthModule && HealthModule.bindEvents) {
+            HealthModule.bindEvents();
+        }
     }
     return {
         init,
         DeviceModule,
         TrainingModule,
         DietModule,
+        HealthModule,
         showToast
     };
 })();

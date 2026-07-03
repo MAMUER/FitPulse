@@ -3,11 +3,13 @@ package metrics
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -58,6 +60,35 @@ func resetMetrics(t *testing.T) *prometheus.Registry {
 	return registry
 }
 
+// assertMetricMatches finds the first metric in the provided families whose name
+// matches expectedName and whose labels match expectedLabels, and fails the test otherwise.
+func assertMetricMatches(t *testing.T, metrics []*dto.MetricFamily, expectedName string, expectedLabels map[string]string) *dto.Metric {
+	t.Helper()
+	for _, m := range metrics {
+		if m.GetName() == expectedName {
+			for _, metric := range m.GetMetric() {
+				labels := metric.GetLabel()
+				labelMap := make(map[string]string)
+				for _, l := range labels {
+					labelMap[l.GetName()] = l.GetValue()
+				}
+				match := true
+				for k, v := range expectedLabels {
+					if labelMap[k] != v {
+						match = false
+						break
+					}
+				}
+				if match {
+					return metric
+				}
+			}
+		}
+	}
+	require.Fail(t, "metric not found", "expected metric %q with labels %v", expectedName, expectedLabels)
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // UnaryServerInterceptor tests
 // ---------------------------------------------------------------------------
@@ -92,44 +123,19 @@ func TestUnaryServerInterceptor_Success(t *testing.T) {
 	requestsMetric, err := registry.Gather()
 	require.NoError(t, err)
 
-	found := false
-	for _, m := range requestsMetric {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == fullMethod &&
-					labelMap["status"] == "ok" {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					found = true
-				}
-			}
-		}
-	}
-	assert.True(t, found, "expected grpc_requests_total with status=ok")
+	metric := assertMetricMatches(t, requestsMetric, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  fullMethod,
+		"status":  "ok",
+	})
+	assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
 
 	// Verify rpcDurationSeconds observed
-	durationFound := false
-	for _, m := range requestsMetric {
-		if m.GetName() == metricDurationSeconds {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName && labelMap["method"] == fullMethod {
-					assert.Greater(t, metric.GetHistogram().GetSampleCount(), uint64(0))
-					durationFound = true
-				}
-			}
-		}
-	}
-	assert.True(t, durationFound, "expected grpc_request_duration_seconds observation")
+	durationMetric := assertMetricMatches(t, requestsMetric, metricDurationSeconds, map[string]string{
+		"service": serviceName,
+		"method":  fullMethod,
+	})
+	assert.Greater(t, durationMetric.GetHistogram().GetSampleCount(), uint64(0))
 
 	// Verify no errors recorded
 	errCount := testutil.CollectAndCount(registry, metricErrorsTotal)
@@ -148,7 +154,7 @@ func TestUnaryServerInterceptor_Error(t *testing.T) {
 	expectedErr := status.Error(codes.NotFound, "user not found")
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return nil, expectedErr
+		return nil, fmt.Errorf("test handler: %w", expectedErr)
 	}
 
 	info := &grpc.UnaryServerInfo{
@@ -164,43 +170,19 @@ func TestUnaryServerInterceptor_Error(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	// Verify rpcRequestsTotal incremented with status "error"
-	foundRequest := false
-	foundError := false
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == fullMethod &&
-					labelMap["status"] == statusError {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					foundRequest = true
-				}
-			}
-		}
-		if m.GetName() == metricErrorsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == fullMethod &&
-					labelMap["error_code"] == codes.NotFound.String() {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					foundError = true
-				}
-			}
-		}
-	}
-	assert.True(t, foundRequest, "expected grpc_requests_total with status=error")
-	assert.True(t, foundError, "expected grpc_errors_total with error_code=NotFound")
+	requestMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  fullMethod,
+		"status":  statusError,
+	})
+	assert.InDelta(t, float64(1), requestMetric.GetCounter().GetValue(), 0.0001)
+
+	errorMetric := assertMetricMatches(t, metrics, metricErrorsTotal, map[string]string{
+		"service":    serviceName,
+		"method":     fullMethod,
+		"error_code": codes.NotFound.String(),
+	})
+	assert.InDelta(t, float64(1), errorMetric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryServerInterceptor_InternalError(t *testing.T) {
@@ -215,7 +197,7 @@ func TestUnaryServerInterceptor_InternalError(t *testing.T) {
 	expectedErr := status.Error(codes.Internal, "database unavailable")
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return nil, expectedErr
+		return nil, fmt.Errorf("test handler: %w", expectedErr)
 	}
 
 	info := &grpc.UnaryServerInfo{FullMethod: fullMethod}
@@ -228,25 +210,12 @@ func TestUnaryServerInterceptor_InternalError(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	found := false
-	for _, m := range metrics {
-		if m.GetName() == metricErrorsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == fullMethod &&
-					labelMap["error_code"] == codes.Internal.String() {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					found = true
-				}
-			}
-		}
-	}
-	assert.True(t, found, "expected grpc_errors_total with error_code=Internal")
+	errorMetric := assertMetricMatches(t, metrics, metricErrorsTotal, map[string]string{
+		"service":    serviceName,
+		"method":     fullMethod,
+		"error_code": codes.Internal.String(),
+	})
+	assert.InDelta(t, float64(1), errorMetric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryServerInterceptor_MultipleCalls(t *testing.T) {
@@ -283,39 +252,26 @@ func TestUnaryServerInterceptor_MultipleCalls(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName && labelMap["method"] == fullMethod {
-					switch labelMap["status"] {
-					case "ok":
-						assert.InDelta(t, float64(3), metric.GetCounter().GetValue(), 0.0001)
-					case statusError:
-						assert.InDelta(t, float64(2), metric.GetCounter().GetValue(), 0.0001)
-					}
-				}
-			}
-		}
-		if m.GetName() == metricErrorsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == fullMethod &&
-					labelMap["error_code"] == codes.DeadlineExceeded.String() {
-					assert.InDelta(t, float64(2), metric.GetCounter().GetValue(), 0.0001)
-				}
-			}
-		}
-	}
+	okMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  fullMethod,
+		"status":  "ok",
+	})
+	assert.InDelta(t, float64(3), okMetric.GetCounter().GetValue(), 0.0001)
+
+	errMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  fullMethod,
+		"status":  statusError,
+	})
+	assert.InDelta(t, float64(2), errMetric.GetCounter().GetValue(), 0.0001)
+
+	dlMetric := assertMetricMatches(t, metrics, metricErrorsTotal, map[string]string{
+		"service":    serviceName,
+		"method":     fullMethod,
+		"error_code": codes.DeadlineExceeded.String(),
+	})
+	assert.InDelta(t, float64(2), dlMetric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryServerInterceptor_DurationIsRecorded(t *testing.T) {
@@ -371,25 +327,12 @@ func TestUnaryClientInterceptor_Success(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	found := false
-	for _, m := range metrics {
-		if m.GetName() == "grpc_requests_total" {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == method &&
-					labelMap["status"] == "ok" {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					found = true
-				}
-			}
-		}
-	}
-	assert.True(t, found, "expected grpc_requests_total with status=ok for client interceptor")
+	metric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  method,
+		"status":  "ok",
+	})
+	assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
 
 	errCount := testutil.CollectAndCount(registry, metricErrorsTotal)
 	assert.Equal(t, 0, errCount, "expected no grpc_errors_total on client success")
@@ -430,42 +373,19 @@ func TestUnaryClientInterceptor_Error(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	foundRequest := false
-	foundError := false
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == method &&
-					labelMap["status"] == statusError {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					foundRequest = true
-				}
-			}
-		}
-		if m.GetName() == metricErrorsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == method &&
-					labelMap["error_code"] == codes.PermissionDenied.String() {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					foundError = true
-				}
-			}
-		}
-	}
-	assert.True(t, foundRequest, "expected grpc_requests_total with status=error for client")
-	assert.True(t, foundError, "expected grpc_errors_total with error_code=PermissionDenied")
+	requestMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  method,
+		"status":  statusError,
+	})
+	assert.InDelta(t, float64(1), requestMetric.GetCounter().GetValue(), 0.0001)
+
+	errorMetric := assertMetricMatches(t, metrics, metricErrorsTotal, map[string]string{
+		"service":    serviceName,
+		"method":     method,
+		"error_code": codes.PermissionDenied.String(),
+	})
+	assert.InDelta(t, float64(1), errorMetric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryClientInterceptor_NonStatusError(t *testing.T) {
@@ -504,25 +424,12 @@ func TestUnaryClientInterceptor_NonStatusError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should still record request as error, but error_code will be "OK" (unknown error)
-	found := false
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == method &&
-					labelMap["status"] == statusError {
-					assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-					found = true
-				}
-			}
-		}
-	}
-	assert.True(t, found, "expected grpc_requests_total with status=error for non-gRPC error")
+	metric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  method,
+		"status":  statusError,
+	})
+	assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryClientInterceptor_MultipleCalls(t *testing.T) {
@@ -570,39 +477,26 @@ func TestUnaryClientInterceptor_MultipleCalls(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName && labelMap["method"] == method {
-					switch labelMap["status"] {
-					case "ok":
-						assert.InDelta(t, float64(5), metric.GetCounter().GetValue(), 0.0001)
-					case statusError:
-						assert.InDelta(t, float64(3), metric.GetCounter().GetValue(), 0.0001)
-					}
-				}
-			}
-		}
-		if m.GetName() == metricErrorsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName &&
-					labelMap["method"] == method &&
-					labelMap["error_code"] == codes.Unavailable.String() {
-					assert.InDelta(t, float64(3), metric.GetCounter().GetValue(), 0.0001)
-				}
-			}
-		}
-	}
+	okMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  method,
+		"status":  "ok",
+	})
+	assert.InDelta(t, float64(5), okMetric.GetCounter().GetValue(), 0.0001)
+
+	errMetric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+		"service": serviceName,
+		"method":  method,
+		"status":  statusError,
+	})
+	assert.InDelta(t, float64(3), errMetric.GetCounter().GetValue(), 0.0001)
+
+	unavailMetric := assertMetricMatches(t, metrics, metricErrorsTotal, map[string]string{
+		"service":    serviceName,
+		"method":     method,
+		"error_code": codes.Unavailable.String(),
+	})
+	assert.InDelta(t, float64(3), unavailMetric.GetCounter().GetValue(), 0.0001)
 }
 
 func TestUnaryClientInterceptor_DifferentMethods(t *testing.T) {
@@ -635,22 +529,12 @@ func TestUnaryClientInterceptor_DifferentMethods(t *testing.T) {
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
 
-	for _, m := range metrics {
-		if m.GetName() == metricRequestsTotal {
-			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				if labelMap["service"] == serviceName && labelMap["status"] == "ok" {
-					for _, expectedMethod := range methods {
-						if labelMap["method"] == expectedMethod {
-							assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
-						}
-					}
-				}
-			}
-		}
+	for _, expectedMethod := range methods {
+		metric := assertMetricMatches(t, metrics, metricRequestsTotal, map[string]string{
+			"service": serviceName,
+			"method":  expectedMethod,
+			"status":  "ok",
+		})
+		assert.InDelta(t, float64(1), metric.GetCounter().GetValue(), 0.0001)
 	}
 }

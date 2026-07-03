@@ -33,7 +33,7 @@ func NewSessionStoreFromRedis(rdb *redis.Client) *SessionStore {
 func generateCode() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("generate code: %w", err)
 	}
 	return base64.URLEncoding.EncodeToString(b)[:43], nil
 }

@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"fmt"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -10,7 +12,7 @@ func DeclareQueueWithDLQ(ch *amqp.Channel, queueName string) error {
 
 	// 1. Создаём DLQ
 	if _, err := ch.QueueDeclare(dlqName, true, false, false, false, nil); err != nil {
-		return err
+		return fmt.Errorf("declare DLQ: %w", err)
 	}
 
 	// 2. Аргументы для основной очереди
@@ -23,7 +25,7 @@ func DeclareQueueWithDLQ(ch *amqp.Channel, queueName string) error {
 
 	// 3. Создаём основную очередь с DLX
 	if _, err := ch.QueueDeclare(queueName, true, false, false, false, args); err != nil {
-		return err
+		return fmt.Errorf("declare main queue: %w", err)
 	}
 
 	return nil

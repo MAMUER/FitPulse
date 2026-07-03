@@ -286,7 +286,7 @@ func newGatewayMetrics() gatewayMetrics {
 func validateMLGeneratorURL(mlGeneratorURL string) error {
 	parsedURL, err := url.Parse(mlGeneratorURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse ml generator url: %w", err)
 	}
 
 	allowedHosts := map[string]bool{
@@ -617,6 +617,19 @@ func (g *gateway) registerRoutes() *chi.Mux {
 		r.Put("/profile", g.updateProfileHandler)
 		r.Delete("/profile", g.deleteProfileHandler)
 
+		// Health features
+		r.Get("/health/conditions", g.listHealthConditionsHandler)
+		r.Post("/health/conditions", g.upsertHealthConditionHandler)
+		r.Delete("/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
+		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+		r.Post("/health/body-composition", g.createBodyCompositionHandler)
+		r.Get("/health/menstrual-cycles", g.listMenstrualCyclesHandler)
+		r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
+		r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
+		r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
+		r.Post("/health/sync/flo", g.syncFloHandler)
+		r.Post("/health/sync/okok", g.syncOKOKHandler)
+
 		// 2FA TOTP (protected routes - require auth)
 		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
 		r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
@@ -708,7 +721,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 	conn, err := grpc.NewClient(g.biometricAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("create biometric client: %w", err)
 	}
 	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
 	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
@@ -737,7 +750,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	conn, err := grpc.NewClient(g.trainingAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("create training client: %w", err)
 	}
 
 	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)

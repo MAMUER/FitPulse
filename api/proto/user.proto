@@ -30,6 +30,17 @@ service UserService {
     rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
     rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
     rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+    rpc ListHealthConditions(ListHealthConditionsRequest) returns (ListHealthConditionsResponse);
+    rpc UpsertHealthCondition(UpsertHealthConditionRequest) returns (HealthCondition);
+    rpc DeleteHealthCondition(DeleteHealthConditionRequest) returns (DeleteHealthConditionResponse);
+    rpc ListBodyComposition(ListBodyCompositionRequest) returns (ListBodyCompositionResponse);
+    rpc CreateBodyComposition(CreateBodyCompositionRequest) returns (BodyCompositionRecord);
+    rpc ListMenstrualCycles(ListMenstrualCyclesRequest) returns (ListMenstrualCyclesResponse);
+    rpc CreateMenstrualCycle(CreateMenstrualCycleRequest) returns (MenstrualCycle);
+    rpc UpdateMenstrualCycle(UpdateMenstrualCycleRequest) returns (MenstrualCycle);
+    rpc DeleteMenstrualCycle(DeleteMenstrualCycleRequest) returns (DeleteMenstrualCycleResponse);
+    rpc SyncFloData(SyncFloDataRequest) returns (SyncFloDataResponse);
+    rpc SyncOKOKData(SyncOKOKDataRequest) returns (SyncOKOKDataResponse);
 }
 
 message RegisterRequest {
@@ -320,4 +331,171 @@ message RefreshTokenResponse {
     string user_id = 4;
     string role = 5;
     string refresh_token = 6;
+}
+
+message HealthCondition {
+    string id = 1;
+    string user_id = 2;
+    string condition_type = 3;
+    string condition_name = 4;
+    string severity = 5;
+    string diagnosed_at = 6;
+    bool is_active = 7;
+    string notes = 8;
+    string created_at = 9;
+    string updated_at = 10;
+}
+
+message ListHealthConditionsRequest {
+    string user_id = 1;
+    string condition_type = 2;
+}
+
+message ListHealthConditionsResponse {
+    repeated HealthCondition conditions = 1;
+    int32 total = 2;
+}
+
+message UpsertHealthConditionRequest {
+    string user_id = 1;
+    string condition_type = 2;
+    string condition_name = 3;
+    string severity = 4;
+    string diagnosed_at = 5;
+    bool is_active = 6;
+    string notes = 7;
+}
+
+message DeleteHealthConditionRequest {
+    string user_id = 1;
+    string condition_id = 2;
+}
+
+message DeleteHealthConditionResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message BodyCompositionRecord {
+    string id = 1;
+    string user_id = 2;
+    string recorded_at = 3;
+    double weight_kg = 4;
+    int32 height_cm = 5;
+    double bmi = 6;
+    double body_fat_percentage = 7;
+    double muscle_mass_percentage = 8;
+    double bone_mass_percentage = 9;
+    double water_percentage = 10;
+    int32 visceral_fat_rating = 11;
+    int32 metabolic_age = 12;
+    string source = 13;
+    string created_at = 14;
+}
+
+message ListBodyCompositionRequest {
+    string user_id = 1;
+    string from = 2;
+    string to = 3;
+    int32 limit = 4;
+}
+
+message ListBodyCompositionResponse {
+    repeated BodyCompositionRecord records = 1;
+    int32 total = 2;
+}
+
+message CreateBodyCompositionRequest {
+    string user_id = 1;
+    string recorded_at = 2;
+    double weight_kg = 3;
+    int32 height_cm = 4;
+    double bmi = 5;
+    double body_fat_percentage = 6;
+    double muscle_mass_percentage = 7;
+    double bone_mass_percentage = 8;
+    double water_percentage = 9;
+    int32 visceral_fat_rating = 10;
+    int32 metabolic_age = 11;
+    string source = 12;
+}
+
+message MenstrualCycle {
+    string id = 1;
+    string user_id = 2;
+    string cycle_start_date = 3;
+    string cycle_end_date = 4;
+    string flow_intensity = 5;
+    repeated string symptoms = 6;
+    repeated string moods = 7;
+    string notes = 8;
+    string created_at = 9;
+    string updated_at = 10;
+}
+
+message ListMenstrualCyclesRequest {
+    string user_id = 1;
+    string from = 2;
+    string to = 3;
+    int32 limit = 4;
+}
+
+message ListMenstrualCyclesResponse {
+    repeated MenstrualCycle cycles = 1;
+    int32 total = 2;
+}
+
+message CreateMenstrualCycleRequest {
+    string user_id = 1;
+    string cycle_start_date = 2;
+    string cycle_end_date = 3;
+    string flow_intensity = 4;
+    repeated string symptoms = 5;
+    repeated string moods = 6;
+    string notes = 7;
+}
+
+message UpdateMenstrualCycleRequest {
+    string user_id = 1;
+    string cycle_id = 2;
+    string cycle_start_date = 3;
+    string cycle_end_date = 4;
+    string flow_intensity = 5;
+    repeated string symptoms = 6;
+    repeated string moods = 7;
+    string notes = 8;
+}
+
+message DeleteMenstrualCycleRequest {
+    string user_id = 1;
+    string cycle_id = 2;
+}
+
+message DeleteMenstrualCycleResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message SyncFloDataRequest {
+    string user_id = 1;
+    string access_token = 2;
+    string refresh_token = 3;
+}
+
+message SyncFloDataResponse {
+    bool success = 1;
+    string message = 2;
+    int32 synced_cycles = 3;
+}
+
+message SyncOKOKDataRequest {
+    string user_id = 1;
+    string access_token = 2;
+    string refresh_token = 3;
+}
+
+message SyncOKOKDataResponse {
+    bool success = 1;
+    string message = 2;
+    int32 synced_records = 3;
 }

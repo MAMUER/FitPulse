@@ -6,6 +6,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc/credentials"
@@ -58,6 +60,10 @@ func loadServerTLSCredentials() (credentials.TransportCredentials, error) {
 	}
 
 	if caFile != "" {
+		caFile = filepath.Clean(caFile)
+		if strings.Contains(caFile, "..") {
+			return nil, fmt.Errorf("invalid gRPC CA file path")
+		}
 		caPem, err := os.ReadFile(caFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read gRPC CA file: %w", err)
@@ -82,6 +88,10 @@ func loadClientTLSCredentials() (credentials.TransportCredentials, error) {
 		return nil, fmt.Errorf("GRPC_TLS_CA_FILE must be set for gRPC client TLS")
 	}
 
+	caFile = filepath.Clean(caFile)
+	if strings.Contains(caFile, "..") {
+		return nil, fmt.Errorf("invalid gRPC CA file path")
+	}
 	caPem, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read gRPC CA file: %w", err)

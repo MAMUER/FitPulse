@@ -47,17 +47,17 @@ func (e *TOTPEncryptor) Encrypt(plaintext []byte) ([]byte, error) {
 
 	block, err := aes.NewCipher(e.key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create AES cipher: %w", err)
 	}
 
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create AES-GCM: %w", err)
 	}
 
 	nonce := make([]byte, aesGCM.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read nonce: %w", err)
 	}
 
 	return aesGCM.Seal(nonce, nonce, plaintext, nil), nil
@@ -70,12 +70,12 @@ func (e *TOTPEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	block, err := aes.NewCipher(e.key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create AES cipher: %w", err)
 	}
 
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create AES-GCM: %w", err)
 	}
 
 	nonceSize := aesGCM.NonceSize()
@@ -84,5 +84,10 @@ func (e *TOTPEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	return aesGCM.Open(nil, nonce, ciphertext, nil)
+	_, err = aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt data: %w", err)
+	}
+
+	return nil, nil
 }

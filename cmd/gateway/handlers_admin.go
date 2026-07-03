@@ -163,9 +163,20 @@ func (g *gateway) adminListInvitesHandler(w http.ResponseWriter, r *http.Request
 		inv.InviteURL = fmt.Sprintf("%s/register?invite=%s", baseURL, inv.Code)
 		invites = append(invites, inv)
 	}
+	if err := rows.Err(); err != nil {
+		g.log.Error("Rows iteration error", zap.Error(err))
+		http.Error(w, "Не найдено", http.StatusInternalServerError)
+		return
+	}
 
 	if invites == nil {
 		invites = []inviteInfo{}
+	}
+
+	if err := rows.Err(); err != nil {
+		g.log.Error("Rows iteration error", zap.Error(err))
+		http.Error(w, "Не найдено", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

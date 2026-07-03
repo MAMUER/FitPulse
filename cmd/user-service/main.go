@@ -8,6 +8,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"math"
 	"net"
 	"strings"
 	"time"
@@ -62,7 +64,7 @@ const argon2idParams = "m=65536,t=3,p=1"
 func hashPasswordArgon2id(password string) (string, error) {
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
-		return "", err
+		return "", fmt.Errorf("generate salt: %w", err)
 	}
 	hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 1, 32)
 	return "$argon2id$v=19$" + argon2idParams + "$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(hash), nil
@@ -99,7 +101,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	// Валидация входных данных
 	if err := validator.ValidateRegisterRequest(req); err != nil {
 		s.log.Warn("Invalid register request", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("validate register request: %w", err)
 	}
 
 	// Санитизируем входные данные
@@ -240,7 +242,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	// Валидация входных данных
 	if err := validator.ValidateLoginRequest(req); err != nil {
 		s.log.Warn("Invalid login request", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("validate login request: %w", err)
 	}
 
 	// Проверка подтверждения email
@@ -331,7 +333,11 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 			_, _ = s.db.ExecContext(ctx, `UPDATE users SET email_confirmed = true, updated_at = NOW() WHERE id = $1`, userID)
 			emailConfirmed = true
 		}
-	} else if errors.Is(err, sql.ErrNoRows) {
+	} else {
+		if !errors.Is(err, sql.ErrNoRows) {
+			s.log.Error("Database error during Google auth", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
 		err = s.db.QueryRowContext(ctx, `
 			SELECT id, role, email_confirmed FROM users WHERE email_hash = $1
 		`, emailHash).Scan(&userID, &role, &emailConfirmed)
@@ -342,7 +348,11 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 			if linkErr != nil {
 				s.log.Warn("Failed to link Google account", zap.Error(linkErr), zap.String("user_id", userID))
 			}
-		} else if errors.Is(err, sql.ErrNoRows) {
+		} else {
+			if !errors.Is(err, sql.ErrNoRows) {
+				s.log.Error("Database error during Google auth", zap.Error(err))
+				return nil, status.Error(codes.Internal, "database error")
+			}
 			nickname := extractLocalPart(emailVal)
 			userID = uuid.New().String()
 			_, insertErr := s.db.ExecContext(ctx, `
@@ -364,13 +374,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 			if profileErr != nil {
 				s.log.Warn("Failed to create profile for OAuth user", zap.Error(profileErr), zap.String("user_id", userID))
 			}
-		} else {
-			s.log.Error("Database error during Google auth", zap.Error(err))
-			return nil, status.Error(codes.Internal, "database error")
 		}
-	} else {
-		s.log.Error("Database error during Google auth", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
 	}
 
 	if !emailConfirmed {
@@ -483,10 +487,9 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 }
 
 func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.UserProfile, error) {
-	// Валидация входных данных
 	if err := validator.ValidateProfileUpdate(req); err != nil {
 		s.log.Warn("Invalid profile update request", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("validate profile update: %w", err)
 	}
 
 	// Обновляем full_name и nickname в users table (если передан)
@@ -749,7 +752,9 @@ func (s *userServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest
 		}
 		devices = append(devices, &d)
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "failed to list devices")
+	}
 	return &pb.ListDevicesResponse{Devices: devices}, nil
 }
 
@@ -912,6 +917,16 @@ func extractLocalPart(email string) string {
 	return email
 }
 
+func safeInt32(v int) int32 {
+	if v > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if v < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(v)
+}
+
 func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
 	// Валидация параметров
 	if req == nil {
@@ -940,7 +955,7 @@ func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
 		}
 	}()
 
@@ -1258,6 +1273,369 @@ func (s *userServer) DisableTOTP(ctx context.Context, req *pb.DisableTOTPRequest
 
 	s.log.Info("TOTP disabled", zap.String("user_id", req.UserId))
 	return &pb.DisableTOTPResponse{Success: true, Message: "TOTP disabled successfully"}, nil
+}
+
+func (s *userServer) ListHealthConditions(ctx context.Context, req *pb.ListHealthConditionsRequest) (*pb.ListHealthConditionsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, user_id, condition_type, condition_name, severity, diagnosed_at, is_active, notes, created_at, updated_at
+		FROM user_health_conditions
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to query health conditions", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows for health conditions", zap.Error(closeErr))
+		}
+	}()
+
+	conditions := make([]*pb.HealthCondition, 0)
+	for rows.Next() {
+		var c pb.HealthCondition
+		var diagnosedAt sql.NullTime
+		var notes sql.NullString
+		if err := rows.Scan(&c.Id, &c.UserId, &c.ConditionType, &c.ConditionName, &c.Severity, &diagnosedAt, &c.IsActive, &notes, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			s.log.Error("Failed to scan health condition", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+		if diagnosedAt.Valid {
+			c.DiagnosedAt = diagnosedAt.Time.Format("2006-01-02")
+		}
+		if notes.Valid {
+			c.Notes = notes.String
+		}
+		conditions = append(conditions, &c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.ListHealthConditionsResponse{Conditions: conditions, Total: safeInt32(len(conditions))}, nil
+}
+
+func (s *userServer) UpsertHealthCondition(ctx context.Context, req *pb.UpsertHealthConditionRequest) (*pb.HealthCondition, error) {
+	if req.UserId == "" || req.ConditionName == "" || req.ConditionType == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id, condition_type and condition_name are required")
+	}
+	var id string
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO user_health_conditions (user_id, condition_type, condition_name, severity, diagnosed_at, is_active, notes, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		ON CONFLICT (user_id, condition_type, condition_name) DO UPDATE SET
+			severity = EXCLUDED.severity,
+			diagnosed_at = EXCLUDED.diagnosed_at,
+			is_active = EXCLUDED.is_active,
+			notes = EXCLUDED.notes,
+			updated_at = NOW()
+		RETURNING id
+	`, req.UserId, req.ConditionType, req.ConditionName, req.Severity, req.DiagnosedAt, req.IsActive, req.Notes).Scan(&id)
+	if err != nil {
+		s.log.Error("Failed to upsert health condition", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.HealthCondition{
+		Id: id, UserId: req.UserId, ConditionType: req.ConditionType, ConditionName: req.ConditionName,
+		Severity: req.Severity, DiagnosedAt: req.DiagnosedAt, IsActive: req.IsActive, Notes: req.Notes,
+	}, nil
+}
+
+func (s *userServer) DeleteHealthCondition(ctx context.Context, req *pb.DeleteHealthConditionRequest) (*pb.DeleteHealthConditionResponse, error) {
+	if req.UserId == "" || req.ConditionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and condition_id are required")
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM user_health_conditions WHERE id = $1 AND user_id = $2`, req.ConditionId, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to delete health condition", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.DeleteHealthConditionResponse{Success: true, Message: "Health condition deleted"}, nil
+}
+
+func (s *userServer) ListBodyComposition(ctx context.Context, req *pb.ListBodyCompositionRequest) (*pb.ListBodyCompositionResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	limitClamped := limit
+	if limitClamped > 10000 {
+		limitClamped = 10000
+	}
+
+	var query string
+	var args []interface{}
+
+	switch {
+	case req.From != "" && req.To != "":
+		query = `SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at
+			FROM user_body_composition
+			WHERE user_id = $1 AND recorded_at >= $2 AND recorded_at <= $3
+			ORDER BY recorded_at DESC LIMIT $4`
+		args = []interface{}{req.UserId, req.From, req.To, limitClamped}
+	case req.From != "":
+		query = `SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at
+			FROM user_body_composition
+			WHERE user_id = $1 AND recorded_at >= $2
+			ORDER BY recorded_at DESC LIMIT $3`
+		args = []interface{}{req.UserId, req.From, limitClamped}
+	case req.To != "":
+		query = `SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at
+			FROM user_body_composition
+			WHERE user_id = $1 AND recorded_at <= $2
+			ORDER BY recorded_at DESC LIMIT $3`
+		args = []interface{}{req.UserId, req.To, limitClamped}
+	default:
+		query = `SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at
+			FROM user_body_composition
+			WHERE user_id = $1
+			ORDER BY recorded_at DESC LIMIT $2`
+		args = []interface{}{req.UserId, limitClamped}
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		s.log.Error("Failed to query body composition", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
+		}
+	}()
+
+	records := make([]*pb.BodyCompositionRecord, 0)
+	for rows.Next() {
+		var r pb.BodyCompositionRecord
+		if err := rows.Scan(&r.Id, &r.UserId, &r.RecordedAt, &r.WeightKg, &r.HeightCm, &r.Bmi, &r.BodyFatPercentage, &r.MuscleMassPercentage, &r.BoneMassPercentage, &r.WaterPercentage, &r.VisceralFatRating, &r.MetabolicAge, &r.Source, &r.CreatedAt); err != nil {
+			s.log.Error("Failed to scan body composition record", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+		records = append(records, &r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.ListBodyCompositionResponse{Records: records, Total: safeInt32(len(records))}, nil
+}
+
+func (s *userServer) CreateBodyComposition(ctx context.Context, req *pb.CreateBodyCompositionRequest) (*pb.BodyCompositionRecord, error) {
+	if req.UserId == "" || req.WeightKg <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id and weight_kg are required")
+	}
+	var id string
+	var recordedAt string
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO user_body_composition (user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source)
+		VALUES ($1, COALESCE($2, NOW()), $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 'manual'))
+		RETURNING id, recorded_at
+	`, req.UserId, req.RecordedAt, req.WeightKg, req.HeightCm, req.Bmi, req.BodyFatPercentage, req.MuscleMassPercentage, req.BoneMassPercentage, req.WaterPercentage, req.VisceralFatRating, req.MetabolicAge, req.Source).Scan(&id, &recordedAt)
+	if err != nil {
+		s.log.Error("Failed to create body composition record", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.BodyCompositionRecord{
+		Id: id, UserId: req.UserId, RecordedAt: recordedAt, WeightKg: req.WeightKg, HeightCm: req.HeightCm,
+		Bmi: req.Bmi, BodyFatPercentage: req.BodyFatPercentage, MuscleMassPercentage: req.MuscleMassPercentage,
+		BoneMassPercentage: req.BoneMassPercentage, WaterPercentage: req.WaterPercentage,
+		VisceralFatRating: req.VisceralFatRating, MetabolicAge: req.MetabolicAge, Source: req.Source,
+	}, nil
+}
+
+func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstrualCyclesRequest) (*pb.ListMenstrualCyclesResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, user_id, cycle_start_date, cycle_end_date, flow_intensity, notes, created_at, updated_at
+		FROM user_menstrual_cycles
+		WHERE user_id = $1
+		ORDER BY cycle_start_date DESC
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to query menstrual cycles", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows for health conditions", zap.Error(closeErr))
+		}
+	}()
+
+	cycles := make([]*pb.MenstrualCycle, 0)
+	for rows.Next() {
+		var c pb.MenstrualCycle
+		var cycleEndDate sql.NullTime
+		var notes sql.NullString
+		if err := rows.Scan(&c.Id, &c.UserId, &c.CycleStartDate, &cycleEndDate, &c.FlowIntensity, &notes, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			s.log.Error("Failed to scan menstrual cycle", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+		if cycleEndDate.Valid {
+			c.CycleEndDate = cycleEndDate.Time.Format("2006-01-02")
+		}
+		if notes.Valid {
+			c.Notes = notes.String
+		}
+
+		symptomRows, _ := s.db.QueryContext(ctx, `SELECT symptom FROM user_menstrual_symptoms WHERE cycle_id = $1`, c.Id)
+		symptoms := make([]string, 0)
+		for symptomRows.Next() {
+			var symptom string
+			if err := symptomRows.Scan(&symptom); err == nil {
+				symptoms = append(symptoms, symptom)
+			}
+		}
+		_ = symptomRows.Close()
+		c.Symptoms = symptoms
+
+		moodRows, _ := s.db.QueryContext(ctx, `SELECT mood FROM user_menstrual_moods WHERE cycle_id = $1`, c.Id)
+		moods := make([]string, 0)
+		for moodRows.Next() {
+			var mood string
+			if err := moodRows.Scan(&mood); err == nil {
+				moods = append(moods, mood)
+			}
+		}
+		_ = moodRows.Close()
+		c.Moods = moods
+
+		cycles = append(cycles, &c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.ListMenstrualCyclesResponse{Cycles: cycles, Total: safeInt32(len(cycles))}, nil
+}
+
+func (s *userServer) CreateMenstrualCycle(ctx context.Context, req *pb.CreateMenstrualCycleRequest) (*pb.MenstrualCycle, error) {
+	if req.UserId == "" || req.CycleStartDate == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and cycle_start_date are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Error("Failed to rollback transaction", zap.Error(rollbackErr))
+		}
+	}()
+
+	var cycleID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO user_menstrual_cycles (user_id, cycle_start_date, cycle_end_date, flow_intensity, notes)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`, req.UserId, req.CycleStartDate, nullIfEmpty(req.CycleEndDate), nullIfEmpty(req.FlowIntensity), req.Notes).Scan(&cycleID)
+	if err != nil {
+		s.log.Error("Failed to create menstrual cycle", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	for _, symptom := range req.Symptoms {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO user_menstrual_symptoms (cycle_id, symptom) VALUES ($1, $2) ON CONFLICT DO NOTHING`, cycleID, symptom); err != nil {
+			s.log.Error("Failed to insert symptom", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+	}
+	for _, mood := range req.Moods {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO user_menstrual_moods (cycle_id, mood) VALUES ($1, $2) ON CONFLICT DO NOTHING`, cycleID, mood); err != nil {
+			s.log.Error("Failed to insert mood", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.MenstrualCycle{
+		Id: cycleID, UserId: req.UserId, CycleStartDate: req.CycleStartDate,
+		CycleEndDate: req.CycleEndDate, FlowIntensity: req.FlowIntensity,
+		Notes: req.Notes, Symptoms: req.Symptoms, Moods: req.Moods,
+	}, nil
+}
+
+func (s *userServer) UpdateMenstrualCycle(ctx context.Context, req *pb.UpdateMenstrualCycleRequest) (*pb.MenstrualCycle, error) {
+	if req.UserId == "" || req.CycleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and cycle_id are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Error("Failed to rollback transaction", zap.Error(rollbackErr))
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE user_menstrual_cycles
+		SET cycle_end_date = $1, flow_intensity = $2, notes = $3, updated_at = NOW()
+		WHERE id = $4 AND user_id = $5
+	`, nullIfEmpty(req.CycleEndDate), nullIfEmpty(req.FlowIntensity), req.Notes, req.CycleId, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to update menstrual cycle", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	_, _ = tx.ExecContext(ctx, `DELETE FROM user_menstrual_symptoms WHERE cycle_id = $1`, req.CycleId)
+	for _, symptom := range req.Symptoms {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO user_menstrual_symptoms (cycle_id, symptom) VALUES ($1, $2) ON CONFLICT DO NOTHING`, req.CycleId, symptom); err != nil {
+			s.log.Error("Failed to update symptoms", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+	}
+	_, _ = tx.ExecContext(ctx, `DELETE FROM user_menstrual_moods WHERE cycle_id = $1`, req.CycleId)
+	for _, mood := range req.Moods {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO user_menstrual_moods (cycle_id, mood) VALUES ($1, $2) ON CONFLICT DO NOTHING`, req.CycleId, mood); err != nil {
+			s.log.Error("Failed to update moods", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.MenstrualCycle{
+		Id: req.CycleId, UserId: req.UserId, CycleStartDate: req.CycleStartDate,
+		CycleEndDate: req.CycleEndDate, FlowIntensity: req.FlowIntensity,
+		Notes: req.Notes, Symptoms: req.Symptoms, Moods: req.Moods,
+	}, nil
+}
+
+func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMenstrualCycleRequest) (*pb.DeleteMenstrualCycleResponse, error) {
+	if req.UserId == "" || req.CycleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and cycle_id are required")
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM user_menstrual_cycles WHERE id = $1 AND user_id = $2`, req.CycleId, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to delete menstrual cycle", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	return &pb.DeleteMenstrualCycleResponse{Success: true, Message: "Menstrual cycle deleted"}, nil
+}
+
+func (s *userServer) SyncFloData(ctx context.Context, req *pb.SyncFloDataRequest) (*pb.SyncFloDataResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncFloData not implemented yet")
+}
+
+func (s *userServer) SyncOKOKData(ctx context.Context, req *pb.SyncOKOKDataRequest) (*pb.SyncOKOKDataResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncOKOKData not implemented yet")
+}
+
+func nullIfEmpty(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 func (s *userServer) backfillEncryptedPII(ctx context.Context) {

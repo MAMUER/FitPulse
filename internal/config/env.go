@@ -16,17 +16,11 @@ func GetEnv(key string, defaultValue ...string) string {
 	if filePath := os.Getenv(fileKey); filePath != "" {
 		absFile, err := filepath.Abs(filePath)
 		if err != nil {
-			if len(defaultValue) > 0 {
-				return defaultValue[0]
-			}
-			return ""
+			return defaultValueOrDefault(defaultValue)
 		}
 		absFile = filepath.Clean(absFile)
 		if strings.Contains(filePath, "..") {
-			if len(defaultValue) > 0 {
-				return defaultValue[0]
-			}
-			return ""
+			return defaultValueOrDefault(defaultValue)
 		}
 		data, err := os.ReadFile(absFile)
 		if err == nil {
@@ -38,6 +32,13 @@ func GetEnv(key string, defaultValue ...string) string {
 		return val
 	}
 
+	if len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return ""
+}
+
+func defaultValueOrDefault(defaultValue []string) string {
 	if len(defaultValue) > 0 {
 		return defaultValue[0]
 	}

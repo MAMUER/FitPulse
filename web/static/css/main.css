@@ -946,6 +946,81 @@ body {
     border-left: 4px solid var(--accent);
 }
 
+/* ===== Health View ===== */
+.health-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+.health-section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.health-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+.sync-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.health-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.health-card {
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    padding: 14px;
+}
+.health-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.badge {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.health-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.health-card-notes {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+.health-card-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+.btn-danger-ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid rgba(255, 55, 95, 0.4);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.btn-danger-ghost:active {
+    background: rgba(255, 55, 95, 0.12);
+}
+
 /* ===== Responsive (larger screens) ===== */
 @media (min-width: 768px) {
     .content {

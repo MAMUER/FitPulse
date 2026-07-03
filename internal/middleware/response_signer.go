@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/MAMUER/project/internal/auth"
@@ -32,7 +33,8 @@ func (r *responseRecorder) Header() http.Header {
 }
 
 func (r *responseRecorder) Write(b []byte) (int, error) {
-	return r.body.Write(b)
+	n, err := r.body.Write(b)
+	return n, fmt.Errorf("write body: %w", err)
 }
 
 func (r *responseRecorder) WriteHeader(code int) {
@@ -94,7 +96,7 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 	if err != nil {
 		log.Error("Failed to marshal JSON for signing", zap.Error(err))
 		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
-		return err
+		return fmt.Errorf("marshal json: %w", err)
 	}
 
 	// 2. Подписываем байты
@@ -116,5 +118,5 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 	w.WriteHeader(code)
 	buf := bytes.NewBuffer(jsonBytes)
 	_, err = buf.WriteTo(w)
-	return err
+	return fmt.Errorf("write response: %w", err)
 }

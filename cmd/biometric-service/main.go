@@ -97,7 +97,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 
 	for i, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
-			return nil, status.Error(codes.Canceled, "request cancelled")
+			return nil, status.Error(codes.Canceled, "request canceled")
 		}
 		if err := validator.ValidateBiometricRecord(rec); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "record[%d]: %v", i, err)
@@ -119,7 +119,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
 			_ = tx.Rollback()
-			return nil, status.Error(codes.Canceled, "request cancelled")
+			return nil, status.Error(codes.Canceled, "request canceled")
 		}
 
 		id := uuid.New().String()

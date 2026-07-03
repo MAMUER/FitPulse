@@ -93,6 +93,42 @@ func (m *mockUserServiceClient) VerifyTOTP(ctx context.Context, req *userpb.Veri
 func (m *mockUserServiceClient) DisableTOTP(ctx context.Context, req *userpb.DisableTOTPRequest, opts ...grpc.CallOption) (*userpb.DisableTOTPResponse, error) {
 	return &userpb.DisableTOTPResponse{Success: true}, nil
 }
+func (m *mockUserServiceClient) RefreshToken(ctx context.Context, req *userpb.RefreshTokenRequest, opts ...grpc.CallOption) (*userpb.RefreshTokenResponse, error) {
+	return &userpb.RefreshTokenResponse{}, nil
+}
+func (m *mockUserServiceClient) ListHealthConditions(ctx context.Context, req *userpb.ListHealthConditionsRequest, opts ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error) {
+	return &userpb.ListHealthConditionsResponse{}, nil
+}
+func (m *mockUserServiceClient) UpsertHealthCondition(ctx context.Context, req *userpb.UpsertHealthConditionRequest, opts ...grpc.CallOption) (*userpb.HealthCondition, error) {
+	return &userpb.HealthCondition{}, nil
+}
+func (m *mockUserServiceClient) DeleteHealthCondition(ctx context.Context, req *userpb.DeleteHealthConditionRequest, opts ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error) {
+	return &userpb.DeleteHealthConditionResponse{Success: true}, nil
+}
+func (m *mockUserServiceClient) ListBodyComposition(ctx context.Context, req *userpb.ListBodyCompositionRequest, opts ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error) {
+	return &userpb.ListBodyCompositionResponse{}, nil
+}
+func (m *mockUserServiceClient) CreateBodyComposition(ctx context.Context, req *userpb.CreateBodyCompositionRequest, opts ...grpc.CallOption) (*userpb.BodyCompositionRecord, error) {
+	return &userpb.BodyCompositionRecord{}, nil
+}
+func (m *mockUserServiceClient) ListMenstrualCycles(ctx context.Context, req *userpb.ListMenstrualCyclesRequest, opts ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error) {
+	return &userpb.ListMenstrualCyclesResponse{}, nil
+}
+func (m *mockUserServiceClient) CreateMenstrualCycle(ctx context.Context, req *userpb.CreateMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
+	return &userpb.MenstrualCycle{}, nil
+}
+func (m *mockUserServiceClient) UpdateMenstrualCycle(ctx context.Context, req *userpb.UpdateMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
+	return &userpb.MenstrualCycle{}, nil
+}
+func (m *mockUserServiceClient) DeleteMenstrualCycle(ctx context.Context, req *userpb.DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error) {
+	return &userpb.DeleteMenstrualCycleResponse{Success: true}, nil
+}
+func (m *mockUserServiceClient) SyncFloData(ctx context.Context, req *userpb.SyncFloDataRequest, opts ...grpc.CallOption) (*userpb.SyncFloDataResponse, error) {
+	return &userpb.SyncFloDataResponse{}, nil
+}
+func (m *mockUserServiceClient) SyncOKOKData(ctx context.Context, req *userpb.SyncOKOKDataRequest, opts ...grpc.CallOption) (*userpb.SyncOKOKDataResponse, error) {
+	return &userpb.SyncOKOKDataResponse{}, nil
+}
 
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}

@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html"
 	"html/template"
 	"image/png"
@@ -49,7 +50,7 @@ type totpRateLimiter struct {
 func generateOAuthState() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("generate oauth state: %w", err)
 	}
 
 	return hex.EncodeToString(b), nil
@@ -78,10 +79,11 @@ func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
 
 	var email, role string
 	if err := g.db.QueryRowContext(ctx, "SELECT email, role FROM users WHERE id = $1", userID).Scan(&email, &role); err != nil {
-		return "", err
+		return "", fmt.Errorf("query user for JWT: %w", err)
 	}
 
-	return auth.GenerateAccessToken(userID, email, role, g.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := auth.GenerateAccessToken(userID, email, role, g.jwtPrivateKeyPEM, 15*time.Minute)
+	return token, fmt.Errorf("issue jwt: %w", err)
 }
 
 func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string, error) {
@@ -91,7 +93,7 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 	token := auth.GenerateRefreshToken()
 	key := "refresh:" + token
 	if err := g.rdb.Set(ctx, key, userID, 7*24*time.Hour).Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("issue refresh token: %w", err)
 	}
 	return token, nil
 }
@@ -129,6 +131,14 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 		g.log.Warn("Redis 2FA rate limit unavailable", zap.Error(err))
 	}
 
+	if countOverLimit(ctx, g, key) {
+		return errors.New("too many 2FA attempts")
+	}
+
+	return nil
+}
+
+func countOverLimit(ctx context.Context, g *gateway, key string) bool {
 	v, _ := g.totpRateLimiters.LoadOrStore(key, &totpRateLimiter{
 		limiter:   rate.NewLimiter(totpRateLimitAttempts, totpRateLimitAttempts),
 		expiresAt: time.Now().Add(time.Minute),
@@ -141,26 +151,23 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 		}
 		g.totpRateLimiters.Store(key, limiter)
 	}
-	if !limiter.limiter.Allow() {
-		return errors.New("too many 2FA attempts")
-	}
-	return nil
+	return !limiter.limiter.Allow()
 }
 
 func encodeQRCodeBase64(qrCodeURL string) (string, error) {
 	key, err := otp.NewKeyFromURL(qrCodeURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse otp key URL: %w", err)
 	}
 
 	img, err := key.Image(256, 256)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("render qr code image: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
-		return "", err
+		return "", fmt.Errorf("encode qr code PNG: %w", err)
 	}
 
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
@@ -408,50 +415,46 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		g.log.Warn("Failed to load confirm template, using fallback", zap.Error(err))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if token == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			fallbackTemplate, parseErr := template.New("confirmFallbackError").Parse(confirmFallbackErrorHTML)
-			if parseErr != nil {
-				g.log.Error("Failed to parse fallback error template", zap.Error(parseErr))
-				return
-			}
-			if executeErr := fallbackTemplate.Execute(w, nil); executeErr != nil {
-				g.log.Error("Failed to write fallback response", zap.Error(executeErr))
-			}
-			return
-		}
-
-		fallbackTemplate, parseErr := template.New("confirmFallback").Parse(confirmFallbackHTML)
-		if parseErr != nil {
-			g.log.Error("Failed to parse fallback confirm template", zap.Error(parseErr))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-			return
-		}
-		if executeErr := fallbackTemplate.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-			g.log.Error("Failed to write fallback response", zap.Error(executeErr))
-		}
+		g.renderConfirmFallback(w, token, token == "")
 		return
 	}
 
-	tmpl, err := template.New("confirm").Parse(string(tmplBytes))
-	if err != nil {
-		g.log.Warn("Failed to parse confirm template, using fallback", zap.Error(err))
+	tmpl, parseErr := template.New("confirm").Parse(string(tmplBytes))
+	if parseErr != nil {
+		g.log.Warn("Failed to parse confirm template, using fallback", zap.Error(parseErr))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fallbackTemplate, parseErr := template.New("confirmFallback").Parse(confirmFallbackHTML)
-		if parseErr != nil {
-			g.log.Error("Failed to parse fallback confirm template", zap.Error(parseErr))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-			return
-		}
-		if executeErr := fallbackTemplate.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-			g.log.Error("Failed to write fallback response", zap.Error(executeErr))
-		}
+		g.renderConfirmFallback(w, token, false)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if executeErr := tmpl.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
 		g.log.Error("Failed to write confirm page", zap.Error(executeErr))
+	}
+}
+
+func (g *gateway) renderConfirmFallback(w http.ResponseWriter, token string, tokenEmpty bool) {
+	if tokenEmpty {
+		w.WriteHeader(http.StatusBadRequest)
+		fallbackTemplate, parseErr := template.New("confirmFallbackError").Parse(confirmFallbackErrorHTML)
+		if parseErr != nil {
+			g.log.Error("Failed to parse fallback error template", zap.Error(parseErr))
+			return
+		}
+		if executeErr := fallbackTemplate.Execute(w, nil); executeErr != nil {
+			g.log.Error("Failed to write fallback response", zap.Error(executeErr))
+		}
+		return
+	}
+
+	fallbackTemplate, parseErr := template.New("confirmFallback").Parse(confirmFallbackHTML)
+	if parseErr != nil {
+		g.log.Error("Failed to parse fallback confirm template", zap.Error(parseErr))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+	if executeErr := fallbackTemplate.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
+		g.log.Error("Failed to write fallback response", zap.Error(executeErr))
 	}
 }
 

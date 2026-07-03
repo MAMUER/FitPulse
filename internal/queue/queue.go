@@ -223,11 +223,11 @@ func (c *rabbitConsumer) Messages() <-chan amqp.Delivery {
 }
 
 func (c *rabbitConsumer) Ack(tag uint64, multiple bool) error {
-	return c.channel.Ack(tag, multiple)
+	return fmt.Errorf("ack message: %w", c.channel.Ack(tag, multiple))
 }
 
 func (c *rabbitConsumer) Nack(tag uint64, multiple, requeue bool) error {
-	return c.channel.Nack(tag, multiple, requeue)
+	return fmt.Errorf("nack message: %w", c.channel.Nack(tag, multiple, requeue))
 }
 
 func (c *rabbitConsumer) Close() error {

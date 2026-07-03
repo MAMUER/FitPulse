@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/MAMUER/project/internal/domain"
@@ -43,7 +44,7 @@ func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limi
 		LIMIT $2
 	`, userID, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query biometric data by user: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -51,13 +52,13 @@ func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limi
 	for rows.Next() {
 		var data domain.BiometricData
 		var timestamp time.Time
-		if err := rows.Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType); err != nil {
-			return nil, err
+		if scanErr := rows.Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType); scanErr != nil {
+			return nil, fmt.Errorf("scan biometric data row: %w", scanErr)
 		}
 		data.Timestamp = timestamp
 		results = append(results, &data)
 	}
-	return results, rows.Err()
+	return results, fmt.Errorf("iterate biometric rows: %w", rows.Err())
 }
 
 func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType string) (*domain.BiometricData, error) {
@@ -76,7 +77,7 @@ func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType 
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("not found")
 		}
-		return nil, err
+		return nil, fmt.Errorf("query latest biometric: %w", err)
 	}
 	data.Timestamp = timestamp
 	return &data, nil

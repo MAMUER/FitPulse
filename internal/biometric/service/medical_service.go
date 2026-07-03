@@ -136,7 +136,7 @@ func (s *MedicalService) suggestModification(constraint domain.MedicalConstraint
 func (s *MedicalService) IsMetricAllowed(ctx context.Context, userID, metricType string) (bool, string, error) {
 	constraints, err := s.repo.GetActiveConstraints(ctx, userID)
 	if err != nil {
-		return false, "", err
+		return false, "", fmt.Errorf("get active constraints: %w", err)
 	}
 	for _, constraint := range constraints {
 		for _, rule := range constraint.ImpactOnTraining {

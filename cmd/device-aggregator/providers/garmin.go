@@ -47,7 +47,7 @@ func (p *GarminProvider) GetAuthURL(userID string) (string, error) {
 		INSERT INTO oauth_states (state, user_id, provider, expires_at)
 		VALUES ($1, $2, 'garmin', NOW() + INTERVAL '10 minutes')
 	`, state, userID); err != nil {
-		return "", err
+		return "", fmt.Errorf("save oauth state: %w", err)
 	}
 
 	// Garmin Health API OAuth 1.0a flow
@@ -87,7 +87,7 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 	// Get Garmin user info
 	profile, err := p.getUserProfile(tokenResp.AccessToken, tokenResp.AccessTokenSecret)
 	if err != nil {
-		return err
+		return fmt.Errorf("upsert provider account: %w", err)
 	}
 
 	// Save to database
@@ -103,7 +103,10 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 			updated_at = NOW()
 	`, userID, profile.UserID, tokenResp.AccessToken, tokenResp.AccessTokenSecret)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert garmin account: %w", err)
+	}
+	return nil
 }
 
 func (p *GarminProvider) exchangeForAccessToken(oauthToken, oauthVerifier string) (*GarminTokenResponse, error) {
@@ -122,7 +125,7 @@ func (p *GarminProvider) exchangeForAccessToken(oauthToken, oauthVerifier string
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute token request: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -156,7 +159,7 @@ func (p *GarminProvider) getUserProfile(accessToken, accessTokenSecret string) (
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute profile request: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -180,48 +183,12 @@ func (p *GarminProvider) Disconnect(ctx context.Context, userID string) error {
 		SET is_active = FALSE, updated_at = NOW()
 		WHERE user_id = $1 AND provider = 'garmin'
 	`, userID)
-	return err
+	return fmt.Errorf("disconnect garmin: %w", err)
 }
 
 // ListProviders returns list of connected Garmin accounts.
 func (p *GarminProvider) ListProviders(ctx context.Context, userID string) (map[string]interface{}, error) {
-	rows, err := p.db.QueryContext(ctx, `
-		SELECT provider, provider_user_id, is_active, last_sync_at, created_at
-		FROM device_provider_accounts
-		WHERE user_id = $1 AND provider = 'garmin'
-		ORDER BY created_at DESC
-	`, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = rows.Close()
-	}()
-
-	type ProviderInfo struct {
-		Provider       string     `json:"provider"`
-		ProviderUserID string     `json:"provider_user_id"`
-		IsActive       bool       `json:"is_active"`
-		LastSyncAt     *time.Time `json:"last_sync_at,omitempty"`
-		CreatedAt      time.Time  `json:"created_at"`
-	}
-
-	var providers []ProviderInfo
-	for rows.Next() {
-		var p ProviderInfo
-		if err := rows.Scan(&p.Provider, &p.ProviderUserID, &p.IsActive, &p.LastSyncAt, &p.CreatedAt); err != nil {
-			continue
-		}
-		providers = append(providers, p)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan providers: %w", err)
-	}
-
-	return map[string]interface{}{
-		"providers": providers,
-		"total":     len(providers),
-	}, nil
+	return listAccountProviders(ctx, p.db, userID, "garmin")
 }
 
 // GarminTokenResponse represents Garmin token response.

@@ -520,6 +520,37 @@
                             </button>
                         </div>
                     </div>
+                    <!-- Здоровье -->
+                    <div id="healthView" class="view">
+                        <section class="health-section">
+                            <h3>Особенности здоровья</h3>
+                            <div class="health-actions">
+                                <button class="btn-primary" id="addConditionBtn">Добавить</button>
+                            </div>
+                            <div id="healthConditionsList" class="health-list"></div>
+                        </section>
+                        <section class="health-section">
+                            <h3>Состав тела</h3>
+                            <div class="health-actions">
+                                <button class="btn-primary" id="addBodyCompositionBtn">Добавить запись</button>
+                            </div>
+                            <div id="bodyCompositionList" class="health-list"></div>
+                        </section>
+                        <section class="health-section">
+                            <h3>Женский цикл</h3>
+                            <div class="health-actions">
+                                <button class="btn-primary" id="addMenstrualCycleBtn">Добавить цикл</button>
+                            </div>
+                            <div id="menstrualCyclesList" class="health-list"></div>
+                        </section>
+                        <section class="health-section">
+                            <h3>Синхронизация</h3>
+                            <div class="sync-grid">
+                                <button class="btn-secondary" id="syncFloBtn">Синхронизировать Flo</button>
+                                <button class="btn-secondary" id="syncOKOKBtn">Синхронизировать OKOK International</button>
+                            </div>
+                        </section>
+                    </div>
                     <!-- Тренировки -->
                     <div id="trainingView" class="view">
                         <div id="plansList" class="plans-list">
@@ -735,6 +766,13 @@
                             <line x1="14" y1="1" x2="14" y2="4" />
                         </svg>
                         <span>Диета</span>
+                    </button>
+                    <button class="tab" data-view="health">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 14.5A9.5 9.5 0 0 0 6.5 5.5a9.5 9.5 0 0 0 10.5 12.6 9.5 9.5 0 0 0 3.4-3.6z" />
+                        </svg>
+                        <span>Здоровье</span>
                     </button>
                     <button class="tab" data-view="admin" id="adminTab"
                         style="display: none;">

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,7 +39,7 @@ func run(stopCh <-chan os.Signal) error {
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
 		log.Error("Failed to connect to database", zap.Error(err))
-		return err
+		return fmt.Errorf("connect database: %w", err)
 	}
 	defer func() { _ = database.Close() }()
 

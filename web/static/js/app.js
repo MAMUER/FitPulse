@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         devices: 'Устройства',
         achievements: 'Достижения',
         diet: 'Диета',
+        health: 'Здоровье',
         ml: 'AI Анализ',
         admin: 'Админка',
     };
@@ -424,6 +425,9 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
         checkAdminRole();
         if (window.AppModules && window.AppModules.TrainingModule) {
             window.AppModules.TrainingModule.loadPlans();
+        }
+        if (window.AppModules && window.AppModules.HealthModule) {
+            window.AppModules.HealthModule.bindEvents();
         }
         console.log('[APP] Main app shown');
     }
@@ -1115,6 +1119,10 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
         if (viewName === 'devices') initDevicesView();
         if (viewName === 'achievements') loadAchievements();
         if (viewName === 'diet') initDietView();
+        if (viewName === 'health' && window.AppModules && window.AppModules.HealthModule) {
+            window.AppModules.HealthModule.loadAll();
+            window.AppModules.HealthModule.bindEvents();
+        }
     }
     // ===== Dashboard =====
     async function loadDashboard() {

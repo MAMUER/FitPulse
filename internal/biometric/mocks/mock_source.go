@@ -110,7 +110,7 @@ func (m *MockBiometricSource) Fetch(ctx context.Context, userID string, metricTy
 	select {
 	case <-time.After(delay):
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
 	if secureFloat64() < m.config.FailureRate {
 		return nil, fmt.Errorf("device unavailable")
@@ -240,7 +240,7 @@ func (m *MockBiometricSource) DeviceType() string {
 func (m *MockBiometricSource) HealthCheck(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("context error: %w", ctx.Err())
 	default:
 		return nil
 	}

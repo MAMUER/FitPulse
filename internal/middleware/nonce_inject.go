@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -51,7 +52,8 @@ func (w *nonceInjectWriter) WriteHeader(status int) {
 
 func (w *nonceInjectWriter) Write(b []byte) (int, error) {
 	if w.committed {
-		return w.ResponseWriter.Write(b)
+		n, err := w.ResponseWriter.Write(b)
+		return n, fmt.Errorf("write response: %w", err)
 	}
 	w.buf = append(w.buf, b...)
 	return len(b), nil

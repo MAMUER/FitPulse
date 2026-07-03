@@ -2,6 +2,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -117,5 +118,5 @@ func (l *Logger) WithFields(fields ...zap.Field) *zap.Logger {
 
 // Sync гарантирует запись всех буферизированных логов
 func (l *Logger) Sync() error {
-	return l.Logger.Sync()
+	return fmt.Errorf("sync logger: %w", l.Logger.Sync())
 }
