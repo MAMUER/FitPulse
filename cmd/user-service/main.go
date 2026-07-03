@@ -1492,6 +1492,10 @@ func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstr
 				symptoms = append(symptoms, symptom)
 			}
 		}
+		if err := symptomRows.Err(); err != nil {
+			s.log.Error("Failed to iterate symptom rows", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
+		}
 		_ = symptomRows.Close()
 		c.Symptoms = symptoms
 
@@ -1502,6 +1506,10 @@ func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstr
 			if err := moodRows.Scan(&mood); err == nil {
 				moods = append(moods, mood)
 			}
+		}
+		if err := moodRows.Err(); err != nil {
+			s.log.Error("Failed to iterate mood rows", zap.Error(err))
+			return nil, status.Error(codes.Internal, "database error")
 		}
 		_ = moodRows.Close()
 		c.Moods = moods

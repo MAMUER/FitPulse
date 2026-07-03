@@ -69,7 +69,12 @@ func ErrorPages(next http.Handler) http.Handler {
 
 		if wantsHTML && (status == http.StatusNotFound || status == http.StatusInternalServerError) {
 			file := errorPageFileForStatus(status)
-			data, readErr := os.ReadFile(file)
+			base := filepath.Clean(errorPageDir)
+			if !strings.HasPrefix(file, base) {
+				next.ServeHTTP(recorder, r)
+				return
+			}
+			data, readErr := os.ReadFile(file) //nolint:gosec
 			if readErr == nil {
 				if recorder.headers != nil {
 					for k, v := range recorder.headers {
