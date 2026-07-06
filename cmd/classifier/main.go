@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 	"os"
@@ -278,29 +277,28 @@ func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predic
 		return nil
 	}
 
-	notes := []string{}
-	if profile.FitnessLevel == "beginner" {
-		notes = append(notes, "Рекомендуется снизить интенсивность на 10-15%")
-	}
+	var notes []string
+
+	// Возрастные рекомендации
 	if profile.Age > 50 {
-		notes = append(notes, "Учитывайте возраст при планировании восстановления")
+		notes = append(notes, "Рекомендуется снизить интенсивность и увеличить время разминки")
 	}
+
+	// Уровень подготовки
+	if profile.FitnessLevel == "beginner" {
+		notes = append(notes, "Начните с базовых упражнений и постепенно увеличивайте нагрузку")
+	}
+
+	// Состояние здоровья
 	if len(profile.HealthConditions) > 0 {
-		notes = append(notes, fmt.Sprintf("Проконсультируйтесь с врачом при: %s", joinStrings(profile.HealthConditions, ", ")))
-	}
-	if len(profile.Goals) > 0 && predictedClass == 0 {
-		for _, g := range profile.Goals {
-			if g == "похудение" || g == "weight_loss" {
-				notes = append(notes, "Для похудения добавьте кардио в зоне E1-E2")
-				break
-			}
-		}
+		notes = append(notes, "Проконсультируйтесь с врачом при: "+joinStrings(profile.HealthConditions, ", "))
 	}
 
 	if len(notes) == 0 {
 		return nil
 	}
-	result := joinStrings(notes, " | ")
+
+	result := joinStrings(notes, ". ") + "."
 	return &result
 }
 
@@ -308,11 +306,13 @@ func joinStrings(ss []string, sep string) string {
 	if len(ss) == 0 {
 		return ""
 	}
-	result := ss[0]
+	var builder strings.Builder
+	builder.WriteString(ss[0])
 	for i := 1; i < len(ss); i++ {
-		result += sep + ss[i]
+		builder.WriteString(sep)
+		builder.WriteString(ss[i])
 	}
-	return result
+	return builder.String()
 }
 
 func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {

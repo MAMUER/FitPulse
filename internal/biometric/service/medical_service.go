@@ -132,7 +132,6 @@ func (s *MedicalService) suggestModification(constraint domain.MedicalConstraint
 	return nil
 }
 
-// IsMetricAllowed checks if a metric is safe to monitor/use for this user.
 func (s *MedicalService) IsMetricAllowed(ctx context.Context, userID, metricType string) (bool, string, error) {
 	constraints, err := s.repo.GetActiveConstraints(ctx, userID)
 	if err != nil {
@@ -142,10 +141,10 @@ func (s *MedicalService) IsMetricAllowed(ctx context.Context, userID, metricType
 		for _, rule := range constraint.ImpactOnTraining {
 			if rule.Metric == metricType {
 				if rule.Action == "avoid" {
-					return false, constraint.Label, nil
+					return false, "avoid: " + constraint.Label, nil
 				}
 				if rule.Action == "caution" {
-					return true, fmt.Sprintf("caution: %s", constraint.Label), nil
+					return true, "caution: " + constraint.Label, nil
 				}
 			}
 		}

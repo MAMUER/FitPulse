@@ -4,13 +4,13 @@ package grpc
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"google.golang.org/grpc/credentials"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"google.golang.org/grpc/credentials"
 )
 
 //nolint:gochecknoglobals
@@ -116,26 +116,69 @@ func loadClientTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(tlsCfg), nil
 }
 
-// GetServerTLSCredentials returns cached gRPC server TLS credentials.
-// Returns nil and error if TLS is not configured.
+// GetServerTLSCredentials returns TLS credentials for the gRPC server.
 func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
-	certCache.serverOnce.Do(func() {
-		certCache.serverCreds, certCache.serverErr = loadServerTLSCredentials()
-	})
-	if certCache.serverErr != nil {
-		return nil, certCache.serverErr
+	certFile := os.Getenv("GRPC_TLS_CERT_FILE")
+	keyFile := os.Getenv("GRPC_TLS_KEY_FILE")
+	caFile := os.Getenv("GRPC_TLS_CA_FILE")
+
+	if certFile == "" || keyFile == "" {
+		return nil, nil // No TLS configured
 	}
-	return certCache.serverCreds, nil
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
+	if caFile != "" {
+		if strings.Contains(caFile, "..") {
+			return nil, errors.New("invalid gRPC CA file path")
+		}
+		caPem, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, err
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caPem) {
+			return nil, errors.New("failed to append gRPC CA cert to pool")
+		}
+		tlsConfig.ClientCAs = certPool
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return credentials.NewTLS(tlsConfig), nil
 }
 
-// GetClientTLSCredentials returns cached gRPC client TLS credentials.
-// Returns nil and no error if mTLS is not configured.
 func GetClientTLSCredentials() (credentials.TransportCredentials, error) {
-	certCache.clientOnce.Do(func() {
-		certCache.clientCreds, certCache.clientErr = loadClientTLSCredentials()
-	})
-	if certCache.clientErr != nil {
-		return nil, certCache.clientErr
+	caFile := os.Getenv("GRPC_TLS_CA_FILE")
+	if caFile == "" {
+		return nil, nil // No TLS configured
 	}
-	return certCache.clientCreds, nil
+
+	if strings.Contains(caFile, "..") {
+		return nil, errors.New("invalid gRPC CA file path")
+	}
+
+	caPem, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caPem) {
+		return nil, errors.New("failed to append gRPC CA cert to pool")
+	}
+
+	tlsConfig := &tls.Config{
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS12,
+	}
+
+	return credentials.NewTLS(tlsConfig), nil
 }

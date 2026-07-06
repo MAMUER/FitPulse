@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MAMUER/project/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 type completeWorkoutRequest struct {

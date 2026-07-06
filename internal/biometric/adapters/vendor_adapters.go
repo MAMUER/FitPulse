@@ -21,15 +21,18 @@ type baseAdapter struct {
 	deviceType  string
 	sourceID    string
 	rateLimiter *time.Ticker
+	userID      string // Added: user identifier
+	deviceID    string // Added: device identifier
 }
 
-// newBaseAdapter creates a new base adapter.
-func newBaseAdapter(deviceType, baseURL, apiKey string, timeout time.Duration) *baseAdapter {
+func newBaseAdapter(deviceType, baseURL, apiKey, userID, deviceID string) *baseAdapter {
 	return &baseAdapter{
-		client:      &http.Client{Timeout: timeout},
+		client:      &http.Client{Timeout: 15 * time.Second},
 		baseURL:     baseURL,
 		apiKey:      apiKey,
 		deviceType:  deviceType,
+		userID:      userID,
+		deviceID:    deviceID,
 		sourceID:    fmt.Sprintf("%s-%d", deviceType, time.Now().UnixNano()),
 		rateLimiter: time.NewTicker(100 * time.Millisecond),
 	}
@@ -67,21 +70,10 @@ type AppleHealthAdapter struct {
 	supportedMetrics map[domain.MetricType]bool
 }
 
-// NewAppleHealthAdapter creates a new Apple HealthKit adapter.
 func NewAppleHealthAdapter(apiKey, userID, deviceID string) *AppleHealthAdapter {
-	base := newBaseAdapter("apple", "https://api.apple-healthkit.example.com/v1", apiKey, 15*time.Second)
+	base := newBaseAdapter("apple", "https://api.apple-healthkit.example.com/v1", apiKey, userID, deviceID)
 	return &AppleHealthAdapter{
 		baseAdapter: base,
-		userID:      userID,
-		deviceID:    deviceID,
-		supportedMetrics: map[domain.MetricType]bool{
-			domain.MetricHeartRate:  true,
-			domain.MetricHRV:        true,
-			domain.MetricSpO2:       true,
-			domain.MetricECG:        true,
-			domain.MetricSleepStage: true,
-			domain.MetricSteps:      true,
-		},
 	}
 }
 
@@ -111,22 +103,10 @@ type SamsungHealthAdapter struct {
 	supportedMetrics map[domain.MetricType]bool
 }
 
-// NewSamsungHealthAdapter creates a new Samsung Health adapter.
 func NewSamsungHealthAdapter(apiKey, userID, deviceID string) *SamsungHealthAdapter {
-	base := newBaseAdapter("samsung", "https://api.samsung-health.example.com/v1", apiKey, 15*time.Second)
+	base := newBaseAdapter("samsung", "https://api.samsung-health.example.com/v1", apiKey, userID, deviceID)
 	return &SamsungHealthAdapter{
 		baseAdapter: base,
-		userID:      userID,
-		deviceID:    deviceID,
-		supportedMetrics: map[domain.MetricType]bool{
-			domain.MetricHeartRate:   true,
-			domain.MetricHRV:         true,
-			domain.MetricSpO2:        true,
-			domain.MetricTemperature: true,
-			domain.MetricECG:         true,
-			domain.MetricSleepStage:  true,
-			domain.MetricSteps:       true,
-		},
 	}
 }
 
@@ -155,24 +135,10 @@ type HuaweiHealthAdapter struct {
 	supportedMetrics map[domain.MetricType]bool
 }
 
-// NewHuaweiHealthAdapter creates a new Huawei Health adapter.
 func NewHuaweiHealthAdapter(apiKey, userID, deviceID string) *HuaweiHealthAdapter {
-	base := newBaseAdapter("huawei", "https://api.huawei-health.example.com/v1", apiKey, 15*time.Second)
+	base := newBaseAdapter("huawei", "https://api.huawei-health.example.com/v1", apiKey, userID, deviceID)
 	return &HuaweiHealthAdapter{
 		baseAdapter: base,
-		userID:      userID,
-		deviceID:    deviceID,
-		supportedMetrics: map[domain.MetricType]bool{
-			domain.MetricHeartRate:        true,
-			domain.MetricHRV:              true,
-			domain.MetricSpO2:             true,
-			domain.MetricTemperature:      true,
-			domain.MetricBloodPressureSys: true,
-			domain.MetricBloodPressureDia: true,
-			domain.MetricECG:              true,
-			domain.MetricSleepStage:       true,
-			domain.MetricSteps:            true,
-		},
 	}
 }
 
@@ -201,20 +167,10 @@ type AmazfitAdapter struct {
 	supportedMetrics map[domain.MetricType]bool
 }
 
-// NewAmazfitAdapter creates a new Amazfit adapter.
 func NewAmazfitAdapter(apiKey, userID, deviceID string) *AmazfitAdapter {
-	base := newBaseAdapter("amazfit", "https://api.zepp-life.example.com/v1", apiKey, 15*time.Second)
+	base := newBaseAdapter("amazfit", "https://api.zepp-life.example.com/v1", apiKey, userID, deviceID)
 	return &AmazfitAdapter{
 		baseAdapter: base,
-		userID:      userID,
-		deviceID:    deviceID,
-		supportedMetrics: map[domain.MetricType]bool{
-			domain.MetricHeartRate:  true,
-			domain.MetricHRV:        true,
-			domain.MetricSpO2:       true,
-			domain.MetricSleepStage: true,
-			domain.MetricSteps:      true,
-		},
 	}
 }
 
@@ -244,11 +200,9 @@ type PlatformAdapter struct {
 }
 
 func NewPlatformAdapter(platform, baseURL, apiKey, userID, deviceID string, supportedMetrics map[domain.MetricType]bool) *PlatformAdapter {
-	base := newBaseAdapter(platform, baseURL, apiKey, 15*time.Second)
+	base := newBaseAdapter(platform, baseURL, apiKey, userID, deviceID)
 	return &PlatformAdapter{
 		baseAdapter:      base,
-		userID:           userID,
-		deviceID:         deviceID,
 		supportedMetrics: supportedMetrics,
 	}
 }

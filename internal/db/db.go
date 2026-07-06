@@ -4,12 +4,13 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	_ "github.com/lib/pq"
 	"sync"
 	"time"
 
 	"github.com/MAMUER/project/internal/metrics"
-	_ "github.com/lib/pq"
 )
 
 // Config holds database connection settings.
@@ -36,7 +37,7 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 		cfg.User = "postgres"
 	}
 	if cfg.Password == "" {
-		return nil, fmt.Errorf("POSTGRES_PASSWORD environment variable is required")
+		return nil, errors.New("POSTGRES_PASSWORD environment variable is required")
 	}
 	connStr := cfg.ConnectionString()
 

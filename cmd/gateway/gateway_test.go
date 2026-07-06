@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
 
 func TestHealthHandler_NoServices(t *testing.T) {

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"regexp"
 
-	pb "github.com/MAMUER/project/api/gen/user"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	pb "github.com/MAMUER/project/api/gen/user"
 )
 
 var (

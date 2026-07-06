@@ -203,14 +203,7 @@ func buildMessage(from, to, subject, body string) string {
 	)
 }
 
-func buildVerificationHTML(email, token, confirmURL string) string {
-	return `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Подтвердите email — FitPulse</title>
-<style>
+const emailCSS = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background-color: #0d1117;
@@ -232,89 +225,41 @@ func buildVerificationHTML(email, token, confirmURL string) string {
     padding: 32px 24px;
     text-align: center;
   }
-  .header .icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-  }
-  .header h1 {
-    color: #ffffff;
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .header p {
-    color: rgba(255,255,255,0.85);
-    font-size: 14px;
-  }
-  .body {
-    padding: 28px 24px;
-  }
-  .body p {
-    margin-bottom: 16px;
-    font-size: 15px;
-    color: #c9d1d9;
-  }
+  .header .icon { font-size: 48px; margin-bottom: 12px; }
+  .header h1 { color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header p { color: rgba(255,255,255,0.85); font-size: 14px; }
+  .body { padding: 28px 24px; }
+  .body p { margin-bottom: 16px; font-size: 15px; color: #c9d1d9; }
   .btn {
-    display: block;
-    width: 100%;
-    text-align: center;
-    background-color: #238636;
-    color: #ffffff;
-    text-decoration: none;
-    padding: 14px 24px;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    margin: 20px 0;
-    transition: background-color 0.2s;
+    display: block; width: 100%; text-align: center;
+    background-color: #238636; color: #ffffff; text-decoration: none;
+    padding: 14px 24px; border-radius: 8px; font-size: 16px; font-weight: 600;
+    margin: 20px 0; transition: background-color 0.2s;
   }
-  .btn:hover {
-    background-color: #2ea043;
-  }
-  .token-section {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #21262d;
-  }
-  .token-section p {
-    font-size: 13px;
-    color: #8b949e;
-    margin-bottom: 10px;
-  }
+  .btn:hover { background-color: #2ea043; }
+  .token-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #21262d; }
+  .token-section p { font-size: 13px; color: #8b949e; margin-bottom: 10px; }
   .token-code {
-    background-color: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 12px 16px;
-    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-    font-size: 14px;
-    letter-spacing: 1px;
-    color: #58a6ff;
-    text-align: center;
-    word-break: break-all;
-    user-select: all;
+    background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 12px 16px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px; letter-spacing: 1px; color: #58a6ff; text-align: center;
+    word-break: break-all; user-select: all;
   }
-  .footer {
-    padding: 20px 24px;
-    text-align: center;
-    border-top: 1px solid #21262d;
-    font-size: 12px;
-    color: #484f58;
-  }
-  .footer .app-name {
-    color: #2ea043;
-    font-weight: 600;
-  }
+  .footer { padding: 20px 24px; text-align: center; border-top: 1px solid #21262d; font-size: 12px; color: #484f58; }
+  .footer .app-name { color: #2ea043; font-weight: 600; }
   .email-display {
-    background-color: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 14px;
-    color: #58a6ff;
-    margin: 12px 0;
+    background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 8px 12px; font-size: 14px; color: #58a6ff; margin: 12px 0;
   }
-</style>
+`
+
+const emailHTMLTemplate = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Подтвердите email — FitPulse</title>
+<style>%s</style>
 </head>
 <body>
   <div class="container">
@@ -326,11 +271,11 @@ func buildVerificationHTML(email, token, confirmURL string) string {
     <div class="body">
       <p>Здравствуйте!</p>
       <p>Спасибо за регистрацию в <strong>FitPulse</strong>. Для активации аккаунта подтвердите ваш email, нажав на кнопку ниже:</p>
-      <div class="email-display">` + email + `</div>
-      <a href="` + confirmURL + `" class="btn">Подтвердить email</a>
+      <div class="email-display">%s</div>
+      <a href="%s" class="btn">Подтвердить email</a>
       <div class="token-section">
         <p>Если кнопка не работает, скопируйте этот токен и введите его вручную:</p>
-        <div class="token-code">` + token + `</div>
+        <div class="token-code">%s</div>
       </div>
       <p style="margin-top: 20px; font-size: 13px; color: #8b949e;">
         Ссылка действительна 24 часа. Если вы не регистрировались в FitPulse, просто проигнорируйте это письмо.
@@ -343,4 +288,7 @@ func buildVerificationHTML(email, token, confirmURL string) string {
   </div>
 </body>
 </html>`
+
+func buildVerificationHTML(emailAddr, token, confirmURL string) string {
+	return fmt.Sprintf(emailHTMLTemplate, emailCSS, emailAddr, confirmURL, token)
 }

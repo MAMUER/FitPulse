@@ -6,10 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 // ========== Biometric Handlers ==========

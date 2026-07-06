@@ -11,13 +11,14 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	pb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	pb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/logger"
 )
 
 func setupUserService(db *sql.DB) *userServer {

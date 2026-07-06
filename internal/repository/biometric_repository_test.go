@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/MAMUER/project/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/domain"
 )
 
 const testUserID = "user-123"

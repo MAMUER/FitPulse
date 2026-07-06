@@ -3,8 +3,9 @@ package main
 import (
 	"testing"
 
-	"github.com/MAMUER/project/internal/config"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/MAMUER/project/internal/config"
 )
 
 func TestGetEnv(t *testing.T) {

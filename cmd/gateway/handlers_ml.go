@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -48,19 +50,28 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	if !isValidServiceURL(g.classifierURL, "http://localhost:", "http://classifier:", "http://classifier-service:") {
-		g.log.Error("Invalid classifier URL", zap.String("url", g.classifierURL))
+	result, err := g.callClassifier(ctx, reqBody)
+	if err != nil {
 		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		g.classifierURL+"/classify",
-		bytes.NewReader(reqBody))
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
+	}
+}
+
+func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[string]interface{}, error) {
+	if !isValidServiceURL(g.classifierURL, "http://localhost:", "http://classifier:", "http://classifier-service:") {
+		g.log.Error("Invalid classifier URL", zap.String("url", g.classifierURL))
+		return nil, errors.New("invalid classifier URL")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", g.classifierURL+"/classify", bytes.NewReader(payload))
 	if err != nil {
 		g.log.Error("Failed to create classifier request", zap.Error(err))
-		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
-		return
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
@@ -69,8 +80,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Do(req)
 	if err != nil {
 		g.log.Error("Classifier request failed", zap.Error(err))
-		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
-		return
+		return nil, err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -81,27 +91,21 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		g.log.Error("Failed to read classifier response", zap.Error(err))
-		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
-		return
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		g.log.Error("Classifier returned error", zap.Int("status", resp.StatusCode))
-		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
-		return
+		return nil, fmt.Errorf("classifier status: %d", resp.StatusCode)
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
 		g.log.Error("Failed to parse classifier response", zap.Error(err))
-		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
-		return
+		return nil, err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-	}
+	return result, nil
 }
 
 // aggregateMLPayload aggregates biometric metrics into a payload for classifier service

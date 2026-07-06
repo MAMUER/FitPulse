@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MAMUER/project/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/config"
 )
 
 func TestLoadConfigDefaults(t *testing.T) {

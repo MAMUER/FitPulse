@@ -1,15 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Request) {
@@ -303,32 +305,36 @@ func (g *gateway) syncDataHandler(w http.ResponseWriter, r *http.Request, syncFn
 	}
 }
 
-func (g *gateway) syncFloHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-	}
+type syncProviderRequest struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (g *gateway) syncProviderHandler(w http.ResponseWriter, r *http.Request, syncFn func(context.Context, string, string, string) (interface{}, error)) {
+	var req syncProviderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
-	syncFloFn := func(userID string) (interface{}, error) {
-		return g.userClient.SyncFloData(r.Context(), &userpb.SyncFloDataRequest{UserId: userID, AccessToken: req.AccessToken, RefreshToken: req.RefreshToken})
+
+	syncWrapper := func(userID string) (interface{}, error) {
+		return syncFn(r.Context(), userID, req.AccessToken, req.RefreshToken)
 	}
-	g.syncDataHandler(w, r, syncFloFn)
+	g.syncDataHandler(w, r, syncWrapper)
+}
+
+func (g *gateway) syncFloHandler(w http.ResponseWriter, r *http.Request) {
+	g.syncProviderHandler(w, r, func(ctx context.Context, userID, accessToken, refreshToken string) (interface{}, error) {
+		return g.userClient.SyncFloData(ctx, &userpb.SyncFloDataRequest{
+			UserId: userID, AccessToken: accessToken, RefreshToken: refreshToken,
+		})
+	})
 }
 
 func (g *gateway) syncOKOKHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-	syncOKOKFn := func(userID string) (interface{}, error) {
-		return g.userClient.SyncOKOKData(r.Context(), &userpb.SyncOKOKDataRequest{UserId: userID, AccessToken: req.AccessToken, RefreshToken: req.RefreshToken})
-	}
-	g.syncDataHandler(w, r, syncOKOKFn)
+	g.syncProviderHandler(w, r, func(ctx context.Context, userID, accessToken, refreshToken string) (interface{}, error) {
+		return g.userClient.SyncOKOKData(ctx, &userpb.SyncOKOKDataRequest{
+			UserId: userID, AccessToken: accessToken, RefreshToken: refreshToken,
+		})
+	})
 }

@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MAMUER/project/internal/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/config"
 )
 
 // FitbitProvider implements OAuth 2.0 flow for Fitbit API.

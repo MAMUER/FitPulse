@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MAMUER/project/internal/middleware"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func (g *gateway) listDevicesHandler(w http.ResponseWriter, r *http.Request) {

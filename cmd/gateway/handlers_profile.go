@@ -11,11 +11,11 @@ import (
 	"net/http"
 	"strings"
 
+	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
-	"go.uber.org/zap"
 )
 
 // ========== Profile Handlers ==========

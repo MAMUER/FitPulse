@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MAMUER/project/internal/domain"
 	"github.com/google/uuid"
+
+	"github.com/MAMUER/project/internal/domain"
 )
 
 type BiometricRepository interface {

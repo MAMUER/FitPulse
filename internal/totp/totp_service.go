@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MAMUER/project/internal/crypto"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+
+	"github.com/MAMUER/project/internal/crypto"
 )
 
 const (

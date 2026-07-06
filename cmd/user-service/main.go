@@ -14,6 +14,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/argon2"
+	"google.golang.org/api/idtoken"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
+
 	pb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/config"
@@ -27,17 +39,6 @@ import (
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/totp"
 	"github.com/MAMUER/project/internal/validator"
-	"github.com/google/uuid"
-	"github.com/lib/pq"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/argon2"
-	"google.golang.org/api/idtoken"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 )
 
 // User represents a user for login operations.
@@ -546,43 +547,47 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 	}
 
 	// Обновляем goals
-	if len(req.Goals) > 0 {
-		_, err = s.db.ExecContext(ctx, `DELETE FROM user_goals WHERE user_id = $1`, req.UserId)
-		if err != nil {
-			s.log.Error("Failed to delete old goals", zap.Error(err), zap.String("user_id", req.UserId))
-			return nil, status.Error(codes.Internal, "failed to update goals")
-		}
-		for _, goal := range req.Goals {
-			_, err = s.db.ExecContext(ctx,
-				`INSERT INTO user_goals (user_id, goal) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-				req.UserId, goal)
-			if err != nil {
-				s.log.Error("Failed to insert goal", zap.Error(err), zap.String("user_id", req.UserId))
-				return nil, status.Error(codes.Internal, "failed to update goals")
-			}
-		}
+	if err := s.updateUserList(ctx, req.UserId, "user_goals", "goal", req.Goals, "goals"); err != nil {
+		return nil, err
 	}
 
 	// Обновляем contraindications
-	if len(req.Contraindications) > 0 {
-		_, err = s.db.ExecContext(ctx, `DELETE FROM user_contraindications WHERE user_id = $1`, req.UserId)
-		if err != nil {
-			s.log.Error("Failed to delete old contraindications", zap.Error(err), zap.String("user_id", req.UserId))
-			return nil, status.Error(codes.Internal, "failed to update contraindications")
-		}
-		for _, c := range req.Contraindications {
-			_, err = s.db.ExecContext(ctx,
-				`INSERT INTO user_contraindications (user_id, contraindication) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-				req.UserId, c)
-			if err != nil {
-				s.log.Error("Failed to insert contraindication", zap.Error(err), zap.String("user_id", req.UserId))
-				return nil, status.Error(codes.Internal, "failed to update contraindications")
-			}
-		}
+	if err := s.updateUserList(ctx, req.UserId, "user_contraindications", "contraindication", req.Contraindications, "contraindications"); err != nil {
+		return nil, err
 	}
 
 	// Возвращаем обновленный профиль
 	return s.GetProfile(ctx, &pb.GetProfileRequest{UserId: req.UserId})
+}
+
+func (s *userServer) updateUserList(ctx context.Context, userID, tableName, columnName string, items []string, logMsg string) error {
+	if len(items) == 0 {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID)
+	if err != nil {
+		s.log.Error("Failed to delete old "+logMsg, zap.Error(err), zap.String("user_id", userID))
+		return status.Errorf(codes.Internal, "failed to update %s", logMsg)
+	}
+	for _, item := range items {
+		_, err = s.db.ExecContext(ctx,
+			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName),
+			userID, item)
+		if err != nil {
+			s.log.Error("Failed to insert "+logMsg, zap.Error(err), zap.String("user_id", userID))
+			return status.Errorf(codes.Internal, "failed to update %s", logMsg)
+		}
+	}
+	return nil
+}
+
+func (s *userServer) deleteRecord(ctx context.Context, tableName, idField, userID, recordID, logMsg string) error {
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE %s = $1 AND user_id = $2`, tableName, idField), recordID, userID)
+	if err != nil {
+		s.log.Error("Failed to delete "+logMsg, zap.Error(err))
+		return status.Error(codes.Internal, "database error")
+	}
+	return nil
 }
 
 // ChangePassword changes the user's password after verifying the current one.
@@ -1348,10 +1353,8 @@ func (s *userServer) DeleteHealthCondition(ctx context.Context, req *pb.DeleteHe
 	if req.UserId == "" || req.ConditionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and condition_id are required")
 	}
-	_, err := s.db.ExecContext(ctx, `DELETE FROM user_health_conditions WHERE id = $1 AND user_id = $2`, req.ConditionId, req.UserId)
-	if err != nil {
-		s.log.Error("Failed to delete health condition", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+	if err := s.deleteRecord(ctx, "user_health_conditions", "id", req.UserId, req.ConditionId, "health condition"); err != nil {
+		return nil, err
 	}
 	return &pb.DeleteHealthConditionResponse{Success: true, Message: "Health condition deleted"}, nil
 }
@@ -1623,10 +1626,8 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 	if req.UserId == "" || req.CycleId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and cycle_id are required")
 	}
-	_, err := s.db.ExecContext(ctx, `DELETE FROM user_menstrual_cycles WHERE id = $1 AND user_id = $2`, req.CycleId, req.UserId)
-	if err != nil {
-		s.log.Error("Failed to delete menstrual cycle", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+	if err := s.deleteRecord(ctx, "user_menstrual_cycles", "id", req.UserId, req.CycleId, "menstrual cycle"); err != nil {
+		return nil, err
 	}
 	return &pb.DeleteMenstrualCycleResponse{Success: true, Message: "Menstrual cycle deleted"}, nil
 }

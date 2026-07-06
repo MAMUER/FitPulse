@@ -4,13 +4,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
 	"github.com/MAMUER/project/cmd/device-aggregator/providers"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 )
 
 // Package devices aggregates wearable device providers and syncs data.

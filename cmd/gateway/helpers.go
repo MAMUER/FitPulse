@@ -41,8 +41,6 @@ func isValidServiceURL(url string, allowedPrefixes ...string) bool {
 	return false
 }
 
-// grpcToHTTPStatus maps gRPC error codes to HTTP status codes.
-// Returns the mapped HTTP status code and a user-friendly message in Russian.
 func grpcToHTTPStatus(err error) (int, string) {
 	if err == nil {
 		return http.StatusOK, ""
@@ -51,8 +49,11 @@ func grpcToHTTPStatus(err error) (int, string) {
 	if !ok {
 		return http.StatusInternalServerError, "Внутренняя ошибка сервера"
 	}
+	return mapGRPCToHTTP(st)
+}
+
+func mapGRPCToHTTP(st *status.Status) (int, string) {
 	msg := st.Message()
-	// Переводим технические сообщения на русский
 	switch st.Code() {
 	case codes.OK:
 		return http.StatusOK, ""
@@ -65,7 +66,6 @@ func grpcToHTTPStatus(err error) (int, string) {
 	case codes.AlreadyExists:
 		return http.StatusConflict, translateError(msg)
 	case codes.PermissionDenied:
-		// Требование #4: Никогда не возвращаем 403 — заменяем на 404
 		return http.StatusNotFound, "Не найдено"
 	case codes.Unauthenticated:
 		return http.StatusUnauthorized, "Неверные учётные данные"

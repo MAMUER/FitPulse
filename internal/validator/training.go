@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	pb "github.com/MAMUER/project/api/gen/training"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	pb "github.com/MAMUER/project/api/gen/training"
 )
 
 const (

@@ -6,6 +6,15 @@ import (
 	"net"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	pb "github.com/MAMUER/project/api/gen/biometric"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
@@ -16,14 +25,6 @@ import (
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type biometricServer struct {

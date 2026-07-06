@@ -10,6 +10,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	pb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
@@ -20,15 +30,6 @@ import (
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type trainingServer struct {
@@ -57,9 +58,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	}
 
 	// Check and delete existing active plan if any
-	if err := s.deleteExistingActivePlan(ctx, req.UserId); err != nil {
-		return nil, err
-	}
+	s.deleteExistingActivePlan(ctx, req.UserId)
 
 	classificationClass := sanitize.String(req.ClassificationClass)
 	planID := uuid.New().String()
@@ -96,7 +95,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 // Helper type for transaction function
 type txFn func(context.Context) (*sql.Tx, error)
 
-func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID string) error {
+func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID string) {
 	var existingPlanID string
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM training_plans WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`, userID).Scan(&existingPlanID)
 	if err == nil && existingPlanID != "" {
@@ -108,7 +107,6 @@ func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID st
 	} else if err != nil {
 		s.log.Debug("No existing active plan found, creating new", zap.String("user_id", userID))
 	}
-	return nil
 }
 
 func (s *trainingServer) preparePlanData(classificationClass string, req *pb.GeneratePlanRequest) map[string]interface{} {
@@ -135,7 +133,7 @@ func (s *trainingServer) calculatePlanDates(durationWeeks int32) (time.Time, tim
 	return startDate, endDate
 }
 
-func (s *trainingServer) savePlanToDatabase(ctx context.Context, beginTx txFn, planID, userID, classificationClass string, planData map[string]interface{}, startDate, endDate time.Time, durationWeeks int32) error {
+func (s *trainingServer) savePlanToDatabase(ctx context.Context, beginTx txFn, planID, userID, classificationClass string, startDate, endDate time.Time, durationWeeks int32) error {
 	tx, err := beginTx(ctx)
 	if err != nil {
 		s.log.Error("Failed to begin transaction", zap.Error(err))
@@ -147,7 +145,7 @@ func (s *trainingServer) savePlanToDatabase(ctx context.Context, beginTx txFn, p
 		}
 	}()
 
-	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", userID), zap.String("class", classificationClass))
+	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", userID), zap.String("classificationClass", classificationClass))
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -156,7 +154,6 @@ func (s *trainingServer) savePlanToDatabase(ctx context.Context, beginTx txFn, p
 		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
 		return status.Error(codes.Internal, "failed to save plan")
 	}
-
 	if err = tx.Commit(); err != nil {
 		return status.Error(codes.Internal, "failed to commit plan")
 	}
@@ -688,7 +685,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 	return weeks, nil
 }
 
-func convertWeeksToStructpb(weeks []map[string]interface{}) (*structpb.ListValue, error) {
+func convertWeeksToStructpb(weeks []map[string]interface{}) *structpb.ListValue {
 	weeksList := &structpb.ListValue{
 		Values: make([]*structpb.Value, len(weeks)),
 	}
@@ -696,7 +693,6 @@ func convertWeeksToStructpb(weeks []map[string]interface{}) (*structpb.ListValue
 		weekStruct := &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
 		}
-
 		if val, ok := week["week_number"].(int32); ok {
 			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
 		} else if val, ok := week["week_number"].(int); ok {
@@ -712,22 +708,18 @@ func convertWeeksToStructpb(weeks []map[string]interface{}) (*structpb.ListValue
 		} else if val, ok := week["total_duration_minutes"].(int); ok {
 			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
 		}
-
 		daysSlice := week["days"].([]map[string]interface{})
 		daysList := &structpb.ListValue{
 			Values: make([]*structpb.Value, len(daysSlice)),
 		}
-
 		for dayIdx, day := range daysSlice {
 			dayStruct := convertDayToStructpb(day)
 			daysList.Values[dayIdx] = structpb.NewStructValue(dayStruct)
 		}
-
 		weekStruct.Fields["days"] = structpb.NewListValue(daysList)
 		weeksList.Values[i] = structpb.NewStructValue(weekStruct)
 	}
-
-	return weeksList, nil
+	return weeksList
 }
 
 func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {

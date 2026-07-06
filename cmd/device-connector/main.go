@@ -4,10 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	"github.com/MAMUER/project/internal/config"
@@ -19,13 +28,6 @@ import (
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ========== Valid device types ==========
@@ -149,8 +151,7 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	if !isValidDeviceType(req.DeviceType) {
-		s.log.Warn("Неподдерживаемый тип устройства", zap.String("device_type", sanitize.LogString(req.DeviceType)))
-		http.Error(w, fmt.Sprintf("Неподдерживаемый тип устройства: %s", req.DeviceType), http.StatusBadRequest)
+		http.Error(w, "Неподдерживаемый тип устройства: "+req.DeviceType, http.StatusBadRequest)
 		return
 	}
 
@@ -394,7 +395,6 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 // ========== Helper Functions ==========
 
-// authenticateDevice verifies device ID and token against the database
 func (s *deviceConnector) authenticateDevice(ctx context.Context, deviceID, token string) (*Device, error) {
 	var device Device
 	err := s.db.QueryRowContext(ctx, `
@@ -403,7 +403,7 @@ func (s *deviceConnector) authenticateDevice(ctx context.Context, deviceID, toke
 		WHERE id = $1 AND token = $2
 	`, deviceID, token).Scan(&device.ID, &device.UserID, &device.DeviceType, &device.Token, &device.CreatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("invalid device credentials")
+		return nil, errors.New("invalid device credentials")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
@@ -11,32 +12,66 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/MAMUER/project/internal/middleware"
-	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/db"
+	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
-// adminListUsersHandler handles admin user listing with server-side role re-verification.
+// userInfo represents a user record for admin listing.
+type userInfo struct {
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	FullName  string    `json:"full_name"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// inviteInfo represents an invite code record for admin listing.
+type inviteInfo struct {
+	Code      string    `json:"code"`
+	Role      string    `json:"role"`
+	Specialty string    `json:"specialty"`
+	MaxUses   int       `json:"max_uses"`
+	UsedCount int       `json:"used_count"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	InviteURL string    `json:"invite_url"`
+}
+
 func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Не найдено", http.StatusNotFound)
 		return
 	}
-
 	if !g.verifyUserRole(r.Context(), userID, "admin") {
 		g.log.Warn("Non-admin attempted to access user list", zap.String("user_id", userID))
 		http.Error(w, "Не найдено", http.StatusNotFound)
 		return
 	}
-
 	if g.db == nil {
-		g.log.Error("Database not available for user listing")
 		http.Error(w, "Не найдено", http.StatusNotFound)
 		return
 	}
+	page, pageSize := parsePagination(r)
+	offset := (page - 1) * pageSize
+	users, err := g.fetchUsers(r.Context(), pageSize, offset)
+	if err != nil {
+		http.Error(w, "Не найдено", http.StatusNotFound)
+		return
+	}
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "users": users, "total": len(users)}, g.responseSigningSecret, g.log.Logger); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		return
+	}
+}
 
+func parsePagination(r *http.Request) (int, int) {
 	page := 1
 	if p := r.URL.Query().Get("page"); p != "" {
 		if val, err := strconv.Atoi(p); err == nil && val > 0 {
@@ -49,102 +84,73 @@ func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) 
 			pageSize = val
 		}
 	}
-	offset := (page - 1) * pageSize
+	return page, pageSize
+}
 
-	rows, err := g.db.QueryContext(r.Context(),
-		"SELECT id, email, full_name, role, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-		pageSize, offset)
+func (g *gateway) fetchUsers(ctx context.Context, pageSize, offset int) ([]userInfo, error) {
+	encKey := string(db.EncryptionKey())
+	rows, err := g.db.QueryContext(ctx, `
+		SELECT u.id, pgp_sym_decrypt(u.email_encrypted, $1) AS email,
+		       pgp_sym_decrypt(u.full_name_encrypted, $1) AS full_name, u.role, u.created_at, u.updated_at
+		FROM users u
+		ORDER BY u.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, encKey, pageSize, offset)
 	if err != nil {
-		g.log.Error("Failed to query users", zap.Error(err))
-		http.Error(w, "Не найдено", http.StatusNotFound)
-		return
+		return nil, err
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
 			g.log.Error("Failed to close rows", zap.Error(closeErr))
 		}
 	}()
-
-	type userInfo struct {
-		ID        string    `json:"id"`
-		Email     string    `json:"email"`
-		FullName  string    `json:"full_name"`
-		Role      string    `json:"role"`
-		CreatedAt time.Time `json:"created_at"`
-	}
 	var users []userInfo
 	for rows.Next() {
 		var u userInfo
-		if scanErr := rows.Scan(&u.ID, &u.Email, &u.FullName, &u.Role, &u.CreatedAt); scanErr != nil {
-			g.log.Error("Failed to scan user row", zap.Error(scanErr))
-			http.Error(w, "Не найдено", http.StatusNotFound)
-			return
+		if scanErr := rows.Scan(&u.ID, &u.Email, &u.FullName, &u.Role, &u.CreatedAt, &u.UpdatedAt); scanErr != nil {
+			return nil, scanErr
 		}
 		users = append(users, u)
 	}
-	if scanErr := rows.Err(); scanErr != nil {
-		g.log.Error("Rows iteration error", zap.Error(scanErr))
-		http.Error(w, "Не найдено", http.StatusNotFound)
-		return
-	}
-
-	adminResp := map[string]interface{}{"status": "ok", "users": users, "total": len(users)}
-	if err := middleware.SignAndSendJSON(w, adminResp, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
+	return users, rows.Err()
 }
 
-// adminListInvitesHandler — список всех инвайт-кодов (только для админов)
 func (g *gateway) adminListInvitesHandler(w http.ResponseWriter, r *http.Request) {
 	if g.db == nil {
 		http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
-
-	page := 1
-	if p := r.URL.Query().Get("page"); p != "" {
-		if val, err := strconv.Atoi(p); err == nil && val > 0 {
-			page = val
-		}
-	}
-	pageSize := 50
-	if ps := r.URL.Query().Get("page_size"); ps != "" {
-		if val, err := strconv.Atoi(ps); err == nil && val > 0 && val <= 100 {
-			pageSize = val
-		}
-	}
+	page, pageSize := parsePagination(r)
 	offset := (page - 1) * pageSize
+	invites, err := g.fetchInvites(r.Context(), pageSize, offset)
+	if err != nil {
+		http.Error(w, "Не найдено", http.StatusInternalServerError)
+		return
+	}
+	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+		"status":  "ok",
+		"invites": invites,
+		"page":    page,
+	}, g.responseSigningSecret, g.log.Logger); err != nil {
+		g.log.Error("Failed to encode invites response", zap.Error(err))
+	}
+}
 
-	rows, err := g.db.QueryContext(r.Context(), `
+func (g *gateway) fetchInvites(ctx context.Context, pageSize, offset int) ([]inviteInfo, error) {
+	rows, err := g.db.QueryContext(ctx, `
 		SELECT code, role, specialty, max_uses, used_count, is_active, created_at
 		FROM invite_codes
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`, pageSize, offset)
 	if err != nil {
-		g.log.Error("Failed to query invites", zap.Error(err))
-		http.Error(w, "Не найдено", http.StatusNotFound)
-		return
+		return nil, err
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
 			g.log.Warn("Failed to close rows", zap.Error(closeErr))
 		}
 	}()
-
-	type inviteInfo struct {
-		Code      string    `json:"code"`
-		Role      string    `json:"role"`
-		Specialty string    `json:"specialty,omitempty"`
-		MaxUses   int       `json:"max_uses"`
-		UsedCount int       `json:"used_count"`
-		IsActive  bool      `json:"is_active"`
-		CreatedAt time.Time `json:"created_at"`
-		InviteURL string    `json:"invite_url"`
-	}
-
 	var invites []inviteInfo
 	baseURL := os.Getenv("APP_BASE_URL")
 	if baseURL == "" {
@@ -163,30 +169,7 @@ func (g *gateway) adminListInvitesHandler(w http.ResponseWriter, r *http.Request
 		inv.InviteURL = fmt.Sprintf("%s/register?invite=%s", baseURL, inv.Code)
 		invites = append(invites, inv)
 	}
-	if err := rows.Err(); err != nil {
-		g.log.Error("Rows iteration error", zap.Error(err))
-		http.Error(w, "Не найдено", http.StatusInternalServerError)
-		return
-	}
-
-	if invites == nil {
-		invites = []inviteInfo{}
-	}
-
-	if err := rows.Err(); err != nil {
-		g.log.Error("Rows iteration error", zap.Error(err))
-		http.Error(w, "Не найдено", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
-		"status":  "ok",
-		"invites": invites,
-		"page":    page,
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to encode invites response", zap.Error(err))
-	}
+	return invites, rows.Err()
 }
 
 // adminCreateInviteHandler — создание нового инвайт-кода

@@ -3,6 +3,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -208,23 +209,23 @@ type ModificationSuggestion struct {
 
 func (c *MedicalConstraint) Validate() error {
 	if c.Code == "" {
-		return fmt.Errorf("code is required")
+		return errors.New("code is required")
 	}
 	if c.Label == "" {
-		return fmt.Errorf("label is required")
+		return errors.New("label is required")
 	}
 	if c.Category == "" {
-		return fmt.Errorf("category is required")
+		return errors.New("category is required")
 	}
 	if len(c.ImpactOnTraining) == 0 {
-		return fmt.Errorf("impact rules required")
+		return errors.New("impact rules required")
 	}
 	for _, r := range c.ImpactOnTraining {
 		if r.Metric == "" {
-			return fmt.Errorf("metric required")
+			return errors.New("metric required")
 		}
 		if r.Action == "" {
-			return fmt.Errorf("action required")
+			return errors.New("action required")
 		}
 		switch r.Action {
 		case "modify", "avoid", "caution", "require_approval":
@@ -236,10 +237,10 @@ func (c *MedicalConstraint) Validate() error {
 }
 
 var (
-	ErrSourceUnavailable  = fmt.Errorf("source unavailable")
-	ErrPartialData        = fmt.Errorf("partial data")
-	ErrInvalidCredentials = fmt.Errorf("invalid credentials")
-	ErrRateLimited        = fmt.Errorf("rate limited")
-	ErrDeviceOffline      = fmt.Errorf("device offline")
-	ErrUnsupportedMetric  = fmt.Errorf("unsupported metric")
+	ErrSourceUnavailable  = errors.New("source unavailable")
+	ErrPartialData        = errors.New("partial data")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrRateLimited        = errors.New("rate limited")
+	ErrDeviceOffline      = errors.New("device offline")
+	ErrUnsupportedMetric  = errors.New("unsupported metric")
 )

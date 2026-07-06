@@ -21,13 +21,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"golang.org/x/time/rate"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/middleware"
-	"go.uber.org/zap"
 )
 
 // ========== Auth Handlers ==========
@@ -138,7 +138,7 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 	return nil
 }
 
-func countOverLimit(ctx context.Context, g *gateway, key string) bool {
+func countOverLimit(g *gateway, key string) bool {
 	v, _ := g.totpRateLimiters.LoadOrStore(key, &totpRateLimiter{
 		limiter:   rate.NewLimiter(totpRateLimitAttempts, totpRateLimitAttempts),
 		expiresAt: time.Now().Add(time.Minute),

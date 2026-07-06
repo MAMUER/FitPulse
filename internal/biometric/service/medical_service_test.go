@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/MAMUER/project/internal/biometric/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 // MockMedicalRepository is a mock implementation of MedicalRepository
@@ -48,14 +49,14 @@ func TestNewMedicalService(t *testing.T) {
 const testUserID = "user123"
 
 func TestMedicalServiceEvaluateWorkout_Case1(t *testing.T) {
-	runTestCase(t, "no constraints", []domain.MedicalConstraint{}, nil, &domain.WorkoutPlan{
+	runTestCase(t, []domain.MedicalConstraint{}, nil, &domain.WorkoutPlan{
 		TargetHeartRate: 140,
 		MaxHeartRate:    180,
 	}, nil, false)
 }
 
 func TestMedicalServiceEvaluateWorkout_Case2(t *testing.T) {
-	runTestCase(t, "repository error", nil, errors.New("database error"), &domain.WorkoutPlan{
+	runTestCase(t, nil, errors.New("database error"), &domain.WorkoutPlan{
 		TargetHeartRate: 140,
 	}, nil, false)
 }
@@ -201,7 +202,7 @@ func TestMedicalServiceEvaluateWorkout_Case7(t *testing.T) {
 	}, true)
 }
 
-func runTestCase(t *testing.T, name string, constraints []domain.MedicalConstraint, repoError error,
+func runTestCase(t *testing.T, constraints []domain.MedicalConstraint, repoError error,
 	workout *domain.WorkoutPlan,
 	expectedViolations []domain.ConstraintViolation, expectedReview bool) {
 	ctx := context.Background()

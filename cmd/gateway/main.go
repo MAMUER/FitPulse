@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls" // #nosec G304 -- imported for server TLS config, not file access
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,12 +18,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
@@ -33,10 +38,6 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/telemetry"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type gateway struct {
@@ -707,7 +708,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 	}
 
 	if g.biometricAddr == "" {
-		return nil, fmt.Errorf("biometric service address not configured")
+		return nil, errors.New("biometric service address not configured")
 	}
 
 	var dialOpts []grpc.DialOption
@@ -721,7 +722,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 	conn, err := grpc.NewClient(g.biometricAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
-		return nil, fmt.Errorf("create biometric client: %w", err)
+		return nil, errors.New("create biometric client: " + err.Error())
 	}
 	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
 	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
@@ -737,7 +738,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	}
 
 	if g.trainingAddr == "" {
-		return nil, fmt.Errorf("training service address not configured")
+		return nil, errors.New("training service address not configured")
 	}
 
 	var dialOpts []grpc.DialOption
@@ -750,7 +751,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	conn, err := grpc.NewClient(g.trainingAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
-		return nil, fmt.Errorf("create training client: %w", err)
+		return nil, errors.New("create training client: " + err.Error())
 	}
 
 	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)

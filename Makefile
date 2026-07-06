@@ -1,6 +1,9 @@
 imports:
-	@echo "Updating Go imports..."
-	goimports -w ./cmd ./internal ./pkg ./api
+	@echo "Updating Go imports with gci..."
+	@go run github.com/daixiang0/gci@latest write \
+		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
+		--skip-generated --skip-vendor \
+		cmd internal pkg api
 	@echo "Imports updated."
 
 .PHONY: proto tidy fmt vet lint test test-cover check imports
@@ -46,7 +49,7 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-check: tidy fmt vet lint imports test-cover
+check: tidy fmt vet imports lint test-cover
 	@echo "========================================"
 	@echo "  LOCAL CHECKS PASSED!"
 	@echo "========================================"
@@ -77,4 +80,4 @@ help:
 	@echo "  make test-cover - Run tests with coverage report (80% threshold)"
 	@echo "  make check      - Run tidy, fmt, vet, lint, test"
 	@echo "  make proto      - Generate proto files"
-	@echo "  make imports    - Update Go imports"
+	@echo "  make imports    - Update Go imports with gci"

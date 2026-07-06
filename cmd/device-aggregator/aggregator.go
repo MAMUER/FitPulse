@@ -8,9 +8,10 @@ import (
 	"net/url"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/MAMUER/project/cmd/device-aggregator/providers"
 	"github.com/MAMUER/project/internal/logger"
-	"go.uber.org/zap"
 )
 
 // aggregator manages wearable providers and syncs data.

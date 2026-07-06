@@ -4,17 +4,18 @@ package middleware
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/MAMUER/project/internal/auth"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/auth"
 )
 
 // RequestID добавляет уникальный идентификатор запроса
@@ -97,7 +98,6 @@ func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.
 	}
 }
 
-// LoggingMiddleware логирует запросы с корреляционным ID
 func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec, requestTotal *prometheus.CounterVec, errorTotal *prometheus.CounterVec) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,8 +112,7 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 
 			duration := time.Since(start)
 
-			// Record metrics
-			statusStr := fmt.Sprintf("%d", rw.statusCode)
+			statusStr := strconv.Itoa(rw.statusCode)
 			if requestDuration != nil {
 				requestDuration.WithLabelValues("gateway", r.URL.Path, r.Method, statusStr).Observe(duration.Seconds())
 			}

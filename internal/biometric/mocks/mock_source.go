@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/biometric/domain"
 	"math"
 	"time"
-
-	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 const stageStage = "stage"
@@ -113,7 +113,7 @@ func (m *MockBiometricSource) Fetch(ctx context.Context, userID string, metricTy
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
 	if secureFloat64() < m.config.FailureRate {
-		return nil, fmt.Errorf("device unavailable")
+		return nil, errors.New("device unavailable")
 	}
 	now := time.Now()
 	var samples []domain.BiometricSample

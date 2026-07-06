@@ -3,9 +3,16 @@ version: "2"
 run:
   timeout: 5m
   allow-parallel-runners: true
+  modules-download-mode: readonly
+  go: "1.26"
 
 output:
-  format: colored-line-number
+  formats:
+    text:
+      path: stdout
+      colors: true
+      print-linter-name: true
+      print-issued-lines: true
 
 linters:
   default: none
@@ -25,6 +32,9 @@ linters:
     - funlen
     - dupl
     - misspell
+    - unparam
+    - nakedret
+    - perfsprint
   disable:
     - gochecknoglobals
     - gochecknoinits
@@ -32,61 +42,76 @@ linters:
     - wrapcheck
     - noctx
     - prealloc
-    - exhaustive
     - fatcontext
     - nestif
-    - revive
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - gocyclo
+          - gocognit
+          - funlen
+          - dupl
+          - bodyclose
+          - rowserrcheck
+          - errorlint
+      - path: api/gen/.*\.go
+        linters:
+          - all
+      - path: mocks/.*\.go|mock_.*\.go
+        linters:
+          - gocyclo
+          - gocognit
+          - funlen
+          - dupl
+          - bodyclose
+          - rowserrcheck
+          - errorlint
   settings:
+    nakedret:
+      max-func-lines: 30
     gosec:
       severity: medium
       confidence: medium
     govet:
-      enable-all: false
+      enable-all: true
+      disable:
+        - fieldalignment
+    staticcheck:
       checks:
         - all
-        - "-SA1029"
-        - "-fieldalignment"
-    staticcheck:
-      checks: ["all", "-SA1029"]
+        - -SA1029
     gocyclo:
-      min-complexity: 30
+      min-complexity: 15
     gocognit:
-      min-complexity: 45
+      min-complexity: 20
     funlen:
-      lines: 220
-      statements: 90
+      lines: 100
+      statements: 50
     dupl:
-      threshold: 160
+      threshold: 100
     misspell:
       locale: "US"
 
+formatters:
+  enable:
+    - gci
+    - gofmt
+  exclusions:
+    paths:
+      - third_party$
+      - builtin$
+      - std$
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/MAMUER/project)
+    gofmt:
+      simplify: true
+
 issues:
-  new: false
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - gocyclo
-        - gocognit
-        - funlen
-        - dupl
-        - bodyclose
-        - rowserrcheck
-        - errorlint
-    - path: api/gen/.*\.go
-      linters:
-        - all
-    - linters:
-        - govet
-      text: "fieldalignment"
-    - path: mocks/.*\.go|mock_.*\.go
-      linters:
-        - gocyclo
-        - gocognit
-        - funlen
-        - dupl
-        - bodyclose
-        - rowserrcheck
-        - errorlint
   max-issues-per-linter: 0
   max-same-issues: 0

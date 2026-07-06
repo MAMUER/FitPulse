@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MAMUER/project/internal/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/metrics"
 )
 
 // Prometheus метрики для очереди
@@ -119,7 +120,7 @@ func (p *rabbitPublisher) Publish(ctx context.Context, event interface{}) error 
 	p.mu.RLock()
 	if p.closed || p.channel == nil {
 		p.mu.RUnlock()
-		return fmt.Errorf("publisher is closed")
+		return errors.New("publisher is closed")
 	}
 	ch := p.channel
 	p.mu.RUnlock()

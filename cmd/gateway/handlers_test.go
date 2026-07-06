@@ -12,11 +12,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/logger"
 )
 
 type mockUserServiceClient struct{}

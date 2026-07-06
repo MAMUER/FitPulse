@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/MAMUER/project/internal/auth"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/auth"
 )
 
 // responseRecorder перехватывает тело ответа для последующей подписи
