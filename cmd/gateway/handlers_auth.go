@@ -131,7 +131,7 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 		g.log.Warn("Redis 2FA rate limit unavailable", zap.Error(err))
 	}
 
-	if countOverLimit(ctx, g, key) {
+	if countOverLimit(g, key) {
 		return errors.New("too many 2FA attempts")
 	}
 

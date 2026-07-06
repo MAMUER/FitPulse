@@ -72,7 +72,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	startDate, endDate := s.calculatePlanDates(req.DurationWeeks)
 
 	// Save plan to database
-	if err := s.savePlanToDatabase(ctx, txFn(func(ctx context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }), planID, req.UserId, classificationClass, planData, startDate, endDate, req.DurationWeeks); err != nil {
+	if err := s.savePlanToDatabase(ctx, txFn(func(ctx context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }), planID, req.UserId, classificationClass, startDate, endDate, req.DurationWeeks); err != nil {
 		return nil, err
 	}
 
@@ -287,10 +287,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, err
 	}
 
-	weeksList, err := convertWeeksToStructpb(weeks)
-	if err != nil {
-		return nil, err
-	}
+	weeksList := convertWeeksToStructpb(weeks)
 
 	// Создаем Struct вручную, чтобы избежать проблем с []map[string]interface{}
 	planDataOut := &structpb.Struct{
@@ -804,6 +801,7 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 }
 
 // buildWeeklyWorkouts creates a one-week schedule from ML data (no repetition across weeks)
+//
 func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} {
 	workouts := make([]map[string]interface{}, 0, len(availableDays))
 

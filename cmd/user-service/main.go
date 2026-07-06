@@ -109,7 +109,6 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	email := sanitize.String(req.Email)
 	fullName := sanitize.String(req.FullName)
 	emailHash := db.EmailHash(email)
-	encKey := string(db.EncryptionKey())
 
 	// Проверка существования пользователя
 	var exists bool
@@ -133,8 +132,8 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	userID := uuid.New().String()
 	_, err = s.db.ExecContext(ctx, `
         INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, created_at, updated_at)
-        VALUES ($1, pgp_sym_encrypt($2, $3), $4, $5, pgp_sym_encrypt($6, $3), $7, NOW(), NOW())
-    `, userID, email, encKey, emailHash, string(hashed), fullName, req.Role)
+        VALUES ($1, `+db.PgsodiumEncryptParam(2)+`, $3, $4, `+db.PgsodiumEncryptParam(5)+`, $6, NOW(), NOW())
+    `, userID, email, emailHash, string(hashed), fullName, req.Role)
 	if err != nil {
 		s.log.Error("Failed to create user", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create user")
@@ -144,8 +143,8 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	verificationToken := generateVerificationToken()
 	_, err = s.db.ExecContext(ctx, `
         INSERT INTO email_verifications (user_id, email_encrypted, email_hash, token, token_encrypted, expires_at, used)
-        VALUES ($1, pgp_sym_encrypt($2, $3), $4, $5, pgp_sym_encrypt($5, $3), NOW() + INTERVAL '24 hours', false)
-    `, userID, email, encKey, emailHash, verificationToken)
+        VALUES ($1, `+db.PgsodiumEncryptParam(2)+`, $3, $4, `+db.PgsodiumEncryptParam(5)+`, NOW() + INTERVAL '24 hours', false)
+    `, userID, email, emailHash, verificationToken)
 	if err != nil {
 		s.log.Error("Failed to create email verification record", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create verification token")
@@ -189,12 +188,11 @@ func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailReque
 	var userID, email string
 	var used bool
 	var expiresAt sql.NullTime
-	encKey := string(db.EncryptionKey())
 	err := s.db.QueryRowContext(ctx, `
-        SELECT user_id, pgp_sym_decrypt(email_encrypted, $2) AS email, used, expires_at 
+        SELECT user_id, `+db.PgsodiumDecryptParam("email_encrypted", "email")+`
         FROM email_verifications 
         WHERE token = $1
-    `, req.Token, encKey).Scan(&userID, &email, &used, &expiresAt)
+    `, req.Token).Scan(&userID, &email, &used, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.InvalidArgument, "invalid verification token")
 	}
@@ -249,7 +247,6 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	// Проверка подтверждения email
 	emailHash := db.EmailHash(sanitize.String(req.Email))
 	var emailConfirmed bool
-	encKey := string(db.EncryptionKey())
 	err := s.db.QueryRowContext(ctx, "SELECT email_confirmed FROM users WHERE email_hash = $1", emailHash).Scan(&emailConfirmed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
@@ -265,10 +262,10 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 	var user User
 	err = s.db.QueryRowContext(ctx, `
-        SELECT id, pgp_sym_decrypt(email_encrypted, $2) AS email, password_hash, role 
+        SELECT id, `+db.PgsodiumDecryptParam("email_encrypted", "email")+`, password_hash, role 
         FROM users 
         WHERE email_hash = $1
-    `, emailHash, encKey).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role)
+    `, emailHash).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Возвращаем Unauthenticated вместо NotFound для безопасности
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
@@ -322,7 +319,6 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 
 	emailVal = sanitize.String(emailVal)
 	emailHash := db.EmailHash(emailVal)
-	encKey := string(db.EncryptionKey())
 
 	var userID, role string
 	var emailConfirmed bool
@@ -358,8 +354,8 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 			userID = uuid.New().String()
 			_, insertErr := s.db.ExecContext(ctx, `
 				INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, nickname_encrypted, role, provider, external_id, email_confirmed, created_at, updated_at)
-				VALUES ($1, pgp_sym_encrypt($2, $3), $4, NULL, pgp_sym_encrypt($5, $3), pgp_sym_encrypt($6, $3), 'client', 'google', $7, true, NOW(), NOW())
-			`, userID, emailVal, encKey, emailHash, nickname, nickname, googleSub)
+				VALUES ($1, `+db.PgsodiumEncryptParam(2)+`, $3, NULL, `+db.PgsodiumEncryptParam(4)+`, `+db.PgsodiumEncryptParam(5)+`, 'client', 'google', $6, true, NOW(), NOW())
+			`, userID, emailVal, emailHash, nickname, nickname, googleSub)
 			if insertErr != nil {
 				var pqErr *pq.Error
 				if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
@@ -409,22 +405,21 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	var sleepHours sql.NullFloat64
 
 	var nickname, profilePhotoURL sql.NullString
-	encKey := string(db.EncryptionKey())
 
 	var err error
-	if encKey != "" {
+	if db.PgsodiumKeyID() > 0 {
 		err = s.db.QueryRowContext(ctx, `
-			SELECT u.id, pgp_sym_decrypt(u.email_encrypted, $1) AS email,
-			       pgp_sym_decrypt(u.full_name_encrypted, $1) AS full_name,
-			       pgp_sym_decrypt(u.nickname_encrypted, $1) AS nickname,
+			SELECT u.id, `+db.PgsodiumDecryptParam("u.email_encrypted", "email")+`,
+			       `+db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name")+`,
+			       `+db.PgsodiumDecryptParam("u.nickname_encrypted", "nickname")+`,
 			       u.profile_photo_url, u.role,
 			       p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
 			       p.goals, p.nutrition, p.sleep_hours,
 			       u.created_at, u.updated_at
 			FROM users u
 			LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
-			WHERE u.id = $2
-		`, encKey, req.UserId).Scan(
+			WHERE u.id = $1
+		`, req.UserId).Scan(
 			&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
 			&age, &gender, &heightCm, &weightKg, &fitnessLevel,
 			pq.Array(&profile.Goals),
@@ -495,14 +490,13 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	// Обновляем full_name и nickname в users table (если передан)
 	if req.FullName != nil || req.Nickname != nil {
-		encKey := string(db.EncryptionKey())
 		_, err := s.db.ExecContext(ctx, `
 			UPDATE users SET
-				full_name_encrypted = CASE WHEN $1 IS NULL THEN full_name_encrypted ELSE pgp_sym_encrypt($1, $2) END,
-				nickname_encrypted = CASE WHEN $3 IS NULL THEN nickname_encrypted ELSE pgp_sym_encrypt($3, $2) END,
+				full_name_encrypted = CASE WHEN $1 IS NULL THEN full_name_encrypted ELSE `+db.PgsodiumEncryptParam(1)+` END,
+				nickname_encrypted = CASE WHEN $2 IS NULL THEN nickname_encrypted ELSE `+db.PgsodiumEncryptParam(2)+` END,
 				updated_at = NOW()
-			WHERE id = $4
-		`, req.FullName, encKey, req.Nickname, req.UserId)
+			WHERE id = $3
+		`, req.FullName, req.Nickname, req.UserId)
 		if err != nil {
 			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
 			return nil, status.Error(codes.Internal, "failed to update user details")
@@ -655,8 +649,6 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 		return nil, status.Error(codes.InvalidArgument, "new_nickname is required")
 	}
 
-	encKey := string(db.EncryptionKey())
-
 	// Check if nickname is unique (check plaintext column for existing plaintext rows)
 	var exists bool
 	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE nickname = $1 AND id != $2)", req.NewNickname, req.UserId).Scan(&exists)
@@ -669,7 +661,7 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 	}
 
 	// Update nickname in both encrypted and plaintext columns
-	_, err = s.db.ExecContext(ctx, "UPDATE users SET nickname_encrypted = pgp_sym_encrypt($1, $2), nickname = $1, updated_at = NOW() WHERE id = $3", req.NewNickname, encKey, req.UserId)
+	_, err = s.db.ExecContext(ctx, "UPDATE users SET nickname_encrypted = "+db.PgsodiumEncryptParam(1)+", nickname = $1, updated_at = NOW() WHERE id = $2", req.NewNickname, req.UserId)
 	if err != nil {
 		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to update nickname")
@@ -945,15 +937,14 @@ func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*
 	}
 
 	offset := req.Page * req.PageSize
-	encKey := string(db.EncryptionKey())
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT u.id, pgp_sym_decrypt(u.email_encrypted, $1) AS email,
-               pgp_sym_decrypt(u.full_name_encrypted, $1) AS full_name, u.role, u.created_at, u.updated_at
+        SELECT u.id, `+db.PgsodiumDecryptParam("u.email_encrypted", "email")+`,
+               `+db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name")+`, u.role, u.created_at, u.updated_at
         FROM users u
-        WHERE ($2 = '' OR u.role = $2)
+        WHERE ($1 = '' OR u.role = $1)
         ORDER BY u.created_at DESC
-        LIMIT $3 OFFSET $4
-    `, encKey, req.Role, req.PageSize, offset)
+        LIMIT $2 OFFSET $3
+    `, req.Role, req.PageSize, offset)
 	if err != nil {
 		s.log.Error("Failed to list users", zap.Error(err))
 		return nil, status.Error(codes.Internal, "database error")
@@ -1032,11 +1023,10 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	emailVal := sanitize.String(req.GetEmail())
 	fullName := sanitize.String(req.GetFullName())
 	emailHash := db.EmailHash(emailVal)
-	encKey := string(db.EncryptionKey())
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, email_confirmed)
-		VALUES ($1, pgp_sym_encrypt($2, $3), $4, $5, pgp_sym_encrypt($6, $3), $7, true)
-	`, userID, emailVal, encKey, emailHash, string(hashedPassword), fullName, finalRole)
+		VALUES ($1, `+db.PgsodiumEncryptParam(2)+`, $3, $4, `+db.PgsodiumEncryptParam(5)+`, $6, true)
+	`, userID, emailVal, emailHash, string(hashedPassword), fullName, finalRole)
 
 	if err != nil {
 		var pqErr *pq.Error
@@ -1094,8 +1084,7 @@ func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*
 
 	var email string
 	var totpEnabled bool
-	encKey := string(db.EncryptionKey())
-	err := s.db.QueryRowContext(ctx, "SELECT pgp_sym_decrypt(email_encrypted, $2) AS email, totp_enabled FROM users WHERE id = $1", req.UserId, encKey).Scan(&email, &totpEnabled)
+	err := s.db.QueryRowContext(ctx, "SELECT "+db.PgsodiumDecryptParam("email_encrypted", "email")+", totp_enabled FROM users WHERE id = $1", req.UserId).Scan(&email, &totpEnabled)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -1647,22 +1636,159 @@ func nullIfEmpty(v string) *string {
 	return &v
 }
 
+// ensurePgsodiumKey идемпотентно импортирует PII-ключ из DB_ENCRYPTION_KEY
+// в keyring pgsodium (таблица pgsodium.key) и фиксирует его идентификатор
+// в пакете db для использования в шифровании/расшифровке.
+func (s *userServer) ensurePgsodiumKey(ctx context.Context) error {
+	key := db.EncryptionKey()
+	if len(key) == 0 {
+		return fmt.Errorf("DB_ENCRYPTION_KEY not set; pgsodium keyring cannot be initialized")
+	}
+
+	var id int64
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM pgsodium.key WHERE name = $1`, db.PgsodiumKeyringName()).Scan(&id)
+	if err == nil {
+		db.SetPgsodiumKeyID(id)
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("query pgsodium key: %w", err)
+	}
+
+	hexKey := hex.EncodeToString(key)
+	err = s.db.QueryRowContext(ctx,
+		`SELECT pgsodium.import_key(CASE WHEN $1 ~ '^[0-9a-fA-F]{64}$' THEN decode($1, 'hex') ELSE convert_to($1, 'UTF8') END, $2)`,
+		hexKey, db.PgsodiumKeyringName(),
+	).Scan(&id)
+	if err != nil {
+		return fmt.Errorf("import pgsodium key: %w", err)
+	}
+	db.SetPgsodiumKeyID(id)
+	s.log.Info("Imported pgsodium PII key", zap.Int64("key_id", id))
+	return nil
+}
+
+// reencryptPIIFromPgcrypto перекодирует существующие PII-поля,
+// зашифрованные ранее через pgcrypto (pgp_sym_encrypt), в pgsodium (libsodium AEAD).
+// Строки, уже зашифрованные через pgsodium, пропускаются.
+func (s *userServer) reencryptPIIFromPgcrypto(ctx context.Context) {
+	key := string(db.EncryptionKey())
+	if key == "" {
+		return
+	}
+	id := db.PgsodiumKeyID()
+	if id == 0 {
+		return
+	}
+
+	type pair struct{ enc, plain string }
+	tables := []struct {
+		name  string
+		idCol string
+		pairs []pair
+	}{
+		{"users", "id", []pair{
+			{"email_encrypted", "email"},
+			{"full_name_encrypted", "full_name"},
+			{"nickname_encrypted", "nickname"},
+		}},
+		{"email_verifications", "id", []pair{
+			{"email_encrypted", "email"},
+			{"token_encrypted", "token"},
+		}},
+	}
+
+	for _, t := range tables {
+		cols := []string{t.idCol}
+		for _, p := range t.pairs {
+			cols = append(cols, p.enc)
+		}
+		colList := strings.Join(cols, ", ")
+		rows, err := s.db.QueryContext(ctx,
+			fmt.Sprintf("SELECT %s FROM %s WHERE %s IS NOT NULL", colList, t.name, t.pairs[0].enc))
+		if err != nil {
+			s.log.Error("Failed to scan PII rows for migration", zap.Error(err), zap.String("table", t.name))
+			continue
+		}
+
+		scanPtrs := make([]interface{}, len(cols))
+		rowVals := make([]interface{}, len(cols))
+		for i := range scanPtrs {
+			scanPtrs[i] = &rowVals[i]
+		}
+
+		migrated := int64(0)
+		for rows.Next() {
+			if err := rows.Scan(scanPtrs...); err != nil {
+				s.log.Error("Failed to scan PII row", zap.Error(err))
+				continue
+			}
+			rowID := fmt.Sprint(rowVals[0])
+
+			// Проба расшифровки первой колонки через pgsodium: уже мигрировано?
+			var probe string
+			if dErr := s.db.QueryRowContext(ctx,
+				fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", id), rowVals[1],
+			).Scan(&probe); dErr == nil {
+				continue
+			}
+
+			setParts := make([]string, 0, len(t.pairs))
+			args := make([]interface{}, 0, len(t.pairs)+1)
+			ai := 1
+			for i, p := range t.pairs {
+				var plain sql.NullString
+				if dErr := s.db.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], key).Scan(&plain); dErr != nil || !plain.Valid {
+					s.log.Warn("Failed to pgcrypto-decrypt during PII migration",
+						zap.Error(dErr), zap.String("table", t.name), zap.String("col", p.enc))
+					continue
+				}
+				args = append(args, plain.String)
+				setParts = append(setParts, fmt.Sprintf("%s = pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", p.enc, ai, id))
+				ai++
+			}
+			if len(setParts) == 0 {
+				continue
+			}
+			args = append(args, rowID)
+			query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = $%d", t.name, strings.Join(setParts, ", "), t.idCol, ai)
+			if _, uErr := s.db.ExecContext(ctx, query, args...); uErr != nil {
+				s.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", t.name), zap.String("id", rowID))
+				continue
+			}
+			migrated++
+		}
+		rows.Close()
+		if migrated > 0 {
+			s.log.Info("Re-encrypted PII from pgcrypto to pgsodium", zap.String("table", t.name), zap.Int64("rows", migrated))
+		}
+	}
+}
+
 func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	key := string(db.EncryptionKey())
 	if key == "" {
 		s.log.Warn("DB_ENCRYPTION_KEY not set; skipping PII backfill")
 		return
 	}
+	id := db.PgsodiumKeyID()
+	if id == 0 {
+		s.log.Warn("pgsodium key not initialized; skipping PII backfill")
+		return
+	}
+	enc := func(col string) string {
+		return fmt.Sprintf("pgsodium.crypto_aead_det_encrypt(%s::text, '', %d)", col, id)
+	}
 
-	res, err := s.db.ExecContext(ctx, `
+	res, err := s.db.ExecContext(ctx, fmt.Sprintf(`
 		UPDATE users
 		SET
-			email_encrypted = pgp_sym_encrypt(email, $1),
+			email_encrypted = %s,
 			email_hash = encode(digest(lower(email), 'sha256'), 'hex'),
-			full_name_encrypted = pgp_sym_encrypt(full_name, $1),
-			nickname_encrypted = pgp_sym_encrypt(nickname, $1)
+			full_name_encrypted = %s,
+			nickname_encrypted = %s
 		WHERE email_encrypted IS NULL
-	`, key)
+	`, enc("email"), enc("full_name"), enc("nickname")))
 	if err != nil {
 		s.log.Error("Failed to backfill PII in users", zap.Error(err))
 	} else {
@@ -1670,13 +1796,13 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 		s.log.Info("PII backfill complete for users", zap.Int64("updated", rows))
 	}
 
-	_, err = s.db.ExecContext(ctx, `
+	_, err = s.db.ExecContext(ctx, fmt.Sprintf(`
 		UPDATE email_verifications
 		SET
-			email_encrypted = pgp_sym_encrypt(email, $1),
-			token_encrypted = pgp_sym_encrypt(token, $1)
+			email_encrypted = %s,
+			token_encrypted = %s
 		WHERE email_encrypted IS NULL
-	`, key)
+	`, enc("email"), enc("token")))
 	if err != nil {
 		s.log.Error("Failed to backfill PII in email_verifications", zap.Error(err))
 	}
@@ -1769,7 +1895,12 @@ func main() {
 		totpService:      totp.NewService(totpEncryptor),
 	})
 
-	(&userServer{db: database, log: log}).backfillEncryptedPII(context.Background())
+	svc := &userServer{db: database, log: log}
+	if err := svc.ensurePgsodiumKey(context.Background()); err != nil {
+		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
+	}
+	svc.reencryptPIIFromPgcrypto(context.Background())
+	svc.backfillEncryptedPII(context.Background())
 
 	// Register gRPC health server
 	healthServer := health.NewServer()

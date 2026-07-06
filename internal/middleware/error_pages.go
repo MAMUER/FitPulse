@@ -74,7 +74,7 @@ func ErrorPages(next http.Handler) http.Handler {
 				next.ServeHTTP(recorder, r)
 				return
 			}
-			data, readErr := os.ReadFile(file) //nolint:gosec
+			data, readErr := os.ReadFile(file) 
 			if readErr == nil {
 				if recorder.headers != nil {
 					for k, v := range recorder.headers {

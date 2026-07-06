@@ -7,9 +7,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/MAMUER/project/internal/biometric/domain"
 	"math"
 	"time"
+
+	"github.com/MAMUER/project/internal/biometric/domain"
 )
 
 const stageStage = "stage"

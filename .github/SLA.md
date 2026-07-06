@@ -14,7 +14,7 @@
 
 | Priority | Response Time | Resolution Time |
 | ---------- | --------------- | ----------------- |
-| 🔴 Critical (Security) | 4 hours | 24 hours |
+| 🔴 Critical (Security) | 15 min | 4 hours |
 | 🟠 High (Bug blocking) | 1 day | 3 days |
 | 🟡 Medium (Feature) | 3 days | 2 weeks |
 | 🟢 Low (Nice to have) | 1 week | Next release |

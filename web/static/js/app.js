@@ -162,7 +162,7 @@ ${p.last_sync_at ? `<br>Последняя синхронизация: ${new Dat
 <span style="padding: 4px 8px; background: ${p.is_active ? 'var(--green)' : 'var(--text-tertiary)'}; color: white; border-radius: 12px; font-size: 12px;">
 ${p.is_active ? 'Активен' : 'Отключён'}
 </span>
-${p.is_active ? `<button onclick="disconnectProvider('${p.provider}')" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
+${p.is_active ? `<button data-action="disconnect-provider" data-provider="${p.provider}" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
 Отключить
 </button>` : ''}
 </div>
@@ -340,10 +340,10 @@ ${inv.is_active ? 'Активен' : 'Отозван'}
 Роль: <strong>${inv.role}</strong> · Использований: ${inv.used_count}/${inv.max_uses}
 </div>
 <div style="display: flex; gap: 8px;">
-<button onclick="window._copyToClipboard('${inv.invite_url}')" class="btn-secondary" style="flex: 1; font-size: 13px;">
+<button data-action="copy-invite" data-url="${inv.invite_url}" class="btn-secondary" style="flex: 1; font-size: 13px;">
 📋 Копировать ссылку
 </button>
-${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="btn-secondary" style="flex: 1; color: var(--accent); font-size: 13px;">
+${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" class="btn-secondary" style="flex: 1; color: var(--accent); font-size: 13px;">
 ❌ Отозвать
 </button>` : ''}
 </div>
@@ -410,10 +410,31 @@ ${inv.is_active ? `<button onclick="window._revokeInvite('${inv.code}')" class="
     window.createNewInvite = _createNewInvite;
     window.revokeInvite = _revokeInvite;
     window.copyToClipboard = _copyToClipboard;
-    // Обработчик переключения на админку
+    // Обработчик переключения на админку + делегирование data-action
+    // (inline-обработчики заменены на data-action ради strict nonce-based CSP)
     document.addEventListener('click', (e) => {
         if (e.target.closest('[data-view="admin"]')) {
             loadAdminPanel();
+        }
+        const actionEl = e.target.closest('[data-action]');
+        if (!actionEl) return;
+        const action = actionEl.dataset.action;
+        switch (action) {
+            case 'copy-token':
+                copyToken();
+                break;
+            case 'create-invite':
+                _createNewInvite();
+                break;
+            case 'disconnect-provider':
+                disconnectProvider(actionEl.dataset.provider);
+                break;
+            case 'copy-invite':
+                _copyToClipboard(actionEl.dataset.url);
+                break;
+            case 'revoke-invite':
+                _revokeInvite(actionEl.dataset.code);
+                break;
         }
     });
     function showMainApp() {

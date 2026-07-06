@@ -64,16 +64,16 @@
 
 ### Аутентификация и авторизация
 
-- **JWT**: ES256, access token TTL 15 минут
-- **Refresh Token**: opaque, TTL 7 дней, rotation при каждом использовании
+- **JWT (Access Token)**: короткоживущий токен для аутентификации API. Реализована защита от replay attacks через короткое время жизни. Подробности реализации (алгоритм подписи, TTL, JWKS endpoint): [API Reference → Аутентификация](docs/API.md#аутентификация).
+- **Refresh Token**: реализована Refresh Token Rotation и Reuse Detection для защиты от session hijacking. При попытке повторного использования отозванного токена вся сессия принудительно завершается.
 - **Хеширование паролей**: Argon2id (memory 64 MB, iterations 3, parallelism 1)
-- **2FA**: TOTP (Google Authenticator) с backup-кодами
+- **2FA**: TOTP (стандарт RFC 6238) с резервными кодами восстановления
 - **Сессии**: принудительная инвалидация при logout, отдельные хранилища для критических действий
 - **Авторизация**: серверная проверка ролей через прямой запрос к БД
 
 ### Защита API
 
-- **CSP**: строгая nonce-based политика для всех ответов + `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp` для предотвращения cross-origin утечек и изоляции контекста. **Статус**: реализовано в NGINX конфигурации `deploy/lb/production.conf`.
+- **CSP**: строгая nonce-based политика для всех ответов (nonce генерируется через `crypto/rand`, 32 байта = 256 бит энтропии, кодируется стандартным base64) + `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp` для предотвращения cross-origin утечек и изоляции контекста. Атрибут `nonce` автоматически впрыскивается middleware `HTMLNonceInject` во все `<script>` теги HTML-ответа. Нарушения CSP логируются в ELK: директивы `report-uri /api/security/csp-report` и `report-to csp-endpoint` (`Report-To` header), обработчик `cspReportHandler` пишет структурированные `CSP_VIOLATION` события в zap. **Статус**: реализовано в `internal/middleware/security_headers.go` и `internal/middleware/nonce_inject.go`, эндпоинт `POST /api/security/csp-report` в `cmd/gateway`.
 - **Subresource Integrity (SRI)**: не применяется. Все фронтенд-ресурсы (JS/CSS/шрифты) находятся локально в проекте (`/static/...`), внешние CDN отсутствуют. Подмена ресурсов исключается CSP nonce-based + логикой деплоя.
 - **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window; для auth endpoints отдельно: 5 attempts/minute per IP для `/login` и `/register` для защиты от brute-force атак (OWASP Authentication Cheat Sheet).
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
@@ -84,7 +84,7 @@
 
 **At rest:**
 
-- PostgreSQL: `pgcrypto` для чувствительных полей (PII, токены)
+- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg17`.
 - Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
 - Резервные копии: AES-256
 
@@ -92,7 +92,7 @@
 
 - TLS 1.3 для всех внешних эндпоинтов (terminated на host Nginx)
 - mTLS для внутренних gRPC-коммуникаций между микросервисами (TLS 1.3, mutual auth, сертификаты в Kubernetes Secret)
-- HSTS + OCSP Must-Staple + Certificate Transparency: Let's Encrypt сертификаты автоматически логируются в CT-логи; `ssl_trusted_certificate` configured в `deploy/lb/production.conf`; верификация CT и OCSP в CI/CD шаге "Verify Certificate Transparency and OCSP Stapling".
+- HSTS + OCSP Stapling (`ssl_stapling on; ssl_stapling_verify on;`) + Certificate Transparency: Let's Encrypt сертификаты логируются в CT-логи; `ssl_trusted_certificate` и OCSP настроены в `deploy/lb/production.conf`; верификация CT и OCSP в CI/CD шаге "Verify Certificate Transparency and OCSP Stapling".
 - L7 WAF: См. раздел "Инфраструктура" → "WAF"
 
 ### CI/CD безопасность

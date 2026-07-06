@@ -55,7 +55,11 @@ func CloseWithError(c io.Closer) error {
 	if c == nil {
 		return nil
 	}
-	return fmt.Errorf("close resource: %w", c.Close())
+	err := c.Close()
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("close resource: %w", err)
 }
 
 // MultiCloser позволяет закрыть несколько ресурсов последовательно

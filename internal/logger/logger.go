@@ -118,5 +118,9 @@ func (l *Logger) WithFields(fields ...zap.Field) *zap.Logger {
 
 // Sync гарантирует запись всех буферизированных логов
 func (l *Logger) Sync() error {
-	return fmt.Errorf("sync logger: %w", l.Logger.Sync())
+	err := l.Logger.Sync()
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("sync logger: %w", err)
 }

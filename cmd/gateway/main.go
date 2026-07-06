@@ -603,6 +603,9 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	// Metrics endpoint
 	r.Method("GET", "/metrics", promhttp.Handler())
 
+	// CSP violation reports (browser Reporting API / report-uri) -> ELK
+	r.Post("/api/security/csp-report", g.cspReportHandler)
+
 	// Email confirmation page
 	r.Get("/confirm", g.emailConfirmPageHandler)
 

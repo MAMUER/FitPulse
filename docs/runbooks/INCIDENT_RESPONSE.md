@@ -62,7 +62,7 @@ kubectl get pods -n fitness-platform-production
 kubectl rollout history deployment/gateway -n fitness-platform-production
 
 # 3. Быстрый перезапуск подозрительного пода (OOMKilled / CrashLoopBackOff)
-kubectl delete pod <pod-name> -n fitness-platform-production
+kubectl rollout restart deployment/<deployment-name> -n fitness-platform-production
 
 # 4. Если проблема после недавнего деплоя — откат
 kubectl rollout undo deployment/gateway -n fitness-platform-production

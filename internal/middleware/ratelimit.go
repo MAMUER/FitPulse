@@ -40,13 +40,10 @@ type authRateLimiter struct {
 
 // Package-level singletons initialized at startup
 //
-//nolint:gochecknoglobals
 var rateLimiterInstance = &rateLimiter{}
 
-//nolint:gochecknoglobals
 var userRateLimiterInstance = &userRateLimiter{}
 
-//nolint:gochecknoglobals
 var authRateLimiterInstance = &authRateLimiter{}
 
 func init() {

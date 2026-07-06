@@ -49,7 +49,10 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 		rw.written = true
 	}
 	n, err := rw.ResponseWriter.Write(b)
-	return n, fmt.Errorf("write response: %w", err)
+	if err != nil {
+		return n, fmt.Errorf("write response: %w", err)
+	}
+	return n, nil
 }
 
 // JSONError отправляет стандартизированный JSON ответ с ошибкой

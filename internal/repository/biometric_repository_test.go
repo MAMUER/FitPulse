@@ -136,7 +136,7 @@ func TestBiometricRepository_GetByUser_DatabaseError(t *testing.T) {
 
 	assert.Nil(t, results)
 	assert.Error(t, err)
-	assert.EqualError(t, err, "query failed")
+	assert.EqualError(t, err, "query biometric data by user: query failed")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -224,7 +224,7 @@ func TestBiometricRepository_GetLatest_DatabaseError(t *testing.T) {
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
-	assert.EqualError(t, err, "internal server error")
+	assert.EqualError(t, err, "query latest biometric: internal server error")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

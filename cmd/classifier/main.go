@@ -294,6 +294,18 @@ func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predic
 		notes = append(notes, "Проконсультируйтесь с врачом при: "+joinStrings(profile.HealthConditions, ", "))
 	}
 
+	// Цели пользователя
+	for _, goal := range profile.Goals {
+		switch goal {
+		case "похудение":
+			notes = append(notes, "Учитывая цель похудения, делайте акцент на аэробные тренировки в аэробной зоне")
+		case "силовые":
+			if predictedClass != 3 {
+				notes = append(notes, "При силовых целях рекомендуется включать тренировки в силовой зоне")
+			}
+		}
+	}
+
 	if len(notes) == 0 {
 		return nil
 	}

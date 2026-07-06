@@ -54,7 +54,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
-				"form-action 'self';",
+				"form-action 'self'; "+
+				"report-to csp-endpoint; "+
+				"report-uri /api/security/csp-report;",
 		)
 
 		// Permissions Policy — запрет доступа к аппаратным средствам
@@ -75,6 +77,11 @@ func SecurityHeaders(next http.Handler) http.Handler {
 			w.Header().Set("Expires", "0")
 		}
 
+		// Report-To: именованная конечная точка для CSP-нарушений (ELK ingestion)
+		w.Header().Set("Report-To",
+			`{"group":"csp-endpoint","max_age":31536000,"endpoints":[{"url":"/api/security/csp-report"}]}`,
+		)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -88,9 +95,13 @@ func GetNonce(r *http.Request) string {
 }
 
 func generateNonce() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	// 32 байта = 256 бит криптографически стойкой энтропии (требование: минимум 128 бит)
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand не должен падать; при фатальной ошибке лучше сломать запрос, чем nonce ""
+		panic("middleware: failed to generate CSP nonce: " + err.Error())
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // LogoutHeaders добавляет заголовки для принудительной инвалидации сессии

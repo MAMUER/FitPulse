@@ -37,15 +37,9 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	go test -v -coverprofile=coverage.out ./...
+	go test -count=1 -v -coverprofile=coverage.out ./...
 	@echo "Checking coverage threshold (>= 80%)..."
-	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	if [ $$(echo "$$COVERAGE < 80" | bc -l) -eq 1 ]; then \
-		echo "❌ Coverage check failed: $$COVERAGE% (below 80% threshold)"; \
-		exit 1; \
-	else \
-		echo "✅ Coverage: $$COVERAGE%"; \
-	fi
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 

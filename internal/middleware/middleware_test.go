@@ -23,11 +23,8 @@ import (
 )
 
 var (
-	//nolint:gochecknoglobals
 	testPrivateKeyPEMMW string
-	//nolint:gochecknoglobals
 	testPublicKeyPEMMW string
-	//nolint:gochecknoglobals
 	testUserID = "user-789"
 )
 

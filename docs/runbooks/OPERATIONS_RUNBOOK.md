@@ -41,7 +41,7 @@
 4. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
 
    ```bash
-   kubectl delete pod <pod-name> -n fitness-platform-production
+   kubectl rollout restart deployment/<deployment-name> -n fitness-platform-production
    # Pod будет пересоздан deployment controller'ом
    ```
 
@@ -115,8 +115,7 @@ git tag v2.1.0-rc1
 git push origin v2.1.0-rc1
 
 # Этап 7: Канарный деплой в Production (10% трафика, 1 час)
-kubectl patch service gateway-canary -p \
-  '{"spec":{"selector":{"version":"canary"}}}'
+kubectl apply -f configs/k8s/overlays/production/canary-service.yaml
 
 # Мониторить в течение 1 часа
 kubectl get hpa -n fitness-platform-production -w

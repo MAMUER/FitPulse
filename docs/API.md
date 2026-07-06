@@ -11,7 +11,7 @@ Authorization: Bearer <access_token>
 ```
 
 - **access_token TTL**: 15 минут
-- **refresh_token TTL**: 7 дней, rotation при каждом использовании
+- **refresh_token TTL**: 7 дней (Absolute Timeout, после требуется повторный login). Реализована rotation (один раз на использование) и reuse detection (инвалидация всей сессии при попытке повторного использования отозванного токена).
 - **JWKS endpoint**: `GET /.well-known/jwks.json` (для публичного ключа)
 
 Refresh token используется для ротации через `POST /api/v1/auth/refresh`.

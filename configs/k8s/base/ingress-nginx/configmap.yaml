@@ -20,7 +20,7 @@ data:
   hsts-preload: "true"
 
   # ===== ModSecurity WAF =====
-  enable-modsecurity: "false"
+  enable-modsecurity: "true"
   modsecurity-snippet: |
     SecRuleEngine On
     SecRequestBodyAccess On

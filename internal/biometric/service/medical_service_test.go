@@ -20,22 +20,38 @@ type MockMedicalRepository struct {
 
 func (m *MockMedicalRepository) GetActiveConstraints(ctx context.Context, userID string) ([]domain.MedicalConstraint, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]domain.MedicalConstraint), fmt.Errorf("mock: %w", args.Error(1))
+	err := args.Error(1)
+	if err != nil {
+		err = fmt.Errorf("mock: %w", err)
+	}
+	return args.Get(0).([]domain.MedicalConstraint), err
 }
 
 func (m *MockMedicalRepository) SaveConstraint(ctx context.Context, constraint domain.MedicalConstraint) error {
 	args := m.Called(ctx, constraint)
-	return fmt.Errorf("mock: %w", args.Error(0))
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf("mock: %w", err)
+	}
+	return nil
 }
 
 func (m *MockMedicalRepository) DeleteConstraint(ctx context.Context, constraintID string) error {
 	args := m.Called(ctx, constraintID)
-	return fmt.Errorf("mock: %w", args.Error(0))
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf("mock: %w", err)
+	}
+	return nil
 }
 
 func (m *MockMedicalRepository) GetConstraintByCode(ctx context.Context, code string) ([]domain.MedicalConstraint, error) {
 	args := m.Called(ctx, code)
-	return args.Get(0).([]domain.MedicalConstraint), fmt.Errorf("mock: %w", args.Error(1))
+	err := args.Error(1)
+	if err != nil {
+		err = fmt.Errorf("mock: %w", err)
+	}
+	return args.Get(0).([]domain.MedicalConstraint), err
 }
 
 func TestNewMedicalService(t *testing.T) {
@@ -72,7 +88,7 @@ func TestMedicalServiceEvaluateWorkout_Case3(t *testing.T) {
 			Action:       "caution",
 		}},
 	}
-	runTestCase(t, "heart rate above threshold", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+	runTestCase(t, []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
 		TargetHeartRate: 150,
 		MaxHeartRate:    170,
 	}, []domain.ConstraintViolation{{
@@ -97,7 +113,7 @@ func TestMedicalServiceEvaluateWorkout_Case4(t *testing.T) {
 			Action:       "require_approval",
 		}},
 	}
-	runTestCase(t, "blood pressure violation requiring approval", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+	runTestCase(t, []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
 		BloodPressureSystolic: 150,
 	}, []domain.ConstraintViolation{{
 		ConstraintID: "constraint2",
@@ -121,7 +137,7 @@ func TestMedicalServiceEvaluateWorkout_Case5(t *testing.T) {
 			Action:       "modify",
 		}},
 	}
-	runTestCase(t, "below threshold violation", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+	runTestCase(t, []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
 		TargetHeartRate: 90,
 	}, []domain.ConstraintViolation{{
 		ConstraintID: "constraint3",
@@ -144,7 +160,7 @@ func TestMedicalServiceEvaluateWorkout_Case6(t *testing.T) {
 			Action: "caution",
 		}},
 	}
-	runTestCase(t, "unknown metric", []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
+	runTestCase(t, []domain.MedicalConstraint{constraint}, nil, &domain.WorkoutPlan{
 		TargetHeartRate: 140,
 	}, []domain.ConstraintViolation{{
 		ConstraintID: "constraint4",
@@ -177,7 +193,7 @@ func TestMedicalServiceEvaluateWorkout_Case7(t *testing.T) {
 			}},
 		},
 	}
-	runTestCase(t, "multiple constraints with mixed violations", constraints, nil, &domain.WorkoutPlan{
+	runTestCase(t, constraints, nil, &domain.WorkoutPlan{
 		MaxHeartRate:           165,
 		BloodPressureDiastolic: 90,
 	}, []domain.ConstraintViolation{
@@ -442,7 +458,7 @@ func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 			repoError:       nil,
 			metricType:      "heart_rate",
 			expectedAllowed: false,
-			expectedReason:  "Acute myocardial infarction",
+			expectedReason:  "avoid: Acute myocardial infarction",
 			expectError:     false,
 		},
 		{
@@ -516,7 +532,7 @@ func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 			repoError:       nil,
 			metricType:      "heart_rate",
 			expectedAllowed: false,
-			expectedReason:  "Acute myocardial infarction",
+			expectedReason:  "avoid: Acute myocardial infarction",
 			expectError:     false,
 		},
 		{

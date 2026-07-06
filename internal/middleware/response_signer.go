@@ -119,5 +119,8 @@ func SignAndSendJSON(w http.ResponseWriter, data interface{}, secret string, log
 	w.WriteHeader(code)
 	buf := bytes.NewBuffer(jsonBytes)
 	_, err = buf.WriteTo(w)
-	return fmt.Errorf("write response: %w", err)
+	if err != nil {
+		return fmt.Errorf("write response: %w", err)
+	}
+	return nil
 }

@@ -59,7 +59,10 @@ func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limi
 		data.Timestamp = timestamp
 		results = append(results, &data)
 	}
-	return results, fmt.Errorf("iterate biometric rows: %w", rows.Err())
+	if err := rows.Err(); err != nil {
+		return results, fmt.Errorf("iterate biometric rows: %w", err)
+	}
+	return results, nil
 }
 
 func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType string) (*domain.BiometricData, error) {

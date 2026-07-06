@@ -86,26 +86,68 @@ func ValidateProfileUpdate(req *pb.UpdateProfileRequest) error {
 	if req.UserId == "" {
 		return status.Error(codes.InvalidArgument, "user_id is required")
 	}
-	// full_name (никнейм): 2-100 символов, буквы/цифры/_/-
-	if req.FullName != nil {
-		fn := *req.FullName
-		if len(fn) < 2 || len(fn) > 100 {
-			return status.Error(codes.InvalidArgument, "nick must be 2-100 chars")
-		}
+	if err := validateProfileFullName(req); err != nil {
+		return err
 	}
+	if err := validateProfileAge(req); err != nil {
+		return err
+	}
+	if err := validateProfileHeight(req); err != nil {
+		return err
+	}
+	if err := validateProfileWeight(req); err != nil {
+		return err
+	}
+	if err := validateProfileFitnessLevel(req); err != nil {
+		return err
+	}
+	if err := validateProfileGender(req); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateProfileFullName(req *pb.UpdateProfileRequest) error {
+	if req.FullName == nil {
+		return nil
+	}
+	fn := *req.FullName
+	if len(fn) < 2 || len(fn) > 100 {
+		return status.Error(codes.InvalidArgument, "nick must be 2-100 chars")
+	}
+	return nil
+}
+
+func validateProfileAge(req *pb.UpdateProfileRequest) error {
 	if req.Age != nil && (*req.Age < 0 || *req.Age > 150) {
 		return status.Error(codes.InvalidArgument, ErrAgeOutOfRange.Error())
 	}
+	return nil
+}
+
+func validateProfileHeight(req *pb.UpdateProfileRequest) error {
 	if req.HeightCm != nil && (*req.HeightCm < 50 || *req.HeightCm > 300) {
 		return status.Error(codes.InvalidArgument, ErrHeightOutOfRange.Error())
 	}
+	return nil
+}
+
+func validateProfileWeight(req *pb.UpdateProfileRequest) error {
 	if req.WeightKg != nil && (*req.WeightKg < 1 || *req.WeightKg > 500) {
 		return status.Error(codes.InvalidArgument, ErrWeightOutOfRange.Error())
 	}
+	return nil
+}
+
+func validateProfileFitnessLevel(req *pb.UpdateProfileRequest) error {
 	validFitnessLevels := map[string]bool{"": true, "beginner": true, "intermediate": true, "advanced": true}
 	if req.FitnessLevel != nil && !validFitnessLevels[*req.FitnessLevel] {
 		return status.Error(codes.InvalidArgument, ErrInvalidFitness.Error())
 	}
+	return nil
+}
+
+func validateProfileGender(req *pb.UpdateProfileRequest) error {
 	validGenders := map[string]bool{"": true, "male": true, "female": true, "other": true}
 	if req.Gender != nil && !validGenders[*req.Gender] {
 		return status.Error(codes.InvalidArgument, ErrInvalidGender.Error())

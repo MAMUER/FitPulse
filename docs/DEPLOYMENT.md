@@ -20,8 +20,7 @@ git clone https://github.com/MAMUER/fitpulse.git && cd fitpulse
 kubectl create namespace fitness-platform-production
 # 2.1. Создать секреты (обязательно перед apply манифестов!)
 kubectl create secret generic app-secrets -n fitness-platform-production \
-    --from-literal=POSTGRES_USER=postgres \
-    --from-literal=POSTGRES_PASSWORD=<your-password> \
+    --from-file=POSTGRES_PASSWORD=./postgres_password.txt \
     --from-literal=POSTGRES_DB=fitness
 kubectl apply -k configs/k8s/base/ -n fitness-platform-production
 

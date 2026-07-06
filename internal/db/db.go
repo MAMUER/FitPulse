@@ -6,9 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/lib/pq"
 	"sync"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"github.com/MAMUER/project/internal/metrics"
 )

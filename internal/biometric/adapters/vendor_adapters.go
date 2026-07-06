@@ -65,8 +65,6 @@ func (b *baseAdapter) HealthCheck(ctx context.Context) error {
 // AppleHealthAdapter implements BiometricSource for Apple Watch / HealthKit.
 type AppleHealthAdapter struct {
 	*baseAdapter
-	userID           string
-	deviceID         string
 	supportedMetrics map[domain.MetricType]bool
 }
 
@@ -98,8 +96,6 @@ func (a *AppleHealthAdapter) DeviceType() string {
 // SamsungHealthAdapter implements BiometricSource for Samsung Galaxy Watch.
 type SamsungHealthAdapter struct {
 	*baseAdapter
-	userID           string
-	deviceID         string
 	supportedMetrics map[domain.MetricType]bool
 }
 
@@ -130,8 +126,6 @@ func (s *SamsungHealthAdapter) DeviceType() string {
 // HuaweiHealthAdapter implements BiometricSource for Huawei Watch D2.
 type HuaweiHealthAdapter struct {
 	*baseAdapter
-	userID           string
-	deviceID         string
 	supportedMetrics map[domain.MetricType]bool
 }
 
@@ -162,8 +156,6 @@ func (h *HuaweiHealthAdapter) DeviceType() string {
 // AmazfitAdapter implements BiometricSource for Amazfit devices via Zepp API.
 type AmazfitAdapter struct {
 	*baseAdapter
-	userID           string
-	deviceID         string
 	supportedMetrics map[domain.MetricType]bool
 }
 
@@ -194,8 +186,6 @@ func (a *AmazfitAdapter) DeviceType() string {
 // PlatformAdapter implements BiometricSource for unified aggregator platforms such as ROOK, Terra, Health Connect.
 type PlatformAdapter struct {
 	*baseAdapter
-	userID           string
-	deviceID         string
 	supportedMetrics map[domain.MetricType]bool
 }
 

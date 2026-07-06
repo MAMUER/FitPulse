@@ -115,7 +115,7 @@ func TestClassifyHandler_ValidRequest(t *testing.T) {
 	assert.NotEmpty(t, resp.PredictedClass)
 	assert.NotEmpty(t, resp.PredictedClassRu)
 	assert.Greater(t, resp.Confidence, float64(0))
-	assert.Len(t, resp.Probabilities, 4)
+	assert.Len(t, resp.Probabilities, 6)
 }
 
 func TestClassifyHandler_DefaultValues(t *testing.T) {

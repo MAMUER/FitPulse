@@ -30,9 +30,9 @@
 
 - [ ] Network Policies разделяют зоны dmz/app/data/monitoring
 - [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: pgcrypto, volumes, secrets
+- [x] Шифрование: pgsodium (libsodium) для PII, AES-256-GCM для TOTP, LUKS volumes, secrets
 - [x] mTLS для внутренних gRPC-коммуникаций (TLS 1.3, сертификаты в Kubernetes Secret)
-- [ ] WAF настроен с базовым набором правил
+- [x] WAF настроен с базовым набором правил (host Nginx + ModSecurity CRS v4; ingress-nginx `enable-modsecurity: "true"`)
 
 ### Релизный процесс
 

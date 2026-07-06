@@ -99,7 +99,7 @@ func TestCloseWithErrorReturnsError(t *testing.T) {
 	expectedErr := errors.New("close failed")
 	mc := &mockCloser{closeErr: expectedErr}
 	err := CloseWithError(mc)
-	assert.Equal(t, expectedErr, err)
+	assert.EqualError(t, err, "close resource: close failed")
 }
 
 func TestMultiCloserEmpty(t *testing.T) {

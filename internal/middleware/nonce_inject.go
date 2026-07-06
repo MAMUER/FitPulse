@@ -3,8 +3,11 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"regexp"
 )
+
+// scriptTagRE находит открывающие <script ...> теги, у которых ещё нет атрибута nonce.
+var scriptTagRE = regexp.MustCompile(`(?i)<script\b([^>]*?)(?:\s|>)()`)
 
 func HTMLNonceInject(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,8 +42,7 @@ func (w *nonceInjectWriter) WriteHeader(status int) {
 	}
 	w.committed = true
 	if len(w.buf) > 0 {
-		injected := strings.ReplaceAll(string(w.buf), `<script src=`, `<script nonce="`+w.nonce+`" src=`)
-		injected = strings.ReplaceAll(injected, `<script\nsrc=`, `<script nonce="`+w.nonce+`"\nsrc=`)
+		injected := injectNonce(w.buf, w.nonce)
 		w.buf = nil
 		w.ResponseWriter.Header().Del("Content-Length")
 		w.ResponseWriter.WriteHeader(status)
@@ -50,10 +52,26 @@ func (w *nonceInjectWriter) WriteHeader(status int) {
 	w.ResponseWriter.WriteHeader(status)
 }
 
+// injectNonce добавляет атрибут nonce во все <script> теги, у которых его ещё нет.
+func injectNonce(body []byte, nonce string) string {
+	return scriptTagRE.ReplaceAllStringFunc(string(body), func(tag string) string {
+		if nonceAttrRE.MatchString(tag) {
+			return tag
+		}
+		// <script ...> -> <script nonce="..." ...>
+		return scriptTagRE.ReplaceAllString(tag, `<script nonce="`+nonce+`"$1>`)
+	})
+}
+
+var nonceAttrRE = regexp.MustCompile(`(?i)\bnonce=`)
+
 func (w *nonceInjectWriter) Write(b []byte) (int, error) {
 	if w.committed {
 		n, err := w.ResponseWriter.Write(b)
-		return n, fmt.Errorf("write response: %w", err)
+		if err != nil {
+			return n, fmt.Errorf("write response: %w", err)
+		}
+		return n, nil
 	}
 	w.buf = append(w.buf, b...)
 	return len(b), nil

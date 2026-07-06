@@ -127,7 +127,7 @@
                             <p class="verify-hint">Режим разработки — скопируйте
                                 токен:</p>
                             <div class="verify-token-box" id="devToken"
-                                onclick="copyToken()"></div>
+                                data-action="copy-token"></div>
                             <p class="verify-hint">Или вставьте токен ниже:</p>
                             <input type="text" id="verifyToken"
                                 placeholder="Токен из письма">
@@ -697,7 +697,7 @@
                                     value="1" min="1" max="100"
                                     style="width: 80px; padding: 12px; background: var(--bg-input); border: none; border-radius: var(--radius-sm); color: var(--text-primary);">
                                 <button class="btn-primary"
-                                    onclick="window.createNewInvite()"
+                                    data-action="create-invite"
                                     style="flex: 1;">
                                     Создать
                                 </button>

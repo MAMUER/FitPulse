@@ -14,7 +14,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
-//nolint:gochecknoglobals
 var (
 	shutdownOnce sync.Once
 	tp           *sdktrace.TracerProvider
