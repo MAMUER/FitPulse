@@ -19,17 +19,17 @@
    - При отсутствии `TLS_CERT_FILE`/`TLS_KEY_FILE` сервис переходит на `ListenAndServe()` без паники (test-friendly), но пишет warn-лог.
 
 3. **Тестовое окружение**:
-   - В текущем `docker-compose.test.yml` TLS-сертификаты не смонтированы; health-check использует HTTP (`http://localhost:8080/health`).
-   - Добавлены env-переменные `TLS_CERT_FILE`/`TLS_KEY_FILE` в Gateway, но без реальных файлов сервис стартует в HTTP-режиме.
+   - `testcontainers-go` для интеграционных и smoke-тестов.
+   - Gateway в тестах стартует с TLS-сертификатом из памяти или graceful TLS fallback при отсутствии переменных.
+   - Health-check в CI выполняется через `go test ./internal/testcontainers/...`.
 
 ## Последствия
 
-- **Плюсы**: устранены два gosec-предупреждения критического уровня, тестовый стенд поднимается без ручного вмешательства.
+- **Плюсы**: устранены два gosec-предупреждения критического уровня, тестовый стенд поднимается автоматически через testcontainers, не требуется ручной Docker Compose.
 - **Нейтрально**: self-signed сертификаты только для dev/test; production продолжает использовать доверенные.
 - **Риски**: self-signed certs не годятся для production; нужно явно отделить окружения.
 
 ## Реализация
 
 - `cmd/gateway/main.go` — `ReadHeaderTimeout`, whitelist-host redirect, TLS fallback.
-- `docker-compose.test.yml` — env vars, HTTP healthcheck.
-- `deploy/tls/certs/` — не добавлен в репозиторий.
+- `internal/testcontainers/` — helpers для PostgreSQL, Valkey, RabbitMQ.

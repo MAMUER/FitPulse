@@ -38,10 +38,10 @@ Refresh token используется для ротации через `POST /a
 
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
-|POST|`/logout`|Выход с инвалидацией сессии|—|`{status}`|
+|POST|`/logout`|Выход с инвалидацией сессии|—|`{status}`. Заголовки: `Set-Cookie: jwt=; Max-Age=0; HttpOnly; Secure; SameSite=Strict`|
 |GET|`/profile`|Получить профиль|—|`{status, profile}`|
 |PUT|`/profile`|Обновить профиль|`{full_name?, age?, gender?, height_cm?, weight_kg?, fitness_level?, goals?, contraindications?, nutrition?, sleep_hours?}`|`{status}`|
-|DELETE|`/profile`|Удалить профиль|`{password}`|`{status, message}`|
+|DELETE|`/profile`|Удалить профиль (152-ФЗ)|`{password}`|`{status, message}`. Реализуется через crypto-shredding (удаление ключа pgsodium для PII)|
 |POST|`/biometrics`|Добавить биометрию|`{metric_type, value, timestamp, device_type?}`|`{status}` (201)|
 |GET|`/biometrics`|Получить биометрию|Query: `?metric_type=&from=&to=&limit=`|`{status, records: [{type, value, timestamp, device_type}]}`|
 |GET|`/training/plans`|Список планов|Query: `?page=&page_size=`|`{status, plans: [{plan_id, plan_data, status, duration_weeks, training_goal, created_at}], total, page, page_size}`|
@@ -168,3 +168,5 @@ Refresh token используется для ротации через `POST /a
 |429|Rate limit exceeded|
 |500|Внутренняя ошибка|
 |503|Сервис временно недоступен|
+
+> **Примечание**: для неавторизованных пользователей 403 маскируется под 404 для предотвращения enumeration.

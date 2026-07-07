@@ -20,3 +20,11 @@ configs/k8s/** @MAMUER
 
 go.mod @MAMUER
 go.sum @MAMUER
+
+# Python code
+
+cmd/ml_generator/** @MAMUER
+
+# Frontend
+
+web/** @MAMUER

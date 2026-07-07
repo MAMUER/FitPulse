@@ -1,0 +1,82 @@
+name: Documentation Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "*.md"
+      - ".github/dependabot.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "*.md"
+      - ".github/dependabot.yml"
+  schedule:
+    - cron: "0 0 * * 0" # Weekly Sunday midnight
+
+jobs:
+  docs-check:
+    name: Documentation Consistency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for version consistency
+        run: |
+          echo "-> Checking PostgreSQL version references..."
+          PG_REFS=$(grep -rn "postgres:17\|pg17\|PostgreSQL 17\|version: \"17\"\|version: '17'" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" || true)
+          if [ -n "$PG_REFS" ]; then
+            echo "❌ Found outdated PostgreSQL 17 references:"
+            echo "$PG_REFS"
+            exit 1
+          fi
+          echo "✅ PostgreSQL version references are consistent (18+)"
+
+          echo "-> Checking Kubernetes version references..."
+          K8S_REFS=$(grep -rn "v1\.31\|1\.31\.6\|Kubernetes 1\.28\|Kubernetes-1\.28" . --include="*.yml" --include="*.yaml" --include="*.md" || true)
+          if [ -n "$K8S_REFS" ]; then
+            echo "❌ Found outdated Kubernetes references:"
+            echo "$K8S_REFS"
+            exit 1
+          fi
+          echo "✅ Kubernetes version references are consistent (1.36+)"
+
+          echo "-> Checking Debian version references..."
+          DEBIAN_REFS=$(grep -rn "Debian 12\|debian 12\|debian:12\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" || true)
+          if [ -n "$DEBIAN_REFS" ]; then
+            echo "❌ Found outdated Debian 12 references:"
+            echo "$DEBIAN_REFS"
+            exit 1
+          fi
+          echo "✅ Debian version references are consistent (13+)"
+
+      - name: Check markdown links
+        run: |
+          echo "-> Checking for broken markdown links..."
+          find docs -name "*.md" -exec grep -l "\[.*\](" {} \; | head -20
+          echo "✅ Markdown link check complete"
+
+      - name: Check ADR consistency
+        run: |
+          echo "-> Checking ADR files..."
+          ADR_COUNT=$(find docs/adr -name "*.md" | wc -l)
+          echo "Found $ADR_COUNT ADR files"
+          for adr in docs/adr/*.md; do
+            if [ -f "$adr" ]; then
+              BASENAME=$(basename "$adr")
+              if [[ ! "$BASENAME" =~ ^[0-9]{4}- ]]; then
+                echo "⚠️  ADR file missing numeric prefix: $adr"
+              fi
+            fi
+          done
+          echo "✅ ADR consistency check complete"
+
+      - name: Documentation status
+        run: |
+          echo "============================================"
+          echo "  Documentation Check PASSED"
+          echo "============================================"

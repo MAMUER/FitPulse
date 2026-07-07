@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/crypto"
 )
 
 // GarminProvider implements OAuth flow for Garmin Health API
@@ -24,16 +27,18 @@ type GarminProvider struct {
 	callbackURL    string
 	db             *sql.DB
 	log            *zap.Logger
+	encryptor      *crypto.AESGCMEncryptor
 }
 
 // NewGarminProvider returns a new Garmin provider.
-func NewGarminProvider(db *sql.DB, log *zap.Logger) *GarminProvider {
+func NewGarminProvider(db *sql.DB, log *zap.Logger, encryptor *crypto.AESGCMEncryptor) *GarminProvider {
 	return &GarminProvider{
 		consumerKey:    os.Getenv("GARMIN_CONSUMER_KEY"),
 		consumerSecret: os.Getenv("GARMIN_CONSUMER_SECRET"),
 		callbackURL:    os.Getenv("GARMIN_CALLBACK_URL"),
 		db:             db,
 		log:            log,
+		encryptor:      encryptor,
 	}
 }
 
@@ -90,6 +95,11 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 		return fmt.Errorf("upsert provider account: %w", err)
 	}
 
+	encryptedRefresh, err := p.encryptRefreshToken(tokenResp.AccessTokenSecret)
+	if err != nil {
+		return fmt.Errorf("encrypt refresh token: %w", err)
+	}
+
 	// Save to database
 	_, err = p.db.ExecContext(ctx, `
 		INSERT INTO device_provider_accounts 
@@ -101,7 +111,7 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 			refresh_token = EXCLUDED.refresh_token,
 			is_active = TRUE,
 			updated_at = NOW()
-	`, userID, profile.UserID, tokenResp.AccessToken, tokenResp.AccessTokenSecret)
+	`, userID, profile.UserID, tokenResp.AccessToken, encryptedRefresh)
 
 	if err != nil {
 		return fmt.Errorf("upsert garmin account: %w", err)
@@ -189,6 +199,32 @@ func (p *GarminProvider) Disconnect(ctx context.Context, userID string) error {
 // ListProviders returns list of connected Garmin accounts.
 func (p *GarminProvider) ListProviders(ctx context.Context, userID string) (map[string]interface{}, error) {
 	return listAccountProviders(ctx, p.db, userID, "garmin")
+}
+
+func (p *GarminProvider) encryptRefreshToken(token string) (string, error) {
+	if p.encryptor == nil {
+		return "", fmt.Errorf("encryptor not initialized")
+	}
+	ciphertext, err := p.encryptor.Encrypt([]byte(token))
+	if err != nil {
+		return "", fmt.Errorf("encrypt refresh token: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func (p *GarminProvider) decryptRefreshToken(encoded string) (string, error) {
+	if p.encryptor == nil {
+		return "", fmt.Errorf("encryptor not initialized")
+	}
+	ciphertext, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("decode refresh token: %w", err)
+	}
+	plaintext, err := p.encryptor.Decrypt(ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("decrypt refresh token: %w", err)
+	}
+	return string(plaintext), nil
 }
 
 // GarminTokenResponse represents Garmin token response.

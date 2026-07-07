@@ -37,14 +37,14 @@
    git remote add upstream https://github.com/MAMUER/fitpulse.git
    ```
 
-4. **Установите зависимости**:
+ 4. **Установите зависимости**:
 
-   ```bash
-   go mod tidy
-   pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
-   ```
+    ```bash
+    go mod tidy
+    pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
+    ```
 
-5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск не поддерживается — deploy только на VPS.
+ 5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск сервисов не поддерживается — deploy только на VPS. Для локальных интеграционных тестов используйте `testcontainers-go` (зависимости поднимаются автоматически при запуске `go test -tags=integration`).
 
 ## Как внести изменения
 
@@ -162,21 +162,55 @@ docs(readme): обновить документацию
 2. **Резервируйте номера**: Для удалённых полов используйте `reserved`
 3. **Комментарии**: Документируйте каждое сообщение и сервис
 
+#### Генерация кода (`make proto`)
+
+Перед изменением `.proto` файлов убедитесь, что установлены зависимости:
+
+- **`protoc`** (компилятор Protocol Buffers) — версия, совместимая с `protoc-gen-go`/`protoc-gen-go-grpc`.
+- **Плагины Go**:
+  ```bash
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  ```
+  и убедитесь, что `$GOPATH/bin` (обычно `~/go/bin`) добавлен в `PATH`, иначе `protoc` не найдёт плагины.
+
+Установка `protoc` по платформам:
+
+```bash
+# macOS (Homebrew)
+brew install protobuf
+
+# Ubuntu / Debian
+sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+# Windows (Chocolatey)
+choco install protoc
+
+# Через Go (альтернатива, требует C-инструментарий)
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+```
+
+После правок в `api/proto/*.proto` сгенерируйте код и закоммитьте результат:
+
+```bash
+make proto
+```
+
+Сгенерированные файлы попадают в `api/gen/**` (см. `docs/ARCHITECTURE.md`, раздел структуры проекта).
+
 ## Тестирование
 
 ### Запуск тестов
 
 ```bash
-# Unit-тесты
+# Unit-тесты (без внешних зависимостей)
 make test
 
 # С покрытием (проверка порога 80%)
 make test-cover
 
-# Интеграционные тесты (требуют тега `-tags=integration`, добавляется автоматически через make)
-make test-integration
-
-# Или вручную:
+# Интеграционные тесты (требуют Docker и тег `-tags=integration`)
+# Зависимости (PostgreSQL, Valkey, RabbitMQ) поднимаются автоматически через testcontainers-go
 go test -v -tags=integration ./...
 
 # API тесты
@@ -235,24 +269,33 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 
 1. **Обновите ветку** от upstream main:
 
-   ```bash
-   git fetch upstream
-   git rebase upstream/main
-   ```
+    ```bash
+    git fetch upstream
+    git rebase upstream/main
+    ```
 
 2. **Запустите все проверки**:
 
-   ```bash
-   make check  # tidy + fmt + vet + lint + vulncheck + integration tests + markdown check
-   ```
+    ```bash
+    make check  # tidy + fmt + vet + lint + unit tests + markdown check
+    ```
+
+    При необходимости запустите интеграционные тесты локально (требуют Docker):
+    ```bash
+    go test -v -tags=integration ./...
+    ```
 
 3. **Проверьте покрытие тестами**:
 
-   ```bash
-   go test -cover ./...
-   ```
+    ```bash
+    make test-cover
+    ```
 
-4. **Обновите документацию**, если изменили API или поведение
+    Минимальное требование: **80%** для нового кода.
+
+4. **Обновите документацию**, если изменили API или поведение (README.md, API docs, etc.)
+
+5. **Убедитесь, что CI/CD пайплайн проходит** (lint, test, build, security scan)
 
 ### Создание PR
 
@@ -284,12 +327,13 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 Fixes #123
 
 ## Чеклист
-- [ ] Код отформатирован (`go fmt ./...`)
-- [ ] Линтер пройден (`make lint`)
-- [ ] Покрытие тестами >= 80% (проверяется через `make test-cover`)
-- [ ] Документация обновлена
-- [ ] Изменения протестированы (`make check`)
-- [ ] Все CI/CD проверки прошли успешно
+ - [ ] Код отформатирован (`go fmt ./...`)
+ - [ ] Линтер пройден (`make lint`)
+ - [ ] Покрытие тестами >= 80% (проверяется через `make test-cover`)
+ - [ ] Документация обновлена
+ - [ ] Изменения протестированы (`make check`)
+ - [ ] Интеграционные тесты запущены локально при необходимости (`go test -v -tags=integration ./...`)
+ - [ ] Все CI/CD проверки прошли успешно
 ```
 
 ## Code Review
@@ -306,8 +350,8 @@ PR будет принят, если:
 
 ### Время ревью
 
-- Обычные PR: в течение 2-3 дней
-- Критические hotfix: в течение 24 часов
+- Обычные PR: в течение 2–3 рабочих дней
+- Критические hotfix: best effort, в течение 1–3 рабочих дней (без гарантий 24/7)
 
 ### Процесс ревью
 

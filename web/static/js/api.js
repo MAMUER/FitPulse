@@ -14,18 +14,6 @@ function setAuthToken(token) {
     }
 }
 
-function logResponseSignature(endpoint, signature, algorithm) {
-    if (signature) {
-        console.log(
-            '[Security] Response signature for', endpoint,
-            '| algorithm:', algorithm || 'HMAC-SHA256',
-            '| signature:', signature.substring(0, 16) + '...'
-        );
-    } else {
-        console.warn('[Security] No response signature for', endpoint);
-    }
-}
-
 async function apiRequest(endpoint, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
@@ -66,12 +54,6 @@ async function apiRequest(endpoint, options = {}) {
         data = rawBody;
     }
 
-    const signature = response.headers.get('X-Response-Signature');
-    const algorithm = response.headers.get('X-Signature-Algorithm');
-    if (signature && rawBody) {
-        logResponseSignature(endpoint, signature, algorithm);
-    }
-
     console.log('[API] Response data:', data);
 
     if (!response.ok) {
@@ -80,11 +62,6 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     return data;
-}
-
-// Helper to check if response signature was invalid (blocks privileged UI)
-function isSignatureInvalid() {
-    return !!window.__responseSignatureInvalid;
 }
 
 // Auth

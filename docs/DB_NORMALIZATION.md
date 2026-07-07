@@ -268,6 +268,7 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 - V15 — user_health_conditions
 - V16 — user_body_composition
 - V17 — user_menstrual_cycles, user_menstrual_symptoms, user_menstrual_moods
+- V18 — pgsodium extension, PII re-encryption from pgcrypto
 
 ---
 

@@ -1850,7 +1850,7 @@ func main() {
 		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
 	}
 
-	totpEncryptor, initErr := crypto.NewTOTPEncryptor(totpEncryptionKey)
+	totpEncryptor, initErr := crypto.NewAESGCMEncryptor(totpEncryptionKey)
 	if initErr != nil {
 		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
 	}

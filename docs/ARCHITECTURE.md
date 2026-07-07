@@ -10,7 +10,7 @@
 │   │   ├── biometric.proto
 │   │   ├── training.proto
 │   │   └── ml.proto
-│   └── gen/                          # сгенерированные .go файлы (gitignore)
+│   └── gen/                          # сгенерированные .go файлы (committed в репозиторий)
 ├── cmd/
 │   ├── gateway/                      # HTTP/gRPC gateway (nginx ingress)
 │   ├── user-service/                 # Users, auth, profile
@@ -320,7 +320,7 @@ verification:
 
 - TLS 1.3 минимум для всех внешних эндпоинтов
 - mTLS для gRPC-коммуникации между микросервисами (TLS 1.3, сертификаты в Kubernetes Secret)
-- HSTS + Certificate Transparency logs вместо certificate pinning (SPA в браузере не поддерживает кастомный пиннинг сертификатов)
+- HSTS + OCSP Stapling + CT logs (pinning не применяется для SPA)
 
 ### 4.4 Управление зависимостями
 
@@ -329,10 +329,10 @@ verification:
 |Dependabot|Еженедельный скан, авто-PR для минорных обновлений|
 |Snyk|Интеграция в CI/CD, блокировка мержа при critical CVE|
 
-**Политики**:
+**Политики** (best effort, без юридических гарантий):
 
-- Critical CVE: патч в течение 24 часов
-- High CVE: патч в течение 7 дней
+- Critical CVE: патч в течение 1–3 рабочих дней
+- High CVE: патч в течение 3–7 рабочих дней
 - Запрет на использование пакетов с известными уязвимостями (blacklist)
 
 ### 4.5 Аудит администраторов
@@ -405,7 +405,7 @@ verification:
 #### Этап 3: CI Build
 
 - Jobs:
-  - Unit tests (coverage ≥95%)
+  - Unit tests (покытие ≥80%)
   - Integration tests (TestContainers)
   - Contract tests (Pact)
   - Container scan: trivy/grype (no critical CVE)
@@ -435,22 +435,10 @@ verification:
 - Артефакты:
   - Git tag: `v2.1.0-rc1`
   - Changelog: auto-generated + manual review
-  - Migration plan: Flyway scripts + rollback instructions
+  - Migration plan: K8s Job (`migrate-db.yaml`) + rollback via SQL down-migrations
   - Runbook: шаги деплоя + отката
 
-#### Этап 7: Deploy Production (Canary + Rolling)
-
-**Canary фаза**:
-
-```yaml
-traffic: "10%"
-duration: "1 hour"
-
-success_criteria:
-  - "Error rate < 1%"
-  - "p95 latency < 3s"
-  - "No critical logs"
-```
+#### Этап 7: Deploy Production (Rolling)
 
 **Rolling фаза**:
 
@@ -486,7 +474,7 @@ health_check: "readiness probe + synthetic transactions"
 kubectl rollout undo deployment/fitness-api -n prod
 
 # Database
-flyway undo -target=previous_version
+kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 
 # Verification
 # Smoke tests + synthetic user journey
@@ -536,23 +524,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 - Ежеквартальный внешний пентест
 - Ежемесячный внутренний скан (OWASP ZAP)
-- Remediation SLA: critical 24h, high 7d
-
-### 6.6 Соответствие (Compliance)
-
-**Требование**: Полное соответствие 152-ФЗ (персональные данные)
-
-**Реализация**:
-
-- Хранение ПДн только на территории РФ (Yandex Cloud / Selectel)
-- Шифрование ПДн в покое и при передаче
-- Механизм выполнения прав субъекта ПДн (удаление, экспорт)
-- Регистрация в Роскомнадзоре (оператор ПДн)
-
-**Проверка**:
-
-- Ежегодный аудит на соответствие 152-ФЗ
-- DPIA (Data Protection Impact Assessment) для новых фич
+- Remediation SLA (best effort): critical 1–3 рабочих дней, high 3–7 рабочих дней
 
 ### 6.7 Документация (Documentation)
 
@@ -594,8 +566,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 ### Релизный процесс
 
-- [ ] Пайплайн включает все 9 этапов
-- [ ] Canary-деплой с критериями успеха/отката
+- [ ] Пайплайн включает все этапы
 - [ ] Автоматический rollback при error rate > 5% или p95 > 10s
 
 ### Приемка
@@ -604,10 +575,47 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [ ] Настроены нагрузочные тесты для проверки p95 < 5s
 - [ ] План Chaos Engineering для проверки восстановления < 5 мин
 - [ ] Пентест запланирован до релиза
-- [ ] Реализованы механизмы соответствия 152-ФЗ
 
 ### Документация
 
 - [ ] ADR для всех архитектурных решений
 - [ ] Runbook для эксплуатации и отката
 - [ ] OpenAPI-спецификация актуальна и покрыта тестами
+
+## 8. Генерация Protobuf (локальная разработка)
+
+При изменении `api/proto/*.proto` сгенерированный Go-код (`api/gen/**`) нужно
+пересоздать и закоммитить. Используйте цель `make proto` (см. `Makefile`, цель `proto`).
+
+### Зависимости
+
+- **`protoc`** — компилятор Protocol Buffers.
+- **Плагины генерации Go** (должны быть в `PATH`):
+  ```bash
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  ```
+  Убедитесь, что `$GOPATH/bin` (по умолчанию `~/go/bin`) добавлен в `PATH`,
+  иначе `protoc` завершится с ошибкой «protoc-gen-go: plugin not found».
+
+### Установка `protoc` по платформам
+
+```bash
+# macOS (Homebrew)
+brew install protobuf
+
+# Ubuntu / Debian
+sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+# Windows (Chocolatey)
+choco install protoc
+```
+
+После установки зависимостей:
+
+```bash
+make proto
+```
+
+См. также раздел «Протоколы (Protobuf)» в `CONTRIBUTING.md` для правил
+версионирования `.proto` файлов.

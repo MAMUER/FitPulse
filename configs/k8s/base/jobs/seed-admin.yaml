@@ -43,7 +43,7 @@ spec:
             secretName: app-secrets
       containers:
         - name: seed-admin
-          image: postgres:17-alpine
+          image: postgres:18-alpine
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

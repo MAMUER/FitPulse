@@ -88,58 +88,6 @@
 
 ## Процедуры деплоя
 
-### Канарный деплой (9-этапный пайплайн)
-
-```bash
-# Этапы 1–3: Development, Code Review, CI Build (автоматически)
-
-# Этап 4: Деплой в Test
-kubectl set image deployment/gateway-test \
-  gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform-production
-
-# Подождать 5 минут, проверить health
-kubectl get pods -n fitness-platform-production -l app=gateway-test
-
-# Этап 5: Деплой в Staging (UAT, perf/security тесты)
-kubectl set image deployment/gateway-staging \
-  gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform-production
-
-# Запустить нагрузочные и security-тесты
-make k6-load-test
-make owasp-scan
-
-# Этап 6: Создание Release Candidate
-git tag v2.1.0-rc1
-git push origin v2.1.0-rc1
-
-# Этап 7: Канарный деплой в Production (10% трафика, 1 час)
-kubectl apply -f configs/k8s/overlays/production/canary-service.yaml
-
-# Мониторить в течение 1 часа
-kubectl get hpa -n fitness-platform-production -w
-
-# Критерии успеха:
-# - Error rate < 1%
-# - p95 latency < 3s
-# - Нет критических логов
-
-# Этап 7b: Rolling Deploy (30% → 60% → 100%, интервалы 30 мин)
-kubectl set image deployment/gateway \
-  gateway=fitness-gateway:<IMAGE_SHA> \
-  -n fitness-platform-production
-
-# Этап 8: Пост-деплойный мониторинг (24 часа)
-# Дашборды: Error Rate, Latency, ML Confidence, DB Pool, Backup Status
-
-# Этап 9: Автоматический откат при нарушении критериев:
-# - error_rate > baseline + 1% в течение 15 минут
-# - latency p95 > 5s в течение 15 минут
-# - КРИТИЧЕСКАЯ security-проблема
-kubectl rollout undo deployment/gateway -n fitness-platform-production
-```
-
 ### Ручной откат
 
 ```bash

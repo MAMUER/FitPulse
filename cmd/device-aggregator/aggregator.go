@@ -19,11 +19,12 @@ type aggregator struct {
 	db     *sql.DB
 	log    *logger.Logger
 	fitbit *providers.FitbitProvider
+	garmin *providers.GarminProvider
 }
 
 // newAggregator creates a new provider aggregator.
-func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider) *aggregator {
-	return &aggregator{db: db, log: log, fitbit: fitbit}
+func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider, garmin *providers.GarminProvider) *aggregator {
+	return &aggregator{db: db, log: log, fitbit: fitbit, garmin: garmin}
 }
 
 // healthHandler returns service health status.

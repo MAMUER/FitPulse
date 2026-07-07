@@ -26,9 +26,9 @@
    - Возможные последствия эксплуатации
    - Рекомендации по исправлению (если есть)
 
-3. **Время ответа**:
+3. **Время ответа** (best effort, без юридических гарантий — проект поддерживается добровольцами без команды 24/7):
    - Первоначальный ответ: в течение 48 часов
-   - План исправления: в течение 7 дней
+   - План исправления: в течение 7 рабочих дней
    - Исправление: в течение 30 дней для критических уязвимостей
 
 ## Типы уязвимостей
@@ -84,7 +84,7 @@
 
 **At rest:**
 
-- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg17`.
+- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
 - Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
 - Резервные копии: AES-256
 
@@ -97,11 +97,10 @@
 
 ### CI/CD безопасность
 
-- **SAST**: gosec
-- **Vulnerability scanning**: govulncheck, Trivy
-- **Secrets scanning**: TruffleHog, Gitleaks
-- **Image signing**: cosign
+- **SAST**: gosec (глубокий анализ логики кода)
+- **Vulnerability / Secrets / Misconfiguration scanning**: Trivy (единый сканер для репозитория `scan-type: fs` со `scanners: vuln,secret,misconfig` и для образов `scanners: vuln,secret`, плюс `scan-type: config` для IaC).
 - **SBOM generation**: syft (SPDX, CycloneDX)
+- **Image signing**: cosign
 
 ### Инфраструктура
 
@@ -109,7 +108,7 @@
 - **RBAC**: минимальные права, отдельные ServiceAccount на сервис
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
   - device-connector-sa, classifier-sa, ml-generator-sa
-  - Per-service Roles с минимальным набором разрешений (get configmaps/secrets)
+  - Per-service Roles с жестким ограничением `resourceNames` для чтения только специфичных секретов
 - **Secrets**: JWT, API keys и TLS private keys.
 - **WAF**:
   1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).

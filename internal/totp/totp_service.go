@@ -29,10 +29,10 @@ type TOTPSetup struct {
 }
 
 type Service struct {
-	encryptor *crypto.TOTPEncryptor
+	encryptor *crypto.AESGCMEncryptor
 }
 
-func NewService(encryptor *crypto.TOTPEncryptor) *Service {
+func NewService(encryptor *crypto.AESGCMEncryptor) *Service {
 	return &Service{encryptor: encryptor}
 }
 

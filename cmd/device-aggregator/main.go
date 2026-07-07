@@ -9,6 +9,7 @@ import (
 
 	"github.com/MAMUER/project/cmd/device-aggregator/providers"
 	"github.com/MAMUER/project/internal/config"
+	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
@@ -42,8 +43,19 @@ func main() {
 	}
 	defer func() { _ = database.Close() }()
 
-	fitbit := providers.NewFitbitProvider(database, log.Logger)
-	agg := newAggregator(database, log, fitbit)
+	deviceEncryptionKey := config.GetEnv("DEVICE_TOKEN_ENCRYPTION_KEY")
+	if deviceEncryptionKey == "" {
+		log.Fatal("DEVICE_TOKEN_ENCRYPTION_KEY environment variable is required")
+	}
+
+	deviceEncryptor, initErr := crypto.NewAESGCMEncryptor(deviceEncryptionKey)
+	if initErr != nil {
+		log.Fatal("Failed to initialize device token encryption", zap.Error(initErr))
+	}
+
+	fitbit := providers.NewFitbitProvider(database, log.Logger, deviceEncryptor)
+	garmin := providers.NewGarminProvider(database, log.Logger, deviceEncryptor)
+	agg := newAggregator(database, log, fitbit, garmin)
 	s := newServer(agg)
 
 	r := chi.NewRouter()

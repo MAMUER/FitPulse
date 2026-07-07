@@ -3,3 +3,6 @@
 
 ['remote "local"']
     url = /opt/fitpulse/dvc-storage
+
+[feature]
+    push_exp = true

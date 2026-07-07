@@ -4,6 +4,7 @@ package providers
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/config"
+	"github.com/MAMUER/project/internal/crypto"
 )
 
 // FitbitProvider implements OAuth 2.0 flow for Fitbit API.
@@ -25,16 +27,18 @@ type FitbitProvider struct {
 	redirectURI  string
 	db           *sql.DB
 	log          *zap.Logger
+	encryptor    *crypto.AESGCMEncryptor
 }
 
-// NewFitbitProvider returns a new Fitbit provider bound to the given database and logger.
-func NewFitbitProvider(db *sql.DB, log *zap.Logger) *FitbitProvider {
+// NewFitbitProvider returns a new Fitbit provider bound to the given database, logger and encryptor.
+func NewFitbitProvider(db *sql.DB, log *zap.Logger, encryptor *crypto.AESGCMEncryptor) *FitbitProvider {
 	return &FitbitProvider{
 		clientID:     config.GetEnv("FITBIT_CLIENT_ID"),
 		clientSecret: config.GetEnv("FITBIT_CLIENT_SECRET"),
 		redirectURI:  config.GetEnv("FITBIT_REDIRECT_URI"),
 		db:           db,
 		log:          log,
+		encryptor:    encryptor,
 	}
 }
 
@@ -83,6 +87,11 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 		return fmt.Errorf("get profile: %w", err)
 	}
 
+	encryptedRefresh, err := p.encryptRefreshToken(tokenResp.RefreshToken)
+	if err != nil {
+		return fmt.Errorf("encrypt refresh token: %w", err)
+	}
+
 	_, err = p.db.ExecContext(ctx, `
 		INSERT INTO device_provider_accounts 
 		(user_id, provider, provider_user_id, access_token, refresh_token, token_expires_at, scopes, is_active)
@@ -94,7 +103,7 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 			token_expires_at = EXCLUDED.token_expires_at,
 			is_active = TRUE,
 			updated_at = NOW()
-	`, userID, profile.User.EncodedID, tokenResp.AccessToken, tokenResp.RefreshToken,
+	`, userID, profile.User.EncodedID, tokenResp.AccessToken, encryptedRefresh,
 		time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second),
 		strings.Split(tokenResp.Scope, " "))
 
@@ -220,6 +229,32 @@ func listAccountProviders(ctx context.Context, db *sql.DB, userID, providerName 
 		"providers": providers,
 		"total":     len(providers),
 	}, nil
+}
+
+func (p *FitbitProvider) encryptRefreshToken(token string) (string, error) {
+	if p.encryptor == nil {
+		return "", fmt.Errorf("encryptor not initialized")
+	}
+	ciphertext, err := p.encryptor.Encrypt([]byte(token))
+	if err != nil {
+		return "", fmt.Errorf("encrypt refresh token: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func (p *FitbitProvider) decryptRefreshToken(encoded string) (string, error) {
+	if p.encryptor == nil {
+		return "", fmt.Errorf("encryptor not initialized")
+	}
+	ciphertext, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("decode refresh token: %w", err)
+	}
+	plaintext, err := p.encryptor.Decrypt(ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("decrypt refresh token: %w", err)
+	}
+	return string(plaintext), nil
 }
 
 // FitbitTokenResponse represents Fitbit token response.

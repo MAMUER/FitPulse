@@ -568,15 +568,12 @@ jobs:
     if: ${{ github.event.schedule == '0 9 1 1,4,7,10 *' }}
     steps:
       - uses: actions/checkout@v7
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - name: Run Trivy filesystem vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
-      - name: Run govulncheck
-        run: govulncheck ./... -show verbose
+          scan-type: "fs"
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
 
   # ============================================================================
   # OSV AUDIT (manual)
@@ -618,7 +615,6 @@ jobs:
       - name: Install security tools
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
@@ -633,21 +629,20 @@ jobs:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Run govulncheck
-        run: govulncheck ./... 2>&1 | tee vulncheck-results.txt
-      - name: Run Trivy config scan
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy config scan (misconfigurations)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: "config"
+          scanners: "misconfig"
           severity: "CRITICAL,HIGH"
           exit-code: "0"
           skip-dirs: "configs/k8s/overlays/production"
-      - name: Run Trivy filesystem scan
+      - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: "fs"
-          scanners: "vuln"
+          scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
           format: "sarif"
           output: "sarif-results/trivy-fs.sarif"
@@ -683,15 +678,6 @@ jobs:
               FAIL=1
             fi
           fi
-          if [ -f vulncheck-results.txt ]; then
-            VULN_COUNT=$(grep -c "^GO-" vulncheck-results.txt 2>/dev/null || echo 0)
-            echo "govulncheck: $VULN_COUNT vulnerabilities found"
-            if [ "$VULN_COUNT" -gt 0 ]; then
-              echo "❌ FAIL: govulncheck found $VULN_COUNT known vulnerabilities"
-              grep "^GO-" vulncheck-results.txt | head -10
-              FAIL=1
-            fi
-          fi
           if [ -f sarif-results/trivy-fs.sarif ]; then
             TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null || echo 0)
             echo "trivy-fs: $TRIVY_CRITICAL critical CVEs"
@@ -709,48 +695,6 @@ jobs:
           else
             echo "✅ Security Gate PASSED — no critical issues found"
           fi
-
-  # ============================================================================
-  # SECRETS SCAN
-  # ============================================================================
-  secrets-scan:
-    name: Secrets Scanning
-    runs-on: ubuntu-latest
-    needs: [validate-workflow, dockerfile-lint]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: TruffleHog scan
-        id: trufflehog_scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
-      - name: Alert on secrets found
-        if: steps.trufflehog_scan.outcome == 'failure'
-        env:
-          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
-            -H "Content-Type: application/json" \
-            -d "{\"chat_id\": \"${TG_CHAT_ID}\", \"text\": \"<b>Secrets detected by TruffleHog!</b>\nRepo: ${{ github.repository }}\nRun: <a href='${RUN_URL}'>Details</a>\", \"parse_mode\": \"HTML\"}"
-      - name: Gitleaks scan
-        id: gitleaks_scan
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: --verbose --redact
-      - name: Alert on secrets found (Gitleaks)
-        if: steps.gitleaks_scan.outcome == 'failure'
-        env:
-          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
-            -H "Content-Type: application/json" \
-            -d "{\"chat_id\": \"${TG_CHAT_ID}\", \"text\": \"<b>Secrets detected by Gitleaks!</b>\nRepo: ${{ github.repository }}\nRun: <a href='${RUN_URL}'>Details</a>\", \"parse_mode\": \"HTML\"}"
 
   # ============================================================================
   # MAKE CHECK
@@ -796,7 +740,6 @@ jobs:
       [
         detect-changes,
         security-scan,
-        secrets-scan,
         check,
         dockerfile-lint,
         super-linter,
@@ -899,7 +842,7 @@ jobs:
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
           exit-code: "0"
-          scanners: vuln
+          scanners: "vuln,secret"
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
         continue-on-error: true
@@ -1070,7 +1013,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, security-scan, secrets-scan, check, super-linter, kubescape, fuzz-tests]
+    needs: [detect-changes, security-scan, check, super-linter, kubescape, fuzz-tests]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
@@ -1209,7 +1152,7 @@ jobs:
       - name: Download k3s binary and install script
         run: |
           echo "-> Downloading k3s binary and install script..."
-          curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.31.6%2Bk3s1/k3s
+          curl -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.36.2%2Bk3s1/k3s
           chmod +x /tmp/k3s
           curl -sfL -o /tmp/install.sh https://get.k3s.io
           chmod +x /tmp/install.sh
@@ -1623,51 +1566,22 @@ jobs:
           "
 
   # ============================================================================
-  # DEPLOY TEST
+  # SMOKE TEST (TESTCONTAINERS)
   # ============================================================================
-  deploy-test:
-    name: Deploy to Test (Docker Compose)
+  smoke-test:
+    name: Smoke Test (testcontainers-go)
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, provision-k8s-vps]
+    needs: [detect-changes, binary_build, check]
     steps:
       - uses: actions/checkout@v7
-      - name: Start test environment
-        run: docker compose -f docker-compose.test.yml down -v && docker compose -f docker-compose.test.yml up -d --build
-      - name: Wait for services
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run testcontainers smoke test
         run: |
-          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 180
-          docker compose -f docker-compose.test.yml ps
-      - name: Smoke tests
-        run: |
-          set -euo pipefail
-          GATEWAY_URL="http://localhost:8081"
-          for _ in {1..15}; do
-            RESPONSE=$(curl -s --max-time 3 "$GATEWAY_URL/health" 2>/dev/null || echo "")
-            if echo "$RESPONSE" | grep -q '"status":"ok"'; then
-              break
-            fi
-            sleep 5
-          done
-          RESPONSE=$(curl -s --max-time 5 "$GATEWAY_URL/health")
-          echo "Health response: $RESPONSE"
-          echo "$RESPONSE" | grep -q '"status":"ok"' || {
-            echo "Health check failed or degraded"
-            docker compose -f docker-compose.test.yml logs --tail=150 user-service-test || true
-            docker compose -f docker-compose.test.yml logs --tail=150 gateway-test || true
-            exit 1
-          }
-          echo "$RESPONSE" | grep -q '"user":"up"' || {
-            echo "User service not healthy"
-            docker compose -f docker-compose.test.yml logs --tail=150 user-service-test || true
-            exit 1
-          }
-          TIMESTAMP=$(date +%s)
-          REGISTER_RESPONSE=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/api/v1/register" \
-            -H "Content-Type: application/json" \
-            -d '{"email":"smoke'"$TIMESTAMP"'@test.com","password":"Test123!","full_name":"Smoke","role":"client"}')
-          HTTP_CODE="${REGISTER_RESPONSE: -3}"
-          [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] || exit 1
-          echo "Smoke tests passed"
+          go test -v -tags=smoke -timeout 10m ./internal/testcontainers/...
 
   # ============================================================================
   # DEPLOY PRODUCTION
@@ -2451,6 +2365,7 @@ jobs:
         kubescape,
         deploy-production,
         test-production,
+        smoke-test,
       ]
     steps:
       - uses: actions/checkout@v7
@@ -2464,11 +2379,13 @@ jobs:
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
+          SMOKE_TEST="$(get_emoji '${{ needs['smoke-test'].result }}')"
           FAILED_JOBS=""
           if [[ "${{ needs.binary_build.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
           if [[ "${{ needs.docker.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
           if [[ "${{ needs['deploy-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
           if [[ "${{ needs['test-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
+          if [[ "${{ needs['smoke-test'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Smoke "; fi
           if [[ -n "$FAILED_JOBS" ]]; then
             OVERALL="ОШИБКА"; STATUS="failure"
           else
@@ -2483,6 +2400,7 @@ jobs:
             echo "kubescape=$KUBESCAPE"
             echo "deploy_prod=$DEPLOY_PROD"
             echo "test_prod=$TEST_PROD"
+            echo "smoke_test=$SMOKE_TEST"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@v1.0.1
@@ -2500,6 +2418,7 @@ jobs:
             ${{ steps.statuses.outputs.docker }} Docker
             ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
             ${{ steps.statuses.outputs.test_prod }} Test Production
+            ${{ steps.statuses.outputs.smoke_test }} Smoke Test
             <b>Безопасность:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape

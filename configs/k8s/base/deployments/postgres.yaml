@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/instance: postgres
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "17"
+    app.kubernetes.io/version: "18"
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 1
@@ -32,7 +32,7 @@ spec:
         app.kubernetes.io/instance: postgres
         app.kubernetes.io/component: database
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "17"
+        app.kubernetes.io/version: "18"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
@@ -60,7 +60,7 @@ spec:
             name: postgres-config
       initContainers:
         - name: fix-permissions
-          image: postgres:17-alpine
+          image: postgres:18-alpine
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -89,7 +89,7 @@ spec:
         - name: postgres
           # Образ с предустановленным pgsodium (libsodium) для шифрования PII.
           # Заменяет стандартный postgres: образ = postgres + pgsodium extension.
-          image: pgsodium/pgsodium:pg17
+          image: pgsodium/pgsodium:pg18
           ports:
             - containerPort: 5432
               name: postgres

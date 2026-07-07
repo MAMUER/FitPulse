@@ -39,8 +39,8 @@ curl -k https://localhost:8443/health
 
 ### Production (полный стек)
 
-- **ОС**: Linux (Ubuntu 26+, Debian 12+)
-- **Kubernetes**: 1.28+ (k3s, k8s)
+- **ОС**: Linux (Ubuntu 26+, Debian 13+)
+- **Kubernetes**: 1.36+ (k3s, k8s)
 - **CPU**: 4+ ядер
 - **RAM**: 8+ ГБ (для ML-сервисов)
 - **Диск**: 40+ ГБ SSD

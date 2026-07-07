@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/tls" // #nosec G304 -- imported for server TLS config, not file access
+	"crypto/tls" 
 	"database/sql"
 	"errors"
 	"fmt"
@@ -767,13 +767,13 @@ func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request
 	// Path is already validated to point to device-aggregator endpoints via route registration
 	target, _ := url.JoinPath("http://device-aggregator:8083", r.URL.Path)
 
-	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) // #nosec G704
+	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) 
 	outReq.Header = r.Header.Clone()
 	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, _ := client.Do(outReq) // #nosec G704
+	resp, _ := client.Do(outReq) 
 	if resp == nil {
 		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
 		return
@@ -793,13 +793,13 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 	// SSRF protection: construct target from fixed internal service + validated path
 	target, _ := url.JoinPath(g.deviceConnectorURL, r.URL.Path)
 
-	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) // #nosec G704
+	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
 	outReq.Header = r.Header.Clone()
 	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(outReq) // #nosec G704
+	resp, err := client.Do(outReq) 
 	if err != nil || resp == nil {
 		g.log.Error("Failed to proxy to device-connector", zap.Error(err))
 		http.Error(w, "Сервис device-connector недоступен", http.StatusServiceUnavailable)

@@ -48,22 +48,26 @@ FitPulse — open-source fitness platform.
 
 Используйте **GitHub Security Advisory** (репозиторий → Security → "Report a vulnerability") или email: `mihnikolaenko12@yandex.ru`
 
-Ожидаемый ответ:
+Ожидаемый ответ (best effort, без юридических гарантий):
 
 - 48 часов — подтверждение получения
-- 7 дней — assessment и triage
-- 30 дней — план исправления для критических уязвимостей
+- 7 рабочих дней — assessment и triage
+- 30 рабочих дней — план исправления для критических уязвимостей
 
 ---
 
 ## Severity & Response
 
-| Severity | Примеры | Время ответа |
-| ---------- | ---------- | -------------- |
-| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 24–48 часов |
-| High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация, обход rate limit/auth middleware | 3–7 дней |
-| Medium | Missing security headers, weak crypto, info disclosure, небезопасная конфигурация NGINX/K8s | 7–14 дней |
-| Low | Missing rate limiting, verbose errors, missing CSP directives | 14–30 дней |
+Оценка серьезности и сроки реагирования приведены в `.github/SLA.md`. Ниже — ориентировочные временные рамки (best effort, без юридических гарантий):
+
+| Severity | Примеры | Время реакции (ориентир) |
+|----------|---------|--------------------------|
+| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 1–3 рабочих дня |
+| High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация, обход rate limit/auth middleware | 3–7 рабочих дней |
+| Medium | Missing security headers, weak crypto, info disclosure, небезопасная конфигурация NGINX/K8s | 1–2 недели |
+| Low | Missing rate limiting, verbose errors, missing CSP directives | Следующий релиз / best effort |
+
+> **Важно**: SLA не является юридическим обязательством. Проект распространяется "как есть" без гарантий. Реакция осуществляется добровольцами в свободное время (best effort).
 
 ---
 

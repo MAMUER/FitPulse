@@ -3,7 +3,7 @@ imports:
 	@go run github.com/daixiang0/gci@latest write \
 		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
 		--skip-generated --skip-vendor \
-		cmd internal pkg api
+		cmd internal pkg
 	@echo "Imports updated."
 
 .PHONY: proto tidy fmt vet lint test test-cover check imports
@@ -16,8 +16,8 @@ tidy:
 	@echo "Tidy complete."
 
 fmt:
-	@echo "Formatting Go code..."
-	go fmt ./...
+	@echo "Formatting Go code (excluding generated api/gen/)..."
+	@pkgs=$$(go list ./... 2>/dev/null | grep -v '/api/gen/'); if [ -n "$$pkgs" ]; then go fmt $$pkgs; fi
 	@echo "Format complete."
 
 vet:
@@ -50,6 +50,7 @@ check: tidy fmt vet imports lint test-cover
 
 proto:
 	@echo "Generating proto files..."
+	@echo "Требуются: protoc + protoc-gen-go + protoc-gen-go-grpc в PATH (см. docs/ARCHITECTURE.md §8, CONTRIBUTING.md §Протоколы)"
 	powershell -Command "if (!(Test-Path 'api/gen/user')) { New-Item -ItemType Directory -Path 'api/gen/user' -Force }"
 	powershell -Command "if (!(Test-Path 'api/gen/biometric')) { New-Item -ItemType Directory -Path 'api/gen/biometric' -Force }"
 	powershell -Command "if (!(Test-Path 'api/gen/training')) { New-Item -ItemType Directory -Path 'api/gen/training' -Force }"

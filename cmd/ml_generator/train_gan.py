@@ -1,31 +1,7 @@
 #!/usr/bin/env python3
 """
-Training script for GAN-based Training Plan Generator - Keras 3 compatible
+Training script for Conditional Diffusion Model - PyTorch 2.5+ with torch.compile()
 Uses real exercise data from datasets/processed/training_plans_exercises.csv
-
-USAGE:
-    # Train the model
-    python cmd/ml_generator/train_gan.py
-
-    # Generate training plans using the trained model
-    from train_gan import TrainingPlanGAN
-    gan = TrainingPlanGAN(latent_dim=64, plan_dim=19)
-    gan.generator = gan.generator.__class__.from_config(
-        gan.generator.get_config()
-    )  # Or load from saved model
-    plan = gan.generate_plan(seed=42)
-
-    # Or directly with Keras:
-    import tensorflow as tf
-    import numpy as np
-    model = tf.keras.models.load_model('models/generator.keras')
-    plan = model.predict(np.random.randn(1, 64), verbose=0)[0]
-
-    # Plan features (19 dimensions):
-    # [duration, intensity, rest_ratio, weekly_freq, equip_tools, warmup,
-    #  cooldown, progression, age_factor, fitness_factor, health_factor,
-    #  goal_strength, goal_endurance, goal_flexibility, goal_weight_loss,
-    #  goal_muscle_gain, goal_rehabilitation, goal_sport_specific]
 """
 
 import json
@@ -33,241 +9,218 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import keras
-
-# === MLflow setup ===
-import mlflow
+import lightning as L
 import numpy as np
 import pandas as pd
-from keras import layers, models
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
-mlflow.set_experiment("fitpulse-generator")
-# === конец ===
-os.environ["KERAS_BACKEND"] = "tensorflow"
+# Optional W&B integration (disabled by default for local development)
+WANDB_ENABLED = os.environ.get("WANDB_ENABLED", "false").lower() == "true"
+if WANDB_ENABLED:
+    import wandb
+    wandb.init(project="fitpulse-generator", name=f"diffusion_v1_{datetime.now().strftime('%Y%m%d_%H%M')}")
+else:
+    # Mock wandb for local development
+    class MockWandb:
+        def log(self, *args, **kwargs): pass
+        def config(self): pass
+        def finish(self): pass
+    wandb = MockWandb()
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-import tensorflow as tf
-
-tf.get_logger().setLevel("ERROR")
 
 SCRIPT_DIR = Path(__file__).parent.parent.parent
 TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
 PLAN_DIM = 19
+LATENT_DIM = 64
 
 
-class TrainingPlanGAN:
-    def __init__(self, latent_dim=64, plan_dim=PLAN_DIM):
+class ConditionalDiffusionModel(L.LightningModule):
+    """Conditional Diffusion Model for training plan generation"""
+    
+    def __init__(self, latent_dim=LATENT_DIM, plan_dim=PLAN_DIM):
+        super().__init__()
         self.latent_dim = latent_dim
         self.plan_dim = plan_dim
-        self.generator = self.build_generator()
-        self.discriminator = self.build_discriminator()
-
-    def build_generator(self):
-        input_latent = layers.Input(shape=(self.latent_dim,), name="latent_input")
-        x = layers.Dense(256, activation="relu")(input_latent)
-        x = layers.BatchNormalization()(x)
-        x = layers.Dropout(0.2)(x)
-        x = layers.Dense(512, activation="relu")(x)
-        x = layers.BatchNormalization()(x)
-        x = layers.Dropout(0.2)(x)
-        x = layers.Dense(256, activation="relu")(x)
-        x = layers.BatchNormalization()(x)
-        output = layers.Dense(self.plan_dim, activation="sigmoid", name="plan_output")(x)
-        model = models.Model(inputs=input_latent, outputs=output, name="generator")
-        model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
-            loss="mse",
+        
+        # UNet-like architecture for denoising
+        self.encoder = nn.Sequential(
+            nn.Linear(plan_dim, 256),
+            nn.LayerNorm(256),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, 512),
+            nn.LayerNorm(512),
+            nn.GELU(),
         )
-        return model
-
-    def build_discriminator(self):
-        input_plan = layers.Input(shape=(self.plan_dim,), name="plan_input")
-        x = layers.Dense(512, activation="relu")(input_plan)
-        x = layers.Dropout(0.3)(x)
-        x = layers.Dense(256, activation="relu")(x)
-        x = layers.Dropout(0.3)(x)
-        x = layers.Dense(128, activation="relu")(x)
-        output = layers.Dense(1, activation="sigmoid", name="discriminator_output")(x)
-        model = models.Model(inputs=input_plan, outputs=output, name="discriminator")
-        model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
-            loss="binary_crossentropy",
-            metrics=["accuracy"],
+        
+        self.time_emb = nn.Sequential(
+            nn.Linear(1, 128),
+            nn.GELU(),
+            nn.Linear(128, 512),
         )
-        return model
+        
+        self.decoder = nn.Sequential(
+            nn.Linear(512 + 512, 512),
+            nn.LayerNorm(512),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, 256),
+            nn.LayerNorm(256),
+            nn.GELU(),
+            nn.Linear(256, plan_dim),
+        )
+    
+    def forward(self, x_t, t):
+        """Denoise step"""
+        x_emb = self.encoder(x_t)
+        t_emb = self.time_emb(t.unsqueeze(-1))
+        combined = torch.cat([x_emb, t_emb], dim=-1)
+        noise_pred = self.decoder(combined)
+        return noise_pred
+    
+    def training_step(self, batch, batch_idx):
+        x_0, condition = batch
+        
+        # Add noise
+        t = torch.randint(0, 1000, (x_0.shape[0],), device=self.device)
+        noise = torch.randn_like(x_0)
+        alpha_bar = self._get_alpha_bar(t).unsqueeze(-1)  # Fix: reshape to (batch_size, 1)
+        x_t = alpha_bar * x_0 + torch.sqrt(1 - alpha_bar) * noise
+        
+        # Predict noise
+        noise_pred = self(x_t, t.float() / 1000.0)
+        
+        # Loss
+        loss = nn.functional.mse_loss(noise_pred, noise)
+        
+        self.log("train_loss", loss, prog_bar=True)
+        if WANDB_ENABLED:
+            wandb.log({"train_loss": loss.item(), "epoch": self.current_epoch})
+        
+        return loss
+    
+    def _get_alpha_bar(self, t):
+        """Cosine schedule"""
+        return torch.cos((t.float() / 1000.0 + 0.008) / 1.008 * np.pi / 2) ** 2
+    
+    def configure_optimizers(self):
+        return torch.optim.AdamW(self.parameters(), lr=1e-4, weight_decay=1e-5)
+    
+    @torch.no_grad()
+    def sample(self, condition=None, num_steps=100):
+        """Generate sample using reverse diffusion"""
+        x_t = torch.randn(1, self.plan_dim, device=self.device)
+        
+        for i in reversed(range(num_steps)):
+            t = torch.tensor([i / num_steps], device=self.device)
+            noise_pred = self(x_t, t)
+            
+            alpha_bar = self._get_alpha_bar(torch.tensor([i], device=self.device)).unsqueeze(-1)  # Fix
+            alpha_bar_prev = self._get_alpha_bar(torch.tensor([i - 1], device=self.device)).unsqueeze(-1) if i > 0 else torch.tensor([[1.0]], device=self.device)  # Fix
+            
+            x_0_pred = (x_t - torch.sqrt(1 - alpha_bar) * noise_pred) / torch.sqrt(alpha_bar)
+            x_t = alpha_bar_prev * x_0_pred + torch.sqrt(1 - alpha_bar_prev) * noise_pred
+            
+            if i > 0:
+                x_t += torch.sqrt(1 - alpha_bar_prev) * torch.randn_like(x_t)
+        
+        return x_t.clamp(0, 1)
 
-    def load_real_data(self):
-        if not TRAINING_DATA_PATH.exists():
-            raise FileNotFoundError(f"Training data not found: {TRAINING_DATA_PATH}")
-        df = pd.read_csv(TRAINING_DATA_PATH)
-        if "plan_vector" in df.columns:
-            import ast
 
-            plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
-        else:
-            plans = df.iloc[:, : self.plan_dim].values.astype(np.float32)
-        return plans
-
-    def train(self, epochs=500, batch_size=64, save_interval=50):
-        with mlflow.start_run(run_name=f"gan_v1_{datetime.now().strftime('%Y%m%d_%H%M')}") as run:
-            mlflow.log_params(
-                {
-                    "latent_dim": self.latent_dim,
-                    "plan_dim": self.plan_dim,
-                    "epochs": epochs,
-                    "batch_size": batch_size,
-                    "optimizer": "Adam",
-                    "learning_rate": 0.0002,
-                    "beta_1": 0.5,
-                }
-            )
-            # === конец setup ===
-
-            print("=" * 60)
-            print("STARTING GAN TRAINING")
-            print("=" * 60)
-
-            print("\n[1/4] Loading training data...")
-            real_plans = self.load_real_data()
-            print(f"Loaded {len(real_plans)} training plans with {real_plans.shape[1]} features")
-
-            mlflow.log_param("training_samples", len(real_plans))
-            mlflow.log_param("feature_dim", real_plans.shape[1])
-
-            valid = np.ones((batch_size, 1))
-            fake = np.zeros((batch_size, 1))
-            history = {"d_loss": [], "g_loss": [], "d_acc": []}
-
-            print("\n[2/4] Training GAN...")
-            for epoch in range(epochs):
-                idx = np.random.randint(0, real_plans.shape[0], batch_size)
-                real_batch = real_plans[idx]
-                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-                generated = self.generator.predict(noise, verbose=0)
-
-                d_loss_real = self.discriminator.train_on_batch(real_batch, valid)
-                d_loss_fake = self.discriminator.train_on_batch(generated, fake)
-                d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
-                d_acc = 0.5 * (d_loss_real[1] + d_loss_fake[1])
-
-                self.discriminator.trainable = False
-                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-                g_loss = self.discriminator.train_on_batch(
-                    self.generator.predict(noise, verbose=0), valid
-                )
-                self.discriminator.trainable = True
-
-                history["d_loss"].append(float(d_loss))
-                history["g_loss"].append(
-                    float(g_loss[0]) if isinstance(g_loss, list) else float(g_loss)
-                )
-                history["d_acc"].append(float(d_acc))
-
-                # Логируем метрики каждые 10 эпох
-                if epoch % 10 == 0:
-                    mlflow.log_metrics(
-                        {
-                            "d_loss": d_loss,
-                            "g_loss": history["g_loss"][-1],
-                            "d_accuracy": d_acc,
-                        },
-                        step=epoch,
-                    )
-
-                if epoch % save_interval == 0:
-                    print(
-                        f"Epoch {epoch}: D loss: {history['d_loss'][-1]:.4f}, "
-                        f"G loss: {history['g_loss'][-1]:.4f}, D acc: {history['d_acc'][-1]:.4f}"
-                    )
-
-            print("\n[3/4] Saving models...")
-            model_dir = SCRIPT_DIR / "models"
-            os.makedirs(model_dir, exist_ok=True)
-
-            # Сохраняем в MLflow
-            mlflow.keras.log_model(self.generator, artifact_path="generator")
-
-            # Локально тоже
-            self.generator.save(str(model_dir / "generator.keras"))
-            mlflow.log_artifact(str(model_dir / "generator.keras"), "models")
-
-            history["timestamp"] = datetime.now().isoformat()
-            history["run_id"] = run.info.run_id
-
-            history_path = model_dir / "gan_training_history.json"
-            with open(history_path, "w", encoding="utf-8") as f:
-                json.dump(history, f, indent=2, ensure_ascii=False)
-            mlflow.log_artifact(str(history_path), "metadata")
-
-            print("\n[4/4] Training Complete!")
-            print("=" * 60)
-            print(f"MLflow UI: {os.environ.get('MLFLOW_TRACKING_URI', 'http://localhost:5000')}")
-
-            return self.generator, history
-
-    def generate_plan(self, seed=None):
-        """
-        Generate a training plan vector.
-
-        Returns:
-            numpy.ndarray: 19-dimensional plan vector with values in [0, 1]
-        """
-        if seed is not None:
-            np.random.seed(seed)
-        noise = np.random.normal(0, 1, (1, self.latent_dim))
-        plan = self.generator.predict(noise, verbose=0)[0]
-        return plan
-
-    def generate_plan_dict(self, seed=None):
-        """
-        Generate a training plan as a dictionary with feature names.
-
-        Returns:
-            dict: Plan features with descriptive names
-        """
-        plan = self.generate_plan(seed)
-        feature_names = [
-            "duration_minutes",
-            "intensity_level",
-            "rest_ratio",
-            "weekly_frequency",
-            "equipment_tools",
-            "warmup_ratio",
-            "cooldown_ratio",
-            "progression_rate",
-            "age_factor",
-            "fitness_factor",
-            "health_factor",
-            "goal_strength",
-            "goal_endurance",
-            "goal_flexibility",
-            "goal_weight_loss",
-            "goal_muscle_gain",
-            "goal_rehabilitation",
-            "goal_sport_specific",
-        ]
-        return dict(zip(feature_names, plan))
+def load_real_data():
+    """Load training data"""
+    if not TRAINING_DATA_PATH.exists():
+        raise FileNotFoundError(f"Training data not found: {TRAINING_DATA_PATH}")
+    
+    df = pd.read_csv(TRAINING_DATA_PATH)
+    
+    if "plan_vector" in df.columns:
+        import ast
+        plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
+    else:
+        plans = df.iloc[:, :PLAN_DIM].values.astype(np.float32)
+    
+    # Dummy conditions (can be extended)
+    conditions = np.zeros((len(plans), 10), dtype=np.float32)
+    
+    return plans, conditions
 
 
 def train_and_save():
-    gan = TrainingPlanGAN(latent_dim=64, plan_dim=PLAN_DIM)
-    generator, history = gan.train(epochs=500, batch_size=64, save_interval=50)
-
-    print("\n" + "=" * 60)
-    print("Testing Plan Generation")
+    """Train and save model"""
     print("=" * 60)
-
-    sample_plan = gan.generate_plan(seed=42)
-    print(f"\nSample generated plan: {sample_plan[:5]}...")
-
-    sample_dict = gan.generate_plan_dict(seed=42)
-    print(
-        f"\nPlan as dict: duration={sample_dict['duration_minutes']:.2f}, "
-        f"intensity={sample_dict['intensity_level']:.2f}, "
-        f"frequency={sample_dict['weekly_frequency']:.2f}"
+    print("STARTING DIFFUSION MODEL TRAINING")
+    print("=" * 60)
+    
+    print("\n[1/4] Loading training data...")
+    plans, conditions = load_real_data()
+    print(f"Loaded {len(plans)} training plans with {plans.shape[1]} features")
+    
+    if WANDB_ENABLED:
+        wandb.config.update({
+            "latent_dim": LATENT_DIM,
+            "plan_dim": PLAN_DIM,
+            "training_samples": len(plans),
+            "feature_dim": plans.shape[1],
+        })
+    
+    # Create dataset
+    dataset = TensorDataset(torch.from_numpy(plans), torch.from_numpy(conditions))
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=0)  # num_workers=0 for Windows compatibility
+    
+    print("\n[2/4] Training Diffusion Model...")
+    model = ConditionalDiffusionModel()
+    
+    trainer = L.Trainer(
+        max_epochs=500,
+        accelerator="auto",
+        devices=1,
+        log_every_n_steps=10,
+        enable_progress_bar=True,
     )
-    return generator
+    
+    trainer.fit(model, dataloader)
+    
+    print("\n[3/4] Saving models...")
+    model_dir = SCRIPT_DIR / "models"
+    os.makedirs(model_dir, exist_ok=True)
+    
+    # Save PyTorch model
+    torch.save(model.state_dict(), model_dir / "generator.pt")
+    
+    # Export to ONNX for optimized inference
+    model_uncompiled = ConditionalDiffusionModel()
+    model_uncompiled.load_state_dict(model.state_dict())
+    model_uncompiled.eval()
+    
+    dummy_input = torch.randn(1, PLAN_DIM)
+    dummy_t = torch.tensor([0.5])
+    
+    torch.onnx.export(
+        model_uncompiled,
+        (dummy_input, dummy_t),
+        model_dir / "generator.onnx",
+        input_names=["x_t", "t"],
+        output_names=["noise_pred"],
+        dynamic_axes={"x_t": {0: "batch_size"}, "t": {0: "batch_size"}},
+        opset_version=17,
+    )
+    
+    print(f"Model saved to {model_dir / 'generator.onnx'}")
+    
+    print("\n[4/4] Testing generation...")
+    sample = model_uncompiled.sample(num_steps=100)
+    print(f"Sample generated: {sample.cpu().numpy()[0][:5]}...")
+    
+    if WANDB_ENABLED:
+        wandb.finish()
+    
+    print("\n" + "=" * 60)
+    print("TRAINING COMPLETE!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
