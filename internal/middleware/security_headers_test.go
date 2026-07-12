@@ -147,4 +147,3 @@ func TestNonceInjectAddsNonceToAllScriptTags(t *testing.T) {
 		}
 	}
 }
-

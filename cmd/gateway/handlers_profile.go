@@ -51,7 +51,7 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	if err != nil {
 		return false
 	}
-	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash))) 
+	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash)))
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 

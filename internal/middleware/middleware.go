@@ -189,4 +189,3 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 		})
 	}
 }
-

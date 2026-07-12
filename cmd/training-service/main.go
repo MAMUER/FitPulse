@@ -801,7 +801,6 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 }
 
 // buildWeeklyWorkouts creates a one-week schedule from ML data (no repetition across weeks)
-//
 func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} {
 	workouts := make([]map[string]interface{}, 0, len(availableDays))
 

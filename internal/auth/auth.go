@@ -1,4 +1,3 @@
-// Package auth provides authentication and authorization utilities.
 package auth
 
 import (
@@ -8,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -144,4 +144,47 @@ func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
 func ComputeTokenFingerprint(tokenString string) string {
 	hash := sha256.Sum256([]byte(tokenString))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
+}
+
+// JWKSKey represents a JSON Web Key in JWKS format.
+type JWKSKey struct {
+	KTY string `json:"kty"`
+	CRV string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
+	KID string `json:"kid,omitempty"`
+}
+
+// JWKSResponse represents a JSON Web Key Set.
+type JWKSResponse struct {
+	Keys []JWKSKey `json:"keys"`
+}
+
+// PublicKeyPEMToJWKS converts an EC P-256 public key PEM to JWKS JSON.
+func PublicKeyPEMToJWKS(publicKeyPEM string) ([]byte, error) {
+	if publicKeyPEM == "" {
+		return nil, errors.New("public key PEM cannot be empty")
+	}
+
+	publicKey, err := ParseECPublicKey(publicKeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("parse EC public key for JWKS: %w", err)
+	}
+
+	if publicKey.Curve != elliptic.P256() {
+		return nil, fmt.Errorf("unsupported curve: %v", publicKey.Curve)
+	}
+
+	xBytes := publicKey.X.Bytes()
+	yBytes := publicKey.Y.Bytes()
+
+	key := JWKSKey{
+		KTY: "EC",
+		CRV: "P-256",
+		X:   base64.RawURLEncoding.EncodeToString(xBytes),
+		Y:   base64.RawURLEncoding.EncodeToString(yBytes),
+	}
+
+	resp := JWKSResponse{Keys: []JWKSKey{key}}
+	return json.Marshal(resp)
 }

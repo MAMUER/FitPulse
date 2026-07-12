@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MAMUER/project/internal/testcontainers"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/testcontainers"
 )
 
 func TestInfrastructureSmoke(t *testing.T) {
@@ -36,7 +37,7 @@ func TestInfrastructureSmoke(t *testing.T) {
 	t.Run("Valkey is reachable", func(t *testing.T) {
 		host := testcontainers.ResolveHost(t, infra.ValkeyHost)
 		address := host + ":" + strconv.Itoa(infra.ValkeyPort)
-		
+
 		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
 		require.NoError(t, err)
 		require.NoError(t, conn.Close())

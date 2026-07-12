@@ -39,7 +39,6 @@ type authRateLimiter struct {
 }
 
 // Package-level singletons initialized at startup
-//
 var rateLimiterInstance = &rateLimiter{}
 
 var userRateLimiterInstance = &userRateLimiter{}

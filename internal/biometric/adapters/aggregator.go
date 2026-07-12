@@ -20,7 +20,6 @@ func NewCompositeBiometricSource(sources ...domain.BiometricSource) domain.Biome
 }
 
 // Fetch collects data from all available sources and merges duplicate metrics by quality/confidence.
-//
 func (c *CompositeBiometricSource) Fetch(ctx context.Context, userID string, metricTypes []string) ([]domain.BiometricSample, error) {
 	if len(c.sources) == 0 {
 		return nil, domain.ErrSourceUnavailable

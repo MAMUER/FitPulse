@@ -91,8 +91,18 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 		return "", errors.New("redis unavailable")
 	}
 	token := auth.GenerateRefreshToken()
+	fingerprint := auth.ComputeTokenFingerprint(token)
 	key := "refresh:" + token
-	if err := g.rdb.Set(ctx, key, userID, 7*24*time.Hour).Err(); err != nil {
+	fpKey := "refresh:fp:" + fingerprint
+	issuedKey := "refresh:issued:" + userID
+
+	pipe := g.rdb.Pipeline()
+	pipe.Set(ctx, key, userID, 7*24*time.Hour)
+	pipe.Set(ctx, fpKey, userID, 7*24*time.Hour)
+	pipe.SAdd(ctx, issuedKey, token)
+	pipe.Expire(ctx, issuedKey, 7*24*time.Hour)
+	_, err := pipe.Exec(ctx)
+	if err != nil {
 		return "", fmt.Errorf("issue refresh token: %w", err)
 	}
 	return token, nil
@@ -101,9 +111,34 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	userID, err := g.rdb.Get(ctx, "refresh:"+oldToken).Result()
 	if err != nil {
+		fingerprint := auth.ComputeTokenFingerprint(oldToken)
+		fpUserID, fpErr := g.rdb.Get(ctx, "refresh:fp:"+fingerprint).Result()
+		if fpErr == nil && fpUserID != "" {
+			revokedKey := "refresh:revoked:" + fpUserID
+			isRevoked, memberErr := g.rdb.SIsMember(ctx, revokedKey, fingerprint).Result()
+			if memberErr == nil && isRevoked {
+				g.invalidateAllUserSessions(ctx, fpUserID)
+				g.log.Warn("Refresh token reuse detected, all sessions invalidated",
+					zap.String("user_id", fpUserID))
+				return "", "", errors.New("refresh token reuse detected")
+			}
+		}
 		return "", "", errors.New("invalid refresh token")
 	}
+
 	_ = g.rdb.Del(ctx, "refresh:"+oldToken).Err()
+
+	oldFingerprint := auth.ComputeTokenFingerprint(oldToken)
+	revokedKey := "refresh:revoked:" + userID
+	issuedKey := "refresh:issued:" + userID
+
+	pipe := g.rdb.Pipeline()
+	pipe.SAdd(ctx, revokedKey, oldFingerprint)
+	pipe.Expire(ctx, revokedKey, 7*24*time.Hour)
+	pipe.SRem(ctx, issuedKey, oldToken)
+	pipe.Del(ctx, "refresh:fp:"+oldFingerprint)
+	_, _ = pipe.Exec(ctx)
+
 	newRefresh, err := g.issueRefreshToken(ctx, userID)
 	if err != nil {
 		return "", "", err
@@ -113,6 +148,33 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 		return "", "", err
 	}
 	return newAccess, newRefresh, nil
+}
+
+func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) {
+	if g.sessionStore != nil {
+		_ = g.sessionStore.InvalidateUserSession(ctx, userID)
+	}
+
+	keys := []string{
+		"refresh:issued:" + userID,
+		"refresh:revoked:" + userID,
+	}
+	pattern := "refresh:*" + userID + "*"
+	var cursor uint64
+	for {
+		keysFound, nextCursor, err := g.rdb.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			break
+		}
+		keys = append(keys, keysFound...)
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	if len(keys) > 0 {
+		_ = g.rdb.Del(ctx, keys...).Err()
+	}
 }
 
 func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {

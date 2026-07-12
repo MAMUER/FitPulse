@@ -12,10 +12,10 @@ import (
 // Поддерживаются оба формата: старый (report-uri) и новый (report-to, Reporting API).
 type CSPReportBody struct {
 	// Формат Reporting API (report-to)
-	Type      string             `json:"type"`
-	URL       string             `json:"url"`
-	UserAgent string             `json:"user_agent"`
-	Body      CSPViolationBody   `json:"body"`
+	Type      string           `json:"type"`
+	URL       string           `json:"url"`
+	UserAgent string           `json:"user_agent"`
+	Body      CSPViolationBody `json:"body"`
 	// Формат report-uri (устаревший, но всё ещё используется)
 	Report CSPViolationBody `json:"csp-report"`
 }

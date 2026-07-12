@@ -26,7 +26,7 @@ func PgsodiumKeyID() int64 {
 
 // PgsodiumEncryptParam возвращает выражение pgsodium для шифрования значения
 // параметра-плейсхолдера с детерминированным AEAD (libsodium).
-// Результат: pgsodium.crypto_aead_det_encrypt($N, '', <key_id>)::bytea
+// Результат: pgsodium.crypto_aead_det_encrypt($N, ”, <key_id>)::bytea
 func PgsodiumEncryptParam(plaintextParam int) string {
 	return fmt.Sprintf("pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", plaintextParam, pgsodiumKeyID)
 }

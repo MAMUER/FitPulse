@@ -62,6 +62,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// Permissions Policy — запрет доступа к аппаратным средствам
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+
 		// HSTS для HTTPS
 		if r.TLS != nil {
 			w.Header().Set(

@@ -16,8 +16,8 @@ tidy:
 	@echo "Tidy complete."
 
 fmt:
-	@echo "Formatting Go code (excluding generated api/gen/)..."
-	@pkgs=$$(go list ./... 2>/dev/null | grep -v '/api/gen/'); if [ -n "$$pkgs" ]; then go fmt $$pkgs; fi
+	@echo "Formatting Go code..."
+	@go fmt ./...
 	@echo "Format complete."
 
 vet:

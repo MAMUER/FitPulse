@@ -24,7 +24,7 @@ func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
 		return nil, err
 	}
 
-		tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
 	}

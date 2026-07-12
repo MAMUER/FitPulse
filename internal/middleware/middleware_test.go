@@ -24,8 +24,8 @@ import (
 
 var (
 	testPrivateKeyPEMMW string
-	testPublicKeyPEMMW string
-	testUserID = "user-789"
+	testPublicKeyPEMMW  string
+	testUserID          = "user-789"
 )
 
 func init() {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/tls" 
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -32,6 +32,7 @@ import (
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
 	grpctls "github.com/MAMUER/project/internal/grpc"
@@ -603,6 +604,9 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	// Metrics endpoint
 	r.Method("GET", "/metrics", promhttp.Handler())
 
+	// JWKS endpoint for JWT public key distribution
+	r.Get("/.well-known/jwks.json", g.jwksHandler)
+
 	// CSP violation reports (browser Reporting API / report-uri) -> ELK
 	r.Post("/api/security/csp-report", g.cspReportHandler)
 
@@ -767,13 +771,13 @@ func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request
 	// Path is already validated to point to device-aggregator endpoints via route registration
 	target, _ := url.JoinPath("http://device-aggregator:8083", r.URL.Path)
 
-	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body) 
+	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
 	outReq.Header = r.Header.Clone()
 	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, _ := client.Do(outReq) 
+	resp, _ := client.Do(outReq)
 	if resp == nil {
 		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
 		return
@@ -799,7 +803,7 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(outReq) 
+	resp, err := client.Do(outReq)
 	if err != nil || resp == nil {
 		g.log.Error("Failed to proxy to device-connector", zap.Error(err))
 		http.Error(w, "Сервис device-connector недоступен", http.StatusServiceUnavailable)
@@ -814,4 +818,23 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
+	if g.jwtPublicKeyPEM == "" {
+		http.Error(w, "JWT public key not configured", http.StatusInternalServerError)
+		return
+	}
+
+	body, err := auth.PublicKeyPEMToJWKS(g.jwtPublicKeyPEM)
+	if err != nil {
+		g.log.Error("Failed to build JWKS", zap.Error(err))
+		http.Error(w, "failed to build JWKS", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
 }
