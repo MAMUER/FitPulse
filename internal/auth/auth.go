@@ -180,7 +180,7 @@ func PublicKeyPEMToJWKS(publicKeyPEM string) ([]byte, error) {
 		return nil, fmt.Errorf("encode public key: %w", err)
 	}
 	if len(pubBytes) != 65 || pubBytes[0] != 0x04 {
-		return nil, fmt.Errorf("unexpected public key format")
+		return nil, errors.New("unexpected public key format")
 	}
 	xBytes := pubBytes[1:33]
 	yBytes := pubBytes[33:65]

@@ -33,7 +33,7 @@ func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
 		if strings.Contains(caFile, "..") {
 			return nil, errors.New("invalid gRPC CA file path")
 		}
-		caPem, err := os.ReadFile(caFile)
+		caPem, err := os.ReadFile(caFile) 
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func GetClientTLSCredentials() (credentials.TransportCredentials, error) {
 		return nil, errors.New("invalid gRPC CA file path")
 	}
 
-	caPem, err := os.ReadFile(caFile)
+	caPem, err := os.ReadFile(caFile) 
 	if err != nil {
 		return nil, err
 	}

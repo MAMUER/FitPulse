@@ -297,7 +297,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	}, nil
 }
 
-func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.AuthenticateGoogleRequest) (*pb.LoginResponse, error) {
+func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.AuthenticateGoogleRequest) (*pb.LoginResponse, error) { 
 	s.log.Info("Google auth request")
 
 	if req.IdToken == "" {
@@ -1642,7 +1642,7 @@ func nullIfEmpty(v string) *string {
 func (s *userServer) ensurePgsodiumKey(ctx context.Context) error {
 	key := db.EncryptionKey()
 	if len(key) == 0 {
-		return fmt.Errorf("DB_ENCRYPTION_KEY not set; pgsodium keyring cannot be initialized")
+		return errors.New("DB_ENCRYPTION_KEY not set; pgsodium keyring cannot be initialized")
 	}
 
 	var id int64
@@ -1711,6 +1711,11 @@ func (s *userServer) reencryptPIIFromPgcrypto(ctx context.Context) {
 			continue
 		}
 
+		if err := rows.Err(); err != nil {
+			s.log.Error("Failed to iterate PII rows for migration", zap.Error(err), zap.String("table", t.name))
+			continue
+		}
+
 		scanPtrs := make([]interface{}, len(cols))
 		rowVals := make([]interface{}, len(cols))
 		for i := range scanPtrs {
@@ -1750,15 +1755,21 @@ func (s *userServer) reencryptPIIFromPgcrypto(ctx context.Context) {
 			if len(setParts) == 0 {
 				continue
 			}
-			args = append(args, rowID)
-			query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = $%d", t.name, strings.Join(setParts, ", "), t.idCol, ai)
-			if _, uErr := s.db.ExecContext(ctx, query, args...); uErr != nil {
+		args = append(args, rowID)
+		query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = $%d", t.name, strings.Join(setParts, ", "), t.idCol, ai) 
+		if _, uErr := s.db.ExecContext(ctx, query, args...); uErr != nil {
 				s.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", t.name), zap.String("id", rowID))
 				continue
 			}
 			migrated++
 		}
-		rows.Close()
+		if rowErr := rows.Err(); rowErr != nil {
+			s.log.Error("Failed to iterate PII rows for migration", zap.Error(rowErr), zap.String("table", t.name))
+			continue
+		}
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows during PII migration", zap.Error(closeErr), zap.String("table", t.name))
+		}
 		if migrated > 0 {
 			s.log.Info("Re-encrypted PII from pgcrypto to pgsodium", zap.String("table", t.name), zap.Int64("rows", migrated))
 		}

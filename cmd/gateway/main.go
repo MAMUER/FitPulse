@@ -779,18 +779,14 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 }
 
 func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request) {
-	// SSRF protection: construct target from fixed internal service + validated path
-	// Path is already validated to point to device-aggregator endpoints via route registration
 	target, _ := url.JoinPath("http://device-aggregator:8083", r.URL.Path)
 
-	// #nosec G704 -- intentional proxy to hardcoded internal service
 	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
 	outReq.Header = r.Header.Clone()
 	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	// #nosec G704 -- intentional proxy to hardcoded internal service
 	resp, _ := client.Do(outReq)
 	if resp == nil {
 		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
@@ -808,17 +804,14 @@ func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request
 }
 
 func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request) {
-	// SSRF protection: construct target from fixed internal service + validated path
 	target, _ := url.JoinPath(g.deviceConnectorURL, r.URL.Path)
 
-	// #nosec G704 -- intentional proxy to hardcoded internal service
 	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
 	outReq.Header = r.Header.Clone()
 	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
 	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	// #nosec G704 -- intentional proxy to hardcoded internal service
 	resp, err := client.Do(outReq)
 	if err != nil || resp == nil {
 		g.log.Error("Failed to proxy to device-connector", zap.Error(err))

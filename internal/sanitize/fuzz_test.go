@@ -21,14 +21,6 @@ func FuzzString(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, input string) {
 		result := String(input)
-
-		// After sanitization, raw dangerous HTML characters must NOT appear
-		// in the output. They are replaced with HTML entities:
-		//   < -> &lt;    > -> &gt;    " -> &quot;    ' -> &#39;    & -> &amp;
-		//
-		// Note: \ is escaped to \\, so \ WILL appear in the result.
-		// This is intentional — we escape, not remove.
-		// Therefore we only check for raw < > " ' which should be fully eliminated.
 		if strings.ContainsAny(result, `<>"'`) {
 			t.Errorf("raw dangerous character in result: %q -> %q", input, result)
 		}

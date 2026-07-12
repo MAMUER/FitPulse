@@ -58,7 +58,6 @@ func serveErrorPage(w http.ResponseWriter, recorder *errorPageRecorder, status i
 		recorder.replay(status, recorder.body.Bytes())
 		return
 	}
-	// #nosec G304 — path originates from hardcoded internal directory, sanitized via filepath.Clean
 	data, readErr := os.ReadFile(file)
 	if readErr != nil {
 		recorder.replay(status, recorder.body.Bytes())

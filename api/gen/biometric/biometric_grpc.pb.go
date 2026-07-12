@@ -94,11 +94,6 @@ type BiometricServiceServer interface {
 	mustEmbedUnimplementedBiometricServiceServer()
 }
 
-// UnimplementedBiometricServiceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
 type UnimplementedBiometricServiceServer struct{}
 
 func (UnimplementedBiometricServiceServer) AddRecord(context.Context, *AddRecordRequest) (*AddRecordResponse, error) {

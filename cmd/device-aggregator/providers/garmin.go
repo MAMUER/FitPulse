@@ -21,7 +21,6 @@ import (
 )
 
 // GarminProvider implements OAuth flow for Garmin Health API
-// Note: Garmin uses OAuth 1.0a which is more complex than OAuth 2.0
 type GarminProvider struct {
 	consumerKey    string
 	consumerSecret string
@@ -43,8 +42,6 @@ func NewGarminProvider(db *sql.DB, log *zap.Logger, encryptor *crypto.AESGCMEncr
 	}
 }
 
-// GetAuthURL returns URL to start Garmin OAuth flow
-// Note: Garmin Health API requires OAuth 1.0a
 func (p *GarminProvider) GetAuthURL(userID string) (string, error) {
 	state := uuid.New().String()
 
