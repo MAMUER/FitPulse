@@ -37,8 +37,7 @@ func StartInfrastructure(t *testing.T) *Container {
 	t.Helper()
 	ctx := context.Background()
 
-	pgContainer, err := postgres.RunContainer(ctx,
-		testcontainers.WithImage("postgres:18-alpine"),
+	pgContainer, err := postgres.Run(ctx, "postgres:18-alpine",
 		testcontainers.WithEnv(map[string]string{
 			"POSTGRES_USER":     "testuser",
 			"POSTGRES_PASSWORD": "testpass",
@@ -52,8 +51,7 @@ func StartInfrastructure(t *testing.T) *Container {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
-	valkeyContainer, err := valkey.RunContainer(ctx,
-		testcontainers.WithImage("valkey/valkey:9-alpine"),
+	valkeyContainer, err := valkey.Run(ctx, "valkey/valkey:9-alpine",
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Ready to accept connections").WithStartupTimeout(30*time.Second)),
 	)
@@ -61,8 +59,7 @@ func StartInfrastructure(t *testing.T) *Container {
 		t.Fatalf("failed to start valkey container: %v", err)
 	}
 
-	rabbitContainer, err := rabbitmq.RunContainer(ctx,
-		testcontainers.WithImage("rabbitmq:4-management-alpine"),
+	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4-management-alpine",
 		testcontainers.WithEnv(map[string]string{
 			"RABBITMQ_DEFAULT_USER": "testuser",
 			"RABBITMQ_DEFAULT_PASS": "testpass",

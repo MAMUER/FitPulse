@@ -208,21 +208,20 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 // ========== Data Ingestion ==========
 
 func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) {
-	deviceID := chi.URLParam(r, "device_id")
-
-	if deviceID == "" {
-		http.Error(w, "device_id обязателен", http.StatusBadRequest)
+	deviceID, req, apiErr := s.ingestInputs(r)
+	if apiErr != nil {
+		http.Error(w, apiErr.Message, apiErr.Code)
 		return
 	}
 
-	var req IngestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Warn("Invalid ingest request body", zap.Error(err))
-		http.Error(w, "Некорректное тело запроса", http.StatusBadRequest)
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.log.Error("Failed to begin transaction", zap.Error(err))
+		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return
 	}
+	defer func() { _ = tx.Rollback() }()
 
-	// Authenticate device
 	device, err := s.authenticateDevice(r.Context(), deviceID, req.DeviceToken)
 	if err != nil {
 		s.log.Warn("Device authentication failed",
@@ -233,100 +232,11 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Validate records
-	if len(req.Records) == 0 {
-		http.Error(w, "Записи не могут быть пустыми", http.StatusBadRequest)
-		return
-	}
-
-	stats := IngestStats{TotalReceived: len(req.Records)}
-
-	// Process records in a transaction
-	tx, err := s.db.BeginTx(r.Context(), nil)
+	stats, pbRecords, err := s.processIngestRecords(r.Context(), tx, deviceID, device, req)
 	if err != nil {
-		s.log.Error("Failed to begin transaction", zap.Error(err))
+		s.log.Error("Failed to process ingest records", zap.Error(err))
 		http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 		return
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	pbRecords := make([]*biometricpb.BiometricRecord, 0, len(req.Records))
-
-	for _, rec := range req.Records {
-		// Validate metric type
-		if rec.MetricType == "" {
-			stats.Failed++
-			s.log.Warn("Skipping record with empty metric_type")
-			continue
-		}
-
-		// Validate value
-		if rec.Value < 0 {
-			stats.Failed++
-			s.log.Warn("Skipping record with negative value",
-				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
-			)
-			continue
-		}
-
-		// Apply metric-specific validation rules
-		if _, _, _, ok := metricSyncRules(rec.MetricType); ok {
-			if rec.MetricType == "heart_rate" && (rec.Value < 30 || rec.Value > 220) {
-				stats.Failed++
-				s.log.Warn("Heart rate out of range", zap.Float64("value", rec.Value))
-				continue
-			}
-			if rec.MetricType == "spo2" && (rec.Value < 70 || rec.Value > 100) {
-				stats.Failed++
-				s.log.Warn("SpO2 out of range", zap.Float64("value", rec.Value))
-				continue
-			}
-		}
-
-		// Deduplicate: check if (device_id, timestamp, metric_type) already exists
-		var exists bool
-		err := tx.QueryRowContext(r.Context(), `
-			SELECT EXISTS(
-				SELECT 1 FROM device_ingest_log
-				WHERE device_id = $1 AND timestamp = $2 AND metric_type = $3
-			)
-		`, deviceID, rec.Timestamp, rec.MetricType).Scan(&exists)
-		if err != nil {
-			s.log.Error("Failed to check duplicate", zap.Error(err))
-			stats.Failed++
-			continue
-		}
-
-		if exists {
-			stats.Duplicates++
-			s.log.Debug("Duplicate record skipped",
-				zap.String("device_id", sanitize.LogString(deviceID)),
-				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
-				zap.Time("timestamp", rec.Timestamp),
-			)
-			continue
-		}
-
-		// Log ingestion for deduplication tracking
-		_, err = tx.ExecContext(r.Context(), `
-			INSERT INTO device_ingest_log (id, device_id, metric_type, timestamp, quality)
-			VALUES ($1, $2, $3, $4, $5)
-		`, uuid.New().String(), deviceID, rec.MetricType, rec.Timestamp, rec.Quality)
-		if err != nil {
-			s.log.Error("Failed to log ingestion", zap.Error(err))
-			stats.Failed++
-			continue
-		}
-
-		// Build protobuf record for forwarding to biometric-service
-		pbRecord := &biometricpb.BiometricRecord{
-			UserId:     device.UserID,
-			MetricType: rec.MetricType,
-			Value:      rec.Value,
-			Timestamp:  timestamppb.New(rec.Timestamp),
-			DeviceType: device.DeviceType,
-		}
-		pbRecords = append(pbRecords, pbRecord)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -335,46 +245,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Forward validated, deduplicated records to biometric-service via gRPC
 	if len(pbRecords) > 0 {
-		for _, pbRec := range pbRecords {
-			if err := validator.ValidateBiometricRecord(&biometricpb.AddRecordRequest{
-				UserId:     pbRec.UserId,
-				MetricType: pbRec.MetricType,
-				Value:      pbRec.Value,
-				Timestamp:  pbRec.Timestamp,
-				DeviceType: pbRec.DeviceType,
-			}); err != nil {
-				s.log.Warn("Record failed validation before forwarding",
-					zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
-					zap.String("error", sanitize.LogString(err.Error())),
-				)
-				stats.Failed++
-				continue
-			}
-
-			_, err := s.biometricClient.AddRecord(r.Context(), &biometricpb.AddRecordRequest{
-				UserId:     pbRec.UserId,
-				MetricType: pbRec.MetricType,
-				Value:      pbRec.Value,
-				Timestamp:  pbRec.Timestamp,
-				DeviceType: pbRec.DeviceType,
-			})
-			if err != nil {
-				st, ok := status.FromError(err)
-				errMsg := err.Error()
-				if ok {
-					errMsg = st.Message()
-				}
-				s.log.Error("Failed to forward record to biometric-service",
-					zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
-					zap.String("error", sanitize.LogString(errMsg)),
-				)
-				stats.Failed++
-				continue
-			}
-			stats.Forwarded++
-		}
+		s.forwardRecords(r.Context(), pbRecords, &stats)
 	}
 
 	s.log.Info("Ingest completed",
@@ -390,6 +262,158 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
 		s.log.Error("Failed to encode ingest response", zap.Error(err))
+	}
+}
+
+type ingestInputError struct {
+	Message string
+	Code    int
+}
+
+func (e ingestInputError) Error() string {
+	return e.Message
+}
+
+func (s *deviceConnector) ingestInputs(r *http.Request) (string, IngestRequest, *ingestInputError) {
+	deviceID := chi.URLParam(r, "device_id")
+	if deviceID == "" {
+		return "", IngestRequest{}, &ingestInputError{"device_id обязателен", http.StatusBadRequest}
+	}
+
+	var req IngestRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return "", IngestRequest{}, &ingestInputError{"Некорректное тело запроса", http.StatusBadRequest}
+	}
+
+	if len(req.Records) == 0 {
+		return "", IngestRequest{}, &ingestInputError{"Записи не могут быть пустыми", http.StatusBadRequest}
+	}
+
+	return deviceID, req, nil
+}
+
+func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, deviceID string, device *Device, req IngestRequest) (IngestStats, []*biometricpb.BiometricRecord, error) {
+	stats := IngestStats{TotalReceived: len(req.Records)}
+	pbRecords := make([]*biometricpb.BiometricRecord, 0, len(req.Records))
+
+	for _, rec := range req.Records {
+		if !s.validateIngestRecord(&rec, &stats) {
+			continue
+		}
+
+		exists, dupErr := s.isDuplicate(ctx, tx, deviceID, rec)
+		if dupErr != nil {
+			s.log.Error("Failed to check duplicate", zap.Error(dupErr))
+			stats.Failed++
+			return stats, nil, dupErr
+		}
+		if exists {
+			stats.Duplicates++
+			s.log.Debug("Duplicate record skipped",
+				zap.String("device_id", sanitize.LogString(deviceID)),
+				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
+				zap.Time("timestamp", rec.Timestamp),
+			)
+			continue
+		}
+
+		_, insErr := tx.ExecContext(ctx,
+			`INSERT INTO device_ingest_log (id, device_id, metric_type, timestamp, quality) VALUES ($1, $2, $3, $4, $5)`,
+			uuid.New().String(), deviceID, rec.MetricType, rec.Timestamp, rec.Quality,
+		)
+		if insErr != nil {
+			s.log.Error("Failed to log ingestion", zap.Error(insErr))
+			stats.Failed++
+			return stats, nil, insErr
+		}
+
+		pbRecords = append(pbRecords, &biometricpb.BiometricRecord{
+			UserId:     device.UserID,
+			MetricType: rec.MetricType,
+			Value:      rec.Value,
+			Timestamp:  timestamppb.New(rec.Timestamp),
+			DeviceType: device.DeviceType,
+		})
+	}
+
+	return stats, pbRecords, nil
+}
+
+func (s *deviceConnector) validateIngestRecord(rec *IngestRecord, stats *IngestStats) bool {
+	if rec.MetricType == "" {
+		stats.Failed++
+		s.log.Warn("Skipping record with empty metric_type")
+		return false
+	}
+	if rec.Value < 0 {
+		stats.Failed++
+		s.log.Warn("Skipping record with negative value",
+			zap.String("metric_type", sanitize.LogString(rec.MetricType)),
+		)
+		return false
+	}
+	if _, _, _, ok := metricSyncRules(rec.MetricType); ok {
+		if rec.MetricType == "heart_rate" && (rec.Value < 30 || rec.Value > 220) {
+			stats.Failed++
+			s.log.Warn("Heart rate out of range", zap.Float64("value", rec.Value))
+			return false
+		}
+		if rec.MetricType == "spo2" && (rec.Value < 70 || rec.Value > 100) {
+			stats.Failed++
+			s.log.Warn("SpO2 out of valid range", zap.Float64("value", rec.Value))
+			return false
+		}
+	}
+	return true
+}
+
+func (s *deviceConnector) isDuplicate(ctx context.Context, tx *sql.Tx, deviceID string, rec IngestRecord) (bool, error) {
+	var exists bool
+	err := tx.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM device_ingest_log WHERE device_id = $1 AND timestamp = $2 AND metric_type = $3)`,
+		deviceID, rec.Timestamp, rec.MetricType,
+	).Scan(&exists)
+	return exists, err
+}
+
+func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biometricpb.BiometricRecord, stats *IngestStats) {
+	for _, pbRec := range pbRecords {
+		if err := validator.ValidateBiometricRecord(&biometricpb.AddRecordRequest{
+			UserId:     pbRec.UserId,
+			MetricType: pbRec.MetricType,
+			Value:      pbRec.Value,
+			Timestamp:  pbRec.Timestamp,
+			DeviceType: pbRec.DeviceType,
+		}); err != nil {
+			s.log.Warn("Record failed validation before forwarding",
+				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+				zap.String("error", sanitize.LogString(err.Error())),
+			)
+			stats.Failed++
+			continue
+		}
+
+		_, err := s.biometricClient.AddRecord(ctx, &biometricpb.AddRecordRequest{
+			UserId:     pbRec.UserId,
+			MetricType: pbRec.MetricType,
+			Value:      pbRec.Value,
+			Timestamp:  pbRec.Timestamp,
+			DeviceType: pbRec.DeviceType,
+		})
+		if err != nil {
+			st, ok := status.FromError(err)
+			errMsg := err.Error()
+			if ok {
+				errMsg = st.Message()
+			}
+			s.log.Error("Failed to forward record to biometric-service",
+				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+				zap.String("error", sanitize.LogString(errMsg)),
+			)
+			stats.Failed++
+			continue
+		}
+		stats.Forwarded++
 	}
 }
 

@@ -51,6 +51,31 @@ func (r *errorPageRecorder) replay(code int, body []byte) {
 
 const errorPageDir = "./web/static/errors"
 
+func serveErrorPage(w http.ResponseWriter, recorder *errorPageRecorder, status int) {
+	file := errorPageFileForStatus(status)
+	base := filepath.Clean(errorPageDir)
+	if !strings.HasPrefix(file, base) {
+		recorder.replay(status, recorder.body.Bytes())
+		return
+	}
+	// #nosec G304 — path originates from hardcoded internal directory, sanitized via filepath.Clean
+	data, readErr := os.ReadFile(file)
+	if readErr != nil {
+		recorder.replay(status, recorder.body.Bytes())
+		return
+	}
+	if recorder.headers != nil {
+		for k, v := range recorder.headers {
+			w.Header()[k] = v
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.WriteHeader(status)
+	_, _ = w.Write(data)
+}
+
 func ErrorPages(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		recorder := &errorPageRecorder{
@@ -68,26 +93,8 @@ func ErrorPages(next http.Handler) http.Handler {
 		wantsHTML := strings.Contains(accept, "text/html")
 
 		if wantsHTML && (status == http.StatusNotFound || status == http.StatusInternalServerError) {
-			file := errorPageFileForStatus(status)
-			base := filepath.Clean(errorPageDir)
-			if !strings.HasPrefix(file, base) {
-				next.ServeHTTP(recorder, r)
-				return
-			}
-			data, readErr := os.ReadFile(file)
-			if readErr == nil {
-				if recorder.headers != nil {
-					for k, v := range recorder.headers {
-						w.Header()[k] = v
-					}
-				}
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-				w.Header().Set("Pragma", "no-cache")
-				w.WriteHeader(status)
-				_, _ = w.Write(data)
-				return
-			}
+			serveErrorPage(w, recorder, status)
+			return
 		}
 
 		recorder.replay(status, recorder.body.Bytes())

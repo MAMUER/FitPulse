@@ -52,46 +52,41 @@ func grpcToHTTPStatus(err error) (int, string) {
 	return mapGRPCToHTTP(st)
 }
 
+type grpcHTTPMapping struct {
+	status    int
+	msg       string
+	translate bool
+}
+
+var grpcCodeToHTTP = map[codes.Code]grpcHTTPMapping{
+	codes.OK:                 {http.StatusOK, "", false},
+	codes.Canceled:           {http.StatusRequestTimeout, "Запрос отменён", false},
+	codes.InvalidArgument:    {http.StatusBadRequest, "", true},
+	codes.NotFound:           {http.StatusNotFound, "Не найдено", false},
+	codes.AlreadyExists:      {http.StatusConflict, "", true},
+	codes.PermissionDenied:   {http.StatusNotFound, "Не найдено", false},
+	codes.Unauthenticated:    {http.StatusUnauthorized, "Неверные учётные данные", false},
+	codes.ResourceExhausted:  {http.StatusTooManyRequests, "Превышен лимит запросов", false},
+	codes.FailedPrecondition: {http.StatusBadRequest, "", true},
+	codes.Aborted:            {http.StatusConflict, "Операция прервана", false},
+	codes.OutOfRange:         {http.StatusBadRequest, "", true},
+	codes.Unimplemented:      {http.StatusNotImplemented, "Функция не реализована", false},
+	codes.Internal:           {http.StatusInternalServerError, "Внутренняя ошибка сервера", false},
+	codes.Unavailable:        {http.StatusServiceUnavailable, "Сервис временно недоступен", false},
+	codes.DataLoss:           {http.StatusInternalServerError, "Потеря данных", false},
+	codes.DeadlineExceeded:   {http.StatusGatewayTimeout, "Превышено время ожидания", false},
+	codes.Unknown:            {http.StatusInternalServerError, "", true},
+}
+
 func mapGRPCToHTTP(st *status.Status) (int, string) {
 	msg := st.Message()
-	switch st.Code() {
-	case codes.OK:
-		return http.StatusOK, ""
-	case codes.Canceled:
-		return http.StatusRequestTimeout, "Запрос отменён"
-	case codes.InvalidArgument:
-		return http.StatusBadRequest, translateError(msg)
-	case codes.NotFound:
-		return http.StatusNotFound, "Не найдено"
-	case codes.AlreadyExists:
-		return http.StatusConflict, translateError(msg)
-	case codes.PermissionDenied:
-		return http.StatusNotFound, "Не найдено"
-	case codes.Unauthenticated:
-		return http.StatusUnauthorized, "Неверные учётные данные"
-	case codes.ResourceExhausted:
-		return http.StatusTooManyRequests, "Превышен лимит запросов"
-	case codes.FailedPrecondition:
-		return http.StatusBadRequest, translateError(msg)
-	case codes.Aborted:
-		return http.StatusConflict, "Операция прервана"
-	case codes.OutOfRange:
-		return http.StatusBadRequest, translateError(msg)
-	case codes.Unimplemented:
-		return http.StatusNotImplemented, "Функция не реализована"
-	case codes.Internal:
-		return http.StatusInternalServerError, "Внутренняя ошибка сервера"
-	case codes.Unavailable:
-		return http.StatusServiceUnavailable, "Сервис временно недоступен"
-	case codes.DataLoss:
-		return http.StatusInternalServerError, "Потеря данных"
-	case codes.DeadlineExceeded:
-		return http.StatusGatewayTimeout, "Превышено время ожидания"
-	case codes.Unknown:
-		return http.StatusInternalServerError, translateError(msg)
-	default:
-		return http.StatusInternalServerError, translateError(msg)
+	if m, ok := grpcCodeToHTTP[st.Code()]; ok {
+		if m.translate {
+			return m.status, translateError(msg)
+		}
+		return m.status, m.msg
 	}
+	return http.StatusInternalServerError, translateError(msg)
 }
 
 // translateError converts technical error messages to user-friendly Russian

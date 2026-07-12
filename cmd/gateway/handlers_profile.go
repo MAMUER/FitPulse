@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
@@ -51,6 +52,10 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	if err != nil {
 		return false
 	}
+	if len(hash) > math.MaxUint32 {
+		return false
+	}
+	// #nosec G115 — len(hash) is bounded above by math.MaxUint32
 	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash)))
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }

@@ -29,21 +29,7 @@ func (c *CompositeBiometricSource) Fetch(ctx context.Context, userID string, met
 	var errs []string
 
 	for _, source := range c.sources {
-		if source == nil {
-			continue
-		}
-
-		supportedMetrics := make([]string, 0, len(metricTypes))
-		for _, metricType := range metricTypes {
-			if source.Supports(metricType) {
-				supportedMetrics = append(supportedMetrics, metricType)
-			}
-		}
-		if len(supportedMetrics) == 0 {
-			continue
-		}
-
-		samples, err := source.Fetch(ctx, userID, supportedMetrics)
+		samples, err := fetchFromSource(ctx, source, userID, metricTypes)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", source.DeviceType(), err))
 			continue
@@ -65,6 +51,28 @@ func (c *CompositeBiometricSource) Fetch(ctx context.Context, userID string, met
 	}
 
 	return mergeSamples(allSamples), nil
+}
+
+func fetchFromSource(ctx context.Context, source domain.BiometricSource, userID string, metricTypes []string) ([]domain.BiometricSample, error) {
+	if source == nil {
+		return nil, nil
+	}
+
+	supportedMetrics := make([]string, 0, len(metricTypes))
+	for _, metricType := range metricTypes {
+		if source.Supports(metricType) {
+			supportedMetrics = append(supportedMetrics, metricType)
+		}
+	}
+	if len(supportedMetrics) == 0 {
+		return nil, nil
+	}
+
+	samples, err := source.Fetch(ctx, userID, supportedMetrics)
+	if err != nil {
+		return nil, err
+	}
+	return samples, nil
 }
 
 func (c *CompositeBiometricSource) Supports(metricType string) bool {

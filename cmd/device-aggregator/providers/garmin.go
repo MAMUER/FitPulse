@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -203,28 +204,13 @@ func (p *GarminProvider) ListProviders(ctx context.Context, userID string) (map[
 
 func (p *GarminProvider) encryptRefreshToken(token string) (string, error) {
 	if p.encryptor == nil {
-		return "", fmt.Errorf("encryptor not initialized")
+		return "", errors.New("encryptor not initialized")
 	}
 	ciphertext, err := p.encryptor.Encrypt([]byte(token))
 	if err != nil {
 		return "", fmt.Errorf("encrypt refresh token: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-
-func (p *GarminProvider) decryptRefreshToken(encoded string) (string, error) {
-	if p.encryptor == nil {
-		return "", fmt.Errorf("encryptor not initialized")
-	}
-	ciphertext, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return "", fmt.Errorf("decode refresh token: %w", err)
-	}
-	plaintext, err := p.encryptor.Decrypt(ciphertext)
-	if err != nil {
-		return "", fmt.Errorf("decrypt refresh token: %w", err)
-	}
-	return string(plaintext), nil
 }
 
 // GarminTokenResponse represents Garmin token response.
