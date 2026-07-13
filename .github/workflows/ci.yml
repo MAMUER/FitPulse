@@ -791,7 +791,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Login to GHCR
-        uses: docker/login-action@v4.2.0
+        uses: docker/login-action@v4.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
