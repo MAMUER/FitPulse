@@ -107,7 +107,7 @@ func (a *aggregator) fitbitDisconnectHandler(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusOK)
 	// SAFETY: Static JSON response, Content-Type is application/json.
-	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil { 
+	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil {
 		a.log.Warn("failed to write disconnect response", zap.Error(err))
 	}
 }

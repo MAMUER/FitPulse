@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"strings"
 
@@ -22,6 +21,8 @@ import (
 // ========== Profile Handlers ==========
 
 const argon2idParams = "m=65536,t=3,p=1"
+
+const argon2KeyLen = 32
 
 func verifyPasswordArgon2id(stored, password string) bool {
 	parts := strings.Split(stored, "$")
@@ -52,10 +53,7 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	if err != nil {
 		return false
 	}
-	if len(hash) > math.MaxUint32 {
-		return false
-	}
-	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash)))
+	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, argon2KeyLen)
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 

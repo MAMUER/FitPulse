@@ -54,11 +54,14 @@ const errorPageDir = "./web/static/errors"
 func serveErrorPage(w http.ResponseWriter, recorder *errorPageRecorder, status int) {
 	file := errorPageFileForStatus(status)
 	base := filepath.Clean(errorPageDir)
-	if !strings.HasPrefix(file, base) {
+	cleanFile := filepath.Clean(file)
+	allowedError404 := filepath.Join(base, "error.html")
+	allowedError500 := filepath.Join(base, "error-500.html")
+	if cleanFile != allowedError404 && cleanFile != allowedError500 {
 		recorder.replay(status, recorder.body.Bytes())
 		return
 	}
-	data, readErr := os.ReadFile(file)
+	data, readErr := os.ReadFile(cleanFile)
 	if readErr != nil {
 		recorder.replay(status, recorder.body.Bytes())
 		return

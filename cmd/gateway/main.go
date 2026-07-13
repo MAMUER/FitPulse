@@ -6,9 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -69,6 +69,9 @@ type gateway struct {
 	biometricMu      sync.Mutex
 	trainingMu       sync.Mutex
 	totpRateLimiters sync.Map
+
+	deviceAggregatorProxy *httputil.ReverseProxy
+	deviceConnectorProxy  *httputil.ReverseProxy
 }
 
 func main() {
@@ -419,7 +422,7 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 }
 
 func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, rdb *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
-	return &gateway{
+	g := &gateway{
 		userClient:            userClient,
 		biometricAddr:         cfg.biometricServiceAddr,
 		trainingAddr:          cfg.trainingServiceAddr,
@@ -440,6 +443,20 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		errorTotal:            metrics.errorTotal,
 		googleOAuthConfig:     cfg.googleOAuthConfig,
 	}
+
+	aggregatorTarget, _ := url.Parse("http://device-aggregator:8083")
+	g.deviceAggregatorProxy = httputil.NewSingleHostReverseProxy(aggregatorTarget)
+	g.deviceAggregatorProxy.Rewrite = func(req *httputil.ProxyRequest) {
+		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
+	}
+
+	connectorTarget, _ := url.Parse(cfg.deviceConnectorURL)
+	g.deviceConnectorProxy = httputil.NewSingleHostReverseProxy(connectorTarget)
+	g.deviceConnectorProxy.Rewrite = func(req *httputil.ProxyRequest) {
+		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
+	}
+
+	return g
 }
 
 func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.Handler) {
@@ -779,54 +796,11 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 }
 
 func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request) {
-	target, _ := url.JoinPath("http://device-aggregator:8083", r.URL.Path)
-
-	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
-	outReq.Header = r.Header.Clone()
-	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
-	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, _ := client.Do(outReq)
-	if resp == nil {
-		http.Error(w, "Сервис aggregator недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	g.deviceAggregatorProxy.ServeHTTP(w, r)
 }
 
 func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request) {
-	target, _ := url.JoinPath(g.deviceConnectorURL, r.URL.Path)
-
-	outReq, _ := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
-	outReq.Header = r.Header.Clone()
-	outReq.Header.Set("X-User-ID", r.Header.Get("X-User-ID"))
-	outReq.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(r.Context()))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(outReq)
-	if err != nil || resp == nil {
-		g.log.Error("Failed to proxy to device-connector", zap.Error(err))
-		http.Error(w, "Сервис device-connector недоступен", http.StatusServiceUnavailable)
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	g.deviceConnectorProxy.ServeHTTP(w, r)
 }
 
 func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
