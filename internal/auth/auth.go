@@ -1,3 +1,5 @@
+// Package auth provides JWT token generation, parsing, and JWKS utilities
+// for FitPulse services.
 package auth
 
 import (

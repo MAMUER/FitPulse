@@ -107,13 +107,11 @@ func toString(v *string) string {
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	s.log.Info("Register request", zap.String("email", req.Email))
 
-	// Валидация входных данных
 	if err := validator.ValidateRegisterRequest(req); err != nil {
 		s.log.Warn("Invalid register request", zap.Error(err))
 		return nil, fmt.Errorf("validate register request: %w", err)
 	}
 
-	// Санитизируем входные данные
 	email := sanitize.String(req.Email)
 	fullName := sanitize.String(req.FullName)
 	emailHash := db.EmailHash(email)
@@ -124,74 +122,40 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		return nil, status.Error(codes.Internal, "failed to generate nonce")
 	}
 
-	// Проверка существования пользователя
 	var exists bool
-	err = s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists)
-	if err != nil {
-		s.log.Error("Database error checking user existence", zap.Error(err))
+	if queryErr := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists); queryErr != nil {
+		s.log.Error("Database error checking user existence", zap.Error(queryErr))
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	if exists {
 		return nil, status.Error(codes.AlreadyExists, "user already exists")
 	}
 
-	// Хэширование пароля
 	hashed, err := hashPasswordArgon2id(req.Password)
 	if err != nil {
 		s.log.Error("Failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to hash password")
 	}
 
-	// Создание пользователя
 	userID := uuid.New().String()
-	var userQuery strings.Builder
-	userQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, created_at, updated_at) ")
-	userQuery.WriteString("VALUES ($1, ")
-	userQuery.WriteString(db.PgsodiumEncryptParam(2))
-	userQuery.WriteString(", $3, $4, ")
-	userQuery.WriteString(db.PgsodiumRandomEncryptParam(5, 6))
-	userQuery.WriteString(", $7, ")
-	userQuery.WriteString("$8, ")
-	userQuery.WriteString("$9, NOW(), NOW())")
-	_, err = s.db.ExecContext(ctx, userQuery.String(), userID, email, emailHash, string(hashed), fullName, fullNameNonce, fullNameHash, req.Role)
-	if err != nil {
-		s.log.Error("Failed to create user", zap.Error(err))
+	userQuery, userArgs := buildUserInsertQuery(userID, email, emailHash, string(hashed), fullName, fullNameNonce, fullNameHash, req.Role)
+	if _, execErr := s.db.ExecContext(ctx, userQuery, userArgs...); execErr != nil {
+		s.log.Error("Failed to create user", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create user")
 	}
 
-	// Генерация токена подтверждения email
 	verificationToken := generateVerificationToken()
-	var emailVerificationQuery strings.Builder
-	emailVerificationQuery.WriteString("INSERT INTO email_verifications (user_id, email_encrypted, email_hash, token, token_encrypted, expires_at, used) ")
-	emailVerificationQuery.WriteString("VALUES ($1, ")
-	emailVerificationQuery.WriteString(db.PgsodiumEncryptParam(2))
-	emailVerificationQuery.WriteString(", $3, $4, ")
-	emailVerificationQuery.WriteString(db.PgsodiumEncryptParam(5))
-	emailVerificationQuery.WriteString(", NOW() + INTERVAL '24 hours', false)")
-	_, err = s.db.ExecContext(ctx, emailVerificationQuery.String(), userID, email, emailHash, verificationToken)
-	if err != nil {
-		s.log.Error("Failed to create email verification record", zap.Error(err))
+	verificationQuery, verificationArgs := buildEmailVerificationInsertQuery(userID, email, emailHash, verificationToken)
+	if _, execErr := s.db.ExecContext(ctx, verificationQuery, verificationArgs...); execErr != nil {
+		s.log.Error("Failed to create email verification record", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create verification token")
 	}
 
-	// Отправка письма подтверждения (не блокирует регистрацию при ошибке)
-	if s.emailSender != nil && s.baseURL != "" {
-		if sendErr := s.emailSender.SendVerificationEmail(email, verificationToken, s.baseURL); sendErr != nil {
-			s.log.Warn("Failed to send verification email (registration will proceed)",
-				zap.Error(sendErr),
-				zap.String("email", email))
-		} else {
-			s.log.Info("Verification email sent", zap.String("email", email))
-		}
-	}
+	sendVerificationEmailIfNeeded(s, email, verificationToken)
 
-	// Создание пустого профиля
-	_, err = s.db.ExecContext(ctx, `
-        INSERT INTO user_profiles (user_id) VALUES ($1)
-    `, userID)
-	if err != nil {
+	if _, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID); profileErr != nil {
 		s.log.Warn("Failed to create user profile, user will need to complete profile manually",
-			zap.Error(err),
+			zap.Error(profileErr),
 			zap.String("user_id", userID))
 	}
 
@@ -199,6 +163,45 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		UserId:  userID,
 		Message: "user created successfully. Verification token (dev only): " + verificationToken,
 	}, nil
+}
+
+func buildUserInsertQuery(userID, email, emailHash, passwordHash, fullName string, fullNameNonce []byte, fullNameHash, role string) (string, []interface{}) {
+	var b strings.Builder
+	b.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, created_at, updated_at) ")
+	b.WriteString("VALUES ($1, ")
+	b.WriteString(db.PgsodiumEncryptParam(2))
+	b.WriteString(", $3, $4, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(5, 6))
+	b.WriteString(", $7, ")
+	b.WriteString("$8, ")
+	b.WriteString("$9, NOW(), NOW())")
+	args := []interface{}{userID, email, emailHash, passwordHash, fullName, fullNameNonce, fullNameHash, role}
+	return b.String(), args
+}
+
+func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationToken string) (string, []interface{}) {
+	var b strings.Builder
+	b.WriteString("INSERT INTO email_verifications (user_id, email_encrypted, email_hash, token, token_encrypted, expires_at, used) ")
+	b.WriteString("VALUES ($1, ")
+	b.WriteString(db.PgsodiumEncryptParam(2))
+	b.WriteString(", $3, $4, ")
+	b.WriteString(db.PgsodiumEncryptParam(5))
+	b.WriteString(", NOW() + INTERVAL '24 hours', false)")
+	args := []interface{}{userID, email, emailHash, verificationToken}
+	return b.String(), args
+}
+
+func sendVerificationEmailIfNeeded(s *userServer, email, verificationToken string) {
+	if s.emailSender == nil || s.baseURL == "" {
+		return
+	}
+	if sendErr := s.emailSender.SendVerificationEmail(email, verificationToken, s.baseURL); sendErr != nil {
+		s.log.Warn("Failed to send verification email (registration will proceed)",
+			zap.Error(sendErr),
+			zap.String("email", email))
+	} else {
+		s.log.Info("Verification email sent", zap.String("email", email))
+	}
 }
 
 func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailRequest) (*pb.ConfirmEmailResponse, error) {

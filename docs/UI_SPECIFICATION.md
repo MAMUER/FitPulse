@@ -282,7 +282,7 @@ div#app
 
 ### 5.4. Прогресс
 
-- Прогресс отображается в разделе «Достижения» (`achievementsView`) через бизнес-логику на клиенте. Бэкенд эндпоинт `GET /training/progress` существует, но отдельный график прогресса в UI не реализован.
+- График прогресса (Chart.js, столбчатая диаграмма) — `GET /training/progress`. Отображается в разделе «Достижения» (`achievementsView`) под списком челленджей.
 
 ---
 
@@ -441,7 +441,8 @@ div#app
 
 ### 10.3. Список пользователей
 
-- Бэкенд эндпоинт `GET /api/v1/admin/users` реализован, но UI для отображения списка пользователей в текущей версии отсутствует.
+- Бэкенд эндпоинт `GET /api/v1/admin/users` реализован.
+- UI в `adminView` отображает список пользователей в виде сетки: имя/email, роль, дата создания, дата обновления.
 
 ---
 
@@ -453,7 +454,7 @@ div#app
 
 - `error.html` — общий шаблон для 404 «Страница не найдена»
 - `error-500.html` — шаблон для 500 «Внутренняя ошибка»
-- `403.html` — дублирует `error.html` («Страница не найдена»), используется только для фактических 403 ответов
+- `403.html` — «Доступ запрещён» (уникальный, не дублирует error.html)
 
 ### 11.2. Страница подтверждения email (`/confirm`)
 
@@ -465,8 +466,8 @@ div#app
 - Таймаут `fetch` — 10 секунд (AbortController + setTimeout).
 - При 403 — для HTML запросов показ `403.html`; для JSON API сервер возвращает 403 как 404 для предотвращения перечисления ресурсов.
 - При 401 — попытка refresh токена → если fail → logout.
+- При 429 — показ сообщения «Слишком много запросов, попробуйте через минуту» (или с учетом заголовка `Retry-After`).
 - При 5xx — показ `error-500.html` + retry-кнопка.
-- При 429 — нет специальной обработки в UI, ошибка прокидывается как есть.
 
 ---
 
@@ -480,7 +481,7 @@ div#app
 |4|JWT хранение|Access token хранится в `localStorage`, отправляется в заголовке `Authorization: Bearer`. Refresh token хранится в `session` cookie.|
 |5|Валидация на клиенте|Все поля имеют `type`, `min`, `max`, `pattern`, `required`.|
 |6|Защита ответов|Транспорт защищён TLS 1.3 + HSTS + CSP|
-|7|Rate limit UI|Бэкенд возвращает 429, но в UI нет специального сообщения «Слишком много запросов».|
+|7|Rate limit UI|При 429 показывается сообщение «Слишком много запросов, попробуйте через минуту» (или с учетом `Retry-After`).|
 
 ---
 
@@ -522,10 +523,19 @@ div#app
 |`deleteMenstrualCycle(cycleId)`|DELETE|`/api/v1/health/menstrual-cycles/{cycleId}`|
 |`syncFlo(accessToken, refreshToken)`|POST|`/api/v1/health/sync/flo`|
 |`syncOKOK(accessToken, refreshToken)`|POST|`/api/v1/health/sync/okok`|
+|`fitbitAuth()`|GET|`/api/v1/devices/fitbit/auth`|
+|`withingsAuth()`|GET|`/api/v1/devices/withings/auth`|
+|`getProviders()`|GET|`/api/v1/devices/providers`|
+|`classifyState(biometrics)`|POST|`/api/v1/ml/classify`|
+|`generateMLPlan(trainingClass, user_profile, goal, constraints)`|POST|`/api/v1/ml/generate-plan`|
+|`registerWithInvite(code, name, email, password)`|POST|`/api/v1/register/invite`|
+|`validateInvite(code)`|POST|`/api/v1/invite/validate`|
+|`createInvite(role, specialty, maxUses)`|POST|`/api/v1/admin/invites`|
+|`listInvites(page, pageSize, used)`|GET|`/api/v1/admin/invites`|
+|`revokeInvite(code)`|POST|`/api/v1/admin/invites/{code}/revoke`|
+|`listUsers(page, pageSize)`|GET|`/api/v1/admin/users`|
 
 Все ответы — JSON. Ошибки имеют формат `{error: string}` или `{message: string}`.
-
-> **Примечание**: В `api.js` отсутствуют функции для invite-кодов (`registerWithInvite`, `validateInvite`, `createInvite`, `listInvites`, `revokeInvite`), Google OAuth (`googleLogin`), устройств Fitbit/Withings (`fitbitAuth`, `withingsAuth`, `getProviders`), ML-генерации (`generateMLPlan`, `classifyState`), смены пароля/email через отдельные endpoints (`changePassword`, `changeEmail` используют `/api/v1/auth/change-password` и `/api/v1/auth/change-email`), а также `refreshToken`. Эти эндпоинты реализованы на бэкенде, но не имеют клиентских wrapper-функций в текущей версии.
 
 ---
 
@@ -594,5 +604,5 @@ div#app
 2. **P1** — Training: список планов + генерация + завершение.
 3. **P2** — Devices: подключение + интеграции.
 4. **P3** — Achievements, Diet, ML-классификация.
-5. **P4** — Admin panel: invite-коды (создание, список, отзыв). Список пользователей реализован только на бэкенде (`GET /api/v1/admin/users`), UI для него отсутствует.
+5. **P4** — Admin panel: invite-коды (создание, список, отзыв), список пользователей.
 6. **UX/Polish** — скелетон-экраны, pull-to-refresh, offline-индикатор, skeleton loaders.

@@ -309,16 +309,30 @@ ${p.is_active ? `<button data-action="disconnect-provider" data-provider="${p.pr
     // Функции админки — экспортируем в window для onclick
     async function loadAdminPanel() {
         try {
-            const response = await apiRequest('/admin/invites', {
-                method: 'GET'
-            });
-            renderInvitesList(response.invites || []);
-        } catch (e) {
-            console.error('Failed to load invites:', e);
-            const container = document.getElementById('invitesList');
-            if (container) {
-                container.innerHTML = '<p style="color: var(--accent); text-align: center;">Ошибка загрузки инвайтов</p>';
+            const [invitesResponse, usersResponse] = await Promise.allSettled([
+                apiRequest('/admin/invites', { method: 'GET' }),
+                listUsers(1, 20)
+            ]);
+            if (invitesResponse.status === 'fulfilled') {
+                renderInvitesList(invitesResponse.value.invites || []);
+            } else {
+                console.error('Failed to load invites:', invitesResponse.reason);
+                const invContainer = document.getElementById('invitesList');
+                if (invContainer) {
+                    invContainer.innerHTML = '<p style="color: var(--accent); text-align: center;">Ошибка загрузки инвайтов</p>';
+                }
             }
+            if (usersResponse.status === 'fulfilled') {
+                renderUsersList(usersResponse.value.users || []);
+            } else {
+                console.error('Failed to load users:', usersResponse.reason);
+                const usersContainer = document.getElementById('usersList');
+                if (usersContainer) {
+                    usersContainer.innerHTML = '<p style="color: var(--accent); text-align: center;">Ошибка загрузки пользователей</p>';
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load admin panel:', e);
         }
     }
     function renderInvitesList(invites) {
@@ -347,6 +361,29 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
 ❌ Отозвать
 </button>` : ''}
 </div>
+</div>
+`).join('');
+    }
+    function renderUsersList(users) {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        if (!users || !users.length) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Нет пользователей</p>';
+            return;
+        }
+        container.innerHTML = `
+<div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm); font-weight: 600; font-size: 13px; color: var(--text-secondary);">
+<div>Пользователь</div><div>Роль</div><div>Создан</div><div>Обновлён</div>
+</div>
+` + users.map(u => `
+<div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; padding: 12px; background: var(--bg-card); border-radius: var(--radius-md); font-size: 14px; align-items: center;">
+<div>
+<strong>${u.full_name || u.email || 'Без имени'}</strong>
+<div style="font-size: 12px; color: var(--text-secondary);">${u.email || ''}</div>
+</div>
+<div><span style="padding: 4px 8px; background: ${u.role === 'admin' ? 'var(--purple)' : 'var(--blue)'}; color: white; border-radius: 12px; font-size: 12px;">${u.role}</span></div>
+<div style="color: var(--text-secondary); font-size: 12px;">${u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : ''}</div>
+<div style="color: var(--text-secondary); font-size: 12px;">${u.updated_at ? new Date(u.updated_at).toLocaleDateString('ru-RU') : ''}</div>
 </div>
 `).join('');
     }
@@ -996,7 +1033,9 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
         }
     }
 
-    // ===== Change Password =====
+    // ===== Profile =====
+    async function loadProfile() {
+        // Change Password
         document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
             const form = document.getElementById('changePasswordForm');
             if (form) form.classList.remove('hidden');
@@ -1285,61 +1324,6 @@ ${todayWorkout.notes ? `<p>${todayWorkout.notes}</p>` : ''}
             console.error('Dashboard load failed:', err);
         }
     }
-    // ===== Profile =====
-    async function loadProfile() {
-        try {
-            const profile = await getProfile();
-            const p = profile.profile || profile;
-            // Никнейм — используем full_name с бэкенда
-            document.getElementById('profNickname').value = p.full_name || '';
-            document.getElementById('profAge').value = p.age || '';
-            document.getElementById('profGender').value = p.gender || '';
-            document.getElementById('profHeight').value = p.height_cm || '';
-            document.getElementById('profWeight').value = p.weight_kg || '';
-            document.getElementById('profFitness').value = p.fitness_level || '';
-            // Питание — select
-            if (p.nutrition) {
-                document.getElementById('profNutrition').value = p.nutrition;
-            }
-            // Аллергии и противопоказания
-            if (p.allergies) {
-                document.getElementById('profAllergies').value = Array.isArray(p.allergies) ? p.allergies.join(', ') : p.allergies;
-            }
-            if (p.contraindications) {
-                document.getElementById('profContraindications').value = Array.isArray(p.contraindications) ? p.contraindications.join(', ') : p.contraindications;
-            }
-            // Сон — показываем с устройства
-            if (p.sleep_hours) {
-                const sleepDisplay = document.getElementById('profSleepDisplay');
-                const sleepValue = document.getElementById('profSleepValue');
-                if (sleepDisplay && sleepValue) {
-                    sleepValue.textContent = p.sleep_hours + ' ч';
-                }
-            }
-            // Цель — radio (одна)
-            const goal = Array.isArray(p.goals) && p.goals.length > 0 ? p.goals[0] : '';
-            document.querySelectorAll('.goals-grid input[type="radio"]').forEach(radio => {
-                radio.checked = radio.value === goal;
-            });
-
-            // Рассчитываем ИМТ после загрузки данных
-            calculateAndShowBMI();
-            await load2FAStatus();
-        } catch (err) {
-            console.error('Profile load failed:', err);
-            // Если профиль не найден (404), возможно сессия устарела
-            if (err.message && err.message.includes('Не найдено')) {
-                showToast('Сессия устарела. Пожалуйста, перезайдите в систему.', 'error');
-                // Автоматически очищаем токен и предлагаем перезайти
-                setTimeout(() => {
-                    if (confirm('Ваша сессия устарела. Перезайти?')) {
-                        setAuthToken(null);
-                        window.location.reload();
-                    }
-                }, 1000);
-            }
-        }
-    }
     async function saveProfile(e) {
         e.preventDefault();
         // Валидация никнейма (обязательно)
@@ -1569,6 +1553,40 @@ ${c.rank ? `<span class="competition-rank">🏅 Место: ${c.rank}</span>` : 
 </div>
 </div>
 `).join('');
+        // Прогресс-график
+        try {
+            const progress = await getProgress();
+            const progressData = progress?.progress_data || progress?.data || [];
+            if (progressData.length > 0 && typeof Chart !== 'undefined') {
+                const ctx = document.getElementById('progressChart')?.getContext('2d');
+                if (ctx) {
+                    const labels = progressData.map(p => p.date || p.week || '');
+                    const values = progressData.map(p => p.completed_workouts ?? p.count ?? p.value ?? 0);
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: 'Тренировок',
+                                data: values,
+                                backgroundColor: 'rgba(255,55,95,0.6)',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { color: '#8e8e93' }, grid: { color: '#2c2c2e' } },
+                                x: { ticks: { color: '#8e8e93' }, grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load progress chart:', e);
+        }
     }
     function initDevicesView() {
         if (window.AppModules) {

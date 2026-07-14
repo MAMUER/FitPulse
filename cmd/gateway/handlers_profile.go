@@ -171,15 +171,9 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-	if req.Password == "" {
-		http.Error(w, "password требуется", http.StatusBadRequest)
+	req, err := decodeDeleteProfileRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -188,9 +182,9 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := g.db.BeginTx(r.Context(), nil)
-	if err != nil {
-		g.log.Error("Failed to begin delete profile transaction", zap.Error(err))
+	tx, txErr := g.db.BeginTx(r.Context(), nil)
+	if txErr != nil {
+		g.log.Error("Failed to begin delete profile transaction", zap.Error(txErr))
 		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
 		return
 	}
@@ -200,30 +194,14 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	var passwordHash string
-	if queryErr := tx.QueryRowContext(r.Context(), "SELECT password_hash FROM users WHERE id = $1", userID).Scan(&passwordHash); queryErr != nil {
-		if queryErr == sql.ErrNoRows {
-			http.Error(w, "Не найдено", http.StatusNotFound)
-			return
-		}
-		g.log.Error("Failed to load user for deletion", zap.Error(queryErr))
-		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+	if verifyErr := verifyDeleteAccess(g, tx, r, userID, req.Password); verifyErr != nil {
+		http.Error(w, verifyErr.msg, verifyErr.code)
 		return
 	}
 
-	if !verifyPasswordArgon2id(passwordHash, req.Password) {
-		http.Error(w, "Неверный пароль", http.StatusUnauthorized)
-		return
-	}
-
-	if err := g.requireCriticalSession(r, userID); err != nil {
-		http.Error(w, err.Error(), http.StatusPreconditionRequired)
-		return
-	}
-
-	result, err := tx.ExecContext(r.Context(), "DELETE FROM users WHERE id = $1", userID)
-	if err != nil {
-		g.log.Error("Failed to delete user", zap.Error(err))
+	result, execErr := tx.ExecContext(r.Context(), "DELETE FROM users WHERE id = $1", userID)
+	if execErr != nil {
+		g.log.Error("Failed to delete user", zap.Error(execErr))
 		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
 		return
 	}
@@ -234,14 +212,58 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := tx.Commit(); err != nil {
-		g.log.Error("Failed to commit delete profile transaction", zap.Error(err))
+	if commitErr := tx.Commit(); commitErr != nil {
+		g.log.Error("Failed to commit delete profile transaction", zap.Error(commitErr))
 		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
-		g.log.Error("Failed to encode delete profile response", zap.Error(err))
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); encodeErr != nil {
+		g.log.Error("Failed to encode delete profile response", zap.Error(encodeErr))
 	}
+}
+
+type deleteProfileRequest struct {
+	Password string
+}
+
+func decodeDeleteProfileRequest(r *http.Request) (*deleteProfileRequest, error) {
+	var req deleteProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, fmt.Errorf("некорректный запрос: %w", err)
+	}
+	if req.Password == "" {
+		return nil, errors.New("password требуется")
+	}
+	return &req, nil
+}
+
+type httpError struct {
+	msg  string
+	code int
+}
+
+func (e *httpError) Error() string {
+	return e.msg
+}
+
+func verifyDeleteAccess(g *gateway, tx *sql.Tx, r *http.Request, userID, password string) *httpError {
+	var passwordHash string
+	if queryErr := tx.QueryRowContext(r.Context(), "SELECT password_hash FROM users WHERE id = $1", userID).Scan(&passwordHash); queryErr != nil {
+		if queryErr == sql.ErrNoRows {
+			return &httpError{msg: "Не найдено", code: http.StatusNotFound}
+		}
+		g.log.Error("Failed to load user for deletion", zap.Error(queryErr))
+		return &httpError{msg: "Ошибка удаления профиля", code: http.StatusInternalServerError}
+	}
+
+	if !verifyPasswordArgon2id(passwordHash, password) {
+		return &httpError{msg: "Неверный пароль", code: http.StatusUnauthorized}
+	}
+
+	if criticalErr := g.requireCriticalSession(r, userID); criticalErr != nil {
+		return &httpError{msg: criticalErr.Error(), code: http.StatusPreconditionRequired}
+	}
+	return nil
 }

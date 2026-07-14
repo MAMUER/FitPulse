@@ -89,7 +89,7 @@ func GenerateNonce() ([]byte, error) {
 
 // PgsodiumRandomEncryptParam возвращает выражение pgsodium для шифрования значения
 // с рандомизированным nonce (aegis256 AEAD).
-// Результат: pgsodium.crypto_aead_aegis256_encrypt($N, '', <key_id>, $M)::bytea
+// Результат: pgsodium.crypto_aead_aegis256_encrypt($N, ”, <key_id>, $M)::bytea
 func PgsodiumRandomEncryptParam(plaintextParam int, nonceParam int) string {
 	return fmt.Sprintf("pgsodium.crypto_aead_aegis256_encrypt($%d::text, '', %d, $%d)", plaintextParam, pgsodiumKeyID, nonceParam)
 }

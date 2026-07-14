@@ -6,7 +6,7 @@ imports:
 		cmd internal pkg
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test test-cover check imports
+.PHONY: proto tidy fmt vet lint test test-cover check imports js-check
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -43,7 +43,12 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-check: tidy fmt vet imports lint test-cover
+js-check:
+	@echo "Checking JavaScript syntax..."
+	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User'); Get-ChildItem web/static/js/*.js | ForEach-Object { node --check $$_.FullName }"
+	@echo "JS check complete."
+
+check: tidy fmt vet imports lint test-cover js-check
 	@echo "========================================"
 	@echo "  LOCAL CHECKS PASSED!"
 	@echo "========================================"
@@ -73,6 +78,7 @@ help:
 	@echo "  make lint       - Run golangci-lint"
 	@echo "  make test       - Run unit tests"
 	@echo "  make test-cover - Run tests with coverage report (75% threshold, business logic only)"
-	@echo "  make check      - Run tidy, fmt, vet, lint, test"
+	@echo "  make check      - Run tidy, fmt, vet, lint, test, js-check"
 	@echo "  make proto      - Generate proto files"
 	@echo "  make imports    - Update Go imports with gci"
+	@echo "  make js-check   - Check JavaScript syntax with Node.js"

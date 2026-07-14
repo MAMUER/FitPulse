@@ -282,16 +282,110 @@ async function syncOKOK(accessToken, refreshToken) {
     });
 }
 
+// Auth wrappers
+async function registerWithInvite(code, name, email, password) {
+    return apiRequest('/register/invite', {
+        method: 'POST',
+        body: JSON.stringify({ invite_code: code, full_name: name, email, password })
+    });
+}
+
+async function validateInvite(code) {
+    return apiRequest('/invite/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+    });
+}
+
+async function refreshToken(refresh_token) {
+    return apiRequest('/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token })
+    });
+}
+
+async function googleLogin() {
+    window.location.href = '/api/v1/auth/google';
+}
+
+// Devices wrappers
+async function fitbitAuth() {
+    window.location.href = '/api/v1/devices/fitbit/auth';
+}
+
+async function withingsAuth() {
+    window.location.href = '/api/v1/devices/withings/auth';
+}
+
+async function getProviders() {
+    return apiRequest('/devices/providers');
+}
+
+// ML wrappers
+async function classifyState(biometrics) {
+    return apiRequest('/ml/classify', {
+        method: 'POST',
+        body: JSON.stringify(biometrics)
+    });
+}
+
+async function generateMLPlan(trainingClass, userProfile, goal, constraints) {
+    return apiRequest('/ml/generate-plan', {
+        method: 'POST',
+        body: JSON.stringify({ training_class: trainingClass, user_profile: userProfile, goal, constraints })
+    });
+}
+
+// Admin wrappers
+async function listInvites(page = 1, pageSize = 10, used = '') {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (used !== '') params.set('used', String(used));
+    return apiRequest(`/invites?${params.toString()}`);
+}
+
+async function createInvite(role, specialty, maxUses) {
+    return apiRequest('/invites', {
+        method: 'POST',
+        body: JSON.stringify({ role, specialty, max_uses: maxUses })
+    });
+}
+
+async function revokeInvite(code) {
+    return apiRequest(`/invites/${code}/revoke`, { method: 'POST' });
+}
+
+async function listUsers(page = 1, pageSize = 10) {
+    return apiRequest(`/admin/users?page=${page}&page_size=${pageSize}`);
+}
+
 // Export shared functions for use by other modules
 window.apiRequest = apiRequest;
 window.setAuthToken = setAuthToken;
 window.login = login;
+window.register = register;
+window.registerWithInvite = registerWithInvite;
+window.validateInvite = validateInvite;
+window.refreshToken = refreshToken;
+window.verify2FA = verify2FA;
+window.googleLogin = googleLogin;
+window.logout = logout;
+window.getProfile = getProfile;
+window.updateProfile = updateProfile;
+window.changePassword = changePassword;
+window.changeEmail = changeEmail;
 window.get2FAStatus = get2FAStatus;
 window.setup2FA = setup2FA;
 window.confirm2FA = confirm2FA;
-window.verify2FA = verify2FA;
 window.disable2FA = disable2FA;
-window.logout = logout;
+window.deleteProfile = deleteProfile;
+window.addBiometricRecord = addBiometricRecord;
+window.getBiometricRecords = getBiometricRecords;
+window.generateTrainingPlan = generateTrainingPlan;
+window.getTrainingPlans = getTrainingPlans;
+window.getPlan = getPlan;
+window.completeWorkout = completeWorkout;
+window.getProgress = getProgress;
+window.getAchievements = getAchievements;
 window.listHealthConditions = listHealthConditions;
 window.upsertHealthCondition = upsertHealthCondition;
 window.deleteHealthCondition = deleteHealthCondition;
@@ -303,3 +397,12 @@ window.updateMenstrualCycle = updateMenstrualCycle;
 window.deleteMenstrualCycle = deleteMenstrualCycle;
 window.syncFlo = syncFlo;
 window.syncOKOK = syncOKOK;
+window.fitbitAuth = fitbitAuth;
+window.withingsAuth = withingsAuth;
+window.getProviders = getProviders;
+window.classifyState = classifyState;
+window.generateMLPlan = generateMLPlan;
+window.createInvite = createInvite;
+window.listInvites = listInvites;
+window.revokeInvite = revokeInvite;
+window.listUsers = listUsers;
