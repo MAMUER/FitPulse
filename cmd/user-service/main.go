@@ -97,6 +97,13 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 
+func toString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	s.log.Info("Register request", zap.String("email", req.Email))
 
@@ -110,10 +117,16 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	email := sanitize.String(req.Email)
 	fullName := sanitize.String(req.FullName)
 	emailHash := db.EmailHash(email)
+	fullNameHash := db.BlindIndex(fullName)
+	fullNameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
 
 	// Проверка существования пользователя
 	var exists bool
-	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists)
+	err = s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists)
 	if err != nil {
 		s.log.Error("Database error checking user existence", zap.Error(err))
 		return nil, status.Error(codes.Internal, "database error")
@@ -132,13 +145,15 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	// Создание пользователя
 	userID := uuid.New().String()
 	var userQuery strings.Builder
-	userQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, created_at, updated_at) ")
+	userQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, created_at, updated_at) ")
 	userQuery.WriteString("VALUES ($1, ")
 	userQuery.WriteString(db.PgsodiumEncryptParam(2))
 	userQuery.WriteString(", $3, $4, ")
-	userQuery.WriteString(db.PgsodiumEncryptParam(5))
-	userQuery.WriteString(", $6, NOW(), NOW())")
-	_, err = s.db.ExecContext(ctx, userQuery.String(), userID, email, emailHash, string(hashed), fullName, req.Role)
+	userQuery.WriteString(db.PgsodiumRandomEncryptParam(5, 6))
+	userQuery.WriteString(", $7, ")
+	userQuery.WriteString("$8, ")
+	userQuery.WriteString("$9, NOW(), NOW())")
+	_, err = s.db.ExecContext(ctx, userQuery.String(), userID, email, emailHash, string(hashed), fullName, fullNameNonce, fullNameHash, req.Role)
 	if err != nil {
 		s.log.Error("Failed to create user", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create user")
@@ -390,17 +405,22 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 	}
 
 	nickname := extractLocalPart(emailVal)
+	nicknameHash := db.NicknameHash(nickname)
+	nicknameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return "", "", false, status.Error(codes.Internal, "failed to generate nonce")
+	}
 	userID = uuid.New().String()
 	var b strings.Builder
-	b.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, nickname_encrypted, role, provider, external_id, email_confirmed, created_at, updated_at) ")
+	b.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, nickname_encrypted, nickname_nonce, nickname_hash, role, provider, external_id, email_confirmed, created_at, updated_at) ")
 	b.WriteString("VALUES ($1, ")
 	b.WriteString(db.PgsodiumEncryptParam(2))
 	b.WriteString(", $3, NULL, ")
-	b.WriteString(db.PgsodiumEncryptParam(4))
-	b.WriteString(", ")
-	b.WriteString(db.PgsodiumEncryptParam(5))
-	b.WriteString(", 'client', 'google', $6, true, NOW(), NOW())")
-	_, insertErr := s.db.ExecContext(ctx, b.String(), userID, emailVal, emailHash, nickname, nickname, googleSub)
+	b.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
+	b.WriteString(", $6, $7, ")
+	b.WriteString("'client', 'google', $8, true, NOW(), NOW())")
+	_, insertErr := s.db.ExecContext(ctx, b.String(), userID, emailVal, emailHash, nickname, nicknameNonce, nicknameHash, googleSub)
 	if insertErr != nil {
 		var pqErr *pq.Error
 		if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
@@ -437,9 +457,9 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 		getProfileQuery.WriteString("SELECT u.id, ")
 		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
 		getProfileQuery.WriteString(",\n               ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
 		getProfileQuery.WriteString(",\n               ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "nickname"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptDualParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 		err = s.db.QueryRowContext(ctx, getProfileQuery.String(), req.UserId).Scan(
 			&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
@@ -512,13 +532,17 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	// Обновляем full_name и nickname в users table (если передан)
 	if req.FullName != nil || req.Nickname != nil {
+		fullNameNonce, _ := db.GenerateNonce()
+		fullNameHash := db.BlindIndex(toString(req.FullName))
+		nicknameNonce, _ := db.GenerateNonce()
+		nicknameHash := db.BlindIndex(toString(req.Nickname))
 		var updateProfileQuery strings.Builder
 		updateProfileQuery.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1 IS NULL THEN full_name_encrypted ELSE ")
-		updateProfileQuery.WriteString(db.PgsodiumEncryptParam(1))
-		updateProfileQuery.WriteString(" END,\n\t\t\t\tnickname_encrypted = CASE WHEN $2 IS NULL THEN nickname_encrypted ELSE ")
-		updateProfileQuery.WriteString(db.PgsodiumEncryptParam(2))
-		updateProfileQuery.WriteString(" END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $3")
-		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), req.FullName, req.Nickname, req.UserId)
+		updateProfileQuery.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
+		updateProfileQuery.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1 IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1 IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4 IS NULL THEN nickname_encrypted ELSE ")
+		updateProfileQuery.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
+		updateProfileQuery.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4 IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4 IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
+		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), toString(req.FullName), fullNameNonce, fullNameHash, toString(req.Nickname), nicknameNonce, nicknameHash, req.UserId)
 		if err != nil {
 			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
 			return nil, status.Error(codes.Internal, "failed to update user details")
@@ -683,11 +707,17 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 	}
 
 	// Update nickname in both encrypted and plaintext columns
+	nicknameHash := db.NicknameHash(req.NewNickname)
+	nicknameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
 	var nicknameQuery strings.Builder
 	nicknameQuery.WriteString("UPDATE users SET nickname_encrypted = ")
-	nicknameQuery.WriteString(db.PgsodiumEncryptParam(1))
-	nicknameQuery.WriteString(", nickname = $1, updated_at = NOW() WHERE id = $2")
-	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, req.UserId)
+	nicknameQuery.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
+	nicknameQuery.WriteString(", nickname_nonce = $2, nickname_hash = $3, updated_at = NOW() WHERE id = $4")
+	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, nicknameNonce, nicknameHash, req.UserId)
 	if err != nil {
 		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to update nickname")
@@ -967,7 +997,7 @@ func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*
 	listUsersQuery.WriteString("SELECT u.id, ")
 	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
 	listUsersQuery.WriteString(",\n               ")
-	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name"))
+	listUsersQuery.WriteString(db.PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
 	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
 	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
 	if err != nil {
@@ -1047,15 +1077,22 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	userID := uuid.New().String()
 	emailVal := sanitize.String(req.GetEmail())
 	fullName := sanitize.String(req.GetFullName())
+	fullNameHash := db.BlindIndex(fullName)
+	fullNameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
 	emailHash := db.EmailHash(emailVal)
 	var registerWithInviteQuery strings.Builder
-	registerWithInviteQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, email_confirmed) ")
+	registerWithInviteQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, email_confirmed) ")
 	registerWithInviteQuery.WriteString("VALUES ($1, ")
 	registerWithInviteQuery.WriteString(db.PgsodiumEncryptParam(2))
 	registerWithInviteQuery.WriteString(", $3, $4, ")
-	registerWithInviteQuery.WriteString(db.PgsodiumEncryptParam(5))
-	registerWithInviteQuery.WriteString(", $6, true)")
-	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailHash, string(hashedPassword), fullName, finalRole)
+	registerWithInviteQuery.WriteString(db.PgsodiumRandomEncryptParam(5, 6))
+	registerWithInviteQuery.WriteString(", $7, ")
+	registerWithInviteQuery.WriteString("$8, true)")
+	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailHash, string(hashedPassword), fullName, fullNameNonce, fullNameHash, finalRole)
 
 	if err != nil {
 		var pqErr *pq.Error
@@ -1868,8 +1905,10 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	usersQuery.WriteString(", email_hash = encode(digest(lower(email), 'sha256'), 'hex'), ")
 	usersQuery.WriteString("full_name_encrypted = ")
 	usersQuery.WriteString(enc("full_name"))
-	usersQuery.WriteString(", nickname_encrypted = ")
+	usersQuery.WriteString(", full_name_hash = encode(digest(lower(full_name), 'sha256'), 'hex'), ")
+	usersQuery.WriteString("nickname_encrypted = ")
 	usersQuery.WriteString(enc("nickname"))
+	usersQuery.WriteString(", nickname_hash = encode(digest(lower(nickname), 'sha256'), 'hex') ")
 	usersQuery.WriteString(" WHERE email_encrypted IS NULL")
 	res, err := s.db.ExecContext(ctx, usersQuery.String())
 	if err != nil {

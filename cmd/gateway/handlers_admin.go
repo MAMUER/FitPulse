@@ -88,14 +88,27 @@ func parsePagination(r *http.Request) (int, int) {
 }
 
 func (g *gateway) fetchUsers(ctx context.Context, pageSize, offset int) ([]userInfo, error) {
-	encKey := string(db.EncryptionKey())
-	rows, err := g.db.QueryContext(ctx, `
-		SELECT u.id, pgp_sym_decrypt(u.email_encrypted, $1) AS email,
-		       pgp_sym_decrypt(u.full_name_encrypted, $1) AS full_name, u.role, u.created_at, u.updated_at
-		FROM users u
-		ORDER BY u.created_at DESC
-		LIMIT $2 OFFSET $3
-	`, encKey, pageSize, offset)
+	pgsodiumKeyID := db.PgsodiumKeyID()
+	var rows *sql.Rows
+	var err error
+	if pgsodiumKeyID > 0 {
+		rows, err = g.db.QueryContext(ctx, fmt.Sprintf(`
+			SELECT u.id,
+			       convert_from(pgsodium.crypto_aead_det_decrypt(u.email_encrypted, '', %d), 'UTF8') AS email,
+			       %s AS full_name,
+			       u.role, u.created_at, u.updated_at
+			FROM users u
+			ORDER BY u.created_at DESC
+			LIMIT $1 OFFSET $2
+		`, pgsodiumKeyID, db.PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name")), pageSize, offset)
+	} else {
+		rows, err = g.db.QueryContext(ctx, `
+			SELECT u.id, u.email, u.full_name, u.role, u.created_at, u.updated_at
+			FROM users u
+			ORDER BY u.created_at DESC
+			LIMIT $1 OFFSET $2
+		`, pageSize, offset)
+	}
 	if err != nil {
 		return nil, err
 	}

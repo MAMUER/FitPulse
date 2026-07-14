@@ -246,7 +246,7 @@ div#app
 |Обновить профиль|PUT|`/profile`|
 |Удалить профиль|DELETE|`/profile`|
 
-Примечание: смена пароля и email выполняются через `PUT /profile` с соответствующими полями, отдельные endpoints `/profile/security/*` не используются.
+Смена пароля и email выполняются через `PUT /profile` с соответствующими полями, отдельные endpoints `/profile/security/*` не используются.
 
 ---
 

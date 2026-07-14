@@ -124,3 +124,32 @@ func TestConnectionPoolSettings(t *testing.T) {
 	assert.Equal(t, 25, db.Stats().MaxOpenConnections)
 	assert.Equal(t, 10, db.Stats().MaxIdleClosed)
 }
+
+func TestBlindIndex(t *testing.T) {
+	assert.Equal(t, "54657374", BlindIndex("Test"))
+	assert.Equal(t, "54657374", BlindIndex("Test"))
+	assert.NotEqual(t, BlindIndex("Test"), BlindIndex("test"))
+}
+
+func TestNicknameHash(t *testing.T) {
+	assert.Equal(t, NicknameHash("alice"), NicknameHash("alice"))
+	assert.NotEqual(t, NicknameHash("alice"), NicknameHash("bob"))
+}
+
+func TestGenerateNonce(t *testing.T) {
+	nonce, err := GenerateNonce()
+	assert.NoError(t, err)
+	assert.Len(t, nonce, 12)
+
+	nonce2, err := GenerateNonce()
+	assert.NoError(t, err)
+	assert.NotEqual(t, nonce, nonce2)
+}
+
+func TestPgsodiumDecryptDualParam(t *testing.T) {
+	SetPgsodiumKeyID(1)
+	sql := PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name")
+	assert.Contains(t, sql, "CASE WHEN length(u.full_name_nonce) >= 12")
+	assert.Contains(t, sql, "pgsodium.crypto_aead_aegis256_decrypt")
+	assert.Contains(t, sql, "pgsodium.crypto_aead_det_decrypt")
+}

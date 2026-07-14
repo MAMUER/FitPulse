@@ -1,7 +1,10 @@
 package db
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/MAMUER/project/internal/sanitize"
 )
@@ -9,6 +12,16 @@ import (
 // pgsodiumKeyID — идентификатор ключа в keyring pgsodium (таблица pgsodium.key),
 // под которым шифруются/расшифровываются PII-поля. Устанавливается при старте
 // сервиса функцией EnsurePgsodiumKey (см. cmd/user-service/main.go).
+//
+// ВНИМАНИЕ: crypto_aead_det_encrypt — детерминированный AEAD (libsodium).
+// Одинаковый plaintext + ключ = одинаковый ciphertext. Это уязвимо к частотному
+// анализу при компрометации дампа/бэкапа БД.
+//
+// Детерминированное шифрование оправдано ТОЛЬКО для полей, где требуется
+// точный lookup без расшифровки (токены верификации).
+//
+// Для PII (email, full_name, nickname) используется рандомизированное
+// шифрование + blind index (HMAC-индекс для поиска).
 var pgsodiumKeyID int64 = 1
 
 // SetPgsodiumKeyID фиксирует идентификатор активного ключа pgsodium,
@@ -54,4 +67,36 @@ const pgsodiumKeyringName = "fitpulse_pii"
 // PgsodiumKeyringName возвращает имя ключа в keyring pgsodium.
 func PgsodiumKeyringName() string {
 	return pgsodiumKeyringName
+}
+
+// BlindIndex возвращает lowercase hex SHA256 для поиска без утечки plaintext.
+// Используется для полей, где применяется рандомизированное шифрование.
+func BlindIndex(plaintext string) string {
+	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(plaintext))))
+}
+
+// NicknameHash возвращает lowercase hex SHA256 для поиска по nickname.
+func NicknameHash(nickname string) string {
+	return BlindIndex(nickname)
+}
+
+// GenerateNonce генерирует случайный 12-байтовый nonce для aegis256 AEAD.
+func GenerateNonce() ([]byte, error) {
+	nonce := make([]byte, 12)
+	_, err := rand.Read(nonce)
+	return nonce, err
+}
+
+// PgsodiumRandomEncryptParam возвращает выражение pgsodium для шифрования значения
+// с рандомизированным nonce (aegis256 AEAD).
+// Результат: pgsodium.crypto_aead_aegis256_encrypt($N, '', <key_id>, $M)::bytea
+func PgsodiumRandomEncryptParam(plaintextParam int, nonceParam int) string {
+	return fmt.Sprintf("pgsodium.crypto_aead_aegis256_encrypt($%d::text, '', %d, $%d)", plaintextParam, pgsodiumKeyID, nonceParam)
+}
+
+// PgsodiumDecryptDualParam возвращает выражение для расшифровки колонки,
+// зашифрованной либо детерминированно (legacy), либо с nonce (aegis256).
+func PgsodiumDecryptDualParam(ciphertextColumn string, nonceColumn string, alias string) string {
+	return fmt.Sprintf("CASE WHEN length(%s) >= 12 THEN convert_from(pgsodium.crypto_aead_aegis256_decrypt(%s, '', %d, %s), 'UTF8') ELSE convert_from(pgsodium.crypto_aead_det_decrypt(%s, '', %d), 'UTF8') END AS %s",
+		nonceColumn, ciphertextColumn, pgsodiumKeyID, nonceColumn, ciphertextColumn, pgsodiumKeyID, alias)
 }

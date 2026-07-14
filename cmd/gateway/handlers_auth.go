@@ -644,6 +644,11 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
+		return
+	}
+
 	if err := g.enforceTOTPRateLimit(r.Context(), "setup:"+userID); err != nil {
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return

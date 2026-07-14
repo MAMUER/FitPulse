@@ -155,14 +155,14 @@ func TestStringIdempotency(t *testing.T) {
 
 func BenchmarkString(b *testing.B) {
 	input := "<script>alert('xss')</script> & more content here"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = String(input)
 	}
 }
 
 func BenchmarkStrings(b *testing.B) {
 	input := []string{"<b>bold</b>", "rock & roll", "normal text", "<script>x</script>"}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = Strings(input)
 	}
 }
