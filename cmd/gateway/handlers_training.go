@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
+	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -274,7 +275,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	planID := chi.URLParam(r, "plan_id")
 	if planID == "" {
-		http.Error(w, "plan_id требуется", http.StatusBadRequest)
+		http.Error(w, "plan_id required", http.StatusBadRequest)
 		return
 	}
 
@@ -294,38 +295,49 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	planDataJSON, err := json.Marshal(resp.GetPlanData())
-	if err != nil {
-		g.log.Error("Failed to marshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
+	planDataMap := resp.GetPlanData().AsMap()
+	if planDataMap == nil {
+		planDataMap = map[string]interface{}{}
 	}
-	planData := make(map[string]interface{})
-	if len(planDataJSON) > 0 && string(planDataJSON) != "null" {
-		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
-			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	planData["plan_id"] = resp.GetId()
-	planData["user_id"] = resp.GetUserId()
-	planData["status"] = resp.GetStatus()
-
+	planDataMap["plan_id"] = resp.GetId()
+	planDataMap["user_id"] = resp.GetUserId()
+	planDataMap["status"] = resp.GetStatus()
 	if resp.GetStartDate() != nil {
-		planData["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
+		planDataMap["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
 	}
 	if resp.GetEndDate() != nil {
-		planData["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
+		planDataMap["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"plan_id":   resp.GetId(),
-		"plan_data": planData,
+		"plan_data": planDataMap,
 	}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
+	}
+}
+
+func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := g.userClient.GetAchievements(r.Context(), &userpb.GetAchievementsRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		g.log.Error("Failed to get achievements", zap.Error(err))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 );
 
 -- Seed achievements
-INSERT INTO achievements (name, description, criteria) VALUES
-    ('Первый шаг', 'Первая завершенная тренировка', '{"type": "workout_count", "threshold": 1}'),
-    ('Десятка', '10 завершенных тренировок', '{"type": "workout_count", "threshold": 10}'),
-    ('Полтинник', '50 завершенных тренировок', '{"type": "workout_count", "threshold": 50}'),
-    ('Сто дней', '100 дней активности', '{"type": "active_days", "threshold": 100}'),
-    ('Мастер спорта', '1000 завершенных тренировок', '{"type": "workout_count", "threshold": 1000}')
+INSERT INTO achievements (name, description, criteria, icon_url) VALUES
+    ('Первый шаг', 'Первая завершенная тренировка', '{"type": "workout_count", "threshold": 1}', '/icons/first_workout.png'),
+    ('Десятка', '10 завершенных тренировок', '{"type": "workout_count", "threshold": 10}', '/icons/ten_workouts.png'),
+    ('Полтинник', '50 завершенных тренировок', '{"type": "workout_count", "threshold": 50}', '/icons/fifty_workouts.png'),
+    ('Сто дней', '100 дней активности', '{"type": "active_days", "threshold": 100}', '/icons/hundred_days.png'),
+    ('Мастер спорта', '1000 завершенных тренировок', '{"type": "workout_count", "threshold": 1000}', '/icons/master_sport.png')
 ON CONFLICT DO NOTHING;

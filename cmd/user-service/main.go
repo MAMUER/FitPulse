@@ -909,29 +909,52 @@ func (s *userServer) GetTrainingStats(ctx context.Context, req *pb.GetTrainingSt
 	return &pb.GetTrainingStatsResponse{Stats: stats}, nil
 }
 
-// GetAchievements retrieves user's achievements (stub implementation).
+// GetAchievements retrieves all achievements with user's earned status from database.
 func (s *userServer) GetAchievements(ctx context.Context, req *pb.GetAchievementsRequest) (*pb.GetAchievementsResponse, error) {
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	// In real implementation, query achievements from database
-	// For now, return mock achievements
-	achievements := []*pb.Achievement{
-		{
-			AchievementId: "first_workout",
-			Title:         "First Workout",
-			Description:   "Completed your first training session",
-			EarnedDate:    "2024-01-15T10:00:00Z",
-			IconUrl:       "/icons/first_workout.png",
-		},
-		{
-			AchievementId: "week_streak",
-			Title:         "Week Streak",
-			Description:   "Worked out for 7 consecutive days",
-			EarnedDate:    "2024-02-01T10:00:00Z",
-			IconUrl:       "/icons/week_streak.png",
-		},
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT a.id, a.name, a.description, a.icon_url, ua.earned_at
+		FROM achievements a
+		LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = $1
+		ORDER BY a.created_at ASC
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to query achievements", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to query achievements")
+	}
+	defer rows.Close()
+
+	var achievements []*pb.Achievement
+	for rows.Next() {
+		var id, name, description, iconURL string
+		var earnedAt sql.NullTime
+		if err := rows.Scan(&id, &name, &description, &iconURL, &earnedAt); err != nil {
+			s.log.Error("Failed to scan achievement", zap.Error(err))
+			continue
+		}
+		earnedDate := ""
+		if earnedAt.Valid {
+			earnedDate = earnedAt.Time.Format(time.RFC3339)
+		}
+		achievements = append(achievements, &pb.Achievement{
+			AchievementId: id,
+			Title:         name,
+			Description:   description,
+			EarnedDate:    earnedDate,
+			IconUrl:       iconURL,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		s.log.Error("Achievement rows error", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to read achievements")
+	}
+
+	if achievements == nil {
+		achievements = []*pb.Achievement{}
 	}
 
 	return &pb.GetAchievementsResponse{Achievements: achievements}, nil

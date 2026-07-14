@@ -688,6 +688,7 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Get("/training/plans/{plan_id}", g.getPlanHandler)
 		r.Get("/training/progress", g.getProgressHandler)
 		r.Post("/training/complete", g.completeWorkoutHandler)
+		r.Get("/achievements", g.getAchievementsHandler)
 
 		// ML
 		r.Post("/ml/classify", g.classifyHandler)

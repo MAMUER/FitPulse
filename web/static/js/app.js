@@ -1257,7 +1257,7 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
                         const fullPlan = await fetch(`/api/v1/training/plans/${plan.plan_id}`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
                         }).then(r => r.json());
-                        const planData = fullPlan?.plan?.plan_data;
+                        const planData = fullPlan?.plan_data;
                         if (planData?.weeks && planData.weeks.length > 0) {
                             // Get today's day of week (0 = Sunday, 1 = Monday, etc)
                             const today = new Date().getDay();
@@ -1516,23 +1516,35 @@ ${result.description ? `<p style="margin-top:12px;font-size:15px;color:var(--tex
         const container = document.getElementById('achievementsList');
         const compContainer = document.getElementById('competitionsList');
         if (!container || !compContainer) return;
-        // Заглушки достижений
-        const achievements = [
-            { icon: '🏃', name: 'Первый шаг', desc: 'Завершите первую тренировку', unlocked: false },
-            { icon: '🔥', name: 'Серия 7 дней', desc: 'Тренируйтесь 7 дней подряд', unlocked: false },
-            { icon: '💪', name: '10 тренировок', desc: 'Завершите 10 тренировок', unlocked: false },
-            { icon: '⭐', name: '50 тренировок', desc: 'Завершите 50 тренировок', unlocked: false },
-            { icon: '🎯', name: 'Точная цель', desc: 'Достигните поставленной цели', unlocked: false },
-            { icon: '📊', name: 'Аналитик', desc: 'Записывайте данные 30 дней', unlocked: false },
-        ];
-        container.innerHTML = achievements.map(a => `
-<div class="achievement-card ${a.unlocked ? 'unlocked' : 'locked'}">
-<div class="achievement-icon">${a.icon}</div>
-<div class="achievement-name">${a.name}</div>
-<div class="achievement-desc">${a.desc}</div>
-${a.unlocked ? '<div class="achievement-progress">Получено</div>' : '<div class="achievement-progress">Заблокировано</div>'}
+        let achievements = [];
+        try {
+            const data = await getAchievements();
+            achievements = (data && data.achievements) ? data.achievements : [];
+        } catch (e) {
+            console.warn('Failed to load achievements:', e);
+        }
+        const iconMap = {
+            first_workout: '🏃',
+            week_streak: '🔥',
+            ten_workouts: '💪',
+            fifty_workouts: '⭐',
+            hundred_days: '📊',
+            master_sport: '🏆',
+        };
+        container.innerHTML = achievements.map(a => {
+            const icon = a.icon_url || iconMap[a.achievement_id] || '🏆';
+            const unlocked = !!a.earned_date;
+            return `
+<div class="achievement-card ${unlocked ? 'unlocked' : 'locked'}">
+<div class="achievement-icon">${icon}</div>
+<div class="achievement-name">${a.title || ''}</div>
+<div class="achievement-desc">${a.description || ''}</div>
+${unlocked ? '<div class="achievement-progress">Получено</div>' : '<div class="achievement-progress">Заблокировано</div>'}
 </div>
-`).join('');
+`;}).join('');
+        if (!achievements.length) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Нет достижений</p>';
+        }
         // FIX: Убраны фейковые соревнования, заменены на персональные челленджи
         const competitions = [
             { name: 'Персональный рекорд', desc: 'Пройдите 10000 шагов за день', status: 'active', participants: 1, rank: null },

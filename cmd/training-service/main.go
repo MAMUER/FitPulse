@@ -462,6 +462,14 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		achievementID = "fifty_workouts"
 	}
 
+	if achievementID != "" {
+		_, _ = s.db.ExecContext(ctx, `
+			INSERT INTO user_achievements (user_id, achievement_id)
+			VALUES ($1, $2)
+			ON CONFLICT (user_id, achievement_id) DO NOTHING
+		`, req.UserId, achievementID)
+	}
+
 	return &pb.CompleteWorkoutResponse{Success: true, AchievementId: achievementID}, nil
 }
 
