@@ -1035,22 +1035,6 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
 
     // ===== Profile =====
     async function loadProfile() {
-        // Change Password
-        document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
-            const form = document.getElementById('changePasswordForm');
-            if (form) form.classList.remove('hidden');
-        });
-        document.getElementById('cancelChangePassword')?.addEventListener('click', () => {
-            const form = document.getElementById('changePasswordForm');
-            if (form) {
-                form.classList.add('hidden');
-                form.reset();
-                ['currentPasswordError', 'newPasswordError', 'confirmPasswordError'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.textContent = '';
-                });
-            }
-        });
         // New password validation hints
         const newPassInput = document.getElementById('newPassword');
         if (newPassInput) newPassInput.addEventListener('input', () => {
@@ -1086,63 +1070,6 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
             const err = confirmPass.value !== newP ? 'Пароли не совпадают' : '';
             setFieldError(confirmPass, document.getElementById('confirmPasswordError'), err);
         });
-        document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const currentP = document.getElementById('currentPassword').value;
-            const newP = document.getElementById('newPassword').value;
-            const confirmP = document.getElementById('confirmPassword').value;
-            if (!currentP) {
-                setFieldError(document.getElementById('currentPassword'), document.getElementById('currentPasswordError'), 'Введите текущий пароль');
-                return;
-            }
-            if (!newP || newP.length < 8) {
-                setFieldError(document.getElementById('newPassword'), document.getElementById('newPasswordError'), 'Минимум 8 символов');
-                return;
-            }
-            if (newP !== confirmP) {
-                setFieldError(document.getElementById('confirmPassword'), document.getElementById('confirmPasswordError'), 'Пароли не совпадают');
-                return;
-            }
-            const btn = document.querySelector('#changePasswordForm .btn-primary');
-            if (btn) { btn.disabled = true; btn.textContent = 'Сохранение...'; }
-            try {
-                await changePassword(currentP, newP);
-                showToast('Пароль успешно изменён', 'success');
-                document.getElementById('cancelChangePassword')?.click();
-            } catch (err) {
-                if (err.message.includes('incorrect')) {
-                    setFieldError(document.getElementById('currentPassword'), document.getElementById('currentPasswordError'), 'Неверный текущий пароль');
-                } else if (err.message.includes('8 characters') || err.message.includes('uppercase')) {
-                    setFieldError(document.getElementById('newPassword'), document.getElementById('newPasswordError'), err.message);
-                } else {
-                    showToast('Ошибка: ' + err.message, 'error');
-                }
-            } finally {
-                if (btn) { btn.disabled = false; btn.textContent = 'Сохранить новый пароль'; }
-            }
-        });
-        // ===== Delete Profile =====
-        document.getElementById('deleteProfileBtn')?.addEventListener('click', async () => {
-            if (!confirm('Вы уверены? Это действие необратимо. Все данные будут удалены.')) return;
-            if (!confirm('Точно удалить аккаунт?')) return;
-            const btn = document.getElementById('deleteProfileBtn');
-            if (btn) { btn.disabled = true; btn.textContent = 'Удаление...'; }
-            try {
-                await deleteProfile();
-                showToast('Аккаунт удалён', 'success');
-                setTimeout(() => {
-                    setAuthToken(null);
-                    window.location.reload();
-                }, 1500);
-            } catch (err) {
-                showToast('Ошибка: ' + err.message, 'error');
-                if (btn) { btn.disabled = false; btn.textContent = 'Удалить аккаунт'; }
-            }
-        });
-
-        // ===== FIX: CSP - Убраны inline event handlers =====
-        document.getElementById('connectFitbitBtn')?.addEventListener('click', connectFitbit);
-        document.getElementById('connectWithingsBtn')?.addEventListener('click', connectWithings);
 
         // ===== Diet Settings =====
         document.getElementById('applyDietSettingsBtn')?.addEventListener('click', () => {
@@ -1171,6 +1098,8 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         const activeTab = document.querySelector(`.tab[data-view="${viewName}"]`);
         if (activeTab) activeTab.classList.add('active');
+        const adminTab = document.getElementById('adminTab');
+        if (viewName !== 'admin' && adminTab) adminTab.classList.remove('active');
         pageTitle.textContent = viewTitles[viewName] || 'FitPulse';
         if (viewName === 'dashboard') loadDashboard();
         if (viewName === 'profile') loadProfile();
@@ -1187,15 +1116,28 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
     // ===== Dashboard =====
     async function loadDashboard() {
         try {
-            const [hrData, spo2Data] = await Promise.allSettled([
+            const [hrData, spo2Data, sleepData, systolicData, diastolicData] = await Promise.allSettled([
                 getBiometricRecords('heart_rate', null, null, 10),
                 getBiometricRecords('spo2', null, null, 5),
+                getBiometricRecords('sleep_hours', null, null, 5),
+                getBiometricRecords('systolic_pressure', null, null, 5),
+                getBiometricRecords('diastolic_pressure', null, null, 5),
             ]);
             if (hrData.status === 'fulfilled' && hrData.value.records?.length > 0) {
                 document.getElementById('hrValue').textContent = Math.round(hrData.value.records[0].value);
             }
             if (spo2Data.status === 'fulfilled' && spo2Data.value.records?.length > 0) {
                 document.getElementById('spo2Value').textContent = Math.round(spo2Data.value.records[0].value);
+            }
+            if (sleepData.status === 'fulfilled' && sleepData.value.records?.length > 0) {
+                const sleepVal = sleepData.value.records[0].value;
+                document.getElementById('sleepValue').textContent = Number.isInteger(sleepVal) ? sleepVal : sleepVal.toFixed(1);
+            }
+            if (systolicData.status === 'fulfilled' && systolicData.value.records?.length > 0 &&
+                diastolicData.status === 'fulfilled' && diastolicData.value.records?.length > 0) {
+                const sys = Math.round(systolicData.value.records[0].value);
+                const dia = Math.round(diastolicData.value.records[0].value);
+                document.getElementById('bpValue').textContent = `${sys}/${dia}`;
             }
             // Chart
             if (hrData.status === 'fulfilled' && hrData.value.records?.length > 1) {

@@ -615,6 +615,7 @@ jobs:
       - name: Install security tools
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
@@ -628,6 +629,18 @@ jobs:
         with:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run govulncheck
+        run: |
+          mkdir -p sarif-results
+          govulncheck ./... > sarif-results/govulncheck.txt 2>&1 || true
+        continue-on-error: true
+      - name: Upload govulncheck results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/govulncheck.txt
+          category: govulncheck
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run Trivy config scan (misconfigurations)
         uses: aquasecurity/trivy-action@v0.36.0
@@ -653,6 +666,38 @@ jobs:
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          chmod +x /usr/local/bin/gitleaks
+      - name: Run Gitleaks secret scan
+        run: |
+          mkdir -p sarif-results
+          gitleaks detect --source=. --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
+      - name: Upload Gitleaks results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/gitleaks.sarif
+          category: gitleaks
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz -o /tmp/trufflehog.tar.gz
+          tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog
+          chmod +x /usr/local/bin/trufflehog
+      - name: Run TruffleHog secret scan
+        run: |
+          mkdir -p sarif-results
+          trufflehog filesystem . --format=json --output=sarif-results/trufflehog.json || true
+      - name: Upload TruffleHog results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/trufflehog.json
+          category: trufflehog
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install syft
         run: |
@@ -685,6 +730,33 @@ jobs:
               echo "❌ FAIL: Trivy found $TRIVY_CRITICAL critical vulnerabilities in dependencies"
               jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' sarif-results/trivy-fs.sarif 2>/dev/null | head -10 || true
               FAIL=1
+            fi
+          fi
+          if [ -f sarif-results/gitleaks.sarif ]; then
+            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null || echo 0)
+            echo "gitleaks: $GITLEAKS secrets found"
+            if [ "$GITLEAKS" -gt 0 ]; then
+              echo "❌ FAIL: Gitleaks found $GITLEAKS potential secrets"
+              jq -r '.runs[].results[] | select(.level == "error" or .level == "warning") | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gitleaks.sarif 2>/dev/null | head -10 || true
+              FAIL=1
+            fi
+          fi
+          if [ -f sarif-results/trufflehog.json ]; then
+            TRUFFLEHOG=$(jq 'length' sarif-results/trufflehog.json 2>/dev/null || echo 0)
+            echo "trufflehog: $TRUFFLEHOG secrets found"
+            if [ "$TRUFFLEHOG" -gt 0 ]; then
+              echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
+              jq -r '.[] | "  - \(.rule_id // .detector_name // "unknown"): \(.description // .raw // "")"' sarif-results/trufflehog.json 2>/dev/null | head -10 || true
+              FAIL=1
+            fi
+          fi
+          if [ -f sarif-results/govulncheck.txt ]; then
+            GOVULNCHECK=$(grep -c "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null || echo 0)
+            echo "govulncheck: $GOVULNCHECK vulnerabilities found"
+            if [ "$GOVULNCHECK" -gt 0 ]; then
+              echo "⚠️  WARNING: govulncheck found $GOVULNCHECK potential vulnerabilities"
+              grep "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null | head -10 || true
+              echo "   Note: Trivy covers CVE scanning. govulncheck results are informational."
             fi
           fi
           echo "============================================"

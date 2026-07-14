@@ -141,8 +141,111 @@
                                 Вернуться ко входу</a></p>
                     </form>
                     <div id="authError" class="auth-error hidden"></div>
-                </div>
-            </div>
+                        </div>
+                        <!-- Модалка смены пароля -->
+                        <div id="changePasswordModal" class="modal hidden">
+                            <div class="modal-overlay"></div>
+                            <div class="modal-content">
+                                <h3>Сменить пароль</h3>
+                                <form id="changePasswordForm" novalidate>
+                                    <div class="form-group">
+                                        <label>Текущий пароль</label>
+                                        <input type="password" id="currentPassword"
+                                            placeholder="Введите текущий пароль"
+                                            required>
+                                        <div class="field-error"
+                                            id="currentPasswordError"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Новый пароль</label>
+                                        <input type="password" id="newPassword"
+                                            placeholder="Минимум 8 символов, буквы и цифры"
+                                            required minlength="8">
+                                        <div class="field-error"
+                                            id="newPasswordError"></div>
+                                        <div id="passwordHint"
+                                            class="password-hint hidden">
+                                            <span id="hintLength">✗ Минимум 8
+                                                символов</span>
+                                            <span id="hintUpper">✗ Заглавная
+                                                буква</span>
+                                            <span id="hintLower">✗ Строчная
+                                                буква</span>
+                                            <span id="hintDigit">✗ Цифра</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Подтверждение пароля</label>
+                                        <input type="password" id="confirmPassword"
+                                            placeholder="Повторите новый пароль"
+                                            required>
+                                        <div class="field-error"
+                                            id="confirmPasswordError"></div>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button type="submit"
+                                            class="btn-primary">Сохранить новый
+                                            пароль</button>
+                                        <button type="button" class="btn-secondary"
+                                            id="cancelChangePassword">Отмена</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <!-- Модалка смены email -->
+                        <div id="changeEmailModal" class="modal hidden">
+                            <div class="modal-overlay"></div>
+                            <div class="modal-content">
+                                <h3>Сменить почту</h3>
+                                <form id="changeEmailForm" novalidate>
+                                    <div class="form-group">
+                                        <label>Новый email</label>
+                                        <input type="email" id="newEmail"
+                                            placeholder="example@mail.ru" required>
+                                        <div class="field-error"
+                                            id="newEmailError"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Текущий пароль</label>
+                                        <input type="password"
+                                            id="emailConfirmPassword"
+                                            placeholder="Введите пароль для подтверждения"
+                                            required>
+                                        <div class="field-error"
+                                            id="emailConfirmPasswordError"></div>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button type="submit"
+                                            class="btn-primary">Сохранить новую
+                                            почту</button>
+                                        <button type="button" class="btn-secondary"
+                                            id="cancelChangeEmail">Отмена</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <!-- Модалка удаления профиля -->
+                        <div id="deleteProfileModal" class="modal hidden">
+                            <div class="modal-overlay"></div>
+                            <div class="modal-content">
+                                <h3 style="color: var(--accent);">Удаление аккаунта</h3>
+                                <p class="delete-warning">Это действие необратимо. Все ваши данные, тренировки и достижения будут удалены.</p>
+                                <div class="form-group">
+                                    <label>Введите пароль для подтверждения</label>
+                                    <input type="password" id="deleteConfirmPassword"
+                                        placeholder="Текущий пароль">
+                                    <div class="field-error"
+                                        id="deleteConfirmPasswordError"></div>
+                                </div>
+                                <div class="modal-actions">
+                                    <button type="button" class="btn-secondary"
+                                        id="cancelDeleteProfile">Отмена</button>
+                                    <button type="button" class="btn-danger"
+                                        id="confirmDeleteProfile">Удалить аккаунт</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
             <!-- Главное приложение (скрыто до авторизации) -->
             <div id="mainScreen" class="screen">
                 <!-- Верхняя панель -->
@@ -432,82 +535,9 @@
                                         id="disable2FAError"></div>
                                 </div>
                             </div>
-                            <!-- Форма смены почты (скрыта по умолчанию) -->
-                            <form id="changeEmailForm" class="hidden"
-                                style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-                                <div class="form-group">
-                                    <label>Новый email</label>
-                                    <input type="email" id="newEmail"
-                                        placeholder="example@mail.ru" required>
-                                    <div class="field-error"
-                                        id="newEmailError"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Текущий пароль</label>
-                                    <input type="password"
-                                        id="emailConfirmPassword"
-                                        placeholder="Введите пароль для подтверждения"
-                                        required>
-                                    <div class="field-error"
-                                        id="emailConfirmPasswordError"></div>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="submit"
-                                        class="btn-primary">Сохранить новую
-                                        почту</button>
-                                    <button type="button" class="btn-secondary"
-                                        id="cancelChangeEmail">Отмена</button>
-                                </div>
-                            </form>
-                            <!-- Форма смены пароля (скрыта по умолчанию) -->
-                            <form id="changePasswordForm" class="hidden"
-                                style="margin-top: 12px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-                                <div class="form-group">
-                                    <label>Текущий пароль</label>
-                                    <input type="password" id="currentPassword"
-                                        placeholder="Введите текущий пароль"
-                                        required>
-                                    <div class="field-error"
-                                        id="currentPasswordError"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Новый пароль</label>
-                                    <input type="password" id="newPassword"
-                                        placeholder="Минимум 8 символов, буквы и цифры"
-                                        required minlength="8">
-                                    <div class="field-error"
-                                        id="newPasswordError"></div>
-                                    <div id="passwordHint"
-                                        class="password-hint hidden">
-                                        <span id="hintLength">✗ Минимум 8
-                                            символов</span>
-                                        <span id="hintUpper">✗ Заглавная
-                                            буква</span>
-                                        <span id="hintLower">✗ Строчная
-                                            буква</span>
-                                        <span id="hintDigit">✗ Цифра</span>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Подтверждение пароля</label>
-                                    <input type="password" id="confirmPassword"
-                                        placeholder="Повторите новый пароль"
-                                        required>
-                                    <div class="field-error"
-                                        id="confirmPasswordError"></div>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="submit"
-                                        class="btn-primary">Сохранить новый
-                                        пароль</button>
-                                    <button type="button" class="btn-secondary"
-                                        id="cancelChangePassword">Отмена</button>
-                                </div>
-                            </form>
-                        </div>
-                        <!-- Удаление профиля -->
-                        <div class="form-section danger-zone"
-                            style="margin-top: 24px;">
+                            <!-- Удаление профиля -->
+                            <div class="form-section danger-zone"
+                                style="margin-top: 24px;">
                             <h3 style="color: var(--red);">Опасная зона</h3>
                             <p
                                 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
@@ -685,7 +715,7 @@
                         </button>
                     </div>
                     <!-- Админка -->
-                    <div id="adminView" class="view">
+                    <div id="adminView" class="view" style="display: none;">
                         <h3>🔐 Панель администратора</h3>
                         <section class="admin-section"
                             style="margin-bottom: 24px;">
