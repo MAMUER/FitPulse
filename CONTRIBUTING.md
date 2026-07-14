@@ -31,11 +31,13 @@
    cd fitpulse
    ```
 
-3. **Добавьте upstream remote**:
+3. **Добавьте upstream remote** (опционально, если работаете через fork):
 
    ```bash
    git remote add upstream https://github.com/MAMUER/fitpulse.git
    ```
+
+   Если вы работаете напрямую в репозитории, этот шаг можно пропустить.
 
  4. **Установите зависимости**:
 
@@ -276,14 +278,16 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 
 2. **Запустите все проверки**:
 
-    ```bash
-    make check  # tidy + fmt + vet + lint + unit tests + markdown check
-    ```
+   ```bash
+   make check
+   ```
 
-    При необходимости запустите интеграционные тесты локально (требуют Docker):
-    ```bash
-    go test -v -tags=integration ./...
-    ```
+   Эта команда запускает: `go mod tidy`, `go fmt`, `go vet`, импорты, `golangci-lint` и unit-тесты с проверкой покрытия.
+
+   При необходимости запустите интеграционные тесты локально (требуют Docker):
+   ```bash
+   go test -v -tags=integration ./...
+   ```
 
 3. **Проверьте покрытие тестами**:
 
@@ -361,12 +365,15 @@ PR будет принят, если:
 4. Исправление замечаний
 5. Approval и merge
 
+**Merge frequency**: approved PRы мержатся в `main` по готовности, обычно в течение 1 рабочего дня после approval. Hotfixы мержатся приоритетно.
+
 ## Сообщество и коммуникация
 
 ### Где задать вопросы
 
 - **GitHub Issues**: для багов и фич
 - **GitHub Discussions**: для общих вопросов
+- **GitHub Security Advisory**: для конфиденциальных сообщений об уязвимостях [https://github.com/MAMUER/fitpulse/security/advisories](https://github.com/MAMUER/fitpulse/security/advisories)
 - **Email**: <mihnikolaenko12@yandex.ru>
 
 ### Кодекс поведения

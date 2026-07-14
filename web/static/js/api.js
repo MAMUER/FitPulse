@@ -39,6 +39,14 @@ async function apiRequest(endpoint, options = {}) {
         throw new Error('Сессия истекла. Войдите заново');
     }
 
+    if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const msg = retryAfter
+            ? `Слишком много запросов. Повторите через ${retryAfter} сек.`
+            : 'Слишком много запросов. Попробуйте через минуту.';
+        throw new Error(msg);
+    }
+
     let data;
     let rawBody = '';
     const contentType = response.headers.get('content-type') || '';
@@ -177,7 +185,7 @@ async function getTrainingPlans(page = 1, pageSize = 10) {
 }
 
 async function getPlan(planId) {
-    return apiRequest(`/training/plan/${planId}`);
+    return apiRequest(`/training/plans/${planId}`);
 }
 
 async function completeWorkout(planId, workoutId, rating, feedback) {

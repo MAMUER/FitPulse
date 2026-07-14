@@ -1215,7 +1215,7 @@ ${inv.is_active ? `<button data-action="revoke-invite" data-code="${inv.code}" c
                     let todayWorkoutHtml = '';
                     // Try to load full plan details
                     try {
-                        const fullPlan = await fetch(`/api/v1/training/plan/${plan.plan_id}`, {
+                        const fullPlan = await fetch(`/api/v1/training/plans/${plan.plan_id}`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
                         }).then(r => r.json());
                         const planData = fullPlan?.plan?.plan_data;

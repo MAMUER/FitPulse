@@ -34,8 +34,7 @@
 
 **Для пользователей:**
 
-- Персонализированные тренировочные планы (GAN)
-- Автоматическая генерация диеты
+- Персонализированные тренировочные планы (Conditional Diffusion Model)
 - Интеграция с носимыми устройствами
 - ML-классификация состояния (6 классов)
 - Мониторинг биометрии в реальном времени
@@ -46,7 +45,7 @@
 - Управление пользователями
 - Мониторинг и аудит
 
-**Подробные таблицы**: [Возможности](docs/FEATURES.md) • [API Endpoints](docs/API.md) • [ML/GAN логика](docs/ML_SPECIFICATION.md)
+**Подробные таблицы**: [Возможности](docs/FEATURES.md) • [API Endpoints](docs/API.md) • [ML логика](docs/ML_SPECIFICATION.md)
 
 ---
 
@@ -57,7 +56,7 @@ FitPulse реализует комплексные меры безопаснос
 - JWT (ES256) + Refresh Token rotation
 - Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 1)
 - Content Security Policy (nonce-based)
-- Rate limiting (sliding window)
+- Rate limiting (token bucket)
 - Сетевая сегментация (Kubernetes Network Policies)
 - mTLS для внутренних коммуникаций (TLS 1.3, mutual auth через Kubernetes Secret)
 - Соответствие 152-ФЗ
@@ -77,32 +76,69 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/invite/validate` | Проверка invite-кода |
 | POST | `/api/v1/login` | Вход |
 | POST | `/api/v1/auth/confirm` | Подтверждение email |
-| POST | `/api/v1/devices/register` | Регистрация устройства |
-| POST | `/api/v1/devices/{id}/ingest` | Приём данных с устройства |
+| GET | `/api/v1/auth/verify-status` | Проверка статуса подтверждения email |
+| GET | `/api/v1/auth/google` | Google OAuth логин |
+| GET | `/api/v1/auth/google/callback` | Google OAuth callback |
+| POST | `/api/v1/auth/2fa/verify` | Проверка TOTP после логина |
+| POST | `/api/v1/auth/refresh` | Ротация refresh token |
+| POST | `/api/v1/devices/withings/webhook` | Webhook для Withings |
+| GET | `/.well-known/jwks.json` | JWKS endpoint для JWT публичного ключа |
 | GET | `/health` | Health check |
+| GET | `/confirm` | Страница подтверждения email |
 
 ### Защищённые (JWT required)
 
 | Метод | Путь | Описание |
 | ------- | ------ | ---------- |
 | POST | `/api/v1/logout` | Выход с инвалидацией сессии |
+| POST | `/api/v1/auth/critical-session` | Получить critical session token для защищённых действий |
+| POST | `/api/v1/auth/2fa/setup` | Настройка TOTP |
+| POST | `/api/v1/auth/2fa/confirm` | Подтверждение TOTP |
+| GET | `/api/v1/auth/2fa/status` | Статус TOTP |
+| POST | `/api/v1/auth/2fa/disable` | Отключение TOTP |
 | GET | `/api/v1/profile` | Получить профиль |
 | PUT | `/api/v1/profile` | Обновить профиль |
 | DELETE | `/api/v1/profile` | Удалить профиль |
 | POST | `/api/v1/biometrics` | Добавить биометрию |
 | GET | `/api/v1/biometrics` | Получить биометрию |
-| POST | `/api/v1/training/generate` | Сгенерировать план |
+| GET | `/api/v1/health/conditions` | Список заболеваний |
+| POST | `/api/v1/health/conditions` | Добавить заболевание |
+| DELETE | `/api/v1/health/conditions/{condition_id}` | Удалить заболевание |
+| GET | `/api/v1/health/body-composition` | Состав тела |
+| POST | `/api/v1/health/body-composition` | Добавить запись состава тела |
+| GET | `/api/v1/health/menstrual-cycles` | Менструальные циклы |
+| POST | `/api/v1/health/menstrual-cycles` | Добавить цикл |
+| PUT | `/api/v1/health/menstrual-cycles/{cycle_id}` | Обновить цикл |
+| DELETE | `/api/v1/health/menstrual-cycles/{cycle_id}` | Удалить цикл |
+| POST | `/api/v1/health/sync/flo` | Синхронизация с Flo |
+| POST | `/api/v1/health/sync/okok` | Синхронизация с OKOK |
 | GET | `/api/v1/training/plans` | Список планов |
+| GET | `/api/v1/training/plans/{plan_id}` | Получить план по ID |
+| POST | `/api/v1/training/generate` | Сгенерировать план |
 | POST | `/api/v1/training/complete` | Завершить тренировку |
 | GET | `/api/v1/training/progress` | Прогресс |
 | POST | `/api/v1/ml/classify` | Классификация состояния |
-| POST | `/api/v1/ml/generate-plan` | Генерация плана (GAN) |
+| POST | `/api/v1/ml/generate-plan` | Генерация плана |
+| POST | `/api/v1/devices/register` | Регистрация устройства |
+| POST | `/api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
+| GET | `/api/v1/devices` | Список устройств |
+| GET | `/api/v1/devices/providers` | Список провайдеров устройств |
+| GET | `/api/v1/devices/fitbit/auth` | Fitbit OAuth |
+| GET | `/api/v1/devices/fitbit/callback` | Fitbit callback |
+| POST | `/api/v1/devices/fitbit/disconnect` | Отключение Fitbit |
+| GET | `/api/v1/devices/withings/auth` | Withings OAuth |
+| GET | `/api/v1/devices/withings/callback` | Withings callback |
+| POST | `/api/v1/devices/withings/disconnect` | Отключение Withings |
+| GET | `/metrics` | Prometheus метрики |
 
 ### Админ (JWT + role=admin)
 
 | Метод | Путь | Описание |
 | ------- | ------ | ---------- |
 | GET | `/api/v1/admin/users` | Список пользователей |
+| GET | `/api/v1/admin/invites` | Список invite-кодов |
+| POST | `/api/v1/admin/invites` | Создать invite-код |
+| POST | `/api/v1/admin/invites/{code}/revoke` | Отозвать invite-код |
 
 **Полная спецификация**: [docs/API.md](docs/API.md)
 
