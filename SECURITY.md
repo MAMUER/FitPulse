@@ -84,7 +84,7 @@
 
 **At rest:**
 
-- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
+- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). *Примечание: детерминированное шифрование уязвимо к частотному анализу; для полей, не требующих поиска по точному совпадению, использовать рандомизированное шифрование.* Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
 - Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
 - Резервные копии: AES-256
 
@@ -97,7 +97,7 @@
 
 ### CI/CD безопасность
 
-- **SAST**: gosec (глубокий анализ логики кода)
+- **SAST**: gosec (глубокий анализ логики кода), govulncheck (анализ уязвимостей в зависимостях и коде)
 - **Vulnerability / Secrets / Misconfiguration scanning**: Trivy (единый сканер для репозитория `scan-type: fs` со `scanners: vuln,secret,misconfig` и для образов `scanners: vuln,secret`, плюс `scan-type: config` для IaC).
 - **SBOM generation**: syft (SPDX, CycloneDX)
 - **Image signing**: cosign

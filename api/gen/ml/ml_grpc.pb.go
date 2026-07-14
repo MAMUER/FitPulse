@@ -120,6 +120,11 @@ type MLServiceServer interface {
 	mustEmbedUnimplementedMLServiceServer()
 }
 
+// UnimplementedMLServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedMLServiceServer struct{}
 
 func (UnimplementedMLServiceServer) Classify(context.Context, *ClassifyRequest) (*ClassifyResponse, error) {

@@ -10,7 +10,7 @@
 
 1. **Зоны безопасности**: Полные Network Policies для dmz, app-zone, data-zone, monitoring-zone.
 2. **RBAC**: Принцип минимальных привилегий с выделенными ServiceAccounts и минимальными ролями.
-3. **Шифрование**: pgcrypto для PostgreSQL (функциональность, аналогичная TDE).
+3. **Шифрование**: pgsodium для PostgreSQL (детерминированное AEAD для PII, envelope encryption для токенов).
 4. **Бэкапы**: WAL-based инкрементальные бэкапы с поддержкой PITR.
 5. **Метрики**: дополнительные Prometheus-метрики для трейкинга ошибок, ML-уверенности, пулов БД, очередей, sync lag.
 6. **CI/CD**: 9-этапный пайплайн с canary-деплоем, триггерами отката, security gates.

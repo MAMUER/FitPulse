@@ -13,24 +13,22 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// SessionStore управляет сессиями и однократными кодами авторизации
-// Требование #2: Однократное использование токенов
-// Требование #3: Разделение хранилищ сессий
+// SessionStore manages sessions and one-time authorization codes
 type SessionStore struct {
-	client *Client // redis client
+	client *Client // valkey client
 }
 
-// NewSessionStore создаёт хранилище сессий
+// NewSessionStore creates a session store
 func NewSessionStore(client *Client) *SessionStore {
 	return &SessionStore{client: client}
 }
 
-// NewSessionStoreFromRedis создаёт хранилище сессий из существующего Redis клиента
-func NewSessionStoreFromRedis(rdb *redis.Client) *SessionStore {
-	return &SessionStore{client: NewClientFromRedis(rdb)}
+// NewSessionStoreFromValkey creates a session store from an existing Valkey client
+func NewSessionStoreFromValkey(rdb *redis.Client) *SessionStore {
+	return &SessionStore{client: NewClientFromValkey(rdb)}
 }
 
-// generateCode генерирует криптографически безопасный код
+// generateCode generates a cryptographically secure code
 func generateCode() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -47,7 +45,7 @@ func (s *SessionStore) CreateAuthCode(ctx context.Context, userID, clientID, red
 	key := "auth_code:" + code
 	value := fmt.Sprintf("%s|%s|%s", userID, clientID, redirectURI)
 
-	// Код живёт 5 минут и удаётся после использования
+	// Code lives 5 minutes and is deleted after use
 	if err := s.client.Set(ctx, key, value, 5*time.Minute); err != nil {
 		return "", err
 	}
@@ -63,19 +61,19 @@ func (s *SessionStore) ExchangeAuthCode(ctx context.Context, code, clientID, red
 		return "", ErrCodeNotFound
 	}
 
-	// Парсим сохранённые данные
+	// Parse saved data
 	parts := strings.SplitN(value, "|", 3)
 	if len(parts) != 3 {
 		return "", ErrCodeInvalid
 	}
 	savedUserID, savedClientID, savedRedirectURI := parts[0], parts[1], parts[2]
 
-	// Требование #2: Проверяем client_id и redirect_uri
+	// Requirement #2: Verify client_id and redirect_uri
 	if savedClientID != clientID || savedRedirectURI != redirectURI {
 		return "", ErrCodeMismatch
 	}
 
-	// Требование #2: Удаляем код — он больше недействителен
+	// Requirement #2: Delete code — it's no longer valid
 	if err := s.client.Del(ctx, key); err != nil {
 		return "", err
 	}
@@ -108,7 +106,7 @@ func (s *SessionStore) ValidateCriticalSession(ctx context.Context, token, expec
 		return ErrSessionInvalid
 	}
 
-	// Требование #3: Сессия удаляется после использования
+	// Requirement #3: Session is deleted after use
 	return s.client.Del(ctx, key)
 }
 

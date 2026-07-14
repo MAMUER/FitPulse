@@ -14,7 +14,7 @@
 ### Инфраструктура
 
 - [ ] Матрица окружений применена ко всем компонентам
-- [ ] PostgreSQL 18 с pgcrypto для at-rest columns, key management (envelope encryption, не двойное шифрование)
+- [ ] PostgreSQL 18 с pgsodium for at-rest columns, key management (envelope encryption, не двойное шифрование)
 - [ ] RabbitMQ 4 с persistent queues и DLQ
 - [ ] Valkey 9
 - [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana

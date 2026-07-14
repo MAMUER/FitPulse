@@ -16,7 +16,7 @@ type Client struct {
 func (c *Client) Close() error {
 	if c.rdb != nil {
 		if err := c.rdb.Close(); err != nil {
-			return fmt.Errorf("close redis client: %w", err)
+			return fmt.Errorf("close valkey client: %w", err)
 		}
 	}
 	return nil
@@ -30,13 +30,13 @@ func NewClient(addr, password string, db int) (*Client, error) {
 	})
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("ping redis: %w", err)
+		return nil, fmt.Errorf("ping valkey: %w", err)
 	}
 	return &Client{rdb: rdb}, nil
 }
 
-// NewClientFromRedis создаёт Cache Client из существующего Redis клиента
-func NewClientFromRedis(rdb *redis.Client) *Client {
+// NewClientFromValkey creates a Cache Client from an existing Valkey client
+func NewClientFromValkey(rdb *redis.Client) *Client {
 	return &Client{rdb: rdb}
 }
 

@@ -4,7 +4,7 @@ version: 2
 # Раз в квартал: govulncheck ./... -show verbose
 # При добавлении новых зависимостей: проверять через osv-scanner
 # Документация: автоматические проверки версий запускаются через .github/workflows/docs-check.yml
-# Debian base images: отслеживаются через ecosystem "docker" (python:3.12-slim и др.)
+# Debian base images: отслеживаются через ecosystem "docker" (python:3.14-slim и др.)
 
 registries:
   ghcr:
@@ -244,7 +244,7 @@ updates:
           - "pydantic"
           - "pandas"
           - "matplotlib"
-          - "redis"
+          - "valkey"
           - "pika"
           - "joblib"
           - "prometheus-client"
@@ -293,5 +293,5 @@ updates:
     ignore:
       - dependency-name: "postgres"
         versions: [">=18"]
-      - dependency-name: "redis"
+      - dependency-name: "valkey"
         versions: [">=8"]

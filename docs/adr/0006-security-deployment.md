@@ -17,7 +17,7 @@
 2. **RBAC и привилегии**: Kubernetes RBAC с отдельным ServiceAccount на сервис, принцип минимальных привилегий, отдельные аккаунты для CI/CD и runtime.
 
 3. **Шифрование**:
-   - At rest: pgcrypto для PostgreSQL (функциональность, аналогичная TDE).
+   - At rest: pgsodium для PostgreSQL (детерминированное AEAD для PII, envelope encryption для токенов).
    - In transit: TLS 1.3, mTLS для gRPC, certificate pinning.
 
 4. **Управление зависимостями**: Dependabot и Snyk для сканирования уязвимостей, политики remediaton CVE.

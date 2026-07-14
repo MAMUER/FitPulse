@@ -17,7 +17,7 @@ from aio_pika import connect_robust
 from fastapi import FastAPI, HTTPException
 from prometheus_client import Gauge
 from pydantic import BaseModel, ConfigDict, Field
-from redis.asyncio import Redis
+from valkey.asyncio import Valkey
 
 # Configure structured logging
 structlog.configure(
@@ -42,7 +42,7 @@ classification_confidence = Gauge(
 
 # Global state
 generator_session: Optional[ort.InferenceSession] = None
-redis_client: Optional[Redis] = None
+valkey_client: Optional[Valkey] = None
 rabbitmq_connection = None
 ml_async_enabled = False
 
@@ -170,26 +170,26 @@ def generate_from_noise(noise: np.ndarray) -> np.ndarray:
 
 
 async def init_async():
-    """Initialize async RabbitMQ consumer and Redis client."""
-    global redis_client, rabbitmq_connection, ml_async_enabled
+    """Initialize async RabbitMQ consumer and Valkey client."""
+    global valkey_client, rabbitmq_connection, ml_async_enabled
 
     ml_async_enabled = os.environ.get("ML_ASYNC", "").lower() == "true"
     if not ml_async_enabled:
         logger.info("Async mode disabled")
         return
 
-    # Async Redis
-    redis_host = os.environ.get("REDIS_HOST", "localhost")
-    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    # Async Valkey
+    valkey_host = os.environ.get("VALKEY_HOST", "localhost")
+    valkey_port = int(os.environ.get("VALKEY_PORT", 6379))
 
     try:
-        redis_client = Redis(host=redis_host, port=redis_port, decode_responses=True)
-        await redis_client.ping()
-        logger.info("Redis connected", host=redis_host, port=redis_port)
+        valkey_client = Valkey(host=valkey_host, port=valkey_port, decode_responses=True)
+        await valkey_client.ping()
+        logger.info("Valkey connected", host=valkey_host, port=valkey_port)
     except Exception as e:
-        logger.error("Redis connection failed", error=str(e))
+        logger.error("Valkey connection failed", error=str(e))
         ml_async_enabled = False
-        redis_client = None
+        valkey_client = None
         return
 
     # Async RabbitMQ consumer
@@ -244,7 +244,7 @@ async def _on_generate_message(body: bytes):
             "completed_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
         }
 
-        await redis_client.setex(f"ml:result:{job_id}", 3600, json.dumps(result))
+        await valkey_client.setex(f"ml:result:{job_id}", 3600, json.dumps(result))
         logger.info("Job completed", job_id=job_id)
 
     except Exception as e:
@@ -272,8 +272,8 @@ async def lifespan(app: FastAPI):
     logger.info("ML Generator Service started")
     yield
     # Shutdown
-    if redis_client:
-        await redis_client.close()
+    if valkey_client:
+        await valkey_client.close()
     if rabbitmq_connection:
         await rabbitmq_connection.close()
     logger.info("ML Generator Service stopped")

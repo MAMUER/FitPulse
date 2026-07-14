@@ -87,8 +87,8 @@ func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
 }
 
 func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string, error) {
-	if g.rdb == nil {
-		return "", errors.New("redis unavailable")
+	if g.valkeyDB == nil {
+		return "", errors.New("valkey unavailable")
 	}
 	token := auth.GenerateRefreshToken()
 	fingerprint := auth.ComputeTokenFingerprint(token)
@@ -96,7 +96,7 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 	fpKey := "refresh:fp:" + fingerprint
 	issuedKey := "refresh:issued:" + userID
 
-	pipe := g.rdb.Pipeline()
+	pipe := g.valkeyDB.Pipeline()
 	pipe.Set(ctx, key, userID, 7*24*time.Hour)
 	pipe.Set(ctx, fpKey, userID, 7*24*time.Hour)
 	pipe.SAdd(ctx, issuedKey, token)
@@ -109,13 +109,13 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 }
 
 func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
-	userID, err := g.rdb.Get(ctx, "refresh:"+oldToken).Result()
+	userID, err := g.valkeyDB.Get(ctx, "refresh:"+oldToken).Result()
 	if err != nil {
 		fingerprint := auth.ComputeTokenFingerprint(oldToken)
-		fpUserID, fpErr := g.rdb.Get(ctx, "refresh:fp:"+fingerprint).Result()
+		fpUserID, fpErr := g.valkeyDB.Get(ctx, "refresh:fp:"+fingerprint).Result()
 		if fpErr == nil && fpUserID != "" {
 			revokedKey := "refresh:revoked:" + fpUserID
-			isRevoked, memberErr := g.rdb.SIsMember(ctx, revokedKey, fingerprint).Result()
+			isRevoked, memberErr := g.valkeyDB.SIsMember(ctx, revokedKey, fingerprint).Result()
 			if memberErr == nil && isRevoked {
 				g.invalidateAllUserSessions(ctx, fpUserID)
 				g.log.Warn("Refresh token reuse detected, all sessions invalidated",
@@ -126,13 +126,13 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	_ = g.rdb.Del(ctx, "refresh:"+oldToken).Err()
+	_ = g.valkeyDB.Del(ctx, "refresh:"+oldToken).Err()
 
 	oldFingerprint := auth.ComputeTokenFingerprint(oldToken)
 	revokedKey := "refresh:revoked:" + userID
 	issuedKey := "refresh:issued:" + userID
 
-	pipe := g.rdb.Pipeline()
+	pipe := g.valkeyDB.Pipeline()
 	pipe.SAdd(ctx, revokedKey, oldFingerprint)
 	pipe.Expire(ctx, revokedKey, 7*24*time.Hour)
 	pipe.SRem(ctx, issuedKey, oldToken)
@@ -162,7 +162,7 @@ func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) 
 	pattern := "refresh:*" + userID + "*"
 	var cursor uint64
 	for {
-		keysFound, nextCursor, err := g.rdb.Scan(ctx, cursor, pattern, 100).Result()
+		keysFound, nextCursor, err := g.valkeyDB.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			break
 		}
@@ -173,24 +173,24 @@ func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) 
 		}
 	}
 	if len(keys) > 0 {
-		_ = g.rdb.Del(ctx, keys...).Err()
+		_ = g.valkeyDB.Del(ctx, keys...).Err()
 	}
 }
 
 func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
-	redisKey := "2fa_rate:" + key
-	if g.rdb != nil {
-		count, err := g.rdb.Incr(ctx, redisKey).Result()
+	valkeyKey := "2fa_rate:" + key
+	if g.valkeyDB != nil {
+		count, err := g.valkeyDB.Incr(ctx, valkeyKey).Result()
 		if err == nil {
 			if count == 1 {
-				_ = g.rdb.Expire(ctx, redisKey, time.Minute).Err()
+				_ = g.valkeyDB.Expire(ctx, valkeyKey, time.Minute).Err()
 			}
 			if count > totpRateLimitAttempts {
 				return errors.New("too many 2FA attempts")
 			}
 			return nil
 		}
-		g.log.Warn("Redis 2FA rate limit unavailable", zap.Error(err))
+		g.log.Warn("Valkey 2FA rate limit unavailable", zap.Error(err))
 	}
 
 	if countOverLimit(g, key) {
@@ -376,7 +376,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if g.userTOTPEnabled(r.Context(), resp.GetUserId()) {
 		tempToken := uuid.New().String()
-		_ = g.rdb.Set(r.Context(), "2fa_temp:"+tempToken, resp.GetUserId(), 5*time.Minute).Err()
+		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, resp.GetUserId(), 5*time.Minute).Err()
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -604,7 +604,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
 		tempToken := uuid.New().String()
-		_ = g.rdb.Set(r.Context(), "2fa_temp:"+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
+		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"requires_2fa": true,
@@ -732,7 +732,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := g.rdb.Get(r.Context(), "2fa_temp:"+req.TempToken).Result()
+	userID, err := g.valkeyDB.Get(r.Context(), "2fa_temp:"+req.TempToken).Result()
 	if err != nil {
 		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
 		return
@@ -760,7 +760,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = g.rdb.Del(r.Context(), "2fa_temp:"+req.TempToken)
+	_ = g.valkeyDB.Del(r.Context(), "2fa_temp:"+req.TempToken)
 
 	token, err := g.issueJWT(r.Context(), userID)
 	if err != nil {

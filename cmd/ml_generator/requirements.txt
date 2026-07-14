@@ -29,7 +29,7 @@ onnx>=1.17.0
 
 # Async messaging
 aio-pika>=9.5.0
-redis[hiredis]>=8.0.0
+valkey[hiredis]>=8.0.0
 
 # Security
 cryptography>=44.0.0

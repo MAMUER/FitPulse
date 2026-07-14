@@ -4,7 +4,7 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36+-326CE5.svg)](https://kubernetes.io/)
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
-[![Python Version](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/Python-3.14+-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **FitPulse** — микросервисная платформа для персонализированных тренировок, ML-анализа биометрии и интеграции с носимыми устройствами.

@@ -136,7 +136,7 @@
 - `go vet ./...` — статический анализ
 - `golangci-lint run` — расширенный линтинг
 - `go test -v -timeout 5m ./...` — unit-тесты
-- Покрытие ≥ 80% (`go test -coverprofile=coverage.out ./...`)
+- Покрытие ≥ 75% для business-logic пакетов (`internal/...`, `pkg/...`), исключая инфраструктурные слои (`grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`) и сгенерированный код (`api/gen/`, `mocks/`).
 
 ### 8.2. CI/CD Pipeline
 

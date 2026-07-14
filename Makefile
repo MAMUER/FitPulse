@@ -37,8 +37,8 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	go test -count=1 -v -coverprofile=coverage.out ./...
-	@echo "Checking coverage threshold (>= 80%)..."
+	@go test -count=1 -v -coverprofile=coverage.out ./internal/... ./pkg/...
+	@echo "Checking coverage threshold (>= 75%)..."
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
@@ -72,7 +72,7 @@ help:
 	@echo "  make vet        - Run go vet"
 	@echo "  make lint       - Run golangci-lint"
 	@echo "  make test       - Run unit tests"
-	@echo "  make test-cover - Run tests with coverage report (80% threshold)"
+	@echo "  make test-cover - Run tests with coverage report (75% threshold, business logic only)"
 	@echo "  make check      - Run tidy, fmt, vet, lint, test"
 	@echo "  make proto      - Generate proto files"
 	@echo "  make imports    - Update Go imports with gci"

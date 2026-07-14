@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestRedis(t *testing.T) (*Client, *miniredis.Miniredis) {
+func setupTestValkey(t *testing.T) (*Client, *miniredis.Miniredis) {
 	t.Helper()
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestNewClientInvalidAddr(t *testing.T) {
 }
 
 func TestSetAndGet(t *testing.T) {
-	client, mr := setupTestRedis(t)
+	client, mr := setupTestValkey(t)
 	defer mr.Close()
 
 	ctx := context.Background()
@@ -56,7 +56,7 @@ func TestSetAndGet(t *testing.T) {
 }
 
 func TestGetNonExistent(t *testing.T) {
-	client, mr := setupTestRedis(t)
+	client, mr := setupTestValkey(t)
 	defer mr.Close()
 
 	ctx := context.Background()
@@ -66,7 +66,7 @@ func TestGetNonExistent(t *testing.T) {
 }
 
 func TestDel(t *testing.T) {
-	client, mr := setupTestRedis(t)
+	client, mr := setupTestValkey(t)
 	defer mr.Close()
 
 	ctx := context.Background()
@@ -83,7 +83,7 @@ func TestDel(t *testing.T) {
 }
 
 func TestSetWithExpiration(t *testing.T) {
-	client, mr := setupTestRedis(t)
+	client, mr := setupTestValkey(t)
 	defer mr.Close()
 
 	ctx := context.Background()
@@ -94,14 +94,14 @@ func TestSetWithExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "value", val)
 
-	// В miniredis нужно вручную продвинуть время
+	// In miniredis, manually advance time
 	mr.FastForward(1100 * time.Millisecond)
 
 	_, err = client.Get(ctx, "expire_key")
 	assert.Error(t, err, "Key should have expired")
 }
 
-// Redis хранит bool как "1"/"0"
+// Valkey stores bool as "1"/"0"
 func TestSetMultipleTypes(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
@@ -122,8 +122,8 @@ func TestSetMultipleTypes(t *testing.T) {
 		{"string", "key1", "val1", "val1"},
 		{"int", "key2", 42, "42"},
 		{"float", "key3", 3.14, "3.14"},
-		{"bool_true", "key4", true, "1"},   // Redis: true -> "1"
-		{"bool_false", "key5", false, "0"}, // Redis: false -> "0"
+		{"bool_true", "key4", true, "1"},   // Valkey: true -> "1"
+		{"bool_false", "key5", false, "0"}, // Valkey: false -> "0"
 	}
 
 	for _, tt := range tests {
@@ -145,15 +145,15 @@ func TestClientClose(t *testing.T) {
 	client, err := NewClient(mr.Addr(), "", 0)
 	require.NoError(t, err)
 
-	// Close() не возвращает значение, просто вызываем его
+	// Close() doesn't return a value, just call it
 	defer func() { _ = client.Close() }()
 
-	// Повторный Close не должен вызывать панику
+	// Repeated Close should not panic
 	defer func() { _ = client.Close() }()
 }
 
 func TestSetWithNilValue(t *testing.T) {
-	client, mr := setupTestRedis(t)
+	client, mr := setupTestValkey(t)
 	defer mr.Close()
 
 	ctx := context.Background()

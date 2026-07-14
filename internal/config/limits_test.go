@@ -14,8 +14,8 @@ func TestConstants(t *testing.T) {
 	// Test batch and size limits
 	assert.Equal(t, 100, MaxBatchSize)
 
-	// Test Redis TTL
-	assert.Equal(t, 3600, RedisTTLSeconds)
+	// Test Valkey TTL
+	assert.Equal(t, 3600, ValkeyTTLSeconds)
 
 	// Test JWT expiration
 	assert.Equal(t, 24, JWTExpirationHours)
@@ -45,9 +45,9 @@ func TestConstantRelationships(t *testing.T) {
 	assert.Greater(t, MaxBatchSize, 0)
 	assert.LessOrEqual(t, MaxBatchSize, 1000) // Reasonable upper bound
 
-	// Test that Redis TTL is reasonable (between 1 minute and 1 day)
-	assert.GreaterOrEqual(t, RedisTTLSeconds, 60)
-	assert.LessOrEqual(t, RedisTTLSeconds, 86400)
+	// Test that Valkey TTL is reasonable (between 1 minute and 1 day)
+	assert.GreaterOrEqual(t, ValkeyTTLSeconds, 60)
+	assert.LessOrEqual(t, ValkeyTTLSeconds, 86400)
 
 	// Test that JWT expiration is reasonable (between 1 hour and 1 week)
 	assert.GreaterOrEqual(t, JWTExpirationHours, 1)
@@ -58,7 +58,7 @@ func TestConstantTypes(t *testing.T) {
 	// Verify types are correct
 	timeout := DefaultTimeout
 	batchSize := MaxBatchSize
-	ttl := RedisTTLSeconds
+	ttl := ValkeyTTLSeconds
 	jwtHours := JWTExpirationHours
 	minHR := MinHeartRate
 	maxHR := MaxHeartRate

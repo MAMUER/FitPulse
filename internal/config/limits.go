@@ -6,7 +6,7 @@ import "time"
 const (
 	DefaultTimeout      = 5 * time.Second
 	MaxBatchSize        = 100
-	RedisTTLSeconds     = 3600
+	ValkeyTTLSeconds     = 3600
 	JWTExpirationHours  = 24
 	MinHeartRate        = 30
 	MaxHeartRate        = 220

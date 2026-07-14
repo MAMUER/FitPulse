@@ -74,7 +74,7 @@ body:
     attributes:
       label: Окружение
       description: OS, версия Docker, Go, Python
-      placeholder: "Ubuntu 22.04, Docker 24.0, Go 1.26.3, Python 3.12"
+      placeholder: "Ubuntu 22.04, Docker 24.0, Go 1.26.3, Python 3.14"
     validations:
       required: false
 

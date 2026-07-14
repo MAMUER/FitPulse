@@ -57,7 +57,7 @@ type gateway struct {
 	responseSigningSecret string
 	db                    *sql.DB
 	sessionStore          *cache.SessionStore
-	rdb                   *redis.Client
+	valkeyDB              *redis.Client
 	rmqCh                 *amqp.Channel
 	mlAsync               bool
 	requestDuration       *prometheus.HistogramVec
@@ -96,16 +96,16 @@ func main() {
 	db, closeDB := openGatewayDatabase(log, config.GetEnv("DATABASE_URL"))
 	defer closeDB()
 
-	redisPassword := config.GetEnv("REDIS_PASSWORD")
-	const redisMaxRetries = 10
-	const redisRetryDelay = 3 * time.Second
+	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
+	const valkeyMaxRetries = 10
+	const valkeyRetryDelay = 3 * time.Second
 
 	mlAsync := cfg.mlAsync
 	var asyncRDB *redis.Client
 	if mlAsync {
-		var redisConnected bool
-		asyncRDB, redisConnected = connectRedis(ctx, log, cfg.redisAddr, redisPassword, 1, redisMaxRetries, redisRetryDelay)
-		if !redisConnected {
+		var valkeyConnected bool
+		asyncRDB, valkeyConnected = connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 1, valkeyMaxRetries, valkeyRetryDelay)
+		if !valkeyConnected {
 			mlAsync = false
 		}
 	}
@@ -115,7 +115,7 @@ func main() {
 		mlAsync = false
 		if asyncRDB != nil {
 			if closeErr := asyncRDB.Close(); closeErr != nil {
-				log.Warn("Failed to close async Redis client", zap.Error(closeErr))
+				log.Warn("Failed to close async Valkey client", zap.Error(closeErr))
 			}
 		}
 	}
@@ -123,10 +123,10 @@ func main() {
 		defer rmqClose()
 	}
 
-	rdb, redisConnected := connectRedis(ctx, log, cfg.redisAddr, redisPassword, 0, redisMaxRetries, redisRetryDelay)
+	valkeyDB, valkeyConnected := connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 0, valkeyMaxRetries, valkeyRetryDelay)
 	var sessionStore *cache.SessionStore
-	if redisConnected {
-		sessionStore = cache.NewSessionStoreFromRedis(rdb)
+	if valkeyConnected {
+		sessionStore = cache.NewSessionStoreFromValkey(valkeyDB)
 	}
 
 	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
@@ -136,7 +136,7 @@ func main() {
 		}
 	}()
 
-	g := buildGateway(log, cfg, metrics, db, sessionStore, rdb, rmqCh, userClient, mlAsync)
+	g := buildGateway(log, cfg, metrics, db, sessionStore, valkeyDB, rmqCh, userClient, mlAsync)
 	mainRouter := g.registerRoutes()
 	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
 	startGatewayServers(log, cfg, mainRouterHandler)
@@ -152,7 +152,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		mlGeneratorURL:       config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
 		deviceConnectorURL:   config.GetEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
 		mlAsync:              config.GetEnv("ML_ASYNC", "false") == "true",
-		redisAddr:            redisAddress(),
+		valkeyAddr:            valkeyAddress(),
 		appBaseURL:           config.GetEnv("APP_BASE_URL"),
 		googleClientID:       config.GetEnv("GOOGLE_CLIENT_ID"),
 		googleClientSecret:   config.GetEnv("GOOGLE_CLIENT_SECRET"),
@@ -220,9 +220,9 @@ func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 	}
 }
 
-func redisAddress() string {
-	redisHost := config.GetEnv("REDIS_HOST", "redis")
-	return redisHost + ":6379"
+func valkeyAddress() string {
+	valkeyHost := config.GetEnv("VALKEY_HOST", "valkey")
+	return valkeyHost + ":6379"
 }
 
 type gatewayMetrics struct {
@@ -240,7 +240,7 @@ type gatewayConfig struct {
 	mlGeneratorURL        string
 	deviceConnectorURL    string
 	rabbitmqURL           string
-	redisAddr             string
+	valkeyAddr             string
 	jwtPrivateKeyPEM      string
 	jwtPublicKeyPEM       string
 	responseSigningSecret string
@@ -332,32 +332,32 @@ func openGatewayDatabase(log *logger.Logger, dbURL string) (*sql.DB, func()) {
 	}
 }
 
-func connectRedis(ctx context.Context, log *logger.Logger, redisAddr, password string, dbNum, maxRetries int, retryDelay time.Duration) (*redis.Client, bool) {
+func connectValkey(ctx context.Context, log *logger.Logger, valkeyAddr, password string, dbNum, maxRetries int, retryDelay time.Duration) (*redis.Client, bool) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
+		Addr:     valkeyAddr,
 		Password: password,
 		DB:       dbNum,
 	})
-	connected := waitForRedis(ctx, log, rdb, redisAddr, maxRetries, retryDelay)
+	connected := waitForValkey(ctx, log, rdb, valkeyAddr, maxRetries, retryDelay)
 	if !connected {
 		if closeErr := rdb.Close(); closeErr != nil {
-			log.Warn("Failed to close Redis client", zap.Error(closeErr))
+			log.Warn("Failed to close Valkey client", zap.Error(closeErr))
 		}
 		return nil, false
 	}
 	return rdb, true
 }
 
-func waitForRedis(ctx context.Context, log *logger.Logger, rdb *redis.Client, redisAddr string, maxRetries int, retryDelay time.Duration) bool {
+func waitForValkey(ctx context.Context, log *logger.Logger, rdb *redis.Client, valkeyAddr string, maxRetries int, retryDelay time.Duration) bool {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		pingErr := rdb.Ping(ctx).Err()
 		if pingErr == nil {
-			log.Info("Redis connected", zap.String("addr", redisAddr), zap.Int("attempt", attempt))
+			log.Info("Valkey connected", zap.String("addr", valkeyAddr), zap.Int("attempt", attempt))
 			return true
 		}
 
 		if attempt < maxRetries {
-			log.Warn("Redis unavailable, retrying",
+			log.Warn("Valkey unavailable, retrying",
 				zap.Int("attempt", attempt),
 				zap.Int("max_retries", maxRetries),
 				zap.Duration("retry_delay", retryDelay),
@@ -366,7 +366,7 @@ func waitForRedis(ctx context.Context, log *logger.Logger, rdb *redis.Client, re
 			continue
 		}
 
-		log.Warn("Redis unavailable after all retries",
+		log.Warn("Valkey unavailable after all retries",
 			zap.Int("attempts", maxRetries),
 			zap.Error(pingErr))
 	}
@@ -421,7 +421,7 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 	return userConn, userpb.NewUserServiceClient(userConn)
 }
 
-func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, rdb *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
+func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
 	g := &gateway{
 		userClient:            userClient,
 		biometricAddr:         cfg.biometricServiceAddr,
@@ -435,7 +435,7 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		responseSigningSecret: cfg.responseSigningSecret,
 		db:                    db,
 		sessionStore:          sessionStore,
-		rdb:                   rdb,
+		valkeyDB:              valkeyDB,
 		rmqCh:                 rmqCh,
 		mlAsync:               mlAsync,
 		requestDuration:       metrics.requestDuration,

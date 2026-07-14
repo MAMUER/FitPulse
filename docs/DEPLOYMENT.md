@@ -95,7 +95,7 @@ kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-file=JWT_PRIVATE_KEY_PEM=./key.pem \
     --from-file=JWT_PUBLIC_KEY_PEM=./key.pub \
     --from-literal=RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/ \
-    --from-literal=REDIS_PASSWORD=<redis-password> \
+    --from-literal=VALKEY_PASSWORD=<valkey-password> \
     --from-literal=SMTP_HOST=smtp.yandex.ru \
     --from-literal=SMTP_PORT=465 \
     --from-literal=SMTP_USER=<your-email> \

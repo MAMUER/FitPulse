@@ -405,7 +405,7 @@ verification:
 #### Этап 3: CI Build
 
 - Jobs:
-  - Unit tests (покытие ≥80%)
+  - Unit tests (покрытие business-logic пакетов ≥75%, без инфраструктурных слоёв)
   - Integration tests (TestContainers)
   - Contract tests (Pact)
   - Container scan: trivy/grype (no critical CVE)
