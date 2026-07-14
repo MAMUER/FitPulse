@@ -42,7 +42,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	class := req.Class
 	if class == "" {
-		class = "endurance_e1e2"
+		class = "endurance_basic"
 	}
 
 	availableDays := make([]int32, len(req.AvailableDays))

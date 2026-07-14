@@ -142,7 +142,7 @@ func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		g.mlGeneratorURL+"/generate",
+		g.mlGeneratorURL+"/generate-plan",
 		bytes.NewReader(body))
 	if err != nil {
 		g.log.Error("Failed to create ML generator request", zap.Error(err))

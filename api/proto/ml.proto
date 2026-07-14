@@ -100,7 +100,7 @@ message ClassifyUserStateRequest {
 }
 
 message ClassifyUserStateResponse {
-    string state = 1; // recovery, endurance_e1e2, threshold_e3, strength_hiit, overtraining, illness
+    string state = 1; // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
     string state_ru = 2;
     double confidence = 3;
     map<string, double> scores = 4;

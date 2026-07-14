@@ -690,7 +690,7 @@ func (x *ClassifyUserStateRequest) GetConnectedDevices() []string {
 
 type ClassifyUserStateResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	State           string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // recovery, endurance_e1e2, threshold_e3, strength_hiit, overtraining, illness
+	State           string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
 	StateRu         string                 `protobuf:"bytes,2,opt,name=state_ru,json=stateRu,proto3" json:"state_ru,omitempty"`
 	Confidence      float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	Scores          map[string]float64     `protobuf:"bytes,4,rep,name=scores,proto3" json:"scores,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`

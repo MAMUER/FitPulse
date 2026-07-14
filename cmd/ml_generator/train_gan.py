@@ -40,7 +40,7 @@ os.environ["LIGHTNING_VERBOSITY"] = "low"
 SCRIPT_DIR = Path(__file__).parent.parent.parent
 TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
 PLAN_DIM = 19
-CONDITION_DIM = 10
+CONDITION_DIM = 32
 LATENT_DIM = 64
 
 
