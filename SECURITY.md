@@ -96,7 +96,7 @@
 
 ### CI/CD безопасность
 
-- **SAST**: gosec (глубокий анализ логики кода), govulncheck (анализ уязвимостей в зависимостях и коде)
+- **SAST**: gosec (глубокий анализ логики кода)
 - **Vulnerability / Secrets / Misconfiguration scanning**: Trivy (единый сканер для репозитория `scan-type: fs` со `scanners: vuln,secret,misconfig` и для образов `scanners: vuln,secret`, плюс `scan-type: config` для IaC).
 - **SBOM generation**: syft (SPDX, CycloneDX)
 - **Image signing**: cosign
@@ -108,11 +108,11 @@
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
   - device-connector-sa, classifier-sa, ml-generator-sa
   - Per-service Roles с жестким ограничением `resourceNames` для чтения только специфичных секретов
-- **Secrets**: JWT, API keys и TLS private keys.
+- **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
 - **WAF**:
   1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).
   2. In-cluster ingress-nginx (Namespace `ingress-nginx`, NodePort 30080) с `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Пока primary WAF остаётся host Nginx.
-- **Observability**: структурированное логирование (slog), Prometheus метрики, OpenTelemetry traces
+- **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
 
 ## Процесс исправления
 

@@ -216,6 +216,11 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
+		return
+	}
+
 	result, err := tx.ExecContext(r.Context(), "DELETE FROM users WHERE id = $1", userID)
 	if err != nil {
 		g.log.Error("Failed to delete user", zap.Error(err))

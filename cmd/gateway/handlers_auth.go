@@ -216,6 +216,49 @@ func countOverLimit(g *gateway, key string) bool {
 	return !limiter.limiter.Allow()
 }
 
+func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
+	if g.sessionStore == nil {
+		return nil
+	}
+	token := r.Header.Get("X-Critical-Session-Token")
+	if token == "" {
+		g.log.Warn("Critical action without critical session token", zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		return nil
+	}
+	if err := g.sessionStore.ValidateCriticalSession(r.Context(), token, userID); err != nil {
+		g.log.Warn("Invalid critical session token", zap.Error(err), zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		return fmt.Errorf("invalid critical session: %w", err)
+	}
+	return nil
+}
+
+func (g *gateway) criticalSessionHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if g.sessionStore == nil {
+		http.Error(w, "Session store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	token, err := g.sessionStore.CreateCriticalSession(r.Context(), userID)
+	if err != nil {
+		g.log.Error("Failed to create critical session", zap.Error(err))
+		http.Error(w, "Failed to create critical session", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"critical_session_token": token,
+	}); err != nil {
+		g.log.Error("Failed to encode critical session response", zap.Error(err))
+	}
+}
+
 func encodeQRCodeBase64(qrCodeURL string) (string, error) {
 	key, err := otp.NewKeyFromURL(qrCodeURL)
 	if err != nil {
@@ -687,6 +730,11 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
+		return
+	}
+
 	if err := g.enforceTOTPRateLimit(r.Context(), "confirm:"+userID); err != nil {
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
@@ -800,6 +848,11 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 

@@ -676,6 +676,7 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
 		r.Get("/auth/2fa/status", g.totpStatusHandler)
 		r.Post("/auth/2fa/disable", g.disableTOTPHandler)
+		r.Post("/auth/critical-session", g.criticalSessionHandler)
 
 		// Biometrics
 		r.Post("/biometrics", g.addBiometricRecordHandler)
