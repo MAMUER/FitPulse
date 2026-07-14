@@ -3,7 +3,7 @@
 
 # Core ML — PyTorch с torch.compile()
 torch>=2.13.0
-lightning>=2.5.0
+lightning>=2.6.5
 numpy>=2.3.0
 pandas>=2.3.0
 
