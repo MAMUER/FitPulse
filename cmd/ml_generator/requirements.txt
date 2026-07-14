@@ -15,14 +15,14 @@ python-multipart>=0.0.32
 uvloop>=0.21.0; sys_platform != "win32"
 
 # MLOps
-wandb>=0.19.0
+wandb>=0.28.0
 prometheus-client>=0.25.0
 dvc[s3]>=3.67.0
 evidently>=0.6.5
 tensorboard>=2.21.0
 
 # Inference optimization
-onnxruntime>=1.22.0
+onnxruntime>=1.27.0
 optimum>=1.24.0
 onnxscript>=0.2.0
 onnx>=1.17.0
