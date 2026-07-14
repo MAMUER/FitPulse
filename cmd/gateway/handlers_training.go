@@ -110,7 +110,8 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		"training_type": class,
 	}
 
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -155,7 +156,6 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert protobuf plans to JSON
 	plans := make([]map[string]interface{}, len(resp.Plans))
 	for i, plan := range resp.Plans {
 		planDataJSON, err := json.Marshal(plan.PlanData)
@@ -171,7 +171,6 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Extract common fields for frontend compatibility
 		durationWeeks, _ := planData["duration_weeks"].(float64)
 		trainingGoal, _ := planData["training_goal"].(string)
 
@@ -182,9 +181,8 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			"status":         plan.Status,
 			"duration_weeks": durationWeeks,
 			"training_goal":  trainingGoal,
-			// Also expose start_date/end_date as strings for frontend
-			"start_date": plan.StartDate.AsTime().Format("2006-01-02"),
-			"end_date":   plan.EndDate.AsTime().Format("2006-01-02"),
+			"start_date":     plan.StartDate.AsTime().Format("2006-01-02"),
+			"end_date":       plan.EndDate.AsTime().Format("2006-01-02"),
 		}
 	}
 
@@ -194,9 +192,9 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		"total":  resp.Total,
 	}
 
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 	}
 }
 
@@ -234,7 +232,8 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -264,7 +263,8 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -321,11 +321,11 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"plan_id":   resp.GetId(),
 		"plan_data": planData,
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+	}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

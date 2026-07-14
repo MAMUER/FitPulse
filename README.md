@@ -55,7 +55,6 @@
 FitPulse реализует комплексные меры безопасности:
 
 - JWT (ES256) + Refresh Token rotation
-- HMAC-SHA256 подпись критических ответов
 - Argon2id хеширование паролей (memory 64 MB, iterations 3, parallelism 1)
 - Content Security Policy (nonce-based)
 - Rate limiting (sliding window)

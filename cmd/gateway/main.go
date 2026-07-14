@@ -42,27 +42,26 @@ import (
 )
 
 type gateway struct {
-	userClient            userpb.UserServiceClient
-	userConn              *grpc.ClientConn
-	biometricAddr         string
-	biometricClient       biometricpb.BiometricServiceClient
-	trainingAddr          string
-	trainingClient        trainingpb.TrainingServiceClient
-	classifierURL         string
-	mlGeneratorURL        string
-	deviceConnectorURL    string
-	log                   *logger.Logger
-	jwtPrivateKeyPEM      string
-	jwtPublicKeyPEM       string
-	responseSigningSecret string
-	db                    *sql.DB
-	sessionStore          *cache.SessionStore
-	valkeyDB              *redis.Client
-	rmqCh                 *amqp.Channel
-	mlAsync               bool
-	requestDuration       *prometheus.HistogramVec
-	requestTotal          *prometheus.CounterVec
-	errorTotal            *prometheus.CounterVec
+	userClient         userpb.UserServiceClient
+	userConn           *grpc.ClientConn
+	biometricAddr      string
+	biometricClient    biometricpb.BiometricServiceClient
+	trainingAddr       string
+	trainingClient     trainingpb.TrainingServiceClient
+	classifierURL      string
+	mlGeneratorURL     string
+	deviceConnectorURL string
+	log                *logger.Logger
+	jwtPrivateKeyPEM   string
+	jwtPublicKeyPEM    string
+	db                 *sql.DB
+	sessionStore       *cache.SessionStore
+	valkeyDB           *redis.Client
+	rmqCh              *amqp.Channel
+	mlAsync            bool
+	requestDuration    *prometheus.HistogramVec
+	requestTotal       *prometheus.CounterVec
+	errorTotal         *prometheus.CounterVec
 
 	googleOAuthConfig *oauth2.Config
 
@@ -152,7 +151,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		mlGeneratorURL:       config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
 		deviceConnectorURL:   config.GetEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
 		mlAsync:              config.GetEnv("ML_ASYNC", "false") == "true",
-		valkeyAddr:            valkeyAddress(),
+		valkeyAddr:           valkeyAddress(),
 		appBaseURL:           config.GetEnv("APP_BASE_URL"),
 		googleClientID:       config.GetEnv("GOOGLE_CLIENT_ID"),
 		googleClientSecret:   config.GetEnv("GOOGLE_CLIENT_SECRET"),
@@ -172,13 +171,8 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 	if jwtPublicKeyPEM == "" {
 		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
 	}
-	responseSigningSecret := config.GetEnv("RESPONSE_SIGNING_SECRET")
-	if responseSigningSecret == "" {
-		log.Fatal("RESPONSE_SIGNING_SECRET environment variable is required")
-	}
 	cfg.jwtPrivateKeyPEM = jwtPrivateKeyPEM
 	cfg.jwtPublicKeyPEM = jwtPublicKeyPEM
-	cfg.responseSigningSecret = responseSigningSecret
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
@@ -232,24 +226,23 @@ type gatewayMetrics struct {
 }
 
 type gatewayConfig struct {
-	port                  string
-	userServiceAddr       string
-	biometricServiceAddr  string
-	trainingServiceAddr   string
-	classifierURL         string
-	mlGeneratorURL        string
-	deviceConnectorURL    string
-	rabbitmqURL           string
-	valkeyAddr             string
-	jwtPrivateKeyPEM      string
-	jwtPublicKeyPEM       string
-	responseSigningSecret string
-	appBaseURL            string
-	publicHost            string
-	googleClientID        string
-	googleClientSecret    string
-	mlAsync               bool
-	googleOAuthConfig     *oauth2.Config
+	port                 string
+	userServiceAddr      string
+	biometricServiceAddr string
+	trainingServiceAddr  string
+	classifierURL        string
+	mlGeneratorURL       string
+	deviceConnectorURL   string
+	rabbitmqURL          string
+	valkeyAddr           string
+	jwtPrivateKeyPEM     string
+	jwtPublicKeyPEM      string
+	appBaseURL           string
+	publicHost           string
+	googleClientID       string
+	googleClientSecret   string
+	mlAsync              bool
+	googleOAuthConfig    *oauth2.Config
 }
 
 type gatewayTLSConfig struct {
@@ -423,25 +416,24 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 
 func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
 	g := &gateway{
-		userClient:            userClient,
-		biometricAddr:         cfg.biometricServiceAddr,
-		trainingAddr:          cfg.trainingServiceAddr,
-		classifierURL:         cfg.classifierURL,
-		mlGeneratorURL:        cfg.mlGeneratorURL,
-		deviceConnectorURL:    cfg.deviceConnectorURL,
-		log:                   log,
-		jwtPrivateKeyPEM:      cfg.jwtPrivateKeyPEM,
-		jwtPublicKeyPEM:       cfg.jwtPublicKeyPEM,
-		responseSigningSecret: cfg.responseSigningSecret,
-		db:                    db,
-		sessionStore:          sessionStore,
-		valkeyDB:              valkeyDB,
-		rmqCh:                 rmqCh,
-		mlAsync:               mlAsync,
-		requestDuration:       metrics.requestDuration,
-		requestTotal:          metrics.requestTotal,
-		errorTotal:            metrics.errorTotal,
-		googleOAuthConfig:     cfg.googleOAuthConfig,
+		userClient:         userClient,
+		biometricAddr:      cfg.biometricServiceAddr,
+		trainingAddr:       cfg.trainingServiceAddr,
+		classifierURL:      cfg.classifierURL,
+		mlGeneratorURL:     cfg.mlGeneratorURL,
+		deviceConnectorURL: cfg.deviceConnectorURL,
+		log:                log,
+		jwtPrivateKeyPEM:   cfg.jwtPrivateKeyPEM,
+		jwtPublicKeyPEM:    cfg.jwtPublicKeyPEM,
+		db:                 db,
+		sessionStore:       sessionStore,
+		valkeyDB:           valkeyDB,
+		rmqCh:              rmqCh,
+		mlAsync:            mlAsync,
+		requestDuration:    metrics.requestDuration,
+		requestTotal:       metrics.requestTotal,
+		errorTotal:         metrics.errorTotal,
+		googleOAuthConfig:  cfg.googleOAuthConfig,
 	}
 
 	aggregatorTarget, _ := url.Parse("http://device-aggregator:8083")

@@ -774,22 +774,6 @@ func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	assert.False(t, called)
 }
 
-// Test response signer middleware
-func TestResponseSigner(t *testing.T) {
-	log := zap.NewNop()
-	secret := "sign-secret"
-
-	handler := SignCriticalResponses(secret, log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"ok":true}`))
-	}))
-
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-}
-
 // Test CorrelationID middleware with and without header
 func TestCorrelationID(t *testing.T) {
 	called := false

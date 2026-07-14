@@ -41,7 +41,6 @@
 - ежедневную адаптивную модификацию плана;
 - разграничение ролей (client, admin);
 - логирование (slog) + OpenTelemetry traces;
-- HMAC-SHA256 подпись критических ответов;
 - принудительную инвалидацию сессии при logout;
 - однократное использование auth-кодов;
 - замену 403 на 404;
@@ -71,7 +70,6 @@
 - health-check (`GET /health`);
 - graceful shutdown;
 - обработка ошибок подключения к БД;
-- HMAC-SHA256 подпись критических ответов;
 - валидация входных данных (gRPC status codes);
 - deduplication данных с устройств (device_id + timestamp + metric_type);
 - SAST (gosec), govulncheck, Trivy, TruffleHog, Gitleaks в CI/CD.

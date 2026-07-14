@@ -266,7 +266,8 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -310,7 +311,8 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -403,7 +405,8 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		g.log.Warn("Failed to issue refresh token", zap.Error(rtErr))
 	}
-	if err := middleware.SignAndSendJSON(w, loginResp, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -618,14 +621,14 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "ok",
 		"access_token": grpcResp.GetAccessToken(),
 		"token_type":   grpcResp.GetTokenType(),
 		"expires_in":   900,
 		"user_id":      grpcResp.GetUserId(),
 		"role":         grpcResp.GetRole(),
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+	}); err != nil {
 		g.log.Error("Failed to encode Google auth response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -774,13 +777,14 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Warn("Failed to issue refresh token after 2FA", zap.Error(rtErr))
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"access_token":           token,
 		"token_type":             "Bearer",
 		"expires_in":             900,
 		"refresh_token":          refreshToken,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+	}); err != nil {
 		g.log.Error("Failed to encode TOTP verify response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return

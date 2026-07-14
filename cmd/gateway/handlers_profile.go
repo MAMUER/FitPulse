@@ -74,13 +74,13 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Требование #11: HMAC-SHA256 подпись критического ответа
-	// SignAndSendJSON гарантирует, что подпись соответствует отправленным байтам
+	// Требование #11: ответ кодируется как application/json
 	profileResp := map[string]interface{}{
 		"status":  "ok",
 		"profile": resp,
 	}
-	if err := middleware.SignAndSendJSON(w, profileResp, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(profileResp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -136,7 +136,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -235,7 +235,8 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]string{"status": "deleted"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
 		g.log.Error("Failed to encode delete profile response", zap.Error(err))
 	}
 }

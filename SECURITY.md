@@ -78,7 +78,6 @@
 - **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window; для auth endpoints отдельно: 5 attempts/minute per IP для `/login` и `/register` для защиты от brute-force атак (OWASP Authentication Cheat Sheet).
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
 - **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
-- **Подпись ответов**: HMAC-SHA256 для критических JSON (login, register, profile, biometrics, plans).
 
 ### Безопасность данных
 

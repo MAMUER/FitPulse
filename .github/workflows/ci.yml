@@ -1720,7 +1720,7 @@ jobs:
             --from-literal=JWT_PUBLIC_KEY_PEM=${{ secrets.JWT_PUBLIC_KEY_PEM }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
-            --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            --from-literal=VALKEY_PASSWORD=${{ secrets.VALKEY_PASSWORD }} \
             --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
             --from-literal=SMTP_HOST=${{ vars.SMTP_HOST }} \
             --from-literal=SMTP_PORT=${{ vars.SMTP_PORT }} \
