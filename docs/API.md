@@ -49,7 +49,7 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/generate`|Сгенерировать план|`{duration_weeks, available_days, class?, confidence?}`|`{status, plan_id, plan_data, training_type}`|
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
-|POST|`/ml/classify`|Классификация состояния|`{biometrics: {hr, hrv, spo2, temp, bp}}`|`{status, state, confidence, recommendation, fatigue_level?, motivation_score?, recovery_quality?}`|
+|POST|`/ml/classify`|Классификация состояния|— (используются последние биометрические данные пользователя)|`{status, state, confidence, recommendation, fatigue_level, motivation_score, recovery_quality}`|
 |POST|`/ml/generate-plan`|Генерация плана (GAN)|`{training_class, user_profile, goal?, constraints?}`|`{status, training_plan, diet_plan}`|
 |POST|`/devices/register`|Регистрация устройства|`{device_type, device_name?}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
 |POST|`/devices/{device_id}/ingest`|Приём данных с устройства|`{metrics: [{metric_type, value, timestamp, device_type}]}`|`{status, synced_samples}`|

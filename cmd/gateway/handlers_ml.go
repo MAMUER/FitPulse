@@ -56,8 +56,10 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	transformed := transformClassifierResponse(result)
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
+	if err := json.NewEncoder(w).Encode(transformed); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
@@ -112,14 +114,69 @@ func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[strin
 func aggregateMLPayload(metrics map[string]*biometricpb.BiometricRecord) map[string]interface{} {
 	physiologicalData := make(map[string]interface{})
 	for metricType, record := range metrics {
+		key := mapMetricTypeToClassifierKey(metricType)
 		if record != nil {
-			physiologicalData[metricType] = record.Value
+			physiologicalData[key] = record.Value
 		} else {
-			physiologicalData[metricType] = nil
+			physiologicalData[key] = nil
 		}
 	}
 	return map[string]interface{}{
 		"physiological_data": physiologicalData,
+	}
+}
+
+func mapMetricTypeToClassifierKey(metricType string) string {
+	switch metricType {
+	case "hrv":
+		return "heart_rate_variability"
+	case "systolic_pressure":
+		return "blood_pressure_systolic"
+	case "diastolic_pressure":
+		return "blood_pressure_diastolic"
+	default:
+		return metricType
+	}
+}
+
+func transformClassifierResponse(result map[string]interface{}) map[string]interface{} {
+	predictedClass, _ := result["predicted_class"].(string)
+	confidence, _ := result["confidence"].(float64)
+
+	var recommendations []interface{}
+	if recs, ok := result["recommendations"].([]interface{}); ok {
+		recommendations = recs
+	}
+
+	fatigueLevel, motivationScore, recoveryQuality := mapClassToScores(predictedClass)
+
+	return map[string]interface{}{
+		"status":           "success",
+		"state":            predictedClass,
+		"confidence":       confidence,
+		"recommendation":   recommendations,
+		"fatigue_level":    fatigueLevel,
+		"motivation_score": motivationScore,
+		"recovery_quality": recoveryQuality,
+	}
+}
+
+func mapClassToScores(predictedClass string) (float64, float64, float64) {
+	switch predictedClass {
+	case "recovery":
+		return 0.1, 0.8, 0.9
+	case "endurance_basic":
+		return 0.3, 0.7, 0.7
+	case "endurance_threshold":
+		return 0.5, 0.6, 0.5
+	case "power_hiit":
+		return 0.7, 0.5, 0.3
+	case "overtraining":
+		return 0.9, 0.2, 0.1
+	case "illness":
+		return 1.0, 0.0, 0.0
+	default:
+		return 0.5, 0.5, 0.5
 	}
 }
 

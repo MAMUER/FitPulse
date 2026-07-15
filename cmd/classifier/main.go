@@ -1,18 +1,29 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"net/http"
-	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/config"
+	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/metrics"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 type server struct {
-	log *zap.Logger
+	log *logger.Logger
 }
 
 const trainingClassCount = 6
@@ -138,13 +149,18 @@ type classifyRequest struct {
 }
 
 type classifyResponse struct {
-	PredictedClass    string             `json:"predicted_class"`
-	PredictedClassRu  string             `json:"predicted_class_ru"`
+	Status            string             `json:"status"`
+	State             string             `json:"state"`
 	Confidence        float64            `json:"confidence"`
-	Probabilities     map[string]float64 `json:"probabilities"`
-	Description       string             `json:"description"`
-	HrRange           string             `json:"hr_range"`
-	Recommendations   []string           `json:"recommendations"`
+	Recommendation    []string           `json:"recommendation"`
+	FatigueLevel      *float64           `json:"fatigue_level,omitempty"`
+	MotivationScore   *float64           `json:"motivation_score,omitempty"`
+	RecoveryQuality   *float64           `json:"recovery_quality,omitempty"`
+	PredictedClass    string             `json:"predicted_class,omitempty"`
+	PredictedClassRu  string             `json:"predicted_class_ru,omitempty"`
+	Probabilities     map[string]float64 `json:"probabilities,omitempty"`
+	Description       string             `json:"description,omitempty"`
+	HrRange           string             `json:"hr_range,omitempty"`
 	PersonalizedNotes *string            `json:"personalized_notes,omitempty"`
 }
 
@@ -185,6 +201,123 @@ func (s *server) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 		"training_classes": trainingClasses,
 		"loaded_at":        time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req classifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.log.Warn("Invalid classify request", zap.Error(err))
+		metrics.ErrorTotal.WithLabelValues("classifier", "invalid_json").Inc()
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+
+	if err := validateClassifyRequest(req); err != nil {
+		s.log.Warn("Invalid classify payload", zap.Error(err))
+		metrics.ErrorTotal.WithLabelValues("classifier", "validation_error").Inc()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	data := req.PhysiologicalData
+	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
+	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
+	data.Temperature = defaultIfZero(data.Temperature, 37.0)
+	data.BloodPressureSystolic = defaultIfZero(data.BloodPressureSystolic, 120.0)
+	data.BloodPressureDiastolic = defaultIfZero(data.BloodPressureDiastolic, 80.0)
+	data.SleepHours = defaultIfZero(data.SleepHours, 7.0)
+
+	age := 30
+	if req.UserProfile != nil && req.UserProfile.Age > 0 {
+		age = req.UserProfile.Age
+	}
+
+	predictedClass, confidence, probs := classifyState(data, age)
+	classInfo := trainingClasses[predictedClass]
+	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
+
+	fatigueLevel, motivationScore, recoveryQuality := deriveScores(predictedClass)
+
+	resp := classifyResponse{
+		Status:            "success",
+		State:             classInfo.Name,
+		Confidence:        confidence,
+		Recommendation:    classInfo.Recommendations,
+		FatigueLevel:      &fatigueLevel,
+		MotivationScore:   &motivationScore,
+		RecoveryQuality:   &recoveryQuality,
+		PredictedClass:    classInfo.Name,
+		PredictedClassRu:  classInfo.NameRu,
+		Probabilities:     probs,
+		Description:       classInfo.Description,
+		HrRange:           classInfo.HrRange,
+		PersonalizedNotes: personalizedNotes,
+	}
+
+	metrics.ClassificationConfidence.WithLabelValues("rule-based", classInfo.Name).Set(confidence)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func validateClassifyRequest(req classifyRequest) error {
+	data := req.PhysiologicalData
+	if err := validateNonZeroRange("heart_rate", data.HeartRate, 20, 250); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("heart_rate_variability", data.HeartRateVariability, 0, 300); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("spo2", data.SpO2, 70, 100); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("temperature", data.Temperature, 30, 45); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("blood_pressure_systolic", data.BloodPressureSystolic, 60, 250); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("blood_pressure_diastolic", data.BloodPressureDiastolic, 40, 150); err != nil {
+		return err
+	}
+	if err := validateNonZeroRange("sleep_hours", data.SleepHours, 0, 24); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateNonZeroRange(name string, val, min, max float64) error {
+	if val == 0 {
+		return nil
+	}
+	if val < min || val > max {
+		return errors.New(name + " out of valid range (" + strconv.FormatFloat(min, 'f', -1, 64) + "-" + strconv.FormatFloat(max, 'f', -1, 64) + ")")
+	}
+	return nil
+}
+
+func deriveScores(predictedClass int) (fatigueLevel, motivationScore, recoveryQuality float64) {
+	switch predictedClass {
+	case 0:
+		return 0.1, 0.8, 0.9
+	case 1:
+		return 0.3, 0.7, 0.7
+	case 2:
+		return 0.5, 0.6, 0.5
+	case 3:
+		return 0.7, 0.5, 0.3
+	case 4:
+		return 0.9, 0.2, 0.1
+	case 5:
+		return 1.0, 0.0, 0.0
+	default:
+		return 0.5, 0.5, 0.5
+	}
 }
 
 func defaultIfZero(val, def float64) float64 {
@@ -279,22 +412,18 @@ func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predic
 
 	var notes []string
 
-	// Возрастные рекомендации
 	if profile.Age > 50 {
 		notes = append(notes, "Рекомендуется снизить интенсивность и увеличить время разминки")
 	}
 
-	// Уровень подготовки
 	if profile.FitnessLevel == "beginner" {
 		notes = append(notes, "Начните с базовых упражнений и постепенно увеличивайте нагрузку")
 	}
 
-	// Состояние здоровья
 	if len(profile.HealthConditions) > 0 {
 		notes = append(notes, "Проконсультируйтесь с врачом при: "+joinStrings(profile.HealthConditions, ", "))
 	}
 
-	// Цели пользователя
 	for _, goal := range profile.Goals {
 		switch goal {
 		case "похудение":
@@ -327,49 +456,57 @@ func joinStrings(ss []string, sep string) string {
 	return builder.String()
 }
 
-func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {
-	var req classifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Warn("Invalid classify request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func classifierLoggingMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+			next.ServeHTTP(rw, r)
+			duration := time.Since(start)
+			statusStr := strconv.Itoa(rw.statusCode)
+
+			metrics.RequestDuration.WithLabelValues(r.Method, r.URL.Path).Observe(duration.Seconds())
+			metrics.RequestsTotal.WithLabelValues(r.Method, r.URL.Path, statusStr).Inc()
+
+			if rw.statusCode >= 400 {
+				metrics.ErrorTotal.WithLabelValues("classifier", statusStr).Inc()
+			}
+
+			log.Info("HTTP_REQUEST",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.Int("status", rw.statusCode),
+				zap.Int64("duration_ms", duration.Milliseconds()),
+			)
+		})
 	}
-
-	data := req.PhysiologicalData
-	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
-	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
-	data.Temperature = defaultIfZero(data.Temperature, 37.0)
-	data.BloodPressureSystolic = defaultIfZero(data.BloodPressureSystolic, 120.0)
-	data.BloodPressureDiastolic = defaultIfZero(data.BloodPressureDiastolic, 80.0)
-	data.SleepHours = defaultIfZero(data.SleepHours, 7.0)
-
-	age := 30
-	if req.UserProfile != nil && req.UserProfile.Age > 0 {
-		age = req.UserProfile.Age
-	}
-
-	predictedClass, confidence, probs := classifyState(data, age)
-
-	classInfo := trainingClasses[predictedClass]
-	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
-
-	resp := classifyResponse{
-		PredictedClass:    classInfo.Name,
-		PredictedClassRu:  classInfo.NameRu,
-		Confidence:        confidence,
-		Probabilities:     probs,
-		Description:       classInfo.Description,
-		HrRange:           classInfo.HrRange,
-		Recommendations:   classInfo.Recommendations,
-		PersonalizedNotes: personalizedNotes,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func main() {
-	log, _ := zap.NewProduction()
+	log := logger.New("classifier")
 	s := &server{log: log}
 
 	mux := http.NewServeMux()
@@ -379,38 +516,66 @@ func main() {
 	mux.HandleFunc("/metrics", s.metricsHandler)
 	mux.HandleFunc("/model-info", s.modelInfoHandler)
 
-	port := defaultEnv("CLASSIFIER_PORT", "8001")
-	log.Info("Starting classifier service", zap.String("port", port))
+	handler := middleware.RecoveryMiddleware(log.Logger)(mux)
+	handler = middleware.RequestID(handler)
+	handler = corsMiddleware(handler)
+	handler = classifierLoggingMiddleware(log.Logger)(handler)
 
-	server := &http.Server{
+	port := config.GetEnv("CLASSIFIER_PORT", "8001")
+	metricsPort := config.GetEnv("CLASSIFIER_METRICS_PORT", "9091")
+
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsSrv := &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
+	}
+
+	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      logMiddleware(log, mux),
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Server failed", zap.Error(err))
-	}
-}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-func defaultEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
+	go func() {
+		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Metrics server failed", zap.Error(err))
+		}
+	}()
 
-func logMiddleware(log *zap.Logger, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		next.ServeHTTP(w, r)
-		safePath := strings.ReplaceAll(strings.ReplaceAll(r.URL.Path, "\n", ""), "\r", "")
-		log.Info("request",
-			zap.String("method", r.Method),
-			zap.String("path", safePath),
-			zap.Duration("duration", time.Since(start)),
-		)
-	})
+	go func() {
+		log.Info("Starting classifier service", zap.String("port", port))
+		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Server failed", zap.Error(err))
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info("Shutting down classifier service")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Error("HTTP server shutdown error", zap.Error(err))
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			log.Error("Metrics server shutdown error", zap.Error(err))
+		}
+	}()
+	wg.Wait()
+	log.Info("Classifier service stopped")
 }

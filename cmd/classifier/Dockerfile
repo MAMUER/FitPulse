@@ -36,6 +36,6 @@ COPY --from=builder --chown=appuser:appgroup /app/bin/classifier .
 
 USER appuser
 
-EXPOSE 8001
+EXPOSE 8001 9091
 
 ENTRYPOINT ["./classifier"]
