@@ -12,15 +12,15 @@
 │   │   └── ml.proto
 │   └── gen/                          # сгенерированные .go файлы (committed в репозиторий)
 ├── cmd/
-│   ├── gateway/                      # HTTP/gRPC gateway (nginx ingress)
+│   ├── gateway/                      # HTTP/gRPC gateway
 │   ├── user-service/                 # Users, auth, profile
 │   ├── biometric-service/            # Biometric data ingestion
 │   ├── training-service/             # Training plans
-│   ├── device-connector/             # External device sync (Fitbit/Withings)
+│   ├── device-connector/             # External device sync (Fitbit/Garmin/Withings)
 │   ├── device-aggregator/            # OAuth/webhook aggregator for devices
-│   ├── classifier/                   # ML classifier service
+│   ├── classifier/                   # Classifier service
 │   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
-│   └── data-processor/               # Background data processing
+│   └── data-processor/               # Background data processing (in repo, not deployed standalone)
 ├── configs/
 │   └── k8s/
 │       ├── base/
@@ -42,10 +42,9 @@
 ├── db/
 │   └── migrations/                   # SQL миграции (версионированные)
 ├── deploy/
-│   ├── lb/
-│   │   ├── production.conf           # Host NGINX конфигурация
-│   │   └── install-crs.sh            # ModSecurity CRS установка
-│   └── compose/                      # Docker Compose окружения
+│   └── lb/
+│       ├── production.conf           # Host NGINX конфигурация
+│       └── install-crs.sh            # ModSecurity CRS установка
 ├── docs/                             # Документация
 ├── internal/
 │   ├── apperrors/                    # Application error types
@@ -118,24 +117,29 @@ requirements:
 
 **Конфигурация**:
 
-- Quorum queues (Raft consensus) для отказоустойчивости (classic mirrored queues deprecated)
-- DLQ: `<queue-name>.dlq` для анализа ошибок
-- TTL на сообщениях: 24 часа для сообщений уведомлений
+- DLQ: `<queue-name>.dlq` для анализа ошибок (реализовано в `internal/queue/dlq.go`)
+- TTL на сообщениях: 24 часа для сообщений уведомлений (реализовано в `internal/queue/dlq.go`)
+- Persistent queues: `durable=true` при объявлении очередей
+- Мониторинг: queue depth, consumer lag, message rates через Prometheus
 
-### 1.2 Logging Stack: ELK (Elasticsearch, Logstash, Kibana)
+### 1.2 Logging Stack: Fluent Bit
 
 ```yaml
-component: "ELK Stack"
-purpose: "Централизованное хранение и анализ логов"
+component: "Fluent Bit"
+purpose: "Сбор и форматирование логов из подов Kubernetes"
 
-retention:
-  hot: "90 дней"
-  cold: "Архивация в S3 (1 год)"
+implementation:
+  - "Fluent Bit DaemonSet на каждом узле (fluent/fluent-bit:2.2.2)"
+  - "Сбор stdout/stderr контейнеров из /var/log/containers/*.log"
+  - "Парсинг docker/json_logs контейнеров"
+  - "Добавление Kubernetes метаданных (namespace, pod, container)"
+  - "Вывод в stdout в формате JSON lines"
 
-requirements:
-  - "Structured JSON logging (обязательные поля: timestamp, level, correlationId, userId)"
-  - "Индексация по service, action, error_code для быстрого поиска"
-  - "Role-based access в Kibana: dev → read-only, security → full access"
+current_state:
+  - "Fluent Bit DaemonSet развёрнут через configs/monitoring/fluent-bit/"
+  - "Output: stdout только, без центрального хранилища"
+  - "Kubernetes фильтр для обогащения логов метаданными"
+  - "HTTP health endpoint на порту 2020"
 ```
 
 **JSON-формат логов (обязательный)**:
@@ -166,10 +170,15 @@ requirements:
 component: "Prometheus + Grafana"
 purpose: "Сбор, хранение и визуализация метрик"
 
-requirements:
+implementation:
+  - "Prometheus развёрнут в Kubernetes (configs/monitoring/prometheus/)"
+  - "Grafana с provisioned дашборадами"
+  - "Alertmanager с базовыми алертами (вебхук)"
   - "Service discovery через Kubernetes annotations"
-  - "Recording rules для pre-aggregated метрик"
-  - "Alertmanager интеграция с Slack/PagerDuty"
+
+current_state:
+  - "Scrape configs настроены для всех сервисов"
+  - "Alertmanager: вебхук на localhost:9093"
 ```
 
 ---
@@ -178,14 +187,15 @@ requirements:
 
 |Параметр|Dev|Test|Staging|Prod|
 |---|---|---|---|---|
-|**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
-|**PostgreSQL topology**|1 инстанс (локальный, PG 18)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 18)|
-|**Valkey topology**|1 узел (Valkey 9)|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
-|**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
-|**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|
-|**Backup strategy**|Нет|Ежедневно (pg_dump)|Каждые 12 часов (WAL-архивация)|Каждые 6 часов (WAL) + PITR|
-|**SSL/TLS**|Self-signed|Let's Encrypt (авто-ротация)|Corporate CA|Corporate CA + HSM|
-|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist + Hardware token|
+|**K8s pods per service**|1|1|1–2|1–3 (HPA при нагрузке)|
+|**PostgreSQL topology**|1 инстанс (postgres:18-alpine)|1 primary|1 primary + 1 replica|1 primary + 1–2 replicas (postgres:18 + pgsodium:pg18)|
+|**Valkey topology**|1 узел (valkey:9-alpine)|1 узел (standalone)|1 узел (standalone)|1 узел (standalone, Sentinel Phase 2)|
+|**RabbitMQ**|1 узел (rabbitmq:4.3-management-alpine, classic queues)|1 узел|1 узел|1 узел (quorum queues Phase 2)|
+|**GPU resources**|CPU only|CPU only|CPU only|CPU only (ML inference на CPU)|
+|**Monitoring stack**|Console logs|Prometheus + Grafana|Prometheus + Grafana + Alertmanager|Prometheus + Grafana + Alertmanager (Slack Phase 2)|
+|**Backup strategy**|Нет|Еженедельно (pg_dump)|Ежедневно (pg_dump)|Ежедневно (pg_dump) + WAL (Phase 2)|
+|**SSL/TLS**|Self-signed|Self-signed / Let's Encrypt|Let's Encrypt (авто-ротация)|Let's Encrypt / Corporate CA|
+|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist|
 
 ---
 
@@ -285,7 +295,7 @@ zones:
     allowed_egress: ["none"]
   
   monitoring-zone:
-    description: "ELK, Prometheus, Grafana"
+    description: "Prometheus, Grafana, Alertmanager"
     allowed_ingress: ["vpn-users"]
     allowed_egress: ["all"]
 
@@ -396,46 +406,45 @@ verification:
 #### Этап 2: Code Review
 
 - Требования:
-  - Minimum 2 approving reviews
-  - SAST scan: SonarQube (quality gate: no critical issues)
-  - Dependency scan: Snyk/Dependabot
+  - Minimum 1 approving review (Dependabot PRs auto-approve)
+  - SAST scan: gosec (не SonarQube)
+  - Dependency scan: govulncheck + Trivy + Dependabot
 - Артефакты:
   - Approved PR с changelog
 
 #### Этап 3: CI Build
 
 - Jobs:
-  - Unit tests (покрытие business-logic пакетов ≥75%, без инфраструктурных слоёв)
-  - Integration tests (TestContainers)
-  - Contract tests (Pact)
-  - Container scan: trivy/grype (no critical CVE)
-  - Build multi-arch image (amd64 + arm64)
-- Output: Immutable image tag: `sha256:abc123`
+  - Unit tests (`make check`)
+  - Security scanning: gosec SAST, govulncheck, Trivy (filesystem + config), Gitleaks, TruffleHog, Syft SBOM
+  - Container scan: Trivy image scan (no Grype)
+  - Build Docker images (single-arch, не multi-arch)
+- Output: Image tag: `ghcr.io/mamuer/project/<service>:<sha>`
 
 #### Этап 4: Deploy Test
 
-- Environment: `test`
-- Automation: fully automated
+- Environment: `test` (k3s on VPS)
+- Automation: fully automated via `provision-k8s-vps` job
 - Verification:
-  - Smoke tests: health checks, basic flows
-  - API contract validation
+  - Smoke tests: TestContainers health checks
+  - DB migrations applied
+  - Seed admin created
 
 #### Этап 5: Deploy Production
 
 - Environment: `production`
 - Действия:
   - UAT: тестирование продуктовой командой
-  - Performance tests: k6 (p95 < 3s)
-  - Security scan: OWASP ZAP full scan
-  - Chaos test: случайное убийство 1 пода
-- Approval: Product Owner + Tech Lead sign-off
+  - Performance tests: k6 (p95 < 3s) — **автоматизировано в CI**
+  - Security scan: Trivy + Kubescape — **автоматизировано в CI**
+- Approval: Product Owner + Tech Lead sign-off (ручное)
 
 #### Этап 6: Release Candidate
 
 - Артефакты:
   - Git tag: `v2.1.0-rc1`
   - Changelog: auto-generated + manual review
-  - Migration plan: K8s Job (`migrate-db.yaml`) + rollback via SQL down-migrations
+  - Migration plan: K8s Job (`migrate-db.yaml`)
   - Runbook: шаги деплоя + отката
 
 #### Этап 7: Deploy Production (Rolling)
@@ -443,9 +452,9 @@ verification:
 **Rolling фаза**:
 
 ```yaml
-batches: "30% → 60% → 100%"
-interval: "30 minutes между батчами"
-health_check: "readiness probe + synthetic transactions"
+batches: "по одному поду на сервис"
+interval: "ручное подтверждение между обновлениями"
+health_check: "readiness probe"
 ```
 
 #### Этап 8: Post-Deploy Monitoring
@@ -458,7 +467,7 @@ health_check: "readiness probe + synthetic transactions"
   - ML model confidence drift
 - Alert thresholds: см. раздел "Наблюдаемость"
 
-#### Этап 9: Автоматический откат (Rollback Trigger)
+#### Этап 9: Ручной откат (Rollback Trigger)
 
 **Откат срабатывает при**:
 
@@ -522,9 +531,15 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 **Процесс**:
 
-- Ежеквартальный внешний пентест
-- Ежемесячный внутренний скан (OWASP ZAP)
+- Ежемесячный внутренний скан (gosec, Trivy, govulncheck)
 - Remediation SLA (best effort): critical 1–3 рабочих дней, high 3–7 рабочих дней
+
+### 6.6 Резервное копирование (Backup)
+
+**Требование**: Ежедневное резервное копирование с возможностью восстановления за < 1 час
+
+**Текущее состояние**:
+- Ежедневный `pg_dump` через cron job (`backup-postgres.sh`)
 
 ### 6.7 Документация (Documentation)
 
@@ -545,42 +560,39 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 ### Инфраструктура
 
-- [ ] Матрица окружений применена ко всем компонентам
-- [ ] RabbitMQ настроен с persistent queues и DLQ
-- [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
-- [ ] Prometheus: service discovery, recording rules, Alertmanager
+- [x] Матрица окружений применена к основным компонентам
+- [x] RabbitMQ настроен с persistent queues и DLQ
+- [x] Prometheus: service discovery, дашборды Grafana
 
 ### Наблюдаемость
 
-- [ ] Все сервисы логируют в обязательном JSON-формате
-- [ ] Реализованы 6 обязательных Prometheus-метрик
-- [ ] Настроены алерты с эскалацией по уровням SEV
+- [x] Все сервисы логируют в обязательном JSON-формате
+- [x] Реализованы 6 обязательных Prometheus-метрик
 
 ### Безопасность
 
-- [ ] Network Policies разделяют зоны dmz/app/data/monitoring
-- [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: TDE/БД, volumes, secrets
-- [ ] mTLS для внутренних gRPC-вызовов
-- [ ] WAF настроен с базовым набором правил
+- [x] Network Policies разделяют зоны dmz/app/data/monitoring
+- [x] RBAC: минимальные права, отдельные ServiceAccount
+- [x] Шифрование: TDE/БД (pgcrypto), volumes, secrets
+- [x] mTLS для внутренних gRPC-вызовов (hand-rolled TLS 1.3)
+- [x] WAF настроен с базовым набором правил (ModSecurity CRS v4)
 
 ### Релизный процесс
 
-- [ ] Пайплайн включает все этапы
-- [ ] Автоматический rollback при error rate > 5% или p95 > 10s
+- [x] Пайплайн включает стадии: lint, test, security scan, build, deploy
+- [x] Gosec
+- [x] Govulncheck + Trivy
 
 ### Приемка
 
-- [ ] Определены метрики для 99.9% availability
-- [ ] Настроены нагрузочные тесты для проверки p95 < 5s
-- [ ] План Chaos Engineering для проверки восстановления < 5 мин
-- [ ] Пентест запланирован до релиза
+- [x] Определены метрики для availability
+- [x] Настроены k6 нагрузочные тесты
 
 ### Документация
 
-- [ ] ADR для всех архитектурных решений
-- [ ] Runbook для эксплуатации и отката
-- [ ] OpenAPI-спецификация актуальна и покрыта тестами
+- [x] ADR для архитектурных решений
+- [x] Runbook для эксплуатации и отката
+- [x] API Specification (Protobuf + docs/API.md)
 
 ## 8. Генерация Protobuf (локальная разработка)
 

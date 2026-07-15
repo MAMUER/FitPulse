@@ -15,6 +15,7 @@
 - `oauth_states`
 - `device_provider_accounts`
 - `device_sync_log`
+- `refresh_tokens`
 
 ### Профиль и здоровье
 - `user_profiles`
@@ -36,7 +37,6 @@
 - `training_plan_weeks`
 - `training_plan_days`
 - `training_exercises`
-- `training_plan_exercises`
 - `workout_completions`
 
 ### Достижения
@@ -58,7 +58,7 @@
 - Устранены частичные зависимости от составного ключа.
 - Все таблицы имеют явный суррогатный `id` (`UUID`).
 - Примеры:
-  - `training_plan_exercises` зависит от `id`, а не от пары `(day_id, exercise_name)`.
+  - `training_exercises` зависит от `id`, а не от пары `(day_id, exercise_name)`.
   - `user_achievements` зависит от `(user_id, achievement_id)` как составного PK, нет частичных зависимостей.
 
 ## 3NF — Третья нормальная форма
@@ -72,10 +72,10 @@
 ## BCNF — Нормальная форма Бойса-Кодда
 
 - Каждая таблица удовлетворяет BCNF:
-  - единственный определитель ключа — первичный ключ (`id`) или天然ный ключ;
+  - единственный определитель ключа — первичный ключ (`id`) или натуральный ключ;
   - нет неключевых функциональных зависимостей.
 - Примеры:
-  - `users.email_hash` — уникальный, но не PK; вычисляется как HMAC-SHA256 с глобальной сольой для детерминированного поиска без утечки паттернов, PK остаётся `id`.
+  - `users.email_hash` — уникальный, но не PK; вычисляется как HMAC-SHA256 с глобальной солью для детерминированного поиска без утечки паттернов, PK остаётся `id`.
   - `users.full_name_hash`, `users.nickname_hash` — blind index для поиска по рандомизированно зашифрованным full_name и nickname; позволяют искать пользователя без расшифровки ciphertext, PK остаётся `id`.
   - `device_provider_accounts(user_id, provider)` — уникальность обеспечена UNIQUE, PK — `id`.
 
@@ -101,7 +101,8 @@
 ### `users`
 ```
 id (PK), email, email_encrypted, email_hash, password_hash, full_name, full_name_encrypted,
-nickname, nickname_encrypted, profile_photo_url, role, provider, external_id,
+full_name_hash, full_name_nonce, nickname, nickname_encrypted, nickname_hash, nickname_nonce,
+profile_photo_url, role, provider, external_id,
 email_confirmed, totp_secret_encrypted, totp_enabled, totp_backup_codes_hash,
 totp_backup_codes_remaining, created_at, updated_at
 ```
@@ -140,6 +141,11 @@ id (PK), provider_account_id (FK), sync_type, records_count, started_at, complet
 status, error_message, created_at
 ```
 
+### `refresh_tokens`
+```
+id (PK), token UNIQUE, user_id (FK), expires_at, revoked, created_at
+```
+
 ### `user_profiles`
 ```
 user_id (PK, FK), age, gender, height_cm, weight_kg, fitness_level, nutrition, sleep_hours,
@@ -160,6 +166,7 @@ user_id (PK, FK), contraindication (PK), created_at
 ```
 id (PK), user_id (FK), condition_type CHECK (...), condition_name, severity CHECK (...),
 diagnosed_at, is_active, notes, created_at, updated_at
+UNIQUE (user_id, condition_type, condition_name)
 ```
 
 ### `user_body_composition`
@@ -199,14 +206,14 @@ id (PK), user_id (FK), metric_type, value CHECK (value >= 0), timestamp, device_
 
 ### `device_ingest_log`
 ```
-id (PK), device_id (FK), metric_type, timestamp, quality, created_at
+id (PK), device_id (FK), metric_type, timestamp, quality DEFAULT 'good', created_at
 ```
 
 ### `training_plans`
 ```
 id (PK), user_id (FK), name, training_goal CHECK (...), training_location CHECK (...),
 available_time CHECK (...), duration_weeks CHECK (...), generated_at, start_date, end_date,
-status CHECK (...), classification_class, created_at
+status CHECK (...), created_at
 ```
 
 ### `training_plan_weeks`
@@ -224,19 +231,13 @@ is_rest_day, total_duration_minutes, intensity_level, notes
 ### `training_exercises`
 ```
 id (PK), day_id (FK), exercise_name, duration_minutes, intensity, sets, reps,
-rest_seconds, description
-```
-
-### `training_plan_exercises`
-```
-id (PK), day_id (FK), exercise_name, duration_minutes, intensity, sets, reps,
-rest_seconds, description
+rest_seconds DEFAULT 60, description, video_url, sort_order DEFAULT 0
 ```
 
 ### `workout_completions`
 ```
-id (PK), user_id (FK), plan_id (FK), day_id (FK), exercise_id (FK),
-completed_at, rating, feedback
+id (PK), user_id (FK), training_plan_id (FK), workout_id, scheduled_date DEFAULT CURRENT_DATE,
+completed BOOLEAN DEFAULT FALSE, completed_at, feedback, rating CHECK (1-5), created_at
 ```
 
 ### `achievements`
@@ -257,7 +258,7 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 - V3 — user_profiles, user_goals, user_contraindications
 - V4 — devices
 - V5 — biometric_data, device_ingest_log
-- V6 — training_plans, training_plan_weeks, training_plan_days, training_exercises
+- V6 — training_plans, training_plan_weeks, training_plan_days, training_exercises, workout_completions
 - V7 — achievements, user_achievements
 - V8 — views (invite_code_stats, user_profiles_with_goals)
 - V9 — functions (create_invite_code, use_invite_code)
@@ -269,7 +270,10 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 - V15 — user_health_conditions
 - V16 — user_body_composition
 - V17 — user_menstrual_cycles, user_menstrual_symptoms, user_menstrual_moods
-- V18 — pgsodium extension, PII re-encryption from pgcrypto
+- V18 — pgsodium extension
+- V19 — PII blind indexes (full_name_hash, full_name_nonce, nickname_hash, nickname_nonce)
+
+> `configs/k8s/base/jobs/init-db.sql` содержит все миграции V1–V19 в одном файле. Для инициализации базы данных в production примените этот файл через `kubectl apply -f configs/k8s/base/jobs/init-db.yaml` после создания namespace и secrets.
 
 ---
 
@@ -278,8 +282,28 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 - `users.role` ограничен CHECK (`client`, `admin`).
 - `user_profiles.gender` ограничен CHECK (`male`, `female`, `other`).
 - `user_health_conditions.condition_type` ограничен CHECK (`allergy`, `disease`, `disability`, `other`).
+- `user_health_conditions` имеет UNIQUE (`user_id`, `condition_type`, `condition_name`) для поддержки `ON CONFLICT` в upsert.
 - `user_body_composition.weight_kg` ограничен диапазоном `[1, 500]`.
+- `user_body_composition.height_cm` ограничен диапазоном `[50, 300]`.
+- `user_body_composition.body_fat_percentage` ограничен диапазоном `[1, 100]`.
+- `user_body_composition.muscle_mass_percentage` ограничен диапазоном `[1, 100]`.
+- `user_body_composition.bone_mass_percentage` ограничен диапазоном `[1, 100]`.
+- `user_body_composition.water_percentage` ограничен диапазоном `[1, 100]`.
+- `user_body_composition.visceral_fat_rating` ограничен диапазоном `[1, 59]`.
+- `user_body_composition.metabolic_age` ограничен диапазоном `[10, 100]`.
+- `user_body_composition.source` ограничен CHECK (`okok`, `manual`).
 - `user_menstrual_cycles.cycle_end_date >= cycle_start_date` через `CONSTRAINT chk_cycle_dates`.
 - `training_plans.duration_weeks` ограничен диапазоном `(0, 52]`.
+- `training_plan_weeks.week_number` ограничен `CHECK (week_number > 0)`.
+- `training_plan_days.day_of_week` ограничен `CHECK (day_of_week >= 0 AND day_of_week <= 6)`.
 - `biometric_data.value` >= 0.
+- `workout_completions.rating` ограничен `CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5))`.
 - `invite_code_uses` обеспечивает точный учёт использований без `used_count` в `invite_codes`.
+
+---
+
+## Согласованность с кодом
+
+- `cmd/device-connector/main.go` содержит `initDatabase()` с inline DDL для `devices` и `device_ingest_log`. Эти таблицы должны совпадать с миграциями V4 и V5: `user_id` типа `UUID`, `device_ingest_log.quality` имеет `DEFAULT 'good'`.
+- `cmd/user-service/main.go` использует `ON CONFLICT (user_id, condition_type, condition_name)` в `UpsertHealthCondition`. Миграция V15 содержит `UNIQUE (user_id, condition_type, condition_name)` для поддержки этого upsert.
+- `training_plans.training_goal` CHECK включает значения `endurance_e1e2`, `threshold_e3`, `strength_hiit` для совместимости с ML-классификатором.

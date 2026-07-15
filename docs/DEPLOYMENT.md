@@ -20,7 +20,8 @@ git clone https://github.com/MAMUER/fitpulse.git && cd fitpulse
 kubectl create namespace fitness-platform-production
 # 2.1. Создать секреты (обязательно перед apply манифестов!)
 kubectl create secret generic app-secrets -n fitness-platform-production \
-    --from-file=POSTGRES_PASSWORD=./postgres_password.txt \
+    --from-literal=POSTGRES_USER=postgres \
+    --from-literal=POSTGRES_PASSWORD=<your-password> \
     --from-literal=POSTGRES_DB=fitness
 kubectl apply -k configs/k8s/base/ -n fitness-platform-production
 
@@ -30,28 +31,24 @@ kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-produ
 # 4. Проверить статус подов
 kubectl get pods -n fitness-platform-production
 
-# 5. Health check
-kubectl port-forward svc/gateway 8443:8443 -n fitness-platform-production
+# 5. Health check (порт-forward к поду gateway на 8443)
+kubectl port-forward -n fitness-platform-production \
+    $(kubectl get pod -n fitness-platform-production -l app=gateway -o jsonpath='{.items[0].metadata.name}') \
+    8443:8443
 curl -k https://localhost:8443/health
 ```
 
 ## Требования к серверу
 
-### Production (полный стек)
+### Полный стек
 
 - **ОС**: Linux (Ubuntu 26+, Debian 13+)
 - **Kubernetes**: 1.36+ (k3s, k8s)
-- **CPU**: 4+ ядер
-- **RAM**: 8+ ГБ (для ML-сервисов)
-- **Диск**: 40+ ГБ SSD
+- **CPU**: 1+ ядро
+- **RAM**: 2+ ГБ
+- **Диск**: 30+ ГБ SSD
 - **Сеть**: HTTPS (порт 8443), TLS 1.3
 
-### Development/Testing (ограниченные ресурсы)
-
-- **CPU**: 1-2 ядра
-- **RAM**: 2-4 ГБ (с swap 4GB)
-- **Диск**: 20+ ГБ
-- **Важно**: На серверах с <4GB RAM ML-сервисы могут работать нестабильно. Рекомендуется их отключить или запускать на отдельном сервере.
 
 ## Развертывание на Kubernetes
 
@@ -101,6 +98,7 @@ kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=SMTP_USER=<your-email> \
     --from-literal=SMTP_PASSWORD=<app-password> \
     --from-literal=SMTP_FROM=<your-email> \
+    --from-literal=SMTP_TLS=true \
     --from-literal=APP_BASE_URL=https://your-domain.com \
     --from-literal=SEED_ADMIN_EMAIL=<admin-email> \
     --from-literal=SEED_ADMIN_PASSWORD=<admin-password> \
@@ -119,7 +117,7 @@ kubectl apply -f configs/k8s/base/ingress-nginx/ -n fitness-platform-production
 
 ### Ресурсные ограничения
 
-Для серверов с <4GB RAM примените resource quotas:
+Для серверов с <2GB RAM примените resource quotas:
 
 ```bash
 kubectl apply -f configs/k8s/base/resource-quota.yaml -n fitness-platform-production
@@ -134,11 +132,11 @@ kubectl scale deployment classifier --replicas=0 -n fitness-platform-production
 kubectl scale deployment ml-generator --replicas=0 -n fitness-platform-production
 ```
 
-### Swap для серверов с <4GB RAM
+### Swap для серверов с <2GB RAM
 
 ```bash
-# Создать swap файл 4GB
-sudo fallocate -l 4G /swapfile
+# Создать swap файл 2GB
+sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
@@ -151,6 +149,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 2. Указать параметры SMTP в secrets:
    - `SMTP_HOST=smtp.yandex.ru`
    - `SMTP_PORT=465`
+   - `SMTP_TLS=true` — **обязательно для Yandex на порту 465**
    - `SMTP_USER=ваш_email@yandex.ru`
    - `SMTP_PASSWORD=пароль_приложения`
    - `SMTP_FROM=ваш_email@yandex.ru`
@@ -192,15 +191,24 @@ kubectl delete job migrate-db -n fitness-platform-production
 kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 ```
 
-### NGINX не стартует
+### Gateway не отвечает на health check
 
-Убедитесь, что порт 8443 свободен:
+В текущих манифестах gateway служит HTTPS на порту `8443`, а Service `gateway-service` и probes указывают порт `8080`. Для проверки работоспособности используйте port-forward непосредственно к поду:
 
 ```bash
-sudo netstat -tlnp | grep 8443
+# Найти под gateway
+POD=$(kubectl get pod -n fitness-platform-production -l app=gateway -o jsonpath='{.items[0].metadata.name}')
+
+# Открыть port-forward к поду на 8443
+kubectl port-forward -n fitness-platform-production "$POD" 8443:8443
+
+# Проверить
+curl -k https://localhost:8443/health
 ```
 
-### Проблемы с TLS
+Исправление манифестов: в `configs/k8s/base/deployments/gateway.yaml` замените `containerPort: 8080` на `containerPort: 8443` и обновите `livenessProbe`/`readinessProbe` на порт `8443`. В `configs/k8s/base/services/gateway-service.yaml` замените `targetPort: 8080` на `targetPort: 8443`.
+
+### TLS
 
 Используйте self-signed сертификаты для тестирования:
 
@@ -212,10 +220,11 @@ openssl req -x509 -nodes -days 365 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
   -subj "/CN=localhost"
 ```
 
+> **Примечание:** директория `deploy/tls/certs/` в репозитории отсутствует; создайте её локально перед генерацией сертификатов.
+
 ## Рекомендации
 
-- Используйте **PersistentVolume** для PostgreSQL и RabbitMQ (не in-memory)
+- Используйте **PersistentVolume** для PostgreSQL и RabbitMQ (не in-memory) — в текущих манифестах уже настроено через `volumeClaimTemplates`
 - Настройте **ResourceQuota** и **LimitRange** для namespace
 - Используйте **HorizontalPodAutoscaler** для Gateway при высокой нагрузке
 - Настройте **backup** PostgreSQL через WAL-архивацию
-- Используйте **External Secrets Operator** для управления секретами в production

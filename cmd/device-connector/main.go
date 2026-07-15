@@ -443,13 +443,10 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 	_, err := database.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS devices (
 			id UUID PRIMARY KEY,
-			user_id TEXT NOT NULL,
+			user_id UUID NOT NULL,
 			device_type TEXT NOT NULL,
 			token TEXT NOT NULL UNIQUE,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			CONSTRAINT valid_device_type CHECK (device_type IN (
-				'fitbit', 'garmin', 'withings'
-			))
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)
 	`)
 	if err != nil {
@@ -464,7 +461,7 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 			device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 			metric_type TEXT NOT NULL,
 			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-			quality TEXT,
+			quality TEXT DEFAULT 'good',
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)
 	`)

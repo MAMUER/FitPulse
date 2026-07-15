@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS user_health_conditions (
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     notes           TEXT,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (user_id, condition_type, condition_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_health_conditions_user ON user_health_conditions(user_id);
