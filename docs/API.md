@@ -55,13 +55,18 @@ Refresh token используется для ротации через `POST /a
 |POST|`/devices/{device_id}/ingest`|Приём данных с устройства|`{metrics: [{metric_type, value, timestamp, device_type}]}`|`{status, synced_samples}`|
 |GET|`/devices`|Список устройств|—|`{status, devices: [{id, user_id, device_type, created_at}]}`|
 |POST|`/devices`|Зарегистрировать новое устройство|`{device_type}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
-|GET|`/devices/fitbit/auth`|Fitbit OAuth|—|Redirect to Fitbit|
-|GET|`/devices/fitbit/callback`|Fitbit callback|—|`{status}`|
-|POST|`/devices/fitbit/disconnect`|Disconnect Fitbit|—|`{status}`|
-|GET|`/devices/providers`|List providers|—|`{status, providers}`|
-|GET|`/devices/withings/auth`|Withings OAuth|—|Redirect to Withings|
-|GET|`/devices/withings/callback`|Withings callback|—|`{status}`|
-|POST|`/devices/withings/disconnect`|Disconnect Withings|—|`{status}`|
+|GET|`/api/v1/devices/fitbit/auth`|Fitbit OAuth|Header: `X-User-ID`|Redirect to Fitbit|
+|GET|`/api/v1/devices/fitbit/callback`|Fitbit callback|Query: `code`, `state`|`{status}`|
+|POST|`/api/v1/devices/fitbit/webhook`|Fitbit webhook (публичный)|JSON body|`{status}`|
+|POST|`/api/v1/devices/fitbit/disconnect`|Disconnect Fitbit|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/garmin/auth`|Garmin OAuth 1.0a|Header: `X-User-ID`|Redirect to Garmin|
+|GET|`/api/v1/devices/garmin/callback`|Garmin callback|Query: `code`, `state`, `oauth_verifier`|`{status}`|
+|POST|`/api/v1/devices/garmin/disconnect`|Disconnect Garmin|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/withings/auth`|Withings OAuth|Header: `X-User-ID`|Redirect to Withings|
+|GET|`/api/v1/devices/withings/callback`|Withings callback|Query: `code`, `state`|`{status}`|
+|POST|`/api/v1/devices/withings/webhook`|Withings webhook (публичный)|Header: `X-Withings-Signature`, JSON body|`{status}`|
+|POST|`/api/v1/devices/withings/disconnect`|Disconnect Withings|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
 |POST|`/auth/2fa/setup`|Настройка TOTP|—|`{status, qr_code_url, qr_code_base64, secret, backup_codes}`|
 |POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{passcode, temp_secret?, backup_codes?}`|`{status, message}`|
 |GET|`/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
@@ -181,3 +186,16 @@ Refresh token используется для ротации через `POST /a
 |429|Rate limit exceeded|
 |500|Внутренняя ошибка|
 |503|Сервис временно недоступен|
+
+## Внутренние сервисы
+
+### Data Processor (`cmd/data-processor`)
+
+Фоновый сервис для потребления биометрических событий из RabbitMQ и сохранения в PostgreSQL.
+
+|Метод|Путь|Описание|Входные данные|Выходные данные|
+|---|---|---|---|---|
+|GET|`/health`|Health check|—|`{"status":"healthy"}`|
+|GET|`/metrics`|Prometheus метрики|—|text/plain|
+
+Порты по умолчанию: `DATA_PROCESSOR_PORT=8084`, `DATA_PROCESSOR_METRICS_PORT=9092`.

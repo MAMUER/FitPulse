@@ -458,6 +458,265 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 
 ---
 
+## 4.x Классификатор состояний (classifier)
+
+### 4.x.1 Назначение
+
+HTTP-сервис для классификации физиологического состояния пользователя по 6 зонам на основе биометрических данных (пульс, HRV, SpO2, температура, АД, сон). Использует rule-based модель (замена реальной ML-модели в Phase 1). Gateway вызывает его для `POST /api/v1/ml/classify`.
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `POST /classify` | Классификация состояния |
+| `GET /health` | Health check |
+| `GET /metrics` | Prometheus метрики |
+| `GET /classes` | Список поддерживаемых классов |
+| `GET /model-info` | Информация о модели |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `CLASSIFIER_PORT` | `8001` | Порт сервера |
+| `CLASSIFIER_METRICS_PORT` | `9091` | Порт metrics-сервера |
+
+### 4.x.4 Формат запроса `POST /classify`
+
+```json
+{
+  "physiological_data": {
+    "heart_rate": 140.0,
+    "heart_rate_variability": 50.0,
+    "spo2": 98.0,
+    "temperature": 36.6,
+    "blood_pressure_systolic": 120.0,
+    "blood_pressure_diastolic": 80.0,
+    "sleep_hours": 7.0
+  },
+  "user_profile": {
+    "age": 30,
+    "fitness_level": "intermediate",
+    "goals": ["endurance"]
+  }
+}
+```
+
+### 4.x.5 Формат ответа
+
+```json
+{
+  "status": "success",
+  "state": "endurance_basic",
+  "confidence": 0.87,
+  "recommendation": ["Бег в аэробной зоне", "Велосипед (средняя интенсивность)"],
+  "fatigue_level": 0.3,
+  "motivation_score": 0.7,
+  "recovery_quality": 0.7,
+  "predicted_class": "endurance_basic",
+  "predicted_class_ru": "Базовая выносливость E1-E2",
+  "probabilities": {
+    "recovery": 0.02,
+    "endurance_basic": 0.87,
+    "endurance_threshold": 0.02,
+    "power_hiit": 0.02,
+    "overtraining": 0.05,
+    "illness": 0.02
+  },
+  "description": "Работа ниже лактатного порога...",
+  "hr_range": "65-80% HRmax",
+  "personalized_notes": "Учитывая цель похудения..."
+}
+```
+
+### 4.x.6 Классы состояний
+
+| # | Класс (slug) | Название RU | Ключевые правила |
+|---|--------------|-------------|------------------|
+| 0 | `recovery` | Восстановление | HRV > 50 И HR < 65% HRmax |
+| 1 | `endurance_basic` | Базовая выносливость E1-E2 | HR 65–80% HRmax, HRV 50–80 |
+| 2 | `endurance_threshold` | Пороговая выносливость E3 | HR 80–90% HRmax |
+| 3 | `power_hiit` | Силовая/HIIT | HR > 90% HRmax |
+| 4 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
+| 5 | `illness` | Заболевание | Температура > 37.5°C |
+
+### 4.x.7 Middleware
+
+- Recovery middleware (`middleware.RecoveryMiddleware`)
+- Request ID (`middleware.RequestID`)
+- CORS (`corsMiddleware`)
+- Логирование с Prometheus-метриками (`classifierLoggingMiddleware`)
+
+### 4.x.8 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+
+### 4.x.9 Метрики
+
+- `http_request_duration_seconds{method, path}`
+- `http_requests_total{method, path, status}`
+- `error_total{service="classifier", error_type}`
+- `classification_confidence{model_version="rule-based", class}`
+
+### 4.x.10 Валидация
+
+Валидация входных данных с диапазонами:
+- `heart_rate`: 20–250
+- `heart_rate_variability`: 0–300
+- `spo2`: 70–100
+- `temperature`: 30–45
+- `blood_pressure_systolic`: 60–250
+- `blood_pressure_diastolic`: 40–150
+- `sleep_hours`: 0–24
+
+Нулевые значения считаются не указанными и пропускаются.
+
+### 4.x.11 Интеграционные тесты
+
+Реальные e2e-тесты с поднятым HTTP-сервером:
+- Health check
+- Классификация с валидными данными
+- Обработка невалидного JSON
+- Валидационные ошибки
+
+Запуск: `go test ./cmd/classifier/...` (без `-short`).
+
+### 4.x.12 Особенности
+
+- Логгер: `internal/logger` с полем `service: "classifier"`
+- Gateway трансформирует ответ в контракт API: добавляет `status`, `state`, `fatigue_level`, `motivation_score`, `recovery_quality`
+- Mapping метрик: `hrv` → `heart_rate_variability`, `systolic_pressure` → `blood_pressure_systolic` и т.д.
+
+---
+
+## 4.x Device Aggregator (device-aggregator)
+
+### 4.x.1 Назначение
+
+HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Garmin, Withings). Отвечает за:
+- OAuth 2.0 flow для Fitbit и Withings
+- OAuth 1.0a flow для Garmin
+- Шифрование и хранение refresh-токенов в БД
+- Управление подключениями (подключение/отключение)
+- Обработка webhook-уведомлений от провайдеров
+- Список подключённых провайдеров для пользователя
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `GET /health` | Health check |
+| `GET /metrics` | Prometheus метрики |
+| `GET /api/v1/devices/fitbit/auth` | Start Fitbit OAuth |
+| `GET /api/v1/devices/fitbit/callback` | Fitbit OAuth callback |
+| `POST /api/v1/devices/fitbit/webhook` | Fitbit webhook |
+| `POST /api/v1/devices/fitbit/disconnect` | Disconnect Fitbit |
+| `GET /api/v1/devices/garmin/auth` | Start Garmin OAuth 1.0a |
+| `GET /api/v1/devices/garmin/callback` | Garmin OAuth callback |
+| `POST /api/v1/devices/garmin/disconnect` | Disconnect Garmin |
+| `GET /api/v1/devices/withings/auth` | Start Withings OAuth |
+| `GET /api/v1/devices/withings/callback` | Withings OAuth callback |
+| `POST /api/v1/devices/withings/webhook` | Withings webhook |
+| `POST /api/v1/devices/withings/disconnect` | Disconnect Withings |
+| `GET /api/v1/devices/providers` | List connected providers |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `DEVICE_AGGREGATOR_PORT` | `8083` | Порт сервера |
+| `DEVICE_AGGREGATOR_METRICS_PORT` | `9093` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `DEVICE_TOKEN_ENCRYPTION_KEY` | — | AES-256-GCM ключ для шифрования refresh-токенов (обязателен) |
+| `FITBIT_CLIENT_ID`, `FITBIT_CLIENT_SECRET`, `FITBIT_REDIRECT_URI` | — | Fitbit OAuth credentials |
+| `GARMIN_CONSUMER_KEY`, `GARMIN_CONSUMER_SECRET`, `GARMIN_CALLBACK_URL` | — | Garmin OAuth 1.0a credentials |
+| `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL` | — | Withings OAuth credentials |
+
+### 4.x.4 Безопасность
+
+- Refresh-токены шифруются через AES-256-GCM (`internal/crypto`)
+- Валидация redirect URI: только HTTPS, только доверенные хосты (`fitbit.com`, `withings.com`, `withings.net`, `duckdns.org`)
+- Webhook-подписи: HMAC-SHA256 для Withings
+- OAuth state параметр хранится в БД с TTL 10 минут
+
+### 4.x.5 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+
+### 4.x.6 Метрики
+
+- `http_request_duration_seconds{method, path}`
+- `http_requests_total{method, path, status}`
+- `error_total{service="device-aggregator", error_type}`
+- `biometric_sync_lag_seconds{device_type, user_segment}`
+
+### 4.x.7 Тесты
+
+- Unit-тесты для handlers: health, disconnect, OAuth callback, auth start, redirect validation
+- Запуск: `go test ./cmd/device-aggregator/...`
+
+### 4.x.8 Особенности
+
+- Логгер: `internal/logger` с полем `service: "device-aggregator"`
+- Middleware: recovery, request ID, correlation ID, logging с Prometheus
+- Garmin OAuth 1.0a использует `crypto/sha1` для подписи (требование Garmin Health API, см. `SECURITY.md`)
+
+---
+
+## 4.x Background Data Processor (data-processor)
+
+### 4.x.1 Назначение
+
+Фоновый сервис для потребления биометрических событий из RabbitMQ (`biometric_events`) и сохранения их в PostgreSQL. Обеспечивает:
+- Асинхронную запись биометрических данных с валидацией диапазонов
+- Prometheus-метрики обработки сообщений
+- Graceful shutdown с ожиданием завершения in-flight сообщений
+- Health check и metrics endpoints
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `GET /health` | Health check (JSON `{"status":"healthy"}`) |
+| `GET /metrics` | Prometheus метрики |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `DATA_PROCESSOR_PORT` | `8084` | Порт health-сервера |
+| `DATA_PROCESSOR_METRICS_PORT` | `9092` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `RABBITMQ_URL` | — | RabbitMQ подключение (обязателен) |
+
+### 4.x.4 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Ожидание завершения текущих сообщений (таймаут 30 секунд)
+- Graceful shutdown health и metrics серверов
+
+### 4.x.5 Валидация событий
+
+Перед записью в БД проверяются:
+- `user_id` и `metric_type` не пустые
+- `value >= 0`
+- `value` в допустимых диапазонах для каждого типа метрики (heart_rate: 30–220, spo2: 70–100 и т.д.)
+
+### 4.x.6 Метрики
+
+- `error_total{service="data-processor", error_type="parse_error|validation_error|insert_error"}`
+- `queue_messages_total{queue, status}` (через `internal/queue`)
+
+### 4.x.7 Тесты
+
+- Unit-тесты: парсинг, валидация, getMetricRules, вставка в БД
+- Интеграционные тесты с Testcontainers (PostgreSQL + RabbitMQ), пропускаются если Docker недоступен
+- Запуск: `go test ./cmd/data-processor/...` (без `-short` для integration тестов)
+
+---
+
 ## 5. Порядок выпуска версий (Release Pipeline)
 
 ### 5.1 Девять этапов релиза
