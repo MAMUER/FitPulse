@@ -91,9 +91,6 @@ updates:
     commit-message: { prefix: "deps(docker/gateway)", include: "scope" }
     labels: ["dependencies", "docker", "gateway"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
@@ -109,9 +106,6 @@ updates:
     commit-message: { prefix: "deps(docker/user-service)", include: "scope" }
     labels: ["dependencies", "docker", "user-service"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
@@ -128,9 +122,6 @@ updates:
       { prefix: "deps(docker/biometric-service)", include: "scope" }
     labels: ["dependencies", "docker", "biometric-service"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
@@ -147,9 +138,6 @@ updates:
       { prefix: "deps(docker/training-service)", include: "scope" }
     labels: ["dependencies", "docker", "training-service"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
@@ -166,9 +154,6 @@ updates:
       { prefix: "deps(docker/device-connector)", include: "scope" }
     labels: ["dependencies", "docker", "device-connector"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
@@ -185,9 +170,7 @@ updates:
       { prefix: "deps(docker/device-aggregator)", include: "scope" }
     labels: ["dependencies", "docker", "device-aggregator"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
+    registries: ["ghcr"]
 
   - package-ecosystem: "docker"
     directory: "/cmd/classifier"
@@ -202,9 +185,6 @@ updates:
     commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
     labels: ["dependencies", "docker", "classifier"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
     registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════
@@ -223,19 +203,6 @@ updates:
     commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
     labels: ["dependencies", "python", "ml-generator"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "tensorflow"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "keras"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "numpy"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "scikit-learn"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "pandas"
-        versions: [">=3"]
-      - dependency-name: "cryptography"
-        versions: [">=49"]
     groups:
       ml-dependencies:
         patterns:
@@ -268,17 +235,31 @@ updates:
     commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
     labels: ["dependencies", "docker", "ml-generator"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
-        versions: [">=3.13"]
     registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════
-  # 6. KUBERNETES MANIFESTS (опционально)
+  # 6. KUBERNETES MANIFESTS — базовые deployment'ы
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/deployments"
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "deps(k8s/deployments)", include: "scope" }
+    labels: ["dependencies", "docker", "kubernetes"]
+    assignees: ["MAMUER"]
+    registries: ["ghcr"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 7. KUBERNETES MANIFESTS — ingress-nginx
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "docker"
+    directory: "/configs/k8s/base/ingress-nginx"
     schedule:
       {
         interval: "monthly",
@@ -287,11 +268,7 @@ updates:
         timezone: "Europe/Moscow",
       }
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(k8s)", include: "scope" }
-    labels: ["dependencies", "kubernetes", "automated"]
+    commit-message: { prefix: "deps(k8s/ingress-nginx)", include: "scope" }
+    labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
     assignees: ["MAMUER"]
-    ignore:
-      - dependency-name: "postgres"
-        versions: [">=18"]
-      - dependency-name: "valkey"
-        versions: [">=8"]
+    registries: ["ghcr"]

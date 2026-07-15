@@ -2,7 +2,7 @@
 name: Баг-репорт
 description: Сообщить об ошибке в работе приложения
 title: "[Bug]: "
-labels: ["bug", "triage"]
+labels: "bug"
 assignees: []
 body:
   - type: markdown

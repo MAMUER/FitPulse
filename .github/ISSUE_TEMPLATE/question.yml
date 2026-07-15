@@ -2,7 +2,7 @@
 name: Вопрос (не баг)
 description: Задать вопрос по использованию проекта
 title: "[Question]: "
-labels: ["question"]
+labels: "question"
 body:
   - type: textarea
     id: question
