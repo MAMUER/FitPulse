@@ -28,7 +28,7 @@
 3. **Правила алертинга**: критические и предупреждающие алерты с политиками эскалации:
    - SEV-1: ServiceDown, DBConnectionPoolExhausted, BackupFailed
    - SEV-3: HighErrorRate, HighLatency, LowMLConfidence
-   - Эскалация: немедленный PagerDuty для SEV-1, Slack-уведомления с задержкой для остальных.
+   - Эскалация: Telegram-уведомления (через CI/CD бот) для SEV-1; Slack/PagerDuty-интеграции запланированы на Phase 2.
 
 ## Последствия
 
@@ -38,10 +38,10 @@
 
 ## Реализация
 
-- Интеграция библиотек структурированного логирования в Go- и Python-сервисы.
-- Настройка Prometheus-экспортёров и Grafana-дашбордов.
-- Настройка Alertmanager со Slack- и PagerDuty-интеграциями.
-- Реализация propagation correlation ID через сервисы.
+- **Структурированное JSON-логирование**: Go-сервисы (user-service, biometric-service, training-service, gateway, device-connector, data-processor) используют `internal/logger/logger.go` на базе zap с JSON-кодированием, ISO8601-таймстемпами и полем `service`. Gateway-middleware добавляет `correlationId`, `userId`, `action`. Пробелы: `cmd/classifier/main.go` использует сырой `zap.NewProduction()` без поля `service` и middleware; Python-сервис (`cmd/ml_generator/main.py`) использует `structlog` с `ConsoleRenderer` (человекочитаемый текст, не JSON) и не гарантирует все обязательные поля.
+- Настройка Prometheus-экспортёров и Grafana-дашбордов: реализованы core и доменные метрики (`internal/metrics/metrics.go`, `internal/metrics/extended.go`).
+- Настройка Alertmanager: развёрнут с базовым webhook-ресивером (`localhost:9093`) и закомментированным Telegram-примером. Интеграция со Slack/PagerDuty/Grafana OnCall запланирована на Phase 2.
+- Реализация propagation correlation ID через сервисы: реализована в gateway-middleware.
 
 ## Рассмотренные альтернативы
 

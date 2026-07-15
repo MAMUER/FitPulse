@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1" // #nosec G505 - required by OAuth 1.0a HMAC-SHA1
+	"crypto/sha1"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"

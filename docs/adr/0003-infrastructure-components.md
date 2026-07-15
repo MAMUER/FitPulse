@@ -12,14 +12,13 @@
     - Назначение: очереди уведомлений, фоновой обработки биометрии, межсервисной синхронизации.
     - Требования: Quorum queues (Raft-based) для durability, DLQ для неудачных сообщений (с persistent storage + retry после восстановления), мониторинг глубины очередей, лага консьюмеров и скорости сообщений.
 
-2. **ELK Stack (Elasticsearch, Logstash, Kibana)** — централизованное логирование и анализ.
-   - Назначение: хранение и анализ логов всех сервисов.
-   - Retention: 90 дней горячего хранилища + архивация в S3.
-   - Требования: структурированное JSON-логирование с обязательными полями (timestamp, level, correlationId, userId, action), индексация по сервису/действию/error_code, RBAC в Kibana (dev: read-only, security: full access).
+2. **Логирование**: Fluent Bit как stdout-коллектор (JSON Lines) в текущем окружении. Централизованный ELK Stack (Elasticsearch, Logstash, Kibana) запланирован на Phase 2.
+   - Retention: текущий stdout-логи ограничен journald/Docker rotation (неделя / 10MB×3 файлов).
+   - Требования: структурированное JSON-логирование с полями (timestamp, level, correlationId, userId, action), индексация по сервису/действию/error_code — целевые требования для Phase 2.
 
 3. **Prometheus + Grafana** — сбор, хранение и визуализация метрик.
    - Назначение: мониторинг здоровья сервисов, производительности и бизнес-метрик.
-   - Требования: service discovery через Kubernetes annotations, recording rules для преагрегированных метрик, интеграция Alertmanager со Slack/Grafana OnCall (open-source).
+   - Требования: service discovery через Kubernetes annotations, recording rules для преагрегированных метрик, Alertmanager с базовым webhook-ресивером. Интеграция со Slack/PagerDuty/Grafana OnCall запланирована на Phase 2.
 
 ## Последствия
 
@@ -30,8 +29,8 @@
 ## Реализация
 
 - RabbitMQ: Deploy как StatefulSet с persistent volumes и политиками репликации очередей.
-- ELK: Развёртывание кластера Elasticsearch, Logstash для инжеста, Kibana для визуализации с соответствующими конфигурациями безопасности.
-- Prometheus: Развёртывание с service discovery, настройка recording и alerting правил согласно спецификации.
+- Логирование: Fluent Bit DaemonSet с stdout-выводом в JSON Lines; ELK Stack запланирован на Phase 2.
+- Prometheus: Deploy с service discovery через Kubernetes annotations; recording rules и расширенные алерты запланированы на Phase 2. Alertmanager развёрнут с базовым webhook-ресивером (`localhost:9093`); внешние интеграции (Telegram/Slack/PagerDuty) — Phase 2.
 
 ## Рассмотренные альтернативы
 

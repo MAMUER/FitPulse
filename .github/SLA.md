@@ -11,7 +11,6 @@
 | Phase | Topology | Target Uptime | Notes |
 |-------|----------|---------------|-------|
 | Phase 1 | single-node k3s | **99.0%** | Без HA, single point of failure; planned maintenance excluded |
-| Phase 2+ | multi-node k3s / k8s | **99.5%** | При наличии реплик и автоматического восстановления |
 
 Расчёт: downtime ≤ 3.65 дня/год для 99.0%, ≤ 1.83 дня/год для 99.5%.
 Planned maintenance windows исключаются из расчёта.
