@@ -197,23 +197,23 @@ func defaultIfZero(val, def float64) float64 {
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
 	if data.Temperature > 37.5 {
 		probs := map[string]float64{
-			"recovery":         0.0,
-			"endurance_basic":  0.0,
+			"recovery":            0.0,
+			"endurance_basic":     0.0,
 			"endurance_threshold": 0.0,
-			"power_hiit":       0.02,
-			"overtraining":     0.05,
-			"illness":          0.93,
+			"power_hiit":          0.02,
+			"overtraining":        0.05,
+			"illness":             0.93,
 		}
 		return 5, 0.93, probs
 	}
 	if data.Temperature > 37.3 {
 		probs := map[string]float64{
-			"recovery":         0.05,
-			"endurance_basic":  0.05,
+			"recovery":            0.05,
+			"endurance_basic":     0.05,
 			"endurance_threshold": 0.02,
-			"power_hiit":       0.03,
-			"overtraining":     0.10,
-			"illness":          0.75,
+			"power_hiit":          0.03,
+			"overtraining":        0.10,
+			"illness":             0.75,
 		}
 		return 5, 0.75, probs
 	}
@@ -238,12 +238,12 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 
 	if data.HeartRateVariability < 30 && hrPct < 0.6 {
 		topProbs := map[string]float64{
-			"recovery":         0.03,
-			"endurance_basic":  0.05,
+			"recovery":            0.03,
+			"endurance_basic":     0.05,
 			"endurance_threshold": 0.02,
-			"power_hiit":       0.05,
-			"overtraining":     0.85,
-			"illness":          0.05,
+			"power_hiit":          0.05,
+			"overtraining":        0.85,
+			"illness":             0.05,
 		}
 		return 4, 0.85, topProbs
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 - required by OAuth 1.0a HMAC-SHA1
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,11 +65,7 @@ func (p *GarminProvider) GetAuthURL(userID string) (string, error) {
 	p.requestToken = reqToken
 	p.requestSecret = reqSecret
 
-	authURL := fmt.Sprintf(
-		"https://connectapi.garmin.com/oauth-service/oauth/authorize?oauth_token=%s&oauth_callback=%s",
-		url.QueryEscape(reqToken),
-		url.QueryEscape(p.callbackURL),
-	)
+	authURL := "https://connectapi.garmin.com/oauth-service/oauth/authorize?oauth_token=" + url.QueryEscape(reqToken) + "&oauth_callback=" + url.QueryEscape(p.callbackURL)
 
 	return authURL, nil
 }
@@ -77,7 +74,7 @@ func (p *GarminProvider) getRequestToken() (string, string, error) {
 	oauthParams := url.Values{}
 	oauthParams.Set("oauth_consumer_key", p.consumerKey)
 	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
-	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	oauthParams.Set("oauth_nonce", uuid.New().String())
 	oauthParams.Set("oauth_version", "1.0")
 	oauthParams.Set("oauth_callback", p.callbackURL)
@@ -165,13 +162,13 @@ func (p *GarminProvider) exchangeForAccessToken(oauthToken, oauthVerifier string
 	oauthParams := url.Values{}
 	oauthParams.Set("oauth_consumer_key", p.consumerKey)
 	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
-	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	oauthParams.Set("oauth_nonce", uuid.New().String())
 	oauthParams.Set("oauth_version", "1.0")
 	oauthParams.Set("oauth_token", oauthToken)
 	oauthParams.Set("oauth_verifier", oauthVerifier)
 
-	signingKey := fmt.Sprintf("%s&%s", url.QueryEscape(p.consumerSecret), url.QueryEscape(p.requestSecret))
+	signingKey := url.QueryEscape(p.consumerSecret) + "&" + url.QueryEscape(p.requestSecret)
 	signature := p.signWithKey("POST", "https://connectapi.garmin.com/oauth-service/oauth/access_token", oauthParams, signingKey)
 	oauthParams.Set("oauth_signature", signature)
 
@@ -211,12 +208,12 @@ func (p *GarminProvider) getUserProfile(accessToken, accessTokenSecret string) (
 	oauthParams := url.Values{}
 	oauthParams.Set("oauth_consumer_key", p.consumerKey)
 	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
-	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	oauthParams.Set("oauth_nonce", uuid.New().String())
 	oauthParams.Set("oauth_version", "1.0")
 	oauthParams.Set("oauth_token", accessToken)
 
-	signingKey := fmt.Sprintf("%s&%s", url.QueryEscape(p.consumerSecret), url.QueryEscape(accessTokenSecret))
+	signingKey := url.QueryEscape(p.consumerSecret) + "&" + url.QueryEscape(accessTokenSecret)
 	signature := p.signWithKey("GET", "https://connectapi.garmin.com/userprofile-service/userprofile/user-profile", oauthParams, signingKey)
 	oauthParams.Set("oauth_signature", signature)
 
@@ -273,16 +270,12 @@ func (p *GarminProvider) encryptRefreshToken(token string) (string, error) {
 }
 
 func (p *GarminProvider) sign(method, baseURL string, params url.Values) string {
-	signingKey := fmt.Sprintf("%s&", url.QueryEscape(p.consumerSecret))
+	signingKey := url.QueryEscape(p.consumerSecret) + "&"
 	return p.signWithKey(method, baseURL, params, signingKey)
 }
 
 func (p *GarminProvider) signWithKey(method, baseURL string, params url.Values, signingKey string) string {
-	signatureBase := fmt.Sprintf("%s&%s&%s",
-		strings.ToUpper(method),
-		url.QueryEscape(baseURL),
-		url.QueryEscape(params.Encode()),
-	)
+	signatureBase := strings.ToUpper(method) + "&" + url.QueryEscape(baseURL) + "&" + url.QueryEscape(params.Encode())
 	mac := hmac.New(sha1.New, []byte(signingKey))
 	mac.Write([]byte(signatureBase))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))

@@ -4,18 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/queue"
-	"github.com/google/uuid"
 )
 
 type biometricEvent struct {
@@ -84,6 +86,34 @@ func run(stopCh <-chan os.Signal) error {
 	return nil
 }
 
+func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue.Consumer, log *logger.Logger, msg amqp.Delivery, insertQuery string) bool {
+	event, err := parseBiometricEvent(msg.Body)
+	if err != nil {
+		log.Error("Failed to parse biometric event", zap.Error(err), zap.String("body", string(msg.Body)))
+		if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
+			log.Error("Failed to nack message", zap.Error(nackErr))
+		}
+		return false
+	}
+
+	if err := insertBiometricRecord(ctx, database, insertQuery, event); err != nil {
+		log.Error("Failed to insert biometric record",
+			zap.Error(err),
+			zap.String("user_id", event.UserID),
+			zap.String("metric_type", event.MetricType),
+		)
+		if nackErr := consumer.Nack(msg.DeliveryTag, false, true); nackErr != nil {
+			log.Error("Failed to nack message", zap.Error(nackErr))
+		}
+		return false
+	}
+
+	if ackErr := consumer.Ack(msg.DeliveryTag, false); ackErr != nil {
+		log.Error("Failed to ack message", zap.Error(ackErr))
+	}
+	return true
+}
+
 func consumeBiometricEvents(ctx context.Context, database *sql.DB, consumer queue.Consumer, log *logger.Logger) {
 	const insertQuery = `
 		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
@@ -100,31 +130,7 @@ func consumeBiometricEvents(ctx context.Context, database *sql.DB, consumer queu
 				log.Warn("RabbitMQ messages channel closed")
 				return
 			}
-
-			event, err := parseBiometricEvent(msg.Body)
-			if err != nil {
-				log.Error("Failed to parse biometric event", zap.Error(err), zap.String("body", string(msg.Body)))
-				if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
-					log.Error("Failed to nack message", zap.Error(nackErr))
-				}
-				continue
-			}
-
-			if err := insertBiometricRecord(ctx, database, insertQuery, event); err != nil {
-				log.Error("Failed to insert biometric record",
-					zap.Error(err),
-					zap.String("user_id", event.UserID),
-					zap.String("metric_type", event.MetricType),
-				)
-				if nackErr := consumer.Nack(msg.DeliveryTag, false, true); nackErr != nil {
-					log.Error("Failed to nack message", zap.Error(nackErr))
-				}
-				continue
-			}
-
-			if ackErr := consumer.Ack(msg.DeliveryTag, false); ackErr != nil {
-				log.Error("Failed to ack message", zap.Error(ackErr))
-			}
+			_ = processBiometricEvent(ctx, database, consumer, log, msg, insertQuery)
 		}
 	}
 }
@@ -135,10 +141,10 @@ func parseBiometricEvent(body []byte) (biometricEvent, error) {
 		return event, fmt.Errorf("unmarshal event: %w", err)
 	}
 	if event.UserID == "" {
-		return event, fmt.Errorf("user_id is empty")
+		return event, errors.New("user_id is empty")
 	}
 	if event.MetricType == "" {
-		return event, fmt.Errorf("metric_type is empty")
+		return event, errors.New("metric_type is empty")
 	}
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now().UTC()

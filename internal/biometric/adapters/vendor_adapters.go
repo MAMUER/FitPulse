@@ -109,20 +109,20 @@ func (f *AdapterFactory) CreateAdapter(deviceType, userID, deviceID string) (dom
 	switch deviceType {
 	case "fitbit":
 		return NewPlatformAdapter("fitbit", "https://api.fitbit.com/1", apiKey, userID, deviceID, map[domain.MetricType]bool{
-			domain.MetricHeartRate: true,
-			domain.MetricHRV:       true,
-			domain.MetricSpO2:      true,
+			domain.MetricHeartRate:  true,
+			domain.MetricHRV:        true,
+			domain.MetricSpO2:       true,
 			domain.MetricSleepStage: true,
-			domain.MetricSteps:     true,
+			domain.MetricSteps:      true,
 		}), nil
 	case "garmin":
 		return NewPlatformAdapter("garmin", "https://connectapi.garmin.com", apiKey, userID, deviceID, map[domain.MetricType]bool{
-			domain.MetricHeartRate:        true,
-			domain.MetricHRV:              true,
-			domain.MetricSpO2:             true,
-			domain.MetricTemperature:      true,
-			domain.MetricSleepStage:       true,
-			domain.MetricSteps:            true,
+			domain.MetricHeartRate:   true,
+			domain.MetricHRV:         true,
+			domain.MetricSpO2:        true,
+			domain.MetricTemperature: true,
+			domain.MetricSleepStage:  true,
+			domain.MetricSteps:       true,
 		}), nil
 	case "withings":
 		return NewPlatformAdapter("withings", "https://wbsapi.withings.net", apiKey, userID, deviceID, map[domain.MetricType]bool{

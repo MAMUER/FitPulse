@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,7 +74,7 @@ func (p *WithingsProvider) ExchangeCode(ctx context.Context, code, state string)
 		return fmt.Errorf("invalid or expired state: %w", err)
 	}
 
-	if _, err := p.db.ExecContext(ctx, `DELETE FROM oauth_states WHERE state = $1`, state); err != nil {
+	if _, err = p.db.ExecContext(ctx, `DELETE FROM oauth_states WHERE state = $1`, state); err != nil {
 		p.log.Warn("failed to delete oauth state", zap.Error(err))
 	}
 
@@ -215,7 +216,7 @@ func (p *WithingsProvider) ListProviders(ctx context.Context, userID string) (ma
 
 func (p *WithingsProvider) encryptRefreshToken(token string) (string, error) {
 	if p.encryptor == nil {
-		return "", fmt.Errorf("encryptor not initialized")
+		return "", errors.New("encryptor not initialized")
 	}
 	ciphertext, err := p.encryptor.Encrypt([]byte(token))
 	if err != nil {
@@ -227,10 +228,10 @@ func (p *WithingsProvider) encryptRefreshToken(token string) (string, error) {
 // WithingsTokenResponse represents Withings token response.
 type WithingsTokenResponse struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken  string `json:"refresh_token"`
-	ExpiresIn     int    `json:"expires_in"`
-	TokenType     string `json:"token_type"`
-	Scope         string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
 }
 
 // WithingsProfile represents Withings user profile.
