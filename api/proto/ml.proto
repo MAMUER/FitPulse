@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ml;
 
-option go_package = "github.com/MAMUER/Project/api/gen/ml";
+option go_package = "github.com/MAMUER/project/api/gen/ml";
 
 import "google/protobuf/struct.proto";
 
