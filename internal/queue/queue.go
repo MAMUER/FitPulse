@@ -146,6 +146,18 @@ func (p *rabbitPublisher) Publish(ctx context.Context, event interface{}) error 
 	return nil
 }
 
+func (p *rabbitPublisher) Ping() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed || p.channel == nil {
+		return errors.New("publisher is closed")
+	}
+	if p.conn.IsClosed() {
+		return errors.New("connection is closed")
+	}
+	return nil
+}
+
 func (p *rabbitPublisher) Close() error {
 	p.mu.Lock()
 	if p.closed {

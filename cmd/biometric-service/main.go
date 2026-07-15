@@ -4,9 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"net"
+	"net/http"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -46,7 +51,8 @@ func safeIntToInt32(v int) int32 {
 
 func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordRequest) (*pb.AddRecordResponse, error) {
 	start := time.Now()
-	s.log.Info("AddRecord",
+	s.log.Info("BIOMETRIC_DATA_RECEIVED",
+		zap.String("action", "BIOMETRIC_DATA_RECEIVED"),
 		zap.String("user_id", req.UserId),
 		zap.String("metric_type", req.MetricType),
 		zap.Float64("value", req.Value),
@@ -57,12 +63,24 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	var userExists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", req.UserId).Scan(&userExists)
+	if err != nil {
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to verify user")
+	}
+	if !userExists {
+		s.log.Warn("User not found", zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+
 	id := uuid.New().String()
 	timestamp := req.Timestamp.AsTime()
 
-	_, err := s.db.ExecContext(ctx, `
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type)
 		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (user_id, metric_type, timestamp, device_type) DO NOTHING
 	`, id, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType)
 	if err != nil {
 		s.log.Error("Failed to insert record", zap.Error(err))
@@ -81,7 +99,8 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 
 	if s.rabbitQueue != nil {
 		if err := s.rabbitQueue.Publish(ctx, event); err != nil {
-			s.log.Warn("Failed to publish to queue", zap.Error(err))
+			s.log.Error("Failed to publish to queue", zap.Error(err))
+			return nil, status.Error(codes.Internal, "failed to queue event")
 		}
 	}
 
@@ -94,6 +113,15 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	}
 	if len(req.Records) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "records cannot be empty")
+	}
+
+	var userExists bool
+	if err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", req.UserId).Scan(&userExists); err != nil {
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to verify user")
+	}
+	if !userExists {
+		return nil, status.Error(codes.NotFound, "user not found")
 	}
 
 	for i, rec := range req.Records {
@@ -114,9 +142,11 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		_ = tx.Rollback()
 	}()
 
-	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (user_id, metric_type, timestamp, device_type) DO NOTHING`
 
+	inserted := 0
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
 			_ = tx.Rollback()
@@ -129,7 +159,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 			ts = time.Now()
 		}
 
-		_, err := tx.ExecContext(ctx, query,
+		result, err := tx.ExecContext(ctx, query,
 			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, time.Now(),
 		)
 		if err != nil {
@@ -140,6 +170,9 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 			)
 			return nil, status.Error(codes.Internal, "failed to save records")
 		}
+		if n, _ := result.RowsAffected(); n > 0 {
+			inserted++
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -147,7 +180,70 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		return nil, status.Error(codes.Internal, "database commit error")
 	}
 
-	return &pb.BatchAddRecordsResponse{Count: safeIntToInt32(len(req.Records))}, nil
+	return &pb.BatchAddRecordsResponse{Count: safeIntToInt32(inserted)}, nil
+}
+
+type recordsQuery struct {
+	query string
+	args  []interface{}
+}
+
+func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) recordsQuery {
+	from := req.From.AsTime()
+	to := req.To.AsTime()
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 10000 {
+		limit = 10000
+	}
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	baseQuery := `
+		SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
+		FROM biometric_data
+		WHERE user_id = $1 AND metric_type = $2
+	`
+
+	switch {
+	case from.IsZero() && to.IsZero():
+		return recordsQuery{
+			query: baseQuery + `
+			ORDER BY timestamp DESC
+			LIMIT $3 OFFSET $4
+		`,
+			args: []interface{}{req.UserId, req.MetricType, limit, offset},
+		}
+	case from.IsZero():
+		return recordsQuery{
+			query: baseQuery + ` AND timestamp <= $3
+			ORDER BY timestamp DESC
+			LIMIT $4 OFFSET $5
+		`,
+			args: []interface{}{req.UserId, req.MetricType, to, limit, offset},
+		}
+	case to.IsZero():
+		return recordsQuery{
+			query: baseQuery + ` AND timestamp >= $3
+			ORDER BY timestamp DESC
+			LIMIT $4 OFFSET $5
+		`,
+			args: []interface{}{req.UserId, req.MetricType, from, limit, offset},
+		}
+	default:
+		return recordsQuery{
+			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4
+			ORDER BY timestamp DESC
+			LIMIT $5 OFFSET $6
+		`,
+			args: []interface{}{req.UserId, req.MetricType, from, to, limit, offset},
+		}
+	}
 }
 
 func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
@@ -159,38 +255,12 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	from := req.From.AsTime()
 	to := req.To.AsTime()
 
-	var rows *sql.Rows
-	var err error
-	if from.IsZero() && to.IsZero() {
-		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-			FROM biometric_data
-			WHERE user_id = $1 AND metric_type = $2
-			ORDER BY timestamp DESC LIMIT $3
-		`, req.UserId, req.MetricType, req.Limit)
-	} else if from.IsZero() {
-		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-			FROM biometric_data
-			WHERE user_id = $1 AND metric_type = $2 AND timestamp <= $3
-			ORDER BY timestamp DESC LIMIT $4
-		`, req.UserId, req.MetricType, to, req.Limit)
-	} else if to.IsZero() {
-		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-			FROM biometric_data
-			WHERE user_id = $1 AND metric_type = $2 AND timestamp >= $3
-			ORDER BY timestamp DESC LIMIT $4
-		`, req.UserId, req.MetricType, from, req.Limit)
-	} else {
-		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-			FROM biometric_data
-			WHERE user_id = $1 AND metric_type = $2 AND timestamp >= $3 AND timestamp <= $4
-			ORDER BY timestamp DESC LIMIT $5
-		`, req.UserId, req.MetricType, from, to, req.Limit)
+	if !from.IsZero() && !to.IsZero() && from.After(to) {
+		return nil, status.Error(codes.InvalidArgument, "from cannot be after to")
 	}
 
+	q := s.buildGetRecordsQuery(req)
+	rows, err := s.db.QueryContext(ctx, q.query, q.args...)
 	if err != nil {
 		s.log.Error("Failed to query records", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to query records")
@@ -256,6 +326,139 @@ func (s *biometricServer) GetLatest(ctx context.Context, req *pb.GetLatestReques
 	return &record, nil
 }
 
+func (s *biometricServer) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) (*pb.BiometricRecord, error) {
+	s.log.Info("BIOMETRIC_UPDATE",
+		zap.String("action", "BIOMETRIC_UPDATE"),
+		zap.String("id", req.Id),
+	)
+
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	if req.Value < 0 {
+		return nil, status.Error(codes.InvalidArgument, "value cannot be negative")
+	}
+
+	ts := req.Timestamp.AsTime()
+	if ts.IsZero() {
+		ts = time.Now()
+	}
+
+	var record pb.BiometricRecord
+	var timestamp, createdAt time.Time
+	err := s.db.QueryRowContext(ctx, `
+		UPDATE biometric_data
+		SET value = $1, timestamp = $2, device_type = $3
+		WHERE id = $4
+		RETURNING id, user_id, metric_type, value, timestamp, device_type, created_at
+	`, req.Value, ts, req.DeviceType, req.Id).Scan(
+		&record.Id, &record.UserId, &record.MetricType, &record.Value,
+		&timestamp, &record.DeviceType, &createdAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, status.Error(codes.NotFound, "record not found")
+	}
+	if err != nil {
+		s.log.Error("Failed to update record", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to update record")
+	}
+
+	record.Timestamp = timestamppb.New(timestamp)
+	record.CreatedAt = timestamppb.New(createdAt)
+
+	s.log.Info("BIOMETRIC_UPDATED",
+		zap.String("action", "BIOMETRIC_UPDATED"),
+		zap.String("id", record.Id),
+	)
+
+	return &record, nil
+}
+
+func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (*pb.DeleteRecordResponse, error) {
+	s.log.Info("BIOMETRIC_DELETE",
+		zap.String("action", "BIOMETRIC_DELETE"),
+		zap.String("id", req.Id),
+	)
+
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	result, err := s.db.ExecContext(ctx, `DELETE FROM biometric_data WHERE id = $1`, req.Id)
+	if err != nil {
+		s.log.Error("Failed to delete record", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to delete record")
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return nil, status.Error(codes.NotFound, "record not found")
+	}
+
+	s.log.Info("BIOMETRIC_DELETED",
+		zap.String("action", "BIOMETRIC_DELETED"),
+		zap.String("id", req.Id),
+	)
+
+	return &pb.DeleteRecordResponse{Deleted: true}, nil
+}
+
+func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
+	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
+		middleware.CorrelationIDGRPC(),
+		middleware.GRPCAuthInterceptor(jwtPublicKeyPEM, log.Logger),
+		metrics.UnaryServerInterceptor("biometric-service"),
+	), telemetry.ServerHandlerOption()}
+	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+	return grpc.NewServer(serverOpts...)
+}
+
+func createMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{Addr: ":" + metricsPort, Handler: metricsMux}
+}
+
+func startMetricsServer(srv *http.Server, log *logger.Logger) {
+	go func() {
+		log.Info("Metrics HTTP server starting", zap.String("port", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Error("Metrics server failed", zap.Error(err))
+		}
+	}()
+}
+
+func startHealthCheckLoop(db *sql.DB, rq queue.Publisher, hs *health.Server, log *logger.Logger) {
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			checkHealth(db, rq, hs, log)
+		}
+	}()
+}
+
+func setupGracefulShutdown(log *logger.Logger, grpcServer *grpc.Server, metricsSrv *http.Server) context.Context {
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		<-ctx.Done()
+		log.Info("Shutting down gRPC server...")
+		grpcServer.GracefulStop()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			log.Error("Failed to shutdown metrics server", zap.Error(err))
+		}
+		stop()
+	}()
+
+	return ctx
+}
+
 func main() {
 	log := logger.New("biometric-service")
 
@@ -267,6 +470,8 @@ func main() {
 	}()
 
 	port := config.GetEnv("BIOMETRIC_SERVICE_PORT", "50052")
+	metricsPort := config.GetEnv("BIOMETRIC_METRICS_PORT", "9090")
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
 
 	dbCfg := db.Config{
 		Host:     config.GetEnv("DB_HOST"),
@@ -277,13 +482,7 @@ func main() {
 		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
 
-	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
-		middleware.CorrelationIDGRPC(),
-	), telemetry.ServerHandlerOption()}
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
-	grpcServer := grpc.NewServer(serverOpts...)
+	grpcServer := createGRPCServer(log, jwtPublicKeyPEM)
 
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
@@ -314,22 +513,50 @@ func main() {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
+	healthServer := health.NewServer()
+
 	pb.RegisterBiometricServiceServer(grpcServer, &biometricServer{
 		db:          database,
 		log:         log,
 		rabbitQueue: rabbitQueue,
 	})
 
-	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	startHealthCheckLoop(database, rabbitQueue, healthServer, log)
 
-	// Устанавливаем статус для overall health (пустой service name)
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	// И для конкретного сервиса
-	healthServer.SetServingStatus("biometric.BiometricService", grpc_health_v1.HealthCheckResponse_SERVING)
+	metricsSrv := createMetricsServer(metricsPort)
+	startMetricsServer(metricsSrv, log)
+
+	setupGracefulShutdown(log, grpcServer, metricsSrv)
 
 	log.Info("Biometric service starting", zap.String("port", port))
-	if err := grpcServer.Serve(lis); err != nil {
+	if err := grpcServer.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
 		log.Fatal("Failed to serve", zap.Error(err))
 	}
+}
+
+func checkHealth(db *sql.DB, rq queue.Publisher, hs *health.Server, log *logger.Logger) {
+	healthy := true
+
+	if db != nil {
+		if err := db.PingContext(context.Background()); err != nil {
+			log.Warn("Health check: database unavailable", zap.Error(err))
+			healthy = false
+		}
+	}
+
+	if rq != nil {
+		if err := rq.Ping(); err != nil {
+			log.Warn("Health check: rabbitmq unavailable", zap.Error(err))
+			healthy = false
+		}
+	}
+
+	status := grpc_health_v1.HealthCheckResponse_SERVING
+	if !healthy {
+		status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+	}
+
+	hs.SetServingStatus("", status)
+	hs.SetServingStatus("biometric.BiometricService", status)
 }

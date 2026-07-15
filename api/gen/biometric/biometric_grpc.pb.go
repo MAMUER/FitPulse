@@ -23,6 +23,8 @@ const (
 	BiometricService_BatchAddRecords_FullMethodName = "/biometric.BiometricService/BatchAddRecords"
 	BiometricService_GetRecords_FullMethodName      = "/biometric.BiometricService/GetRecords"
 	BiometricService_GetLatest_FullMethodName       = "/biometric.BiometricService/GetLatest"
+	BiometricService_UpdateRecord_FullMethodName    = "/biometric.BiometricService/UpdateRecord"
+	BiometricService_DeleteRecord_FullMethodName    = "/biometric.BiometricService/DeleteRecord"
 )
 
 // BiometricServiceClient is the client API for BiometricService service.
@@ -33,6 +35,8 @@ type BiometricServiceClient interface {
 	BatchAddRecords(ctx context.Context, in *BatchAddRecordsRequest, opts ...grpc.CallOption) (*BatchAddRecordsResponse, error)
 	GetRecords(ctx context.Context, in *GetRecordsRequest, opts ...grpc.CallOption) (*GetRecordsResponse, error)
 	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*BiometricRecord, error)
+	UpdateRecord(ctx context.Context, in *UpdateRecordRequest, opts ...grpc.CallOption) (*BiometricRecord, error)
+	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*DeleteRecordResponse, error)
 }
 
 type biometricServiceClient struct {
@@ -83,6 +87,26 @@ func (c *biometricServiceClient) GetLatest(ctx context.Context, in *GetLatestReq
 	return out, nil
 }
 
+func (c *biometricServiceClient) UpdateRecord(ctx context.Context, in *UpdateRecordRequest, opts ...grpc.CallOption) (*BiometricRecord, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BiometricRecord)
+	err := c.cc.Invoke(ctx, BiometricService_UpdateRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *biometricServiceClient) DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*DeleteRecordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRecordResponse)
+	err := c.cc.Invoke(ctx, BiometricService_DeleteRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BiometricServiceServer is the server API for BiometricService service.
 // All implementations must embed UnimplementedBiometricServiceServer
 // for forward compatibility.
@@ -91,6 +115,8 @@ type BiometricServiceServer interface {
 	BatchAddRecords(context.Context, *BatchAddRecordsRequest) (*BatchAddRecordsResponse, error)
 	GetRecords(context.Context, *GetRecordsRequest) (*GetRecordsResponse, error)
 	GetLatest(context.Context, *GetLatestRequest) (*BiometricRecord, error)
+	UpdateRecord(context.Context, *UpdateRecordRequest) (*BiometricRecord, error)
+	DeleteRecord(context.Context, *DeleteRecordRequest) (*DeleteRecordResponse, error)
 	mustEmbedUnimplementedBiometricServiceServer()
 }
 
@@ -112,6 +138,12 @@ func (UnimplementedBiometricServiceServer) GetRecords(context.Context, *GetRecor
 }
 func (UnimplementedBiometricServiceServer) GetLatest(context.Context, *GetLatestRequest) (*BiometricRecord, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLatest not implemented")
+}
+func (UnimplementedBiometricServiceServer) UpdateRecord(context.Context, *UpdateRecordRequest) (*BiometricRecord, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRecord not implemented")
+}
+func (UnimplementedBiometricServiceServer) DeleteRecord(context.Context, *DeleteRecordRequest) (*DeleteRecordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRecord not implemented")
 }
 func (UnimplementedBiometricServiceServer) mustEmbedUnimplementedBiometricServiceServer() {}
 func (UnimplementedBiometricServiceServer) testEmbeddedByValue()                          {}
@@ -206,6 +238,42 @@ func _BiometricService_GetLatest_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BiometricService_UpdateRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BiometricServiceServer).UpdateRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BiometricService_UpdateRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BiometricServiceServer).UpdateRecord(ctx, req.(*UpdateRecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BiometricService_DeleteRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BiometricServiceServer).DeleteRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BiometricService_DeleteRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BiometricServiceServer).DeleteRecord(ctx, req.(*DeleteRecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BiometricService_ServiceDesc is the grpc.ServiceDesc for BiometricService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +296,14 @@ var BiometricService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLatest",
 			Handler:    _BiometricService_GetLatest_Handler,
+		},
+		{
+			MethodName: "UpdateRecord",
+			Handler:    _BiometricService_UpdateRecord_Handler,
+		},
+		{
+			MethodName: "DeleteRecord",
+			Handler:    _BiometricService_DeleteRecord_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

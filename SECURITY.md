@@ -54,6 +54,23 @@
 - Information disclosure
 - Session management issues
 
+#### Осознанные исключения: HMAC-SHA1 в Garmin OAuth 1.0a
+
+В `cmd/device-aggregator/providers/garmin.go` используется `crypto/sha1` для формирования `oauth_signature` по спецификации **OAuth 1.0a**. Garmin Health API строго требует `oauth_signature_method: HMAC-SHA1`; замена алгоритма приведёт к отклонению всех запросов авторизации и синхронизации данных.
+
+Использование SHA1 ограничено только подписью исходящих запросов к внешнему сервису Garmin. Криптографически значимые данные (пароли, refresh-токены, TOTP-секреты, PII) шифруются по современным стандартам: Argon2id, AES-256-GCM, pgsodium/libsodium.
+
+Исключение зафиксировано в `.golangci.yml`:
+
+```yaml
+- path: cmd/device-aggregator/providers/garmin\.go
+  linters:
+    - gosec
+  text: G505
+```
+
+При отключении интеграции с Garmin или переходе на их OAuth 2.0 (если появится) это исключение должно быть удалено.
+
 ### Низкая опасность
 
 - Missing rate limiting

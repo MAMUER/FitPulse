@@ -7,13 +7,12 @@
 package biometric
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -338,6 +337,7 @@ type GetRecordsRequest struct {
 	From          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
 	To            *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
 	Limit         int32                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,6,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -403,6 +403,13 @@ func (x *GetRecordsRequest) GetTo() *timestamppb.Timestamp {
 func (x *GetRecordsRequest) GetLimit() int32 {
 	if x != nil {
 		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetRecordsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
@@ -503,6 +510,162 @@ func (x *GetLatestRequest) GetMetricType() string {
 	return ""
 }
 
+type UpdateRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Value         float64                `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	DeviceType    string                 `protobuf:"bytes,4,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateRecordRequest) Reset() {
+	*x = UpdateRecordRequest{}
+	mi := &file_biometric_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateRecordRequest) ProtoMessage() {}
+
+func (x *UpdateRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_biometric_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateRecordRequest.ProtoReflect.Descriptor instead.
+func (*UpdateRecordRequest) Descriptor() ([]byte, []int) {
+	return file_biometric_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateRecordRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateRecordRequest) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+func (x *UpdateRecordRequest) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+func (x *UpdateRecordRequest) GetDeviceType() string {
+	if x != nil {
+		return x.DeviceType
+	}
+	return ""
+}
+
+type DeleteRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRecordRequest) Reset() {
+	*x = DeleteRecordRequest{}
+	mi := &file_biometric_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRecordRequest) ProtoMessage() {}
+
+func (x *DeleteRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_biometric_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRecordRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRecordRequest) Descriptor() ([]byte, []int) {
+	return file_biometric_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DeleteRecordRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deleted       bool                   `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRecordResponse) Reset() {
+	*x = DeleteRecordResponse{}
+	mi := &file_biometric_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRecordResponse) ProtoMessage() {}
+
+func (x *DeleteRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_biometric_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRecordResponse.ProtoReflect.Descriptor instead.
+func (*DeleteRecordResponse) Descriptor() ([]byte, []int) {
+	return file_biometric_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DeleteRecordResponse) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
 var File_biometric_proto protoreflect.FileDescriptor
 
 const file_biometric_proto_rawDesc = "" +
@@ -533,26 +696,39 @@ const file_biometric_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x125\n" +
 	"\arecords\x18\x02 \x03(\v2\x1b.biometric.AddRecordRequestR\arecords\"/\n" +
 	"\x17BatchAddRecordsResponse\x12\x14\n" +
-	"\x05count\x18\x01 \x01(\x05R\x05count\"\xbf\x01\n" +
+	"\x05count\x18\x01 \x01(\x05R\x05count\"\xd7\x01\n" +
 	"\x11GetRecordsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vmetric_type\x18\x02 \x01(\tR\n" +
 	"metricType\x12.\n" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
 	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x14\n" +
-	"\x05limit\x18\x05 \x01(\x05R\x05limit\"J\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x06 \x01(\x05R\x06offset\"J\n" +
 	"\x12GetRecordsResponse\x124\n" +
 	"\arecords\x18\x01 \x03(\v2\x1a.biometric.BiometricRecordR\arecords\"L\n" +
 	"\x10GetLatestRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vmetric_type\x18\x02 \x01(\tR\n" +
-	"metricType2\xc5\x02\n" +
+	"metricType\"\x96\x01\n" +
+	"\x13UpdateRecordRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value\x128\n" +
+	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1f\n" +
+	"\vdevice_type\x18\x04 \x01(\tR\n" +
+	"deviceType\"%\n" +
+	"\x13DeleteRecordRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"0\n" +
+	"\x14DeleteRecordResponse\x12\x18\n" +
+	"\adeleted\x18\x01 \x01(\bR\adeleted2\xe2\x03\n" +
 	"\x10BiometricService\x12F\n" +
 	"\tAddRecord\x12\x1b.biometric.AddRecordRequest\x1a\x1c.biometric.AddRecordResponse\x12X\n" +
 	"\x0fBatchAddRecords\x12!.biometric.BatchAddRecordsRequest\x1a\".biometric.BatchAddRecordsResponse\x12I\n" +
 	"\n" +
 	"GetRecords\x12\x1c.biometric.GetRecordsRequest\x1a\x1d.biometric.GetRecordsResponse\x12D\n" +
-	"\tGetLatest\x12\x1b.biometric.GetLatestRequest\x1a\x1a.biometric.BiometricRecordB-Z+github.com/MAMUER/project/api/gen/biometricb\x06proto3"
+	"\tGetLatest\x12\x1b.biometric.GetLatestRequest\x1a\x1a.biometric.BiometricRecord\x12J\n" +
+	"\fUpdateRecord\x12\x1e.biometric.UpdateRecordRequest\x1a\x1a.biometric.BiometricRecord\x12O\n" +
+	"\fDeleteRecord\x12\x1e.biometric.DeleteRecordRequest\x1a\x1f.biometric.DeleteRecordResponseB-Z+github.com/MAMUER/project/api/gen/biometricb\x06proto3"
 
 var (
 	file_biometric_proto_rawDescOnce sync.Once
@@ -566,7 +742,7 @@ func file_biometric_proto_rawDescGZIP() []byte {
 	return file_biometric_proto_rawDescData
 }
 
-var file_biometric_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_biometric_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_biometric_proto_goTypes = []any{
 	(*BiometricRecord)(nil),         // 0: biometric.BiometricRecord
 	(*AddRecordRequest)(nil),        // 1: biometric.AddRecordRequest
@@ -576,29 +752,37 @@ var file_biometric_proto_goTypes = []any{
 	(*GetRecordsRequest)(nil),       // 5: biometric.GetRecordsRequest
 	(*GetRecordsResponse)(nil),      // 6: biometric.GetRecordsResponse
 	(*GetLatestRequest)(nil),        // 7: biometric.GetLatestRequest
-	(*timestamppb.Timestamp)(nil),   // 8: google.protobuf.Timestamp
+	(*UpdateRecordRequest)(nil),     // 8: biometric.UpdateRecordRequest
+	(*DeleteRecordRequest)(nil),     // 9: biometric.DeleteRecordRequest
+	(*DeleteRecordResponse)(nil),    // 10: biometric.DeleteRecordResponse
+	(*timestamppb.Timestamp)(nil),   // 11: google.protobuf.Timestamp
 }
 var file_biometric_proto_depIdxs = []int32{
-	8,  // 0: biometric.BiometricRecord.timestamp:type_name -> google.protobuf.Timestamp
-	8,  // 1: biometric.BiometricRecord.created_at:type_name -> google.protobuf.Timestamp
-	8,  // 2: biometric.AddRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
+	11, // 0: biometric.BiometricRecord.timestamp:type_name -> google.protobuf.Timestamp
+	11, // 1: biometric.BiometricRecord.created_at:type_name -> google.protobuf.Timestamp
+	11, // 2: biometric.AddRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
 	1,  // 3: biometric.BatchAddRecordsRequest.records:type_name -> biometric.AddRecordRequest
-	8,  // 4: biometric.GetRecordsRequest.from:type_name -> google.protobuf.Timestamp
-	8,  // 5: biometric.GetRecordsRequest.to:type_name -> google.protobuf.Timestamp
+	11, // 4: biometric.GetRecordsRequest.from:type_name -> google.protobuf.Timestamp
+	11, // 5: biometric.GetRecordsRequest.to:type_name -> google.protobuf.Timestamp
 	0,  // 6: biometric.GetRecordsResponse.records:type_name -> biometric.BiometricRecord
-	1,  // 7: biometric.BiometricService.AddRecord:input_type -> biometric.AddRecordRequest
-	3,  // 8: biometric.BiometricService.BatchAddRecords:input_type -> biometric.BatchAddRecordsRequest
-	5,  // 9: biometric.BiometricService.GetRecords:input_type -> biometric.GetRecordsRequest
-	7,  // 10: biometric.BiometricService.GetLatest:input_type -> biometric.GetLatestRequest
-	2,  // 11: biometric.BiometricService.AddRecord:output_type -> biometric.AddRecordResponse
-	4,  // 12: biometric.BiometricService.BatchAddRecords:output_type -> biometric.BatchAddRecordsResponse
-	6,  // 13: biometric.BiometricService.GetRecords:output_type -> biometric.GetRecordsResponse
-	0,  // 14: biometric.BiometricService.GetLatest:output_type -> biometric.BiometricRecord
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	11, // 7: biometric.UpdateRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
+	1,  // 8: biometric.BiometricService.AddRecord:input_type -> biometric.AddRecordRequest
+	3,  // 9: biometric.BiometricService.BatchAddRecords:input_type -> biometric.BatchAddRecordsRequest
+	5,  // 10: biometric.BiometricService.GetRecords:input_type -> biometric.GetRecordsRequest
+	7,  // 11: biometric.BiometricService.GetLatest:input_type -> biometric.GetLatestRequest
+	8,  // 12: biometric.BiometricService.UpdateRecord:input_type -> biometric.UpdateRecordRequest
+	9,  // 13: biometric.BiometricService.DeleteRecord:input_type -> biometric.DeleteRecordRequest
+	2,  // 14: biometric.BiometricService.AddRecord:output_type -> biometric.AddRecordResponse
+	4,  // 15: biometric.BiometricService.BatchAddRecords:output_type -> biometric.BatchAddRecordsResponse
+	6,  // 16: biometric.BiometricService.GetRecords:output_type -> biometric.GetRecordsResponse
+	0,  // 17: biometric.BiometricService.GetLatest:output_type -> biometric.BiometricRecord
+	0,  // 18: biometric.BiometricService.UpdateRecord:output_type -> biometric.BiometricRecord
+	10, // 19: biometric.BiometricService.DeleteRecord:output_type -> biometric.DeleteRecordResponse
+	14, // [14:20] is the sub-list for method output_type
+	8,  // [8:14] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_biometric_proto_init() }
@@ -612,7 +796,7 @@ func file_biometric_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_biometric_proto_rawDesc), len(file_biometric_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -392,6 +392,72 @@ verification:
 
 ---
 
+## 4.x Биометрический сервис (biometric-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для приёма, валидации, дедупликации и хранения биометрических данных (пульс, SpO2, температура, артериальное давление, шаги, HRV). Публикует события в RabbitMQ для асинхронной ML-обработки.
+
+### 4.x.2 gRPC-авторизация
+
+Все методы требуют JWT access token (ES256) в gRPC metadata:
+
+```text
+authorization: Bearer <access_token>
+```
+
+Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go`).
+Токен валидируется по JWKS публичному ключу из `JWT_PUBLIC_KEY_PEM_FILE`.
+
+### 4.x.3 Health Check
+
+Динамический health check раз в 10 секунд:
+- Пингует PostgreSQL (`db.PingContext`)
+- Пингует RabbitMQ (`queue.Publisher.Ping()`)
+- gRPC health protocol возвращает `SERVING` / `NOT_SERVING`
+
+### 4.x.4 Метрики
+
+- gRPC interceptor: `metrics.UnaryServerInterceptor("biometric-service")` — `grpc_requests_total`, `grpc_request_duration_seconds`, `grpc_errors_total`
+- HTTP endpoint: `:9090/metrics` (Prometheus `promhttp.Handler`)
+- Бизнес-метрики: `biometric_sync_lag_seconds`
+
+### 4.x.5 Дедупликация
+
+Уникальное ограничение на `(user_id, metric_type, timestamp, device_type)`.
+Миграция: `db/migrations/V20__add_biometric_dedup.sql`.
+Вставки используют `ON CONFLICT DO NOTHING`.
+
+### 4.x.6 Валидация метрик
+
+| metric_type | диапазон |
+|---|---|
+| `heart_rate` | 30–220 |
+| `spo2` | 70–100 |
+| `temperature` | 35.5–38.5 °C |
+| `blood_pressure_systolic` | 80–200 |
+| `blood_pressure_diastolic` | 50–130 |
+| `steps` | 0–100000 |
+| `hrv` | 0–200 |
+
+### 4.x.7 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `AddRecord` | Добавить одну запись |
+| `BatchAddRecords` | Пакетная вставка с транзакцией |
+| `GetRecords` | Получить записи с фильтрацией по `from`/`to` и пагинацией `limit`/`offset` |
+| `GetLatest` | Последняя запись по типу |
+| `UpdateRecord` | Обновить запись по `id` |
+| `DeleteRecord` | Удалить запись по `id` |
+
+### 4.x.8 Интеграционные тесты
+
+Используют Testcontainers (PostgreSQL + RabbitMQ) через `internal/testcontainers`.
+Запуск: `go test ./cmd/biometric-service/...` (без `-short`).
+
+---
+
 ## 5. Порядок выпуска версий (Release Pipeline)
 
 ### 5.1 Девять этапов релиза

@@ -81,8 +81,21 @@ Refresh token используется для ротации через `POST /a
 |Service|Порт|Описание|
 |---|---|---|
 |User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды|
-|Biometric Service|50052|Приём и хранение биометрических данных|
+|Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)|
 |Training Service|50053|Управление тренировочными планами|
+
+### BiometricService gRPC Methods
+
+|RPC|Request|Response|Описание|
+|---|---|---|---|
+|`AddRecord`|`AddRecordRequest`|`AddRecordResponse`|Добавить одну запись|
+|`BatchAddRecords`|`BatchAddRecordsRequest`|`BatchAddRecordsResponse`|Пакетная вставка|
+|`GetRecords`|`GetRecordsRequest`|`GetRecordsResponse`|Получить записи с фильтрацией и пагинацией|
+|`GetLatest`|`GetLatestRequest`|`BiometricRecord`|Последняя запись по типу|
+|`UpdateRecord`|`UpdateRecordRequest`|`BiometricRecord`|Обновить запись|
+|`DeleteRecord`|`DeleteRecordRequest`|`DeleteRecordResponse`|Удалить запись|
+
+**Аутентификация**: Все gRPC методы требуют JWT токен в metadata `authorization: Bearer <token>`.
 
 ## Модели данных
 

@@ -11,6 +11,8 @@ service BiometricService {
     rpc BatchAddRecords(BatchAddRecordsRequest) returns (BatchAddRecordsResponse);
     rpc GetRecords(GetRecordsRequest) returns (GetRecordsResponse);
     rpc GetLatest(GetLatestRequest) returns (BiometricRecord);
+    rpc UpdateRecord(UpdateRecordRequest) returns (BiometricRecord);
+    rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
 }
 
 message BiometricRecord {
@@ -50,6 +52,7 @@ message GetRecordsRequest {
     google.protobuf.Timestamp from = 3;
     google.protobuf.Timestamp to = 4;
     int32 limit = 5;
+    int32 offset = 6;
 }
 
 message GetRecordsResponse {
@@ -59,4 +62,19 @@ message GetRecordsResponse {
 message GetLatestRequest {
     string user_id = 1;
     string metric_type = 2;
+}
+
+message UpdateRecordRequest {
+    string id = 1;
+    double value = 2;
+    google.protobuf.Timestamp timestamp = 3;
+    string device_type = 4;
+}
+
+message DeleteRecordRequest {
+    string id = 1;
+}
+
+message DeleteRecordResponse {
+    bool deleted = 1;
 }
