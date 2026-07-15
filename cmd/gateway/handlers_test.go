@@ -40,6 +40,9 @@ func (m *mockUserServiceClient) AuthenticateGoogle(ctx context.Context, req *use
 func (m *mockUserServiceClient) GetProfile(ctx context.Context, req *userpb.GetProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
 	return &userpb.UserProfile{UserId: req.UserId, Email: "test@example.com"}, nil
 }
+func (m *mockUserServiceClient) GetUserByEmail(ctx context.Context, req *userpb.GetUserByEmailRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
+	return &userpb.UserProfile{UserId: "user-123", Email: req.Email, EmailConfirmed: true}, nil
+}
 func (m *mockUserServiceClient) UpdateProfile(ctx context.Context, req *userpb.UpdateProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
 	return &userpb.UserProfile{UserId: req.UserId, Email: "test@example.com"}, nil
 }

@@ -960,19 +960,18 @@ func (g *gateway) checkVerificationStatusHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Query user profile by email — we use GetProfile which requires user_id,
-	// but since we only have email, we need to search via the user service.
-	// The gateway doesn't have a GetUserByEmail RPC, so we return a not found
-	// if we can't resolve the user. For now, we check if the user exists
-	// by attempting a profile lookup. In production, add a GetUserByEmail RPC.
-	// As a workaround, we return email_confirmed: false for unknown emails.
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"email_confirmed": false,
-		"email":           email,
-	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+	resp, err := g.userClient.GetUserByEmail(r.Context(), &userpb.GetUserByEmailRequest{Email: email})
+	if err != nil {
+		g.log.Error("Failed to get user by email", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"email_confirmed": false, "email": email})
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"email_confirmed": resp.EmailConfirmed,
+		"email":           email,
+	})
 }

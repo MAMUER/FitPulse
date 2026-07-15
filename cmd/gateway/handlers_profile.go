@@ -199,7 +199,22 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, execErr := tx.ExecContext(r.Context(), "DELETE FROM users WHERE id = $1", userID)
+	result, execErr := tx.ExecContext(r.Context(), `
+		UPDATE users SET
+			email_encrypted = NULL,
+			email_hash = NULL,
+			full_name_encrypted = NULL,
+			full_name_nonce = NULL,
+			full_name_hash = NULL,
+			nickname_encrypted = NULL,
+			nickname_nonce = NULL,
+			nickname_hash = NULL,
+			profile_photo_url = NULL,
+			password_hash = NULL,
+			email_confirmed = FALSE,
+			updated_at = NOW()
+		WHERE id = $1
+	`, userID)
 	if execErr != nil {
 		g.log.Error("Failed to delete user", zap.Error(execErr))
 		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)

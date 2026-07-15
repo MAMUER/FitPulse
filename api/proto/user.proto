@@ -11,6 +11,7 @@ service UserService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc AuthenticateGoogle(AuthenticateGoogleRequest) returns (LoginResponse);
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
+    rpc GetUserByEmail(GetUserByEmailRequest) returns (UserProfile);
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
     rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
@@ -84,6 +85,14 @@ message AuthenticateGoogleRequest {
 
 message GetProfileRequest {
     string user_id = 1;
+}
+
+message GetUserByEmailRequest {
+    string email = 1;
+}
+
+message GetUserByEmailResponse {
+    UserProfile user = 1;
 }
 
 message UpdateProfileRequest {

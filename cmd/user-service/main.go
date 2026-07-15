@@ -527,6 +527,111 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	return &profile, nil
 }
 
+func (s *userServer) GetUserByEmail(ctx context.Context, req *pb.GetUserByEmailRequest) (*pb.UserProfile, error) {
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	emailHash := db.EmailHash(req.Email)
+	var profile pb.UserProfile
+	var emailConfirmed bool
+	var createdAt, updatedAt sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email_confirmed, created_at, updated_at
+		FROM users
+		WHERE email_hash = $1
+	`, emailHash).Scan(&profile.UserId, &emailConfirmed, &createdAt, &updatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+	if err != nil {
+		s.log.Error("Database error getting user by email", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	profile.EmailConfirmed = emailConfirmed
+	if createdAt.Valid {
+		profile.CreatedAt = createdAt.Time.Format(time.RFC3339)
+	}
+	if updatedAt.Valid {
+		profile.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
+	}
+
+	if db.PgsodiumKeyID() > 0 {
+		var email string
+		emailQuery := strings.Builder{}
+		emailQuery.WriteString("SELECT ")
+		emailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email"))
+		emailQuery.WriteString(" FROM users WHERE id = $1")
+		if err := s.db.QueryRowContext(ctx, emailQuery.String(), profile.UserId).Scan(&email); err != nil {
+			s.log.Error("Failed to decrypt email", zap.Error(err))
+			return nil, status.Error(codes.Internal, "failed to decrypt email")
+		}
+		profile.Email = email
+	}
+
+	return &profile, nil
+}
+
+func (s *userServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	if req.RefreshToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
+	}
+
+	var userID string
+	var expiresAt time.Time
+	err := s.db.QueryRowContext(ctx, `
+		SELECT user_id, expires_at FROM refresh_tokens WHERE token = $1 AND used = FALSE
+	`, req.RefreshToken).Scan(&userID, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+	}
+	if err != nil {
+		s.log.Error("Database error checking refresh token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if expiresAt.Before(time.Now()) {
+		return nil, status.Error(codes.Unauthenticated, "refresh token expired")
+	}
+
+	_, err = s.db.ExecContext(ctx, `UPDATE refresh_tokens SET used = TRUE WHERE token = $1`, req.RefreshToken)
+	if err != nil {
+		s.log.Error("Failed to mark refresh token as used", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	var email, role string
+	if err := s.db.QueryRowContext(ctx, `SELECT email, role FROM users WHERE id = $1`, userID).Scan(&email, &role); err != nil {
+		s.log.Error("Failed to get user for refresh", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	accessToken, err := auth.GenerateAccessToken(userID, email, role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	if err != nil {
+		s.log.Error("Failed to generate access token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate access token")
+	}
+
+	newRefresh := auth.GenerateRefreshToken()
+	if _, err := s.db.ExecContext(ctx, `
+		INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)
+	`, userID, newRefresh, time.Now().Add(7*24*time.Hour)); err != nil {
+		s.log.Error("Failed to store new refresh token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	return &pb.RefreshTokenResponse{
+		AccessToken:  accessToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900,
+		UserId:       userID,
+		Role:         role,
+		RefreshToken: newRefresh,
+	}, nil
+}
+
 func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.UserProfile, error) {
 	if err := validator.ValidateProfileUpdate(req); err != nil {
 		s.log.Warn("Invalid profile update request", zap.Error(err))
@@ -925,7 +1030,11 @@ func (s *userServer) GetAchievements(ctx context.Context, req *pb.GetAchievement
 		s.log.Error("Failed to query achievements", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to query achievements")
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close achievements rows", zap.Error(closeErr))
+		}
+	}()
 
 	var achievements []*pb.Achievement
 	for rows.Next() {

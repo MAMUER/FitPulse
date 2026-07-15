@@ -77,6 +77,7 @@ func main() {
 	r.Get("/api/v1/devices/withings/auth", s.agg.withingsAuthHandler)
 	r.Get("/api/v1/devices/withings/callback", s.agg.withingsCallbackHandler)
 	r.Post("/api/v1/devices/withings/disconnect", s.agg.withingsDisconnectHandler)
+	r.Post("/api/v1/devices/withings/webhook", withingsWebhookHandler)
 
 	r.Get("/api/v1/devices/providers", s.agg.listProvidersHandler)
 
