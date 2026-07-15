@@ -51,10 +51,9 @@ Refresh token используется для ротации через `POST /a
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
 |POST|`/ml/classify`|Классификация состояния|— (используются последние биометрические данные пользователя)|`{status, state, confidence, recommendation, fatigue_level, motivation_score, recovery_quality}`|
 |POST|`/ml/generate-plan`|Генерация плана (GAN)|`{training_class, user_profile, goal?, constraints?}`|`{status, training_plan, diet_plan}`|
-|POST|`/devices/register`|Регистрация устройства|`{device_type, device_name?}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
-|POST|`/devices/{device_id}/ingest`|Приём данных с устройства|`{metrics: [{metric_type, value, timestamp, device_type}]}`|`{status, synced_samples}`|
-|GET|`/devices`|Список устройств|—|`{status, devices: [{id, user_id, device_type, created_at}]}`|
-|POST|`/devices`|Зарегистрировать новое устройство|`{device_type}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
+|POST|`/devices/register`|Регистрация устройства|`{device_type, user_id}`|`{device_id, device_type, user_id, device_token}`|
+|POST|`/api/v1/devices/{device_id}/ingest`|Приём данных с устройства|Header: `device_token`, Body: `{device_type, sync_interval_ms, records: [{metric_type, value, timestamp, quality}]}`|`{total_received, duplicates, forwarded, failed}`|
+|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
 |GET|`/api/v1/devices/fitbit/auth`|Fitbit OAuth|Header: `X-User-ID`|Redirect to Fitbit|
 |GET|`/api/v1/devices/fitbit/callback`|Fitbit callback|Query: `code`, `state`|`{status}`|
 |POST|`/api/v1/devices/fitbit/webhook`|Fitbit webhook (публичный)|JSON body|`{status}`|

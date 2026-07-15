@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -29,8 +34,6 @@ import (
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 )
-
-// ========== Valid device types ==========
 
 // isValidDeviceType checks if the device type is supported
 func isValidDeviceType(dt string) bool {
@@ -55,8 +58,6 @@ func metricSyncRules(metricType string) (minMs, maxMs int, name string, ok bool)
 	r, ok := rules[metricType]
 	return r.min, r.max, r.name, ok
 }
-
-// ========== Data structures ==========
 
 // Device represents a registered wearable device
 type Device struct {
@@ -97,20 +98,15 @@ type IngestStats struct {
 	Failed        int `json:"failed"`
 }
 
-// ========== Server ==========
-
 type deviceConnector struct {
 	db              *sql.DB
 	biometricClient biometricpb.BiometricServiceClient
 	log             *logger.Logger
 }
 
-// ========== Health Check ==========
-
 func (s *deviceConnector) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Check database connectivity
 	dbOK := true
 	if err := s.db.PingContext(r.Context()); err != nil {
 		s.log.Warn("Database health check failed", zap.Error(err))
@@ -135,8 +131,6 @@ func (s *deviceConnector) healthHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// ========== Device Registration ==========
-
 func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	var req DeviceRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -145,7 +139,6 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Validate device type
 	if req.DeviceType == "" {
 		http.Error(w, "device_type обязателен", http.StatusBadRequest)
 		return
@@ -160,11 +153,9 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Check if user already has a device registered
 	var count int
-	checkErr := s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM devices WHERE user_id = $1`, req.UserID).Scan(&count)
-	if checkErr != nil {
-		s.log.Error("Failed to check existing devices", zap.Error(checkErr))
+	if err := s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM devices WHERE user_id = $1`, req.UserID).Scan(&count); err != nil {
+		s.log.Error("Failed to check existing devices", zap.Error(err))
 		http.Error(w, "Ошибка регистрации устройства", http.StatusInternalServerError)
 		return
 	}
@@ -173,15 +164,13 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Generate device ID and auth token
 	deviceID := uuid.New().String()
 	token := uuid.New().String()
 
-	_, err := s.db.ExecContext(r.Context(), `
+	if _, err := s.db.ExecContext(r.Context(), `
 		INSERT INTO devices (id, user_id, device_type, token, created_at)
 		VALUES ($1, $2, $3, $4, $5)
-	`, deviceID, req.UserID, req.DeviceType, token, time.Now().UTC())
-	if err != nil {
+	`, deviceID, req.UserID, req.DeviceType, token, time.Now().UTC()); err != nil {
 		s.log.Error("Failed to register device", zap.Error(err))
 		http.Error(w, "Ошибка регистрации устройства", http.StatusInternalServerError)
 		return
@@ -204,8 +193,6 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 		s.log.Error("Failed to encode register response", zap.Error(err))
 	}
 }
-
-// ========== Data Ingestion ==========
 
 func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) {
 	deviceID, req, apiErr := s.ingestInputs(r)
@@ -317,11 +304,10 @@ func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, 
 			continue
 		}
 
-		_, insErr := tx.ExecContext(ctx,
+		if _, insErr := tx.ExecContext(ctx,
 			`INSERT INTO device_ingest_log (id, device_id, metric_type, timestamp, quality) VALUES ($1, $2, $3, $4, $5)`,
 			uuid.New().String(), deviceID, rec.MetricType, rec.Timestamp, rec.Quality,
-		)
-		if insErr != nil {
+		); insErr != nil {
 			s.log.Error("Failed to log ingestion", zap.Error(insErr))
 			stats.Failed++
 			return stats, nil, insErr
@@ -417,8 +403,6 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 	}
 }
 
-// ========== Helper Functions ==========
-
 func (s *deviceConnector) authenticateDevice(ctx context.Context, deviceID, token string) (*Device, error) {
 	var device Device
 	err := s.db.QueryRowContext(ctx, `
@@ -435,11 +419,7 @@ func (s *deviceConnector) authenticateDevice(ctx context.Context, deviceID, toke
 	return &device, nil
 }
 
-// ========== Database Initialization ==========
-
-// initDatabase creates required tables if they don't exist
 func initDatabase(database *sql.DB, log *logger.Logger) error {
-	// Devices table — stores registered devices and their auth tokens
 	_, err := database.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS devices (
 			id UUID PRIMARY KEY,
@@ -454,7 +434,6 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 	}
 	log.Info("Devices table ready")
 
-	// Ingest log table — tracks ingested records for deduplication
 	_, err = database.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS device_ingest_log (
 			id UUID PRIMARY KEY,
@@ -470,7 +449,6 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 	}
 	log.Info("Device ingest log table ready")
 
-	// Index for deduplication queries
 	_, err = database.ExecContext(context.Background(), `
 		CREATE INDEX IF NOT EXISTS idx_ingest_dedup
 		ON device_ingest_log (device_id, timestamp, metric_type)
@@ -483,7 +461,54 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 	return nil
 }
 
-// ========== Main ==========
+func createMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
+	}
+}
+
+func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
+	database, err := db.NewConnection(dbCfg)
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
+	return database
+}
+
+func createBiometricClient(biometricServiceAddr string, log *logger.Logger) biometricpb.BiometricServiceClient {
+	var dialOpts []grpc.DialOption
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")))
+	dialOpts = append(dialOpts, telemetry.ClientHandlerOption())
+	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+	if tlsCreds, err := grpctls.GetClientTLSCredentials(); err == nil && tlsCreds != nil {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	conn, err := grpc.NewClient(biometricServiceAddr, dialOpts...)
+	if err != nil {
+		log.Fatal("Failed to connect to biometric service", zap.Error(err))
+	}
+	return biometricpb.NewBiometricServiceClient(conn)
+}
+
+func setupRouter(log *logger.Logger, s *deviceConnector) http.Handler {
+	r := chi.NewRouter()
+
+	r.Use(middleware.RecoveryMiddleware(log.Logger))
+	r.Use(middleware.RequestID)
+	r.Use(middleware.CorrelationIDHTTP)
+	r.Use(middleware.LoggingMiddleware(log.Logger, metrics.RequestDuration, metrics.RequestsTotal, metrics.ErrorTotal))
+
+	r.Get("/health", s.healthHandler)
+	r.Post("/api/v1/devices/register", s.registerDeviceHandler)
+	r.Post("/api/v1/devices/{device_id}/ingest", s.ingestHandler)
+
+	return r
+}
 
 func main() {
 	log := logger.New("device-connector")
@@ -501,6 +526,9 @@ func main() {
 	}()
 
 	port := config.GetEnv("DEVICE_CONNECTOR_PORT", "8082")
+	metricsPort := config.GetEnv("DEVICE_CONNECTOR_METRICS_PORT", "9094")
+
+	metricsSrv := createMetricsServer(metricsPort)
 
 	dbCfg := db.Config{
 		Host:     config.GetEnv("DB_HOST"),
@@ -513,63 +541,26 @@ func main() {
 
 	biometricServiceAddr := config.GetEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052")
 
-	// Connect to PostgreSQL
-	database, err := db.NewConnection(dbCfg)
-	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
-	}
+	database := connectDatabase(dbCfg, log)
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
 			log.Error("Failed to close database connection", zap.Error(closeErr))
 		}
 	}()
 
-	// Initialize tables
 	if initErr := initDatabase(database, log); initErr != nil {
 		log.Fatal("Failed to initialize database", zap.Error(initErr))
 	}
 
-	// Connect to biometric-service via gRPC
-	var dialOpts []grpc.DialOption
-	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")))
-	dialOpts = append(dialOpts, telemetry.ClientHandlerOption())
-	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
-	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-	biometricConn, err := grpc.NewClient(biometricServiceAddr, dialOpts...)
-	if err != nil {
-		log.Fatal("Failed to connect to biometric service", zap.Error(err))
-	}
-	defer func() {
-		if closeErr := biometricConn.Close(); closeErr != nil {
-			log.Error("Failed to close biometric service connection", zap.Error(closeErr))
-		}
-	}()
+	biometricClient := createBiometricClient(biometricServiceAddr, log)
 
-	// Create server
 	s := &deviceConnector{
 		db:              database,
-		biometricClient: biometricpb.NewBiometricServiceClient(biometricConn),
+		biometricClient: biometricClient,
 		log:             log,
 	}
 
-	// Setup router
-	r := chi.NewRouter()
-
-	// Apply middleware
-	r.Use(middleware.CorrelationIDHTTP)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.LoggingMiddleware(log.Logger, nil, nil, nil))
-
-	// Health check (public)
-	r.Get("/health", s.healthHandler)
-
-	// Device management routes
-	r.Post("/api/v1/devices/register", s.registerDeviceHandler)
-	r.Post("/api/v1/devices/{device_id}/ingest", s.ingestHandler)
+	r := setupRouter(log, s)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
@@ -578,12 +569,43 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	log.Info("Device connector starting",
-		zap.String("port", port),
-		zap.String("biometric_service", biometricServiceAddr),
-	)
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal("Failed to start server", zap.Error(err))
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Metrics server failed", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		log.Info("Device connector starting",
+			zap.String("port", port),
+			zap.String("biometric_service", biometricServiceAddr),
+		)
+		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Failed to start server", zap.Error(err))
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info("Shutting down device connector")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
+	go func() {
+		defer wg.Done()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}()
+	wg.Wait()
+	log.Info("Device connector stopped")
 }
