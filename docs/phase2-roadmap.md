@@ -812,24 +812,31 @@ Phase 2 считается завершённой, когда выполнены
 
 ---
 
-|Этап|Срок|Ответственный|
-|---|---|---|
-|Infra provisioning (VPS + k8s)|2-3 недели|DevOps|
-|Vault + Secrets|1 неделя|DevOps/Backend|
-|PostgreSQL HA|2 недели|DBA/DevOps|
-|mTLS / Service Mesh|2 недели|Platform|
-|Compliance (152-ФЗ)|4-6 недель|Legal/DevOps|
-|Backup DR|1-2 недели|DevOps|
-|Observability расширение|1 неделя|Platform|
-|CAPTCHA (Cloudflare Turnstile)|3-5 дней|Backend/Platform|
-|Security email + PGP|3 дня|DevOps/Security|
-|Bug Bounty program setup|1 неделя|Security/Legal|
-|Medical services integration|2 недели|Backend/Product|
-|Medical app registration|3-4 недели|Legal/DevOps|
-|Adaptive daily plan retrain|2-3 недели|ML/DevOps|
+## 26. Расширение поддерживаемых устройств
 
-### Итого Phase 2: 3-4 месяца
+### 26.1 Контекст
 
-В Phase 2 может работать параллельно над новыми фичами из `docs/UI_SPECIFICATION.md` (Achievements, Diet, Devices) — они не зависят от инфраструктурных изменений.
+Текущие интегрированные устройства: Fitbit (OAuth 2.0) и Garmin (OAuth 1.0a). В UI присутствуют карточки для Fitbit, Garmin и Withings. Samsung Galaxy Watch и Huawei Watch D2 поддерживаются только в roadmap Phase 2.
 
-**Важно**: Раздел корпоративная почта и раздел PGP-ключ должны быть выполнены **до** публикации `SECURITY.md` с новыми контактами. Текущий `SECURITY.md` указывает личный email `mihnikolaenko12@yandex.ru`, что нарушает best practices и создаёт single point of failure.
+### 26.2 План
+
+|Этап|Устройство|Срок|Приоритет|Задачи|
+|---|---|---|---|---|
+|1|Withings|1 неделя|P0|OAuth 2.0, пул пульса/SpO₂/давления/температуры/сна/шагов|
+|2|Samsung Galaxy Watch|3–4 недели|P2|Samsung Health Connect API: требует регистрации в Samsung Developer Program, создания приложения в Samsung Galaxy Store, обязательной установки Samsung Health на телефон пользователя, OAuth 2.0 через Samsung account. Данные передаются с телефона, а не напрямую с часов.|
+|3|Huawei Watch D2|3–4 недели|P2|Huawei Health Kit: требует регистрации в Huawei Developer Alliance, официального приложения в AppGallery, OAuth 2.0 через Huawei ID. Данные идут через телефон. Аналогично Samsung — средняя сложность.|
+
+### 26.3 Acceptance Criteria
+
+- Каждое устройство имеет working OAuth flow (auth → callback → token storage)
+- Минимум 3 метрики (heart_rate, spo2, sleep) синхронизируются автоматически
+- Данные поступают через общий `POST /devices/{id}/ingest` в device-connector
+- UI отображает статус подключения и последнюю синхронизацию
+
+### 26.4 Архитектурные ограничения
+
+- Device-connector остаётся универсальным: валидирует записи, дедуплицирует, переправляет в biometric-service
+- Device-aggregator получает нового провайдера на каждое устройство
+- OAuth-токены хранятся в `device_provider_accounts` с шифрованием
+- Для устройств без публичного OAuth API (Samsung Galaxy Watch, Huawei Watch D2) требуется регистрация в соответствующих developer programs и создание мобильного приложения для передачи данных с телефона на backend
+

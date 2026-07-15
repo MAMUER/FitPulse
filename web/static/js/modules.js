@@ -47,10 +47,9 @@ const AppModules = (() => {
     };
     const DeviceModule = {
         devices: [
-            { type: 'apple_watch', name: 'Apple Watch', icon: '⌚', capabilities: 'Пульс, ЭКГ, SpO₂, Сон' },
-            { type: 'samsung_galaxy_watch', name: 'Samsung Galaxy Watch', icon: '⌚', capabilities: 'Пульс, ЭКГ, SpO₂, Температура' },
-            { type: 'huawei_watch_d2', name: 'Huawei Watch D2', icon: '⌚', capabilities: 'Пульс, Давление, ЭКГ, SpO₂' },
-            { type: 'amazfit_trex3', name: 'Amazfit T-Rex 3', icon: '⌚', capabilities: 'Пульс, SpO₂, Сон' }
+            { type: 'fitbit', name: 'Fitbit', icon: '⌚', capabilities: 'Пульс, SpO₂, Сон, Шаги, HRV' },
+            { type: 'garmin', name: 'Garmin', icon: '⌚', capabilities: 'Пульс, SpO₂, Сон, Шаги, HRV, Температура' },
+            { type: 'withings', name: 'Withings', icon: '⌚', capabilities: 'Пульс, SpO₂, Сон, Шаги, Давление, Температура' }
         ],
         init() {
             this.renderDeviceSelector();
@@ -156,16 +155,14 @@ const AppModules = (() => {
                     return;
                 }
                 const deviceNames = {
-                    apple_watch: 'Apple Watch',
-                    samsung_galaxy_watch: 'Samsung Galaxy Watch',
-                    huawei_watch_d2: 'Huawei Watch D2',
-                    amazfit_trex3: 'Amazfit T-Rex 3'
+                    fitbit: 'Fitbit',
+                    garmin: 'Garmin',
+                    withings: 'Withings'
                 };
                 const deviceIcons = {
-                    apple_watch: '⌚',
-                    samsung_galaxy_watch: '⌚',
-                    huawei_watch_d2: '⌚',
-                    amazfit_trex3: '⌚'
+                    fitbit: '⌚',
+                    garmin: '⌚',
+                    withings: '⌚'
                 };
                 container.innerHTML = devices.map(d => `
 <div class="device-item">

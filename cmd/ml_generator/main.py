@@ -705,7 +705,298 @@ async def generate_plan(request: PlanGenerationRequest):
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
+# ========== Diet Generation ==========
 
-    uvicorn.run(app, host="0.0.0.0", port=8002, loop="uvloop")
+DIET_TEMPLATES = {
+    "balanced": {
+        "name_ru": "Сбалансированная",
+        "protein_ratio": 0.25,
+        "fat_ratio": 0.30,
+        "carbs_ratio": 0.45,
+        "meals": {
+            "breakfast": [
+                {"name": "Овсянка с бананом и мёдом", "kcal": 350, "protein": 12, "carbs": 60, "fat": 8},
+                {"name": "Омлет с овощами и тостом", "kcal": 380, "protein": 22, "carbs": 30, "fat": 18},
+            ],
+            "snack1": [
+                {"name": "Яблоко + миндаль (30г)", "kcal": 200, "protein": 6, "carbs": 22, "fat": 10},
+            ],
+            "lunch": [
+                {"name": "Куриная грудка с рисом и салатом", "kcal": 550, "protein": 40, "carbs": 60, "fat": 15},
+            ],
+            "snack2": [
+                {"name": "Протеиновый батончик", "kcal": 200, "protein": 20, "carbs": 22, "fat": 8},
+            ],
+            "dinner": [
+                {"name": "Индейка с овощами на пару", "kcal": 400, "protein": 35, "carbs": 25, "fat": 18},
+            ],
+        },
+    },
+    "high_protein": {
+        "name_ru": "Высокобелковая",
+        "protein_ratio": 0.35,
+        "fat_ratio": 0.25,
+        "carbs_ratio": 0.40,
+        "meals": {
+            "breakfast": [
+                {"name": "Омлет из 4 яиц с курицей", "kcal": 450, "protein": 40, "carbs": 5, "fat": 28},
+            ],
+            "snack1": [
+                {"name": "Протеиновый коктейль", "kcal": 200, "protein": 30, "carbs": 8, "fat": 4},
+            ],
+            "lunch": [
+                {"name": "Двойная порция курицы с рисом", "kcal": 650, "protein": 55, "carbs": 55, "fat": 18},
+            ],
+            "snack2": [
+                {"name": "Творог 5% + орехи", "kcal": 250, "protein": 22, "carbs": 10, "fat": 14},
+            ],
+            "dinner": [
+                {"name": "Стейк из лосося с овощами", "kcal": 500, "protein": 40, "carbs": 15, "fat": 28},
+            ],
+        },
+    },
+    "weight_loss": {
+        "name_ru": "Для похудения",
+        "protein_ratio": 0.35,
+        "fat_ratio": 0.30,
+        "carbs_ratio": 0.35,
+        "meals": {
+            "breakfast": [
+                {"name": "Овсянка на воде с ягодами", "kcal": 220, "protein": 8, "carbs": 40, "fat": 4},
+            ],
+            "snack1": [
+                {"name": "Огурец + хумус", "kcal": 100, "protein": 4, "carbs": 12, "fat": 4},
+            ],
+            "lunch": [
+                {"name": "Куриный суп с овощами", "kcal": 300, "protein": 25, "carbs": 30, "fat": 8},
+            ],
+            "snack2": [
+                {"name": "Зелёное яблоко", "kcal": 70, "protein": 0, "carbs": 18, "fat": 0},
+            ],
+            "dinner": [
+                {"name": "Запечённая белая рыба с салатом", "kcal": 280, "protein": 30, "carbs": 10, "fat": 12},
+            ],
+        },
+    },
+    "keto": {
+        "name_ru": "Кето",
+        "protein_ratio": 0.25,
+        "fat_ratio": 0.70,
+        "carbs_ratio": 0.05,
+        "meals": {
+            "breakfast": [
+                {"name": "Яичница с авокадо и беконом", "kcal": 450, "protein": 22, "carbs": 5, "fat": 38},
+            ],
+            "snack1": [
+                {"name": "Орехи макадамия (30г)", "kcal": 210, "protein": 2, "carbs": 4, "fat": 21},
+            ],
+            "lunch": [
+                {"name": "Стейк рибай с маслом и брокколи", "kcal": 650, "protein": 48, "carbs": 8, "fat": 50},
+            ],
+            "snack2": [
+                {"name": "Сырная тарелка", "kcal": 280, "protein": 18, "carbs": 2, "fat": 22},
+            ],
+            "dinner": [
+                {"name": "Лосось на сливочном масле с шпинатом", "kcal": 520, "protein": 38, "carbs": 6, "fat": 42},
+            ],
+        },
+    },
+    "paleo": {
+        "name_ru": "Палео",
+        "protein_ratio": 0.30,
+        "fat_ratio": 0.35,
+        "carbs_ratio": 0.35,
+        "meals": {
+            "breakfast": [
+                {"name": "Омлет с овощами и авокадо", "kcal": 380, "protein": 22, "carbs": 12, "fat": 28},
+            ],
+            "snack1": [
+                {"name": "Грецкие орехи и яблоко", "kcal": 220, "protein": 5, "carbs": 20, "fat": 14},
+            ],
+            "lunch": [
+                {"name": "Курица гриль с кореньями и салатом", "kcal": 520, "protein": 42, "carbs": 18, "fat": 30},
+            ],
+            "snack2": [
+                {"name": "Морковные палочки с хумусом", "kcal": 150, "protein": 5, "carbs": 15, "fat": 8},
+            ],
+            "dinner": [
+                {"name": "Запечённый лосось с спаржей", "kcal": 420, "protein": 35, "carbs": 10, "fat": 28},
+            ],
+        },
+    },
+}
+
+
+class DietGenerationRequest(BaseModel):
+    """Request for diet plan generation"""
+    model_config = ConfigDict(strict=True)
+
+    user_id: str
+    age: int = Field(30, ge=10, le=100)
+    gender: str = Field("male")
+    weight_kg: float = Field(70.0, ge=30, le=200)
+    height_cm: float = Field(170.0, ge=100, le=250)
+    fitness_level: str = Field("intermediate")
+    goals: List[str] = Field(default_factory=list)
+    diet_type: str = Field("balanced")
+    meals_count: int = Field(4, ge=2, le=6)
+    allergies: List[str] = Field(default_factory=list)
+    contraindications: List[str] = Field(default_factory=list)
+    training_goal: str = Field("general_fitness")
+
+
+class DietPlanResponse(BaseModel):
+    """Generated diet plan"""
+    model_config = ConfigDict(strict=True)
+
+    diet_type: str
+    diet_type_ru: str
+    daily_calories: int
+    bmr: int
+    macros: Dict[str, float]
+    meals: List[Dict]
+    total_protein_g: float
+    total_carbs_g: float
+    total_fat_g: float
+    notes: List[str]
+
+
+def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
+    """Calculate personalized diet plan using Mifflin-St Jeor"""
+    # BMR calculation
+    bmr = 10 * request.weight_kg + 6.25 * request.height_cm - 5 * request.age
+    if request.gender.lower() == "male":
+        bmr += 5
+    else:
+        bmr -= 161
+
+    # Activity multiplier
+    activity_map = {"beginner": 1.375, "intermediate": 1.55, "advanced": 1.725}
+    activity_multiplier = activity_map.get(request.fitness_level, 1.55)
+
+    # Goal adjustment
+    goal_adjust = 0
+    goals_lower = [g.lower() for g in request.goals]
+    if "weight_loss" in goals_lower or "похудение" in goals_lower:
+        goal_adjust = -400
+    elif "muscle_gain" in goals_lower or "набор массы" in goals_lower:
+        goal_adjust = 300
+    elif "endurance" in goals_lower or "выносливость" in goals_lower:
+        goal_adjust = 100
+
+    tdee = max(1200, int(bmr * activity_multiplier + goal_adjust))
+
+    # Get diet template
+    template = DIET_TEMPLATES.get(request.diet_type, DIET_TEMPLATES["balanced"])
+    protein_ratio = template["protein_ratio"]
+    fat_ratio = template["fat_ratio"]
+    carbs_ratio = template["carbs_ratio"]
+
+    protein_g = round((tdee * protein_ratio) / 4)
+    fat_g = round((tdee * fat_ratio) / 9)
+    carbs_g = round((tdee * carbs_ratio) / 4)
+
+    # Select meals
+    meal_keys = ["breakfast", "snack1", "lunch", "snack2", "dinner"]
+    selected_meals = []
+    total_kcal = 0
+    total_protein = 0
+    total_carbs = 0
+    total_fat = 0
+
+    for i in range(min(request.meals_count, len(meal_keys))):
+        key = meal_keys[i]
+        meals = template["meals"].get(key, [])
+        if not meals:
+            continue
+        meal = meals[0]  # Simplified: take first meal
+        selected_meals.append({
+            "name": meal["name"],
+            "kcal": meal["kcal"],
+            "protein": meal["protein"],
+            "carbs": meal["carbs"],
+            "fat": meal["fat"],
+            "time": _get_meal_time(i, request.meals_count),
+        })
+        total_kcal += meal["kcal"]
+        total_protein += meal["protein"]
+        total_carbs += meal["carbs"]
+        total_fat += meal["fat"]
+
+    notes = []
+    if request.age > 60:
+        notes.append("Увеличьте потребление белка и уменьшите количество соли")
+    if "pregnancy" in [c.lower() for c in request.contraindications]:
+        notes.append("Дополнительно увеличьте потребление фолатов и железа")
+    if any(a in ["латекс", "орехи"] for a in request.allergies):
+        notes.append("Проверьте состав блюд на наличие аллергенов")
+
+    return DietPlanResponse(
+        diet_type=request.diet_type,
+        diet_type_ru=template["name_ru"],
+        daily_calories=tdee,
+        bmr=int(bmr),
+        macros={"protein": protein_ratio, "fat": fat_ratio, "carbs": carbs_ratio},
+        meals=selected_meals,
+        total_protein_g=total_protein,
+        total_carbs_g=total_carbs,
+        total_fat_g=total_fat,
+        notes=notes,
+    )
+
+
+def _get_meal_time(index: int, total_meals: int) -> str:
+    """Generate meal time based on index"""
+    times = ["08:00", "10:30", "13:00", "16:00", "18:30", "21:00"]
+    return times[index] if index < len(times) else f"{8 + index * 2:02d}:00"
+
+
+@app.post("/generate-diet")
+async def generate_diet(request: DietGenerationRequest):
+    """Generate personalized diet plan"""
+    plan = calculate_diet_plan(request)
+    return plan.model_dump()
+
+
+# ========== Health Sync Endpoints ==========
+
+@app.post("/sync/flo")
+async def sync_flo(request: Dict):
+    """Sync menstrual cycle data from Flo"""
+    user_id = request.get("user_id")
+    access_token = request.get("access_token")
+    refresh_token = request.get("refresh_token")
+
+    if not user_id or not access_token:
+        raise HTTPException(status_code=400, detail="user_id and access_token are required")
+
+    # TODO: Implement actual Flo API integration
+    # For now, store the tokens for future sync
+    logger.info("Flo sync requested", user_id=user_id)
+
+    return {
+        "success": True,
+        "message": "Flo sync endpoint ready. Full integration pending.",
+        "synced_cycles": 0,
+    }
+
+
+@app.post("/sync/okok")
+async def sync_okok(request: Dict):
+    """Sync body composition data from OKOK International"""
+    user_id = request.get("user_id")
+    access_token = request.get("access_token")
+    refresh_token = request.get("refresh_token")
+
+    if not user_id or not access_token:
+        raise HTTPException(status_code=400, detail="user_id and access_token are required")
+
+    # TODO: Implement actual OKOK API integration
+    # For now, store the tokens for future sync
+    logger.info("OKOK sync requested", user_id=user_id)
+
+    return {
+        "success": True,
+        "message": "OKOK sync endpoint ready. Full integration pending.",
+        "synced_records": 0,
+    }

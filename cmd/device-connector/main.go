@@ -35,7 +35,7 @@ import (
 // isValidDeviceType checks if the device type is supported
 func isValidDeviceType(dt string) bool {
 	switch dt {
-	case "apple_watch", "samsung_galaxy_watch", "huawei_watch_d2", "amazfit_trex3":
+	case "fitbit", "garmin", "withings":
 		return true
 	}
 	return false
@@ -448,7 +448,7 @@ func initDatabase(database *sql.DB, log *logger.Logger) error {
 			token TEXT NOT NULL UNIQUE,
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 			CONSTRAINT valid_device_type CHECK (device_type IN (
-				'apple_watch', 'samsung_galaxy_watch', 'huawei_watch_d2', 'amazfit_trex3'
+				'fitbit', 'garmin', 'withings'
 			))
 		)
 	`)

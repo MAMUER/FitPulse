@@ -2,6 +2,9 @@ package providers
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha1"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -20,7 +23,7 @@ import (
 	"github.com/MAMUER/project/internal/crypto"
 )
 
-// GarminProvider implements OAuth flow for Garmin Health API
+// GarminProvider implements OAuth 1.0a flow for Garmin Health API
 type GarminProvider struct {
 	consumerKey    string
 	consumerSecret string
@@ -28,6 +31,8 @@ type GarminProvider struct {
 	db             *sql.DB
 	log            *zap.Logger
 	encryptor      *crypto.AESGCMEncryptor
+	requestToken   string
+	requestSecret  string
 }
 
 // NewGarminProvider returns a new Garmin provider.
@@ -45,7 +50,6 @@ func NewGarminProvider(db *sql.DB, log *zap.Logger, encryptor *crypto.AESGCMEncr
 func (p *GarminProvider) GetAuthURL(userID string) (string, error) {
 	state := uuid.New().String()
 
-	// Save state to database
 	if _, err := p.db.ExecContext(context.Background(), `
 		INSERT INTO oauth_states (state, user_id, provider, expires_at)
 		VALUES ($1, $2, 'garmin', NOW() + INTERVAL '10 minutes')
@@ -53,20 +57,64 @@ func (p *GarminProvider) GetAuthURL(userID string) (string, error) {
 		return "", fmt.Errorf("save oauth state: %w", err)
 	}
 
-	// Garmin Health API OAuth 1.0a flow
-	// This is a simplified version - full implementation requires OAuth 1.0a signature
+	reqToken, reqSecret, err := p.getRequestToken()
+	if err != nil {
+		return "", fmt.Errorf("get request token: %w", err)
+	}
+	p.requestToken = reqToken
+	p.requestSecret = reqSecret
+
 	authURL := fmt.Sprintf(
 		"https://connectapi.garmin.com/oauth-service/oauth/authorize?oauth_token=%s&oauth_callback=%s",
-		"PLACEHOLDER_TOKEN", // Will be replaced with actual request token
+		url.QueryEscape(reqToken),
 		url.QueryEscape(p.callbackURL),
 	)
 
 	return authURL, nil
 }
 
-// ExchangeCode exchanges OAuth token for access token
+func (p *GarminProvider) getRequestToken() (string, string, error) {
+	oauthParams := url.Values{}
+	oauthParams.Set("oauth_consumer_key", p.consumerKey)
+	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
+	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_nonce", uuid.New().String())
+	oauthParams.Set("oauth_version", "1.0")
+	oauthParams.Set("oauth_callback", p.callbackURL)
+
+	signature := p.sign("POST", "https://connectapi.garmin.com/oauth-service/oauth/request_token", oauthParams)
+	oauthParams.Set("oauth_signature", signature)
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST",
+		"https://connectapi.garmin.com/oauth-service/oauth/request_token",
+		strings.NewReader(oauthParams.Encode()))
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", "OAuth "+oauthParams.Encode())
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("request token request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", fmt.Errorf("read request token response: %w", err)
+	}
+
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		return "", "", fmt.Errorf("parse request token response: %w", err)
+	}
+
+	return values.Get("oauth_token"), values.Get("oauth_token_secret"), nil
+}
+
 func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVerifier, state string) error {
-	// Verify state
 	var userID string
 	err := p.db.QueryRowContext(ctx, `
 		SELECT user_id FROM oauth_states 
@@ -76,21 +124,18 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 		return fmt.Errorf("invalid or expired state: %w", err)
 	}
 
-	// Delete used state
 	if _, delErr := p.db.ExecContext(ctx, `DELETE FROM oauth_states WHERE state = $1`, state); delErr != nil {
 		p.log.Warn("failed to delete oauth state", zap.Error(delErr))
 	}
 
-	// Exchange for access token (OAuth 1.0a)
 	tokenResp, err := p.exchangeForAccessToken(oauthToken, oauthVerifier)
 	if err != nil {
 		return err
 	}
 
-	// Get Garmin user info
 	profile, err := p.getUserProfile(tokenResp.AccessToken, tokenResp.AccessTokenSecret)
 	if err != nil {
-		return fmt.Errorf("upsert provider account: %w", err)
+		return fmt.Errorf("get user profile: %w", err)
 	}
 
 	encryptedRefresh, err := p.encryptRefreshToken(tokenResp.AccessTokenSecret)
@@ -98,7 +143,6 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 		return fmt.Errorf("encrypt refresh token: %w", err)
 	}
 
-	// Save to database
 	_, err = p.db.ExecContext(ctx, `
 		INSERT INTO device_provider_accounts 
 		(user_id, provider, provider_user_id, access_token, refresh_token, token_expires_at, scopes, is_active)
@@ -118,60 +162,77 @@ func (p *GarminProvider) ExchangeCode(ctx context.Context, oauthToken, oauthVeri
 }
 
 func (p *GarminProvider) exchangeForAccessToken(oauthToken, oauthVerifier string) (*GarminTokenResponse, error) {
-	// OAuth 1.0a token exchange - requires signature
-	// This is a placeholder - full implementation needed
-	data := url.Values{}
-	data.Set("oauth_token", oauthToken)
-	data.Set("oauth_verifier", oauthVerifier)
+	oauthParams := url.Values{}
+	oauthParams.Set("oauth_consumer_key", p.consumerKey)
+	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
+	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_nonce", uuid.New().String())
+	oauthParams.Set("oauth_version", "1.0")
+	oauthParams.Set("oauth_token", oauthToken)
+	oauthParams.Set("oauth_verifier", oauthVerifier)
 
-	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://connectapi.garmin.com/oauth-service/oauth/access_token", strings.NewReader(data.Encode()))
+	signingKey := fmt.Sprintf("%s&%s", url.QueryEscape(p.consumerSecret), url.QueryEscape(p.requestSecret))
+	signature := p.signWithKey("POST", "https://connectapi.garmin.com/oauth-service/oauth/access_token", oauthParams, signingKey)
+	oauthParams.Set("oauth_signature", signature)
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST",
+		"https://connectapi.garmin.com/oauth-service/oauth/access_token",
+		strings.NewReader(oauthParams.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("create token request: %w", err)
+		return nil, err
 	}
-	req.SetBasicAuth(p.consumerKey, p.consumerSecret)
+	req.Header.Set("Authorization", "OAuth "+oauthParams.Encode())
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute token request: %w", err)
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read token response: %w", err)
 	}
-	var tokenResp GarminTokenResponse
-	// Garmin returns URL-encoded response, not JSON
-	// Parse: oauth_token=xxx&oauth_token_secret=yyy
+
 	values, err := url.ParseQuery(string(body))
 	if err != nil {
 		return nil, fmt.Errorf("parse token response: %w", err)
 	}
-	tokenResp.AccessToken = values.Get("oauth_token")
-	tokenResp.AccessTokenSecret = values.Get("oauth_token_secret")
 
-	return &tokenResp, nil
+	return &GarminTokenResponse{
+		AccessToken:       values.Get("oauth_token"),
+		AccessTokenSecret: values.Get("oauth_token_secret"),
+	}, nil
 }
 
 func (p *GarminProvider) getUserProfile(accessToken, accessTokenSecret string) (*GarminProfile, error) {
-	_ = accessTokenSecret // OAuth 1.0a secret used for request signing (placeholder implementation)
-	req, err := http.NewRequestWithContext(context.Background(), "GET", "https://connectapi.garmin.com/userprofile-service/userprofile/user-profile", nil)
+	oauthParams := url.Values{}
+	oauthParams.Set("oauth_consumer_key", p.consumerKey)
+	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
+	oauthParams.Set("oauth_timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	oauthParams.Set("oauth_nonce", uuid.New().String())
+	oauthParams.Set("oauth_version", "1.0")
+	oauthParams.Set("oauth_token", accessToken)
+
+	signingKey := fmt.Sprintf("%s&%s", url.QueryEscape(p.consumerSecret), url.QueryEscape(accessTokenSecret))
+	signature := p.signWithKey("GET", "https://connectapi.garmin.com/userprofile-service/userprofile/user-profile", oauthParams, signingKey)
+	oauthParams.Set("oauth_signature", signature)
+
+	req, err := http.NewRequestWithContext(context.Background(), "GET",
+		"https://connectapi.garmin.com/userprofile-service/userprofile/user-profile", nil)
 	if err != nil {
-		return nil, fmt.Errorf("create profile request: %w", err)
+		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Authorization", "OAuth "+oauthParams.Encode())
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute profile request: %w", err)
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -184,17 +245,18 @@ func (p *GarminProvider) getUserProfile(accessToken, accessTokenSecret string) (
 	return &profile, nil
 }
 
-// Disconnect deactivates Garmin connection
 func (p *GarminProvider) Disconnect(ctx context.Context, userID string) error {
 	_, err := p.db.ExecContext(ctx, `
 		UPDATE device_provider_accounts 
 		SET is_active = FALSE, updated_at = NOW()
 		WHERE user_id = $1 AND provider = 'garmin'
 	`, userID)
-	return fmt.Errorf("disconnect garmin: %w", err)
+	if err != nil {
+		return fmt.Errorf("disconnect garmin: %w", err)
+	}
+	return nil
 }
 
-// ListProviders returns list of connected Garmin accounts.
 func (p *GarminProvider) ListProviders(ctx context.Context, userID string) (map[string]interface{}, error) {
 	return listAccountProviders(ctx, p.db, userID, "garmin")
 }
@@ -210,6 +272,22 @@ func (p *GarminProvider) encryptRefreshToken(token string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
+func (p *GarminProvider) sign(method, baseURL string, params url.Values) string {
+	signingKey := fmt.Sprintf("%s&", url.QueryEscape(p.consumerSecret))
+	return p.signWithKey(method, baseURL, params, signingKey)
+}
+
+func (p *GarminProvider) signWithKey(method, baseURL string, params url.Values, signingKey string) string {
+	signatureBase := fmt.Sprintf("%s&%s&%s",
+		strings.ToUpper(method),
+		url.QueryEscape(baseURL),
+		url.QueryEscape(params.Encode()),
+	)
+	mac := hmac.New(sha1.New, []byte(signingKey))
+	mac.Write([]byte(signatureBase))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
 // GarminTokenResponse represents Garmin token response.
 type GarminTokenResponse struct {
 	AccessToken       string
@@ -220,3 +298,5 @@ type GarminTokenResponse struct {
 type GarminProfile struct {
 	UserID string `json:"id"`
 }
+
+var _ = rand.Read

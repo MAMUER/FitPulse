@@ -693,6 +693,7 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		// ML
 		r.Post("/ml/classify", g.classifyHandler)
 		r.Post("/ml/generate-plan", g.mlGenerateHandler)
+		r.Post("/ml/generate-diet", g.mlDietHandler)
 
 		// Devices — проксирование на device-connector
 		r.Post("/devices/register", g.proxyToDeviceConnector)
@@ -707,6 +708,11 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Get("/devices/fitbit/auth", g.proxyToDeviceAggregator)
 		r.Get("/devices/fitbit/callback", g.proxyToDeviceAggregator)
 		r.Post("/devices/fitbit/disconnect", g.proxyToDeviceAggregator)
+
+		r.Get("/devices/garmin/auth", g.proxyToDeviceAggregator)
+		r.Get("/devices/garmin/callback", g.proxyToDeviceAggregator)
+		r.Post("/devices/garmin/disconnect", g.proxyToDeviceAggregator)
+
 		r.Get("/devices/providers", g.proxyToDeviceAggregator)
 
 		r.Get("/devices/withings/auth", g.proxyToDeviceAggregator)

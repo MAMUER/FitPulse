@@ -88,7 +88,7 @@
 
 ### 4.5. Информационная совместимость
 
-**Входные данные:** email (RFC 5322, max 254), пароль (min 8), invite-код (`ROLE-YYYY-<hash>`, max 50), биометрия (heart_rate 30–220, spo2 70–100, temperature 35.5–38.5, blood_pressure 80–200/50–130), роль (client, admin), устройство (apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3).
+**Входные данные:** email (RFC 5322, max 254), пароль (min 8), invite-код (`ROLE-YYYY-<hash>`, max 50), биометрия (heart_rate 30–220, spo2 70–100, temperature 35.5–38.5, blood_pressure 80–200/50–130), роль (client, admin), устройство (fitbit, garmin, withings).
 
 **Выходные данные:** JSON (UTF-8), Protobuf (binary).
 

@@ -1722,11 +1722,64 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 }
 
 func (s *userServer) SyncFloData(ctx context.Context, req *pb.SyncFloDataRequest) (*pb.SyncFloDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncFloData not implemented yet")
+	if req.UserId == "" || req.AccessToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and access_token are required")
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO device_provider_accounts (user_id, provider, provider_user_id, access_token, refresh_token, scopes, is_active)
+		VALUES ($1, 'flo', $2, $3, $4, ARRAY['menstrual_cycle'], TRUE)
+		ON CONFLICT (user_id, provider)
+		DO UPDATE SET
+			access_token = EXCLUDED.access_token,
+			refresh_token = EXCLUDED.refresh_token,
+			is_active = TRUE,
+			updated_at = NOW()
+	`, req.UserId, req.UserId, req.AccessToken, nullIfStr(req.RefreshToken))
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to store Flo tokens: %v", err)
+	}
+
+	return &pb.SyncFloDataResponse{
+		Success:      true,
+		Message:      "Flo tokens stored. Full sync pending API integration.",
+		SyncedCycles: 0,
+	}, nil
 }
 
 func (s *userServer) SyncOKOKData(ctx context.Context, req *pb.SyncOKOKDataRequest) (*pb.SyncOKOKDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncOKOKData not implemented yet")
+	if req.UserId == "" || req.AccessToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and access_token are required")
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO device_provider_accounts (user_id, provider, provider_user_id, access_token, refresh_token, scopes, is_active)
+		VALUES ($1, 'okok', $2, $3, $4, ARRAY['body_composition'], TRUE)
+		ON CONFLICT (user_id, provider)
+		DO UPDATE SET
+			access_token = EXCLUDED.access_token,
+			refresh_token = EXCLUDED.refresh_token,
+			is_active = TRUE,
+			updated_at = NOW()
+	`, req.UserId, req.UserId, req.AccessToken, nullIfStr(req.RefreshToken))
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to store OKOK tokens: %v", err)
+	}
+
+	return &pb.SyncOKOKDataResponse{
+		Success:       true,
+		Message:       "OKOK tokens stored. Full sync pending API integration.",
+		SyncedRecords: 0,
+	}, nil
+}
+
+func nullIfStr(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 func nullIfEmpty(v string) *string {

@@ -27,13 +27,12 @@ func TestIsValidDeviceType(t *testing.T) {
 		deviceID string
 		want     bool
 	}{
-		{"apple watch", "apple_watch", true},
-		{"samsung galaxy watch", "samsung_galaxy_watch", true},
-		{"huawei watch d2", "huawei_watch_d2", true},
-		{"amazfit trex 3", "amazfit_trex3", true},
+		{"fitbit", "fitbit", true},
+		{"garmin", "garmin", true},
+		{"withings", "withings", true},
 		{"invalid type", "unknown_device", false},
 		{"empty string", "", false},
-		{"case sensitive", "Apple_Watch", false},
+		{"case sensitive", "Fitbit", false},
 	}
 
 	for _, tt := range tests {

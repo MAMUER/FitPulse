@@ -179,3 +179,59 @@ func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Error("Failed to write response", zap.Error(err))
 	}
 }
+
+func (g *gateway) mlDietHandler(w http.ResponseWriter, r *http.Request) {
+	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") {
+		g.log.Error("Invalid ML generator URL", zap.String("url", g.mlGeneratorURL))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		g.log.Error("Failed to read diet request body", zap.Error(err))
+		http.Error(w, "Ошибка чтения запроса", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		g.mlGeneratorURL+"/generate-diet",
+		bytes.NewReader(body))
+	if err != nil {
+		g.log.Error("Failed to create ML diet request", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		g.log.Error("ML diet request failed", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			g.log.Error("Failed to close response body", zap.Error(closeErr))
+		}
+	}()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		g.log.Error("Failed to read diet response", zap.Error(err))
+		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	_, err = bytes.NewBuffer(respBody).WriteTo(w)
+	if err != nil {
+		g.log.Error("Failed to write diet response", zap.Error(err))
+	}
+}

@@ -296,7 +296,7 @@ div#app
 Список карточек:
 
 - Иконка устройства (emoji или SVG)
-- Название: `Apple Watch`, `Samsung Galaxy Watch`, `Huawei Watch D2`, `Amazfit T-Rex 3`
+- Название: `Fitbit`, `Garmin`, `Withings`
 - Статус: «Подключено» / «Отключено»
 - Кнопка «Отключить»
 

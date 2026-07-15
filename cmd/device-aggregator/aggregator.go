@@ -16,15 +16,16 @@ import (
 
 // aggregator manages wearable providers and syncs data.
 type aggregator struct {
-	db     *sql.DB
-	log    *logger.Logger
-	fitbit *providers.FitbitProvider
-	garmin *providers.GarminProvider
+	db       *sql.DB
+	log      *logger.Logger
+	fitbit   *providers.FitbitProvider
+	garmin   *providers.GarminProvider
+	withings *providers.WithingsProvider
 }
 
 // newAggregator creates a new provider aggregator.
-func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider, garmin *providers.GarminProvider) *aggregator {
-	return &aggregator{db: db, log: log, fitbit: fitbit, garmin: garmin}
+func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider, garmin *providers.GarminProvider, withings *providers.WithingsProvider) *aggregator {
+	return &aggregator{db: db, log: log, fitbit: fitbit, garmin: garmin, withings: withings}
 }
 
 // healthHandler returns service health status.
@@ -101,6 +102,147 @@ func (a *aggregator) fitbitDisconnectHandler(w http.ResponseWriter, r *http.Requ
 
 	if err := a.fitbit.Disconnect(r.Context(), userID); err != nil {
 		a.log.Error("Failed to disconnect", zap.Error(err))
+		http.Error(w, "Ошибка отключения", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	// SAFETY: Static JSON response, Content-Type is application/json.
+	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil {
+		a.log.Warn("failed to write disconnect response", zap.Error(err))
+	}
+}
+
+// garminAuthHandler starts the Garmin OAuth 1.0a flow.
+func (a *aggregator) garminAuthHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	authURL, err := a.garmin.GetAuthURL(userID)
+	if err != nil {
+		a.log.Error("Failed to get Garmin auth URL", zap.Error(err))
+		http.Error(w, "Ошибка авторизации", http.StatusInternalServerError)
+		return
+	}
+
+	parsed, parseErr := url.Parse(authURL)
+	if parseErr != nil {
+		a.log.Error("Invalid Garmin auth URL", zap.Error(parseErr))
+		http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+		return
+	}
+	if parsed.Scheme != "https" {
+		a.log.Warn("redirect scheme not allowed", zap.String("scheme", parsed.Scheme))
+		http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices/auth/garmin", http.StatusFound)
+}
+
+// garminCallbackHandler handles the OAuth callback from Garmin.
+func (a *aggregator) garminCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	oauthToken := r.URL.Query().Get("oauth_token")
+	oauthVerifier := r.URL.Query().Get("oauth_verifier")
+	state := r.URL.Query().Get("state")
+
+	if oauthToken == "" || oauthVerifier == "" || state == "" {
+		http.Error(w, "Missing oauth_token, oauth_verifier or state", http.StatusBadRequest)
+		return
+	}
+
+	if err := a.garmin.ExchangeCode(r.Context(), oauthToken, oauthVerifier, state); err != nil {
+		a.log.Error("Failed to exchange Garmin code", zap.Error(err))
+		http.Error(w, "Ошибка авторизации", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices", http.StatusFound)
+}
+
+// garminDisconnectHandler disconnects a Garmin account for the user.
+func (a *aggregator) garminDisconnectHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := a.garmin.Disconnect(r.Context(), userID); err != nil {
+		a.log.Error("Failed to disconnect Garmin", zap.Error(err))
+		http.Error(w, "Ошибка отключения", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	// SAFETY: Static JSON response, Content-Type is application/json.
+	if _, err := w.Write([]byte(`{"status":"disconnected"}`)); err != nil {
+		a.log.Warn("failed to write disconnect response", zap.Error(err))
+	}
+}
+
+// withingsAuthHandler starts the Withings OAuth flow.
+func (a *aggregator) withingsAuthHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	authURL, err := a.withings.GetAuthURL(userID)
+	if err != nil {
+		a.log.Error("Failed to get Withings auth URL", zap.Error(err))
+		http.Error(w, "Ошибка авторизации", http.StatusInternalServerError)
+		return
+	}
+
+	parsed, parseErr := url.Parse(authURL)
+	if parseErr != nil {
+		a.log.Error("Invalid Withings auth URL", zap.Error(parseErr))
+		http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+		return
+	}
+	if parsed.Scheme != "https" {
+		a.log.Warn("redirect scheme not allowed", zap.String("scheme", parsed.Scheme))
+		http.Error(w, "Invalid redirect target", http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices/auth/withings", http.StatusFound)
+}
+
+// withingsCallbackHandler handles the OAuth callback from Withings.
+func (a *aggregator) withingsCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" || state == "" {
+		http.Error(w, "Missing code or state", http.StatusBadRequest)
+		return
+	}
+
+	if err := a.withings.ExchangeCode(r.Context(), code, state); err != nil {
+		a.log.Error("Failed to exchange Withings code", zap.Error(err))
+		http.Error(w, "Ошибка авторизации", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "https://fittpulse.duckdns.org:30443/#devices", http.StatusFound)
+}
+
+// withingsDisconnectHandler disconnects a Withings account for the user.
+func (a *aggregator) withingsDisconnectHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := a.withings.Disconnect(r.Context(), userID); err != nil {
+		a.log.Error("Failed to disconnect Withings", zap.Error(err))
 		http.Error(w, "Ошибка отключения", http.StatusInternalServerError)
 		return
 	}

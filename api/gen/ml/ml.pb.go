@@ -546,7 +546,7 @@ func (x *BiometricData) GetHrv() float64 {
 
 type ConnectedDevice struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DeviceType    string                 `protobuf:"bytes,1,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3
+	DeviceType    string                 `protobuf:"bytes,1,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // fitbit, garmin, withings
 	DeviceId      string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	Capabilities  []string               `protobuf:"bytes,3,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields

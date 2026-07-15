@@ -25,32 +25,26 @@ func TestAllMetricTypes(t *testing.T) {
 func TestVendorCapabilities(t *testing.T) {
 	caps := VendorCapabilities()
 
-	assert.Contains(t, caps, "apple")
-	assert.Contains(t, caps, "samsung")
-	assert.Contains(t, caps, "huawei")
-	assert.Contains(t, caps, "amazfit")
+	assert.Contains(t, caps, "fitbit")
+	assert.Contains(t, caps, "garmin")
+	assert.Contains(t, caps, "withings")
 
-	// Test Apple capabilities
-	apple := caps["apple"]
-	assert.True(t, apple[MetricHeartRate])
-	assert.True(t, apple[MetricECG])
-	assert.False(t, apple[MetricTemperature])
+	// Test Fitbit capabilities
+	fitbit := caps["fitbit"]
+	assert.True(t, fitbit[MetricHeartRate])
+	assert.False(t, fitbit[MetricECG])
+	assert.False(t, fitbit[MetricTemperature])
 
-	// Test Samsung capabilities
-	samsung := caps["samsung"]
-	assert.True(t, samsung[MetricHeartRate])
-	assert.True(t, samsung[MetricTemperature])
-	assert.False(t, samsung[MetricBloodPressureSys])
+	// Test Garmin capabilities
+	garmin := caps["garmin"]
+	assert.True(t, garmin[MetricHeartRate])
+	assert.True(t, garmin[MetricTemperature])
+	assert.False(t, garmin[MetricBloodPressureSys])
 
-	// Test Huawei capabilities
-	huawei := caps["huawei"]
-	assert.True(t, huawei[MetricHeartRate])
-	assert.True(t, huawei[MetricBloodPressureSys])
-
-	// Test Amazfit capabilities
-	amazfit := caps["amazfit"]
-	assert.True(t, amazfit[MetricHeartRate])
-	assert.False(t, amazfit[MetricECG])
+	// Test Withings capabilities
+	withings := caps["withings"]
+	assert.True(t, withings[MetricHeartRate])
+	assert.True(t, withings[MetricBloodPressureSys])
 }
 
 func TestStandardMedicalCodes(t *testing.T) {
@@ -317,14 +311,14 @@ func TestBiometricSampleStruct(t *testing.T) {
 	sample := BiometricSample{
 		UserID:     "user123",
 		DeviceID:   "device456",
-		DeviceType: "apple_watch",
+		DeviceType: "fitbit",
 		MetricType: "heart_rate",
 		Value:      75.5,
 		Unit:       "bpm",
 		Timestamp:  now,
 		Quality:    "good",
 		Confidence: 0.95,
-		SourceID:   "apple_health",
+		SourceID:   "fitbit_api",
 		Metadata: map[string]interface{}{
 			"accuracy": 0.98,
 			"notes":    "measured during exercise",
@@ -333,14 +327,14 @@ func TestBiometricSampleStruct(t *testing.T) {
 
 	assert.Equal(t, "user123", sample.UserID)
 	assert.Equal(t, "device456", sample.DeviceID)
-	assert.Equal(t, "apple_watch", sample.DeviceType)
+	assert.Equal(t, "fitbit", sample.DeviceType)
 	assert.Equal(t, "heart_rate", sample.MetricType)
 	assert.Equal(t, 75.5, sample.Value)
 	assert.Equal(t, "bpm", sample.Unit)
 	assert.Equal(t, now, sample.Timestamp)
 	assert.Equal(t, "good", sample.Quality)
 	assert.Equal(t, 0.95, sample.Confidence)
-	assert.Equal(t, "apple_health", sample.SourceID)
+	assert.Equal(t, "fitbit_api", sample.SourceID)
 	assert.NotNil(t, sample.Metadata)
 	assert.Equal(t, 0.98, sample.Metadata["accuracy"])
 	assert.Equal(t, "measured during exercise", sample.Metadata["notes"])

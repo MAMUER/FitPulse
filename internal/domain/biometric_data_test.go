@@ -15,7 +15,7 @@ func TestBiometricDataStruct(t *testing.T) {
 		MetricType: "heart_rate",
 		Value:      75.5,
 		Timestamp:  now,
-		DeviceType: "apple_watch",
+		DeviceType: "fitbit",
 	}
 
 	assert.Equal(t, "data123", data.ID)
@@ -23,7 +23,7 @@ func TestBiometricDataStruct(t *testing.T) {
 	assert.Equal(t, "heart_rate", data.MetricType)
 	assert.Equal(t, 75.5, data.Value)
 	assert.Equal(t, now, data.Timestamp)
-	assert.Equal(t, "apple_watch", data.DeviceType)
+	assert.Equal(t, "fitbit", data.DeviceType)
 }
 
 func TestBiometricDataZeroValues(t *testing.T) {
@@ -67,7 +67,7 @@ func TestBiometricDataCreation(t *testing.T) {
 			metricType: "heart_rate",
 			value:      72.0,
 			timestamp:  time.Now(),
-			deviceType: "apple_watch",
+			deviceType: "fitbit",
 		},
 		{
 			name:       "blood pressure data",
@@ -76,7 +76,7 @@ func TestBiometricDataCreation(t *testing.T) {
 			metricType: "blood_pressure_systolic",
 			value:      120.0,
 			timestamp:  time.Now().Add(-time.Hour),
-			deviceType: "samsung_watch",
+			deviceType: "garmin",
 		},
 		{
 			name:       "temperature data",
@@ -85,7 +85,7 @@ func TestBiometricDataCreation(t *testing.T) {
 			metricType: "temperature",
 			value:      36.6,
 			timestamp:  time.Now().Add(-2 * time.Hour),
-			deviceType: "huawei_watch",
+			deviceType: "withings",
 		},
 	}
 
@@ -119,7 +119,7 @@ func TestBiometricDataJSONTags(t *testing.T) {
 		MetricType: "heart_rate",
 		Value:      75.5,
 		Timestamp:  time.Now(),
-		DeviceType: "apple_watch",
+		DeviceType: "fitbit",
 	}
 
 	// Verify all fields are settable and gettable
