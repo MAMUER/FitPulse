@@ -7,10 +7,15 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,7 +41,7 @@ type trainingServer struct {
 	pb.UnimplementedTrainingServiceServer
 	db          *sql.DB
 	log         *logger.Logger
-	rabbitQueue queue.Publisher // ← ИНТЕРФЕЙС
+	rabbitQueue queue.Publisher
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
@@ -57,43 +62,46 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, status.Error(codes.Canceled, "request canceled")
 	}
 
-	// Check and delete existing active plan if any
 	s.deleteExistingActivePlan(ctx, req.UserId)
 
 	classificationClass := sanitize.String(req.ClassificationClass)
 	planID := uuid.New().String()
 
-	// Prepare plan data
 	planData := s.preparePlanData(classificationClass, req)
 
-	s.log.Info("PlanData received", zap.Any("planData", planData))
-
-	// Set start and end dates
 	startDate, endDate := s.calculatePlanDates(req.DurationWeeks)
 
-	// Save plan to database
-	if err := s.savePlanToDatabase(ctx, txFn(func(ctx context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }), planID, req.UserId, classificationClass, startDate, endDate, req.DurationWeeks); err != nil {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.log.Error("Failed to begin transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
+		}
+	}()
+
+	if err := s.savePlanToDatabase(ctx, tx, planID, req.UserId, classificationClass, startDate, endDate, req.DurationWeeks); err != nil {
 		return nil, err
 	}
 
-	// Build workouts
 	workouts := s.buildWorkouts(planData, req.AvailableDays, classificationClass)
 
-	// Save plan weeks, days and exercises
-	if err := s.savePlanDetails(ctx, txFn(func(context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }), planID, workouts, startDate, req.DurationWeeks); err != nil {
+	if err := s.savePlanDetails(ctx, tx, planID, workouts, startDate, req.DurationWeeks); err != nil {
 		return nil, err
 	}
 
-	// Publish event
+	if err := tx.Commit(); err != nil {
+		s.log.Error("Failed to commit transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to commit plan")
+	}
+
 	s.publishPlanEvent(ctx, req.UserId, planID, classificationClass)
 
-	// Create response
-	planStruct, _ := structpb.NewStruct(planData) // Ignoring error as we have fallback
+	planStruct, _ := structpb.NewStruct(planData)
 	return &pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil
 }
-
-// Helper type for transaction function
-type txFn func(context.Context) (*sql.Tx, error)
 
 func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID string) {
 	var existingPlanID string
@@ -104,8 +112,8 @@ func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID st
 		if delErr != nil {
 			s.log.Error("Failed to delete old plan", zap.Error(delErr))
 		}
-	} else if err != nil {
-		s.log.Debug("No existing active plan found, creating new", zap.String("user_id", userID))
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.log.Error("Failed to query existing plan", zap.Error(err), zap.String("user_id", userID))
 	}
 }
 
@@ -117,7 +125,6 @@ func (s *trainingServer) preparePlanData(classificationClass string, req *pb.Gen
 		"duration_weeks": int(req.DurationWeeks),
 	}
 
-	// Merge PlanData from request into planData map
 	if req.PlanData != nil {
 		for k, v := range req.PlanData.Fields {
 			planData[k] = v.AsInterface()
@@ -133,29 +140,15 @@ func (s *trainingServer) calculatePlanDates(durationWeeks int32) (time.Time, tim
 	return startDate, endDate
 }
 
-func (s *trainingServer) savePlanToDatabase(ctx context.Context, beginTx txFn, planID, userID, classificationClass string, startDate, endDate time.Time, durationWeeks int32) error {
-	tx, err := beginTx(ctx)
-	if err != nil {
-		s.log.Error("Failed to begin transaction", zap.Error(err))
-		return status.Error(codes.Internal, "failed to begin transaction")
-	}
-	defer func() {
-		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
-			s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
-		}
-	}()
-
+func (s *trainingServer) savePlanToDatabase(ctx context.Context, tx *sql.Tx, planID, userID, classificationClass string, startDate, endDate time.Time, durationWeeks int32) error {
 	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", userID), zap.String("classificationClass", classificationClass))
-	_, err = tx.ExecContext(ctx, `
+	_, err := tx.ExecContext(ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, planID, userID, "Персонализированная программа", classificationClass, classificationClass, durationWeeks, time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
 		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
 		return status.Error(codes.Internal, "failed to save plan")
-	}
-	if err = tx.Commit(); err != nil {
-		return status.Error(codes.Internal, "failed to commit plan")
 	}
 	return nil
 }
@@ -174,12 +167,10 @@ func (s *trainingServer) buildWorkouts(planData map[string]interface{}, availabl
 		}
 	}
 
-	// If ML didn't provide workouts, try to build from exercises + weekly_schedule
 	if len(workouts) == 0 {
 		workouts = buildWeeklyWorkouts(planData, availableDays)
 	}
 
-	// If still empty, use basic default workouts
 	if len(workouts) == 0 {
 		s.log.Info("ML provided no valid exercises, using basic default plan", zap.String("class", classificationClass))
 		workouts = generateBasicWeeklyWorkouts(classificationClass, availableDays)
@@ -188,26 +179,11 @@ func (s *trainingServer) buildWorkouts(planData map[string]interface{}, availabl
 	return workouts
 }
 
-func (s *trainingServer) savePlanDetails(ctx context.Context, beginTx txFn, planID string, workouts []map[string]interface{}, startDate time.Time, durationWeeks int32) error {
-	tx, err := beginTx(ctx)
-	if err != nil {
-		s.log.Error("Failed to begin transaction for plan details", zap.Error(err))
-		return status.Error(codes.Internal, "failed to begin transaction")
-	}
-	defer func() {
-		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
-			s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
-		}
-	}()
-
+func (s *trainingServer) savePlanDetails(ctx context.Context, tx *sql.Tx, planID string, workouts []map[string]interface{}, startDate time.Time, durationWeeks int32) error {
 	for week := int32(1); week <= durationWeeks; week++ {
 		if weekErr := s.saveTrainingWeek(ctx, tx, planID, week, workouts, startDate); weekErr != nil {
 			return weekErr
 		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		return status.Error(codes.Internal, "failed to commit plan details")
 	}
 	return nil
 }
@@ -307,12 +283,10 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 
 	weeksList := convertWeeksToStructpb(weeks)
 
-	// Создаем Struct вручную, чтобы избежать проблем с []map[string]interface{}
 	planDataOut := &structpb.Struct{
 		Fields: make(map[string]*structpb.Value),
 	}
 
-	// Добавляем поля
 	planDataOut.Fields["name"] = structpb.NewStringValue(planName)
 	planDataOut.Fields["training_goal"] = structpb.NewStringValue("recovery")
 	planDataOut.Fields["duration_weeks"] = structpb.NewNumberValue(4)
@@ -547,7 +521,6 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 		return nil, err
 	}
 
-	// 2. Получаем дни, для каждого дня отдельно получаем его упражнения
 	dayRows, err := db.QueryContext(ctx, `
 		SELECT d.id, w.week_number
 		FROM training_plan_days d
@@ -580,7 +553,6 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 			return nil, dayErr
 		}
 
-		// Добавляем день в неделю
 		if _, exists := weeksMap[weekNum]; exists {
 			days := weeksMap[weekNum]["days"].([]map[string]interface{})
 			days = append(days, dayData)
@@ -593,14 +565,12 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 		return nil, status.Error(codes.Internal, "error reading days")
 	}
 
-	// 3. Собираем недели в упорядоченный массив
 	return assembleWeeks(weeksMap, log)
 }
 
 func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Logger) (map[int32]map[string]interface{}, error) {
 	weeksMap := make(map[int32]map[string]interface{})
 
-	// 1. Получаем все недели
 	weekRows, err := db.QueryContext(ctx, `
 		SELECT week_number, total_training_days, total_duration_minutes
 		FROM training_plan_weeks
@@ -857,7 +827,6 @@ func convertExerciseToStructpb(ex map[string]interface{}) *structpb.Struct {
 	return exStruct
 }
 
-// buildWeeklyWorkouts creates a one-week schedule from ML data (no repetition across weeks)
 func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32) []map[string]interface{} {
 	workouts := make([]map[string]interface{}, 0, len(availableDays))
 
@@ -866,13 +835,11 @@ func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32)
 	duration := extractDuration(planData)
 	trainingType := extractTrainingType(planData)
 
-	// Primary exercise fallback
 	primaryEx := ""
 	if p, ok := planData["primary_exercise"].(string); ok {
 		primaryEx = p
 	}
 
-	// Build workouts for ONE week based on available days
 	for _, dayIdx := range availableDays {
 		ex := ""
 		if scheduled, ok := scheduleMap[int(dayIdx)]; ok && scheduled != "" {
@@ -880,7 +847,6 @@ func buildWeeklyWorkouts(planData map[string]interface{}, availableDays []int32)
 		} else if primaryEx != "" {
 			ex = primaryEx
 		} else if len(exercises) > 0 {
-			// Pick first exercise as default
 			ex = exercises[0]
 		} else {
 			ex = "active_recovery"
@@ -983,7 +949,6 @@ func generateBasicWeeklyWorkouts(class string, availableDays []int32) []map[stri
 		wt = workoutTypes["recovery"]
 	}
 
-	// Create one workout for each available day in the week
 	for range availableDays {
 		wcopy := make(map[string]interface{})
 		for k, v := range wt {
@@ -993,6 +958,59 @@ func generateBasicWeeklyWorkouts(class string, availableDays []int32) []map[stri
 	}
 
 	return workouts
+}
+
+func createMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
+	}
+}
+
+func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
+	database, err := db.NewConnection(dbCfg)
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
+	return database
+}
+
+func createRabbitQueue(rabbitURL, queueName string, log *logger.Logger) queue.Publisher {
+	if rabbitURL == "" {
+		return nil
+	}
+	rabbitQueue, err := queue.NewPublisher(rabbitURL, queueName, zap.NewNop())
+	if err != nil {
+		log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
+		return nil
+	}
+	log.Info("RabbitMQ connected", zap.String("queue", queueName))
+	return rabbitQueue
+}
+
+func setupGRPCServer(log *logger.Logger, db *sql.DB, rabbitQueue queue.Publisher) *grpc.Server {
+	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
+		middleware.RecoveryGRPC(log.Logger),
+		middleware.CorrelationIDGRPC(),
+	), telemetry.ServerHandlerOption()}
+	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+	s := grpc.NewServer(serverOpts...)
+	pb.RegisterTrainingServiceServer(s, &trainingServer{
+		db:          db,
+		log:         log,
+		rabbitQueue: rabbitQueue,
+	})
+
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("training.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	return s
 }
 
 func main() {
@@ -1007,6 +1025,9 @@ func main() {
 	}()
 
 	port := config.GetEnv("TRAINING_SERVICE_PORT", "50053")
+	metricsPort := config.GetEnv("TRAINING_SERVICE_METRICS_PORT", "9095")
+
+	metricsSrv := createMetricsServer(metricsPort)
 
 	dbCfg := db.Config{
 		Host:     config.GetEnv("DB_HOST"),
@@ -1016,10 +1037,8 @@ func main() {
 		DBName:   config.GetEnv("POSTGRES_DB"),
 		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
-	database, err := db.NewConnection(dbCfg)
-	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
-	}
+
+	database := connectDatabase(dbCfg, log)
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
 			log.Error("Failed to close database", zap.Error(closeErr))
@@ -1028,16 +1047,12 @@ func main() {
 
 	rabbitURL := config.GetEnv("RABBITMQ_URL")
 	queueName := "training_events"
-	var rabbitQueue queue.Publisher
-	if rabbitURL != "" {
-		rabbitQueue, err = queue.NewPublisher(rabbitURL, queueName, zap.NewNop())
-		if err != nil {
-			log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
-		} else {
-			defer func() { _ = rabbitQueue.Close() }()
-			log.Info("RabbitMQ connected", zap.String("queue", queueName))
-		}
+	rabbitQueue := createRabbitQueue(rabbitURL, queueName, log)
+	if rabbitQueue != nil {
+		defer func() { _ = rabbitQueue.Close() }()
 	}
+
+	s := setupGRPCServer(log, database, rabbitQueue)
 
 	lc := net.ListenConfig{}
 	lis, err := lc.Listen(context.Background(), "tcp", ":"+port)
@@ -1045,31 +1060,41 @@ func main() {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
-		middleware.CorrelationIDGRPC(),
-	), telemetry.ServerHandlerOption()}
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
-	s := grpc.NewServer(serverOpts...)
-	pb.RegisterTrainingServiceServer(s, &trainingServer{
-		db:          database,
-		log:         log,
-		rabbitQueue: rabbitQueue,
-	})
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, healthServer)
+	go func() {
+		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Metrics server failed", zap.Error(err))
+		}
+	}()
 
-	// Устанавливаем статус для overall health (пустой service name)
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	// И для конкретного сервиса
-	healthServer.SetServingStatus("training.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
+	go func() {
+		log.Info("Training service starting", zap.String("port", port))
+		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Failed to serve", zap.Error(err))
+		}
+	}()
 
-	log.Info("Training service starting", zap.String("port", port))
-	if err := s.Serve(lis); err != nil {
-		log.Fatal("Failed to serve", zap.Error(err))
-	}
+	<-ctx.Done()
+	log.Info("Shutting down training service")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		s.GracefulStop()
+	}()
+	go func() {
+		defer wg.Done()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}()
+	wg.Wait()
+	log.Info("Training service stopped")
 }
 
 func stringValue(ns sql.NullString) string {

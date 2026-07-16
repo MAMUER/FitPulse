@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/MAMUER/project/internal/auth"
 )
@@ -187,5 +188,21 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 			}()
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+// RecoveryGRPC перехватывает паники в gRPC-хендлерах и возвращает Internal error.
+func RecoveryGRPC(log *zap.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Error("gRPC panic recovered",
+					zap.Any("panic", rec),
+					zap.String("method", info.FullMethod),
+					zap.String("stack", string(debug.Stack())),
+				)
+			}
+		}()
+		return handler(ctx, req)
 	}
 }

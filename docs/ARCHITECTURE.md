@@ -458,6 +458,82 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 
 ---
 
+## 4.x Training Service (training-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для управления тренировочными планами. Отвечает за:
+- Генерацию персонализированных планов тренировок на основе классификации состояния пользователя
+- Хранение планов в PostgreSQL (`training_plans`, `training_plan_weeks`, `training_plan_days`, `training_exercises`)
+- Отслеживание выполнения тренировок (`workout_completions`)
+- Начисление достижений (`user_achievements`)
+- Публикацию событий о генерации планов в RabbitMQ
+
+### 4.x.2 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `GeneratePlan` | Сгенерировать тренировочный план |
+| `GetPlan` | Получить план по ID |
+| `ListPlans` | Список планов пользователя |
+| `CompleteWorkout` | Отметить тренировку выполненной |
+| `GetProgress` | Прогресс пользователя |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `TRAINING_SERVICE_PORT` | `50053` | Порт gRPC сервера |
+| `TRAINING_SERVICE_METRICS_PORT` | `9095` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `RABBITMQ_URL` | — | RabbitMQ URL (опционально) |
+| `BIOMETRIC_SERVICE_ADDR` | — | Адрес biometric-service (не используется напрямую) |
+
+### 4.x.4 Генерация плана
+
+`GeneratePlan` выполняет:
+1. Валидацию запроса
+2. Удаление существующего активного плана пользователя
+3. Подготовку данных плана из запроса
+4. Расчёт дат начала и конца
+5. Сохранение плана и деталей в транзакции PostgreSQL
+6. Публикацию события `plan_generated` в RabbitMQ
+
+### 4.x.5 Достижения
+
+Автоматическое начисление достижений при выполнении тренировок:
+- `first_workout` — после 1 выполненной тренировки
+- `ten_workouts` — после 10 выполненных тренировок
+- `fifty_workouts` — после 50 выполненных тренировок
+
+### 4.x.6 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
+
+### 4.x.7 Метрики
+
+- gRPC server interceptor: `metrics.UnaryServerInterceptor("training-service")`
+- HTTP endpoint: `:9095/metrics` (Prometheus `promhttp.Handler`)
+
+### 4.x.8 Middleware
+
+- gRPC recovery interceptor (`middleware.RecoveryGRPC`)
+- Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
+- Telemetry interceptor (`telemetry.ServerHandlerOption`)
+
+### 4.x.9 Интеграционные тесты
+
+Пропущены (`t.Skip`). Запуск: `go test ./cmd/training-service/...`
+
+### 4.x.10 Особенности
+
+- Логгер: `internal/logger` с полем `service: "training-service"`
+- Транзакционная целостность: `GeneratePlan` использует единую транзакцию для плана и деталей
+- RabbitMQ опционален: сервис работает без очереди, но логирует предупреждение
+
+---
+
 ## 4.x Классификатор состояний (classifier)
 
 ### 4.x.1 Назначение

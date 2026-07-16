@@ -140,3 +140,185 @@ func TestFloat64Value(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractExercises(t *testing.T) {
+	tests := []struct {
+		name     string
+		planData map[string]interface{}
+		want     []string
+	}{
+		{
+			name: "string slice",
+			planData: map[string]interface{}{
+				"exercises": []string{"бег", "приседания"},
+			},
+			want: []string{"бег", "приседания"},
+		},
+		{
+			name: "interface slice",
+			planData: map[string]interface{}{
+				"exercises": []interface{}{"бег", "приседания"},
+			},
+			want: []string{"бег", "приседания"},
+		},
+		{
+			name:     "missing key",
+			planData: map[string]interface{}{},
+			want:     nil,
+		},
+		{
+			name: "mixed types ignored",
+			planData: map[string]interface{}{
+				"exercises": []interface{}{"бег", 123, nil},
+			},
+			want: []string{"бег"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractExercises(tt.planData)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExtractDuration(t *testing.T) {
+	tests := []struct {
+		name     string
+		planData map[string]interface{}
+		want     int
+	}{
+		{
+			name:     "missing key returns default",
+			planData: map[string]interface{}{},
+			want:     30,
+		},
+		{
+			name: "int value",
+			planData: map[string]interface{}{
+				"duration_minutes": 45,
+			},
+			want: 45,
+		},
+		{
+			name: "float64 value",
+			planData: map[string]interface{}{
+				"duration_minutes": 60.0,
+			},
+			want: 60,
+		},
+		{
+			name: "invalid type returns default",
+			planData: map[string]interface{}{
+				"duration_minutes": "invalid",
+			},
+			want: 30,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractDuration(tt.planData)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExtractTrainingType(t *testing.T) {
+	tests := []struct {
+		name     string
+		planData map[string]interface{}
+		want     string
+	}{
+		{
+			name:     "missing key returns default",
+			planData: map[string]interface{}{},
+			want:     "general",
+		},
+		{
+			name: "valid type",
+			planData: map[string]interface{}{
+				"training_type": "strength",
+			},
+			want: "strength",
+		},
+		{
+			name: "invalid type returns default",
+			planData: map[string]interface{}{
+				"training_type": 123,
+			},
+			want: "general",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractTrainingType(tt.planData)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildWeeklyWorkouts(t *testing.T) {
+	tests := []struct {
+		name          string
+		planData      map[string]interface{}
+		availableDays []int32
+		wantLen       int
+		wantType      string
+	}{
+		{
+			name: "uses weekly_schedule",
+			planData: map[string]interface{}{
+				"weekly_schedule": map[string]interface{}{
+					"monday":    "бег",
+					"wednesday": "приседания",
+				},
+				"training_type": "strength",
+			},
+			availableDays: []int32{0, 2},
+			wantLen:       2,
+			wantType:      "strength",
+		},
+		{
+			name: "falls back to primary_exercise",
+			planData: map[string]interface{}{
+				"primary_exercise": "йога",
+				"training_type":    "flexibility",
+			},
+			availableDays: []int32{0},
+			wantLen:       1,
+			wantType:      "flexibility",
+		},
+		{
+			name: "falls back to exercises list",
+			planData: map[string]interface{}{
+				"exercises":     []interface{}{"берпи", "прыжки"},
+				"training_type": "hiit",
+			},
+			availableDays: []int32{0},
+			wantLen:       1,
+			wantType:      "hiit",
+		},
+		{
+			name:          "empty plan falls back to active_recovery",
+			planData:      map[string]interface{}{},
+			availableDays: []int32{0},
+			wantLen:       1,
+			wantType:      "general",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildWeeklyWorkouts(tt.planData, tt.availableDays)
+			assert.Len(t, got, tt.wantLen)
+			for _, w := range got {
+				assert.Equal(t, tt.wantType, w["type"])
+				assert.NotNil(t, w["duration"])
+				assert.NotNil(t, w["exercises"])
+			}
+		})
+	}
+}
