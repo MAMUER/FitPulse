@@ -227,7 +227,7 @@ make check
 
 ### Покрытие кодом
 
-Порог покрытия **75%** считается только для пакетов бизнес-логики: `internal/` (кроме инфраструктурных пакетов: `grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`) и `pkg/`. Исключаются сгенерированный код (`api/gen/`) и моки (`mocks/`).
+Порог покрытия **75%** считается только для пакетов бизнес-логики: `internal/` (кроме инфраструктурных пакетов: `grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`). Исключаются сгенерированный код (`api/gen/`) и моки (`mocks/`).
 
 Проверка покрытия:
 
@@ -238,7 +238,7 @@ make test-cover
 Или вручную:
 
 ```bash
-go test -count=1 -v -coverprofile=coverage.out ./internal/... ./pkg/...
+go test -count=1 -v -coverprofile=coverage.out ./internal/...
 go tool cover -html=coverage.out -o coverage.html
 ```
 

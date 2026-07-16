@@ -36,12 +36,12 @@ test:
 	@echo "Tests complete."
 
 test-cover:
-	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile=coverage.out ./internal/... ./pkg/...
-	@echo "Checking coverage threshold (>= 75%)..."
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
+ 	@echo "Running tests with coverage..."
+ 	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
+ 	@echo "Checking coverage threshold (>= 75%)..."
+ 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
+ 	go tool cover -html=coverage.out -o coverage.html
+ 	@echo "Coverage report: coverage.html"
 
 js-check:
 	@echo "Checking JavaScript syntax..."

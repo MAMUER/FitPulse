@@ -16,7 +16,6 @@ RUN go mod download
 
 COPY cmd/device-connector/ ./cmd/device-connector/
 COPY internal/ ./internal/
-COPY pkg/ ./pkg/
 COPY api/ ./api/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \

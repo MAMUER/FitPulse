@@ -16,7 +16,6 @@ RUN go mod download
 
 COPY cmd/user-service/ ./cmd/user-service/
 COPY internal/ ./internal/
-COPY pkg/ ./pkg/
 COPY api/ ./api/
 
 # Build static binary

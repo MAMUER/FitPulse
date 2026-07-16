@@ -12,7 +12,6 @@ RUN go mod download
 COPY web/ ./web/
 COPY cmd/gateway/ ./cmd/gateway/
 COPY internal/ ./internal/
-COPY pkg/ ./pkg/
 COPY api/ ./api/
 RUN CGO_ENABLED=0 GOOS=linux go build \
 -ldflags="-w -s" \
