@@ -9,7 +9,7 @@ pandas>=2.3.0
 
 # API — FastAPI с uvloop (Linux only)
 uvicorn[standard]>=0.49.0
-fastapi>=0.138.0
+fastapi>=0.139.0
 pydantic>=2.13.0
 python-multipart>=0.0.32
 uvloop>=0.21.0; sys_platform != "win32"
