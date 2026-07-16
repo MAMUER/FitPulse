@@ -11,12 +11,17 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
 	"google.golang.org/api/idtoken"
@@ -35,6 +40,7 @@ import (
 	"github.com/MAMUER/project/internal/email"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
@@ -2128,72 +2134,45 @@ func buildUserServer(database *sql.DB, log *logger.Logger, jwtPrivateKeyPEM, bas
 	}
 }
 
-func createGRPCServer() *grpc.Server {
-	var s *grpc.Server
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		s = grpc.NewServer(
-			grpc.Creds(creds),
-			grpc.ChainUnaryInterceptor(
-				middleware.CorrelationIDGRPC(),
-			),
-			telemetry.ServerHandlerOption(),
-		)
-	} else {
-		s = grpc.NewServer(
-			grpc.ChainUnaryInterceptor(
-				middleware.CorrelationIDGRPC(),
-			),
-			telemetry.ServerHandlerOption(),
-		)
+func createMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
 	}
-	return s
 }
 
-func registerAndServe(s *grpc.Server, svc *userServer, lis net.Listener, port string, log *logger.Logger) {
+func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
+	database, err := db.NewConnection(dbCfg)
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
+	return database
+}
+
+func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
+	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
+		middleware.RecoveryGRPC(log.Logger),
+		middleware.CorrelationIDGRPC(),
+		metrics.UnaryServerInterceptor("user-service"),
+	), telemetry.ServerHandlerOption()}
+	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+	s := grpc.NewServer(serverOpts...)
 	pb.RegisterUserServiceServer(s, svc)
+
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus("user.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
 	reflection.Register(s)
 
-	log.Info("User service starting", zap.String("port", port))
-	if err := s.Serve(lis); err != nil {
-		log.Fatal("Failed to serve", zap.Error(err))
-	}
+	return s
 }
 
-func main() {
-	log := logger.New("user-service")
-	defer func() { _ = log.Sync() }()
-
-	shutdownTraces := telemetry.InitTracer()
-	defer func() {
-		if err := shutdownTraces(context.Background()); err != nil {
-			log.Warn("Failed to shutdown traces", zap.Error(err))
-		}
-	}()
-
-	port := config.GetEnv("USER_SERVICE_PORT", "50051")
-	dbCfg := db.Config{
-		Host:     config.GetEnv("DB_HOST", "localhost"),
-		Port:     config.GetEnv("DB_PORT", "5432"),
-		User:     config.GetEnv("POSTGRES_USER"),
-		Password: config.GetEnv("POSTGRES_PASSWORD"),
-		DBName:   config.GetEnv("POSTGRES_DB", "fitness"),
-		SSLMode:  config.GetEnv("DB_SSLMODE", "disable"),
-	}
-
-	database, err := db.NewConnection(dbCfg)
-	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
-	}
-	defer func() {
-		if closeErr := database.Close(); closeErr != nil {
-			log.Error("Failed to close database connection", zap.Error(closeErr))
-		}
-	}()
-
+func initializeUserService(ctx context.Context, log *logger.Logger, database *sql.DB) *userServer {
 	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
 	if jwtPrivateKeyPEM == "" {
 		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
@@ -2217,18 +2196,91 @@ func main() {
 		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
 	}
 
-	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":"+port)
+	svc := buildUserServer(database, log, jwtPrivateKeyPEM, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
+	if err := svc.ensurePgsodiumKey(ctx); err != nil {
+		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
+	}
+	svc.reencryptPIIFromPgcrypto(ctx)
+	svc.backfillEncryptedPII(ctx)
+
+	return svc
+}
+
+func main() {
+	log := logger.New("user-service")
+	defer func() { _ = log.Sync() }()
+
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+		}
+	}()
+
+	port := config.GetEnv("USER_SERVICE_PORT", "50051")
+	metricsPort := config.GetEnv("USER_SERVICE_METRICS_PORT", "9096")
+
+	metricsSrv := createMetricsServer(metricsPort)
+
+	dbCfg := db.Config{
+		Host:     config.GetEnv("DB_HOST", "localhost"),
+		Port:     config.GetEnv("DB_PORT", "5432"),
+		User:     config.GetEnv("POSTGRES_USER"),
+		Password: config.GetEnv("POSTGRES_PASSWORD"),
+		DBName:   config.GetEnv("POSTGRES_DB", "fitness"),
+		SSLMode:  config.GetEnv("DB_SSLMODE", "disable"),
+	}
+
+	database := connectDatabase(dbCfg, log)
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			log.Error("Failed to close database connection", zap.Error(closeErr))
+		}
+	}()
+
+	svc := initializeUserService(context.Background(), log, database)
+
+	lc := net.ListenConfig{}
+	lis, err := lc.Listen(context.Background(), "tcp", ":"+port)
 	if err != nil {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	svc := buildUserServer(database, log, jwtPrivateKeyPEM, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
-	if err := svc.ensurePgsodiumKey(context.Background()); err != nil {
-		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
-	}
-	svc.reencryptPIIFromPgcrypto(context.Background())
-	svc.backfillEncryptedPII(context.Background())
+	s := setupGRPCServer(log, svc)
 
-	s := createGRPCServer()
-	registerAndServe(s, svc, lis, port, log)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Metrics server failed", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		log.Info("User service starting", zap.String("port", port))
+		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Failed to serve", zap.Error(err))
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info("Shutting down user service")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		s.GracefulStop()
+	}()
+	go func() {
+		defer wg.Done()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}()
+	wg.Wait()
+	log.Info("User service stopped")
 }

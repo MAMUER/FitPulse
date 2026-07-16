@@ -10,6 +10,8 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
+os.environ["PYTHONIOENCODING"] = "utf-8"
+
 import lightning as L
 import numpy as np
 import pandas as pd
@@ -38,7 +40,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["LIGHTNING_VERBOSITY"] = "low"
 
 SCRIPT_DIR = Path(__file__).parent.parent.parent
-TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
+TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_data_with_conditions.csv"
+FALLBACK_TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
 PLAN_DIM = 19
 CONDITION_DIM = 32
 LATENT_DIM = 64
@@ -159,8 +162,20 @@ class ConditionalDiffusionModel(L.LightningModule):
 
 
 def load_real_data():
-    """Load and normalize training data"""
+    """Load and normalize training data with conditions"""
     if not TRAINING_DATA_PATH.exists():
+        if FALLBACK_TRAINING_DATA_PATH.exists():
+            print(f"Warning: {TRAINING_DATA_PATH} not found, using {FALLBACK_TRAINING_DATA_PATH} (no conditions)")
+            df = pd.read_csv(FALLBACK_TRAINING_DATA_PATH)
+            import ast
+            plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
+            plans = (plans - 0.5) * 2.0
+            split_idx = int(len(plans) * 0.8)
+            train_plans = plans[:split_idx]
+            val_plans = plans[split_idx:]
+            train_conditions = np.zeros((len(train_plans), CONDITION_DIM), dtype=np.float32)
+            val_conditions = np.zeros((len(val_plans), CONDITION_DIM), dtype=np.float32)
+            return train_plans, train_conditions, val_plans, val_conditions
         raise FileNotFoundError(f"Training data not found: {TRAINING_DATA_PATH}")
     
     df = pd.read_csv(TRAINING_DATA_PATH)
@@ -171,15 +186,22 @@ def load_real_data():
     else:
         plans = df.iloc[:, :PLAN_DIM].values.astype(np.float32)
     
-    # Normalize to [-1, 1]
+    # Normalize plans to [-1, 1]
     plans = (plans - 0.5) * 2.0
+    
+    # Load conditions if available
+    if "condition_vector" in df.columns:
+        conditions = np.array([ast.literal_eval(x) for x in df["condition_vector"]], dtype=np.float32)
+        print(f"Loaded {len(conditions)} condition vectors")
+    else:
+        conditions = np.zeros((len(plans), CONDITION_DIM), dtype=np.float32)
+        print("Warning: No condition_vector column found, using zero conditions")
     
     split_idx = int(len(plans) * 0.8)
     train_plans = plans[:split_idx]
     val_plans = plans[split_idx:]
-    
-    train_conditions = np.zeros((len(train_plans), CONDITION_DIM), dtype=np.float32)
-    val_conditions = np.zeros((len(val_plans), CONDITION_DIM), dtype=np.float32)
+    train_conditions = conditions[:split_idx]
+    val_conditions = conditions[split_idx:]
     
     return train_plans, train_conditions, val_plans, val_conditions
 
@@ -262,10 +284,11 @@ def train_and_save():
     dummy_t = torch.tensor([0.5])
     dummy_condition = torch.zeros(1, CONDITION_DIM)
     
+    onnx_path = model_dir / "generator.onnx"
     torch.onnx.export(
         model,
         (dummy_input, dummy_t, dummy_condition),
-        model_dir / "generator.onnx",
+        onnx_path,
         input_names=["x_t", "t", "condition"],
         output_names=["noise_pred"],
         dynamic_shapes={
@@ -276,7 +299,7 @@ def train_and_save():
         opset_version=18,
     )
     
-    print(f"Model saved to {model_dir / 'generator.onnx'}")
+    print(f"Model saved to {onnx_path}")
     
     print("\n[4/5] Testing generation...")
     sample = model.sample(num_steps=1000)

@@ -217,7 +217,7 @@ def generate_from_noise(noise: np.ndarray, condition: np.ndarray, num_steps: int
 
         input_dict = {
             "x_t": x_t.astype(np.float32),
-            "t": t.reshape(-1, 1).astype(np.float32),
+            "t": t.astype(np.float32),
             "condition": condition.astype(np.float32),
         }
 
@@ -612,7 +612,7 @@ def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStat
 
 def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: UserProfile) -> dict:
     """Decode model output (19 dimensions) to training plan"""
-    template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES["endurance_e1e2"])
+    template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES["endurance_basic"])
 
     duration = int(plan_vector[0] * 100)
     intensity = float(plan_vector[1])
@@ -690,19 +690,14 @@ async def generate_plan(request: PlanGenerationRequest):
         request.training_history,
     )
 
+    plan = decode_plan(np.asarray(plan_vector, dtype=np.float32), request.training_class, request.user_profile)
+
     classification_confidence.labels(
         model_version="diffusion_v1",
         class_name=request.training_class,
     ).set(1.0)
 
-    return {
-        "plan_vector": plan_vector,
-        "plan_metadata": {
-            "training_class": request.training_class,
-            "model_version": "diffusion_v1",
-            "vector_length": 19,
-        }
-    }
+    return plan
 
 
 # ========== Diet Generation ==========

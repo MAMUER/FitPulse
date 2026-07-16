@@ -392,6 +392,115 @@ verification:
 
 ---
 
+## 4.x User Service (user-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для управления пользователями, аутентификацией и профилями. Отвечает за:
+- Регистрацию и подтверждение email
+- Логин по паролю (Argon2id) и Google OAuth
+- Выдачу JWT access/refresh токенов
+- Управление профилями, целями и противопоказаниями
+- 2FA через TOTP с резервными кодами
+- Управление устройствами пользователя
+- Хранение состава тела, менструальных циклов, состояний здоровья
+- Пригласительные коды для регистрации тренеров/клиентов
+- Шифрование PII через pgsodium AEAD
+
+### 4.x.2 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `Register` | Регистрация пользователя |
+| `RegisterWithInvite` | Регистрация по invite-коду |
+| `ConfirmEmail` | Подтверждение email |
+| `Login` | Логин по паролю |
+| `AuthenticateGoogle` | Авторизация через Google |
+| `RefreshToken` | Обновление access token |
+| `GetProfile` | Получить профиль |
+| `GetUserByEmail` | Получить пользователя по email |
+| `UpdateProfile` | Обновить профиль |
+| `ChangePassword` | Сменить пароль |
+| `ChangeNickname` | Сменить никнейм |
+| `UploadProfilePhoto` | Загрузить фото профиля |
+| `RemoveProfilePhoto` | Удалить фото профиля |
+| `ListDevices` | Список устройств |
+| `AddDevice` | Добавить устройство |
+| `RemoveDevice` | Удалить устройство |
+| `SyncDeviceData` | Синхронизировать данные устройства |
+| `GetTrainingStats` | Статистика тренировок |
+| `GetAchievements` | Достижения пользователя |
+| `ListUsers` | Список пользователей (пагинация) |
+| `ValidateInviteCode` | Проверить invite-код |
+| `SetupTOTP` | Настроить 2FA |
+| `ConfirmTOTP` | Подтвердить включение 2FA |
+| `VerifyTOTP` | Проверить TOTP код |
+| `DisableTOTP` | Отключить 2FA |
+| `ListHealthConditions` | Список состояний здоровья |
+| `UpsertHealthCondition` | Создать/обновить состояние здоровья |
+| `DeleteHealthCondition` | Удалить состояние здоровья |
+| `ListBodyComposition` | Список записей состава тела |
+| `CreateBodyComposition` | Создать запись состава тела |
+| `ListMenstrualCycles` | Список менструальных циклов |
+| `CreateMenstrualCycle` | Создать менструальный цикл |
+| `UpdateMenstrualCycle` | Обновить менструальный цикл |
+| `DeleteMenstrualCycle` | Удалить менструальный цикл |
+| `SyncFloData` | Синхронизация с Flo |
+| `SyncOKOKData` | Синхронизация с OKOK |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|---|---|---|
+| `USER_SERVICE_PORT` | `50051` | Порт gRPC сервера |
+| `USER_SERVICE_METRICS_PORT` | `9096` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `JWT_PRIVATE_KEY_PEM` | — | PEM-ключ для JWT |
+| `TOTP_ENCRYPTION_KEY` | — | Ключ для шифрования TOTP секретов |
+| `BASE_URL` | `https://localhost:8443` | Базовый URL для ссылок верификации |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth Client ID |
+| `DB_ENCRYPTION_KEY` | — | Ключ для pgsodium PII шифрования |
+
+### 4.x.4 Безопасность
+
+- Пароли: Argon2id (m=65536, t=3, p=1), salt 16 байт, hash 32 байта
+- PII шифрование: pgsodium AEAD (`email_encrypted`, `full_name_encrypted`, `nickname_encrypted`, `token_encrypted`, `totp_secret_encrypted`)
+- Blind indexes: `email_hash`, `full_name_hash`, `nickname_hash` для поиска по зашифрованным полям
+- JWT: ES256, 15 минут access, 7 дней refresh
+- 2FA: TOTP (10 резервных кодов, хешированных через SHA256)
+- Google OAuth: автоматическая привязка/создание пользователя
+- Email верификация: токены с сроком 24 часа
+
+### 4.x.5 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
+
+### 4.x.6 Метрики
+
+- gRPC server interceptor: `metrics.UnaryServerInterceptor("user-service")`
+- HTTP endpoint: `:9096/metrics` (Prometheus `promhttp.Handler`)
+
+### 4.x.7 Middleware
+
+- gRPC recovery interceptor (`middleware.RecoveryGRPC`)
+- Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
+- Telemetry interceptor (`telemetry.ServerHandlerOption`)
+
+### 4.x.8 Особенности
+
+- Логгер: `internal/logger` с полем `service: "user-service"`
+- PII миграция: автоматическое перекодирование pgcrypto → pgsodium при старте
+- Backfill PII: заполнение шифрованных полей для существующих plaintext записей
+- Транзакционная целостность: `CreateMenstrualCycle` и `UpdateMenstrualCycle` используют транзакции
+- Invite-коды: хранятся в БД, поддерживают role/specialty/max_uses
+
+### 4.x.9 Интеграционные тесты
+
+Пропущены (`t.Skip`). Запуск: `go test ./cmd/user-service/...`
+
+---
+
 ## 4.x Биометрический сервис (biometric-service)
 
 ### 4.x.1 Назначение

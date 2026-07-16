@@ -1035,14 +1035,6 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-      - name: Install DVC
-        run: |
-          pip install dvc==3.58.0
-          dvc version
-      - name: Pull data via DVC
-        run: |
-          echo "Using cached data from GitHub Actions cache..."
-          dvc pull datasets/processed/training_data_real.csv.dvc || echo "No DVC remote configured, using local cache"
       - name: Install dependencies (generator)
         run: |
           pip install -r cmd/ml_generator/requirements.txt
@@ -1095,10 +1087,6 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-      - name: Install DVC
-        run: pip install dvc==3.58.0
-      - name: Pull training plans data
-        run: dvc pull datasets/processed/training_plans_exercises.csv.dvc || echo "Using local cache"
       - name: Train GAN
         run: |
           pip install -r cmd/ml_generator/requirements.txt
@@ -1518,10 +1506,10 @@ jobs:
       - name: Setup ML infrastructure directories
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo \"-> Creating directories for ML storage...\"
-          sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
+          echo "-> Creating directories for ML storage..."
+          sudo mkdir -p /opt/fitpulse/mlflow-data
           sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
-          echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
+          echo "✅ Directories created: /opt/fitpulse/mlflow-data"
           "
       - name: Deploy MLflow service
         run: |
@@ -1548,11 +1536,6 @@ jobs:
           done
           echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
           "
-      - name: Configure DVC local remote
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
-          ./scripts/ssh-retry.sh scp configs/k8s/scripts/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
-          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Setup Postgres automated backups
         run: |
           if [ -n "${{ secrets.BACKUP_KEY }}" ]; then

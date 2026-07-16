@@ -108,3 +108,7 @@ results.json
 *.docx
 
 .kilo
+
+# Raw datasets (too large for git)
+datasets/raw/
+

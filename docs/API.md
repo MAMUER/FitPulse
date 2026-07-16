@@ -84,7 +84,7 @@ Refresh token используется для ротации через `POST /a
 
 |Service|Порт|Описание|
 |---|---|---|
-|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды|
+|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды|Metrics: `9096`|
 |Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)|
 |Training Service|50053|Управление тренировочными планами|
 
