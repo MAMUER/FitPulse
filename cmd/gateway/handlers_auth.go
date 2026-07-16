@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -57,32 +56,30 @@ func generateOAuthState() (string, error) {
 }
 
 func (g *gateway) userTOTPEnabled(ctx context.Context, userID string) bool {
-	if g.db == nil || userID == "" {
+	if userID == "" {
 		return false
 	}
 
-	var totpEnabled bool
-	if err := g.db.QueryRowContext(ctx, "SELECT totp_enabled FROM users WHERE id = $1", userID).Scan(&totpEnabled); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
-		}
+	resp, err := g.userClient.GetUserClaims(ctx, &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
+		g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
 		return false
 	}
 
-	return totpEnabled
+	return resp.GetTotpEnabled()
 }
 
 func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
-	if g.db == nil || userID == "" {
-		return "", errors.New("database unavailable")
+	if userID == "" {
+		return "", errors.New("user_id is empty")
 	}
 
-	var email, role string
-	if err := g.db.QueryRowContext(ctx, "SELECT email, role FROM users WHERE id = $1", userID).Scan(&email, &role); err != nil {
+	resp, err := g.userClient.GetUserClaims(ctx, &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
 		return "", fmt.Errorf("query user for JWT: %w", err)
 	}
 
-	token, err := auth.GenerateAccessToken(userID, email, role, g.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := auth.GenerateAccessToken(userID, resp.GetEmail(), resp.GetRole(), g.jwtPrivateKeyPEM, 15*time.Minute)
 	return token, fmt.Errorf("issue jwt: %w", err)
 }
 
@@ -892,17 +889,13 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || g.db == nil {
+	if !ok || userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var enabled bool
-	var remaining int32
-	if err := g.db.QueryRowContext(r.Context(), `
-		SELECT totp_enabled, COALESCE(totp_backup_codes_remaining, 0)
-		FROM users WHERE id = $1
-	`, userID).Scan(&enabled, &remaining); err != nil {
+	resp, err := g.userClient.GetUserClaims(r.Context(), &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
 		g.log.Error("Failed to load TOTP status", zap.Error(err), zap.String("user_id", userID))
 		http.Error(w, "Failed to load TOTP status", http.StatusInternalServerError)
 		return
@@ -910,8 +903,8 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"enabled":                enabled,
-		"backup_codes_remaining": remaining,
+		"enabled":                resp.GetTotpEnabled(),
+		"backup_codes_remaining": resp.GetTotpBackupCodesRemaining(),
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP status response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)

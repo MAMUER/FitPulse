@@ -2155,23 +2155,12 @@ jobs:
       - name: Run database migrations
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Running database migrations via kubectl exec..."
-          SQL_FILE="configs/k8s/base/jobs/init-db.sql"
-          if [ ! -f "$SQL_FILE" ]; then
-            echo "❌ Migration file not found: $SQL_FILE"
-            exit 1
-          fi
-          echo "Migration file size: $(wc -c < "$SQL_FILE") bytes"
-          echo "Copying SQL file to postgres-0 pod..."
-          kubectl cp "$SQL_FILE" fitness-platform-production/postgres-0:/tmp/init-db.sql
-          echo "Executing migrations inside Postgres pod..."
-          if kubectl exec -n fitness-platform-production postgres-0 -- \
-            psql -U postgres -d fitness -f /tmp/init-db.sql -v ON_ERROR_STOP=1; then
-            echo "✅ Database migrations completed successfully"
-          else
-            echo "❌ Database migrations failed"
-            exit 1
-          fi
+          echo "Running database migrations via Flyway..."
+          kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
+          kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
+          echo "Waiting for migrate-db job to complete..."
+          kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s
+          echo "✅ Database migrations completed successfully"
           echo "Verifying tables were created..."
           kubectl exec -n fitness-platform-production postgres-0 -- \
             psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"

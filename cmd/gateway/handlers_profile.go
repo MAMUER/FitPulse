@@ -1,61 +1,18 @@
 package main
 
 import (
-	"context"
-	"crypto/subtle"
-	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"go.uber.org/zap"
-	"golang.org/x/crypto/argon2"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
 // ========== Profile Handlers ==========
-
-const argon2idParams = "m=65536,t=3,p=1"
-
-const argon2KeyLen = 32
-
-func verifyPasswordArgon2id(stored, password string) bool {
-	parts := strings.Split(stored, "$")
-	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" || parts[3] != argon2idParams {
-		return false
-	}
-	params := strings.Split(parts[3], ",")
-	if len(params) != 3 {
-		return false
-	}
-	var memory uint32
-	var iterations uint32
-	var parallelism uint8
-	if _, err := fmt.Sscanf(params[0], "m=%d", &memory); err != nil {
-		return false
-	}
-	if _, err := fmt.Sscanf(params[1], "t=%d", &iterations); err != nil {
-		return false
-	}
-	if _, err := fmt.Sscanf(params[2], "p=%d", &parallelism); err != nil {
-		return false
-	}
-	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return false
-	}
-	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return false
-	}
-	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, argon2KeyLen)
-	return subtle.ConstantTimeCompare(hash, computed) == 1
-}
 
 func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -74,7 +31,6 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Требование #11: ответ кодируется как application/json
 	profileResp := map[string]interface{}{
 		"status":  "ok",
 		"profile": resp,
@@ -144,25 +100,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ========== Security #10: Server-side Role Re-verification ==========
-
-// verifyUserRole re-queries the user's role from the database to prevent privilege escalation.
-func (g *gateway) verifyUserRole(ctx context.Context, userID, requiredRole string) bool {
-	if g.db == nil {
-		g.log.Warn("Database not available for role verification")
-		return false
-	}
-	var actualRole string
-	err := g.db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = $1", userID).Scan(&actualRole)
-	if err == sql.ErrNoRows {
-		g.log.Warn("User not found during role verification", zap.String("user_id", userID))
-		return false
-	}
-	if err != nil {
-		g.log.Error("Database error during role verification", zap.Error(err))
-		return false
-	}
-	return actualRole == requiredRole
-}
+// Role verification is now performed inside user-service RPCs.
 
 func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -177,65 +115,22 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if g.db == nil {
-		http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-
-	tx, txErr := g.db.BeginTx(r.Context(), nil)
-	if txErr != nil {
-		g.log.Error("Failed to begin delete profile transaction", zap.Error(txErr))
-		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-			g.log.Warn("Failed to rollback delete profile transaction", zap.Error(rollbackErr))
-		}
-	}()
-
-	if verifyErr := verifyDeleteAccess(g, tx, r, userID, req.Password); verifyErr != nil {
-		http.Error(w, verifyErr.msg, verifyErr.code)
-		return
-	}
-
-	result, execErr := tx.ExecContext(r.Context(), `
-		UPDATE users SET
-			email_encrypted = NULL,
-			email_hash = NULL,
-			full_name_encrypted = NULL,
-			full_name_nonce = NULL,
-			full_name_hash = NULL,
-			nickname_encrypted = NULL,
-			nickname_nonce = NULL,
-			nickname_hash = NULL,
-			profile_photo_url = NULL,
-			password_hash = NULL,
-			email_confirmed = FALSE,
-			updated_at = NOW()
-		WHERE id = $1
-	`, userID)
-	if execErr != nil {
-		g.log.Error("Failed to delete user", zap.Error(execErr))
-		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
-		return
-	}
-
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		http.Error(w, "Не найдено", http.StatusNotFound)
-		return
-	}
-
-	if commitErr := tx.Commit(); commitErr != nil {
-		g.log.Error("Failed to commit delete profile transaction", zap.Error(commitErr))
-		http.Error(w, "Ошибка удаления профиля", http.StatusInternalServerError)
+	resp, err := g.userClient.DeleteProfile(r.Context(), &userpb.DeleteProfileRequest{
+		UserId:   userID,
+		Password: req.Password,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); encodeErr != nil {
-		g.log.Error("Failed to encode delete profile response", zap.Error(encodeErr))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  resp.GetStatus(),
+		"message": resp.GetMessage(),
+	}); err != nil {
+		g.log.Error("Failed to encode delete profile response", zap.Error(err))
 	}
 }
 
@@ -252,33 +147,4 @@ func decodeDeleteProfileRequest(r *http.Request) (*deleteProfileRequest, error) 
 		return nil, errors.New("password требуется")
 	}
 	return &req, nil
-}
-
-type httpError struct {
-	msg  string
-	code int
-}
-
-func (e *httpError) Error() string {
-	return e.msg
-}
-
-func verifyDeleteAccess(g *gateway, tx *sql.Tx, r *http.Request, userID, password string) *httpError {
-	var passwordHash string
-	if queryErr := tx.QueryRowContext(r.Context(), "SELECT password_hash FROM users WHERE id = $1", userID).Scan(&passwordHash); queryErr != nil {
-		if queryErr == sql.ErrNoRows {
-			return &httpError{msg: "Не найдено", code: http.StatusNotFound}
-		}
-		g.log.Error("Failed to load user for deletion", zap.Error(queryErr))
-		return &httpError{msg: "Ошибка удаления профиля", code: http.StatusInternalServerError}
-	}
-
-	if !verifyPasswordArgon2id(passwordHash, password) {
-		return &httpError{msg: "Неверный пароль", code: http.StatusUnauthorized}
-	}
-
-	if criticalErr := g.requireCriticalSession(r, userID); criticalErr != nil {
-		return &httpError{msg: criticalErr.Error(), code: http.StatusPreconditionRequired}
-	}
-	return nil
 }

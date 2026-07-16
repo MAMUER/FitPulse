@@ -41,6 +41,7 @@
 │       └── scripts/                  # Helper scripts for k8s bootstrap
 ├── db/
 │   └── migrations/                   # SQL миграции (версионированные)
+│       └── V1__full_schema.sql       # Consolidated idempotent schema
 ├── deploy/
 │   └── lb/
 │       ├── production.conf           # Host NGINX конфигурация
@@ -534,7 +535,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 ### 4.x.5 Дедупликация
 
 Уникальное ограничение на `(user_id, metric_type, timestamp, device_type)`.
-Миграция: `db/migrations/V20__add_biometric_dedup.sql`.
+Миграция: `db/migrations/V1__full_schema.sql`.
 Вставки используют `ON CONFLICT DO NOTHING`.
 
 ### 4.x.6 Валидация метрик

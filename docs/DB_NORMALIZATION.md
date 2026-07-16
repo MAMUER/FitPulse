@@ -253,27 +253,10 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 ---
 
 ## Миграции
-- V1 — extensions
-- V2 — users, email_verifications, invite_codes, invite_code_uses
-- V3 — user_profiles, user_goals, user_contraindications
-- V4 — devices
-- V5 — biometric_data, device_ingest_log
-- V6 — training_plans, training_plan_weeks, training_plan_days, training_exercises, workout_completions
-- V7 — achievements, user_achievements
-- V8 — views (invite_code_stats, user_profiles_with_goals)
-- V9 — functions (create_invite_code, use_invite_code)
-- V10 — training_plans.classification_class
-- V11 — oauth_states, device_provider_accounts, device_sync_log
-- V12 — users.provider, users.external_id
-- V13 — users TOTP columns
-- V14 — users PII encrypted columns, email_verifications encrypted columns
-- V15 — user_health_conditions
-- V16 — user_body_composition
-- V17 — user_menstrual_cycles, user_menstrual_symptoms, user_menstrual_moods
-- V18 — pgsodium extension
-- V19 — PII blind indexes (full_name_hash, full_name_nonce, nickname_hash, nickname_nonce)
 
-> `configs/k8s/base/jobs/init-db.sql` содержит все миграции V1–V19 в одном файле. Для инициализации базы данных в production примените этот файл через `kubectl apply -f configs/k8s/base/jobs/init-db.yaml` после создания namespace и secrets.
+Предыдущие миграции удалены. Единая авторитетная схема: `db/migrations/V1__full_schema.sql`.
+Все исправления для существующих развёртываний встроены в V1 в идемпотентном виде.
+Миграции применяются через Flyway в K8s Job (`configs/k8s/base/jobs/migrate-db.yaml`).
 
 ---
 

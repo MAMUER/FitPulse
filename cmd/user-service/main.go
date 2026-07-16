@@ -1121,65 +1121,6 @@ func safeInt32(v int) int32 {
 	return int32(v)
 }
 
-func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
-	// Валидация параметров
-	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is nil")
-	}
-	if req.PageSize <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "page_size must be greater than 0")
-	}
-	if req.Page < 0 {
-		return nil, status.Error(codes.InvalidArgument, "page must be non-negative")
-	}
-
-	offset := req.Page * req.PageSize
-	var listUsersQuery strings.Builder
-	listUsersQuery.WriteString("SELECT u.id, ")
-	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
-	listUsersQuery.WriteString(",\n               ")
-	listUsersQuery.WriteString(db.PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
-	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
-	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
-	if err != nil {
-		s.log.Error("Failed to list users", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
-	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
-		}
-	}()
-
-	var users []*pb.UserProfile
-	for rows.Next() {
-		var user pb.UserProfile
-		if scanErr := rows.Scan(&user.UserId, &user.Email, &user.FullName, &user.Role, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
-			s.log.Error("Failed to scan user", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "failed to read user data")
-		}
-		users = append(users, &user)
-	}
-
-	// Проверяем ошибку итерации
-	if rowErr := rows.Err(); rowErr != nil {
-		s.log.Error("Row iteration error", zap.Error(rowErr))
-		return nil, status.Error(codes.Internal, "error reading users")
-	}
-
-	var total int32
-	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE ($1 = '' OR role = $1)", req.Role).Scan(&total)
-	if err != nil {
-		s.log.Warn("Failed to count users", zap.Error(err))
-		// Не блокируем ответ, просто логируем
-	}
-
-	return &pb.ListUsersResponse{
-		Users: users,
-		Total: total,
-	}, nil
-}
-
 // generateVerificationToken generates a random 32-byte hex token for email verification.
 func generateVerificationToken() string {
 	b := make([]byte, 32)
@@ -1887,6 +1828,327 @@ func (s *userServer) SyncOKOKData(ctx context.Context, req *pb.SyncOKOKDataReque
 	return &pb.SyncOKOKDataResponse{Success: success, Message: message, SyncedRecords: syncedRecords}, nil
 }
 
+func (s *userServer) GetUserClaims(ctx context.Context, req *pb.GetUserClaimsRequest) (*pb.GetUserClaimsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	var email string
+	var role string
+	var totpEnabled bool
+	var backupCodesRemaining int32
+
+	query := strings.Builder{}
+	query.WriteString("SELECT ")
+	query.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email"))
+	query.WriteString(", role, totp_enabled, COALESCE(totp_backup_codes_remaining, 0) FROM users WHERE id = $1")
+
+	err := s.db.QueryRowContext(ctx, query.String(), req.UserId).Scan(&email, &role, &totpEnabled, &backupCodesRemaining)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		s.log.Error("Failed to get user claims", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	return &pb.GetUserClaimsResponse{
+		Email:                    email,
+		Role:                     role,
+		TotpEnabled:              totpEnabled,
+		TotpBackupCodesRemaining: backupCodesRemaining,
+	}, nil
+}
+
+func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest) (*pb.DeleteProfileResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+
+	var passwordHash string
+	err := s.db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id = $1", req.UserId).Scan(&passwordHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		s.log.Error("Failed to load user for deletion", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if !verifyPasswordArgon2id(passwordHash, req.Password) {
+		return nil, status.Error(codes.Unauthenticated, "invalid password")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.log.Error("Failed to begin delete profile transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Warn("Failed to rollback delete profile transaction", zap.Error(rollbackErr))
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE users SET
+			email_encrypted = NULL,
+			email_hash = NULL,
+			full_name_encrypted = NULL,
+			full_name_nonce = NULL,
+			full_name_hash = NULL,
+			nickname_encrypted = NULL,
+			nickname_nonce = NULL,
+			nickname_hash = NULL,
+			profile_photo_url = NULL,
+			password_hash = NULL,
+			email_confirmed = FALSE,
+			updated_at = NOW()
+		WHERE id = $1
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to delete profile", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to delete profile")
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.log.Error("Failed to commit delete profile transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	s.log.Info("Profile deleted (GDPR)", zap.String("user_id", req.UserId))
+	return &pb.DeleteProfileResponse{Status: "deleted", Message: "Profile deleted successfully"}, nil
+}
+
+func (s *userServer) requireAdminRole(ctx context.Context, requesterID string) error {
+	if requesterID == "" {
+		return status.Error(codes.Unauthenticated, "requester_user_id is required")
+	}
+
+	var role string
+	err := s.db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = $1", requesterID).Scan(&role)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return status.Error(codes.NotFound, "requester not found")
+		}
+		s.log.Error("Failed to verify admin role", zap.Error(err), zap.String("requester_id", requesterID))
+		return status.Error(codes.Internal, "database error")
+	}
+	if role != "admin" {
+		return status.Error(codes.PermissionDenied, "admin role required")
+	}
+	return nil
+}
+
+func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
+	if err := s.requireAdminRole(ctx, req.RequesterUserId); err != nil {
+		return nil, err
+	}
+
+	if req.PageSize <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "page_size must be greater than 0")
+	}
+	if req.Page < 0 {
+		return nil, status.Error(codes.InvalidArgument, "page must be non-negative")
+	}
+
+	offset := req.Page * req.PageSize
+	var listUsersQuery strings.Builder
+	listUsersQuery.WriteString("SELECT u.id, ")
+	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
+	listUsersQuery.WriteString(",\n               ")
+	listUsersQuery.WriteString(db.PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
+	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
+	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
+	if err != nil {
+		s.log.Error("Failed to list users", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
+		}
+	}()
+
+	var users []*pb.UserProfile
+	for rows.Next() {
+		var user pb.UserProfile
+		if scanErr := rows.Scan(&user.UserId, &user.Email, &user.FullName, &user.Role, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
+			s.log.Error("Failed to scan user", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "failed to read user data")
+		}
+		users = append(users, &user)
+	}
+
+	if rowErr := rows.Err(); rowErr != nil {
+		s.log.Error("Row iteration error", zap.Error(rowErr))
+		return nil, status.Error(codes.Internal, "error reading users")
+	}
+
+	var total int32
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE ($1 = '' OR role = $1)", req.Role).Scan(&total)
+	if err != nil {
+		s.log.Warn("Failed to count users", zap.Error(err))
+	}
+
+	return &pb.ListUsersResponse{
+		Users: users,
+		Total: total,
+	}, nil
+}
+
+func (s *userServer) AdminListInvites(ctx context.Context, req *pb.AdminListInvitesRequest) (*pb.AdminListInvitesResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+	if req.Page < 0 {
+		req.Page = 0
+	}
+
+	offset := req.Page * req.PageSize
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT code, role, specialty, max_uses, used_count, is_active, created_at
+		FROM invite_codes
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`, req.PageSize, offset)
+	if err != nil {
+		s.log.Error("Failed to list invites", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+		}
+	}()
+
+	var invites []*pb.InviteInfo
+	baseURL := s.baseURL
+	if baseURL == "" {
+		baseURL = "https://fittpulse.duckdns.org"
+	}
+	for rows.Next() {
+		var inv pb.InviteInfo
+		var specialty sql.NullString
+		if scanErr := rows.Scan(&inv.Code, &inv.Role, &specialty, &inv.MaxUses, &inv.UsedCount, &inv.IsActive, &inv.CreatedAt); scanErr != nil {
+			s.log.Error("Failed to scan invite", zap.Error(scanErr))
+			continue
+		}
+		if specialty.Valid {
+			inv.Specialty = specialty.String
+		}
+		inv.InviteUrl = fmt.Sprintf("%s/register?invite=%s", baseURL, inv.Code)
+		invites = append(invites, &inv)
+	}
+	if rows.Err() != nil {
+		s.log.Error("Rows iteration error", zap.Error(rows.Err()))
+		return nil, status.Error(codes.Internal, "error reading invites")
+	}
+
+	var total int32
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM invite_codes").Scan(&total)
+	if err != nil {
+		s.log.Warn("Failed to count invites", zap.Error(err))
+	}
+
+	return &pb.AdminListInvitesResponse{
+		Invites: invites,
+		Total:   total,
+	}, nil
+}
+
+func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateInviteRequest) (*pb.AdminCreateInviteResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	role := req.GetRole()
+	if role == "" {
+		role = "client"
+	}
+	if role != "client" && role != "admin" {
+		return nil, status.Error(codes.InvalidArgument, "role must be 'client' or 'admin'")
+	}
+
+	maxUses := req.GetMaxUses()
+	if maxUses <= 0 {
+		maxUses = 1
+	}
+	if maxUses > 100 {
+		return nil, status.Error(codes.InvalidArgument, "max_uses must be between 1 and 100")
+	}
+
+	code := "INV-" + generateInviteCode()
+
+	var specialty interface{}
+	if req.GetSpecialty() != "" {
+		specialty = req.GetSpecialty()
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO invite_codes (code, role, specialty, max_uses, created_by, is_active, created_at)
+		VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+	`, code, role, specialty, maxUses, "")
+	if err != nil {
+		s.log.Error("Failed to create invite", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to create invite")
+	}
+
+	baseURL := s.baseURL
+	if baseURL == "" {
+		baseURL = "https://fittpulse.duckdns.org"
+	}
+	inviteURL := fmt.Sprintf("%s/register?invite=%s", baseURL, code)
+
+	s.log.Info("Invite code created",
+		zap.String("code", code),
+		zap.String("role", role),
+		zap.Int("max_uses", int(maxUses)),
+	)
+
+	return &pb.AdminCreateInviteResponse{
+		Code:      code,
+		Role:      role,
+		Specialty: req.GetSpecialty(),
+		MaxUses:   maxUses,
+		InviteUrl: inviteURL,
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeInviteRequest) (*pb.AdminRevokeInviteResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	if req.GetCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "code is required")
+	}
+
+	result, err := s.db.ExecContext(ctx, `
+		UPDATE invite_codes SET is_active = FALSE WHERE code = $1
+	`, req.GetCode())
+	if err != nil {
+		s.log.Error("Failed to revoke invite", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to revoke invite")
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
+	s.log.Info("Invite code revoked", zap.String("code", req.GetCode()))
+	return &pb.AdminRevokeInviteResponse{Success: true, Message: "Invite revoked successfully"}, nil
+}
+
 func nullIfStr(v string) *string {
 	if v == "" {
 		return nil
@@ -2283,4 +2545,10 @@ func main() {
 	}()
 	wg.Wait()
 	log.Info("User service stopped")
+}
+
+func generateInviteCode() string {
+	b := make([]byte, 6)
+	_, _ = rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)[:8]
 }

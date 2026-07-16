@@ -42,6 +42,11 @@ service UserService {
     rpc DeleteMenstrualCycle(DeleteMenstrualCycleRequest) returns (DeleteMenstrualCycleResponse);
     rpc SyncFloData(SyncFloDataRequest) returns (SyncFloDataResponse);
     rpc SyncOKOKData(SyncOKOKDataRequest) returns (SyncOKOKDataResponse);
+    rpc GetUserClaims(GetUserClaimsRequest) returns (GetUserClaimsResponse);
+    rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
+    rpc AdminListInvites(AdminListInvitesRequest) returns (AdminListInvitesResponse);
+    rpc AdminCreateInvite(AdminCreateInviteRequest) returns (AdminCreateInviteResponse);
+    rpc AdminRevokeInvite(AdminRevokeInviteRequest) returns (AdminRevokeInviteResponse);
 }
 
 message RegisterRequest {
@@ -258,9 +263,10 @@ message UserProfile {
 }
 
 message ListUsersRequest {
-    int32 page = 1;
-    int32 page_size = 2;
-    string role = 3;
+    string requester_user_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+    string role = 4;
 }
 
 message ListUsersResponse {
@@ -507,4 +513,70 @@ message SyncOKOKDataResponse {
     bool success = 1;
     string message = 2;
     int32 synced_records = 3;
+}
+
+message GetUserClaimsRequest {
+    string user_id = 1;
+}
+
+message GetUserClaimsResponse {
+    string email = 1;
+    string role = 2;
+    bool totp_enabled = 3;
+    int32 totp_backup_codes_remaining = 4;
+}
+
+message DeleteProfileRequest {
+    string user_id = 1;
+    string password = 2;
+}
+
+message DeleteProfileResponse {
+    string status = 1;
+    string message = 2;
+}
+
+message InviteInfo {
+    string code = 1;
+    string role = 2;
+    string specialty = 3;
+    int32 max_uses = 4;
+    int32 used_count = 5;
+    bool is_active = 6;
+    string created_at = 7;
+    string invite_url = 8;
+}
+
+message AdminListInvitesRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+}
+
+message AdminListInvitesResponse {
+    repeated InviteInfo invites = 1;
+    int32 total = 2;
+}
+
+message AdminCreateInviteRequest {
+    string role = 1;
+    string specialty = 2;
+    int32 max_uses = 3;
+}
+
+message AdminCreateInviteResponse {
+    string code = 1;
+    string role = 2;
+    string specialty = 3;
+    int32 max_uses = 4;
+    string invite_url = 5;
+    string created_at = 6;
+}
+
+message AdminRevokeInviteRequest {
+    string code = 1;
+}
+
+message AdminRevokeInviteResponse {
+    bool success = 1;
+    string message = 2;
 }

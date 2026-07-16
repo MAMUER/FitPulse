@@ -73,33 +73,69 @@ Refresh token используется для ротации через `POST /a
 
 ## Админ endpoints (JWT + role=admin)
 
+> Примечание: все админ-endpoints делегируются в `user-service` через gRPC. Gateway не выполняет прямых SQL-запросов.
+
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
 |GET|`/api/v1/admin/users`|Список пользователей|Query: `?page=&page_size=`|`{status, users: [UserProfile], total, page, page_size}`|
-|GET|`/api/v1/admin/invites`|Список invite-кодов|Query: `?page=&page_size=&used=`|`{status, invites: [{code, role, specialty, used, created_at, max_uses?}], total, page, page_size}`|
-|POST|`/api/v1/admin/invites`|Создать invite-код|`{role, specialty?, max_uses?}`|`{status, code, role, specialty, max_uses, created_at}`|
-|POST|`/api/v1/admin/invites/{code}/revoke`|Отозвать invite-код|—|`{status, message}`|
+|GET|`/api/v1/admin/invites`|Список invite-кодов|Query: `?page=&page_size=`|`{status, invites: [{code, role, specialty, max_uses, used_count, is_active, created_at, invite_url}], total}`|
+|POST|`/api/v1/admin/invites`|Создать invite-код|`{role, specialty?, max_uses?}`|`{status, code, role, specialty, max_uses, invite_url, created_at}`|
+|POST|`/api/v1/admin/invites/revoke`|Отозвать invite-код|Query: `?code=`|`{status, message}`|
 
 ## gRPC services
 
 |Service|Порт|Описание|
 |---|---|---|
-|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды|Metrics: `9096`|
+|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды, админ-операции, удаление профиля (GDPR), статус TOTP|Metrics: `9096`|
 |Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)|
 |Training Service|50053|Управление тренировочными планами|
 
-### BiometricService gRPC Methods
+### UserService gRPC Methods
 
 |RPC|Request|Response|Описание|
 |---|---|---|---|
-|`AddRecord`|`AddRecordRequest`|`AddRecordResponse`|Добавить одну запись|
-|`BatchAddRecords`|`BatchAddRecordsRequest`|`BatchAddRecordsResponse`|Пакетная вставка|
-|`GetRecords`|`GetRecordsRequest`|`GetRecordsResponse`|Получить записи с фильтрацией и пагинацией|
-|`GetLatest`|`GetLatestRequest`|`BiometricRecord`|Последняя запись по типу|
-|`UpdateRecord`|`UpdateRecordRequest`|`BiometricRecord`|Обновить запись|
-|`DeleteRecord`|`DeleteRecordRequest`|`DeleteRecordResponse`|Удалить запись|
-
-**Аутентификация**: Все gRPC методы требуют JWT токен в metadata `authorization: Bearer <token>`.
+|`Register`|`RegisterRequest`|`RegisterResponse`|Регистрация пользователя|
+|`RegisterWithInvite`|`RegisterWithInviteRequest`|`RegisterResponse`|Регистрация по invite-коду|
+|`ConfirmEmail`|`ConfirmEmailRequest`|`ConfirmEmailResponse`|Подтверждение email|
+|`Login`|`LoginRequest`|`LoginResponse`|Вход по email/password|
+|`AuthenticateGoogle`|`AuthenticateGoogleRequest`|`LoginResponse`|Вход через Google OAuth|
+|`GetProfile`|`GetProfileRequest`|`UserProfile`|Получить профиль|
+|`GetUserByEmail`|`GetUserByEmailRequest`|`UserProfile`|Получить пользователя по email|
+|`UpdateProfile`|`UpdateProfileRequest`|`UserProfile`|Обновить профиль|
+|`ChangePassword`|`ChangePasswordRequest`|`ChangePasswordResponse`|Сменить пароль|
+|`ChangeEmail`|`ChangeEmailRequest`|`ChangeEmailResponse`|Сменить email|
+|`UploadProfilePhoto`|`UploadProfilePhotoRequest`|`UploadProfilePhotoResponse`|Загрузить фото профиля|
+|`RemoveProfilePhoto`|`RemoveProfilePhotoRequest`|`RemoveProfilePhotoResponse`|Удалить фото профиля|
+|`ChangeNickname`|`ChangeNicknameRequest`|`ChangeNicknameResponse`|Изменить nickname|
+|`ListDevices`|`ListDevicesRequest`|`ListDevicesResponse`|Список устройств пользователя|
+|`AddDevice`|`AddDeviceRequest`|`AddDeviceResponse`|Добавить устройство|
+|`RemoveDevice`|`RemoveDeviceRequest`|`RemoveDeviceResponse`|Удалить устройство|
+|`SyncDeviceData`|`SyncDeviceDataRequest`|`SyncDeviceDataResponse`|Синхронизировать данные устройства|
+|`GetTrainingStats`|`GetTrainingStatsRequest`|`GetTrainingStatsResponse`|Статистика тренировок|
+|`GetAchievements`|`GetAchievementsRequest`|`GetAchievementsResponse`|Достижения пользователя|
+|`ListUsers`|`ListUsersRequest`|`ListUsersResponse`|Список пользователей (admin)|
+|`ValidateInviteCode`|`ValidateInviteCodeRequest`|`ValidateInviteCodeResponse`|Валидация invite-кода|
+|`SetupTOTP`|`SetupTOTPRequest`|`SetupTOTPResponse`|Настройка TOTP|
+|`ConfirmTOTP`|`ConfirmTOTPRequest`|`ConfirmTOTPResponse`|Подтверждение TOTP|
+|`VerifyTOTP`|`VerifyTOTPRequest`|`VerifyTOTPResponse`|Проверка TOTP|
+|`DisableTOTP`|`DisableTOTPRequest`|`DisableTOTPResponse`|Отключение TOTP|
+|`RefreshToken`|`RefreshTokenRequest`|`RefreshTokenResponse`|Ротация refresh token|
+|`ListHealthConditions`|`ListHealthConditionsRequest`|`ListHealthConditionsResponse`|Список заболеваний|
+|`UpsertHealthCondition`|`UpsertHealthConditionRequest`|`HealthCondition`|Добавить/обновить заболевание|
+|`DeleteHealthCondition`|`DeleteHealthConditionRequest`|`DeleteHealthConditionResponse`|Удалить заболевание|
+|`ListBodyComposition`|`ListBodyCompositionRequest`|`ListBodyCompositionResponse`|Список записей состава тела|
+|`CreateBodyComposition`|`CreateBodyCompositionRequest`|`BodyCompositionRecord`|Создать запись состава тела|
+|`ListMenstrualCycles`|`ListMenstrualCyclesRequest`|`ListMenstrualCyclesResponse`|Список менструальных циклов|
+|`CreateMenstrualCycle`|`CreateMenstrualCycleRequest`|`MenstrualCycle`|Создать цикл|
+|`UpdateMenstrualCycle`|`UpdateMenstrualCycleRequest`|`MenstrualCycle`|Обновить цикл|
+|`DeleteMenstrualCycle`|`DeleteMenstrualCycleRequest`|`DeleteMenstrualCycleResponse`|Удалить цикл|
+|`SyncFloData`|`SyncFloDataRequest`|`SyncFloDataResponse`|Синхронизация Flo|
+|`SyncOKOKData`|`SyncOKOKDataRequest`|`SyncOKOKDataResponse`|Синхронизация OKOK|
+|`GetUserClaims`|`GetUserClaimsRequest`|`GetUserClaimsResponse`|Получить email/role/TOTP-статус пользователя|
+|`DeleteProfile`|`DeleteProfileRequest`|`DeleteProfileResponse`|Удаление профиля (GDPR)|
+|`AdminListInvites`|`AdminListInvitesRequest`|`AdminListInvitesResponse`|Список invite-кодов (admin)|
+|`AdminCreateInvite`|`AdminCreateInviteRequest`|`AdminCreateInviteResponse`|Создать invite-код (admin)|
+|`AdminRevokeInvite`|`AdminRevokeInviteRequest`|`AdminRevokeInviteResponse`|Отозвать invite-код (admin)|
 
 ## Модели данных
 

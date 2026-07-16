@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/instance: migrate-db
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "18"
+    app.kubernetes.io/version: "11"
     app.kubernetes.io/managed-by: kustomize
 spec:
   backoffLimit: 3
@@ -24,7 +24,7 @@ spec:
         app.kubernetes.io/instance: migrate-db
         app.kubernetes.io/component: database
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "18"
+        app.kubernetes.io/version: "11"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
@@ -44,12 +44,12 @@ spec:
         - name: secrets
           secret:
             secretName: app-secrets
-        - name: sql
+        - name: migrations
           configMap:
-            name: init-db-sql
+            name: db-migrations
       containers:
         - name: migrate
-          image: postgres:18-alpine
+          image: flyway/flyway:11
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -62,35 +62,29 @@ spec:
             readOnlyRootFilesystem: true
             seccompProfile:
               type: RuntimeDefault
-          command: ["/bin/sh", "-c"]
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://postgres-service:5432/fitness_platform"
+            - name: FLYWAY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: FLYWAY_LOCATIONS
+              value: "filesystem:/flyway/sql"
+            - name: FLYWAY_CONNECT_RETRIES
+              value: "60"
+          command: ["flyway"]
           args:
-            - |
-              set -euo pipefail
-              export POSTGRES_USER=$(cat /etc/secrets/POSTGRES_USER)
-              export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
-              export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
-
-              echo "-> Waiting for PostgreSQL to accept connections..."
-              for i in $(seq 1 60); do
-                if psql -h "postgres-service" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
-                  echo "✅ PostgreSQL is ready"
-                  break
-                fi
-                if [ "$i" -eq 60 ]; then
-                  echo "❌ Timeout waiting for PostgreSQL"
-                  exit 1
-                fi
-                echo "  Attempt $i/60: PostgreSQL not ready yet, waiting 5s..."
-                sleep 5
-              done
-
-              psql -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f /sql/init.sql -v ON_ERROR_STOP=1
+            - "migrate"
           volumeMounts:
-            - name: sql
-              mountPath: /sql
-              readOnly: true
-            - name: secrets
-              mountPath: /etc/secrets
+            - name: migrations
+              mountPath: /flyway/sql
               readOnly: true
           readinessProbe:
             tcpSocket:
@@ -108,8 +102,8 @@ spec:
             failureThreshold: 6
           resources:
             requests:
-              memory: "32Mi"
-              cpu: "15m"
+              memory: "64Mi"
+              cpu: "50m"
             limits:
-              memory: "96Mi"
-              cpu: "100m"
+              memory: "256Mi"
+              cpu: "200m"

@@ -134,6 +134,26 @@ func (m *mockUserServiceClient) SyncOKOKData(ctx context.Context, req *userpb.Sy
 	return &userpb.SyncOKOKDataResponse{}, nil
 }
 
+func (m *mockUserServiceClient) GetUserClaims(ctx context.Context, req *userpb.GetUserClaimsRequest, opts ...grpc.CallOption) (*userpb.GetUserClaimsResponse, error) {
+	return &userpb.GetUserClaimsResponse{Email: "test@example.com", Role: "admin", TotpEnabled: false}, nil
+}
+
+func (m *mockUserServiceClient) DeleteProfile(ctx context.Context, req *userpb.DeleteProfileRequest, opts ...grpc.CallOption) (*userpb.DeleteProfileResponse, error) {
+	return &userpb.DeleteProfileResponse{Status: "deleted"}, nil
+}
+
+func (m *mockUserServiceClient) AdminListInvites(ctx context.Context, req *userpb.AdminListInvitesRequest, opts ...grpc.CallOption) (*userpb.AdminListInvitesResponse, error) {
+	return &userpb.AdminListInvitesResponse{}, nil
+}
+
+func (m *mockUserServiceClient) AdminCreateInvite(ctx context.Context, req *userpb.AdminCreateInviteRequest, opts ...grpc.CallOption) (*userpb.AdminCreateInviteResponse, error) {
+	return &userpb.AdminCreateInviteResponse{Code: "INV-test"}, nil
+}
+
+func (m *mockUserServiceClient) AdminRevokeInvite(ctx context.Context, req *userpb.AdminRevokeInviteRequest, opts ...grpc.CallOption) (*userpb.AdminRevokeInviteResponse, error) {
+	return &userpb.AdminRevokeInviteResponse{Success: true}, nil
+}
+
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

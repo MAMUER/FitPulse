@@ -2170,12 +2170,13 @@ func (x *UserProfile) GetProfilePhotoUrl() string {
 }
 
 type ListUsersRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RequesterUserId string                 `protobuf:"bytes,1,opt,name=requester_user_id,json=requesterUserId,proto3" json:"requester_user_id,omitempty"`
+	Page            int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize        int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Role            string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListUsersRequest) Reset() {
@@ -2206,6 +2207,13 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
 	return file_user_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListUsersRequest) GetRequesterUserId() string {
+	if x != nil {
+		return x.RequesterUserId
+	}
+	return ""
 }
 
 func (x *ListUsersRequest) GetPage() int32 {
@@ -4617,6 +4625,666 @@ func (x *SyncOKOKDataResponse) GetSyncedRecords() int32 {
 	return 0
 }
 
+type GetUserClaimsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserClaimsRequest) Reset() {
+	*x = GetUserClaimsRequest{}
+	mi := &file_user_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserClaimsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserClaimsRequest) ProtoMessage() {}
+
+func (x *GetUserClaimsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserClaimsRequest.ProtoReflect.Descriptor instead.
+func (*GetUserClaimsRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *GetUserClaimsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetUserClaimsResponse struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Email                    string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Role                     string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	TotpEnabled              bool                   `protobuf:"varint,3,opt,name=totp_enabled,json=totpEnabled,proto3" json:"totp_enabled,omitempty"`
+	TotpBackupCodesRemaining int32                  `protobuf:"varint,4,opt,name=totp_backup_codes_remaining,json=totpBackupCodesRemaining,proto3" json:"totp_backup_codes_remaining,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *GetUserClaimsResponse) Reset() {
+	*x = GetUserClaimsResponse{}
+	mi := &file_user_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserClaimsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserClaimsResponse) ProtoMessage() {}
+
+func (x *GetUserClaimsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserClaimsResponse.ProtoReflect.Descriptor instead.
+func (*GetUserClaimsResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *GetUserClaimsResponse) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *GetUserClaimsResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *GetUserClaimsResponse) GetTotpEnabled() bool {
+	if x != nil {
+		return x.TotpEnabled
+	}
+	return false
+}
+
+func (x *GetUserClaimsResponse) GetTotpBackupCodesRemaining() int32 {
+	if x != nil {
+		return x.TotpBackupCodesRemaining
+	}
+	return 0
+}
+
+type DeleteProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProfileRequest) Reset() {
+	*x = DeleteProfileRequest{}
+	mi := &file_user_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProfileRequest) ProtoMessage() {}
+
+func (x *DeleteProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProfileRequest.ProtoReflect.Descriptor instead.
+func (*DeleteProfileRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *DeleteProfileRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *DeleteProfileRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type DeleteProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProfileResponse) Reset() {
+	*x = DeleteProfileResponse{}
+	mi := &file_user_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProfileResponse) ProtoMessage() {}
+
+func (x *DeleteProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProfileResponse.ProtoReflect.Descriptor instead.
+func (*DeleteProfileResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *DeleteProfileResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *DeleteProfileResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type InviteInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	Specialty     string                 `protobuf:"bytes,3,opt,name=specialty,proto3" json:"specialty,omitempty"`
+	MaxUses       int32                  `protobuf:"varint,4,opt,name=max_uses,json=maxUses,proto3" json:"max_uses,omitempty"`
+	UsedCount     int32                  `protobuf:"varint,5,opt,name=used_count,json=usedCount,proto3" json:"used_count,omitempty"`
+	IsActive      bool                   `protobuf:"varint,6,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	InviteUrl     string                 `protobuf:"bytes,8,opt,name=invite_url,json=inviteUrl,proto3" json:"invite_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InviteInfo) Reset() {
+	*x = InviteInfo{}
+	mi := &file_user_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InviteInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InviteInfo) ProtoMessage() {}
+
+func (x *InviteInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InviteInfo.ProtoReflect.Descriptor instead.
+func (*InviteInfo) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *InviteInfo) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *InviteInfo) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *InviteInfo) GetSpecialty() string {
+	if x != nil {
+		return x.Specialty
+	}
+	return ""
+}
+
+func (x *InviteInfo) GetMaxUses() int32 {
+	if x != nil {
+		return x.MaxUses
+	}
+	return 0
+}
+
+func (x *InviteInfo) GetUsedCount() int32 {
+	if x != nil {
+		return x.UsedCount
+	}
+	return 0
+}
+
+func (x *InviteInfo) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *InviteInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *InviteInfo) GetInviteUrl() string {
+	if x != nil {
+		return x.InviteUrl
+	}
+	return ""
+}
+
+type AdminListInvitesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListInvitesRequest) Reset() {
+	*x = AdminListInvitesRequest{}
+	mi := &file_user_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListInvitesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListInvitesRequest) ProtoMessage() {}
+
+func (x *AdminListInvitesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListInvitesRequest.ProtoReflect.Descriptor instead.
+func (*AdminListInvitesRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *AdminListInvitesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *AdminListInvitesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type AdminListInvitesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Invites       []*InviteInfo          `protobuf:"bytes,1,rep,name=invites,proto3" json:"invites,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListInvitesResponse) Reset() {
+	*x = AdminListInvitesResponse{}
+	mi := &file_user_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListInvitesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListInvitesResponse) ProtoMessage() {}
+
+func (x *AdminListInvitesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListInvitesResponse.ProtoReflect.Descriptor instead.
+func (*AdminListInvitesResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *AdminListInvitesResponse) GetInvites() []*InviteInfo {
+	if x != nil {
+		return x.Invites
+	}
+	return nil
+}
+
+func (x *AdminListInvitesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type AdminCreateInviteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Role          string                 `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	Specialty     string                 `protobuf:"bytes,2,opt,name=specialty,proto3" json:"specialty,omitempty"`
+	MaxUses       int32                  `protobuf:"varint,3,opt,name=max_uses,json=maxUses,proto3" json:"max_uses,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateInviteRequest) Reset() {
+	*x = AdminCreateInviteRequest{}
+	mi := &file_user_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateInviteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateInviteRequest) ProtoMessage() {}
+
+func (x *AdminCreateInviteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateInviteRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateInviteRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *AdminCreateInviteRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteRequest) GetSpecialty() string {
+	if x != nil {
+		return x.Specialty
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteRequest) GetMaxUses() int32 {
+	if x != nil {
+		return x.MaxUses
+	}
+	return 0
+}
+
+type AdminCreateInviteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	Specialty     string                 `protobuf:"bytes,3,opt,name=specialty,proto3" json:"specialty,omitempty"`
+	MaxUses       int32                  `protobuf:"varint,4,opt,name=max_uses,json=maxUses,proto3" json:"max_uses,omitempty"`
+	InviteUrl     string                 `protobuf:"bytes,5,opt,name=invite_url,json=inviteUrl,proto3" json:"invite_url,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateInviteResponse) Reset() {
+	*x = AdminCreateInviteResponse{}
+	mi := &file_user_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateInviteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateInviteResponse) ProtoMessage() {}
+
+func (x *AdminCreateInviteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateInviteResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateInviteResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *AdminCreateInviteResponse) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteResponse) GetSpecialty() string {
+	if x != nil {
+		return x.Specialty
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteResponse) GetMaxUses() int32 {
+	if x != nil {
+		return x.MaxUses
+	}
+	return 0
+}
+
+func (x *AdminCreateInviteResponse) GetInviteUrl() string {
+	if x != nil {
+		return x.InviteUrl
+	}
+	return ""
+}
+
+func (x *AdminCreateInviteResponse) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type AdminRevokeInviteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminRevokeInviteRequest) Reset() {
+	*x = AdminRevokeInviteRequest{}
+	mi := &file_user_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminRevokeInviteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminRevokeInviteRequest) ProtoMessage() {}
+
+func (x *AdminRevokeInviteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminRevokeInviteRequest.ProtoReflect.Descriptor instead.
+func (*AdminRevokeInviteRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *AdminRevokeInviteRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type AdminRevokeInviteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminRevokeInviteResponse) Reset() {
+	*x = AdminRevokeInviteResponse{}
+	mi := &file_user_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminRevokeInviteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminRevokeInviteResponse) ProtoMessage() {}
+
+func (x *AdminRevokeInviteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminRevokeInviteResponse.ProtoReflect.Descriptor instead.
+func (*AdminRevokeInviteResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *AdminRevokeInviteResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AdminRevokeInviteResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_user_proto protoreflect.FileDescriptor
 
 const file_user_proto_rawDesc = "" +
@@ -4788,11 +5456,12 @@ const file_user_proto_rawDesc = "" +
 	"\tnutrition\x18\x10 \x01(\tR\tnutrition\x12\x1f\n" +
 	"\vsleep_hours\x18\x11 \x01(\x02R\n" +
 	"sleepHours\x12*\n" +
-	"\x11profile_photo_url\x18\x12 \x01(\tR\x0fprofilePhotoUrl\"W\n" +
-	"\x10ListUsersRequest\x12\x12\n" +
-	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\"R\n" +
+	"\x11profile_photo_url\x18\x12 \x01(\tR\x0fprofilePhotoUrl\"\x83\x01\n" +
+	"\x10ListUsersRequest\x12*\n" +
+	"\x11requester_user_id\x18\x01 \x01(\tR\x0frequesterUserId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"R\n" +
 	"\x11ListUsersResponse\x12'\n" +
 	"\x05users\x18\x01 \x03(\v2\x11.user.UserProfileR\x05users\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8b\x01\n" +
@@ -4985,7 +5654,57 @@ const file_user_proto_rawDesc = "" +
 	"\x14SyncOKOKDataResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +
-	"\x0esynced_records\x18\x03 \x01(\x05R\rsyncedRecords2\xf9\x15\n" +
+	"\x0esynced_records\x18\x03 \x01(\x05R\rsyncedRecords\"/\n" +
+	"\x14GetUserClaimsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa3\x01\n" +
+	"\x15GetUserClaimsResponse\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12!\n" +
+	"\ftotp_enabled\x18\x03 \x01(\bR\vtotpEnabled\x12=\n" +
+	"\x1btotp_backup_codes_remaining\x18\x04 \x01(\x05R\x18totpBackupCodesRemaining\"K\n" +
+	"\x14DeleteProfileRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"I\n" +
+	"\x15DeleteProfileResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xe7\x01\n" +
+	"\n" +
+	"InviteInfo\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1c\n" +
+	"\tspecialty\x18\x03 \x01(\tR\tspecialty\x12\x19\n" +
+	"\bmax_uses\x18\x04 \x01(\x05R\amaxUses\x12\x1d\n" +
+	"\n" +
+	"used_count\x18\x05 \x01(\x05R\tusedCount\x12\x1b\n" +
+	"\tis_active\x18\x06 \x01(\bR\bisActive\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"invite_url\x18\b \x01(\tR\tinviteUrl\"J\n" +
+	"\x17AdminListInvitesRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\"\\\n" +
+	"\x18AdminListInvitesResponse\x12*\n" +
+	"\ainvites\x18\x01 \x03(\v2\x10.user.InviteInfoR\ainvites\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"g\n" +
+	"\x18AdminCreateInviteRequest\x12\x12\n" +
+	"\x04role\x18\x01 \x01(\tR\x04role\x12\x1c\n" +
+	"\tspecialty\x18\x02 \x01(\tR\tspecialty\x12\x19\n" +
+	"\bmax_uses\x18\x03 \x01(\x05R\amaxUses\"\xba\x01\n" +
+	"\x19AdminCreateInviteResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1c\n" +
+	"\tspecialty\x18\x03 \x01(\tR\tspecialty\x12\x19\n" +
+	"\bmax_uses\x18\x04 \x01(\x05R\amaxUses\x12\x1d\n" +
+	"\n" +
+	"invite_url\x18\x05 \x01(\tR\tinviteUrl\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\".\n" +
+	"\x18AdminRevokeInviteRequest\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"O\n" +
+	"\x19AdminRevokeInviteResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\x8c\x19\n" +
 	"\vUserService\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
 	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
@@ -5025,7 +5744,12 @@ const file_user_proto_rawDesc = "" +
 	"\x14UpdateMenstrualCycle\x12!.user.UpdateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12]\n" +
 	"\x14DeleteMenstrualCycle\x12!.user.DeleteMenstrualCycleRequest\x1a\".user.DeleteMenstrualCycleResponse\x12B\n" +
 	"\vSyncFloData\x12\x18.user.SyncFloDataRequest\x1a\x19.user.SyncFloDataResponse\x12E\n" +
-	"\fSyncOKOKData\x12\x19.user.SyncOKOKDataRequest\x1a\x1a.user.SyncOKOKDataResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
+	"\fSyncOKOKData\x12\x19.user.SyncOKOKDataRequest\x1a\x1a.user.SyncOKOKDataResponse\x12H\n" +
+	"\rGetUserClaims\x12\x1a.user.GetUserClaimsRequest\x1a\x1b.user.GetUserClaimsResponse\x12H\n" +
+	"\rDeleteProfile\x12\x1a.user.DeleteProfileRequest\x1a\x1b.user.DeleteProfileResponse\x12Q\n" +
+	"\x10AdminListInvites\x12\x1d.user.AdminListInvitesRequest\x1a\x1e.user.AdminListInvitesResponse\x12T\n" +
+	"\x11AdminCreateInvite\x12\x1e.user.AdminCreateInviteRequest\x1a\x1f.user.AdminCreateInviteResponse\x12T\n" +
+	"\x11AdminRevokeInvite\x12\x1e.user.AdminRevokeInviteRequest\x1a\x1f.user.AdminRevokeInviteResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -5039,7 +5763,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 84)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),               // 0: user.RegisterRequest
 	(*RegisterResponse)(nil),              // 1: user.RegisterResponse
@@ -5114,6 +5838,17 @@ var file_user_proto_goTypes = []any{
 	(*SyncFloDataResponse)(nil),           // 70: user.SyncFloDataResponse
 	(*SyncOKOKDataRequest)(nil),           // 71: user.SyncOKOKDataRequest
 	(*SyncOKOKDataResponse)(nil),          // 72: user.SyncOKOKDataResponse
+	(*GetUserClaimsRequest)(nil),          // 73: user.GetUserClaimsRequest
+	(*GetUserClaimsResponse)(nil),         // 74: user.GetUserClaimsResponse
+	(*DeleteProfileRequest)(nil),          // 75: user.DeleteProfileRequest
+	(*DeleteProfileResponse)(nil),         // 76: user.DeleteProfileResponse
+	(*InviteInfo)(nil),                    // 77: user.InviteInfo
+	(*AdminListInvitesRequest)(nil),       // 78: user.AdminListInvitesRequest
+	(*AdminListInvitesResponse)(nil),      // 79: user.AdminListInvitesResponse
+	(*AdminCreateInviteRequest)(nil),      // 80: user.AdminCreateInviteRequest
+	(*AdminCreateInviteResponse)(nil),     // 81: user.AdminCreateInviteResponse
+	(*AdminRevokeInviteRequest)(nil),      // 82: user.AdminRevokeInviteRequest
+	(*AdminRevokeInviteResponse)(nil),     // 83: user.AdminRevokeInviteResponse
 }
 var file_user_proto_depIdxs = []int32{
 	36, // 0: user.GetUserByEmailResponse.user:type_name -> user.UserProfile
@@ -5125,85 +5860,96 @@ var file_user_proto_depIdxs = []int32{
 	52, // 6: user.ListHealthConditionsResponse.conditions:type_name -> user.HealthCondition
 	58, // 7: user.ListBodyCompositionResponse.records:type_name -> user.BodyCompositionRecord
 	62, // 8: user.ListMenstrualCyclesResponse.cycles:type_name -> user.MenstrualCycle
-	0,  // 9: user.UserService.Register:input_type -> user.RegisterRequest
-	39, // 10: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
-	2,  // 11: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
-	4,  // 12: user.UserService.Login:input_type -> user.LoginRequest
-	6,  // 13: user.UserService.AuthenticateGoogle:input_type -> user.AuthenticateGoogleRequest
-	7,  // 14: user.UserService.GetProfile:input_type -> user.GetProfileRequest
-	8,  // 15: user.UserService.GetUserByEmail:input_type -> user.GetUserByEmailRequest
-	10, // 16: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
-	11, // 17: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
-	13, // 18: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
-	15, // 19: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
-	17, // 20: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
-	19, // 21: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
-	22, // 22: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
-	24, // 23: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
-	26, // 24: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
-	28, // 25: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
-	30, // 26: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
-	34, // 27: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
-	37, // 28: user.UserService.ListUsers:input_type -> user.ListUsersRequest
-	40, // 29: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
-	42, // 30: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
-	44, // 31: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
-	46, // 32: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
-	48, // 33: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
-	50, // 34: user.UserService.RefreshToken:input_type -> user.RefreshTokenRequest
-	53, // 35: user.UserService.ListHealthConditions:input_type -> user.ListHealthConditionsRequest
-	55, // 36: user.UserService.UpsertHealthCondition:input_type -> user.UpsertHealthConditionRequest
-	56, // 37: user.UserService.DeleteHealthCondition:input_type -> user.DeleteHealthConditionRequest
-	59, // 38: user.UserService.ListBodyComposition:input_type -> user.ListBodyCompositionRequest
-	61, // 39: user.UserService.CreateBodyComposition:input_type -> user.CreateBodyCompositionRequest
-	63, // 40: user.UserService.ListMenstrualCycles:input_type -> user.ListMenstrualCyclesRequest
-	65, // 41: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
-	66, // 42: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
-	67, // 43: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
-	69, // 44: user.UserService.SyncFloData:input_type -> user.SyncFloDataRequest
-	71, // 45: user.UserService.SyncOKOKData:input_type -> user.SyncOKOKDataRequest
-	1,  // 46: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 47: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 48: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 49: user.UserService.Login:output_type -> user.LoginResponse
-	5,  // 50: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
-	36, // 51: user.UserService.GetProfile:output_type -> user.UserProfile
-	36, // 52: user.UserService.GetUserByEmail:output_type -> user.UserProfile
-	36, // 53: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	12, // 54: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	14, // 55: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	16, // 56: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
-	18, // 57: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
-	20, // 58: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
-	23, // 59: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
-	25, // 60: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
-	27, // 61: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
-	29, // 62: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
-	32, // 63: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
-	35, // 64: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
-	38, // 65: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	41, // 66: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	43, // 67: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
-	45, // 68: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
-	47, // 69: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
-	49, // 70: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
-	51, // 71: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
-	54, // 72: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
-	52, // 73: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
-	57, // 74: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
-	60, // 75: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
-	58, // 76: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
-	64, // 77: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
-	62, // 78: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
-	62, // 79: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
-	68, // 80: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
-	70, // 81: user.UserService.SyncFloData:output_type -> user.SyncFloDataResponse
-	72, // 82: user.UserService.SyncOKOKData:output_type -> user.SyncOKOKDataResponse
-	46, // [46:83] is the sub-list for method output_type
-	9,  // [9:46] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	77, // 9: user.AdminListInvitesResponse.invites:type_name -> user.InviteInfo
+	0,  // 10: user.UserService.Register:input_type -> user.RegisterRequest
+	39, // 11: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
+	2,  // 12: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
+	4,  // 13: user.UserService.Login:input_type -> user.LoginRequest
+	6,  // 14: user.UserService.AuthenticateGoogle:input_type -> user.AuthenticateGoogleRequest
+	7,  // 15: user.UserService.GetProfile:input_type -> user.GetProfileRequest
+	8,  // 16: user.UserService.GetUserByEmail:input_type -> user.GetUserByEmailRequest
+	10, // 17: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
+	11, // 18: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
+	13, // 19: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
+	15, // 20: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
+	17, // 21: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
+	19, // 22: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
+	22, // 23: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
+	24, // 24: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
+	26, // 25: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
+	28, // 26: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
+	30, // 27: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
+	34, // 28: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
+	37, // 29: user.UserService.ListUsers:input_type -> user.ListUsersRequest
+	40, // 30: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
+	42, // 31: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
+	44, // 32: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
+	46, // 33: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
+	48, // 34: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
+	50, // 35: user.UserService.RefreshToken:input_type -> user.RefreshTokenRequest
+	53, // 36: user.UserService.ListHealthConditions:input_type -> user.ListHealthConditionsRequest
+	55, // 37: user.UserService.UpsertHealthCondition:input_type -> user.UpsertHealthConditionRequest
+	56, // 38: user.UserService.DeleteHealthCondition:input_type -> user.DeleteHealthConditionRequest
+	59, // 39: user.UserService.ListBodyComposition:input_type -> user.ListBodyCompositionRequest
+	61, // 40: user.UserService.CreateBodyComposition:input_type -> user.CreateBodyCompositionRequest
+	63, // 41: user.UserService.ListMenstrualCycles:input_type -> user.ListMenstrualCyclesRequest
+	65, // 42: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
+	66, // 43: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
+	67, // 44: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
+	69, // 45: user.UserService.SyncFloData:input_type -> user.SyncFloDataRequest
+	71, // 46: user.UserService.SyncOKOKData:input_type -> user.SyncOKOKDataRequest
+	73, // 47: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
+	75, // 48: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
+	78, // 49: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
+	80, // 50: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
+	82, // 51: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
+	1,  // 52: user.UserService.Register:output_type -> user.RegisterResponse
+	1,  // 53: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
+	3,  // 54: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
+	5,  // 55: user.UserService.Login:output_type -> user.LoginResponse
+	5,  // 56: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
+	36, // 57: user.UserService.GetProfile:output_type -> user.UserProfile
+	36, // 58: user.UserService.GetUserByEmail:output_type -> user.UserProfile
+	36, // 59: user.UserService.UpdateProfile:output_type -> user.UserProfile
+	12, // 60: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
+	14, // 61: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
+	16, // 62: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
+	18, // 63: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
+	20, // 64: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
+	23, // 65: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
+	25, // 66: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
+	27, // 67: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
+	29, // 68: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
+	32, // 69: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
+	35, // 70: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
+	38, // 71: user.UserService.ListUsers:output_type -> user.ListUsersResponse
+	41, // 72: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
+	43, // 73: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
+	45, // 74: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
+	47, // 75: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
+	49, // 76: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
+	51, // 77: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
+	54, // 78: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
+	52, // 79: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
+	57, // 80: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
+	60, // 81: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
+	58, // 82: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
+	64, // 83: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
+	62, // 84: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
+	62, // 85: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
+	68, // 86: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
+	70, // 87: user.UserService.SyncFloData:output_type -> user.SyncFloDataResponse
+	72, // 88: user.UserService.SyncOKOKData:output_type -> user.SyncOKOKDataResponse
+	74, // 89: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
+	76, // 90: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
+	79, // 91: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
+	81, // 92: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
+	83, // 93: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
+	52, // [52:94] is the sub-list for method output_type
+	10, // [10:52] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -5218,7 +5964,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   73,
+			NumMessages:   84,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

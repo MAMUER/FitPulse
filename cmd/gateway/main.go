@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net"
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -54,7 +52,6 @@ type gateway struct {
 	log                *logger.Logger
 	jwtPrivateKeyPEM   string
 	jwtPublicKeyPEM    string
-	db                 *sql.DB
 	sessionStore       *cache.SessionStore
 	valkeyDB           *redis.Client
 	rmqCh              *amqp.Channel
@@ -91,9 +88,6 @@ func main() {
 	ctx := context.Background()
 	metrics := newGatewayMetrics()
 	cfg := loadGatewayConfig(log)
-
-	db, closeDB := openGatewayDatabase(log, config.GetEnv("DATABASE_URL"))
-	defer closeDB()
 
 	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
 	const valkeyMaxRetries = 10
@@ -135,7 +129,7 @@ func main() {
 		}
 	}()
 
-	g := buildGateway(log, cfg, metrics, db, sessionStore, valkeyDB, rmqCh, userClient, mlAsync)
+	g := buildGateway(log, cfg, metrics, sessionStore, valkeyDB, rmqCh, userClient, mlAsync)
 	mainRouter := g.registerRoutes()
 	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
 	startGatewayServers(log, cfg, mainRouterHandler)
@@ -302,29 +296,6 @@ func validateMLGeneratorURL(mlGeneratorURL string) error {
 	return nil
 }
 
-func openGatewayDatabase(log *logger.Logger, dbURL string) (*sql.DB, func()) {
-	if dbURL == "" {
-		return nil, func() {}
-	}
-
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal("Failed to open database", zap.Error(err))
-	}
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(2)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	if pingErr := db.PingContext(context.Background()); pingErr != nil {
-		log.Fatal("Failed to ping database", zap.Error(pingErr))
-	}
-
-	return db, func() {
-		if closeErr := db.Close(); closeErr != nil {
-			log.Error("Failed to close database connection", zap.Error(closeErr))
-		}
-	}
-}
-
 func connectValkey(ctx context.Context, log *logger.Logger, valkeyAddr, password string, dbNum, maxRetries int, retryDelay time.Duration) (*redis.Client, bool) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     valkeyAddr,
@@ -414,7 +385,7 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 	return userConn, userpb.NewUserServiceClient(userConn)
 }
 
-func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, db *sql.DB, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
+func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
 	g := &gateway{
 		userClient:         userClient,
 		biometricAddr:      cfg.biometricServiceAddr,
@@ -425,7 +396,6 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		log:                log,
 		jwtPrivateKeyPEM:   cfg.jwtPrivateKeyPEM,
 		jwtPublicKeyPEM:    cfg.jwtPublicKeyPEM,
-		db:                 db,
 		sessionStore:       sessionStore,
 		valkeyDB:           valkeyDB,
 		rmqCh:              rmqCh,
@@ -721,15 +691,15 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 	})
 }
 
-// registerAdminRoutes registers /api/v1/admin routes that require the admin role.
+// registerAdminRoutes registers /api/v1/admin routes.
+// Role validation is performed inside user-service for each admin RPC.
 func (g *gateway) registerAdminRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/admin", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.Use(middleware.RequireRole(g.db, g.log.Logger, "admin"))
 		r.Get("/users", g.adminListUsersHandler)
-		r.Get("/invites", g.adminListInvitesHandler)                 // ← НОВОЕ
-		r.Post("/invites", g.adminCreateInviteHandler)               // ← НОВОЕ
-		r.Post("/invites/{code}/revoke", g.adminRevokeInviteHandler) // ← НОВОЕ
+		r.Get("/invites", g.adminListInvitesHandler)
+		r.Post("/invites", g.adminCreateInviteHandler)
+		r.Post("/invites/{code}/revoke", g.adminRevokeInviteHandler)
 	})
 }
 

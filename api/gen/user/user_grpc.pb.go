@@ -56,6 +56,11 @@ const (
 	UserService_DeleteMenstrualCycle_FullMethodName  = "/user.UserService/DeleteMenstrualCycle"
 	UserService_SyncFloData_FullMethodName           = "/user.UserService/SyncFloData"
 	UserService_SyncOKOKData_FullMethodName          = "/user.UserService/SyncOKOKData"
+	UserService_GetUserClaims_FullMethodName         = "/user.UserService/GetUserClaims"
+	UserService_DeleteProfile_FullMethodName         = "/user.UserService/DeleteProfile"
+	UserService_AdminListInvites_FullMethodName      = "/user.UserService/AdminListInvites"
+	UserService_AdminCreateInvite_FullMethodName     = "/user.UserService/AdminCreateInvite"
+	UserService_AdminRevokeInvite_FullMethodName     = "/user.UserService/AdminRevokeInvite"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -99,6 +104,11 @@ type UserServiceClient interface {
 	DeleteMenstrualCycle(ctx context.Context, in *DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*DeleteMenstrualCycleResponse, error)
 	SyncFloData(ctx context.Context, in *SyncFloDataRequest, opts ...grpc.CallOption) (*SyncFloDataResponse, error)
 	SyncOKOKData(ctx context.Context, in *SyncOKOKDataRequest, opts ...grpc.CallOption) (*SyncOKOKDataResponse, error)
+	GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error)
+	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*DeleteProfileResponse, error)
+	AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error)
+	AdminCreateInvite(ctx context.Context, in *AdminCreateInviteRequest, opts ...grpc.CallOption) (*AdminCreateInviteResponse, error)
+	AdminRevokeInvite(ctx context.Context, in *AdminRevokeInviteRequest, opts ...grpc.CallOption) (*AdminRevokeInviteResponse, error)
 }
 
 type userServiceClient struct {
@@ -479,6 +489,56 @@ func (c *userServiceClient) SyncOKOKData(ctx context.Context, in *SyncOKOKDataRe
 	return out, nil
 }
 
+func (c *userServiceClient) GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserClaimsResponse)
+	err := c.cc.Invoke(ctx, UserService_GetUserClaims_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*DeleteProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteProfileResponse)
+	err := c.cc.Invoke(ctx, UserService_DeleteProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminListInvitesResponse)
+	err := c.cc.Invoke(ctx, UserService_AdminListInvites_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AdminCreateInvite(ctx context.Context, in *AdminCreateInviteRequest, opts ...grpc.CallOption) (*AdminCreateInviteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminCreateInviteResponse)
+	err := c.cc.Invoke(ctx, UserService_AdminCreateInvite_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AdminRevokeInvite(ctx context.Context, in *AdminRevokeInviteRequest, opts ...grpc.CallOption) (*AdminRevokeInviteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminRevokeInviteResponse)
+	err := c.cc.Invoke(ctx, UserService_AdminRevokeInvite_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -520,6 +580,11 @@ type UserServiceServer interface {
 	DeleteMenstrualCycle(context.Context, *DeleteMenstrualCycleRequest) (*DeleteMenstrualCycleResponse, error)
 	SyncFloData(context.Context, *SyncFloDataRequest) (*SyncFloDataResponse, error)
 	SyncOKOKData(context.Context, *SyncOKOKDataRequest) (*SyncOKOKDataResponse, error)
+	GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error)
+	DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error)
+	AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error)
+	AdminCreateInvite(context.Context, *AdminCreateInviteRequest) (*AdminCreateInviteResponse, error)
+	AdminRevokeInvite(context.Context, *AdminRevokeInviteRequest) (*AdminRevokeInviteResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -640,6 +705,21 @@ func (UnimplementedUserServiceServer) SyncFloData(context.Context, *SyncFloDataR
 }
 func (UnimplementedUserServiceServer) SyncOKOKData(context.Context, *SyncOKOKDataRequest) (*SyncOKOKDataResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SyncOKOKData not implemented")
+}
+func (UnimplementedUserServiceServer) GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserClaims not implemented")
+}
+func (UnimplementedUserServiceServer) DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteProfile not implemented")
+}
+func (UnimplementedUserServiceServer) AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminListInvites not implemented")
+}
+func (UnimplementedUserServiceServer) AdminCreateInvite(context.Context, *AdminCreateInviteRequest) (*AdminCreateInviteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminCreateInvite not implemented")
+}
+func (UnimplementedUserServiceServer) AdminRevokeInvite(context.Context, *AdminRevokeInviteRequest) (*AdminRevokeInviteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminRevokeInvite not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -1328,6 +1408,96 @@ func _UserService_SyncOKOKData_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_GetUserClaims_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserClaimsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetUserClaims(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetUserClaims_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetUserClaims(ctx, req.(*GetUserClaimsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_DeleteProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).DeleteProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_DeleteProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).DeleteProfile(ctx, req.(*DeleteProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AdminListInvites_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminListInvitesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AdminListInvites(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AdminListInvites_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AdminListInvites(ctx, req.(*AdminListInvitesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AdminCreateInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminCreateInviteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AdminCreateInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AdminCreateInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AdminCreateInvite(ctx, req.(*AdminCreateInviteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AdminRevokeInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminRevokeInviteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AdminRevokeInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AdminRevokeInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AdminRevokeInvite(ctx, req.(*AdminRevokeInviteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1482,6 +1652,26 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SyncOKOKData",
 			Handler:    _UserService_SyncOKOKData_Handler,
+		},
+		{
+			MethodName: "GetUserClaims",
+			Handler:    _UserService_GetUserClaims_Handler,
+		},
+		{
+			MethodName: "DeleteProfile",
+			Handler:    _UserService_DeleteProfile_Handler,
+		},
+		{
+			MethodName: "AdminListInvites",
+			Handler:    _UserService_AdminListInvites_Handler,
+		},
+		{
+			MethodName: "AdminCreateInvite",
+			Handler:    _UserService_AdminCreateInvite_Handler,
+		},
+		{
+			MethodName: "AdminRevokeInvite",
+			Handler:    _UserService_AdminRevokeInvite_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

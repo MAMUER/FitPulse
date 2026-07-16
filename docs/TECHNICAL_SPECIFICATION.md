@@ -60,7 +60,7 @@
 |Classifier|Классификация состояния (6 классов, Go-алгоритм)|
 |ML Generator|Генерация планов (GAN, Python/FastAPI)|
 |Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer)|
-|Gateway|Единая точка входа (REST → gRPC)|
+|Gateway|Единая точка входа (REST → gRPC). Не имеет прямого доступа к БД; делегирует пользовательские/админ-операции в user-service|
 |NGINX|SSL termination, CSP, rate limiting|
 
 ### 4.2. Требования к надёжности
@@ -105,7 +105,7 @@
 - описание программы;
 - README.md;
 - Swagger-спецификация (`api/rest/swagger.yaml`);
-- схема БД (`configs/k8s/base/jobs/init-db.sql`, `scripts/migrations/`);
+- схема БД (`db/migrations/V1__full_schema.sql`);
 - Security Policy (`SECURITY.md`);
 - ADR ([docs/adr/](docs/adr/)).
 

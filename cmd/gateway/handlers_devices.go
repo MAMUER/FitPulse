@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -20,45 +21,24 @@ func (g *gateway) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if g.db == nil {
-		http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
-		return
-	}
-
-	rows, err := g.db.QueryContext(r.Context(),
-		"SELECT id, user_id, device_type, created_at FROM devices WHERE user_id = $1 ORDER BY created_at DESC",
-		userID)
+	resp, err := g.userClient.ListDevices(r.Context(), &userpb.ListDevicesRequest{
+		UserId: userID,
+	})
 	if err != nil {
-		g.log.Error("Failed to query devices", zap.Error(err))
-		http.Error(w, "Не найдено", http.StatusNotFound)
+		g.log.Error("Failed to list devices", zap.Error(err), zap.String("user_id", userID))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
 		return
 	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			g.log.Error("Failed to close rows", zap.Error(closeErr))
-		}
-	}()
 
-	type deviceInfo struct {
-		ID         string    `json:"id"`
-		UserID     string    `json:"user_id"`
-		DeviceType string    `json:"device_type"`
-		CreatedAt  time.Time `json:"created_at"`
-	}
-	var devices []deviceInfo
-	for rows.Next() {
-		var d deviceInfo
-		if scanErr := rows.Scan(&d.ID, &d.UserID, &d.DeviceType, &d.CreatedAt); scanErr != nil {
-			g.log.Error("Failed to scan device row", zap.Error(scanErr))
-			http.Error(w, "Не найдено", http.StatusNotFound)
-			return
+	devices := make([]map[string]interface{}, len(resp.GetDevices()))
+	for i, d := range resp.GetDevices() {
+		devices[i] = map[string]interface{}{
+			"id":          d.GetDeviceId(),
+			"user_id":     userID,
+			"device_type": d.GetDeviceType(),
+			"created_at":  d.GetLastSync(),
 		}
-		devices = append(devices, d)
-	}
-	if rows.Err() != nil {
-		g.log.Error("Rows iteration error", zap.Error(rows.Err()))
-		http.Error(w, "Не найдено", http.StatusNotFound)
-		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
