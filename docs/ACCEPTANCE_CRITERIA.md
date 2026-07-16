@@ -29,7 +29,7 @@
 - [x] RBAC: минимальные права, отдельные ServiceAccount
 - [x] Шифрование: pgsodium (libsodium) для PII, AES-256-GCM для TOTP, LUKS volumes, secrets
 - [x] mTLS для внутренних gRPC-коммуникаций (TLS 1.3, сертификаты в Kubernetes Secret)
-- [x] WAF настроен с базовым набором правил (host Nginx + ModSecurity CRS v4; ingress-nginx `enable-modsecurity: "true"`)
+- [x] WAF настроен с базовым набором правил (Ingress NGINX + ModSecurity CRS v4; cert-manager для TLS; automated CRS updates через CronJob)
 
 ### Релизный процесс
 

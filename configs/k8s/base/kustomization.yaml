@@ -11,5 +11,6 @@ resources:
   - deployments
   - services
   - ingress-nginx
+  - cert-manager
   - jobs
   - ../../monitoring

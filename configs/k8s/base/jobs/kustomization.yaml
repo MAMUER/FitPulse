@@ -11,3 +11,4 @@ configMapGenerator:
 resources:
   - migrate-db.yaml
   - seed-admin.yaml
+  - update-modsecurity-crs.yaml

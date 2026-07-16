@@ -16,6 +16,7 @@ build/
 dist/
 target/
 bin/
+dev/
 
 # Dependencies
 vendor/

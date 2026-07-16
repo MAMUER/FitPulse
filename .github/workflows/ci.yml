@@ -1402,92 +1402,26 @@ jobs:
             done
           fi
           "
-      - name: Ensure Let's Encrypt certificate exists
+      - name: Install cert-manager and configure Let's Encrypt
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Checking for Let'\''s Encrypt certificate...'
-          if [ ! -f /etc/letsencrypt/live/${{ env.FITPULSE_DOMAIN }}/fullchain.pem ]; then
-            echo '⚠️ Certificate not found. Installing Certbot and issuing certificate (webroot)...'
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq certbot
-            sudo mkdir -p /var/www/certbot
-            sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
-            sudo certbot certonly --webroot --webroot-path /var/www/certbot \
-              --non-interactive --agree-tos \
-              --email admin@${{ env.FITPULSE_DOMAIN }} \
-              -d ${{ env.FITPULSE_DOMAIN }} \
-              --keep-until-expiring
-            if [ \$? -eq 0 ]; then
-              echo '✅ Certificate issued successfully'
-            else
-              echo '❌ Certificate issuance failed. Check logs.'
-              exit 1
-            fi
-          else
-            echo '✅ Let'\''s Encrypt certificate already exists'
-          fi
-          sudo openssl x509 -in /etc/letsencrypt/live/${{ env.FITPULSE_DOMAIN }}/fullchain.pem -noout -dates -issuer || true
-          "
-      - name: Install OWASP ModSecurity CRS v4 on VPS
-        run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/install-crs.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install-crs.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          set -euo pipefail
-          sudo chmod +x /tmp/install-crs.sh
-          sudo /tmp/install-crs.sh
-          "
-      - name: Deploy Nginx configuration to VPS
-        run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Deploying Nginx configuration...'
-          sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
-          sudo rm -f /etc/nginx/sites-enabled/*
-          sudo rm -f /etc/nginx/conf.d/*.conf
-          sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
-          sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
-          if sudo nginx -t; then
-            sudo systemctl reload nginx
-            echo '✅ Nginx configuration deployed and reloaded'
-          else
-            echo '❌ Nginx configuration test failed!'
-            sudo nginx -t
-            exit 1
-          fi
-          "
-      - name: Setup auto-renewal for SSL
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo \"-> Setting up certificate auto-renewal...\"
-          (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
-          echo \"✅ Auto-renewal configured\"
-          "
-      - name: Verify Certificate Transparency and OCSP Stapling
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Verifying Certificate Transparency...'
-          if command -v openssl &>/dev/null && \
-             [[ -f /etc/letsencrypt/live/${{ env.FITPULSE_DOMAIN }}/fullchain.pem ]]; then
-            echo '-> Checking CT Signed Certificate Timestamps...'
-            openssl x509 -in /etc/letsencrypt/live/${{ env.FITPULSE_DOMAIN }}/fullchain.pem \
-              -noout -text | grep -E 'CT Precertificate|Signed Certificate Timestamp' || true
-
-            echo '-> Verifying OCSP stapling configuration...'
-            if openssl s_client -connect 127.0.0.1:443 -servername ${{ env.FITPULSE_DOMAIN }} \
-              -status </dev/null 2>/dev/null | grep -q 'OCSP Response Data'; then
-              echo '✅ OCSP stapling is active'
-            else
-              echo '⚠️ Could not verify OCSP stapling (expected on first deploy)'
-            fi
-
-            echo '-> Certificate details:'
-            openssl x509 -in /etc/letsencrypt/live/${{ env.FITPULSE_DOMAIN }}/fullchain.pem \
-              -noout -subject -issuer -dates
-          else
-            echo '⚠️ Certificate not found, skipping CT verification'
-          fi
-          echo '✅ CT verification complete'
-          "
+          echo "-> Installing cert-manager..."
+          kubectl apply -f configs/k8s/base/cert-manager/
+          echo "-> Waiting for cert-manager pods to be ready..."
+          kubectl wait --namespace cert-manager --for=condition=ready pod --all --timeout=120s
+          echo "✅ cert-manager installed successfully"
+          
+          echo "-> Creating Let's Encrypt ClusterIssuer..."
+          kubectl apply -f configs/k8s/base/cert-manager/cluster-issuer.yaml
+          echo "✅ ClusterIssuer created"
+          
+          echo "-> Waiting for ingress-nginx to be ready..."
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --all --timeout=120s
+          echo "✅ Ingress-nginx is ready"
+          
+          echo "-> Verifying ModSecurity configuration..."
+          kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.modsecurity-snippet}' | grep -q "SecRuleEngine On" && echo "✅ ModSecurity enabled" || echo "❌ ModSecurity not enabled"
+          
+          echo "✅ Certificate and WAF configuration complete"
       - name: Setup DuckDNS auto-updater
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "

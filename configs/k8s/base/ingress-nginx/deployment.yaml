@@ -18,6 +18,8 @@ spec:
         app.kubernetes.io/name: ingress-nginx
         app.kubernetes.io/instance: ingress-nginx
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: ingress-nginx
       automountServiceAccountToken: true
       securityContext:
@@ -34,6 +36,7 @@ spec:
         - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
         - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
         - --ingress-class=nginx
+        - --admission-webhooks=disabled
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -42,8 +45,14 @@ spec:
         ports:
         - containerPort: 80
           name: http
+          hostPort: 80
         - containerPort: 443
           name: https
+          hostPort: 443
+        volumeMounts:
+        - name: modsecurity-crs
+          mountPath: /etc/nginx/modsecurity-crs
+          readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -75,3 +84,8 @@ spec:
           limits:
             cpu: "200m"
             memory: "128Mi"
+      volumes:
+      - name: modsecurity-crs
+        configMap:
+          name: modsecurity-crs
+          defaultMode: 420

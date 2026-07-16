@@ -25,7 +25,7 @@ kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=POSTGRES_DB=fitness
 kubectl apply -k configs/k8s/base/ -n fitness-platform-production
 
-# 3. Применить миграции БД
+# 3. Применить миграции БД через Flyway
 kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 
 # 4. Проверить статус подов

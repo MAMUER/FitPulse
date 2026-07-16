@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: update-modsecurity-crs
+  namespace: ingress-nginx
+spec:
+  schedule: "0 3 * * 0" # Weekly on Sunday at 3 AM
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: ingress-nginx
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: update-crs
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              capabilities:
+                drop: ["ALL"]
+            env:
+            - name: CRS_VERSION
+              value: "v4.6.0"
+            - name: CRS_CONFIGMAP
+              value: "modsecurity-crs"
+            - name: CRS_NAMESPACE
+              value: "ingress-nginx"
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "-> Updating ModSecurity CRS rules..."
+              
+              # Install unzip
+              apt-get update -qq && apt-get install -y -qq unzip curl
+              
+              # Download CRS
+              echo "-> Downloading CRS ${CRS_VERSION}..."
+              curl -sL "https://github.com/coreruleset/coreruleset/archive/refs/tags/${CRS_VERSION}.zip" -o /tmp/crs.zip
+              unzip -q /tmp/crs.zip -d /tmp/crs
+              CRS_DIR=$(find /tmp/crs -maxdepth 1 -type d -name "coreruleset-*" | head -n 1)
+              
+              if [ -z "$CRS_DIR" ] || [ ! -d "$CRS_DIR" ]; then
+                echo "❌ Failed to download/extract CRS"
+                exit 1
+              fi
+              
+              echo "-> CRS downloaded to: $CRS_DIR"
+              
+              # Create new ConfigMap
+              echo "-> Generating new ConfigMap..."
+              kubectl create configmap modsecurity-crs \
+                --from-file=crs-setup.conf="$CRS_DIR/crs-setup.conf" \
+                --from-file=rules="$CRS_DIR/rules/" \
+                --namespace=$CRS_NAMESPACE \
+                --dry-run=client -o yaml | kubectl apply -f -
+              
+              # Roll the ingress-nginx deployment to pick up new rules
+              echo "-> Rolling ingress-nginx deployment..."
+              kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
+              kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
+              
+              echo "✅ CRS update completed successfully"
+          restartPolicy: Never

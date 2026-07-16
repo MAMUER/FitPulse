@@ -24,7 +24,7 @@
 
 5. **Аудит администратора**: аудит критически важных действий через ModSecurity WAF-логи (SecAuditLog). Централизованное application-level audit trail с длительным retention запланировано на Phase 2. Текущие audit-логи соответствуют требованиям 152-ФЗ только на уровне WAF/Ingress.
 
-6. **WAF**: Nginx + ModSecurity или managed WAF с защитой от SQL-инъекций, XSS, rate limiting.
+6. **WAF**: Ingress NGINX Controller с ModSecurity + OWASP CRS v4. WAF развёрнут в кластере с `hostNetwork: true`, управляется через Kubernetes ConfigMap. Правила автоматически обновляются через CronJob.
 
 7. **Ротация секретов**: статические учётные данные БД через Kubernetes Secrets. Динамическая ротация секретов (Vault, CSI driver) запланирована на Phase 2.
 
@@ -40,7 +40,9 @@
 - создание RBAC-ролей и ServiceAccounts (`configs/k8s/base/rbac/rbac.yaml`);
 - реализация шифрования на уровне хранилища (pgsodium) и транспорта (TLS 1.3);
 - интеграция security-сканирования в CI/CD пайплайны (Trivy, govulncheck, gosec);
-- развёртывание WAF (ModSecurity с audit-логами) на уровне Ingress.
+- развёртывание WAF (Ingress NGINX + ModSecurity + OWASP CRS v4 с audit-логами) в кластере.
+- Automated CRS updates через Kubernetes CronJob.
+- cert-manager для управления TLS-сертификатами (Let's Encrypt).
 - Статические секреты БД через Kubernetes Secrets; динамическая ротация через Vault запланирована на Phase 2.
 
 ## Рассмотренные альтернативы

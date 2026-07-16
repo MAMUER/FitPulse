@@ -23,7 +23,7 @@ FitPulse — open-source fitness platform.
 | Веб-интерфейс (`web/`, `web/static/`, `web/templates/`) | frontend, статика, шаблоны |
 | Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
 | Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
-| Инфраструктура: K8s deployment manifests, NGINX configs (`deploy/lb/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |
+| Инфраструктура: K8s deployment manifests, Ingress NGINX ModSecurity configs (`configs/k8s/base/ingress-nginx/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |
 | CI/CD workflows и secrets handling | без доступа к GitHub Secrets |
 
 ### Исключения из in-scope

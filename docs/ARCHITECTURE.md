@@ -42,10 +42,6 @@
 ├── db/
 │   └── migrations/                   # SQL миграции (версионированные)
 │       └── V1__full_schema.sql       # Consolidated idempotent schema
-├── deploy/
-│   └── lb/
-│       ├── production.conf           # Host NGINX конфигурация
-│       └── install-crs.sh            # ModSecurity CRS установка
 ├── docs/                             # Документация
 ├── internal/
 │   ├── apperrors/                    # Application error types
@@ -368,16 +364,19 @@ verification:
 
 ### 4.6 WAF (Web Application Firewall)
 
-**Опции**:
+**Текущая реализация**:
 
-- Nginx + ModSecurity (open-source, CRS ruleset)
-- AWS WAF / Cloudflare (managed rules + custom)
+- Ingress NGINX Controller с `hostNetwork: true` на портах 80/443
+- ModSecurity + OWASP CRS v4 (managed via ConfigMap)
+- cert-manager для автоматического управления TLS-сертификатами (Let's Encrypt)
+- Automated CRS updates через Kubernetes CronJob (еженедельно)
 
 **Правила**:
 
 - SQL injection, XSS, path traversal блокировка
 - Rate limiting: 100 req/min per IP для анонимных пользователей
 - Geo-blocking: доступ только из разрешённых регионов (опционально)
+- Health checks bypass WAF (`/health` endpoint)
 
 ### 4.7 Ротация секретов
 
@@ -1212,7 +1211,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - [x] RBAC: минимальные права, отдельные ServiceAccount
 - [x] Шифрование: TDE/БД (pgcrypto), volumes, secrets
 - [x] mTLS для внутренних gRPC-вызовов (hand-rolled TLS 1.3)
-- [x] WAF настроен с базовым набором правил (ModSecurity CRS v4)
+- [x] WAF настроен с базовым набором правил (Ingress NGINX + ModSecurity + OWASP CRS v4 + cert-manager)
 
 ### Релизный процесс
 

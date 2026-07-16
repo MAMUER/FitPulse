@@ -5,18 +5,31 @@ metadata:
   namespace: fitness-platform-production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    # Host Nginx terminates TLS + ModSecurity WAF.
-    # Traffic: Host Nginx:443 -> ingress-nginx NodePort 30080 -> gateway ClusterIP 8080.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: camera=(); microphone=(); geolocation=()";
+      more_set_headers "Cross-Origin-Opener-Policy: same-origin";
+      more_set_headers "Cross-Origin-Embedder-Policy: require-corp";
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - fittpulse.duckdns.org
+    secretName: fittpulse-duckdns-org-tls
   rules:
-    - host: fittpulse.duckdns.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: gateway-service
-                port:
-                  number: 8080
+  - host: fittpulse.duckdns.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 8080

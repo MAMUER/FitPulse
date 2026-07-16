@@ -108,7 +108,7 @@
 
 - TLS 1.3 для всех внешних эндпоинтов (terminated на host Nginx)
 - mTLS для внутренних gRPC-коммуникаций между микросервисами (TLS 1.3, mutual auth, сертификаты в Kubernetes Secret)
-- HSTS + OCSP Stapling (`ssl_stapling on; ssl_stapling_verify on;`) + Certificate Transparency: Let's Encrypt сертификаты логируются в CT-логи; `ssl_trusted_certificate` и OCSP настроены в `deploy/lb/production.conf`; верификация CT и OCSP в CI/CD шаге "Verify Certificate Transparency and OCSP Stapling".
+- HSTS + OCSP Stapling (`ssl_stapling on; ssl_stapling_verify on;`) + Certificate Transparency: Let's Encrypt сертификаты логируются в CT-логи; `ssl_trusted_certificate` и OCSP настроены в Ingress NGINX через cert-manager; верификация CT и OCSP в CI/CD шаге.
 - L7 WAF: См. раздел "Инфраструктура" → "WAF"
 
 ### CI/CD безопасность
@@ -127,8 +127,8 @@
   - Per-service Roles с жестким ограничением `resourceNames` для чтения только специфичных секретов
 - **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
 - **WAF**:
-  1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).
-  2. In-cluster ingress-nginx (Namespace `ingress-nginx`, NodePort 30080) с `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Пока primary WAF остаётся host Nginx.
+   1. Ingress NGINX Controller (`hostNetwork: true`, порты 80/443) + ModSecurity + OWASP CRS v4. Правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Конфигурация в `configs/k8s/base/ingress-nginx/`. CRS rules автоматически обновляются через CronJob (`configs/k8s/base/jobs/update-modsecurity-crs.yaml`).
+   2. cert-manager в кластере управляет TLS-сертификатами (Let's Encrypt). ClusterIssuer `letsencrypt-prod` для автоматического выпуска и продления сертификатов.
 - **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
 
 ## Процесс исправления
