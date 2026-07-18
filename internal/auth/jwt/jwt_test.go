@@ -1,4 +1,4 @@
-package auth
+package jwt
 
 import (
 	"crypto/ecdsa"
@@ -12,6 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/auth/claims"
 )
 
 func generateTestKeyPair() (string, string) {
@@ -103,16 +105,16 @@ func TestTokenStructure(t *testing.T) {
 	require.NoError(t, err)
 
 	parser := jwt.Parser{}
-	parsed, _, err := parser.ParseUnverified(token, &Claims{})
+	parsed, _, err := parser.ParseUnverified(token, &claims.Claims{})
 	require.NoError(t, err)
 
-	claims, ok := parsed.Claims.(*Claims)
+	parsedClaims, ok := parsed.Claims.(*claims.Claims)
 	assert.True(t, ok)
-	assert.NotEmpty(t, claims.ID)
-	assert.NotNil(t, claims.ExpiresAt)
-	assert.NotNil(t, claims.IssuedAt)
-	assert.Equal(t, "user-123", claims.UserID)
-	assert.Equal(t, "test@example.com", claims.Email)
-	assert.Equal(t, "client", claims.Role)
+	assert.NotEmpty(t, parsedClaims.ID)
+	assert.NotNil(t, parsedClaims.ExpiresAt)
+	assert.NotNil(t, parsedClaims.IssuedAt)
+	assert.Equal(t, "user-123", parsedClaims.UserID)
+	assert.Equal(t, "test@example.com", parsedClaims.Email)
+	assert.Equal(t, "client", parsedClaims.Role)
 	_ = publicKeyPEM
 }

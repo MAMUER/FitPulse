@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
 var (
@@ -124,7 +124,7 @@ func TestRequestIDMultipleRequests(t *testing.T) {
 func TestAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -198,7 +198,7 @@ func TestAuthMiddleware(t *testing.T) {
 }
 
 func generateExpiredAccessToken() string {
-	token, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, -1*time.Hour)
+	token, err := jwt.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, -1*time.Hour)
 	if err != nil {
 		panic(err)
 	}
@@ -208,7 +208,7 @@ func generateExpiredAccessToken() string {
 func TestAuthMiddlewareWithContext(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-456", "test@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-456", "test@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -721,7 +721,7 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken(testUserID, "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken(testUserID, "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -751,7 +751,7 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false

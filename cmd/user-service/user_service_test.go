@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/cmd/user-service/infra"
 	"github.com/MAMUER/project/internal/logger"
 )
 
@@ -27,9 +28,9 @@ func setupUserService(db *sql.DB) *userServer {
 	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
 	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
 	return &userServer{
-		db:               db,
-		log:              &logger.Logger{Logger: zapLog},
-		jwtPrivateKeyPEM: privateKeyPEM,
+		db:            db,
+		log:           &logger.Logger{Logger: zapLog},
+		tokenProvider: infra.NewJWTAdapter(privateKeyPEM, ""),
 	}
 }
 

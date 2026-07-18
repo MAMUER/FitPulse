@@ -33,7 +33,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/cmd/user-service/infra"
+	"github.com/MAMUER/project/cmd/user-service/ports"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
@@ -58,13 +59,13 @@ type User struct {
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
-	db               *sql.DB
-	log              *logger.Logger
-	jwtPrivateKeyPEM string
-	emailSender      *email.Sender
-	baseURL          string
-	googleClientID   string
-	totpService      *totp.Service
+	db             *sql.DB
+	log            *logger.Logger
+	tokenProvider  ports.TokenProvider
+	emailSender    *email.Sender
+	baseURL        string
+	googleClientID string
+	totpService    *totp.Service
 }
 
 const argon2idParams = "m=65536,t=3,p=1"
@@ -315,7 +316,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	}
 
 	// Генерация JWT
-	token, err := auth.GenerateAccessToken(user.ID, user.Email, user.Role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := s.tokenProvider.GenerateAccessToken(user.ID, user.Email, user.Role, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -362,7 +363,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 		return nil, status.Error(codes.Unauthenticated, "email not confirmed")
 	}
 
-	token, tokenErr := auth.GenerateAccessToken(userID, emailVal, role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	token, tokenErr := s.tokenProvider.GenerateAccessToken(userID, emailVal, role, 15*time.Minute)
 	if tokenErr != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(tokenErr))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -614,13 +615,13 @@ func (s *userServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenReque
 		return nil, status.Error(codes.Internal, "database error")
 	}
 
-	accessToken, err := auth.GenerateAccessToken(userID, email, role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	accessToken, err := s.tokenProvider.GenerateAccessToken(userID, email, role, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate access token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate access token")
 	}
 
-	newRefresh := auth.GenerateRefreshToken()
+	newRefresh := s.tokenProvider.GenerateRefreshToken()
 	if _, err := s.db.ExecContext(ctx, `
 		INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)
 	`, userID, newRefresh, time.Now().Add(7*24*time.Hour)); err != nil {
@@ -1186,7 +1187,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	}
 
 	// Генерируем JWT (токен возвращается при login, не при регистрации)
-	_, err = auth.GenerateAccessToken(userID, req.GetEmail(), finalRole, s.jwtPrivateKeyPEM, 15*time.Minute)
+	_, err = s.tokenProvider.GenerateAccessToken(userID, req.GetEmail(), finalRole, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "internal error")
@@ -2384,15 +2385,15 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	}
 }
 
-func buildUserServer(database *sql.DB, log *logger.Logger, jwtPrivateKeyPEM, baseURL, googleClientID string, emailSender *email.Sender, totpService *totp.Service) *userServer {
+func buildUserServer(database *sql.DB, log *logger.Logger, tokenProvider ports.TokenProvider, baseURL, googleClientID string, emailSender *email.Sender, totpService *totp.Service) *userServer {
 	return &userServer{
-		db:               database,
-		log:              log,
-		jwtPrivateKeyPEM: jwtPrivateKeyPEM,
-		emailSender:      emailSender,
-		baseURL:          baseURL,
-		googleClientID:   googleClientID,
-		totpService:      totpService,
+		db:             database,
+		log:            log,
+		tokenProvider:  tokenProvider,
+		emailSender:    emailSender,
+		baseURL:        baseURL,
+		googleClientID: googleClientID,
+		totpService:    totpService,
 	}
 }
 
@@ -2439,6 +2440,10 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 	if jwtPrivateKeyPEM == "" {
 		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
 	}
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	if jwtPublicKeyPEM == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
+	}
 
 	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
 	if totpEncryptionKey == "" {
@@ -2458,7 +2463,9 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
 	}
 
-	svc := buildUserServer(database, log, jwtPrivateKeyPEM, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
+	tokenProvider := infra.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
+
+	svc := buildUserServer(database, log, tokenProvider, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
 	if err := svc.ensurePgsodiumKey(ctx); err != nil {
 		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
 	}

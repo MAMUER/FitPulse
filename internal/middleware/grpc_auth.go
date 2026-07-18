@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
 const authMetadataKey = "authorization"
@@ -43,7 +43,7 @@ func GRPCAuthInterceptor(publicKeyPEM string, log *zap.Logger) grpc.UnaryServerI
 		}
 
 		token := parts[1]
-		claims, err := auth.ValidateAccessToken(token, publicKeyPEM)
+		claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 		if err != nil {
 			log.Warn("Invalid access token", zap.Error(err), zap.String("method", info.FullMethod))
 			return nil, status.Error(codes.Unauthenticated, "invalid token")

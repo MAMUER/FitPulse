@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/cmd/gateway/infra"
 	"github.com/MAMUER/project/internal/logger"
 )
 
@@ -162,9 +163,8 @@ func setupGateway() *gateway {
 	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 	return &gateway{
-		log:              log,
-		jwtPrivateKeyPEM: privateKeyPEM,
-		jwtPublicKeyPEM:  publicKeyPEM,
+		log:           log,
+		tokenProvider: infra.NewJWTAdapter(privateKeyPEM, publicKeyPEM),
 	}
 }
 

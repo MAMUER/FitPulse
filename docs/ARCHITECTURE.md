@@ -1266,3 +1266,73 @@ make proto
 
 См. также раздел «Протоколы (Protobuf)» в `CONTRIBUTING.md` для правил
 версионирования `.proto` файлов.
+
+## 9. Shared library `internal/auth` — ограничения и правила использования
+
+### 9.1 Роль
+
+`internal/auth` — это **общая библиотека JWT-аутентификации**, которая используется
+несколькими сервисами (`gateway`, `user-service`, `middleware`). Она предоставляет
+криптографические примитивы (ES256 ключи, подпись/валидация JWT, fingerprinting)
+и доменные типы для claims.
+
+### 9.2 Структура пакета
+
+```text
+internal/auth/
+├── claims.go   # Доменные типы (Claims, JWKSKey, JWKSResponse)
+└── jwt.go      # Инфраструктурная реализация (ES256, подпись, валидация)
+```
+
+- **`claims.go`**: зависит только от `github.com/golang-jwt/jwt/v5` для `RegisteredClaims`.
+  Не содержит криптографической логики. Может использоваться в domain-слое.
+- **`jwt.go`**: зависит от `crypto/ecdsa`, `crypto/x509`, `encoding/pem`, `jwt/v5`.
+  Содержит всю инфраструктурную логику. Должен использоваться только в infra-слое.
+
+### 9.3 Правила использования
+
+1. **Каждый сервис определяет свой порт** в `cmd/<service>/ports/auth.go`:
+   ```go
+   type TokenProvider interface {
+       GenerateAccessToken(userID, email, role string, ttl time.Duration) (string, error)
+       GenerateRefreshToken() string
+       ValidateAccessToken(token string) (*claims.Claims, error)
+       ComputeTokenFingerprint(token string) string
+   }
+   ```
+
+2. **Адаптер в infra-слое** (`cmd/<service>/infra/jwt_adapter.go`) реализует порт,
+   делегируя вызовы в `internal/auth/jwt`. Только композиционный корень (`main.go`)
+   знает о существовании `internal/auth`.
+
+3. **Применение/доменный слой НЕ импортирует `internal/auth/jwt`** напрямую.
+   Для передачи claims между слоями используется `internal/auth/claims`.
+
+4. **Запрещено** добавлять в `internal/auth` бизнес-логику (например,
+   хранение refresh-токенов, проверку ролей, интеграцию с БД). Этот пакет —
+   только криптографические утилиты.
+
+### 9.4 Обоснование
+
+Полная гексагональная архитектура требовала бы вынесения JWT-логики в отдельный
+auth-сервис. Однако для текущего масштаба проекта это избыточно. Компромисс:
+- **`internal/auth`** = shared library с четко очерченной ответственностью.
+- **Порты/адаптеры** в каждом сервисе сохраняют возможность тестирования
+  (mock-реализации `TokenProvider`) и возможность смены алгоритма/библиотеки
+  без изменения domain-слоя.
+
+### 9.5 Миграция с прямого импорта
+
+Если вы видите в коде сервиса прямой импорт `"github.com/MAMUER/project/internal/auth"`,
+это технический долг. Правильный паттерн:
+
+```go
+// ❌ Bad
+import "github.com/MAMUER/project/internal/auth"
+token, err := auth.GenerateAccessToken(...)
+
+// ✅ Good
+import "github.com/MAMUER/project/cmd/<service>/ports"
+import "github.com/MAMUER/project/cmd/<service>/infra"
+token, err := s.tokenProvider.GenerateAccessToken(...)
+```

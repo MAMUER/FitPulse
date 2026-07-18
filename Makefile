@@ -3,7 +3,7 @@ imports:
 	@go run github.com/daixiang0/gci@latest write \
 		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
 		--skip-generated --skip-vendor \
-		cmd internal pkg
+		cmd internal
 	@echo "Imports updated."
 
 .PHONY: proto tidy fmt vet lint test test-cover check imports js-check
@@ -36,12 +36,12 @@ test:
 	@echo "Tests complete."
 
 test-cover:
- 	@echo "Running tests with coverage..."
- 	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
- 	@echo "Checking coverage threshold (>= 75%)..."
- 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
- 	go tool cover -html=coverage.out -o coverage.html
- 	@echo "Coverage report: coverage.html"
+	@echo "Running tests with coverage..."
+	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
+	@echo "Checking coverage threshold (>= 75%)..."
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
 
 js-check:
 	@echo "Checking JavaScript syntax..."

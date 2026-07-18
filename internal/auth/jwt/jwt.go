@@ -1,6 +1,7 @@
-// Package auth provides JWT token generation, parsing, and JWKS utilities
-// for FitPulse services.
-package auth
+// Package jwt provides infrastructure utilities for JWT token generation,
+// parsing, and JWKS conversion. It depends on the domain types from
+// `internal/auth/claims` and should only be used in the infrastructure layer.
+package jwt
 
 import (
 	"crypto/ecdsa"
@@ -17,15 +18,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
+	"github.com/MAMUER/project/internal/auth/claims"
 )
 
-type Claims struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	jwt.RegisteredClaims
-}
-
+// GenerateES256KeyPair generates an ES256 (P-256) key pair and returns PEM-encoded strings.
 func GenerateES256KeyPair() (string, string, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -52,6 +49,7 @@ func GenerateES256KeyPair() (string, string, error) {
 	return string(privateKeyPEM), string(publicKeyPEM), nil
 }
 
+// ParseECPrivateKey parses an EC private key from PEM format.
 func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(privateKeyPEM))
 	if block == nil {
@@ -64,6 +62,7 @@ func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
 	return privKey, nil
 }
 
+// ParseECPublicKey parses an EC public key from PEM format.
 func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode([]byte(publicKeyPEM))
 	if block == nil {
@@ -80,6 +79,7 @@ func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
 	return ecdsaPub, nil
 }
 
+// GenerateAccessToken creates a signed ES256 JWT access token.
 func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Duration) (string, error) {
 	if privateKeyPEM == "" {
 		return "", errors.New("private key PEM cannot be empty")
@@ -90,7 +90,7 @@ func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Dur
 	}
 
 	now := time.Now()
-	claims := Claims{
+	c := claims.Claims{
 		UserID: userID,
 		Email:  email,
 		Role:   role,
@@ -101,7 +101,7 @@ func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Dur
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, c)
 	signedToken, signErr := token.SignedString(privateKey)
 	if signErr != nil {
 		return "", fmt.Errorf("sign access token: %w", signErr)
@@ -109,13 +109,15 @@ func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Dur
 	return signedToken, nil
 }
 
+// GenerateRefreshToken creates a cryptographically secure refresh token.
 func GenerateRefreshToken() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
+// ValidateAccessToken parses and validates an ES256 JWT access token.
+func ValidateAccessToken(tokenString, publicKeyPEM string) (*claims.Claims, error) {
 	if tokenString == "" {
 		return nil, errors.New("token is empty")
 	}
@@ -128,7 +130,7 @@ func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
 		return nil, fmt.Errorf("parse EC public key: %w", err)
 	}
 
-	token, parseErr := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, parseErr := jwt.ParseWithClaims(tokenString, &claims.Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -137,29 +139,16 @@ func ValidateAccessToken(tokenString, publicKeyPEM string) (*Claims, error) {
 	if parseErr != nil {
 		return nil, fmt.Errorf("parse access token: %w", parseErr)
 	}
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return claims, nil
+	if c, ok := token.Claims.(*claims.Claims); ok && token.Valid {
+		return c, nil
 	}
 	return nil, errors.New("invalid token")
 }
 
+// ComputeTokenFingerprint computes a SHA256 fingerprint of a token string.
 func ComputeTokenFingerprint(tokenString string) string {
 	hash := sha256.Sum256([]byte(tokenString))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
-// JWKSKey represents a JSON Web Key in JWKS format.
-type JWKSKey struct {
-	KTY string `json:"kty"`
-	CRV string `json:"crv"`
-	X   string `json:"x"`
-	Y   string `json:"y"`
-	KID string `json:"kid,omitempty"`
-}
-
-// JWKSResponse represents a JSON Web Key Set.
-type JWKSResponse struct {
-	Keys []JWKSKey `json:"keys"`
 }
 
 // PublicKeyPEMToJWKS converts an EC P-256 public key PEM to JWKS JSON.
@@ -187,13 +176,13 @@ func PublicKeyPEMToJWKS(publicKeyPEM string) ([]byte, error) {
 	xBytes := pubBytes[1:33]
 	yBytes := pubBytes[33:65]
 
-	key := JWKSKey{
+	key := claims.JWKSKey{
 		KTY: "EC",
 		CRV: "P-256",
 		X:   base64.RawURLEncoding.EncodeToString(xBytes),
 		Y:   base64.RawURLEncoding.EncodeToString(yBytes),
 	}
 
-	resp := JWKSResponse{Keys: []JWKSKey{key}}
+	resp := claims.JWKSResponse{Keys: []claims.JWKSKey{key}}
 	return json.Marshal(resp)
 }

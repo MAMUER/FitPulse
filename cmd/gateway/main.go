@@ -30,7 +30,8 @@ import (
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/cmd/gateway/infra"
+	"github.com/MAMUER/project/cmd/gateway/ports"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
 	grpctls "github.com/MAMUER/project/internal/grpc"
@@ -50,8 +51,7 @@ type gateway struct {
 	mlGeneratorURL     string
 	deviceConnectorURL string
 	log                *logger.Logger
-	jwtPrivateKeyPEM   string
-	jwtPublicKeyPEM    string
+	tokenProvider      ports.TokenProvider
 	sessionStore       *cache.SessionStore
 	valkeyDB           *redis.Client
 	rmqCh              *amqp.Channel
@@ -129,7 +129,18 @@ func main() {
 		}
 	}()
 
-	g := buildGateway(log, cfg, metrics, sessionStore, valkeyDB, rmqCh, userClient, mlAsync)
+	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	if jwtPrivateKeyPEM == "" {
+		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
+	}
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	if jwtPublicKeyPEM == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
+	}
+
+	tokenProvider := infra.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
+
+	g := buildGateway(log, cfg, metrics, sessionStore, valkeyDB, rmqCh, userClient, mlAsync, tokenProvider)
 	mainRouter := g.registerRoutes()
 	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
 	startGatewayServers(log, cfg, mainRouterHandler)
@@ -156,17 +167,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 	}
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqp://localhost:5672/")
-
-	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
-	if jwtPrivateKeyPEM == "" {
-		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
-	}
-	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
-	if jwtPublicKeyPEM == "" {
-		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
-	}
-	cfg.jwtPrivateKeyPEM = jwtPrivateKeyPEM
-	cfg.jwtPublicKeyPEM = jwtPublicKeyPEM
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
@@ -229,8 +229,6 @@ type gatewayConfig struct {
 	deviceConnectorURL   string
 	rabbitmqURL          string
 	valkeyAddr           string
-	jwtPrivateKeyPEM     string
-	jwtPublicKeyPEM      string
 	appBaseURL           string
 	publicHost           string
 	googleClientID       string
@@ -385,7 +383,7 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 	return userConn, userpb.NewUserServiceClient(userConn)
 }
 
-func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool) *gateway {
+func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool, tokenProvider ports.TokenProvider) *gateway {
 	g := &gateway{
 		userClient:         userClient,
 		biometricAddr:      cfg.biometricServiceAddr,
@@ -394,8 +392,7 @@ func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics,
 		mlGeneratorURL:     cfg.mlGeneratorURL,
 		deviceConnectorURL: cfg.deviceConnectorURL,
 		log:                log,
-		jwtPrivateKeyPEM:   cfg.jwtPrivateKeyPEM,
-		jwtPublicKeyPEM:    cfg.jwtPublicKeyPEM,
+		tokenProvider:      tokenProvider,
 		sessionStore:       sessionStore,
 		valkeyDB:           valkeyDB,
 		rmqCh:              rmqCh,
@@ -569,7 +566,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 	r.Use(middleware.CorrelationIDHTTP)
 
-	authMiddleware := middleware.AuthMiddleware(g.jwtPublicKeyPEM, g.log.Logger)
+	authMiddleware := middleware.AuthMiddleware(g.tokenProvider.PublicKeyPEM(), g.log.Logger)
 
 	g.registerPublicRoutes(r)
 	g.registerProtectedRoutes(r, authMiddleware)
@@ -774,12 +771,13 @@ func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request)
 }
 
 func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
-	if g.jwtPublicKeyPEM == "" {
+	publicKeyPEM := g.tokenProvider.PublicKeyPEM()
+	if publicKeyPEM == "" {
 		http.Error(w, "JWT public key not configured", http.StatusInternalServerError)
 		return
 	}
 
-	body, err := auth.PublicKeyPEMToJWKS(g.jwtPublicKeyPEM)
+	body, err := g.tokenProvider.PublicKeyPEMToJWKS(publicKeyPEM)
 	if err != nil {
 		g.log.Error("Failed to build JWKS", zap.Error(err))
 		http.Error(w, "failed to build JWKS", http.StatusInternalServerError)

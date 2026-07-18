@@ -25,7 +25,6 @@ import (
 	"golang.org/x/time/rate"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -79,7 +78,7 @@ func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
 		return "", fmt.Errorf("query user for JWT: %w", err)
 	}
 
-	token, err := auth.GenerateAccessToken(userID, resp.GetEmail(), resp.GetRole(), g.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := g.tokenProvider.GenerateAccessToken(userID, resp.GetEmail(), resp.GetRole(), 15*time.Minute)
 	return token, fmt.Errorf("issue jwt: %w", err)
 }
 
@@ -87,8 +86,8 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 	if g.valkeyDB == nil {
 		return "", errors.New("valkey unavailable")
 	}
-	token := auth.GenerateRefreshToken()
-	fingerprint := auth.ComputeTokenFingerprint(token)
+	token := g.tokenProvider.GenerateRefreshToken()
+	fingerprint := g.tokenProvider.ComputeTokenFingerprint(token)
 	key := "refresh:" + token
 	fpKey := "refresh:fp:" + fingerprint
 	issuedKey := "refresh:issued:" + userID
@@ -108,7 +107,7 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	userID, err := g.valkeyDB.Get(ctx, "refresh:"+oldToken).Result()
 	if err != nil {
-		fingerprint := auth.ComputeTokenFingerprint(oldToken)
+		fingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
 		fpUserID, fpErr := g.valkeyDB.Get(ctx, "refresh:fp:"+fingerprint).Result()
 		if fpErr == nil && fpUserID != "" {
 			revokedKey := "refresh:revoked:" + fpUserID
@@ -125,7 +124,7 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 
 	_ = g.valkeyDB.Del(ctx, "refresh:"+oldToken).Err()
 
-	oldFingerprint := auth.ComputeTokenFingerprint(oldToken)
+	oldFingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
 	revokedKey := "refresh:revoked:" + userID
 	issuedKey := "refresh:issued:" + userID
 

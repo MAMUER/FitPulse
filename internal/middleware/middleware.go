@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
 // RequestID добавляет уникальный идентификатор запроса
@@ -49,7 +49,7 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 				return
 			}
 			token := parts[1]
-			claims, err := auth.ValidateAccessToken(token, publicKeyPEM)
+			claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, "Не найдено", http.StatusNotFound)
