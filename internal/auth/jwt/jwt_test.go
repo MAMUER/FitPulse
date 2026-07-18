@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"testing"
 	"time"
@@ -117,4 +118,78 @@ func TestTokenStructure(t *testing.T) {
 	assert.Equal(t, "test@example.com", parsedClaims.Email)
 	assert.Equal(t, "client", parsedClaims.Role)
 	_ = publicKeyPEM
+}
+
+func TestPublicKeyPEMToJWKS(t *testing.T) {
+	_, publicKeyPEM := generateTestKeyPair()
+	jsonBytes, err := PublicKeyPEMToJWKS(publicKeyPEM)
+	require.NoError(t, err)
+	assert.NotEmpty(t, jsonBytes)
+
+	var jwks claims.JWKSResponse
+	err = json.Unmarshal(jsonBytes, &jwks)
+	require.NoError(t, err)
+	require.Len(t, jwks.Keys, 1)
+	assert.Equal(t, "EC", jwks.Keys[0].KTY)
+	assert.Equal(t, "P-256", jwks.Keys[0].CRV)
+	assert.NotEmpty(t, jwks.Keys[0].X)
+	assert.NotEmpty(t, jwks.Keys[0].Y)
+}
+
+func TestPublicKeyPEMToJWKS_EmptyPEM(t *testing.T) {
+	_, err := PublicKeyPEMToJWKS("")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "public key PEM cannot be empty")
+}
+
+func TestPublicKeyPEMToJWKS_InvalidPEM(t *testing.T) {
+	_, err := PublicKeyPEMToJWKS("invalid-pem")
+	assert.Error(t, err)
+}
+
+func TestPublicKeyPEMToJWKS_UnsupportedCurve(t *testing.T) {
+	_, err := PublicKeyPEMToJWKS("not-a-valid-key")
+	assert.Error(t, err)
+}
+
+func TestParseECPrivateKey_Errors(t *testing.T) {
+	t.Run("empty pem", func(t *testing.T) {
+		_, err := ParseECPrivateKey("")
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid pem", func(t *testing.T) {
+		_, err := ParseECPrivateKey("not-a-valid-key")
+		assert.Error(t, err)
+	})
+}
+
+func TestParseECPublicKey_Errors(t *testing.T) {
+	t.Run("empty pem", func(t *testing.T) {
+		_, err := ParseECPublicKey("")
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid pem", func(t *testing.T) {
+		_, err := ParseECPublicKey("not-a-valid-key")
+		assert.Error(t, err)
+	})
+}
+
+func TestGenerateAccessToken_EmptyPrivateKey(t *testing.T) {
+	_, err := GenerateAccessToken("user-1", "test@example.com", "client", "", 15*time.Minute)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "private key PEM cannot be empty")
+}
+
+func TestValidateAccessToken_EmptyToken(t *testing.T) {
+	_, err := ValidateAccessToken("", "some-public-key")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "token is empty")
+}
+
+func TestValidateAccessToken_EmptyPublicKey(t *testing.T) {
+	_, err := ValidateAccessToken("some.token", "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "public key PEM cannot be empty")
 }

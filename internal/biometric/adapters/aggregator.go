@@ -53,6 +53,7 @@ func (c *CompositeBiometricSource) Fetch(ctx context.Context, userID string, met
 	return mergeSamples(allSamples), nil
 }
 
+// fetchFromSource queries a single source for supported metrics.
 func fetchFromSource(ctx context.Context, source domain.BiometricSource, userID string, metricTypes []string) ([]domain.BiometricSample, error) {
 	if source == nil {
 		return nil, nil
@@ -75,6 +76,7 @@ func fetchFromSource(ctx context.Context, source domain.BiometricSource, userID 
 	return samples, nil
 }
 
+// Supports reports whether any underlying source supports the requested metric.
 func (c *CompositeBiometricSource) Supports(metricType string) bool {
 	for _, source := range c.sources {
 		if source != nil && source.Supports(metricType) {
@@ -84,10 +86,12 @@ func (c *CompositeBiometricSource) Supports(metricType string) bool {
 	return false
 }
 
+// DeviceType returns the composite device type identifier.
 func (c *CompositeBiometricSource) DeviceType() string {
 	return "composite"
 }
 
+// HealthCheck checks health of all underlying sources.
 func (c *CompositeBiometricSource) HealthCheck(ctx context.Context) error {
 	var errs []string
 	healthy := false
@@ -107,6 +111,7 @@ func (c *CompositeBiometricSource) HealthCheck(ctx context.Context) error {
 	return fmt.Errorf("no healthy biometric source: %s", strings.Join(errs, "; "))
 }
 
+// mergeSamples deduplicates samples by user, metric, and timestamp, keeping the highest quality sample.
 func mergeSamples(samples []domain.BiometricSample) []domain.BiometricSample {
 	score := func(sample domain.BiometricSample) int {
 		switch strings.ToLower(sample.Quality) {

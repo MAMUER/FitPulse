@@ -56,7 +56,7 @@ func (m *MockMedicalRepository) GetConstraintByCode(ctx context.Context, code st
 
 func TestNewMedicalService(t *testing.T) {
 	mockRepo := &MockMedicalRepository{}
-	service := NewMedicalService(mockRepo)
+	service := NewMedicalService(mockRepo, nil)
 
 	assert.NotNil(t, service)
 	assert.Equal(t, mockRepo, service.repo)
@@ -227,7 +227,7 @@ func runTestCase(t *testing.T, constraints []domain.MedicalConstraint, repoError
 	mockRepo := &MockMedicalRepository{}
 	mockRepo.On("GetActiveConstraints", ctx, userID).Return(constraints, repoError)
 
-	service := NewMedicalService(mockRepo)
+	service := NewMedicalService(mockRepo, nil)
 	violations, requiresReview := service.EvaluateWorkout(ctx, userID, workout)
 
 	assert.Equal(t, expectedViolations, violations)
@@ -400,7 +400,7 @@ func TestMedicalServiceGetRecommendedModifications(t *testing.T) {
 			mockRepo := &MockMedicalRepository{}
 			mockRepo.On("GetActiveConstraints", ctx, userID).Return(tt.constraints, tt.repoError)
 
-			service := NewMedicalService(mockRepo)
+			service := NewMedicalService(mockRepo, nil)
 			suggestions := service.GetRecommendedModifications(ctx, userID, tt.workout)
 
 			assert.Equal(t, tt.expectations, suggestions)
@@ -563,7 +563,7 @@ func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 			mockRepo := &MockMedicalRepository{}
 			mockRepo.On("GetActiveConstraints", ctx, userID).Return(tt.constraints, tt.repoError)
 
-			service := NewMedicalService(mockRepo)
+			service := NewMedicalService(mockRepo, nil)
 			allowed, reason, err := service.IsMetricAllowed(ctx, userID, tt.metricType)
 
 			if tt.expectError {
@@ -581,7 +581,7 @@ func TestMedicalServiceIsMetricAllowed(t *testing.T) {
 // Test private methods by creating a test service and calling them indirectly
 func TestCheckRuleAgainstWorkout(t *testing.T) {
 	mockRepo := &MockMedicalRepository{}
-	service := NewMedicalService(mockRepo)
+	service := NewMedicalService(mockRepo, nil)
 
 	constraint := domain.MedicalConstraint{
 		ID:    "test-constraint",
@@ -648,7 +648,7 @@ func TestCheckRuleAgainstWorkout(t *testing.T) {
 
 func TestSuggestModification(t *testing.T) {
 	mockRepo := &MockMedicalRepository{}
-	service := NewMedicalService(mockRepo)
+	service := NewMedicalService(mockRepo, nil)
 
 	constraint := domain.MedicalConstraint{
 		ID:    "test-constraint",
