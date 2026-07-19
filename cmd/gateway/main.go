@@ -119,7 +119,7 @@ func main() {
 	valkeyDB, valkeyConnected := connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 0, valkeyMaxRetries, valkeyRetryDelay)
 	var sessionStore *cache.SessionStore
 	if valkeyConnected {
-		sessionStore = cache.NewSessionStoreFromValkey(valkeyDB)
+		sessionStore = cache.NewSessionStoreFromRedis(valkeyDB)
 	}
 
 	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
