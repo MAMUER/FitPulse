@@ -11,6 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgsodium;
 CREATE TABLE IF NOT EXISTS users (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email_encrypted         BYTEA,
+    email_nonce             BYTEA,
     email_hash              VARCHAR(64) UNIQUE,
     password_hash           VARCHAR(255),
     full_name_encrypted     BYTEA,
@@ -45,9 +46,11 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     email_encrypted BYTEA,
+    email_nonce     BYTEA,
     email_hash       VARCHAR(64),
     token           VARCHAR(255) UNIQUE NOT NULL,
     token_encrypted  BYTEA,
+    token_nonce     BYTEA,
     expires_at      TIMESTAMPTZ NOT NULL,
     used            BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW()

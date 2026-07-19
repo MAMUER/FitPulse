@@ -1502,3 +1502,67 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
 2. **Никакого stateful init**: нет `Init*()` функций, которые хранят encryptor в пакетном состоянии.
 3. **Данные никогда не логируются в открытом виде**: только маскированные или зашифрованные.
 4. **Ключ ротируется через замену env var** и перезапуск сервиса.
+
+## 12. Shared library `internal/db` — подключение к PostgreSQL и PII-шифрование
+
+### 12.1 Роль
+
+`internal/db` — это **общая библиотека работы с PostgreSQL**, которая используется
+всем сервисами для:
+- Создания подключений к PostgreSQL с connection pooling и метриками.
+- Шифрования PII-данных через pgsodium (rand AES-GCM + blind index).
+- Генерации nonce для шифрования полей.
+- Загрузки ключа шифрования `DB_ENCRYPTION_KEY` из окружения.
+
+### 12.2 Структура пакета
+
+```text
+internal/db/
+├── db.go        # Config, LoadConfig, NewConnection, connection pool metrics
+├── db_test.go   # Тесты подключения, пула, blind index, nonce, pgsodium helpers
+├── pgp.go       # EncryptionKey, EmailHash
+└── pgsodium.go  # PII-шифрование: aegis256 AEAD, blind index, nonce
+```
+
+### 12.3 Подключение к PostgreSQL
+
+```go
+type Config struct {
+    Host     string
+    Port     string
+    User     string
+    Password string
+    DBName   string
+    SSLMode  string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет обязательные поля.
+- `NewConnection(cfg)` открывает подключение, настраивает пул и запускает метрики.
+- Connection pool: `MaxOpenConns=25`, `MaxIdleConns=10`, `ConnMaxLifetime=5m`.
+- Метрика `DBConnectionPoolUsage` обновляется каждые 15 секунд.
+
+### 12.4 PII-шифрование (pgsodium)
+
+| Функция | Назначение |
+| --- | --- |
+| `BlindIndex(plaintext)` | lowercase hex SHA256 для поиска без утечки plaintext |
+| `NicknameHash(nickname)` | alias для `BlindIndex` |
+| `GenerateNonce()` | случайный 12-байтовый nonce для aegis256 AEAD |
+| `PgsodiumRandomEncryptParam($N, $M)` | рандомизированное шифрование с nonce |
+| `PgsodiumDecryptParam(ct, nonce, alias)` | расшифровка aegis256 |
+
+### 12.5 Ключи
+
+- `EncryptionKey()` возвращает ключ из `DB_ENCRYPTION_KEY` (64 hex chars или raw).
+- `SetPgsodiumKeyID(id)` фиксирует идентификатор ключа в keyring pgsodium.
+- `PgsodiumKeyringName()` возвращает имя ключа `fitpulse_pii`.
+
+### 12.6 Правила использования
+
+1. **Конфигурация загружается через `LoadConfig()`** в композиционном корне (`main.go`), затем валидируется.
+2. **Ключ pgsodium импортируется один раз** при старте через `ensurePgsodiumKey` (`cmd/user-service/main.go`).
+3. **Для всех PII-полей используется рандомизированное шифрование** (`PgsodiumRandomEncryptParam` + `GenerateNonce`) + blind index.
+4. **Детерминированное шифрование удалено**: все поля используют nonce + aegis256.
+5. **Никаких SQL-инъекций**: все литералы sanitize через `sanitize.String`, параметры передаются через `$N`.

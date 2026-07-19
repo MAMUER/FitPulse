@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
@@ -61,6 +62,98 @@ func TestConfigConnectionString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := tt.config.ConnectionString()
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func TestConfigValidate(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    Config
+		wantError bool
+	}{
+		{
+			name: "valid config",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: false,
+		},
+		{
+			name: "empty host",
+			config: Config{
+				Host:     "",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty port",
+			config: Config{
+				Host:     "localhost",
+				Port:     "",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty user",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty password",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty dbname",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -146,10 +239,10 @@ func TestGenerateNonce(t *testing.T) {
 	assert.NotEqual(t, nonce, nonce2)
 }
 
-func TestPgsodiumDecryptDualParam(t *testing.T) {
+func TestPgsodiumDecryptParam(t *testing.T) {
 	SetPgsodiumKeyID(1)
-	sql := PgsodiumDecryptDualParam("u.full_name_encrypted", "u.full_name_nonce", "full_name")
-	assert.Contains(t, sql, "CASE WHEN length(u.full_name_nonce) >= 12")
+	sql := PgsodiumDecryptParam("u.full_name_encrypted", "u.full_name_nonce", "full_name")
 	assert.Contains(t, sql, "pgsodium.crypto_aead_aegis256_decrypt")
-	assert.Contains(t, sql, "pgsodium.crypto_aead_det_decrypt")
+	assert.NotContains(t, sql, "CASE WHEN")
+	assert.NotContains(t, sql, "pgsodium.crypto_aead_det_decrypt")
 }

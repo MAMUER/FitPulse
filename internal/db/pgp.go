@@ -45,7 +45,3 @@ func EncryptionKey() []byte {
 func EmailHash(email string) string {
 	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(email))))
 }
-
-func quoteString(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
-}
