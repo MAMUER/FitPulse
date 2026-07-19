@@ -1455,7 +1455,82 @@ config.LogConfig(log, cfg)
 4. **Логирование** — `LogConfig` вызывается один раз после валидации для отладки/аудита.
 5. **Секреты** — передаются через `_FILE` или env vars, логируются в маскированном виде.
 
-## 11. Shared library `internal/crypto` — шифрование AES-GCM
+## 11. Shared library `internal/domain` — доменные модели биометрических данных
+
+### 11.1 Роль
+
+`internal/domain` — это **ядро доменной модели** платформы. Он содержит:
+- Типизированные entity для биометрических измерений (`BiometricData`)
+- Enum `MetricType` для всех поддерживаемых метрик
+- Валидацию инвариантов на уровне домена
+- JSON-сериализацию для API
+
+### 11.2 Структура пакета
+
+```text
+internal/domain/
+├── biometric_data.go      # BiometricData entity, MetricType enum, Validate()
+└── biometric_data_test.go # Тесты конструктора, валидации, констант
+```
+
+### 11.3 Доменная модель
+
+```go
+type BiometricData struct {
+    ID         string     `json:"id"`
+    UserID     string     `json:"user_id"`
+    MetricType string     `json:"metric_type"`
+    Value      float64    `json:"value"`
+    Timestamp  time.Time  `json:"timestamp"`
+    DeviceType string     `json:"device_type"`
+    CreatedAt  time.Time  `json:"created_at"`
+}
+```
+
+### 11.4 MetricType enum
+
+```go
+const (
+    MetricHeartRate        MetricType = "heart_rate"
+    MetricHRV              MetricType = "hrv"
+    MetricSpO2             MetricType = "spo2"
+    MetricTemperature      MetricType = "temperature"
+    MetricBloodPressureSys MetricType = "blood_pressure_systolic"
+    MetricBloodPressureDia MetricType = "blood_pressure_diastolic"
+    MetricECG              MetricType = "ecg"
+    MetricSleepStage       MetricType = "sleep_stage"
+    MetricSteps            MetricType = "steps"
+    MetricDistance         MetricType = "distance"
+    MetricCalories         MetricType = "calories"
+    MetricRespiratoryRate  MetricType = "respiratory_rate"
+    MetricBloodGlucose     MetricType = "blood_glucose"
+    MetricOxygenSaturation MetricType = "oxygen_saturation"
+)
+```
+
+### 11.5 Валидация
+
+```go
+func NewBiometricData(userID, metricType string, value float64, timestamp time.Time, deviceType string) (*BiometricData, error)
+func (b *BiometricData) Validate() error
+```
+
+Правила:
+- `UserID` не может быть пустым
+- `MetricType` не может быть пустым
+- `Timestamp` не может быть нулевым
+- `Value` должен быть >= 0
+- `DeviceType` не может быть пустым
+- `CreatedAt` устанавливается автоматически в `time.Now()`
+
+### 11.6 Правила использования
+
+1. **Конструктор `NewBiometricData`** — всегда используйте его для создания сущности, он валидирует инварианты.
+2. **MetricType** — используйте только константы из пакета, избегайте magic strings.
+3. **Репозиторий** — `internal/repository/biometric_repository.go` маппит `BiometricData` в/из PostgreSQL через `database/sql`.
+4. **Сериализация** — JSON-теги используются для REST/gRPC responses.
+
+## 12. Shared library `internal/crypto` — шифрование AES-GCM
 
 ### 11.1 Роль
 
@@ -1503,9 +1578,9 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
 3. **Данные никогда не логируются в открытом виде**: только маскированные или зашифрованные.
 4. **Ключ ротируется через замену env var** и перезапуск сервиса.
 
-## 12. Shared library `internal/db` — подключение к PostgreSQL и PII-шифрование
+## 13. Shared library `internal/db` — подключение к PostgreSQL и PII-шифрование
 
-### 12.1 Роль
+### 13.1 Роль
 
 `internal/db` — это **общая библиотека работы с PostgreSQL**, которая используется
 всем сервисами для:
@@ -1514,7 +1589,7 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
 - Генерации nonce для шифрования полей.
 - Загрузки ключа шифрования `DB_ENCRYPTION_KEY` из окружения.
 
-### 12.2 Структура пакета
+### 13.2 Структура пакета
 
 ```text
 internal/db/
@@ -1524,7 +1599,7 @@ internal/db/
 └── pgsodium.go  # PII-шифрование: aegis256 AEAD, blind index, nonce
 ```
 
-### 12.3 Подключение к PostgreSQL
+### 13.3 Подключение к PostgreSQL
 
 ```go
 type Config struct {
@@ -1543,7 +1618,7 @@ type Config struct {
 - Connection pool: `MaxOpenConns=25`, `MaxIdleConns=10`, `ConnMaxLifetime=5m`.
 - Метрика `DBConnectionPoolUsage` обновляется каждые 15 секунд.
 
-### 12.4 PII-шифрование (pgsodium)
+### 13.4 PII-шифрование (pgsodium)
 
 | Функция | Назначение |
 | --- | --- |
@@ -1553,13 +1628,13 @@ type Config struct {
 | `PgsodiumRandomEncryptParam($N, $M)` | рандомизированное шифрование с nonce |
 | `PgsodiumDecryptParam(ct, nonce, alias)` | расшифровка aegis256 |
 
-### 12.5 Ключи
+### 13.5 Ключи
 
 - `EncryptionKey()` возвращает ключ из `DB_ENCRYPTION_KEY` (64 hex chars или raw).
 - `SetPgsodiumKeyID(id)` фиксирует идентификатор ключа в keyring pgsodium.
 - `PgsodiumKeyringName()` возвращает имя ключа `fitpulse_pii`.
 
-### 12.6 Правила использования
+### 13.6 Правила использования
 
 1. **Конфигурация загружается через `LoadConfig()`** в композиционном корне (`main.go`), затем валидируется.
 2. **Ключ pgsodium импортируется один раз** при старте через `ensurePgsodiumKey` (`cmd/user-service/main.go`).

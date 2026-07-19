@@ -32,13 +32,13 @@ func (r *biometricRepository) Save(ctx context.Context, data *domain.BiometricDa
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, time.Now())
+	`, id, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, data.CreatedAt)
 	return err
 }
 
 func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limit int) ([]*domain.BiometricData, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, user_id, metric_type, value, timestamp, device_type
+		SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 		FROM biometric_data
 		WHERE user_id = $1
 		ORDER BY timestamp DESC
@@ -52,11 +52,12 @@ func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limi
 	var results []*domain.BiometricData
 	for rows.Next() {
 		var data domain.BiometricData
-		var timestamp time.Time
-		if scanErr := rows.Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType); scanErr != nil {
+		var timestamp, createdAt time.Time
+		if scanErr := rows.Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType, &createdAt); scanErr != nil {
 			return nil, fmt.Errorf("scan biometric data row: %w", scanErr)
 		}
 		data.Timestamp = timestamp
+		data.CreatedAt = createdAt
 		results = append(results, &data)
 	}
 	if err := rows.Err(); err != nil {
@@ -67,15 +68,15 @@ func (r *biometricRepository) GetByUser(ctx context.Context, userID string, limi
 
 func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType string) (*domain.BiometricData, error) {
 	var data domain.BiometricData
-	var timestamp time.Time
+	var timestamp, createdAt time.Time
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, metric_type, value, timestamp, device_type
+		SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
 		FROM biometric_data
 		WHERE user_id = $1 AND metric_type = $2
 		ORDER BY timestamp DESC
 		LIMIT 1
-	`, userID, metricType).Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType)
+	`, userID, metricType).Scan(&data.ID, &data.UserID, &data.MetricType, &data.Value, &timestamp, &data.DeviceType, &createdAt)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -84,5 +85,6 @@ func (r *biometricRepository) GetLatest(ctx context.Context, userID, metricType 
 		return nil, fmt.Errorf("query latest biometric: %w", err)
 	}
 	data.Timestamp = timestamp
+	data.CreatedAt = createdAt
 	return &data, nil
 }

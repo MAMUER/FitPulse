@@ -77,12 +77,13 @@ func TestBiometricRepository_GetByUser_Success(t *testing.T) {
 	userID := testUserID
 	limit := 10
 	ts := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"}).
-		AddRow("id-1", userID, "heart_rate", 72.5, ts, "smartwatch").
-		AddRow("id-2", userID, "blood_pressure", 120.0, ts.Add(-time.Hour), "band")
+	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
+		AddRow("id-1", userID, "heart_rate", 72.5, ts, "smartwatch", createdAt).
+		AddRow("id-2", userID, "blood_pressure", 120.0, ts.Add(-time.Hour), "band", createdAt)
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, limit).
 		WillReturnRows(rows)
 
@@ -96,6 +97,7 @@ func TestBiometricRepository_GetByUser_Success(t *testing.T) {
 	assert.InDelta(t, 72.5, results[0].Value, 0.01)
 	assert.Equal(t, ts, results[0].Timestamp)
 	assert.Equal(t, "smartwatch", results[0].DeviceType)
+	assert.Equal(t, createdAt, results[0].CreatedAt)
 	assert.Equal(t, "id-2", results[1].ID)
 	assert.InDelta(t, 120.0, results[1].Value, 0.01)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -108,9 +110,9 @@ func TestBiometricRepository_GetByUser_EmptyResult(t *testing.T) {
 	userID := "user-456"
 	limit := 5
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"})
+	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"})
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, limit).
 		WillReturnRows(rows)
 
@@ -128,7 +130,7 @@ func TestBiometricRepository_GetByUser_DatabaseError(t *testing.T) {
 	userID := testUserID
 	limit := 10
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, limit).
 		WillReturnError(errors.New("query failed"))
 
@@ -147,11 +149,10 @@ func TestBiometricRepository_GetByUser_ScanError(t *testing.T) {
 	userID := testUserID
 	limit := 10
 
-	// Simulate a row where timestamp cannot be scanned into time.Time
-	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"}).
-		AddRow("id-1", userID, "heart_rate", 72.5, "not-a-timestamp", "smartwatch")
+	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
+		AddRow("id-1", userID, "heart_rate", 72.5, "not-a-timestamp", "smartwatch", time.Now())
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, limit).
 		WillReturnRows(rows)
 
@@ -169,11 +170,12 @@ func TestBiometricRepository_GetLatest_Success(t *testing.T) {
 	userID := testUserID
 	metricType := "heart_rate"
 	ts := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
 
-	row := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"}).
-		AddRow("id-1", userID, metricType, 75.0, ts, "smartwatch")
+	row := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
+		AddRow("id-1", userID, metricType, 75.0, ts, "smartwatch", createdAt)
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
 		WithArgs(userID, metricType).
 		WillReturnRows(row)
 
@@ -187,6 +189,7 @@ func TestBiometricRepository_GetLatest_Success(t *testing.T) {
 	assert.InDelta(t, 75.0, result.Value, 0.01)
 	assert.Equal(t, ts, result.Timestamp)
 	assert.Equal(t, "smartwatch", result.DeviceType)
+	assert.Equal(t, createdAt, result.CreatedAt)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -197,7 +200,7 @@ func TestBiometricRepository_GetLatest_NotFound(t *testing.T) {
 	userID := "user-789"
 	metricType := "oxygen_level"
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
 		WithArgs(userID, metricType).
 		WillReturnError(sql.ErrNoRows)
 
@@ -216,7 +219,7 @@ func TestBiometricRepository_GetLatest_DatabaseError(t *testing.T) {
 	userID := testUserID
 	metricType := "heart_rate"
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2 ORDER BY timestamp DESC LIMIT 1`).
 		WithArgs(userID, metricType).
 		WillReturnError(errors.New("internal server error"))
 
@@ -245,9 +248,9 @@ func TestBiometricRepository_GetByUser_LimitZero(t *testing.T) {
 
 	userID := testUserID
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"})
+	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"})
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, 0).
 		WillReturnRows(rows)
 
@@ -265,13 +268,14 @@ func TestBiometricRepository_GetByUser_MultipleRecords(t *testing.T) {
 	userID := testUserID
 	limit := 3
 	ts := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC)
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type"}).
-		AddRow("id-1", userID, "heart_rate", 72.5, ts, "smartwatch").
-		AddRow("id-2", userID, "heart_rate", 68.0, ts.Add(-time.Hour), "smartwatch").
-		AddRow("id-3", userID, "blood_pressure", 118.0, ts.Add(-2*time.Hour), "band")
+	rows := sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
+		AddRow("id-1", userID, "heart_rate", 72.5, ts, "smartwatch", createdAt).
+		AddRow("id-2", userID, "heart_rate", 68.0, ts.Add(-time.Hour), "smartwatch", createdAt).
+		AddRow("id-3", userID, "blood_pressure", 118.0, ts.Add(-2*time.Hour), "band", createdAt)
 
-	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs(userID, limit).
 		WillReturnRows(rows)
 
@@ -282,6 +286,9 @@ func TestBiometricRepository_GetByUser_MultipleRecords(t *testing.T) {
 	assert.Equal(t, "id-1", results[0].ID)
 	assert.Equal(t, "id-2", results[1].ID)
 	assert.Equal(t, "id-3", results[2].ID)
+	assert.Equal(t, createdAt, results[0].CreatedAt)
+	assert.Equal(t, createdAt, results[1].CreatedAt)
+	assert.Equal(t, createdAt, results[2].CreatedAt)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -300,7 +307,6 @@ func TestBiometricRepository_Save_WithNilContext(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO biometric_data`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	// sqlmock handles nil context gracefully; we still test the method contract
 	err := repo.Save(context.Background(), data)
 
 	assert.NoError(t, err)
