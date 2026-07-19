@@ -409,10 +409,7 @@ func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
 		middleware.GRPCAuthInterceptor(jwtPublicKeyPEM, log.Logger),
 		metrics.UnaryServerInterceptor("biometric-service"),
 	), telemetry.ServerHandlerOption()}
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
-	return grpc.NewServer(serverOpts...)
+	return grpctls.NewServer(serverOpts...)
 }
 
 func createMetricsServer(metricsPort string) *http.Server {

@@ -995,10 +995,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, rabbitQueue queue.Publisher
 		middleware.RecoveryGRPC(log.Logger),
 		middleware.CorrelationIDGRPC(),
 	), telemetry.ServerHandlerOption()}
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
-	s := grpc.NewServer(serverOpts...)
+	s := grpctls.NewServer(serverOpts...)
 	pb.RegisterTrainingServiceServer(s, &trainingServer{
 		db:          db,
 		log:         log,

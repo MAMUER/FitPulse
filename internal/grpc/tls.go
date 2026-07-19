@@ -12,15 +12,15 @@ import (
 )
 
 func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
-	certFile := os.Getenv("GRPC_TLS_CERT_FILE")
-	keyFile := os.Getenv("GRPC_TLS_KEY_FILE")
-	caFile := os.Getenv("GRPC_TLS_CA_FILE")
-
-	if certFile == "" || keyFile == "" {
+	cfg := LoadConfig()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.CertFile == "" || cfg.KeyFile == "" {
 		return nil, nil
 	}
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +30,8 @@ func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
 		MinVersion:   tls.VersionTLS13,
 	}
 
-	if caFile != "" {
-		cleanCAFile := filepath.Clean(caFile)
+	if cfg.CAFile != "" {
+		cleanCAFile := filepath.Clean(cfg.CAFile)
 		if strings.Contains(cleanCAFile, "..") {
 			return nil, errors.New("invalid gRPC CA file path")
 		}
@@ -51,12 +51,12 @@ func GetServerTLSCredentials() (credentials.TransportCredentials, error) {
 }
 
 func GetClientTLSCredentials() (credentials.TransportCredentials, error) {
-	caFile := os.Getenv("GRPC_TLS_CA_FILE")
-	if caFile == "" {
+	cfg := LoadConfig()
+	if cfg.CAFile == "" {
 		return nil, nil
 	}
 
-	cleanCAFile := filepath.Clean(caFile)
+	cleanCAFile := filepath.Clean(cfg.CAFile)
 	if strings.Contains(cleanCAFile, "..") {
 		return nil, errors.New("invalid gRPC CA file path")
 	}

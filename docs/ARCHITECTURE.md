@@ -1702,3 +1702,71 @@ type Config struct {
 4. **Thread-safe daily limit**: `dailySent` защищен `sync.Mutex`, безопасен для concurrent use.
 5. **Skip domains** — используются для тестовых окружений, возвращают ошибку `skipped: test domain ...`.
 6. **TLS**: для production SMTP серверов используйте `UseTLS=true` с портом 465/587.
+
+## 15. Shared library `internal/grpc` — gRPC server/client utilities with mTLS
+
+### 15.1 Роль
+
+`internal/grpc` — это **общая библиотека для работы с gRPC**, которая используется
+всем сервисами для:
+- Создания gRPC серверов с опциональным mutual TLS.
+- Создания gRPC клиентов с опциональным TLS.
+- Регистрации health check сервиса.
+- Централизованной загрузки TLS конфигурации из окружения.
+
+### 15.2 Структура пакета
+
+```text
+internal/grpc/
+├── grpc.go      # NewServer, NewClient, Config, LoadConfig
+├── grpc_test.go # Тесты серверов, клиентов, TLS конфигурации
+└── tls.go       # GetServerTLSCredentials, GetClientTLSCredentials
+```
+
+### 15.3 Configuration
+
+```go
+type Config struct {
+    CertFile string
+    KeyFile  string
+    CAFile   string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет, что если TLS включен, то указаны cert и key.
+- Environment variables: `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CA_FILE`.
+
+### 15.4 Server
+
+```go
+func NewServer(opts ...grpc.ServerOption) *grpc.Server
+```
+
+- Автоматически загружает TLS credentials из env vars.
+- Если TLS не настроен, создает insecure сервер.
+- Автоматически регистрирует `grpc_health_v1.Health` сервис.
+
+### 15.5 Client
+
+```go
+func NewClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+```
+
+- Автоматически загружает CA из env vars.
+- Если CA не указан, создает insecure подключение.
+- Поддерживает все стандартные `grpc.DialOption`.
+
+### 15.6 TLS
+
+- TLS 1.3 minimum (`tls.VersionTLS13`).
+- mTLS: если указан `GRPC_TLS_CA_FILE`, сервер требует и проверяет client cert.
+- Пути к файлам проверяются на path traversal (`..`).
+
+### 15.7 Правила использования
+
+1. **Серверы**: используйте `grpctls.NewServer(opts...)` вместо ручного вызова `GetServerTLSCredentials()`.
+2. **Клиенты**: используйте `grpctls.NewClient(target, opts...)` вместо ручного вызова `GetClientTLSCredentials()`.
+3. **Конфигурация**: загружается через `grpctls.LoadConfig()` в композиционном корне (`main.go`), затем валидируется.
+4. **Health check**: регистрируется автоматически в `NewServer`.
+5. **Secrets**: сертификаты поддерживают `_FILE` суффикс для Docker/Kubernetes secrets.

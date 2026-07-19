@@ -19,7 +19,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -479,16 +478,12 @@ func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
 }
 
 func createBiometricClient(biometricServiceAddr string, log *logger.Logger) biometricpb.BiometricServiceClient {
-	var dialOpts []grpc.DialOption
-	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")))
-	dialOpts = append(dialOpts, telemetry.ClientHandlerOption())
-	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
-	if tlsCreds, err := grpctls.GetClientTLSCredentials(); err == nil && tlsCreds != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dialOpts := []grpc.DialOption{
+		grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")),
+		telemetry.ClientHandlerOption(),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
 	}
-	conn, err := grpc.NewClient(biometricServiceAddr, dialOpts...)
+	conn, err := grpctls.NewClient(biometricServiceAddr, dialOpts...)
 	if err != nil {
 		log.Fatal("Failed to connect to biometric service", zap.Error(err))
 	}

@@ -2452,10 +2452,7 @@ func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
 		middleware.CorrelationIDGRPC(),
 		metrics.UnaryServerInterceptor("user-service"),
 	), telemetry.ServerHandlerOption()}
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
-	s := grpc.NewServer(serverOpts...)
+	s := grpctls.NewServer(serverOpts...)
 	pb.RegisterUserServiceServer(s, svc)
 
 	healthServer := health.NewServer()

@@ -25,7 +25,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
@@ -367,15 +366,8 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 }
 
 func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
-	tlsCreds, _ := grpctls.GetClientTLSCredentials()
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
-	if tlsCreds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-	userConn, err := grpc.NewClient(userServiceAddr, opts...)
+	opts := []grpc.DialOption{grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20))}
+	userConn, err := grpctls.NewClient(userServiceAddr, opts...)
 	if err != nil {
 		log.Fatal("Failed to connect to user service", zap.Error(err))
 	}
@@ -717,12 +709,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()))
-	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-	conn, err := grpc.NewClient(g.biometricAddr, dialOpts...)
+	conn, err := grpctls.NewClient(g.biometricAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
 		return nil, errors.New("create biometric client: " + err.Error())
@@ -746,12 +733,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true)))
-	if tlsCreds, err2 := grpctls.GetClientTLSCredentials(); err2 == nil && tlsCreds != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-	conn, err := grpc.NewClient(g.trainingAddr, dialOpts...)
+	conn, err := grpctls.NewClient(g.trainingAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
 		return nil, errors.New("create training client: " + err.Error())
