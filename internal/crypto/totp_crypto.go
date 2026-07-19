@@ -9,17 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 )
 
 type AESGCMEncryptor struct {
 	key []byte
-}
-
-func InitAESGCMEncryption() error {
-	_, err := NewAESGCMEncryptor(os.Getenv("DEVICE_TOKEN_ENCRYPTION_KEY"))
-	return err
 }
 
 func NewAESGCMEncryptor(keyMaterial string) (*AESGCMEncryptor, error) {
@@ -90,31 +84,4 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	return plaintext, nil
-}
-
-type TOTPEncryptor struct {
-	key []byte
-}
-
-func InitTOTPEncryption() error {
-	_, err := NewTOTPEncryptor(os.Getenv("TOTP_ENCRYPTION_KEY"))
-	return err
-}
-
-func NewTOTPEncryptor(keyMaterial string) (*TOTPEncryptor, error) {
-	enc, err := NewAESGCMEncryptor(keyMaterial)
-	if err != nil {
-		return nil, err
-	}
-	return &TOTPEncryptor{key: enc.key}, nil
-}
-
-func (e *TOTPEncryptor) Encrypt(plaintext []byte) ([]byte, error) {
-	enc := &AESGCMEncryptor{key: e.key}
-	return enc.Encrypt(plaintext)
-}
-
-func (e *TOTPEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
-	enc := &AESGCMEncryptor{key: e.key}
-	return enc.Decrypt(ciphertext)
 }

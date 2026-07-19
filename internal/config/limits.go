@@ -1,4 +1,3 @@
-// Package config provides configuration constants and limits.
 package config
 
 import "time"

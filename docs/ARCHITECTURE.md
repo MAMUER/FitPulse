@@ -1336,3 +1336,169 @@ import "github.com/MAMUER/project/cmd/<service>/ports"
 import "github.com/MAMUER/project/cmd/<service>/infra"
 token, err := s.tokenProvider.GenerateAccessToken(...)
 ```
+
+## 10. Shared library `internal/config` — типизированная конфигурация и env helpers
+
+### 10.1 Роль
+
+`internal/config` — это **общая библиотека конфигурации**, которая используется
+всем сервисами (`gateway`, `user-service`, `biometric-service` и др.). Она предоставляет:
+- helpers для чтения env vars с поддержкой `_FILE` суффикса (Docker/Kubernetes secrets)
+- typed accessors (`GetEnvInt`, `GetEnvBool`, `GetEnvDuration`, `GetEnvFloat64`, `GetEnvInt64`)
+- обязательные env vars с паникой при отсутствии (`GetEnvRequired`)
+- типизированные конфигурационные структуры (`CacheConfig`, `JWTConfig`, `ServerConfig`) с валидацией
+- centralized constants (`DefaultTimeout`, `MaxBatchSize`, `ValkeyTTLSeconds`, `JWTExpirationHours`, `MinHeartRate`, `MaxHeartRate`, `MinSpO2`, `MaxSpO2`, `CorrelationIDHeader`)
+
+### 10.2 Структура пакета
+
+```text
+internal/config/
+├── env.go          # GetEnv, GetEnvRequired, GetEnvInt, GetEnvInt64, GetEnvBool, GetEnvDuration, GetEnvFloat64
+├── config.go       # CacheConfig, JWTConfig, ServerConfig, Load*, Validate(), LogConfig
+├── limits.go       # DefaultTimeout, MaxBatchSize, ValkeyTTLSeconds, JWTExpirationHours, MinHeartRate, MaxHeartRate, MinSpO2, MaxSpO2, CorrelationIDHeader
+├── env_test.go
+├── config_test.go
+└── limits_test.go
+```
+
+### 10.3 Environment variable loading
+
+Приоритет источников: `KEY_FILE` > `KEY` > `defaultValue`.
+
+- Если `KEY_FILE` установлен, читается содержимое файла (trim).
+- Иначе возвращается значение `KEY`.
+- Если ни один источник не найден, возвращается `defaultValue` (если передан).
+
+Пример:
+
+```bash
+JWT_PRIVATE_KEY_PEM_FILE=/run/secrets/jwt_private_key.pem
+```
+
+```go
+privateKey := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+```
+
+### 10.4 Typed accessors
+
+| Функция | Тип возврата | Поведение при invalid/empty |
+| --- | --- | --- |
+| `GetEnv(key, default...)` | `string` | возвращает `defaultValue` |
+| `GetEnvRequired(key)` | `string` | паникует, если пусто |
+| `GetEnvInt(key, default)` | `int` | возвращает `default` |
+| `GetEnvInt64(key, default)` | `int64` | возвращает `default` |
+| `GetEnvBool(key, default)` | `bool` | возвращает `default` |
+| `GetEnvDuration(key, default)` | `time.Duration` | возвращает `default` |
+| `GetEnvFloat64(key, default)` | `float64` | возвращает `default` |
+
+`GetEnvBool` поддерживает: `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` (case-insensitive).
+
+### 10.5 Configuration structs
+
+```go
+type CacheConfig struct {
+    Addr     string
+    Password string
+    DB       int
+}
+
+type JWTConfig struct {
+    PrivateKeyPEM string
+    PublicKeyPEM  string
+}
+
+type ServerConfig struct {
+    Addr string
+}
+```
+
+Каждая структура имеет метод `Validate() error`.
+
+### 10.6 Loaders
+
+```go
+func LoadCacheConfig() CacheConfig
+func LoadJWTConfig() JWTConfig
+func LoadServerConfig(envVar, defaultAddr string) ServerConfig
+```
+
+- `LoadJWTConfig` использует `GetEnvRequired`, поэтому при отсутствии `JWT_PRIVATE_KEY_PEM` или `JWT_PUBLIC_KEY_PEM` процесс завершится panic на старте.
+
+### 10.7 Logging configuration
+
+```go
+config.LogConfig(log, cfg)
+```
+
+Логирует конфигурацию на уровне info, маскируя секреты (`[REDACTED]`).
+Поддерживаемые типы: `CacheConfig`, `JWTConfig`, `ServerConfig`.
+
+### 10.8 Constants
+
+| Constant | Значение | Назначение |
+| --- | --- | --- |
+| `DefaultTimeout` | `5s` | Таймаут внешних вызовов по умолчанию |
+| `MaxBatchSize` | `100` | Максимальный размер батча |
+| `ValkeyTTLSeconds` | `3600` | TTL записей Valkey по умолчанию |
+| `JWTExpirationHours` | `24` | Время жизни JWT по умолчанию |
+| `MinHeartRate` | `30` | Минимальный допустимый пульс, bpm |
+| `MaxHeartRate` | `220` | Максимальный допустимый пульс, bpm |
+| `MinSpO2` | `70` | Минимальный допустимый SpO2, % |
+| `MaxSpO2` | `100` | Максимальный допустимый SpO2, % |
+| `CorrelationIDHeader` | `X-Correlation-ID` | HTTP-заголовок для корреляции запросов |
+
+### 10.9 Правила использования
+
+1. **Вся конфигурация загружается через typed loaders** (`LoadCacheConfig`, `LoadJWTConfig`, `LoadServerConfig`).
+2. **Обязательные переменные** — только через `GetEnvRequired` или loaders, которые его используют.
+3. **Валидация** — вызывается сразу после загрузки конфигурации в композиционном корне (`main.go`).
+4. **Логирование** — `LogConfig` вызывается один раз после валидации для отладки/аудита.
+5. **Секреты** — передаются через `_FILE` или env vars, логируются в маскированном виде.
+
+## 11. Shared library `internal/crypto` — шифрование AES-GCM
+
+### 11.1 Роль
+
+`internal/crypto` — это **общая библиотека симметричного шифрования**, которая используется
+всем сервисами для защиты чувствительных данных:
+- `device-aggregator`: шифрование токенов устройств перед сохранением в БД
+- `user-service`: шифрование TOTP-секретов перед сохранением в БД
+
+### 11.2 Структура пакета
+
+```text
+internal/crypto/
+└── totp_crypto.go   # AES-GCM encryptor (256-bit key)
+```
+
+### 11.3 Алгоритм и параметры
+
+| Параметр | Значение |
+| --- | --- |
+| Алгоритм | AES-256-GCM |
+| Размер ключа | 32 байта (256 бит) |
+| Nonce | CSPRNG, размер равен `NonceSize()` (обычно 12 байт) |
+| AAD | `nil` |
+
+### 11.4 API
+
+```go
+type AESGCMEncryptor struct { ... }
+
+func NewAESGCMEncryptor(keyMaterial string) (*AESGCMEncryptor, error)
+func (e *AESGCMEncryptor) Encrypt(plaintext []byte) ([]byte, error)
+func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
+```
+
+- `NewAESGCMEncryptor` принимает ключ в одном из форматов:
+  - base64-строка (декодируется автоматически)
+  - raw строка длиной 32 байта
+- `Encrypt` возвращает `nonce || ciphertext || tag`
+- `Decrypt` ожидает тот же формат, проверяет тег GCM
+
+### 11.5 Правила использования
+
+1. **Ключ загружается через `config`** в композиционном корне (`main.go`), передаётся в адаптер через DI.
+2. **Никакого stateful init**: нет `Init*()` функций, которые хранят encryptor в пакетном состоянии.
+3. **Данные никогда не логируются в открытом виде**: только маскированные или зашифрованные.
+4. **Ключ ротируется через замену env var** и перезапуск сервиса.
