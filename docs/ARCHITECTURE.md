@@ -1641,3 +1641,64 @@ type Config struct {
 3. **Для всех PII-полей используется рандомизированное шифрование** (`PgsodiumRandomEncryptParam` + `GenerateNonce`) + blind index.
 4. **Детерминированное шифрование удалено**: все поля используют nonce + aegis256.
 5. **Никаких SQL-инъекций**: все литералы sanitize через `sanitize.String`, параметры передаются через `$N`.
+
+## 14. Shared library `internal/email` — SMTP email sending
+
+### 14.1 Роль
+
+`internal/email` — это **общая библиотека отправки email**, которая используется
+сервисами для:
+- Отправки писем подтверждения email при регистрации (`user-service`).
+- Поддержки TLS для production SMTP серверов (Yandex, Mail.ru, Gmail).
+- Контроля дневного лимита и пропуска тестовых доменов.
+
+### 14.2 Структура пакета
+
+```text
+internal/email/
+├── email.go      # Config, LoadConfig, EmailSender interface, SMTPClient
+└── email_test.go # Тесты конфигурации, SMTP, HTML шаблонов
+```
+
+### 14.3 Architecture
+
+```go
+// EmailSender is the port for sending emails.
+type EmailSender interface {
+    SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error
+}
+
+// SMTPClient is an SMTP implementation of EmailSender.
+type SMTPClient struct { ... }
+```
+
+- `EmailSender` — порт (интерфейс), который используется в доменных сервисах.
+- `SMTPClient` — адаптер, реализующий отправку через `net/smtp`.
+
+### 14.4 Configuration
+
+```go
+type Config struct {
+    Host            string
+    Port            int
+    User            string
+    Password        string
+    From            string
+    UseTLS          bool
+    DailyLimit      int      // 0 = unlimited
+    SkipSendDomains []string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет обязательные поля и корректность порта.
+- Environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `EMAIL_DAILY_LIMIT`, `EMAIL_SKIP_DOMAINS`.
+
+### 14.5 Правила использования
+
+1. **В сервисах используйте только порт `EmailSender`**, никогда не импортируйте `SMTPClient` напрямую в доменный слой.
+2. **Конфигурация загружается через `LoadConfig()`** в композиционном корне (`main.go`), затем валидируется.
+3. **Контекст обязателен**: `SendVerificationEmail(ctx, ...)` поддерживает отмену и таймауты.
+4. **Thread-safe daily limit**: `dailySent` защищен `sync.Mutex`, безопасен для concurrent use.
+5. **Skip domains** — используются для тестовых окружений, возвращают ошибку `skipped: test domain ...`.
+6. **TLS**: для production SMTP серверов используйте `UseTLS=true` с портом 465/587.

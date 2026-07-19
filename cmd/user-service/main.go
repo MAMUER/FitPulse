@@ -62,7 +62,7 @@ type userServer struct {
 	db             *sql.DB
 	log            *logger.Logger
 	tokenProvider  ports.TokenProvider
-	emailSender    *email.Sender
+	emailSender    email.EmailSender
 	baseURL        string
 	googleClientID string
 	totpService    *totp.Service
@@ -173,7 +173,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		return nil, status.Error(codes.Internal, "failed to create verification token")
 	}
 
-	sendVerificationEmailIfNeeded(s, email, verificationToken)
+	sendVerificationEmailIfNeeded(ctx, s, email, verificationToken)
 
 	if _, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID); profileErr != nil {
 		s.log.Warn("Failed to create user profile, user will need to complete profile manually",
@@ -215,11 +215,11 @@ func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationTok
 	return b.String(), args
 }
 
-func sendVerificationEmailIfNeeded(s *userServer, email, verificationToken string) {
+func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, verificationToken string) {
 	if s.emailSender == nil || s.baseURL == "" {
 		return
 	}
-	if sendErr := s.emailSender.SendVerificationEmail(email, verificationToken, s.baseURL); sendErr != nil {
+	if sendErr := s.emailSender.SendVerificationEmail(ctx, email, verificationToken, s.baseURL); sendErr != nil {
 		s.log.Warn("Failed to send verification email (registration will proceed)",
 			zap.Error(sendErr),
 			zap.String("email", email))
@@ -2417,7 +2417,7 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	}
 }
 
-func buildUserServer(database *sql.DB, log *logger.Logger, tokenProvider ports.TokenProvider, baseURL, googleClientID string, emailSender *email.Sender, totpService *totp.Service) *userServer {
+func buildUserServer(database *sql.DB, log *logger.Logger, tokenProvider ports.TokenProvider, baseURL, googleClientID string, emailSender email.EmailSender, totpService *totp.Service) *userServer {
 	return &userServer{
 		db:             database,
 		log:            log,
@@ -2488,7 +2488,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 	}
 
 	emailCfg := email.LoadConfig()
-	emailSender := email.NewSender(emailCfg)
+	emailSender := email.NewSMTPClient(emailCfg)
 	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
 	googleClientID := config.GetEnv("GOOGLE_CLIENT_ID")
 	if googleClientID == "" {

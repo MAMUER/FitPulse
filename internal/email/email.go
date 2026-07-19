@@ -5,11 +5,13 @@ package email
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/smtp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MAMUER/project/internal/config"
@@ -23,11 +25,26 @@ type Config struct {
 	Password        string
 	From            string
 	UseTLS          bool
-	DailyLimit      int      // максимальное количество писем в день (0 = без лимита)
-	SkipSendDomains []string // домены, для которых отправка писем пропускается (тестовые)
+	DailyLimit      int      // maximum emails per day (0 = unlimited)
+	SkipSendDomains []string // domains for which sending is skipped (test)
+}
+
+// Validate checks that the configuration is valid.
+func (c Config) Validate() error {
+	if c.Host == "" {
+		return errors.New("SMTP host is required")
+	}
+	if c.Port <= 0 || c.Port > 65535 {
+		return fmt.Errorf("SMTP port must be between 1 and 65535, got %d", c.Port)
+	}
+	if c.From == "" {
+		return errors.New("SMTP from address is required")
+	}
+	return nil
 }
 
 // LoadConfig reads SMTP configuration from environment variables.
+// Supports _FILE suffix for Docker/Kubernetes secrets.
 func LoadConfig() Config {
 	port := 1025
 	if p := config.GetEnv("SMTP_PORT"); p != "" {
@@ -73,32 +90,42 @@ func splitCSV(s string) []string {
 	return result
 }
 
-// Sender is the SMTP client used to send emails.
-type Sender struct {
-	cfg       Config
-	dailySent int // счётчик отправленных писем за день
+// EmailSender is the port for sending emails.
+type EmailSender interface {
+	SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error
 }
 
-// NewSender creates a new email sender with the given configuration.
-func NewSender(cfg Config) *Sender {
-	return &Sender{cfg: cfg}
+// SMTPClient is an SMTP implementation of EmailSender.
+type SMTPClient struct {
+	cfg       Config
+	dailySent int
+	mu        sync.Mutex
+}
+
+// NewSMTPClient creates a new SMTP email sender with the given configuration.
+func NewSMTPClient(cfg Config) *SMTPClient {
+	return &SMTPClient{cfg: cfg}
 }
 
 // SendVerificationEmail sends an email verification message to the given address.
 // The email contains a clickable link and a manual token for confirmation.
-func (s *Sender) SendVerificationEmail(toEmail, verifyToken, baseURL string) error {
-	// Пропуск отправки для тестовых доменов (api-test, load-test)
+func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	for _, domain := range s.cfg.SkipSendDomains {
 		if strings.HasSuffix(toEmail, "@"+domain) {
-			fmt.Printf("SKIP email send (test domain %s): %s\n", domain, toEmail)
-			return nil
+			return fmt.Errorf("skipped: test domain %s", domain)
 		}
 	}
 
-	// Проверка дневного лимита (защита от случайной рассылки)
+	s.mu.Lock()
 	if s.cfg.DailyLimit > 0 && s.dailySent >= s.cfg.DailyLimit {
-		return fmt.Errorf("превышен дневной лимит отправки писем: %d/%d", s.dailySent, s.cfg.DailyLimit)
+		s.mu.Unlock()
+		return fmt.Errorf("daily email limit exceeded: %d/%d", s.dailySent, s.cfg.DailyLimit)
 	}
+	s.mu.Unlock()
 
 	confirmURL := fmt.Sprintf("%s/confirm?token=%s", baseURL, verifyToken)
 
@@ -111,7 +138,7 @@ func (s *Sender) SendVerificationEmail(toEmail, verifyToken, baseURL string) err
 
 	var err error
 	if s.cfg.UseTLS {
-		err = s.sendWithTLS(addr, toEmail, msg)
+		err = s.sendWithTLS(ctx, addr, toEmail, msg)
 	} else {
 		var auth smtp.Auth
 		if s.cfg.User != "" && s.cfg.Password != "" {
@@ -120,72 +147,74 @@ func (s *Sender) SendVerificationEmail(toEmail, verifyToken, baseURL string) err
 		err = smtp.SendMail(addr, auth, s.cfg.From, []string{toEmail}, []byte(msg))
 	}
 
-	// Увеличиваем счётчик только при успешной отправке
+	s.mu.Lock()
 	if err == nil {
 		s.dailySent++
 	}
+	s.mu.Unlock()
 
-	return fmt.Errorf("send mail: %w", err)
+	if err != nil {
+		return fmt.Errorf("send mail: %w", err)
+	}
+	return nil
 }
 
-// sendWithTLS sends email using TLS connection (для Yandex, Mail.ru, Gmail).
-func (s *Sender) sendWithTLS(addr string, toEmail string, msg string) error {
-	// TLS конфигурация
+// sendWithTLS sends email using TLS connection (for Yandex, Mail.ru, Gmail).
+func (s *SMTPClient) sendWithTLS(ctx context.Context, addr string, toEmail string, msg string) error {
 	tlsConfig := &tls.Config{
 		ServerName: s.cfg.Host,
 		MinVersion: tls.VersionTLS12,
 	}
 
-	// Подключаемся к серверу
-	conn, err := (&tls.Dialer{
-		NetDialer: &net.Dialer{Timeout: 10 * time.Second},
-		Config:    tlsConfig,
-	}).DialContext(context.Background(), "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("TLS подключение к SMTP серверу (%s) не удалось: %w", addr, err)
+	dialer := &tls.Dialer{
+		Config: tlsConfig,
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		dialer.NetDialer = &net.Dialer{Timeout: time.Until(deadline)}
+	} else {
+		dialer.NetDialer = &net.Dialer{Timeout: 10 * time.Second}
 	}
 
-	// Создаём SMTP клиент
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("TLS connect to SMTP server (%s) failed: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+
 	client, err := smtp.NewClient(conn, s.cfg.Host)
 	if err != nil {
-		return fmt.Errorf("создание SMTP клиента не удалось: %w", err)
+		return fmt.Errorf("create SMTP client failed: %w", err)
 	}
+	defer func() { _ = client.Quit() }()
 
-	// Аутентификация
 	if s.cfg.User != "" && s.cfg.Password != "" {
 		auth := smtp.PlainAuth("", s.cfg.User, s.cfg.Password, s.cfg.Host)
 		if authErr := client.Auth(auth); authErr != nil {
-			return fmt.Errorf("SMTP аутентификация не удалась: %w", authErr)
+			return fmt.Errorf("SMTP authentication failed: %w", authErr)
 		}
 	}
 
-	// Отправка письма
 	if mailErr := client.Mail(s.cfg.From); mailErr != nil {
-		return fmt.Errorf("ошибка при установке отправителя: %w", mailErr)
+		return fmt.Errorf("set sender failed: %w", mailErr)
 	}
 
 	if rcptErr := client.Rcpt(toEmail); rcptErr != nil {
-		return fmt.Errorf("ошибка при установке получателя (%s): %w", toEmail, rcptErr)
+		return fmt.Errorf("set recipient (%s) failed: %w", toEmail, rcptErr)
 	}
 
-	// Отправка данных письма
 	w, err := client.Data()
 	if err != nil {
-		return fmt.Errorf("ошибка при начале передачи данных: %w", err)
+		return fmt.Errorf("begin data transfer failed: %w", err)
 	}
 
 	_, err = w.Write([]byte(msg))
 	if err != nil {
-		return fmt.Errorf("ошибка при записи данных письма: %w", err)
+		return fmt.Errorf("write message body failed: %w", err)
 	}
 
-	err = w.Close()
-	if err != nil {
-		return fmt.Errorf("ошибка при завершении передачи данных: %w", err)
+	if closeErr := w.Close(); closeErr != nil {
+		return fmt.Errorf("close data writer failed: %w", closeErr)
 	}
-
-	// Завершение сессии
-	_ = client.Quit() // Игнорируем ошибку — сессия может быть уже закрыта
 
 	return nil
 }

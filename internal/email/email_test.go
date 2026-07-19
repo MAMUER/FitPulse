@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -12,7 +13,6 @@ import (
 )
 
 func TestLoadConfigDefaults(t *testing.T) {
-	// Clear env to test defaults
 	require.NoError(t, os.Unsetenv("SMTP_HOST"))
 	require.NoError(t, os.Unsetenv("SMTP_PORT"))
 	require.NoError(t, os.Unsetenv("SMTP_USER"))
@@ -55,7 +55,6 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	assert.Equal(t, "test.local", cfg.SkipSendDomains[0])
 	assert.Equal(t, "example.test", cfg.SkipSendDomains[1])
 
-	// Cleanup
 	require.NoError(t, os.Unsetenv("SMTP_HOST"))
 	require.NoError(t, os.Unsetenv("SMTP_PORT"))
 	require.NoError(t, os.Unsetenv("SMTP_USER"))
@@ -69,14 +68,14 @@ func TestLoadConfigFromEnv(t *testing.T) {
 func TestLoadConfigInvalidPort(t *testing.T) {
 	require.NoError(t, os.Setenv("SMTP_PORT", "not-a-number"))
 	cfg := LoadConfig()
-	assert.Equal(t, 1025, cfg.Port) // should use default
+	assert.Equal(t, 1025, cfg.Port)
 	require.NoError(t, os.Unsetenv("SMTP_PORT"))
 }
 
 func TestLoadConfigInvalidDailyLimit(t *testing.T) {
 	require.NoError(t, os.Setenv("EMAIL_DAILY_LIMIT", "invalid"))
 	cfg := LoadConfig()
-	assert.Equal(t, 0, cfg.DailyLimit) // should use default
+	assert.Equal(t, 0, cfg.DailyLimit)
 	require.NoError(t, os.Unsetenv("EMAIL_DAILY_LIMIT"))
 }
 
@@ -107,20 +106,79 @@ func TestGetEnvFallback(t *testing.T) {
 	assert.Equal(t, "fallback", config.GetEnv("NONEXISTENT_VAR_XYZ", "fallback"))
 }
 
-func TestNewSender(t *testing.T) {
+func TestNewSMTPClient(t *testing.T) {
 	cfg := Config{Host: "localhost", Port: 1025}
-	sender := NewSender(cfg)
-	require.NotNil(t, sender)
-	assert.Equal(t, cfg, sender.cfg)
-	assert.Equal(t, 0, sender.dailySent)
+	client := NewSMTPClient(cfg)
+	require.NotNil(t, client)
+	assert.Equal(t, cfg, client.cfg)
+	assert.Equal(t, 0, client.dailySent)
 }
 
-// Additional daily limit path coverage via config
-func TestSenderDailyLimitConfig(t *testing.T) {
-	cfg := Config{DailyLimit: 10}
-	s := NewSender(cfg)
-	assert.Equal(t, 10, s.cfg.DailyLimit)
+func TestConfigValidate(t *testing.T) {
+	tests := []struct {
+		name      string
+		cfg       Config
+		wantError bool
+	}{
+		{
+			name: "valid config",
+			cfg: Config{
+				Host: "smtp.example.com",
+				Port: 587,
+				From: "noreply@example.com",
+			},
+			wantError: false,
+		},
+		{
+			name: "empty host",
+			cfg: Config{
+				Host: "",
+				Port: 587,
+				From: "noreply@example.com",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid port zero",
+			cfg: Config{
+				Host: "localhost",
+				Port: 0,
+				From: "noreply@example.com",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid port too high",
+			cfg: Config{
+				Host: "localhost",
+				Port: 99999,
+				From: "noreply@example.com",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty from",
+			cfg: Config{
+				Host: "localhost",
+				Port: 1025,
+				From: "",
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
+
 func TestSendVerificationEmailSkipDomain(t *testing.T) {
 	cfg := Config{
 		Host:            "localhost",
@@ -128,11 +186,12 @@ func TestSendVerificationEmailSkipDomain(t *testing.T) {
 		From:            "test@test.com",
 		SkipSendDomains: []string{"test.local"},
 	}
-	sender := NewSender(cfg)
+	client := NewSMTPClient(cfg)
 
-	err := sender.SendVerificationEmail("user@test.local", "token123", "http://localhost:8080")
-	require.NoError(t, err)
-	assert.Equal(t, 0, sender.dailySent) // counter should not increase for skipped
+	err := client.SendVerificationEmail(context.Background(), "user@test.local", "token123", "http://localhost:8080")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "skipped")
+	assert.Equal(t, 0, client.dailySent)
 }
 
 func TestSendVerificationEmailSkipMultipleDomains(t *testing.T) {
@@ -142,12 +201,12 @@ func TestSendVerificationEmailSkipMultipleDomains(t *testing.T) {
 		From:            "test@test.com",
 		SkipSendDomains: []string{"test.local", "example.test", "dev.local"},
 	}
-	sender := NewSender(cfg)
+	client := NewSMTPClient(cfg)
 
-	// Test each skip domain
 	for _, domain := range cfg.SkipSendDomains {
-		err := sender.SendVerificationEmail("user@"+domain, "token123", "http://localhost:8080")
-		require.NoError(t, err)
+		err := client.SendVerificationEmail(context.Background(), "user@"+domain, "token123", "http://localhost:8080")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "skipped")
 	}
 }
 
@@ -156,33 +215,44 @@ func TestSendVerificationEmailExceedsDailyLimit(t *testing.T) {
 		Host:       "localhost",
 		Port:       1025,
 		From:       "test@test.com",
-		DailyLimit: 1,
+		DailyLimit: 2,
 	}
-	sender := NewSender(cfg)
-	sender.dailySent = 1 // already at limit
+	client := NewSMTPClient(cfg)
+	client.dailySent = 2
 
-	err := sender.SendVerificationEmail("user@example.com", "token123", "http://localhost:8080")
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "превышен дневной лимит")
+	assert.Contains(t, err.Error(), "daily email limit exceeded")
+	assert.Contains(t, err.Error(), "2/2")
 }
 
-func TestSendVerificationEmailNoSkipWhenUnderLimit(t *testing.T) {
+func TestSendVerificationEmailDailyLimitIncrement(t *testing.T) {
 	cfg := Config{
-		Host:            "localhost",
-		Port:            1025,
-		From:            "test@test.com",
-		DailyLimit:      5,
-		SkipSendDomains: []string{"test.local"},
+		Host:       "localhost",
+		Port:       1025,
+		From:       "test@test.com",
+		DailyLimit: 5,
 	}
-	sender := NewSender(cfg)
+	client := NewSMTPClient(cfg)
 
-	err := sender.SendVerificationEmail("user@example.com", "token123", "http://localhost:8080")
-
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	if err != nil {
-		assert.Equal(t, 0, sender.dailySent, "counter should not increase on failure")
+		assert.Equal(t, 0, client.dailySent, "counter should not increase on failure")
 	} else {
-		assert.Equal(t, 1, sender.dailySent, "counter should increment on success")
+		assert.Equal(t, 1, client.dailySent, "counter should increment on success")
 	}
+}
+
+func TestSendVerificationEmailContextCancelled(t *testing.T) {
+	cfg := Config{Host: "localhost", Port: 1025, From: "test@test.com"}
+	client := NewSMTPClient(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := client.SendVerificationEmail(ctx, "user@example.com", "token123", "http://localhost:8080")
+	require.Error(t, err)
+	assert.Equal(t, context.Canceled, err)
 }
 
 func TestBuildMessage(t *testing.T) {
@@ -218,13 +288,10 @@ func TestBuildVerificationHTML(t *testing.T) {
 
 func TestBuildVerificationHTMLEmptyToken(t *testing.T) {
 	html := buildVerificationHTML("", "", "")
-	// Should still produce valid HTML
 	assert.Contains(t, html, "<!DOCTYPE html>")
 }
 
 func TestSendWithTLSConnectionError(t *testing.T) {
-	// sendWithTLS will fail because there's no real TLS SMTP server on the given address
-	// but we can verify the error message format
 	cfg := Config{
 		Host:     "nonexistent.smtp.invalid",
 		Port:     465,
@@ -233,17 +300,15 @@ func TestSendWithTLSConnectionError(t *testing.T) {
 		From:     "test@test.com",
 		UseTLS:   true,
 	}
-	sender := NewSender(cfg)
+	client := NewSMTPClient(cfg)
 
-	err := sender.SendVerificationEmail("user@example.com", "token123", "http://localhost:8080")
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	require.Error(t, err)
-	// Error message should mention TLS connection failure
-	assert.Contains(t, err.Error(), "TLS подключение к SMTP серверу")
+	assert.Contains(t, err.Error(), "TLS connect to SMTP server")
 	assert.Contains(t, err.Error(), "nonexistent.smtp.invalid:465")
 }
 
 func TestSendWithTLSAuthErrorFormat(t *testing.T) {
-	// Test with invalid credentials to verify error path through auth
 	cfg := Config{
 		Host:     "localhost",
 		Port:     1025,
@@ -252,15 +317,13 @@ func TestSendWithTLSAuthErrorFormat(t *testing.T) {
 		From:     "test@test.com",
 		UseTLS:   true,
 	}
-	sender := NewSender(cfg)
+	client := NewSMTPClient(cfg)
 
-	err := sender.SendVerificationEmail("user@example.com", "token123", "http://localhost:8080")
-	// Connection will fail before auth, but we verify the TLS path is taken
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	require.Error(t, err)
 }
 
 func TestSendWithTLSDailyLimitCheck(t *testing.T) {
-	// Verify daily limit is checked before TLS connection attempt
 	cfg := Config{
 		Host:       "localhost",
 		Port:       1025,
@@ -268,16 +331,14 @@ func TestSendWithTLSDailyLimitCheck(t *testing.T) {
 		UseTLS:     true,
 		DailyLimit: 0,
 	}
-	sender := NewSender(cfg)
-	sender.dailySent = 1 // any value > 0 with DailyLimit=0 means no limit
+	client := NewSMTPClient(cfg)
+	client.dailySent = 1
 
-	err := sender.SendVerificationEmail("user@example.com", "token", "http://localhost")
-	// Should attempt TLS send (will fail due to no server), but limit check should pass
-	require.Error(t, err) // error from TLS, not from limit
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost")
+	require.Error(t, err)
 }
 
 func TestSendWithTLSSkipDomainBeforeLimit(t *testing.T) {
-	// Verify skip domain check happens before daily limit check
 	cfg := Config{
 		Host:            "localhost",
 		Port:            1025,
@@ -286,12 +347,13 @@ func TestSendWithTLSSkipDomainBeforeLimit(t *testing.T) {
 		DailyLimit:      1,
 		SkipSendDomains: []string{"test.local"},
 	}
-	sender := NewSender(cfg)
-	sender.dailySent = 1 // at limit, but skip domain should bypass
+	client := NewSMTPClient(cfg)
+	client.dailySent = 1
 
-	err := sender.SendVerificationEmail("user@test.local", "token", "http://localhost")
-	require.NoError(t, err)
-	assert.Equal(t, 1, sender.dailySent)
+	err := client.SendVerificationEmail(context.Background(), "user@test.local", "token", "http://localhost")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "skipped")
+	assert.Equal(t, 1, client.dailySent)
 }
 
 func TestBuildMessageEmptyFields(t *testing.T) {
@@ -319,9 +381,7 @@ func TestBuildMessageWithNewlines(t *testing.T) {
 
 func TestBuildMessageCRLFHeaders(t *testing.T) {
 	msg := buildMessage("a@b.com", "c@d.com", "Test", "Body")
-	// Headers should be separated by \r\n
 	assert.Contains(t, msg, "\r\n")
-	// Empty line between headers and body
 	assert.Contains(t, msg, "\r\n\r\n")
 }
 
@@ -352,7 +412,6 @@ func TestBuildVerificationHTMLContainsRequiredElements(t *testing.T) {
 func TestLoadConfigSkipDomainsEmptyEntries(t *testing.T) {
 	require.NoError(t, os.Setenv("EMAIL_SKIP_DOMAINS", ",,test.local,,example.test,,"))
 	cfg := LoadConfig()
-	// Empty entries should be filtered out
 	for _, d := range cfg.SkipSendDomains {
 		assert.NotEmpty(t, d, "skip domains should not contain empty strings")
 	}
@@ -370,7 +429,7 @@ func TestLoadConfigDailyLimitZeroOrNegative(t *testing.T) {
 func TestLoadConfigPortOutOfRange(t *testing.T) {
 	require.NoError(t, os.Setenv("SMTP_PORT", "99999"))
 	cfg := LoadConfig()
-	assert.Equal(t, 99999, cfg.Port) // large port is valid, just won't connect
+	assert.Equal(t, 99999, cfg.Port)
 	require.NoError(t, os.Unsetenv("SMTP_PORT"))
 }
 
@@ -381,7 +440,7 @@ func TestLoadConfigTLSEnvVariations(t *testing.T) {
 	}{
 		{"true", true},
 		{"false", false},
-		{"TRUE", false}, // case-sensitive
+		{"TRUE", false},
 		{"1", false},
 		{"", false},
 	}
@@ -403,16 +462,16 @@ func TestSendVerificationEmailDailyLimitReached(t *testing.T) {
 		From:       "test@test.com",
 		DailyLimit: 2,
 	}
-	sender := NewSender(cfg)
-	sender.dailySent = 2
+	client := NewSMTPClient(cfg)
+	client.dailySent = 2
 
-	err := sender.SendVerificationEmail("user@example.com", "token", "http://localhost")
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "превышен дневной лимит")
+	assert.Contains(t, err.Error(), "daily email limit exceeded")
 	assert.Contains(t, err.Error(), "2/2")
 }
 
-func TestNewSenderWithFullConfig(t *testing.T) {
+func TestNewSMTPClientWithFullConfig(t *testing.T) {
 	cfg := Config{
 		Host:            "smtp.example.com",
 		Port:            587,
@@ -423,8 +482,12 @@ func TestNewSenderWithFullConfig(t *testing.T) {
 		DailyLimit:      500,
 		SkipSendDomains: []string{"test.local"},
 	}
-	sender := NewSender(cfg)
-	require.NotNil(t, sender)
-	assert.Equal(t, cfg, sender.cfg)
-	assert.Equal(t, 0, sender.dailySent)
+	client := NewSMTPClient(cfg)
+	require.NotNil(t, client)
+	assert.Equal(t, cfg, client.cfg)
+	assert.Equal(t, 0, client.dailySent)
+}
+
+func TestEmailSenderInterface(t *testing.T) {
+	var _ EmailSender = (*SMTPClient)(nil)
 }
