@@ -2033,3 +2033,66 @@ defer stop()
 5. **Закрытие**: всегда вызывайте `Close()` для освобождения соединений. Повторный `Close()` безопасен.
 6. **DLQ**: мониторьте DLQ отдельно — сообщения в ней требуют ручного анализа или автоматического reprocessing.
 7. **Тестирование**: интеграционные тесты требуют запущенного RabbitMQ. Unit-тесты используют `-short` флаг для пропуска.
+
+## 19. Shared library `internal/repository` — data access layer for biometric data
+
+### 19.1 Роль
+
+`internal/repository` — это **слой доступа к данным (repository layer)** для персистентности биометрических данных. Он:
+- Абстрагирует SQL-операции от доменного и application слоя (ports and adapters).
+- Предоставляет интерфейс `BiometricRepository` для инъекции зависимостей.
+- Гарантирует контекстную пропагацию (`context.Context`) для отмены и таймаутов.
+- Обеспечивает стандартную обработку ошибок: `sql.ErrNoRows` для "not found", обернутые ошибки для DB ошибок.
+
+### 19.2 Структура пакета
+
+```text
+internal/repository/
+├── biometric_repository.go      # BiometricRepository interface + PostgreSQL implementation
+└── biometric_repository_test.go # Unit-тесты с sqlmock
+```
+
+### 19.3 Интерфейс
+
+```go
+type BiometricRepository interface {
+    Save(ctx context.Context, data *domain.BiometricData) error
+    GetByUser(ctx context.Context, userID string, limit int) ([]*domain.BiometricData, error)
+    GetLatest(ctx context.Context, userID, metricType string) (*domain.BiometricData, error)
+}
+```
+
+### 19.4 Использование
+
+```go
+repo := repository.NewBiometricRepository(db)
+
+// Сохранить запись (ID генерируется автоматически, если пустой)
+err := repo.Save(ctx, &domain.BiometricData{
+    UserID:     "user-123",
+    MetricType: "heart_rate",
+    Value:      72.5,
+    Timestamp:  time.Now(),
+    DeviceType: "smartwatch",
+    CreatedAt:  time.Now(),
+})
+
+// Получить последние 10 записей пользователя
+records, err := repo.GetByUser(ctx, "user-123", 10)
+
+// Получить последнюю запись для конкретного типа метрики
+latest, err := repo.GetLatest(ctx, "user-123", "heart_rate")
+if errors.Is(err, sql.ErrNoRows) {
+    // Нет данных — обработать gracefully
+}
+```
+
+### 19.5 Правила использования
+
+1. **Интерфейс**: внедряйте `BiometricRepository` через конструктор (DIP), не используйте `*sql.DB` напрямую в usecases.
+2. **Контекст**: всегда передавайте `ctx` для поддержки отмены и таймаутов.
+3. **Валидация**: репозиторий проверяет обязательные поля (`user_id`, `metric_type`) и возвращает ошибки до выполнения SQL.
+4. **Ошибки**: `GetLatest` возвращает `sql.ErrNoRows` при отсутствии данных, а не кастомную ошибку.
+5. **UUID**: `Save` генерирует UUID, если `data.ID` пустой. Если ID задан — используется он.
+6. **Лимиты**: `GetByUser` проверяет, что `limit >= 0`. Отрицательные лимиты возвращают ошибку.
+7. **Тестирование**: используйте `sqlmock` для unit-тестирования. Интеграционные тесты требуют PostgreSQL.

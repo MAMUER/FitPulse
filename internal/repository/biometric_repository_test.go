@@ -36,6 +36,7 @@ func TestBiometricRepository_Save_Success(t *testing.T) {
 		Value:      72.5,
 		Timestamp:  time.Date(2026, 4, 13, 10, 0, 0, 0, time.UTC),
 		DeviceType: "smartwatch",
+		CreatedAt:  time.Now(),
 	}
 
 	mock.ExpectExec(`INSERT INTO biometric_data \(id, user_id, metric_type, value, timestamp, device_type, created_at\)`).
@@ -45,7 +46,75 @@ func TestBiometricRepository_Save_Success(t *testing.T) {
 	err := repo.Save(context.Background(), data)
 
 	assert.NoError(t, err)
+	require.NotEmpty(t, data.ID)
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricRepository_Save_NilData(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	err := repo.Save(context.Background(), nil)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "biometric data is nil")
+}
+
+func TestBiometricRepository_Save_EmptyUserID(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	data := &domain.BiometricData{
+		UserID:     "",
+		MetricType: "heart_rate",
+		Value:      72.5,
+		Timestamp:  time.Now(),
+	}
+
+	err := repo.Save(context.Background(), data)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "user_id is required")
+}
+
+func TestBiometricRepository_Save_EmptyMetricType(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	data := &domain.BiometricData{
+		UserID:     testUserID,
+		MetricType: "",
+		Value:      72.5,
+		Timestamp:  time.Now(),
+	}
+
+	err := repo.Save(context.Background(), data)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "metric_type is required")
+}
+
+func TestBiometricRepository_Save_GeneratesUUID(t *testing.T) {
+	db, mock := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	data := &domain.BiometricData{
+		UserID:     testUserID,
+		MetricType: "heart_rate",
+		Value:      72.5,
+		Timestamp:  time.Now(),
+		DeviceType: "smartwatch",
+		CreatedAt:  time.Now(),
+	}
+
+	mock.ExpectExec(`INSERT INTO biometric_data`).
+		WithArgs(sqlmock.AnyArg(), data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := repo.Save(context.Background(), data)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, data.ID)
 }
 
 func TestBiometricRepository_Save_DatabaseError(t *testing.T) {
@@ -58,6 +127,7 @@ func TestBiometricRepository_Save_DatabaseError(t *testing.T) {
 		Value:      72.5,
 		Timestamp:  time.Now(),
 		DeviceType: "smartwatch",
+		CreatedAt:  time.Now(),
 	}
 
 	mock.ExpectExec(`INSERT INTO biometric_data`).
@@ -66,7 +136,8 @@ func TestBiometricRepository_Save_DatabaseError(t *testing.T) {
 	err := repo.Save(context.Background(), data)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "database connection lost")
+	assert.Contains(t, err.Error(), "insert biometric data")
+	assert.Contains(t, err.Error(), "database connection lost")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -138,7 +209,8 @@ func TestBiometricRepository_GetByUser_DatabaseError(t *testing.T) {
 
 	assert.Nil(t, results)
 	assert.Error(t, err)
-	assert.EqualError(t, err, "query biometric data by user: query failed")
+	assert.Contains(t, err.Error(), "query biometric data by user")
+	assert.Contains(t, err.Error(), "query failed")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -160,7 +232,19 @@ func TestBiometricRepository_GetByUser_ScanError(t *testing.T) {
 
 	assert.Nil(t, results)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "scan biometric data row")
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricRepository_GetByUser_NegativeLimit(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	results, err := repo.GetByUser(context.Background(), testUserID, -1)
+
+	assert.Nil(t, results)
+	assert.Error(t, err)
+	assert.EqualError(t, err, "limit must be non-negative")
 }
 
 func TestBiometricRepository_GetLatest_Success(t *testing.T) {
@@ -207,8 +291,7 @@ func TestBiometricRepository_GetLatest_NotFound(t *testing.T) {
 	result, err := repo.GetLatest(context.Background(), userID, metricType)
 
 	assert.Nil(t, result)
-	assert.Error(t, err)
-	assert.EqualError(t, err, "not found")
+	assert.ErrorIs(t, err, sql.ErrNoRows)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -227,8 +310,31 @@ func TestBiometricRepository_GetLatest_DatabaseError(t *testing.T) {
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
-	assert.EqualError(t, err, "query latest biometric: internal server error")
+	assert.Contains(t, err.Error(), "query latest biometric")
+	assert.Contains(t, err.Error(), "internal server error")
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBiometricRepository_GetLatest_EmptyUserID(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	result, err := repo.GetLatest(context.Background(), "", "heart_rate")
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	assert.EqualError(t, err, "user_id is required")
+}
+
+func TestBiometricRepository_GetLatest_EmptyMetricType(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewBiometricRepository(db)
+
+	result, err := repo.GetLatest(context.Background(), testUserID, "")
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	assert.EqualError(t, err, "metric_type is required")
 }
 
 func TestNewBiometricRepository(t *testing.T) {
@@ -292,23 +398,27 @@ func TestBiometricRepository_GetByUser_MultipleRecords(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestBiometricRepository_Save_WithNilContext(t *testing.T) {
+func TestBiometricRepository_Save_PreservesProvidedID(t *testing.T) {
 	db, mock := setupTestDB(t)
 	repo := NewBiometricRepository(db)
 
 	data := &domain.BiometricData{
+		ID:         "custom-id",
 		UserID:     testUserID,
 		MetricType: "heart_rate",
 		Value:      72.5,
 		Timestamp:  time.Now(),
 		DeviceType: "smartwatch",
+		CreatedAt:  time.Now(),
 	}
 
 	mock.ExpectExec(`INSERT INTO biometric_data`).
+		WithArgs(data.ID, data.UserID, data.MetricType, data.Value, data.Timestamp, data.DeviceType, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Save(context.Background(), data)
 
 	assert.NoError(t, err)
+	assert.Equal(t, "custom-id", data.ID)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
