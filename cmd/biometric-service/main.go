@@ -495,7 +495,7 @@ func main() {
 	queueName := "biometric_events"
 	var rabbitQueue queue.Publisher
 	if rabbitURL != "" {
-		rabbitQueue, err = queue.NewPublisher(rabbitURL, queueName, log.Logger)
+		rabbitQueue, err = queue.NewPublisher(rabbitURL, queueName, log)
 		if err != nil {
 			log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
 		} else {

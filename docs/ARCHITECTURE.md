@@ -1938,3 +1938,98 @@ for _, name := range metrics.AllClassNames {
 3. **gRPC**: применяйте `UnaryServerInterceptor` на сервере и `UnaryClientInterceptor` на клиенте для автоматического сбора метрик.
 4. **Тестирование**: метрики регистрируются в default registry через `promauto`. В тестах используйте `prometheus.NewRegistry()` и пересоздавайте метрики через `prometheus.NewCounterVec` для изоляции.
 5. **ClassNames**: `AllClassNames` отсортирован для детерминированного вывода. `ClassNamesByID` — это конфигурационный мап, не изменяйте его в рантайме.
+
+## 18. Shared library `internal/queue` — RabbitMQ messaging with DLQ
+
+### 18.1 Роль
+
+`internal/queue` — это **адаптер обмена сообщениями на RabbitMQ**, который обеспечивает:
+- Публикацию событий в durable очереди с подтверждением доставки.
+- Потребление сообщений с ручным подтверждением (`Ack`/`Nack`).
+- Автоматическую настройку Dead Letter Queue (DLQ) для обработки неудачных сообщений.
+- Prometheus-метрики глубины очереди и количества опубликованных сообщений.
+
+### 18.2 Структура пакета
+
+```text
+internal/queue/
+├── interface.go  # Publisher, Consumer интерфейсы и опции
+├── queue.go      # Реализации Publisher/Consumer, метрики, depth reporter
+├── dlq.go        # Объявление очереди с DLQ
+├── queue_test.go # Unit и интеграционные тесты
+```
+
+### 18.3 Интерфейсы
+
+```go
+type Publisher interface {
+    Publish(ctx context.Context, event interface{}) error
+    Ping() error
+    Close() error
+}
+
+type Consumer interface {
+    Messages() <-chan amqp.Delivery
+    Ack(tag uint64, multiple bool) error
+    Nack(tag uint64, multiple, requeue bool) error
+    Close() error
+}
+```
+
+### 18.4 Создание Publisher
+
+```go
+pub, err := queue.NewPublisher(
+    rabbitURL,
+    "biometric_events",
+    log, // *logger.Logger
+    queue.WithPublisherPriority("high"),
+)
+```
+
+### 18.5 Создание Consumer
+
+```go
+consumer, err := queue.NewConsumer(
+    rabbitURL,
+    "biometric_events",
+    log, // *logger.Logger
+    queue.WithConsumerPriority("high"),
+)
+```
+
+### 18.6 Dead Letter Queue
+
+`DeclareQueueWithDLQ` автоматически создает DLQ и настраивает основную очередь:
+- DLQ: `<queue-name>.dlq`
+- TTL сообщений: 24 часа
+- Максимальная длина очереди: 10 000 сообщений
+- Routing key для DLQ: `<queue-name>.dlq`
+
+### 18.7 Метрики
+
+```go
+// Глубина очереди (обновляется через StartDepthReporter)
+metrics.NotificationQueueDepth.WithLabelValues("biometric_events", "high").Set(float64(depth))
+
+// Количество published сообщений
+queue.ExportQueueDepth(queueName, priority, depth)
+```
+
+### 18.8 Depth Reporter
+
+```go
+// Запускает периодическое обновление глубины очереди
+stop := queue.StartDepthReporter(ctx, channel, "biometric_events", queue.WithConsumerPriority("high"))
+defer stop()
+```
+
+### 18.9 Правила использования
+
+1. **Логгер**: передавайте `*logger.Logger` вместо `*zap.Logger` для согласованности с проектом.
+2. **Приоритет**: используйте `WithPublisherPriority`/`WithConsumerPriority` для корректного标签ования метрик.
+3. **Context**: `Publish` принимает `context.Context` для отмены и таймаутов.
+4. **Ack/Nack**: вызывайте `Ack` только после успешной обработки сообщения. Используйте `Nack` с `requeue=false` для отправки в DLQ.
+5. **Закрытие**: всегда вызывайте `Close()` для освобождения соединений. Повторный `Close()` безопасен.
+6. **DLQ**: мониторьте DLQ отдельно — сообщения в ней требуют ручного анализа или автоматического reprocessing.
+7. **Тестирование**: интеграционные тесты требуют запущенного RabbitMQ. Unit-тесты используют `-short` флаг для пропуска.

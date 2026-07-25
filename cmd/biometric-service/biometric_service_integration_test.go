@@ -81,7 +81,7 @@ func TestBiometricServiceIntegration(t *testing.T) {
 	log := &logger.Logger{Logger: zapLog}
 
 	rabbitURL := "amqp://testuser:testpass@" + infra.RabbitMQHost + ":" + strconv.Itoa(infra.RabbitMQPort) + "/"
-	rabbitQueue, err := queue.NewPublisher(rabbitURL, "biometric_events", zapLog)
+	rabbitQueue, err := queue.NewPublisher(rabbitURL, "biometric_events", log)
 	if err != nil {
 		t.Logf("RabbitMQ not available, tests will skip queue checks: %v", err)
 	}

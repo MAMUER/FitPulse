@@ -10,15 +10,16 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"go.uber.org/zap"
 
+	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 )
 
 // Prometheus метрики для очереди
 var (
-	queueMessagesTotal = prometheus.NewCounterVec(
+	queueMessagesTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "queue_messages_total",
 			Help: "Total number of messages published to queue",
@@ -26,10 +27,6 @@ var (
 		[]string{"queue", "status"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(queueMessagesTotal)
-}
 
 // QueueMetrics ties queue/priority labels for depth reporting.
 type QueueMetrics struct {
@@ -61,12 +58,47 @@ func ExportQueueDepth(queue, priority string, depth int) {
 	registerQueueMetrics(queue, priority).Set(depth)
 }
 
+// PublisherOption настраивает Publisher при создании.
+type PublisherOption func(*publisherOptions)
+
+type publisherOptions struct {
+	priority string
+}
+
+// WithPublisherPriority задаёт приоритет очереди для метрик.
+func WithPublisherPriority(priority string) PublisherOption {
+	return func(o *publisherOptions) {
+		o.priority = priority
+	}
+}
+
+// ConsumerOption настраивает Consumer при создании.
+type ConsumerOption func(*consumerOptions)
+
+type consumerOptions struct {
+	priority string
+}
+
+// WithConsumerPriority задаёт приоритет очереди для метрик.
+func WithConsumerPriority(priority string) ConsumerOption {
+	return func(o *consumerOptions) {
+		o.priority = priority
+	}
+}
+
+func ensureLogger(log *logger.Logger) *logger.Logger {
+	if log == nil {
+		return logger.New("queue")
+	}
+	return log
+}
+
 // rabbitPublisher — реализация Publisher
 type rabbitPublisher struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	queue   string
-	log     *zap.Logger
+	log     *logger.Logger
 	metrics *QueueMetrics
 	mu      sync.RWMutex
 	closed  bool
@@ -78,16 +110,14 @@ type rabbitConsumer struct {
 	channel *amqp.Channel
 	queue   string
 	msgs    <-chan amqp.Delivery
-	log     *zap.Logger
+	log     *logger.Logger
 	mu      sync.RWMutex
 	closed  bool
 }
 
 // NewPublisher создаёт нового издателя
-func NewPublisher(url, queueName string, logger *zap.Logger) (Publisher, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
+func NewPublisher(url, queueName string, log *logger.Logger, opts ...PublisherOption) (Publisher, error) {
+	log = ensureLogger(log)
 
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -107,12 +137,17 @@ func NewPublisher(url, queueName string, logger *zap.Logger) (Publisher, error) 
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
+	o := &publisherOptions{priority: "default"}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	return &rabbitPublisher{
 		conn:    conn,
 		channel: ch,
 		queue:   queueName,
-		log:     logger,
-		metrics: registerQueueMetrics(queueName, "default"),
+		log:     log,
+		metrics: registerQueueMetrics(queueName, o.priority),
 	}, nil
 }
 
@@ -159,22 +194,30 @@ func (p *rabbitPublisher) Ping() error {
 }
 
 func (p *rabbitPublisher) Close() error {
-	p.mu.Lock()
-	if p.closed {
-		p.mu.Unlock()
+	return closeResources(&p.mu, &p.closed, p.conn, p.channel)
+}
+
+func (c *rabbitConsumer) Close() error {
+	return closeResources(&c.mu, &c.closed, c.conn, c.channel)
+}
+
+func closeResources(mu *sync.RWMutex, closed *bool, conn *amqp.Connection, channel *amqp.Channel) error {
+	mu.Lock()
+	if *closed {
+		mu.Unlock()
 		return nil
 	}
-	p.closed = true
-	p.mu.Unlock()
+	*closed = true
+	mu.Unlock()
 
 	var errs []error
-	if p.channel != nil {
-		if err := p.channel.Close(); err != nil && !isClosedError(err) {
+	if channel != nil {
+		if err := channel.Close(); err != nil && !isClosedError(err) {
 			errs = append(errs, fmt.Errorf("channel: %w", err))
 		}
 	}
-	if p.conn != nil {
-		if err := p.conn.Close(); err != nil && !isClosedError(err) {
+	if conn != nil {
+		if err := conn.Close(); err != nil && !isClosedError(err) {
 			errs = append(errs, fmt.Errorf("conn: %w", err))
 		}
 	}
@@ -186,10 +229,8 @@ func (p *rabbitPublisher) Close() error {
 }
 
 // NewConsumer создаёт нового потребителя
-func NewConsumer(url, queueName string, logger *zap.Logger) (Consumer, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
+func NewConsumer(url, queueName string, log *logger.Logger, opts ...ConsumerOption) (Consumer, error) {
+	log = ensureLogger(log)
 
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -222,12 +263,17 @@ func NewConsumer(url, queueName string, logger *zap.Logger) (Consumer, error) {
 		return nil, fmt.Errorf("failed to consume: %w", err)
 	}
 
+	o := &consumerOptions{priority: "default"}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	return &rabbitConsumer{
 		conn:    conn,
 		channel: ch,
 		queue:   queueName,
 		msgs:    msgs,
-		log:     logger,
+		log:     log,
 	}, nil
 }
 
@@ -236,35 +282,11 @@ func (c *rabbitConsumer) Messages() <-chan amqp.Delivery {
 }
 
 func (c *rabbitConsumer) Ack(tag uint64, multiple bool) error {
-	return fmt.Errorf("ack message: %w", c.channel.Ack(tag, multiple))
+	return c.channel.Ack(tag, multiple)
 }
 
 func (c *rabbitConsumer) Nack(tag uint64, multiple, requeue bool) error {
-	return fmt.Errorf("nack message: %w", c.channel.Nack(tag, multiple, requeue))
-}
-
-func (c *rabbitConsumer) Close() error {
-	c.mu.Lock()
-	if c.closed {
-		c.mu.Unlock()
-		return nil
-	}
-	c.closed = true
-	c.mu.Unlock()
-
-	if c.channel != nil {
-		err := c.channel.Close()
-		if err != nil && !isClosedError(err) {
-			c.log.Error("Channel close failed", zap.Error(err))
-		}
-	}
-	if c.conn != nil {
-		err := c.conn.Close()
-		if err != nil && !isClosedError(err) {
-			c.log.Error("Conn close failed", zap.Error(err))
-		}
-	}
-	return nil
+	return c.channel.Nack(tag, multiple, requeue)
 }
 
 func isClosedError(err error) bool {
@@ -272,24 +294,38 @@ func isClosedError(err error) bool {
 }
 
 // StartDepthReporter periodically updates NotificationQueueDepth for the consumer queue.
-func StartDepthReporter(ctx context.Context, ch *amqp.Channel, queueName string) {
+// It returns a stop function for graceful shutdown.
+func StartDepthReporter(ctx context.Context, ch *amqp.Channel, queueName string, opts ...ConsumerOption) func() {
 	if ch == nil || queueName == "" {
-		return
+		return func() {}
 	}
-	m := registerQueueMetrics(queueName, "default")
 
+	o := &consumerOptions{priority: "default"}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	m := registerQueueMetrics(queueName, o.priority)
+	done := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			if ctx.Err() != nil {
+		for {
+			select {
+			case <-ticker.C:
+				if ctx.Err() != nil {
+					return
+				}
+				q, err := ch.QueueDeclarePassive(queueName, true, false, false, false, nil)
+				if err != nil {
+					continue
+				}
+				m.Set(int(q.Messages))
+			case <-done:
 				return
 			}
-			q, err := ch.QueueDeclarePassive(queueName, true, false, false, false, nil)
-			if err != nil {
-				continue
-			}
-			m.Set(int(q.Messages))
 		}
 	}()
+
+	return func() { close(done) }
 }

@@ -981,7 +981,7 @@ func createRabbitQueue(rabbitURL, queueName string, log *logger.Logger) queue.Pu
 	if rabbitURL == "" {
 		return nil
 	}
-	rabbitQueue, err := queue.NewPublisher(rabbitURL, queueName, zap.NewNop())
+	rabbitQueue, err := queue.NewPublisher(rabbitURL, queueName, log)
 	if err != nil {
 		log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
 		return nil

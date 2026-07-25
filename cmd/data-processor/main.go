@@ -118,7 +118,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 		return errors.New("RABBITMQ_URL is required")
 	}
 
-	consumer, err := queue.NewConsumer(rabbitURL, "biometric_events", log.Logger)
+	consumer, err := queue.NewConsumer(rabbitURL, "biometric_events", log)
 	if err != nil {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
