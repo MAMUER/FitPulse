@@ -502,13 +502,16 @@ func TestUnaryClientInterceptor_MultipleCalls(t *testing.T) {
 func TestUnaryClientInterceptor_DifferentMethods(t *testing.T) {
 	registry := resetMetrics(t)
 
-	const serviceName = "client-service"
+	const (
+		serviceName = "client-service"
+	)
 
 	interceptor := UnaryClientInterceptor(serviceName)
+
 	methods := []string{
-		"/api.v1.UserService/GetUser",
-		"/api.v1.UserService/UpdateUser",
-		"/api.v1.UserService/DeleteUser",
+		"/api.v1.UserService/GetProfile",
+		"/api.v1.OrderService/CreateOrder",
+		"/api.v1.NotificationService/Send",
 	}
 
 	for _, method := range methods {

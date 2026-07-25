@@ -1703,9 +1703,91 @@ type Config struct {
 5. **Skip domains** — используются для тестовых окружений, возвращают ошибку `skipped: test domain ...`.
 6. **TLS**: для production SMTP серверов используйте `UseTLS=true` с портом 465/587.
 
-## 15. Shared library `internal/grpc` — gRPC server/client utilities with mTLS
+## 15. Shared library `internal/logger` — structured logging
 
 ### 15.1 Роль
+
+`internal/logger` — это **общая библиотека логирования**, которая обеспечивает:
+- Единый структурированный JSON-формат логов для всех сервисов.
+- Автоматическое добавление поля `service` в каждый лог для агрегации в ELK/Loki.
+- Контекстная пропагация: `correlationId`, `userId` из `context.Context`.
+- Development-режим с цветным консольным выводом для локальной разработки.
+- Флуент-API для построения цепочек логгеров без потери типа.
+
+### 15.2 Структура пакета
+
+```text
+internal/logger/
+├── logger.go      # Logger, New, Development, FromContext, WithRequestID, WithUserID ...
+└── logger_test.go # Unit-тесты всех методов и конфигураций
+```
+
+### 15.3 Создание логгера
+
+```go
+import "github.com/MAMUER/project/internal/logger"
+
+// Production: JSON в stdout/stderr
+log := logger.New("gateway")
+
+// Development: цветной вывод в консоль
+log := logger.Development("gateway")
+```
+
+Оба конструктора читают `LOG_LEVEL` из окружения (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+
+### 15.4 Контекстная пропагация
+
+Middleware кладут `correlationId` и `userId` в `context.Context`. Логгер автоматически их подхватывает:
+
+```go
+log := logger.FromContext(r.Context(), baseLogger)
+log.Info("request processed")
+```
+
+### 15.5 Fluent API
+
+Все методы возвращают `*Logger`, сохраняя fluent-цепочку:
+
+```go
+log := logger.New("gateway").
+    WithRequestID(cid).
+    WithUserID(uid).
+    WithAction("HTTP_REQUEST").
+    WithDuration(duration).
+    WithFields(zap.String("endpoint", path))
+
+log.Info("request completed")
+```
+
+Доступные методы:
+- `WithRequestID(correlationID string) *Logger`
+- `WithUserID(userID string) *Logger`
+- `WithAction(action string) *Logger`
+- `WithDuration(duration time.Duration) *Logger`
+- `WithMetadata(metadata map[string]interface{}) *Logger`
+- `WithFields(fields ...zap.Field) *Logger`
+- `WithCallerSkip(skip int) *Logger`
+
+### 15.6 Error-aware логирование
+
+```go
+log.Errorw("operation failed", err, zap.String("operation", "create"))
+```
+
+Поле `error` добавляется только если `err != nil`.
+
+### 15.7 Правила использования
+
+1. **Сервисное имя**: всегда передавайте имя сервиса в `New(service)` или `Development(service)`.
+2. **Контекст**: используйте `FromContext(ctx, base)` в хендлерах для автоматической подстановки correlationId/userId.
+3. **Локализация**: `New()` — для production, `Development()` — для локальной разработки.
+4. **Fluent API**: не вызывайте `l.Logger` напрямую, используйте методы `*Logger`.
+5. **Sync**: вызывайте `defer log.Sync()` в `main()` для гарантии записи буферизированных логов.
+
+## 16. Shared library `internal/grpc` — gRPC server/client utilities with mTLS
+
+### 16.1 Роль
 
 `internal/grpc` — это **общая библиотека для работы с gRPC**, которая используется
 всем сервисами для:
@@ -1714,7 +1796,7 @@ type Config struct {
 - Регистрации health check сервиса.
 - Централизованной загрузки TLS конфигурации из окружения.
 
-### 15.2 Структура пакета
+### 16.2 Структура пакета
 
 ```text
 internal/grpc/
@@ -1723,7 +1805,7 @@ internal/grpc/
 └── tls.go       # GetServerTLSCredentials, GetClientTLSCredentials
 ```
 
-### 15.3 Configuration
+### 16.3 Configuration
 
 ```go
 type Config struct {
@@ -1737,7 +1819,7 @@ type Config struct {
 - `Validate()` проверяет, что если TLS включен, то указаны cert и key.
 - Environment variables: `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CA_FILE`.
 
-### 15.4 Server
+### 16.4 Server
 
 ```go
 func NewServer(opts ...grpc.ServerOption) *grpc.Server
@@ -1747,7 +1829,7 @@ func NewServer(opts ...grpc.ServerOption) *grpc.Server
 - Если TLS не настроен, создает insecure сервер.
 - Автоматически регистрирует `grpc_health_v1.Health` сервис.
 
-### 15.5 Client
+### 16.5 Client
 
 ```go
 func NewClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
@@ -1757,16 +1839,102 @@ func NewClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 - Если CA не указан, создает insecure подключение.
 - Поддерживает все стандартные `grpc.DialOption`.
 
-### 15.6 TLS
+### 16.6 TLS
 
 - TLS 1.3 minimum (`tls.VersionTLS13`).
 - mTLS: если указан `GRPC_TLS_CA_FILE`, сервер требует и проверяет client cert.
 - Пути к файлам проверяются на path traversal (`..`).
 
-### 15.7 Правила использования
+### 16.7 Правила использования
 
 1. **Серверы**: используйте `grpctls.NewServer(opts...)` вместо ручного вызова `GetServerTLSCredentials()`.
 2. **Клиенты**: используйте `grpctls.NewClient(target, opts...)` вместо ручного вызова `GetClientTLSCredentials()`.
 3. **Конфигурация**: загружается через `grpctls.LoadConfig()` в композиционном корне (`main.go`), затем валидируется.
 4. **Health check**: регистрируется автоматически в `NewServer`.
 5. **Secrets**: сертификаты поддерживают `_FILE` суффикс для Docker/Kubernetes secrets.
+
+## 17. Shared library `internal/metrics` — Prometheus observability
+
+### 17.1 Роль
+
+`internal/metrics` — это **общая библиотека метрик Prometheus**, которая обеспечивает:
+- Единые именования и labels для HTTP и gRPC метрик во всех сервисах.
+- Стандартные метрики: `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, `error_total`.
+- Бизнес-метрики: `classification_confidence`, `db_connection_pool_usage`, `notification_queue_depth`, `biometric_sync_lag_seconds`, `backup_success`.
+- gRPC interceptors для автоматического сбора метрик на серверной и клиентской стороне.
+
+### 17.2 Структура пакета
+
+```text
+internal/metrics/
+├── metrics.go      # Общие HTTP метрики
+├── extended.go     # Бизнес-метрики
+├── rpc.go          # gRPC interceptors и RPC метрики
+├── class_names.go  # Маппинг ID классов тренировок
+├── metrics_test.go # Тесты HTTP метрик
+└── rpc_test.go     # Тесты gRPC interceptors
+```
+
+### 17.3 Использование HTTP метрик
+
+```go
+import "github.com/MAMUER/project/internal/metrics"
+
+// В middleware или хендлере:
+metrics.RequestsTotal.WithLabelValues(r.Method, r.URL.Path, statusStr).Inc()
+metrics.RequestDuration.WithLabelValues(r.Method, r.URL.Path).Observe(duration.Seconds())
+metrics.ErrorTotal.WithLabelValues("gateway", errorType).Inc()
+```
+
+### 17.4 Использование gRPC interceptors
+
+```go
+// Серверная сторона
+grpc.NewServer(
+    grpc.UnaryInterceptor(metrics.UnaryServerInterceptor("biometric-service")),
+)
+
+// Клиентская сторона
+conn, err := grpc.Dial(
+    target,
+    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")),
+)
+```
+
+### 17.5 Бизнес-метрики
+
+```go
+// Доля использования connection pool
+metrics.DBConnectionPoolUsage.WithLabelValues("users_db", "main").Set(usage)
+
+// Глубина очереди уведомлений
+metrics.NotificationQueueDepth.WithLabelValues("email", "high").Set(float64(depth))
+
+// Задержка синхронизации биометрических данных
+metrics.BiometricSyncLagSeconds.WithLabelValues("heart_rate", "premium").Set(lag)
+
+// Успешность бэкапов
+metrics.BackupSuccess.WithLabelValues("postgres", "daily").Set(1)
+```
+
+### 17.6 Маппинг классов тренировок
+
+```go
+import "github.com/MAMUER/project/internal/metrics"
+
+// Получить имя класса по ID
+name := metrics.ClassNamesByID[3] // "power_hiit"
+
+// Все отсортированные имена классов
+for _, name := range metrics.AllClassNames {
+    fmt.Println(name)
+}
+```
+
+### 17.7 Правила использования
+
+1. **Именование**: используйте существующие метрики, не создавайте дубликаты. Новые бизнес-метрики добавляйте в `extended.go`.
+2. **Labels**: используйте осмысленные значения labels, избегайте high-cardinality (например, user IDs).
+3. **gRPC**: применяйте `UnaryServerInterceptor` на сервере и `UnaryClientInterceptor` на клиенте для автоматического сбора метрик.
+4. **Тестирование**: метрики регистрируются в default registry через `promauto`. В тестах используйте `prometheus.NewRegistry()` и пересоздавайте метрики через `prometheus.NewCounterVec` для изоляции.
+5. **ClassNames**: `AllClassNames` отсортирован для детерминированного вывода. `ClassNamesByID` — это конфигурационный мап, не изменяйте его в рантайме.

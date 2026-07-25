@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -27,9 +29,8 @@ func TestNewWithMultipleServices(t *testing.T) {
 			defer func() { _ = log.Sync() }()
 
 			core, recorded := observer.New(zap.InfoLevel)
-			testLogger := &Logger{Logger: zap.New(core)}
-			loggerWithService := testLogger.With(zap.String("service", name))
-			loggerWithService.Info("service started")
+			testLogger := zap.New(core)
+			testLogger.With(zap.String("service", name)).Info("service started")
 
 			logs := recorded.All()
 			require.Len(t, logs, 1)
@@ -144,20 +145,16 @@ func TestWithFields(t *testing.T) {
 	core, recorded := observer.New(zap.InfoLevel)
 	l := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-	// Call WithFields and verify it returns a *zap.Logger
-	zapLogger := l.WithFields(zap.String("user_id", "123"), zap.Int("attempt", 3))
-	assert.NotNil(t, zapLogger)
+	childLogger := l.WithFields(zap.String("user_id", "123"), zap.Int("attempt", 3))
+	assert.NotNil(t, childLogger)
 
-	// Log a message using the returned *zap.Logger
-	zapLogger.Info("fields test")
+	childLogger.Info("fields test")
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
 
-	// Verify the message
 	assert.Equal(t, "fields test", logs[0].Message)
 
-	// Verify fields are present
 	fieldKeys := make(map[string]bool)
 	for _, field := range logs[0].Context {
 		fieldKeys[field.Key] = true
@@ -179,7 +176,6 @@ func TestWithFields_MultipleCalls(t *testing.T) {
 	logs := recorded.All()
 	require.Len(t, logs, 2)
 
-	// First log should have key1
 	assert.Equal(t, "msg1", logs[0].Message)
 	hasKey1 := false
 	for _, f := range logs[0].Context {
@@ -190,7 +186,6 @@ func TestWithFields_MultipleCalls(t *testing.T) {
 	}
 	assert.True(t, hasKey1, "key1 should be in first log")
 
-	// Second log should have key2
 	assert.Equal(t, "msg2", logs[1].Message)
 	hasKey2 := false
 	for _, f := range logs[1].Context {
@@ -206,10 +201,10 @@ func TestWithFields_NoFields(t *testing.T) {
 	core, recorded := observer.New(zap.InfoLevel)
 	l := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-	zapLogger := l.WithFields()
-	assert.NotNil(t, zapLogger)
+	childLogger := l.WithFields()
+	assert.NotNil(t, childLogger)
 
-	zapLogger.Info("no fields")
+	childLogger.Info("no fields")
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
@@ -217,7 +212,6 @@ func TestWithFields_NoFields(t *testing.T) {
 }
 
 func TestLogLevelEnvVar(t *testing.T) {
-	// Save and restore original env var
 	originalLevel := os.Getenv("LOG_LEVEL")
 	defer func() { _ = os.Setenv("LOG_LEVEL", originalLevel) }()
 
@@ -275,11 +269,9 @@ func TestLogLevelEnvVar(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.NoError(t, os.Setenv("LOG_LEVEL", tt.envValue))
 
-			// Test that New() reads the LOG_LEVEL env var
 			l := New("test-svc")
 			defer func() { _ = l.Sync() }()
 
-			// Use an observer to capture output at debug level
 			core, recorded := observer.New(zap.DebugLevel)
 			testLog := zap.New(core)
 			testLog.Debug("debug message")
@@ -287,12 +279,10 @@ func TestLogLevelEnvVar(t *testing.T) {
 			testLog.Warn("warn message")
 			testLog.Error("error message")
 
-			// Verify the logger was created successfully
 			assert.Equal(t, "test-svc", l.Service())
 
-			// Verify messages are captured (the actual level filtering is done by zap)
 			logs := recorded.All()
-			assert.GreaterOrEqual(t, len(logs), 3) // at least info, warn, error
+			assert.GreaterOrEqual(t, len(logs), 3)
 		})
 	}
 }
@@ -303,11 +293,9 @@ func TestLogLevelEnvVar_EmptyUsesDefault(t *testing.T) {
 
 	require.NoError(t, os.Setenv("LOG_LEVEL", ""))
 
-	// When LOG_LEVEL is empty, New() should use default (info level from zap production config)
 	l := New("test-svc")
 	defer func() { _ = l.Sync() }()
 
-	// Verify logger was created and works
 	assert.Equal(t, "test-svc", l.Service())
 	l.Info("test with empty LOG_LEVEL")
 }
@@ -319,7 +307,6 @@ func TestErrorOutputPaths(t *testing.T) {
 		testMessageKey = "message"
 	)
 
-	// Test that the logger can be configured with stderr for error output
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig.TimeKey = testTimeKey
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -338,7 +325,6 @@ func TestErrorOutputPaths(t *testing.T) {
 	assert.NotNil(t, l)
 	assert.Equal(t, "test-stderr", l.Service())
 
-	// Just verify we can call error-level logging without panic
 	assert.NotPanics(t, func() {
 		l.Error("test error message")
 	})
@@ -351,12 +337,13 @@ func TestErrorOutputPaths_MultiplePaths(t *testing.T) {
 		testMessageKey = "message"
 	)
 
-	// Test configuration with multiple output paths
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig.TimeKey = testTimeKey
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	cfg.EncoderConfig.LevelKey = testLevelKey
 	cfg.EncoderConfig.MessageKey = testMessageKey
+	cfg.EncoderConfig.CallerKey = "caller"
+	cfg.EncoderConfig.StacktraceKey = "stacktrace"
 	cfg.OutputPaths = []string{"stdout"}
 	cfg.ErrorOutputPaths = []string{"stderr", "stdout"}
 
@@ -387,7 +374,6 @@ func TestSync_CalledMultipleTimes(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
 	l := &Logger{Logger: zap.New(core), service: "test-sync"}
 
-	// Sync should be safe to call multiple times
 	err1 := l.Sync()
 	err2 := l.Sync()
 
@@ -401,7 +387,6 @@ func TestWithRequestID_PreservesService(t *testing.T) {
 
 	child := l.WithRequestID("req-123")
 
-	// The service name should be preserved in the child logger
 	assert.Equal(t, "original-service", child.service)
 }
 
@@ -409,14 +394,14 @@ func TestWithFields_FieldTypes(t *testing.T) {
 	core, recorded := observer.New(zap.InfoLevel)
 	l := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-	zapLogger := l.WithFields(
+	childLogger := l.WithFields(
 		zap.String("str_field", "hello"),
 		zap.Int("int_field", 42),
 		zap.Bool("bool_field", true),
 		zap.Float64("float_field", 3.14),
 	)
 
-	zapLogger.Info("typed fields test")
+	childLogger.Info("typed fields test")
 
 	logs := recorded.All()
 	require.Len(t, logs, 1)
@@ -430,4 +415,157 @@ func TestWithFields_FieldTypes(t *testing.T) {
 	assert.Contains(t, fieldMap, "int_field")
 	assert.Contains(t, fieldMap, "bool_field")
 	assert.Contains(t, fieldMap, "float_field")
+}
+
+func TestWithMetadata(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	metadata := map[string]interface{}{
+		"str_key":  "hello",
+		"int_key":  42,
+		"bool_key": true,
+	}
+
+	childLogger := l.WithMetadata(metadata)
+	childLogger.Info("metadata test")
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+
+	assert.Contains(t, fieldMap, "str_key")
+	assert.Contains(t, fieldMap, "int_key")
+	assert.Contains(t, fieldMap, "bool_key")
+}
+
+func TestWithCallerSkip(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	baseLogger := zap.New(core)
+	l := &Logger{Logger: baseLogger, service: "test-svc"}
+
+	child := l.WithCallerSkip(1)
+	assert.NotNil(t, child)
+	assert.Equal(t, "test-svc", child.service)
+}
+
+func TestErrorw(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	testErr := errors.New("test error")
+	l.Errorw("operation failed", testErr, zap.String("operation", "create"))
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	assert.Equal(t, "operation failed", logs[0].Message)
+
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+
+	assert.Contains(t, fieldMap, "error")
+	assert.Contains(t, fieldMap, "operation")
+}
+
+func TestErrorw_NilError(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	l.Errorw("operation failed", nil, zap.String("operation", "create"))
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	assert.Equal(t, "operation failed", logs[0].Message)
+
+	_, hasError := false, false
+	for _, f := range logs[0].Context {
+		if f.Key == "error" {
+			hasError = true
+			break
+		}
+	}
+	assert.False(t, hasError, "error field should not be present when err is nil")
+}
+
+func TestFromContext(t *testing.T) {
+	t.Run("with correlationId and userId", func(t *testing.T) {
+		core, recorded := observer.New(zap.InfoLevel)
+		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+		ctx := context.WithValue(context.Background(), correlationIDKey, "corr-123")
+		ctx = context.WithValue(ctx, userIDKey, "user-456")
+
+		logger := FromContext(ctx, baseLogger)
+		logger.Info("context test")
+
+		logs := recorded.All()
+		require.Len(t, logs, 1)
+
+		fieldMap := make(map[string]zap.Field)
+		for _, f := range logs[0].Context {
+			fieldMap[f.Key] = f
+		}
+
+		assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
+		assert.Equal(t, "user-456", fieldMap["userId"].String)
+	})
+
+	t.Run("with nil context", func(t *testing.T) {
+		core, _ := observer.New(zap.InfoLevel)
+		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+		logger := FromContext(context.TODO(), baseLogger)
+		assert.NotNil(t, logger)
+		assert.Equal(t, "test-svc", logger.service)
+	})
+
+	t.Run("with empty context", func(t *testing.T) {
+		core, recorded := observer.New(zap.InfoLevel)
+		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+		logger := FromContext(context.Background(), baseLogger)
+		logger.Info("empty context")
+
+		logs := recorded.All()
+		require.Len(t, logs, 1)
+		assert.Equal(t, "empty context", logs[0].Message)
+	})
+}
+
+func TestFromContext_PreservesService(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	baseLogger := &Logger{Logger: zap.New(core), service: "original-service"}
+
+	ctx := context.WithValue(context.Background(), correlationIDKey, "corr-123")
+	logger := FromContext(ctx, baseLogger)
+
+	assert.Equal(t, "original-service", logger.service)
+}
+
+func TestDevelopment(t *testing.T) {
+	log := Development("test-service")
+	assert.NotNil(t, log)
+	defer func() { _ = log.Sync() }()
+
+	assert.Equal(t, "test-service", log.Service())
+}
+
+func TestDevelopment_EnvLevel(t *testing.T) {
+	originalLevel := os.Getenv("LOG_LEVEL")
+	defer func() { _ = os.Setenv("LOG_LEVEL", originalLevel) }()
+
+	require.NoError(t, os.Setenv("LOG_LEVEL", "DEBUG"))
+
+	log := Development("test-service")
+	defer func() { _ = log.Sync() }()
+
+	assert.Equal(t, "test-service", log.Service())
 }

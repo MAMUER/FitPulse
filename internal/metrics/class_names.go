@@ -1,5 +1,7 @@
 package metrics
 
+import "sort"
+
 var ClassNamesByID = map[int]string{
 	0: "recovery",
 	1: "endurance_basic",
@@ -15,4 +17,5 @@ func init() {
 	for _, name := range ClassNamesByID {
 		AllClassNames = append(AllClassNames, name)
 	}
+	sort.Strings(AllClassNames)
 }
