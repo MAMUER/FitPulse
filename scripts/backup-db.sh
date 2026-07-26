@@ -40,7 +40,7 @@ if [[ $PG_DUMP_STATUS -ne 0 ]]; then
 fi
 
 openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$BACKUP_KEY" -in "$FILENAME" -out "$ENCRYPTED"
-sha256sum "$ENCRYPTED" > "$CHECKSUM"
+sha256sum "$ENCRYPTED" >"$CHECKSUM"
 rm -f "$FILENAME"
 
 echo "Encrypted backup created: $ENCRYPTED"

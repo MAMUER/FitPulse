@@ -7,34 +7,34 @@ echo "Running secret scan with TruffleHog..."
 # Detect CI environment
 CI_MODE="${CI:-false}"
 if [[ "$CI_MODE" == "true" || "$CI_MODE" == "1" || -n "${GITHUB_ACTIONS:-}" ]]; then
-    CI_MODE="true"
+	CI_MODE="true"
 fi
 
 # Check if trufflehog is installed
 if ! command -v trufflehog &>/dev/null; then
-    if [[ "$CI_MODE" == "true" ]]; then
-        echo "ERROR: TruffleHog not found in CI environment."
-        echo "   Install: go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
-        exit 1
-    else
-        echo "TruffleHog not found. Please install it:"
-        echo "   go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
-        echo "   or visit https://github.com/trufflesecurity/trufflehog"
-        echo "Skipping secret scan."
-        exit 0
-    fi
+	if [[ "$CI_MODE" == "true" ]]; then
+		echo "ERROR: TruffleHog not found in CI environment."
+		echo "   Install: go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
+		exit 1
+	else
+		echo "TruffleHog not found. Please install it:"
+		echo "   go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
+		echo "   or visit https://github.com/trufflesecurity/trufflehog"
+		echo "Skipping secret scan."
+		exit 0
+	fi
 fi
 
 # Run TruffleHog on staged changes
 trufflehog git file://. --since-commit HEAD --only-verified --fail
 
 if ! trufflehog git file://. --since-commit HEAD --only-verified --fail; then
-    echo ""
-    echo "POTENTIAL SECRETS DETECTED!"
-    echo "   Remove sensitive data from your changes before committing."
-    echo "   Do not hardcode real credentials — use GitHub Secrets for CI/CD."
-    echo ""
-    exit 1
+	echo ""
+	echo "POTENTIAL SECRETS DETECTED!"
+	echo "   Remove sensitive data from your changes before committing."
+	echo "   Do not hardcode real credentials — use GitHub Secrets for CI/CD."
+	echo ""
+	exit 1
 fi
 
 echo "No secrets detected."

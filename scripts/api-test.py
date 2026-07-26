@@ -137,27 +137,12 @@ def section(title):
     print(f"\n{CYAN}=== {title} ==={RESET}")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Fitness Platform API Test Suite")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="API base URL")
-    parser.add_argument("--insecure", action="store_true", help="Disable SSL certificate verification")
-    args = parser.parse_args()
-
-    t = TestRunner(args.base_url, insecure=args.insecure)
-    test_email = f"apitest-{random.randint(1000, 9999)}@example.com"
-
-    print(f"\n{BOLD}{CYAN}{'=' * 50}{RESET}")
-    print(f"{BOLD}{CYAN}   FITNESS PLATFORM — API TEST SUITE{RESET}")
-    print(f"{BOLD}{CYAN}{'=' * 50}{RESET}")
-    print(f"  Base URL : {args.base_url}")
-    print(f"  Test User: {test_email}")
-    print()
-
-    # 0. Health
+def test_health(t):
     section("0. HEALTH")
     t.test("Health", "GET", "/health", expected=200)
 
-    # 1. Auth
+
+def test_auth(t, test_email):
     section("1. AUTH")
     reg_body = {
         "email": test_email,
@@ -167,7 +152,6 @@ def main():
     }
     resp = t.test("Register", "POST", "/api/v1/register", body=reg_body, expected=200)
 
-    # Extract verification token
     verify_token = ""
     if isinstance(resp, dict) and resp.get("message"):
         import re
@@ -211,7 +195,6 @@ def main():
         expected=400,
     )
 
-    # Login
     login_resp = t.test(
         "Login",
         "POST",
@@ -241,7 +224,8 @@ def main():
         print(f"\n{RED}No token obtained. Skipping auth tests.{RESET}")
         sys.exit(1)
 
-    # 2. Profile
+
+def test_profile(t):
     section("2. PROFILE")
     t.test("Get Profile", "GET", "/api/v1/profile", token=t.token, expected=200)
     t.test(
@@ -265,7 +249,8 @@ def main():
     )
     t.test("Get Profile (after)", "GET", "/api/v1/profile", token=t.token, expected=200)
 
-    # 3. Biometrics
+
+def test_biometrics(t):
     section("3. BIOMETRICS")
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     t.test(
@@ -300,45 +285,45 @@ def main():
         expected=200,
     )
 
-    # Logout
     t.test("Logout", "POST", "/api/v1/logout", token=t.token, expected=200)
     t.token = None
 
-    # 4. Post-logout — требование #4: сервер возвращает 404 вместо 401/403
+
+def test_post_logout(t):
     section("4. POST-LOGOUT")
     t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
     t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=404)
 
-    # Re-login
     lr = t.test(
         "Re-login",
         "POST",
         "/api/v1/login",
-        body={"email": test_email, "password": TEST_PASSWORD},
+        body={"email": t.test_email, "password": TEST_PASSWORD},
         expected=200,
     )
     if isinstance(lr, dict) and lr.get("access_token"):
         t.token = lr["access_token"]
 
-    # 5. Training
+
+def test_training(t):
     section("5. TRAINING")
     t.test("Get Plans", "GET", "/api/v1/training/plans", token=t.token, expected=200)
     t.test("Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200)
 
-    # 6. ML
+
+def test_ml(t):
     section("6. ML")
-    # ML может вернуть 202 (async job) или 200 (sync result)
     ml_resp = t.test("ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200)
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 
-    # 7. TOTP / 2FA
+
+def test_totp(t):
     section("7. TOTP / 2FA")
     totp_setup = t.test("TOTP Setup", "POST", "/auth/2fa/setup", token=t.token, expected=200)
     if isinstance(totp_setup, dict) and totp_setup.get("secret") and totp_setup.get("backup_codes"):
         secret = totp_setup["secret"]
         backup_codes = totp_setup["backup_codes"]
-        # Для UAT используем невалидный код, чтобы не зависеть от реального TOTP генерации
         t.test(
             "TOTP Confirm (invalid code)",
             "POST",
@@ -356,13 +341,15 @@ def main():
         t.skipped += 1
         print(f"       {YELLOW}SKIP: TOTP setup unavailable{RESET}")
 
-    # 8. Security
+
+def test_security(t):
     section("8. SECURITY")
     t.token = None
     t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
     t.test("Training (no token)", "GET", "/api/v1/training/plans", expected=404)
 
-    # Summary
+
+def print_summary(t):
     total = t.passed + t.failed + t.skipped
     print(f"\n{CYAN}{'=' * 50}{RESET}")
     print(f"{CYAN}  SUMMARY{RESET}")
@@ -385,6 +372,37 @@ def main():
     else:
         print(f"{RED}{BOLD}  SOME TESTS FAILED!{RESET}\n")
         sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fitness Platform API Test Suite")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="API base URL")
+    parser.add_argument(
+        "--insecure", action="store_true", help="Disable SSL certificate verification"
+    )
+    args = parser.parse_args()
+
+    t = TestRunner(args.base_url, insecure=args.insecure)
+    test_email = f"apitest-{random.randint(1000, 9999)}@example.com"
+    t.test_email = test_email
+
+    print(f"\n{BOLD}{CYAN}{'=' * 50}{RESET}")
+    print(f"{BOLD}{CYAN}   FITNESS PLATFORM — API TEST SUITE{RESET}")
+    print(f"{BOLD}{CYAN}{'=' * 50}{RESET}")
+    print(f"  Base URL : {args.base_url}")
+    print(f"  Test User: {test_email}")
+    print()
+
+    test_health(t)
+    test_auth(t, test_email)
+    test_profile(t)
+    test_biometrics(t)
+    test_post_logout(t)
+    test_training(t)
+    test_ml(t)
+    test_totp(t)
+    test_security(t)
+    print_summary(t)
 
 
 if __name__ == "__main__":

@@ -188,7 +188,7 @@ pip install -r cmd/ml_generator/requirements.txt
 
 **Usage:**
 
-#### Загрузка модели при старте FastAPI (global scope)
+### Загрузка модели при старте FastAPI (global scope)
 
 ```python
 from cmd.ml_generator.main import load_generator, app

@@ -1,6 +1,7 @@
 # FitPulse — Нормализация базы данных
 
 ## Цель
+
 Обеспечить непротиворечивость, масштабируемость и соответствие нормальным формам для всей схемы PostgreSQL.
 
 ---
@@ -8,6 +9,7 @@
 ## Полный перечень таблиц
 
 ### Ядро и аутентификация
+
 - `users`
 - `email_verifications`
 - `invite_codes`
@@ -18,6 +20,7 @@
 - `refresh_tokens`
 
 ### Профиль и здоровье
+
 - `user_profiles`
 - `user_goals`
 - `user_contraindications`
@@ -28,11 +31,13 @@
 - `user_menstrual_moods`
 
 ### Устройства и биометрия
+
 - `devices`
 - `biometric_data`
 - `device_ingest_log`
 
 ### Тренировки
+
 - `training_plans`
 - `training_plan_weeks`
 - `training_plan_days`
@@ -40,6 +45,7 @@
 - `workout_completions`
 
 ### Достижения
+
 - `achievements`
 - `user_achievements`
 
@@ -99,156 +105,157 @@
 ## Итоговые таблицы
 
 ### `users`
-```
+
+```sqlsql
 id (PK), email, email_encrypted, email_hash, password_hash, full_name, full_name_encrypted,
 full_name_hash, full_name_nonce, nickname, nickname_encrypted, nickname_hash, nickname_nonce,
 profile_photo_url, role, provider, external_id,
 email_confirmed, totp_secret_encrypted, totp_enabled, totp_backup_codes_hash,
 totp_backup_codes_remaining, created_at, updated_at
-```
+```sql
 
 ### `email_verifications`
-```
+```sqlsql
 id (PK), user_id (FK), email, email_encrypted, token, token_encrypted,
 expires_at, used, created_at
-```
+```sql
 
 ### `invite_codes`
-```
+```sql
 id (PK), code, role, specialty, max_uses, created_by (FK), expires_at, is_active, created_at
-```
+```sql
 
 ### `invite_code_uses`
-```
+```sql
 id (PK), invite_code_id (FK), user_id (FK), used_at
-```
+```sql
 
 ### `oauth_states`
-```
+```sql
 state (PK), user_id (FK), provider, expires_at, created_at
-```
+```sql
 
 ### `device_provider_accounts`
-```
+```sql
 id (PK), user_id (FK), provider, provider_user_id, access_token, refresh_token,
 token_expires_at, scopes, webhook_subscription_id, last_sync_at, is_active, created_at, updated_at
 UNIQUE(user_id, provider)
-```
+```sql
 
 ### `device_sync_log`
-```
+```sql
 id (PK), provider_account_id (FK), sync_type, records_count, started_at, completed_at,
 status, error_message, created_at
-```
+```sql
 
 ### `refresh_tokens`
-```
+```sql
 id (PK), token UNIQUE, user_id (FK), expires_at, revoked, created_at
-```
+```sql
 
 ### `user_profiles`
-```
+```sql
 user_id (PK, FK), age, gender, height_cm, weight_kg, fitness_level, nutrition, sleep_hours,
 created_at, updated_at
-```
+```sql
 
 ### `user_goals`
-```
+```sql
 user_id (PK, FK), goal (PK), created_at
-```
+```sql
 
 ### `user_contraindications`
-```
+```sql
 user_id (PK, FK), contraindication (PK), created_at
-```
+```sql
 
 ### `user_health_conditions`
-```
+```sql
 id (PK), user_id (FK), condition_type CHECK (...), condition_name, severity CHECK (...),
 diagnosed_at, is_active, notes, created_at, updated_at
 UNIQUE (user_id, condition_type, condition_name)
-```
+```sql
 
 ### `user_body_composition`
-```
+```sql
 id (PK), user_id (FK), recorded_at, weight_kg CHECK (...), height_cm CHECK (...),
 bmi, body_fat_percentage CHECK (...), muscle_mass_percentage CHECK (...),
 bone_mass_percentage CHECK (...), water_percentage CHECK (...),
 visceral_fat_rating CHECK (...), metabolic_age CHECK (...),
 source CHECK (...), created_at
-```
+```sql
 
 ### `user_menstrual_cycles`
-```
+```sql
 id (PK), user_id (FK), cycle_start_date, cycle_end_date CHECK (...), flow_intensity CHECK (...),
 notes, created_at, updated_at
-```
+```sql
 
 ### `user_menstrual_symptoms`
-```
+```sql
 id (PK), cycle_id (FK), symptom, severity CHECK (...), created_at
-```
+```sql
 
 ### `user_menstrual_moods`
-```
+```sql
 id (PK), cycle_id (FK), mood, created_at
-```
+```sql
 
 ### `devices`
-```
+```sql
 id (PK), user_id (FK), device_type, device_name, token UNIQUE, is_connected, last_sync, created_at
-```
+```sql
 
 ### `biometric_data`
-```
+```sql
 id (PK), user_id (FK), metric_type, value CHECK (value >= 0), timestamp, device_type, created_at
-```
+```sql
 
 ### `device_ingest_log`
-```
+```sql
 id (PK), device_id (FK), metric_type, timestamp, quality DEFAULT 'good', created_at
-```
+```sql
 
 ### `training_plans`
-```
+```sql
 id (PK), user_id (FK), name, training_goal CHECK (...), training_location CHECK (...),
 available_time CHECK (...), duration_weeks CHECK (...), generated_at, start_date, end_date,
 status CHECK (...), created_at
-```
+```sql
 
 ### `training_plan_weeks`
-```
+```sql
 id (PK), training_plan_id (FK), week_number CHECK (>0), total_training_days,
 total_duration_minutes, average_intensity, UNIQUE(training_plan_id, week_number)
-```
+```sql
 
 ### `training_plan_days`
-```
+```sql
 id (PK), week_id (FK), day_of_week CHECK (0-6), training_date, training_type,
 is_rest_day, total_duration_minutes, intensity_level, notes
-```
+```sql
 
 ### `training_exercises`
-```
+```sql
 id (PK), day_id (FK), exercise_name, duration_minutes, intensity, sets, reps,
 rest_seconds DEFAULT 60, description, video_url, sort_order DEFAULT 0
-```
+```sql
 
 ### `workout_completions`
-```
+```sql
 id (PK), user_id (FK), training_plan_id (FK), workout_id, scheduled_date DEFAULT CURRENT_DATE,
 completed BOOLEAN DEFAULT FALSE, completed_at, feedback, rating CHECK (1-5), created_at
-```
+```sql
 
 ### `achievements`
-```
+```sql
 id (PK), name, description, criteria JSONB, icon_url, created_at
-```
+```sql
 
 ### `user_achievements`
-```
+```sql
 user_id (PK, FK), achievement_id (PK, FK), earned_at
-```
+```sql
 
 ---
 

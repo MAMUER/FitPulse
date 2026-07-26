@@ -57,6 +57,60 @@ def print_results(results_file):
         pass
 
 
+def find_k6():
+    k6_path = shutil.which("k6")
+    if not k6_path:
+        common_paths = [
+            "/usr/local/bin/k6",
+            "/usr/bin/k6",
+            "/opt/homebrew/bin/k6",
+            "~/bin/k6",
+            "./k6",
+        ]
+        for path in common_paths:
+            expanded_path = os.path.expanduser(path)
+            if os.path.isfile(expanded_path) and os.access(expanded_path, os.X_OK):
+                return expanded_path
+    return k6_path
+
+
+def build_k6_command(k6_path, args):
+    cmd = [
+        k6_path,
+        "run",
+        "--out",
+        f"json={args.output}",
+        str(LOAD_TEST_K6),
+        "--env",
+        f"BASE_URL={args.base_url}",
+    ]
+    return cmd
+
+
+def run_load_test(cmd):
+    try:
+        result = subprocess.run(cmd, timeout=1200)
+
+        if result.returncode == 0:
+            print(f"\n{GREEN}{BOLD} LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
+            return 0
+        else:
+            print(f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
+            return result.returncode
+
+    except subprocess.TimeoutExpired:
+        print(f"\n{RED}Load test timed out (20 min)!{RESET}\n")
+        return 1
+
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW} Load test interrupted by user{RESET}\n")
+        return 130
+
+    except FileNotFoundError:
+        print(f"\n{RED}Error: k6 executable not found{RESET}\n")
+        return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Fitness Platform Load Test (k6 wrapper)",
@@ -75,27 +129,14 @@ Examples:
     parser.add_argument("--output", default="results.json", help="Output file for results")
     args = parser.parse_args()
 
-    # Check k6
-    k6_path = shutil.which("k6")
-    if not k6_path:
-        # Try common installation paths
-        common_paths = [
-            "/usr/local/bin/k6",
-            "/usr/bin/k6",
-            "/opt/homebrew/bin/k6",  # macOS
-            "~/bin/k6",
-            "./k6",
-        ]
-        for path in common_paths:
-            expanded_path = os.path.expanduser(path)
-            if os.path.isfile(expanded_path) and os.access(expanded_path, os.X_OK):
-                k6_path = expanded_path
-                break
-
+    k6_path = find_k6()
     if not k6_path:
         print(f"{RED}k6 not found in PATH or common locations!{RESET}")
         print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}")
-        print(f"Or download and place in one of: {', '.join(common_paths)}{RESET}\n")
+        print(
+            f"Or download and place in one of: /usr/local/bin/k6, "
+            f"/usr/bin/k6, /opt/homebrew/bin/k6{RESET}\n"
+        )
         sys.exit(1)
 
     if not LOAD_TEST_K6.exists():
@@ -115,47 +156,14 @@ Examples:
     print(f"  Started at  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{BOLD}{CYAN}{'=' * 55}{RESET}\n")
 
-    # Build k6 command
-    cmd = [
-        k6_path,
-        "run",
-        "--out",
-        f"json={args.output}",
-        str(LOAD_TEST_K6),
-        "--env",
-        f"BASE_URL={args.base_url}",
-    ]
-
-    if args.insecure:
-        # k6 ignores TLS by default for https://localhost
-        pass
-
+    cmd = build_k6_command(k6_path, args)
     print(f"{YELLOW}Running load test...{RESET}\n")
 
-    try:
-        result = subprocess.run(cmd, timeout=1200)  # 20 min timeout
-
-        if result.returncode == 0:
-            print(f"\n{GREEN}{BOLD} LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
-            if Path(args.output).exists():
-                print(f"{CYAN}Results saved to: {args.output}{RESET}")
-                print_results(args.output)
-            print()
-        else:
-            print(f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
-            sys.exit(result.returncode)
-
-    except subprocess.TimeoutExpired:
-        print(f"\n{RED}Load test timed out (20 min)!{RESET}\n")
-        sys.exit(1)
-
-    except KeyboardInterrupt:
-        print(f"\n{YELLOW} Load test interrupted by user{RESET}\n")
-        sys.exit(130)
-
-    except FileNotFoundError:
-        print(f"\n{RED}Error: k6 executable not found{RESET}\n")
-        sys.exit(1)
+    exit_code = run_load_test(cmd)
+    if exit_code == 0 and Path(args.output).exists():
+        print_results(args.output)
+        print()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

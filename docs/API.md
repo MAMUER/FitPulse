@@ -84,11 +84,11 @@ Refresh token используется для ротации через `POST /a
 
 ## gRPC services
 
-|Service|Порт|Описание|
-|---|---|---|
-|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды, админ-операции, удаление профиля (GDPR), статус TOTP|Metrics: `9096`|
-|Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)|
-|Training Service|50053|Управление тренировочными планами|
+|Service|Порт|Описание|Metrics|
+|---|---|---|---|
+|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды, админ-операции, удаление профиля (GDPR), статус TOTP|`9096`|
+|Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)||
+|Training Service|50053|Управление тренировочными планами||
 
 ### UserService gRPC Methods
 

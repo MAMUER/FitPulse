@@ -8,7 +8,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import onnxruntime as ort
@@ -55,7 +55,7 @@ TRAINING_CLASSES = {
     5: "illness",
 }
 
-TRAINING_TEMPLATES = {
+TRAINING_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "recovery": {
         "duration_range": (20, 45),
         "intensity_range": (0.3, 0.5),
@@ -103,6 +103,7 @@ TRAINING_TEMPLATES = {
 
 class UserProfile(BaseModel):
     """User profile for plan generation — all fields optional with defaults"""
+
     model_config = ConfigDict(strict=True)
 
     gender: Optional[str] = Field("male", description="Gender (male/female)")
@@ -121,30 +122,43 @@ class UserProfile(BaseModel):
 
 class HealthStatus(BaseModel):
     """Health status context from classifier and biometrics"""
+
     model_config = ConfigDict(strict=True)
 
-    predicted_class: Optional[str] = Field("endurance_basic", description="Classifier predicted class")
+    predicted_class: Optional[str] = Field(
+        "endurance_basic", description="Classifier predicted class"
+    )
     confidence: Optional[float] = Field(0.5, description="Classifier confidence", ge=0.0, le=1.0)
     hrv: Optional[float] = Field(65.0, description="Heart rate variability (ms)")
     sleep_hours: Optional[float] = Field(7.0, description="Sleep hours")
-    active_conditions_count: Optional[int] = Field(0, description="Active health conditions count", ge=0)
+    active_conditions_count: Optional[int] = Field(
+        0, description="Active health conditions count", ge=0
+    )
     menstrual_phase: Optional[str] = Field("unknown", description="Menstrual phase")
     day_of_cycle: Optional[int] = Field(1, description="Day of menstrual cycle", ge=1, le=35)
-    cycle_length: Optional[int] = Field(28, description="Menstrual cycle length (days)", ge=20, le=40)
+    cycle_length: Optional[int] = Field(
+        28, description="Menstrual cycle length (days)", ge=20, le=40
+    )
     body_composition: Optional[Dict] = Field(None, description="BMI, body fat %, muscle mass")
 
 
 class TrainingHistory(BaseModel):
     """Recent training history"""
+
     model_config = ConfigDict(strict=True)
 
-    completed_workouts_count: Optional[int] = Field(0, description="Workouts completed in last 30 days", ge=0)
-    avg_intensity: Optional[float] = Field(0.5, description="Average workout intensity", ge=0.0, le=1.0)
+    completed_workouts_count: Optional[int] = Field(
+        0, description="Workouts completed in last 30 days", ge=0
+    )
+    avg_intensity: Optional[float] = Field(
+        0.5, description="Average workout intensity", ge=0.0, le=1.0
+    )
     last_workout_date: Optional[str] = Field(None, description="ISO date of last workout")
 
 
 class PlanGenerationRequest(BaseModel):
     """Request for training plan generation"""
+
     model_config = ConfigDict(strict=True)
 
     training_class: str = Field(..., description="Training class from classifier")
@@ -157,6 +171,7 @@ class PlanGenerationRequest(BaseModel):
 
 class Exercise(BaseModel):
     """Exercise details"""
+
     model_config = ConfigDict(strict=True)
 
     name: str
@@ -166,6 +181,7 @@ class Exercise(BaseModel):
 
 class TrainingPlan(BaseModel):
     """Generated training plan"""
+
     model_config = ConfigDict(strict=True)
 
     training_type: str
@@ -193,23 +209,23 @@ async def load_generator():
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-        
+
         generator_session = ort.InferenceSession(
-            model_path,
-            sess_options,
-            providers=["CPUExecutionProvider"]
+            model_path, sess_options, providers=["CPUExecutionProvider"]
         )
         logger.info("Generator loaded from ONNX", path=model_path)
     else:
         logger.error("Generator not found", path=model_path)
 
 
-def generate_from_noise(noise: np.ndarray, condition: np.ndarray, num_steps: int = 100) -> np.ndarray:
+def generate_from_noise(
+    noise: np.ndarray,
+    condition: np.ndarray,
+    num_steps: int = 100,
+) -> np.ndarray:
     """Generate plan from noise using DDPM reverse process with ONNX noise predictor"""
     if generator_session is None:
         raise RuntimeError("Generator not loaded")
-
-    plan_dim = noise.shape[-1] if noise.ndim > 1 else 19
 
     x_t = noise.copy()
     for i in reversed(range(num_steps)):
@@ -231,10 +247,15 @@ def generate_from_noise(noise: np.ndarray, condition: np.ndarray, num_steps: int
         alpha_t = alpha_bar_t / alpha_bar_prev
         beta_t = 1.0 - alpha_t
 
-        x_0_pred = (1.0 / np.sqrt(alpha_bar_t)) * (x_t - (1.0 - alpha_bar_t) / np.sqrt(1.0 - alpha_bar_t) * noise_pred)
+        x_0_pred = (1.0 / np.sqrt(alpha_bar_t)) * (
+            x_t - (1.0 - alpha_bar_t) / np.sqrt(1.0 - alpha_bar_t) * noise_pred
+        )
         x_0_pred = np.clip(x_0_pred, -1, 1)
 
-        mean = np.sqrt(alpha_bar_prev) * x_0_pred + (1.0 - alpha_bar_prev) / np.sqrt(1.0 - alpha_bar_t) * noise_pred
+        mean = (
+            np.sqrt(alpha_bar_prev) * x_0_pred
+            + (1.0 - alpha_bar_prev) / np.sqrt(1.0 - alpha_bar_t) * noise_pred
+        )
         if i > 0:
             sigma_t = np.sqrt(beta_t)
             x_t = mean + sigma_t * np.random.randn(*mean.shape)
@@ -271,31 +292,67 @@ def build_rule_based_plan(training_class: str, user_profile: UserProfile) -> np.
 
     warmup = 0.15
     cooldown = 0.15
-    age_factor = max(0.0, 1.0 - (user_profile.age - 30) / 70.0)
+    age_factor = max(0.0, 1.0 - ((user_profile.age or 30) - 30) / 70.0)
     fitness_map = {"beginner": 0.3, "intermediate": 0.5, "advanced": 0.8}
-    fitness_factor = fitness_map.get(user_profile.fitness_level, 0.5)
+    fitness_factor = fitness_map.get(user_profile.fitness_level or "intermediate", 0.5)
     health_factor = 0.5 if user_profile.health_conditions else 1.0
     goals = [g.lower() for g in (user_profile.goals or [])]
     goal_strength = 0.8 if any("набор" in g or "muscle" in g for g in goals) else 0.2
     goal_endurance = 0.8 if any("выносливость" in g or "endurance" in g for g in goals) else 0.2
 
-    return np.array([
-        duration_min / 100.0, intensity, rest_ratio, weekly_freq / 7.0,
-        *equipment, warmup, cooldown, age_factor, fitness_factor, health_factor,
-        goal_strength, goal_endurance, 0.0, 0.0, 0.0
-    ], dtype=np.float32)
+    return np.array(
+        [
+            duration_min / 100.0,
+            intensity,
+            rest_ratio,
+            weekly_freq / 7.0,
+            *equipment,
+            warmup,
+            cooldown,
+            age_factor,
+            fitness_factor,
+            health_factor,
+            goal_strength,
+            goal_endurance,
+            0.0,
+            0.0,
+            0.0,
+        ],
+        dtype=np.float32,
+    )
 
 
 def build_static_beginner_plan() -> np.ndarray:
     """Static beginner plan fallback"""
-    return np.array([
-        0.4, 0.4, 0.5, 0.4,
-        1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.2, 0.2, 0.6, 0.3, 0.7, 0.2, 0.2,
-    ], dtype=np.float32)
+    return np.array(
+        [
+            0.4,
+            0.4,
+            0.5,
+            0.4,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.2,
+            0.2,
+            0.6,
+            0.3,
+            0.7,
+            0.2,
+            0.2,
+        ],
+        dtype=np.float32,
+    )
 
 
-def apply_post_processing_rules(plan_vector: np.ndarray, request: PlanGenerationRequest) -> np.ndarray:
+def apply_post_processing_rules(
+    plan_vector: np.ndarray, request: PlanGenerationRequest
+) -> np.ndarray:
     """Apply conditional post-processing rules to 19-dim plan vector"""
     pv = plan_vector.copy()
     health = request.health_status or HealthStatus()
@@ -319,7 +376,7 @@ def apply_post_processing_rules(plan_vector: np.ndarray, request: PlanGeneration
         pv[3] = max(0.2, pv[3] * 0.7)
         pv[2] = min(1.0, pv[2] + 0.2)
 
-    if profile.age > 60:
+    if (profile.age or 0) > 60:
         pv[1] = max(0.0, pv[1] - 0.2)
         pv[12] = min(1.0, pv[12] + 0.1)
 
@@ -359,7 +416,7 @@ async def init_async():
 
     # Async RabbitMQ consumer
     rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-    
+
     try:
         rabbitmq_connection = await connect_robust(rabbitmq_url)
         asyncio.create_task(_consume_rabbitmq())
@@ -414,7 +471,8 @@ async def _on_generate_message(body: bytes):
             "completed_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
         }
 
-        await valkey_client.setex(f"ml:result:{job_id}", 3600, json.dumps(result))
+        if valkey_client is not None:
+            await valkey_client.setex(f"ml:result:{job_id}", 3600, json.dumps(result))
         logger.info("Job completed", job_id=job_id)
 
     except Exception as e:
@@ -422,8 +480,9 @@ async def _on_generate_message(body: bytes):
         raise
 
 
-async def _do_generate_plan(training_class, user_profile, preferences=None,
-                            health_status=None, training_history=None):
+async def _do_generate_plan(
+    training_class, user_profile, preferences=None, health_status=None, training_history=None
+):
     """Core plan generation logic with 3-tier fallback."""
     condition = encode_user_profile(user_profile, health_status, training_history, preferences)
 
@@ -432,13 +491,16 @@ async def _do_generate_plan(training_class, user_profile, preferences=None,
         try:
             noise = np.random.normal(0, 1, (1, 19)).astype(np.float32)
             plan_vector = generate_from_noise(noise, condition, num_steps=50)
-            plan_vector = apply_post_processing_rules(plan_vector, PlanGenerationRequest(
-                training_class=training_class,
-                user_profile=user_profile,
-                health_status=health_status,
-                training_history=training_history,
-                preferences=preferences,
-            ))
+            plan_vector = apply_post_processing_rules(
+                plan_vector,
+                PlanGenerationRequest(
+                    training_class=training_class,
+                    user_profile=user_profile,
+                    health_status=health_status,
+                    training_history=training_history,
+                    preferences=preferences,
+                ),
+            )
             return plan_vector.tolist()
         except Exception as e:
             logger.warning("Diffusion generation failed, falling back to rule-based", error=str(e))
@@ -496,16 +558,19 @@ async def get_templates():
     return TRAINING_TEMPLATES
 
 
-def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStatus] = None,
-                        training_history: Optional[TrainingHistory] = None,
-                        preferences: Optional[Dict] = None) -> np.ndarray:
+def encode_user_profile(
+    profile: UserProfile,
+    health_status: Optional[HealthStatus] = None,
+    training_history: Optional[TrainingHistory] = None,
+    preferences: Optional[Dict] = None,
+) -> np.ndarray:
     """Encode full user context to 32-dimensional conditional vector"""
     health = health_status or HealthStatus()
     history = training_history or TrainingHistory()
     prefs = preferences or {}
 
     # 0: age_normalized (0-1)
-    age_norm = np.clip((profile.age - 18) / (100 - 18), 0.0, 1.0)
+    age_norm = np.clip(((profile.age or 30) - 18) / (100 - 18), 0.0, 1.0)
 
     # 1: bmi_normalized (0-1)
     bmi = (profile.weight or 70) / ((profile.height or 170) / 100) ** 2
@@ -513,14 +578,22 @@ def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStat
 
     # 2: fitness_level (0-1)
     fitness_map = {"beginner": 0.0, "intermediate": 0.5, "advanced": 1.0}
-    fitness_norm = fitness_map.get(profile.fitness_level, 0.5)
+    fitness_norm = fitness_map.get(profile.fitness_level or "intermediate", 0.5)
 
     # 3-6: goal one-hot
     goals_lower = [g.lower() for g in (profile.goals or [])]
-    goal_strength = 1.0 if any(g in goals_lower for g in ["набор массы", "muscle_gain", "силовые"]) else 0.0
-    goal_endurance = 1.0 if any(g in goals_lower for g in ["выносливость", "endurance", "марафон"]) else 0.0
-    goal_weight_loss = 1.0 if any(g in goals_lower for g in ["похудение", "weight_loss", "fat_loss"]) else 0.0
-    goal_flexibility = 1.0 if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"]) else 0.0
+    goal_strength = (
+        1.0 if any(g in goals_lower for g in ["набор массы", "muscle_gain", "силовые"]) else 0.0
+    )
+    goal_endurance = (
+        1.0 if any(g in goals_lower for g in ["выносливость", "endurance", "марафон"]) else 0.0
+    )
+    goal_weight_loss = (
+        1.0 if any(g in goals_lower for g in ["похудение", "weight_loss", "fat_loss"]) else 0.0
+    )
+    goal_flexibility = (
+        1.0 if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"]) else 0.0
+    )
 
     # 7: health_factor (inverse of classifier confidence)
     health_factor = 1.0 - np.clip(health.confidence, 0.0, 1.0)
@@ -535,7 +608,9 @@ def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStat
     conditions_norm = np.clip((health.active_conditions_count or 0) / 5.0, 0.0, 1.0)
 
     # 12: has_contraindications
-    has_contraindications = 1.0 if (profile.contraindications and len(profile.contraindications) > 0) else 0.0
+    has_contraindications = (
+        1.0 if (profile.contraindications and len(profile.contraindications) > 0) else 0.0
+    )
 
     # 13: has_allergies
     has_allergies = 1.0 if (profile.allergies and len(profile.allergies) > 0) else 0.0
@@ -548,6 +623,7 @@ def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStat
     if history.last_workout_date:
         try:
             from datetime import datetime
+
             last = datetime.fromisoformat(history.last_workout_date.replace("Z", "+00:00"))
             days_since = max(0.0, (datetime.now(last.tzinfo) - last).total_seconds() / 86400.0)
         except Exception:
@@ -587,24 +663,48 @@ def encode_user_profile(profile: UserProfile, health_status: Optional[HealthStat
     # 24-27: equipment one-hot
     equipment = [e.lower() for e in prefs.get("equipment", [])]
     equipment_dumbbell = 1.0 if any("dumbbell" in e for e in equipment) else 0.0
-    equipment_resistance_band = 1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
+    equipment_resistance_band = (
+        1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
+    )
     equipment_barbell = 1.0 if any("barbell" in e for e in equipment) else 0.0
     equipment_none = 1.0 if len(equipment) == 0 else 0.0
 
     # 28-31: reserved for future features
     reserved = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
-    encoded = np.array([
-        age_norm, bmi_norm, fitness_norm,
-        goal_strength, goal_endurance, goal_weight_loss, goal_flexibility,
-        health_factor,
-        menstrual_luteal, menstrual_menstruation, menstrual_ovulation,
-        conditions_norm, has_contraindications, has_allergies,
-        recovery_needed, days_since_norm, workout_freq, sleep_quality, hrv_factor,
-        temp_norm, spo2_factor,
-        available_days_count, preferred_morning, preferred_evening,
-        equipment_dumbbell, equipment_resistance_band, equipment_barbell, equipment_none,
-    ], dtype=np.float32)
+    encoded = np.array(
+        [
+            age_norm,
+            bmi_norm,
+            fitness_norm,
+            goal_strength,
+            goal_endurance,
+            goal_weight_loss,
+            goal_flexibility,
+            health_factor,
+            menstrual_luteal,
+            menstrual_menstruation,
+            menstrual_ovulation,
+            conditions_norm,
+            has_contraindications,
+            has_allergies,
+            recovery_needed,
+            days_since_norm,
+            workout_freq,
+            sleep_quality,
+            hrv_factor,
+            temp_norm,
+            spo2_factor,
+            available_days_count,
+            preferred_morning,
+            preferred_evening,
+            equipment_dumbbell,
+            equipment_resistance_band,
+            equipment_barbell,
+            equipment_none,
+        ],
+        dtype=np.float32,
+    )
 
     encoded = np.concatenate([encoded, reserved])
     return encoded.reshape(1, -1).astype(np.float32)
@@ -640,7 +740,7 @@ def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: User
         notes.append("Начните с 50% от рекомендованной интенсивности")
         duration = int(duration * 0.7)
 
-    if user_profile.age > 50:
+    if (user_profile.age or 0) > 50:
         notes.append("Увеличьте время разминки и заминки")
 
     if user_profile.health_conditions:
@@ -690,7 +790,11 @@ async def generate_plan(request: PlanGenerationRequest):
         request.training_history,
     )
 
-    plan = decode_plan(np.asarray(plan_vector, dtype=np.float32), request.training_class, request.user_profile)
+    plan = decode_plan(
+        np.asarray(plan_vector, dtype=np.float32),
+        request.training_class,
+        request.user_profile,
+    )
 
     classification_confidence.labels(
         model_version="diffusion_v1",
@@ -702,7 +806,7 @@ async def generate_plan(request: PlanGenerationRequest):
 
 # ========== Diet Generation ==========
 
-DIET_TEMPLATES = {
+DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "balanced": {
         "name_ru": "Сбалансированная",
         "protein_ratio": 0.25,
@@ -710,20 +814,56 @@ DIET_TEMPLATES = {
         "carbs_ratio": 0.45,
         "meals": {
             "breakfast": [
-                {"name": "Овсянка с бананом и мёдом", "kcal": 350, "protein": 12, "carbs": 60, "fat": 8},
-                {"name": "Омлет с овощами и тостом", "kcal": 380, "protein": 22, "carbs": 30, "fat": 18},
+                {
+                    "name": "Овсянка с бананом и мёдом",
+                    "kcal": 350,
+                    "protein": 12,
+                    "carbs": 60,
+                    "fat": 8,
+                },
+                {
+                    "name": "Омлет с овощами и тостом",
+                    "kcal": 380,
+                    "protein": 22,
+                    "carbs": 30,
+                    "fat": 18,
+                },
             ],
             "snack1": [
-                {"name": "Яблоко + миндаль (30г)", "kcal": 200, "protein": 6, "carbs": 22, "fat": 10},
+                {
+                    "name": "Яблоко + миндаль (30г)",
+                    "kcal": 200,
+                    "protein": 6,
+                    "carbs": 22,
+                    "fat": 10,
+                },
             ],
             "lunch": [
-                {"name": "Куриная грудка с рисом и салатом", "kcal": 550, "protein": 40, "carbs": 60, "fat": 15},
+                {
+                    "name": "Куриная грудка с рисом и салатом",
+                    "kcal": 550,
+                    "protein": 40,
+                    "carbs": 60,
+                    "fat": 15,
+                },
             ],
             "snack2": [
-                {"name": "Протеиновый батончик", "kcal": 200, "protein": 20, "carbs": 22, "fat": 8},
+                {
+                    "name": "Протеиновый батончик",
+                    "kcal": 200,
+                    "protein": 20,
+                    "carbs": 22,
+                    "fat": 8,
+                },
             ],
             "dinner": [
-                {"name": "Индейка с овощами на пару", "kcal": 400, "protein": 35, "carbs": 25, "fat": 18},
+                {
+                    "name": "Индейка с овощами на пару",
+                    "kcal": 400,
+                    "protein": 35,
+                    "carbs": 25,
+                    "fat": 18,
+                },
             ],
         },
     },
@@ -734,19 +874,43 @@ DIET_TEMPLATES = {
         "carbs_ratio": 0.40,
         "meals": {
             "breakfast": [
-                {"name": "Омлет из 4 яиц с курицей", "kcal": 450, "protein": 40, "carbs": 5, "fat": 28},
+                {
+                    "name": "Омлет из 4 яиц с курицей",
+                    "kcal": 450,
+                    "protein": 40,
+                    "carbs": 5,
+                    "fat": 28,
+                },
             ],
             "snack1": [
-                {"name": "Протеиновый коктейль", "kcal": 200, "protein": 30, "carbs": 8, "fat": 4},
+                {
+                    "name": "Протеиновый коктейль",
+                    "kcal": 200,
+                    "protein": 30,
+                    "carbs": 8,
+                    "fat": 4,
+                },
             ],
             "lunch": [
-                {"name": "Двойная порция курицы с рисом", "kcal": 650, "protein": 55, "carbs": 55, "fat": 18},
+                {
+                    "name": "Двойная порция курицы с рисом",
+                    "kcal": 650,
+                    "protein": 55,
+                    "carbs": 55,
+                    "fat": 18,
+                },
             ],
             "snack2": [
                 {"name": "Творог 5% + орехи", "kcal": 250, "protein": 22, "carbs": 10, "fat": 14},
             ],
             "dinner": [
-                {"name": "Стейк из лосося с овощами", "kcal": 500, "protein": 40, "carbs": 15, "fat": 28},
+                {
+                    "name": "Стейк из лосося с овощами",
+                    "kcal": 500,
+                    "protein": 40,
+                    "carbs": 15,
+                    "fat": 28,
+                },
             ],
         },
     },
@@ -757,19 +921,37 @@ DIET_TEMPLATES = {
         "carbs_ratio": 0.35,
         "meals": {
             "breakfast": [
-                {"name": "Овсянка на воде с ягодами", "kcal": 220, "protein": 8, "carbs": 40, "fat": 4},
+                {
+                    "name": "Овсянка на воде с ягодами",
+                    "kcal": 220,
+                    "protein": 8,
+                    "carbs": 40,
+                    "fat": 4,
+                },
             ],
             "snack1": [
                 {"name": "Огурец + хумус", "kcal": 100, "protein": 4, "carbs": 12, "fat": 4},
             ],
             "lunch": [
-                {"name": "Куриный суп с овощами", "kcal": 300, "protein": 25, "carbs": 30, "fat": 8},
+                {
+                    "name": "Куриный суп с овощами",
+                    "kcal": 300,
+                    "protein": 25,
+                    "carbs": 30,
+                    "fat": 8,
+                },
             ],
             "snack2": [
                 {"name": "Зелёное яблоко", "kcal": 70, "protein": 0, "carbs": 18, "fat": 0},
             ],
             "dinner": [
-                {"name": "Запечённая белая рыба с салатом", "kcal": 280, "protein": 30, "carbs": 10, "fat": 12},
+                {
+                    "name": "Запечённая белая рыба с салатом",
+                    "kcal": 280,
+                    "protein": 30,
+                    "carbs": 10,
+                    "fat": 12,
+                },
             ],
         },
     },
@@ -780,19 +962,37 @@ DIET_TEMPLATES = {
         "carbs_ratio": 0.05,
         "meals": {
             "breakfast": [
-                {"name": "Яичница с авокадо и беконом", "kcal": 450, "protein": 22, "carbs": 5, "fat": 38},
+                {
+                    "name": "Яичница с авокадо и беконом",
+                    "kcal": 450,
+                    "protein": 22,
+                    "carbs": 5,
+                    "fat": 38,
+                },
             ],
             "snack1": [
                 {"name": "Орехи макадамия (30г)", "kcal": 210, "protein": 2, "carbs": 4, "fat": 21},
             ],
             "lunch": [
-                {"name": "Стейк рибай с маслом и брокколи", "kcal": 650, "protein": 48, "carbs": 8, "fat": 50},
+                {
+                    "name": "Стейк рибай с маслом и брокколи",
+                    "kcal": 650,
+                    "protein": 48,
+                    "carbs": 8,
+                    "fat": 50,
+                },
             ],
             "snack2": [
                 {"name": "Сырная тарелка", "kcal": 280, "protein": 18, "carbs": 2, "fat": 22},
             ],
             "dinner": [
-                {"name": "Лосось на сливочном масле с шпинатом", "kcal": 520, "protein": 38, "carbs": 6, "fat": 42},
+                {
+                    "name": "Лосось на сливочном масле с шпинатом",
+                    "kcal": 520,
+                    "protein": 38,
+                    "carbs": 6,
+                    "fat": 42,
+                },
             ],
         },
     },
@@ -803,19 +1003,49 @@ DIET_TEMPLATES = {
         "carbs_ratio": 0.35,
         "meals": {
             "breakfast": [
-                {"name": "Омлет с овощами и авокадо", "kcal": 380, "protein": 22, "carbs": 12, "fat": 28},
+                {
+                    "name": "Омлет с овощами и авокадо",
+                    "kcal": 380,
+                    "protein": 22,
+                    "carbs": 12,
+                    "fat": 28,
+                },
             ],
             "snack1": [
-                {"name": "Грецкие орехи и яблоко", "kcal": 220, "protein": 5, "carbs": 20, "fat": 14},
+                {
+                    "name": "Грецкие орехи и яблоко",
+                    "kcal": 220,
+                    "protein": 5,
+                    "carbs": 20,
+                    "fat": 14,
+                },
             ],
             "lunch": [
-                {"name": "Курица гриль с кореньями и салатом", "kcal": 520, "protein": 42, "carbs": 18, "fat": 30},
+                {
+                    "name": "Курица гриль с кореньями и салатом",
+                    "kcal": 520,
+                    "protein": 42,
+                    "carbs": 18,
+                    "fat": 30,
+                },
             ],
             "snack2": [
-                {"name": "Морковные палочки с хумусом", "kcal": 150, "protein": 5, "carbs": 15, "fat": 8},
+                {
+                    "name": "Морковные палочки с хумусом",
+                    "kcal": 150,
+                    "protein": 5,
+                    "carbs": 15,
+                    "fat": 8,
+                },
             ],
             "dinner": [
-                {"name": "Запечённый лосось с спаржей", "kcal": 420, "protein": 35, "carbs": 10, "fat": 28},
+                {
+                    "name": "Запечённый лосось с спаржей",
+                    "kcal": 420,
+                    "protein": 35,
+                    "carbs": 10,
+                    "fat": 28,
+                },
             ],
         },
     },
@@ -824,6 +1054,7 @@ DIET_TEMPLATES = {
 
 class DietGenerationRequest(BaseModel):
     """Request for diet plan generation"""
+
     model_config = ConfigDict(strict=True)
 
     user_id: str
@@ -842,6 +1073,7 @@ class DietGenerationRequest(BaseModel):
 
 class DietPlanResponse(BaseModel):
     """Generated diet plan"""
+
     model_config = ConfigDict(strict=True)
 
     diet_type: str
@@ -866,7 +1098,11 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
         bmr -= 161
 
     # Activity multiplier
-    activity_map = {"beginner": 1.375, "intermediate": 1.55, "advanced": 1.725}
+    activity_map = {
+        "beginner": 1.375,
+        "intermediate": 1.55,
+        "advanced": 1.725,
+    }
     activity_multiplier = activity_map.get(request.fitness_level, 1.55)
 
     # Goal adjustment
@@ -887,10 +1123,6 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
     fat_ratio = template["fat_ratio"]
     carbs_ratio = template["carbs_ratio"]
 
-    protein_g = round((tdee * protein_ratio) / 4)
-    fat_g = round((tdee * fat_ratio) / 9)
-    carbs_g = round((tdee * carbs_ratio) / 4)
-
     # Select meals
     meal_keys = ["breakfast", "snack1", "lunch", "snack2", "dinner"]
     selected_meals = []
@@ -905,14 +1137,16 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
         if not meals:
             continue
         meal = meals[0]  # Simplified: take first meal
-        selected_meals.append({
-            "name": meal["name"],
-            "kcal": meal["kcal"],
-            "protein": meal["protein"],
-            "carbs": meal["carbs"],
-            "fat": meal["fat"],
-            "time": _get_meal_time(i, request.meals_count),
-        })
+        selected_meals.append(
+            {
+                "name": meal["name"],
+                "kcal": meal["kcal"],
+                "protein": meal["protein"],
+                "carbs": meal["carbs"],
+                "fat": meal["fat"],
+                "time": _get_meal_time(i, request.meals_count),
+            }
+        )
         total_kcal += meal["kcal"]
         total_protein += meal["protein"]
         total_carbs += meal["carbs"]
@@ -955,12 +1189,12 @@ async def generate_diet(request: DietGenerationRequest):
 
 # ========== Health Sync Endpoints ==========
 
+
 @app.post("/sync/flo")
 async def sync_flo(request: Dict):
     """Sync menstrual cycle data from Flo"""
     user_id = request.get("user_id")
     access_token = request.get("access_token")
-    refresh_token = request.get("refresh_token")
 
     if not user_id or not access_token:
         raise HTTPException(status_code=400, detail="user_id and access_token are required")
@@ -981,7 +1215,6 @@ async def sync_okok(request: Dict):
     """Sync body composition data from OKOK International"""
     user_id = request.get("user_id")
     access_token = request.get("access_token")
-    refresh_token = request.get("refresh_token")
 
     if not user_id or not access_token:
         raise HTTPException(status_code=400, detail="user_id and access_token are required")

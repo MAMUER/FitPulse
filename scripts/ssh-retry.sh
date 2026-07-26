@@ -17,9 +17,9 @@ TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
 SSH_STRICT_HOST_KEY_CHECKING="${SSH_STRICT_HOST_KEY_CHECKING:-yes}"
 
 if [[ "$SSH_STRICT_HOST_KEY_CHECKING" == "yes" || "$SSH_STRICT_HOST_KEY_CHECKING" == "true" ]]; then
-    COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes)
+	COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes)
 else
-    COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+	COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 fi
 
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then

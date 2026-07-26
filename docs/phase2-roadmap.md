@@ -128,8 +128,8 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
 - Production-окружения содержат: gateway, user-service, biometric-service, training-service, device-connector, device-aggregator, classifier, ml-generator, data-processor.
 - Production domain: fittpulse.duckdns.org
 - Актуальные сервисы и endpoints:
-  - Portal: https://fittpulse.duckdns.org
-  - API: https://fittpulse.duckdns.org:8443/api/v1/
+  - Portal: <https://fittpulse.duckdns.org>
+  - API: <https://fittpulse.duckdns.org:8443/api/v1/>
   - Health checks: /health, /confirm, /logout
   - ML endpoints: /ml/classify, /ml/generate-plan
 
@@ -157,7 +157,7 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
    - Обеспечить propagation trace context во всех межсервисных вызовах
    - Настроить sampling на уровне >=1% для захвата репрезентативного трафика
 
- 4. **ДАШБОРДЫ**:
+4. **ДАШБОРДЫ**:
     - Grafana дашборды:
       - **Доступность** (p99 за 7-дневное окно)
       - **Латентность** (p50/p95/p99 процентили + трендовый анализ)
@@ -167,7 +167,7 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
     - RED метрики:
       - **R**ate (запросов/сек), **E**rror rate, **D**uration (процентили латентности)
 
- 5. **RECORDING RULES И ALERTMANAGER РОУТИНГ**:
+5. **RECORDING RULES И ALERTMANAGER РОУТИНГ**:
     - Настроить recording rules для pre-aggregated метрик (histogram quantiles, error rate, burn rate) для снижения нагрузки на Prometheus и ускорения запросов Grafana.
     - Заменить stub webhook на полноценные маршруты: Telegram webhook для первичных уведомлений, Slack/PagerDuty для production-каналов.
     - Настроить retention: история алертов хранится 90 дней.
@@ -729,7 +729,7 @@ Phase 2 планируется на **3–4 месяца** (12–16 недель
 
 |Milestone|Срок|Deliverables|Exit criteria|
 |---|---|---|---|
-|**M1: Foundation**|Недели 1–2|VPS upgrade, Vault deployed, corporate email|Vault отвечает < 10ms, email работает| 
+|**M1: Foundation**|Недели 1–2|VPS upgrade, Vault deployed, corporate email|Vault отвечает < 10ms, email работает|
 |**M2: Security Hardening**|Недели 3–4|Secrets rotation automation, mTLS migration started, PGP key published|0 секретов в K8s Secrets, PGP fingerprint в SECURITY.md|
 |**M3: Database HA**|Недели 5–6|PostgreSQL HA deployed, failover tested, backup DR|RTO < 30s, recovery drill пройден|
 |**M4: Observability**|Недели 7–8|Service mesh deployed, Grafana dashboards, Alertmanager|Дашборды покрывают 100% critical endpoints, алерты работают|
