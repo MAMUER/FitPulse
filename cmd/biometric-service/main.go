@@ -60,7 +60,7 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 
 	if err := validator.ValidateBiometricRequest(req); err != nil {
 		s.log.Warn("Invalid biometric request", zap.Error(err))
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	var userExists bool

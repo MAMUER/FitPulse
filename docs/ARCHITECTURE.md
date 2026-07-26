@@ -2430,3 +2430,72 @@ const (
 5. **Error handling**: проверяйте `err` перед использованием результата. `ValidateBackupCode` возвращает `ErrInvalidBackupCode` при несовпадении.
 6. **Normalization**: `normalizeBackupCode` автоматически нормализует ввод (lowercase, убирает пробелы и дефисы). Не выполняйте нормализацию перед вызовом `HashBackupCodes` — она уже внутренняя.
 7. **Тестирование**: unit-тесты покрывают генерацию, валидацию, шифрование и нормализацию. Интеграционные тесты требуют реального времени.
+
+## 24. Shared library `internal/validator` — gRPC request validation
+
+### 24.1 Роль
+
+`internal/validator` — это **shared библиотека для валидации gRPC запросов**, которая обеспечивает:
+- Централизованную валидацию входных данных для всех сервисов (user, training, biometric).
+- Единообразную обработку ошибок через gRPC status codes (`codes.InvalidArgument`).
+- Избегание дублирования валидационной логики между сервисами.
+
+### 24.2 Структура пакета
+
+```text
+internal/validator/
+├── biometric.go       # ValidateBiometricRequest, ValidateBiometricRecord
+├── training.go        # ValidateGeneratePlanRequest, ValidateCompleteWorkoutRequest, etc.
+├── user.go            # ValidateRegisterRequest, ValidateLoginRequest, ValidateProfileUpdate
+└── validator_test.go  # Unit-тесты для всех валидаторов
+```
+
+### 24.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/validator"
+
+// User service
+if err := validator.ValidateRegisterRequest(req); err != nil {
+    return nil, fmt.Errorf("validate register request: %w", err)
+}
+
+// Training service
+if req.DurationWeeks == 0 {
+    req.DurationWeeks = 4
+}
+if err := validator.ValidateGeneratePlanRequest(req); err != nil {
+    return nil, fmt.Errorf("validate generate plan request: %w", err)
+}
+
+// Biometric service
+if err := validator.ValidateBiometricRequest(req); err != nil {
+    return nil, err
+}
+```
+
+### 24.4 Конфигурация
+
+```go
+const (
+    MaxDurationWeeks = 52
+    MaxAvailableDays = 7
+)
+```
+
+### 24.5 Security considerations
+
+1. **Input validation**: все внешние gRPC запросы проходят через валидаторы перед обработкой.
+2. **Consistent errors**: все ошибки возвращаются как gRPC status errors с кодом `InvalidArgument`.
+3. **No side effects**: валидаторы не должны мутировать входные запросы. Значения по умолчанию применяются в сервисном слое.
+4. **Range checks**: числовые поля проверяются на допустимые диапазоны (например, пульс 30-220).
+
+### 24.6 Правила использования
+
+1. **Service layer**: валидаторы вызываются в gRPC handler'ах перед бизнес-логикой.
+2. **Error handling**: возвращайте ошибку валидатора напрямую или оборачивайте через `fmt.Errorf("context: %w", err)` для сохранения gRPC status.
+3. **Defaults**: применяйте значения по умолчанию в сервисном слое, а не в валидаторах.
+4. **New validators**: добавляйте валидаторы для новых сущностей в соответствующие файлы (`biometric.go`, `training.go`, `user.go`).
+5. **Tests**: каждый валидатор должен иметь comprehensive unit-тесты с табличным driven testing.
+6. **gRPC codes**: используйте `codes.InvalidArgument` для ошибок валидации. Не используйте `codes.Internal` или другие коды.
+7. **Тестирование**: unit-тесты не требуют запущенных зависимостей; проверяйте как успешные, так и ошибочные сценарии.

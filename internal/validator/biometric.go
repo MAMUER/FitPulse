@@ -3,22 +3,17 @@ package validator
 
 import (
 	"errors"
-	"fmt"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/biometric"
 )
 
 var (
-	ErrUserIDRequired        = errors.New("user_id is required")
-	ErrMetricTypeRequired    = errors.New("metric_type is required")
-	ErrValueNegative         = errors.New("value cannot be negative")
-	ErrHeartRateOutOfRange   = errors.New("heart_rate out of valid range")
-	ErrSpO2OutOfRange        = errors.New("spo2 out of valid range")
-	ErrTemperatureOutOfRange = errors.New("temperature out of valid range")
-	ErrBPSystolicOutOfRange  = errors.New("blood_pressure_systolic out of valid range")
-	ErrBPDiastolicOutOfRange = errors.New("blood_pressure_diastolic out of valid range")
-	ErrStepsOutOfRange       = errors.New("steps out of valid range")
-	ErrHRVOutOfRange         = errors.New("hrv out of valid range")
+	ErrUserIDRequired     = errors.New("user_id is required")
+	ErrMetricTypeRequired = errors.New("metric_type is required")
+	ErrValueNegative      = errors.New("value cannot be negative")
 )
 
 type MetricRules struct {
@@ -26,6 +21,7 @@ type MetricRules struct {
 	Name     string
 }
 
+// getMetricRules returns validation rules for a given biometric metric type.
 func getMetricRules(metricType string) (MetricRules, bool) {
 	rules := map[string]MetricRules{
 		"heart_rate":               {30, 220, "heart_rate"},
@@ -40,33 +36,35 @@ func getMetricRules(metricType string) (MetricRules, bool) {
 	return r, ok
 }
 
+// ValidateBiometricRequest validates an AddRecordRequest for biometric data.
 func ValidateBiometricRequest(req *pb.AddRecordRequest) error {
 	if req == nil {
-		return errors.New("request is nil")
+		return status.Error(codes.InvalidArgument, "request is nil")
 	}
 
 	if req.UserId == "" {
-		return ErrUserIDRequired
+		return status.Error(codes.InvalidArgument, ErrUserIDRequired.Error())
 	}
 
 	return ValidateBiometricRecord(req)
 }
 
+// ValidateBiometricRecord validates the biometric record fields.
 func ValidateBiometricRecord(req *pb.AddRecordRequest) error {
 	if req == nil {
-		return errors.New("request is nil")
+		return status.Error(codes.InvalidArgument, "request is nil")
 	}
 
 	if req.MetricType == "" {
-		return ErrMetricTypeRequired
+		return status.Error(codes.InvalidArgument, ErrMetricTypeRequired.Error())
 	}
 	if req.Value < 0 {
-		return ErrValueNegative
+		return status.Error(codes.InvalidArgument, ErrValueNegative.Error())
 	}
 
 	if rules, ok := getMetricRules(req.MetricType); ok {
 		if req.Value < rules.Min || req.Value > rules.Max {
-			return fmt.Errorf("%s out of valid range", rules.Name)
+			return status.Error(codes.InvalidArgument, rules.Name+" out of valid range")
 		}
 	}
 

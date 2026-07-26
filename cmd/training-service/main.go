@@ -45,6 +45,9 @@ type trainingServer struct {
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
+	if req.DurationWeeks == 0 {
+		req.DurationWeeks = 4
+	}
 	if err := validator.ValidateGeneratePlanRequest(req); err != nil {
 		s.log.Warn("Invalid generate plan request", zap.Error(err))
 		return nil, fmt.Errorf("validate generate plan request: %w", err)
