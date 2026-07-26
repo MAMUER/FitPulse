@@ -14,8 +14,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
 // RequestID добавляет уникальный идентификатор запроса
@@ -48,7 +51,7 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 				return
 			}
 			token := parts[1]
-			claims, err := auth.ValidateAccessToken(token, publicKeyPEM)
+			claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, "Не найдено", http.StatusNotFound)
@@ -187,5 +190,23 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 			}()
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+// RecoveryGRPC перехватывает паники в gRPC-хендлерах и возвращает Internal error.
+func RecoveryGRPC(log *zap.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Error("gRPC panic recovered",
+					zap.Any("panic", rec),
+					zap.String("method", info.FullMethod),
+					zap.String("stack", string(debug.Stack())),
+				)
+				err = status.Error(codes.Internal, "panic recovered")
+				resp = nil
+			}
+		}()
+		return handler(ctx, req)
 	}
 }

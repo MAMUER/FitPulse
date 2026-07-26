@@ -54,6 +54,23 @@
 - Information disclosure
 - Session management issues
 
+#### Осознанные исключения: HMAC-SHA1 в Garmin OAuth 1.0a
+
+В `cmd/device-aggregator/providers/garmin.go` используется `crypto/sha1` для формирования `oauth_signature` по спецификации **OAuth 1.0a**. Garmin Health API строго требует `oauth_signature_method: HMAC-SHA1`; замена алгоритма приведёт к отклонению всех запросов авторизации и синхронизации данных.
+
+Использование SHA1 ограничено только подписью исходящих запросов к внешнему сервису Garmin. Криптографически значимые данные (пароли, refresh-токены, TOTP-секреты, PII) шифруются по современным стандартам: Argon2id, AES-256-GCM, pgsodium/libsodium.
+
+Исключение зафиксировано в `.golangci.yml`:
+
+```yaml
+- path: cmd/device-aggregator/providers/garmin\.go
+  linters:
+    - gosec
+  text: G505
+```
+
+При отключении интеграции с Garmin или переходе на их OAuth 2.0 (если появится) это исключение должно быть удалено.
+
 ### Низкая опасность
 
 - Missing rate limiting
@@ -78,13 +95,12 @@
 - **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window; для auth endpoints отдельно: 5 attempts/minute per IP для `/login` и `/register` для защиты от brute-force атак (OWASP Authentication Cheat Sheet).
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
 - **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
-- **Подпись ответов**: HMAC-SHA256 для критических JSON (login, register, profile, biometrics, plans).
 
 ### Безопасность данных
 
 **At rest:**
 
-- PostgreSQL: `pgsodium` (libsodium, deterministic AEAD `crypto_aead_det_encrypt`) для PII-полей (email, full_name, nickname, токены верификации). *Примечание: детерминированное шифрование уязвимо к частотному анализу; для полей, не требующих поиска по точному совпадению, использовать рандомизированное шифрование.* Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`, миграция `db/migrations/V18__enable_pgsodium.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
+- PostgreSQL: `pgsodium` (libsodium). Детерминированный AEAD `crypto_aead_det_encrypt` применяется только для полей, где требуется точный lookup без расшифровки (токены верификации). Для PII (email, full_name, nickname) используется рандомизированное шифрование + blind index (HMAC-индекс для поиска). Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`). TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`). Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`; схема — `db/migrations/V1__full_schema.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
 - Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
 - Резервные копии: AES-256
 
@@ -92,12 +108,12 @@
 
 - TLS 1.3 для всех внешних эндпоинтов (terminated на host Nginx)
 - mTLS для внутренних gRPC-коммуникаций между микросервисами (TLS 1.3, mutual auth, сертификаты в Kubernetes Secret)
-- HSTS + OCSP Stapling (`ssl_stapling on; ssl_stapling_verify on;`) + Certificate Transparency: Let's Encrypt сертификаты логируются в CT-логи; `ssl_trusted_certificate` и OCSP настроены в `deploy/lb/production.conf`; верификация CT и OCSP в CI/CD шаге "Verify Certificate Transparency and OCSP Stapling".
+- HSTS + OCSP Stapling (`ssl_stapling on; ssl_stapling_verify on;`) + Certificate Transparency: Let's Encrypt сертификаты логируются в CT-логи; `ssl_trusted_certificate` и OCSP настроены в Ingress NGINX через cert-manager; верификация CT и OCSP в CI/CD шаге.
 - L7 WAF: См. раздел "Инфраструктура" → "WAF"
 
 ### CI/CD безопасность
 
-- **SAST**: gosec (глубокий анализ логики кода), govulncheck (анализ уязвимостей в зависимостях и коде)
+- **SAST**: gosec (глубокий анализ логики кода)
 - **Vulnerability / Secrets / Misconfiguration scanning**: Trivy (единый сканер для репозитория `scan-type: fs` со `scanners: vuln,secret,misconfig` и для образов `scanners: vuln,secret`, плюс `scan-type: config` для IaC).
 - **SBOM generation**: syft (SPDX, CycloneDX)
 - **Image signing**: cosign
@@ -109,11 +125,11 @@
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
   - device-connector-sa, classifier-sa, ml-generator-sa
   - Per-service Roles с жестким ограничением `resourceNames` для чтения только специфичных секретов
-- **Secrets**: JWT, API keys и TLS private keys.
+- **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
 - **WAF**:
-  1. Host Nginx + ModSecurity (module `ngx_http_modsecurity_module.so`) + OWASP CRS v4 (`deploy/lb/modsecurity.conf`, rules in `/opt/modsecurity-crs/`). Включает правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Устанавливается через `deploy/lb/install-crs.sh` в CI/CD (`provision-k8s-vps` job).
-  2. In-cluster ingress-nginx (Namespace `ingress-nginx`, NodePort 30080) с `enable-modsecurity` подготовкой в ConfigMap (`configs/k8s/base/ingress-nginx/configmap.yaml`). Пока primary WAF остаётся host Nginx.
-- **Observability**: структурированное логирование (slog), Prometheus метрики, OpenTelemetry traces
+   1. Ingress NGINX Controller (`hostNetwork: true`, порты 80/443) + ModSecurity + OWASP CRS v4. Правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Конфигурация в `configs/k8s/base/ingress-nginx/`. CRS rules автоматически обновляются через CronJob (`configs/k8s/base/jobs/update-modsecurity-crs.yaml`).
+   2. cert-manager в кластере управляет TLS-сертификатами (Let's Encrypt). ClusterIssuer `letsencrypt-prod` для автоматического выпуска и продления сертификатов.
+- **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
 
 ## Процесс исправления
 

@@ -32,7 +32,7 @@ Refresh token используется для ротации через `POST /a
 |GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, access_token?, user_id?, role?}`|
 |POST|`/api/v1/devices/withings/webhook`|Webhook для Withings (публичный)|`{signature, body}`|`{status}`|
 |GET|`/health`|Health check|—|`200 OK`|
-|GET|`/confirm`|Страница подтверждения email (рендерится `web/templates/confirm.html`)|Query: `?token=`|HTML|
+|GET|`/confirm`|Страница подтверждения email (React SPA)|Query: `?token=`|HTML|
 
 ## Защищённые endpoints (JWT required)
 
@@ -41,7 +41,7 @@ Refresh token используется для ротации через `POST /a
 |POST|`/logout`|Выход с инвалидацией сессии|—|`{status}`. Заголовки: `Set-Cookie: jwt=; Max-Age=0; HttpOnly; Secure; SameSite=Strict`|
 |GET|`/profile`|Получить профиль|—|`{status, profile}`|
 |PUT|`/profile`|Обновить профиль|`{full_name?, age?, gender?, height_cm?, weight_kg?, fitness_level?, goals?, contraindications?, nutrition?, sleep_hours?}`|`{status}`|
-|DELETE|`/profile`|Удалить профиль (152-ФЗ)|`{password}`|`{status, message}`. Реализуется через crypto-shredding (удаление ключа pgsodium для PII)|
+|DELETE|`/profile`|Удалить профиль (152-ФЗ)|`{password}`|`{status, message}`|
 |POST|`/biometrics`|Добавить биометрию|`{metric_type, value, timestamp, device_type?}`|`{status}` (201)|
 |GET|`/biometrics`|Получить биометрию|Query: `?metric_type=&from=&to=&limit=`|`{status, records: [{type, value, timestamp, device_type}]}`|
 |GET|`/training/plans`|Список планов|Query: `?page=&page_size=`|`{status, plans: [{plan_id, plan_data, status, duration_weeks, training_goal, created_at}], total, page, page_size}`|
@@ -49,19 +49,23 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/generate`|Сгенерировать план|`{duration_weeks, available_days, class?, confidence?}`|`{status, plan_id, plan_data, training_type}`|
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
-|POST|`/ml/classify`|Классификация состояния|`{biometrics: {hr, hrv, spo2, temp, bp}}`|`{status, state, confidence, recommendation, fatigue_level?, motivation_score?, recovery_quality?}`|
+|POST|`/ml/classify`|Классификация состояния|— (используются последние биометрические данные пользователя)|`{status, state, confidence, recommendation, fatigue_level, motivation_score, recovery_quality}`|
 |POST|`/ml/generate-plan`|Генерация плана (GAN)|`{training_class, user_profile, goal?, constraints?}`|`{status, training_plan, diet_plan}`|
-|POST|`/devices/register`|Регистрация устройства|`{device_type, device_name?}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
-|POST|`/devices/{device_id}/ingest`|Приём данных с устройства|`{metrics: [{metric_type, value, timestamp, device_type}]}`|`{status, synced_samples}`|
-|GET|`/devices`|Список устройств|—|`{status, devices: [{id, user_id, device_type, created_at}]}`|
-|POST|`/devices`|Зарегистрировать новое устройство|`{device_type}`|`{status, device_id, device_type, device_name, is_connected, last_sync}`|
-|GET|`/devices/fitbit/auth`|Fitbit OAuth|—|Redirect to Fitbit|
-|GET|`/devices/fitbit/callback`|Fitbit callback|—|`{status}`|
-|POST|`/devices/fitbit/disconnect`|Disconnect Fitbit|—|`{status}`|
-|GET|`/devices/providers`|List providers|—|`{status, providers}`|
-|GET|`/devices/withings/auth`|Withings OAuth|—|Redirect to Withings|
-|GET|`/devices/withings/callback`|Withings callback|—|`{status}`|
-|POST|`/devices/withings/disconnect`|Disconnect Withings|—|`{status}`|
+|POST|`/devices/register`|Регистрация устройства|`{device_type, user_id}`|`{device_id, device_type, user_id, device_token}`|
+|POST|`/api/v1/devices/{device_id}/ingest`|Приём данных с устройства|Header: `device_token`, Body: `{device_type, sync_interval_ms, records: [{metric_type, value, timestamp, quality}]}`|`{total_received, duplicates, forwarded, failed}`|
+|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
+|GET|`/api/v1/devices/fitbit/auth`|Fitbit OAuth|Header: `X-User-ID`|Redirect to Fitbit|
+|GET|`/api/v1/devices/fitbit/callback`|Fitbit callback|Query: `code`, `state`|`{status}`|
+|POST|`/api/v1/devices/fitbit/webhook`|Fitbit webhook (публичный)|JSON body|`{status}`|
+|POST|`/api/v1/devices/fitbit/disconnect`|Disconnect Fitbit|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/garmin/auth`|Garmin OAuth 1.0a|Header: `X-User-ID`|Redirect to Garmin|
+|GET|`/api/v1/devices/garmin/callback`|Garmin callback|Query: `code`, `state`, `oauth_verifier`|`{status}`|
+|POST|`/api/v1/devices/garmin/disconnect`|Disconnect Garmin|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/withings/auth`|Withings OAuth|Header: `X-User-ID`|Redirect to Withings|
+|GET|`/api/v1/devices/withings/callback`|Withings callback|Query: `code`, `state`|`{status}`|
+|POST|`/api/v1/devices/withings/webhook`|Withings webhook (публичный)|Header: `X-Withings-Signature`, JSON body|`{status}`|
+|POST|`/api/v1/devices/withings/disconnect`|Disconnect Withings|Header: `X-User-ID`|`{status}`|
+|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
 |POST|`/auth/2fa/setup`|Настройка TOTP|—|`{status, qr_code_url, qr_code_base64, secret, backup_codes}`|
 |POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{passcode, temp_secret?, backup_codes?}`|`{status, message}`|
 |GET|`/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
@@ -69,20 +73,69 @@ Refresh token используется для ротации через `POST /a
 
 ## Админ endpoints (JWT + role=admin)
 
+> Примечание: все админ-endpoints делегируются в `user-service` через gRPC. Gateway не выполняет прямых SQL-запросов.
+
 |Метод|Путь|Описание|Входные данные|Выходные данные|
 |---|---|---|---|---|
-|GET|`/users`|Список пользователей|Query: `?page=&page_size=`|`{status, users: [UserProfile], total, page, page_size}`|
-|GET|`/invites`|Список invite-кодов|Query: `?page=&page_size=&used=`|`{status, invites: [{code, role, specialty, used, created_at, max_uses?}], total, page, page_size}`|
-|POST|`/invites`|Создать invite-код|`{role, specialty?, max_uses?}`|`{status, code, role, specialty, max_uses, created_at}`|
-|POST|`/invites/{code}/revoke`|Отозвать invite-код|—|`{status, message}`|
+|GET|`/api/v1/admin/users`|Список пользователей|Query: `?page=&page_size=`|`{status, users: [UserProfile], total, page, page_size}`|
+|GET|`/api/v1/admin/invites`|Список invite-кодов|Query: `?page=&page_size=`|`{status, invites: [{code, role, specialty, max_uses, used_count, is_active, created_at, invite_url}], total}`|
+|POST|`/api/v1/admin/invites`|Создать invite-код|`{role, specialty?, max_uses?}`|`{status, code, role, specialty, max_uses, invite_url, created_at}`|
+|POST|`/api/v1/admin/invites/revoke`|Отозвать invite-код|Query: `?code=`|`{status, message}`|
 
 ## gRPC services
 
 |Service|Порт|Описание|
 |---|---|---|
-|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды|
-|Biometric Service|50052|Приём и хранение биометрических данных|
+|User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды, админ-операции, удаление профиля (GDPR), статус TOTP|Metrics: `9096`|
+|Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)|
 |Training Service|50053|Управление тренировочными планами|
+
+### UserService gRPC Methods
+
+|RPC|Request|Response|Описание|
+|---|---|---|---|
+|`Register`|`RegisterRequest`|`RegisterResponse`|Регистрация пользователя|
+|`RegisterWithInvite`|`RegisterWithInviteRequest`|`RegisterResponse`|Регистрация по invite-коду|
+|`ConfirmEmail`|`ConfirmEmailRequest`|`ConfirmEmailResponse`|Подтверждение email|
+|`Login`|`LoginRequest`|`LoginResponse`|Вход по email/password|
+|`AuthenticateGoogle`|`AuthenticateGoogleRequest`|`LoginResponse`|Вход через Google OAuth|
+|`GetProfile`|`GetProfileRequest`|`UserProfile`|Получить профиль|
+|`GetUserByEmail`|`GetUserByEmailRequest`|`UserProfile`|Получить пользователя по email|
+|`UpdateProfile`|`UpdateProfileRequest`|`UserProfile`|Обновить профиль|
+|`ChangePassword`|`ChangePasswordRequest`|`ChangePasswordResponse`|Сменить пароль|
+|`ChangeEmail`|`ChangeEmailRequest`|`ChangeEmailResponse`|Сменить email|
+|`UploadProfilePhoto`|`UploadProfilePhotoRequest`|`UploadProfilePhotoResponse`|Загрузить фото профиля|
+|`RemoveProfilePhoto`|`RemoveProfilePhotoRequest`|`RemoveProfilePhotoResponse`|Удалить фото профиля|
+|`ChangeNickname`|`ChangeNicknameRequest`|`ChangeNicknameResponse`|Изменить nickname|
+|`ListDevices`|`ListDevicesRequest`|`ListDevicesResponse`|Список устройств пользователя|
+|`AddDevice`|`AddDeviceRequest`|`AddDeviceResponse`|Добавить устройство|
+|`RemoveDevice`|`RemoveDeviceRequest`|`RemoveDeviceResponse`|Удалить устройство|
+|`SyncDeviceData`|`SyncDeviceDataRequest`|`SyncDeviceDataResponse`|Синхронизировать данные устройства|
+|`GetTrainingStats`|`GetTrainingStatsRequest`|`GetTrainingStatsResponse`|Статистика тренировок|
+|`GetAchievements`|`GetAchievementsRequest`|`GetAchievementsResponse`|Достижения пользователя|
+|`ListUsers`|`ListUsersRequest`|`ListUsersResponse`|Список пользователей (admin)|
+|`ValidateInviteCode`|`ValidateInviteCodeRequest`|`ValidateInviteCodeResponse`|Валидация invite-кода|
+|`SetupTOTP`|`SetupTOTPRequest`|`SetupTOTPResponse`|Настройка TOTP|
+|`ConfirmTOTP`|`ConfirmTOTPRequest`|`ConfirmTOTPResponse`|Подтверждение TOTP|
+|`VerifyTOTP`|`VerifyTOTPRequest`|`VerifyTOTPResponse`|Проверка TOTP|
+|`DisableTOTP`|`DisableTOTPRequest`|`DisableTOTPResponse`|Отключение TOTP|
+|`RefreshToken`|`RefreshTokenRequest`|`RefreshTokenResponse`|Ротация refresh token|
+|`ListHealthConditions`|`ListHealthConditionsRequest`|`ListHealthConditionsResponse`|Список заболеваний|
+|`UpsertHealthCondition`|`UpsertHealthConditionRequest`|`HealthCondition`|Добавить/обновить заболевание|
+|`DeleteHealthCondition`|`DeleteHealthConditionRequest`|`DeleteHealthConditionResponse`|Удалить заболевание|
+|`ListBodyComposition`|`ListBodyCompositionRequest`|`ListBodyCompositionResponse`|Список записей состава тела|
+|`CreateBodyComposition`|`CreateBodyCompositionRequest`|`BodyCompositionRecord`|Создать запись состава тела|
+|`ListMenstrualCycles`|`ListMenstrualCyclesRequest`|`ListMenstrualCyclesResponse`|Список менструальных циклов|
+|`CreateMenstrualCycle`|`CreateMenstrualCycleRequest`|`MenstrualCycle`|Создать цикл|
+|`UpdateMenstrualCycle`|`UpdateMenstrualCycleRequest`|`MenstrualCycle`|Обновить цикл|
+|`DeleteMenstrualCycle`|`DeleteMenstrualCycleRequest`|`DeleteMenstrualCycleResponse`|Удалить цикл|
+|`SyncFloData`|`SyncFloDataRequest`|`SyncFloDataResponse`|Синхронизация Flo|
+|`SyncOKOKData`|`SyncOKOKDataRequest`|`SyncOKOKDataResponse`|Синхронизация OKOK|
+|`GetUserClaims`|`GetUserClaimsRequest`|`GetUserClaimsResponse`|Получить email/role/TOTP-статус пользователя|
+|`DeleteProfile`|`DeleteProfileRequest`|`DeleteProfileResponse`|Удаление профиля (GDPR)|
+|`AdminListInvites`|`AdminListInvitesRequest`|`AdminListInvitesResponse`|Список invite-кодов (admin)|
+|`AdminCreateInvite`|`AdminCreateInviteRequest`|`AdminCreateInviteResponse`|Создать invite-код (admin)|
+|`AdminRevokeInvite`|`AdminRevokeInviteRequest`|`AdminRevokeInviteResponse`|Отозвать invite-код (admin)|
 
 ## Модели данных
 
@@ -169,4 +222,15 @@ Refresh token используется для ротации через `POST /a
 |500|Внутренняя ошибка|
 |503|Сервис временно недоступен|
 
-> **Примечание**: для неавторизованных пользователей 403 маскируется под 404 для предотвращения enumeration.
+## Внутренние сервисы
+
+### Data Processor (`cmd/data-processor`)
+
+Фоновый сервис для потребления биометрических событий из RabbitMQ и сохранения в PostgreSQL.
+
+|Метод|Путь|Описание|Входные данные|Выходные данные|
+|---|---|---|---|---|
+|GET|`/health`|Health check|—|`{"status":"healthy"}`|
+|GET|`/metrics`|Prometheus метрики|—|text/plain|
+
+Порты по умолчанию: `DATA_PROCESSOR_PORT=8084`, `DATA_PROCESSOR_METRICS_PORT=9092`.

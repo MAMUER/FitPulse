@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/metrics"
 )
 
@@ -30,16 +31,47 @@ func (c Config) ConnectionString() string {
 		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
+// Validate checks that the database configuration is valid.
+func (c Config) Validate() error {
+	if c.Host == "" {
+		return errors.New("db host is required")
+	}
+	if c.Port == "" {
+		return errors.New("db port is required")
+	}
+	if c.User == "" {
+		return errors.New("db user is required")
+	}
+	if c.Password == "" {
+		return errors.New("db password is required")
+	}
+	if c.DBName == "" {
+		return errors.New("db name is required")
+	}
+	return nil
+}
+
+// LoadConfig loads database configuration from environment variables.
+// It supports the _FILE suffix for Docker/Kubernetes secrets.
+func LoadConfig() Config {
+	return Config{
+		Host:     config.GetEnv("DB_HOST", "localhost"),
+		Port:     config.GetEnv("DB_PORT", "5432"),
+		User:     config.GetEnv("DB_USER", "postgres"),
+		Password: config.GetEnvRequired("DB_PASSWORD"),
+		DBName:   config.GetEnv("DB_NAME", "postgres"),
+		SSLMode:  config.GetEnv("DB_SSL_MODE", "disable"),
+	}
+}
+
 var poolMetricOnce sync.Once
 
 // NewConnection opens a new PostgreSQL connection and reports pool usage metrics.
 func NewConnection(cfg Config) (*sql.DB, error) {
-	if cfg.User == "" {
-		cfg.User = "postgres"
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid db config: %w", err)
 	}
-	if cfg.Password == "" {
-		return nil, errors.New("POSTGRES_PASSWORD environment variable is required")
-	}
+
 	connStr := cfg.ConnectionString()
 
 	db, err := sql.Open("postgres", connStr)

@@ -18,6 +18,7 @@
 
 - **Go**: версия 1.26+
 - **Python**: версия 3.14+ (для ML-сервисов)
+- **Node.js**: версия 24+ (для frontend)
 - **Docker**: Docker Desktop / Docker Engine с поддержкой BuildKit (современные версии)
 - **Git**: для управления версиями
 
@@ -31,17 +32,20 @@
    cd fitpulse
    ```
 
-3. **Добавьте upstream remote**:
+3. **Добавьте upstream remote** (опционально, если работаете через fork):
 
    ```bash
    git remote add upstream https://github.com/MAMUER/fitpulse.git
    ```
+
+   Если вы работаете напрямую в репозитории, этот шаг можно пропустить.
 
  4. **Установите зависимости**:
 
     ```bash
     go mod tidy
     pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
+    cd web && npm ci  # для frontend
     ```
 
  5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск сервисов не поддерживается — deploy только на VPS. Для локальных интеграционных тестов используйте `testcontainers-go` (зависимости поднимаются автоматически при запуске `go test -tags=integration`).
@@ -219,13 +223,22 @@ make api-test
 # Нагрузочное тестирование (требует k6)
 make load-test
 
-# Полный набор проверок (tidy + fmt + vet + lint + tests + утилиты)
+# Frontend тесты
+cd web && npm run test
+
+# Frontend линтинг
+cd web && npm run lint
+
+# Frontend сборка
+cd web && npm run build
+
+# Полный набор проверок (tidy + fmt + vet + lint + tests + утилиты + frontend)
 make check
 ```
 
 ### Покрытие кодом
 
-Порог покрытия **75%** считается только для пакетов бизнес-логики: `internal/` (кроме инфраструктурных пакетов: `grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`) и `pkg/`. Исключаются сгенерированный код (`api/gen/`) и моки (`mocks/`).
+Порог покрытия **75%** считается только для пакетов бизнес-логики: `internal/` (кроме инфраструктурных пакетов: `grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`). Исключаются сгенерированный код (`api/gen/`) и моки (`mocks/`).
 
 Проверка покрытия:
 
@@ -236,7 +249,7 @@ make test-cover
 Или вручную:
 
 ```bash
-go test -count=1 -v -coverprofile=coverage.out ./internal/... ./pkg/...
+go test -count=1 -v -coverprofile=coverage.out ./internal/...
 go tool cover -html=coverage.out -o coverage.html
 ```
 
@@ -276,14 +289,16 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 
 2. **Запустите все проверки**:
 
-    ```bash
-    make check  # tidy + fmt + vet + lint + unit tests + markdown check
-    ```
+   ```bash
+   make check
+   ```
 
-    При необходимости запустите интеграционные тесты локально (требуют Docker):
-    ```bash
-    go test -v -tags=integration ./...
-    ```
+   Эта команда запускает: `go mod tidy`, `go fmt`, `go vet`, импорты, `golangci-lint` и unit-тесты с проверкой покрытия.
+
+   При необходимости запустите интеграционные тесты локально (требуют Docker):
+   ```bash
+   go test -v -tags=integration ./...
+   ```
 
 3. **Проверьте покрытие тестами**:
 
@@ -327,13 +342,16 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 Fixes #123
 
 ## Чеклист
- - [ ] Код отформатирован (`go fmt ./...`)
- - [ ] Линтер пройден (`make lint`)
- - [ ] Покрытие тестами >= 75% для бизнес-логики (проверяется через `make test-cover`)
- - [ ] Документация обновлена
- - [ ] Изменения протестированы (`make check`)
- - [ ] Интеграционные тесты запущены локально при необходимости (`go test -v -tags=integration ./...`)
- - [ ] Все CI/CD проверки прошли успешно
+  - [ ] Код отформатирован (`go fmt ./...`)
+  - [ ] Линтер пройден (`make lint`)
+  - [ ] Покрытие тестами >= 75% для бизнес-логики (проверяется через `make test-cover`)
+  - [ ] Frontend линтер пройден (`cd web && npm run lint`)
+  - [ ] Frontend тесты пройдены (`cd web && npm run test`)
+  - [ ] Frontend сборка успешна (`cd web && npm run build`)
+  - [ ] Документация обновлена
+  - [ ] Изменения протестированы (`make check`)
+  - [ ] Интеграционные тесты запущены локально при необходимости (`go test -v -tags=integration ./...`)
+  - [ ] Все CI/CD проверки прошли успешно
 ```
 
 ## Code Review
@@ -361,12 +379,15 @@ PR будет принят, если:
 4. Исправление замечаний
 5. Approval и merge
 
+**Merge frequency**: approved PRы мержатся в `main` по готовности, обычно в течение 1 рабочего дня после approval. Hotfixы мержатся приоритетно.
+
 ## Сообщество и коммуникация
 
 ### Где задать вопросы
 
 - **GitHub Issues**: для багов и фич
 - **GitHub Discussions**: для общих вопросов
+- **GitHub Security Advisory**: для конфиденциальных сообщений об уязвимостях [https://github.com/MAMUER/fitpulse/security/advisories](https://github.com/MAMUER/fitpulse/security/advisories)
 - **Email**: <mihnikolaenko12@yandex.ru>
 
 ### Кодекс поведения

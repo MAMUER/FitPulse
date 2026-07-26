@@ -16,16 +16,16 @@ import (
 
 func TestValidateBiometricRequest(t *testing.T) {
 	tests := []struct {
-		name    string
-		req     *biometricpb.AddRecordRequest
-		wantErr bool
-		errMsg  string
+		name     string
+		req      *biometricpb.AddRecordRequest
+		wantCode codes.Code
+		errMsg   string
 	}{
 		{
-			name:    "nil request",
-			req:     nil,
-			wantErr: true,
-			errMsg:  "request is nil",
+			name:     "nil request",
+			req:      nil,
+			wantCode: codes.InvalidArgument,
+			errMsg:   "request is nil",
 		},
 		{
 			name: "valid heart rate",
@@ -34,7 +34,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      75.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "missing user_id",
@@ -42,8 +42,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      75.0,
 			},
-			wantErr: true,
-			errMsg:  "user_id is required",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "user_id is required",
 		},
 		{
 			name: "missing metric_type",
@@ -51,8 +51,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				UserId: "user-123",
 				Value:  75.0,
 			},
-			wantErr: true,
-			errMsg:  "metric_type is required",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "metric_type is required",
 		},
 		{
 			name: "negative value",
@@ -61,8 +61,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      -10.0,
 			},
-			wantErr: true,
-			errMsg:  "value cannot be negative",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "value cannot be negative",
 		},
 		{
 			name: "heart_rate too low",
@@ -71,8 +71,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      25.0,
 			},
-			wantErr: true,
-			errMsg:  "heart_rate out of valid range",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "heart_rate out of valid range",
 		},
 		{
 			name: "heart_rate too high",
@@ -81,8 +81,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      250.0,
 			},
-			wantErr: true,
-			errMsg:  "heart_rate out of valid range",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "heart_rate out of valid range",
 		},
 		{
 			name: "heart_rate boundary low",
@@ -91,7 +91,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      30.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "heart_rate boundary high",
@@ -100,7 +100,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      220.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "spo2 valid",
@@ -109,7 +109,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "spo2",
 				Value:      98.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "spo2 too low",
@@ -118,8 +118,8 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "spo2",
 				Value:      69.0,
 			},
-			wantErr: true,
-			errMsg:  "spo2 out of valid range",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "spo2 out of valid range",
 		},
 		{
 			name: "spo2 boundary low",
@@ -128,7 +128,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "spo2",
 				Value:      70.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "spo2 boundary high",
@@ -137,7 +137,7 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "spo2",
 				Value:      100.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "unknown metric - passes validation",
@@ -146,20 +146,21 @@ func TestValidateBiometricRequest(t *testing.T) {
 				MetricType: "unknown_metric",
 				Value:      50.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateBiometricRequest(tt.req)
-			if !tt.wantErr {
+			if tt.wantCode == codes.OK {
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
+				st, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tt.wantCode, st.Code())
+				assert.Contains(t, st.Message(), tt.errMsg)
 			}
 		})
 	}
@@ -167,16 +168,16 @@ func TestValidateBiometricRequest(t *testing.T) {
 
 func TestValidateBiometricRecord(t *testing.T) {
 	tests := []struct {
-		name    string
-		req     *biometricpb.AddRecordRequest
-		wantErr bool
-		errMsg  string
+		name     string
+		req      *biometricpb.AddRecordRequest
+		wantCode codes.Code
+		errMsg   string
 	}{
 		{
-			name:    "nil request",
-			req:     nil,
-			wantErr: true,
-			errMsg:  "request is nil",
+			name:     "nil request",
+			req:      nil,
+			wantCode: codes.InvalidArgument,
+			errMsg:   "request is nil",
 		},
 		{
 			name: "valid without user_id",
@@ -184,28 +185,29 @@ func TestValidateBiometricRecord(t *testing.T) {
 				MetricType: "heart_rate",
 				Value:      75.0,
 			},
-			wantErr: false,
+			wantCode: codes.OK,
 		},
 		{
 			name: "missing metric_type",
 			req: &biometricpb.AddRecordRequest{
 				Value: 75.0,
 			},
-			wantErr: true,
-			errMsg:  "metric_type is required",
+			wantCode: codes.InvalidArgument,
+			errMsg:   "metric_type is required",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateBiometricRecord(tt.req)
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
-			} else {
+			if tt.wantCode == codes.OK {
 				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				st, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tt.wantCode, st.Code())
+				assert.Contains(t, st.Message(), tt.errMsg)
 			}
 		})
 	}
@@ -579,13 +581,14 @@ func TestValidateGeneratePlanRequest(t *testing.T) {
 			errMsg:   "user_id is required",
 		},
 		{
-			name: "duration weeks zero - uses default",
+			name: "duration weeks zero",
 			req: &trainingpb.GeneratePlanRequest{
 				UserId:        "user-123",
 				DurationWeeks: 0,
 				AvailableDays: []int32{1, 3, 5},
 			},
-			wantCode: codes.OK,
+			wantCode: codes.InvalidArgument,
+			errMsg:   "duration_weeks must be greater than 0",
 		},
 		{
 			name: "duration weeks negative",

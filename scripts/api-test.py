@@ -5,6 +5,7 @@ Fitness Platform — API Test Suite (cross-platform)
 Usage:
     python scripts/api-test.py
     python scripts/api-test.py --base-url https://localhost:8443
+    python scripts/api-test.py --insecure
 """
 
 import argparse
@@ -30,7 +31,7 @@ BOLD = "\033[1m"
 
 
 class TestRunner:
-    def __init__(self, base_url):
+    def __init__(self, base_url, insecure=False):
         self.base_url = base_url.rstrip("/")
         self.token = None
         self.passed = 0
@@ -52,10 +53,10 @@ class TestRunner:
             or not self.parsed_base_url.hostname
             or port is None
         )
-        # Disable SSL verification for self-signed certs
         self.ctx = ssl.create_default_context()
-        self.ctx.check_hostname = False
-        self.ctx.verify_mode = ssl.CERT_NONE
+        if insecure:
+            self.ctx.check_hostname = False
+            self.ctx.verify_mode = ssl.CERT_NONE
 
     def _make_request(self, method, request_path, data=None, headers=None):
         path = request_path if request_path.startswith("/") else f"/{request_path}"
@@ -139,9 +140,10 @@ def section(title):
 def main():
     parser = argparse.ArgumentParser(description="Fitness Platform API Test Suite")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="API base URL")
+    parser.add_argument("--insecure", action="store_true", help="Disable SSL certificate verification")
     args = parser.parse_args()
 
-    t = TestRunner(args.base_url)
+    t = TestRunner(args.base_url, insecure=args.insecure)
     test_email = f"apitest-{random.randint(1000, 9999)}@example.com"
 
     print(f"\n{BOLD}{CYAN}{'=' * 50}{RESET}")
@@ -330,8 +332,32 @@ def main():
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 
-    # 7. Security
-    section("7. SECURITY")
+    # 7. TOTP / 2FA
+    section("7. TOTP / 2FA")
+    totp_setup = t.test("TOTP Setup", "POST", "/auth/2fa/setup", token=t.token, expected=200)
+    if isinstance(totp_setup, dict) and totp_setup.get("secret") and totp_setup.get("backup_codes"):
+        secret = totp_setup["secret"]
+        backup_codes = totp_setup["backup_codes"]
+        # Для UAT используем невалидный код, чтобы не зависеть от реального TOTP генерации
+        t.test(
+            "TOTP Confirm (invalid code)",
+            "POST",
+            "/auth/2fa/confirm",
+            body={
+                "passcode": "000000",
+                "temp_secret": secret,
+                "backup_codes": backup_codes,
+            },
+            token=t.token,
+            expected=400,
+        )
+        t.test("TOTP Status", "GET", "/auth/2fa/status", token=t.token, expected=200)
+    else:
+        t.skipped += 1
+        print(f"       {YELLOW}SKIP: TOTP setup unavailable{RESET}")
+
+    # 8. Security
+    section("8. SECURITY")
     t.token = None
     t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
     t.test("Training (no token)", "GET", "/api/v1/training/plans", expected=404)

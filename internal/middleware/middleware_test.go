@@ -18,8 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
 var (
@@ -124,7 +127,7 @@ func TestRequestIDMultipleRequests(t *testing.T) {
 func TestAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -198,7 +201,7 @@ func TestAuthMiddleware(t *testing.T) {
 }
 
 func generateExpiredAccessToken() string {
-	token, err := auth.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, -1*time.Hour)
+	token, err := jwt.GenerateAccessToken("user-123", "test@example.com", "client", testPrivateKeyPEMMW, -1*time.Hour)
 	if err != nil {
 		panic(err)
 	}
@@ -208,7 +211,7 @@ func generateExpiredAccessToken() string {
 func TestAuthMiddlewareWithContext(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-456", "test@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-456", "test@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -721,7 +724,7 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken(testUserID, "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken(testUserID, "admin@example.com", "admin", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -751,7 +754,7 @@ func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	log := zap.NewNop()
 
-	validToken, err := auth.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
+	validToken, err := jwt.GenerateAccessToken("user-client", "user@example.com", "client", testPrivateKeyPEMMW, 15*time.Minute)
 	require.NoError(t, err)
 
 	called := false
@@ -774,22 +777,6 @@ func TestRequireRoleChainWithWrongRole(t *testing.T) {
 	assert.False(t, called)
 }
 
-// Test response signer middleware
-func TestResponseSigner(t *testing.T) {
-	log := zap.NewNop()
-	secret := "sign-secret"
-
-	handler := SignCriticalResponses(secret, log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"ok":true}`))
-	}))
-
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-}
-
 // Test CorrelationID middleware with and without header
 func TestCorrelationID(t *testing.T) {
 	called := false
@@ -809,4 +796,73 @@ func TestCorrelationID(t *testing.T) {
 
 	assert.True(t, called)
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+// ==========================================
+// RecoveryGRPC Tests
+// ==========================================
+
+func TestRecoveryGRPC_ReturnsErrorOnPanic(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic("test panic")
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.Contains(t, st.Message(), "panic recovered")
+}
+
+func TestRecoveryGRPC_NoPanic(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	expectedResp := "success"
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return expectedResp, nil
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Equal(t, expectedResp, resp)
+	assert.NoError(t, err)
+}
+
+func TestRecoveryGRPC_PanicWithStringValue(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic("something went wrong")
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+}
+
+func TestRecoveryGRPC_PanicWithIntValue(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic(42)
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
 }

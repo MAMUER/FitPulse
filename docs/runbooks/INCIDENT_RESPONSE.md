@@ -12,9 +12,9 @@
 
 |Уровень|Влияние|Время реакции|Время исправления|Эскалация|
 |---|---|---|---|---|
-|**SEV-1**|Полный downtime сервиса, риск потери данных|15 мин|1 час|Немедленный PagerDuty → Tech Lead → CTO|
-|**SEV-2**|Сервис деградирован, частичная потеря функциональности|1 час|4 часа|Slack → дежурный инженер → Tech Lead|
-|**SEV-3**|Мелкие проблемы, влияние на UX|4 часа|2 недели|Slack → дежурный инженер|
+|**SEV-1**|Полный downtime сервиса, риск потери данных|15 мин|1 час|Telegram → Tech Lead → CTO|
+|**SEV-2**|Сервис деградирован, частичная потеря функциональности|1 час|4 часа|Telegram → Tech Lead|
+|**SEV-3**|Мелкие проблемы, влияние на UX|4 часа|2 недели|Telegram → Team lead|
 |**SEV-4**|Нет непосредственного влияния на пользователей|24 часа|Следующий релиз|Очередь тикетов|
 
 ---
@@ -24,22 +24,14 @@
 ### Фаза 1: Триаж (0–5 минут)
 
 1. **Подтверждение алерта**
-   - PagerDuty: нажать «Acknowledge» немедленно.
-   - Slack: поставить реакцию `:ack:` в канал `#alerts`.
+   - Telegram: ответить на сообщение бота «Принято».
+   - CI/CD pipeline: отметить запуск как in_progress.
 
-2. **Объявление инцидента**
+2. **Назначить Incident Commander (IC)**
+   - Обычно: первый реагирующий инженер.
+   - При недоступности: Tech Lead.
 
-   ```bash
-   # Создать инцидент в Slack
-   /incident declare
-   # Автоматически создаётся канал: #incident-YYYY-MM-DD-N
-   ```
-
-3. **Назначить Incident Commander (IC)**
-   - Обычно: дежурный инженер.
-   - При недоступности: следующий в ротации.
-
-4. **Первичная оценка**
+3. **Первичная оценка**
    - Что затронуто? (сервис, регион, пользователи?)
    - Сколько пользователей затронуто?
    - Есть ли риск потери данных?
@@ -49,7 +41,7 @@
 **IC распределяет роли**:
 
 - **Responder** — устраняет проблему.
-- **Communications** — обновляет статус-страницу и оповещает пользователей.
+- **Communications** — готовит сообщение для команды.
 - **Doc Writer** — ведёт хронологию инцидента.
 
 **Действия Responder** (используйте [Operations Runbook](./OPERATIONS_RUNBOOK.md)):
@@ -67,7 +59,7 @@ kubectl rollout restart deployment/<deployment-name> -n fitness-platform-product
 # 4. Если проблема после недавнего деплоя — откат
 kubectl rollout undo deployment/gateway -n fitness-platform-production
 
-# 5. Логи по сервисам (Kibana или kubectl)
+# 5. Логи по сервисам
 kubectl logs -f deployment/gateway -n fitness-platform-production --tail=200
 ```
 
@@ -79,14 +71,13 @@ kubectl get pods -n fitness-platform-production -l app=device-aggregator
 kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
 
 # Проверить health endpoints
-curl -k https://<gateway-host>:8443/health
+curl -k https://fittpulse.duckdns.org/health
 curl http://device-aggregator:8083/health
 ```
 
 **Действия Communications**:
 
-- Обновить статус-страницу: [status.fitpulse.app](https://status.fitpulse.app)
-- Оповестить в `#general-incidents`
+- Уведомить команду в Telegram-чат.
 - Подготовить заявление: «Идёт работа над восстановлением сервиса...»
 
 ### Фаза 3: Разрешение (15+ минут)
@@ -98,14 +89,13 @@ curl http://device-aggregator:8083/health
 ### Фаза 4: Восстановление (пост-инцидент)
 
 1. **Подтвердить нормальную работу**: сервис стабилен в течение 24 часов.
-2. **Убрать labels инцидента** со статус-страницы.
-3. **Коммуникация**: публичный post-mortem.
-4. **Root Cause Analysis (RCA)**:
+2. **Коммуникация**: уведомить команду в Telegram.
+3. **Root Cause Analysis (RCA)**:
    - Задокументировать что произошло.
    - Объяснить почему это произошло.
    - Предложить превентивные меры.
 
-5. **Провести разбор (debrief)**: в течение 48 часов после инцидента.
+4. **Провести разбор (debrief)**: в течение 48 часов после инцидента.
 
 ---
 
@@ -138,7 +128,7 @@ kubectl scale deployment biometric-service --replicas=5 -n fitness-platform-prod
 # 5. Мониторить восстановление
 kubectl top pod -n fitness-platform-production --containers
 
-# 6. Оповестить команду в #incidents
+# 6. Оповестить команду в Telegram
 ```
 
 ---
@@ -154,7 +144,7 @@ kubectl top pod -n fitness-platform-production --containers
    - Сделать forensic-снапшоты: `kubectl cp`, `kubectl exec ... tar`.
 
 2. **Расследование** (1–4 часа)
-   - Просмотр audit-логов: Kibana запрос `level="AUDIT_*"`.
+   - Просмотр audit-логов: `kubectl logs` по namespace с фильтром `level="ERROR"`.
    - Проверка lateral movement: активны ли Network Policies?
    - Определение scope: какие данные были доступны?
 
@@ -171,8 +161,8 @@ kubectl top pod -n fitness-platform-production --containers
 ### Уязвимость в коде (SEV-1, если критична)
 
 1. **Немедленно**: исправить код, собрать новый контейнерный образ.
-2. **Тестирование**: запустить security-сканы (Snyk, Trivy).
-4. **Мониторинг**: следить за попытками эксплуатации в логах.
+2. **Тестирование**: запустить security-сканы (gosec, Trivy, govulncheck).
+3. **Мониторинг**: следить за попытками эксплуатации в логах.
 
 ---
 
@@ -185,7 +175,7 @@ kubectl top pod -n fitness-platform-production --containers
 Начало: 2026-05-06T14:30Z
 Влияние: ~10% пользователей испытывают таймауты
 Статус: Идёт расследование
-Обновления: https://status.fitpulse.app
+Обновления: Telegram-чат команды
 ```
 
 ### Разрешение
@@ -228,24 +218,23 @@ Action Items:
 
 |Инструмент|URL / Путь|Назначение|
 |---|---|---|
-|PagerDuty|[fitpulse.pagerduty.com](https://fitpulse.pagerduty.com)|Трекинг инцидентов and on-call|
-|Slack|`#incidents`, `#alerts`, `#general-incidents`|Коммуникация|
-|Grafana|[grafana.fitpulse.app:3000](https://grafana.fitpulse.app:3000)|Дашборды and метрики|
-|Kibana|[kibana.fitpulse.app:5601](https://kibana.fitpulse.app:5601)|Логи и анализ|
+|Telegram|CI/CD bot + server health chat|Уведомления о инцидентах|
+|Grafana|`https://fittpulse.duckdns.org`|Дашборды и метрики|
 |Kubernetes|`kubectl`|Оркестрация контейнеров|
-|Status Page|[status.fitpulse.app](https://status.fitpulse.app)|Публичный статус сервисов|
+|CI/CD|GitHub Actions|Сканирование, сборка, деплой|
+
 
 ---
 
 ## Чек-лист инцидента
 
-- [ ] Подтвердить алерт в PagerDuty/Slack
-- [ ] Объявить инцидент, назначить IC
+- [ ] Подтвердить алерт в Telegram
+- [ ] Назначить Incident Commander
 - [ ] Собрать первичную информацию (Что? Когда? Количество затронутых?)
 - [ ] Назначить Responder, Communications, Doc Writer
 - [ ] Внедрить fix (откат, масштабирование, патч и т.д.)
 - [ ] Проверить разрешение (smoke-тесты, метрики)
-- [ ] Обновить статус-страницу
+- [ ] Уведомить команду
 - [ ] Запланировать RCA в течение 48 часов
 - [ ] Документировать lessons learned
 
@@ -257,7 +246,7 @@ Action Items:
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://<host>:8443/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
 |Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
@@ -268,5 +257,5 @@ Action Items:
 
 ---
 
-**Последнее обновление**: 2026-06-15  
+**Последнее обновление**: 2026-07-15  
 **Ведёт**: Security & Platform Teams

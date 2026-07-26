@@ -1,0 +1,4 @@
+section:
+  standard: true
+  default: true
+  prefix(github.com/MAMUER/project): true

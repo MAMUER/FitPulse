@@ -66,6 +66,7 @@ const (
 	MetricOxygenSaturation MetricType = "oxygen_saturation"
 )
 
+// AllMetricTypes returns all supported biometric metric types.
 func AllMetricTypes() []MetricType {
 	return []MetricType{
 		MetricHeartRate, MetricHRV, MetricSpO2, MetricTemperature,
@@ -78,24 +79,19 @@ func AllMetricTypes() []MetricType {
 // VendorCapabilities returns supported metrics for each device type.
 func VendorCapabilities() map[string]map[MetricType]bool {
 	return map[string]map[MetricType]bool{
-		"apple": {
+		"fitbit": {
 			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
 			MetricTemperature: false, MetricBloodPressureSys: false,
-			MetricECG: true, MetricSleepStage: true, MetricSteps: true,
+			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
 		},
-		"samsung": {
+		"garmin": {
 			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
 			MetricTemperature: true, MetricBloodPressureSys: false,
-			MetricECG: true, MetricSleepStage: true, MetricSteps: true,
+			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
 		},
-		"huawei": {
+		"withings": {
 			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
 			MetricTemperature: true, MetricBloodPressureSys: true,
-			MetricECG: true, MetricSleepStage: true, MetricSteps: true,
-		},
-		"amazfit": {
-			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
-			MetricTemperature: false, MetricBloodPressureSys: false,
 			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
 		},
 	}
@@ -131,6 +127,7 @@ func StandardMedicalCodes() map[string]struct {
 // MedicalConstraint represents a medical condition.
 type MedicalConstraint struct {
 	ID               string       `json:"id"`
+	UserID           string       `json:"user_id"`
 	Code             string       `json:"code"`
 	Label            string       `json:"label"`
 	Category         string       `json:"category"`
@@ -140,6 +137,8 @@ type MedicalConstraint struct {
 	ValidatedBy      *string      `json:"validated_by,omitempty"`
 	ValidatedAt      *time.Time   `json:"validated_at,omitempty"`
 	Active           bool         `json:"active"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
 }
 
 // ImpactRule defines how a condition affects training.
@@ -207,6 +206,7 @@ type ModificationSuggestion struct {
 	Priority       int     `json:"priority"`
 }
 
+// Validate checks whether the medical constraint has all required fields and valid actions.
 func (c *MedicalConstraint) Validate() error {
 	if c.Code == "" {
 		return errors.New("code is required")

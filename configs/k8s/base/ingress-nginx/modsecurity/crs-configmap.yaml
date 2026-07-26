@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: modsecurity-crs
+  namespace: ingress-nginx
+data:
+  crs-setup.conf: |
+    # OWASP ModSecurity CRS v4 Setup
+    # Default configuration file for the OWASP ModSecurity Core Rule Set (CRS)
+    # https://github.com/coreruleset/coreruleset
+    
+    SecRuleEngine On
+    SecRequestBodyAccess On
+    SecResponseBodyAccess Off
+    SecRequestBodyLimit 13107200
+    SecRequestBodyNoFilesLimit 131072
+    
+    # Logging
+    SecAuditEngine RelevantOnly
+    SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+    SecAuditLogParts ABIJDEFHZ
+    SecAuditLogType Serial
+    SecAuditLog /var/log/nginx/modsecurity_audit.log
+    SecDebugLog /var/log/nginx/modsecurity_debug.log
+    SecDebugLogLevel 0
+    
+    # Exclude health check endpoint from WAF rules
+    SecRule REQUEST_URI "@beginsWith /health" \
+        "id:1000001,phase:1,allow,ctl:ruleEngine=Off"
+    
+    # Include request body in ARGS
+    SecRuleUpdateTargetById 100001 ARGS
+    SecRuleUpdateTargetById 100002 ARGS
+    SecRuleUpdateTargetById 100003 ARGS
+    SecRuleUpdateTargetById 100004 ARGS
+    SecRuleUpdateTargetById 100005 ARGS
+    SecRuleUpdateTargetById 100006 ARGS
+    SecRuleUpdateTargetById 100007 ARGS
+    SecRuleUpdateTargetById 100008 ARGS
+    SecRuleUpdateTargetById 100009 ARGS
+    SecRuleUpdateTargetById 100010 ARGS
+    SecRuleUpdateTargetById 100011 ARGS
+    SecRuleUpdateTargetById 100012 ARGS
+    SecRuleUpdateTargetById 100013 ARGS
+    SecRuleUpdateTargetById 100014 ARGS
+    SecRuleUpdateTargetById 100015 ARGS
+    SecRuleUpdateTargetById 100016 ARGS
+    SecRuleUpdateTargetById 100017 ARGS
+    SecRuleUpdateTargetById 100018 ARGS
+    SecRuleUpdateTargetById 100019 ARGS
+    SecRuleUpdateTargetById 100020 ARGS
+    SecRuleUpdateTargetById 100021 ARGS
+    SecRuleUpdateTargetById 100022 ARGS
+    SecRuleUpdateTargetById 100023 ARGS
+    SecRuleUpdateTargetById 100024 ARGS
+    SecRuleUpdateTargetById 100025 ARGS
+    SecRuleUpdateTargetById 100026 ARGS
+    SecRuleUpdateTargetById 100027 ARGS
+    SecRuleUpdateTargetById 100028 ARGS
+    SecRuleUpdateTargetById 100029 ARGS
+    SecRuleUpdateTargetById 100030 ARGS
+    SecRuleUpdateTargetById 100031 ARGS
+    SecRuleUpdateTargetById 100032 ARGS
+    SecRuleUpdateTargetById 100033 ARGS
+    SecRuleUpdateTargetById 100034 ARGS
+    SecRuleUpdateTargetById 100035 ARGS
+    SecRuleUpdateTargetById 100036 ARGS
+    SecRuleUpdateTargetById 100037 ARGS
+    SecRuleUpdateTargetById 100038 ARGS
+    SecRuleUpdateTargetById 100039 ARGS
+    SecRuleUpdateTargetById 100040 ARGS
+    SecRuleUpdateTargetById 100041 ARGS
+    SecRuleUpdateTargetById 100042 ARGS
+    SecRuleUpdateTargetById 100043 ARGS
+    SecRuleUpdateTargetById 100044 ARGS
+    SecRuleUpdateTargetById 100045 ARGS
+    SecRuleUpdateTargetById 100046 ARGS
+    SecRuleUpdateTargetById 100047 ARGS
+    SecRuleUpdateTargetById 100048 ARGS
+    SecRuleUpdateTargetById 100049 ARGS
+    SecRuleUpdateTargetById 100050 ARGS
+  # Key CRS v4 rules - subset for initial deployment
+  # Full rules will be populated by the CRS update CronJob
+  # These are placeholder rules that will be replaced

@@ -7,12 +7,13 @@
 package ml
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -546,7 +547,7 @@ func (x *BiometricData) GetHrv() float64 {
 
 type ConnectedDevice struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DeviceType    string                 `protobuf:"bytes,1,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3
+	DeviceType    string                 `protobuf:"bytes,1,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // fitbit, garmin, withings
 	DeviceId      string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	Capabilities  []string               `protobuf:"bytes,3,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -690,7 +691,7 @@ func (x *ClassifyUserStateRequest) GetConnectedDevices() []string {
 
 type ClassifyUserStateResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	State           string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // recovery, endurance_e1e2, threshold_e3, strength_hiit, overtraining, illness
+	State           string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
 	StateRu         string                 `protobuf:"bytes,2,opt,name=state_ru,json=stateRu,proto3" json:"state_ru,omitempty"`
 	Confidence      float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	Scores          map[string]float64     `protobuf:"bytes,4,rep,name=scores,proto3" json:"scores,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
@@ -2007,7 +2008,7 @@ const file_ml_proto_rawDesc = "" +
 	"\x11ClassifyUserState\x12\x1c.ml.ClassifyUserStateRequest\x1a\x1d.ml.ClassifyUserStateResponse\x12Y\n" +
 	"\x14GenerateTrainingPlan\x12\x1f.ml.GenerateTrainingPlanRequest\x1a .ml.GenerateTrainingPlanResponse\x12M\n" +
 	"\x10GenerateDietPlan\x12\x1b.ml.GenerateDietPlanRequest\x1a\x1c.ml.GenerateDietPlanResponse\x128\n" +
-	"\tAdaptPlan\x12\x14.ml.AdaptPlanRequest\x1a\x15.ml.AdaptPlanResponseB&Z$github.com/MAMUER/Project/api/gen/mlb\x06proto3"
+	"\tAdaptPlan\x12\x14.ml.AdaptPlanRequest\x1a\x15.ml.AdaptPlanResponseB&Z$github.com/MAMUER/project/api/gen/mlb\x06proto3"
 
 var (
 	file_ml_proto_rawDescOnce sync.Once
