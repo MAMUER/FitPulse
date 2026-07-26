@@ -2096,3 +2096,337 @@ if errors.Is(err, sql.ErrNoRows) {
 5. **UUID**: `Save` генерирует UUID, если `data.ID` пустой. Если ID задан — используется он.
 6. **Лимиты**: `GetByUser` проверяет, что `limit >= 0`. Отрицательные лимиты возвращают ошибку.
 7. **Тестирование**: используйте `sqlmock` для unit-тестирования. Интеграционные тесты требуют PostgreSQL.
+
+## 20. Shared library `internal/sanitize` — input sanitization for security
+
+### 20.1 Роль
+
+`internal/sanitize` — это **библиотека санитизации входных данных**, которая обеспечивает:
+- Базовая защиту от XSS через экранирование HTML-символов.
+- Защиту от log injection через удаление управляющих символов.
+- Очистка строк перед записью в базу данных, логирование или отображение.
+- Фаззинг-тесты для проверки устойчивости к обходным атакам.
+
+### 20.2 Структура пакета
+
+```text
+internal/sanitize/
+├── sanitize.go      # String, LogString, Strings, MapStringString, MapStringInterface
+├── sanitize_test.go # Unit-тесты
+└── fuzz_test.go     # Fuzzing-тесты для String
+```
+
+### 20.3 Основные функции
+
+```go
+// String sanitizes a string for safe HTML output and storage.
+// Trims whitespace and escapes: & < > " ' \
+sanitized := sanitize.String(userInput)
+
+// LogString removes control characters to prevent log injection.
+// Strips ASCII 0x00-0x1F and 0x7F (newlines, tabs, null bytes, etc.)
+safeLog := sanitize.LogString(userInput)
+
+// Strings sanitizes a slice of strings.
+result := sanitize.Strings([]string{"<script>", "normal"})
+
+// MapStringString sanitizes all values in a map[string]string.
+cleaned := sanitize.MapStringString(params)
+
+// MapStringInterface sanitizes string values in a map[string]interface{}.
+// Recursively handles nested maps and []string slices.
+cleaned := sanitize.MapStringInterface(jsonPayload)
+```
+
+### 20.4 LogString против log injection
+
+OWASP рекомендует удалять все управляющие символы из пользовательского ввода перед логированием:
+
+```go
+// БЕЗОПАСНО: LogString удаляет все управляющие символы
+log.Info("device event", zap.String("device_id", sanitize.LogString(deviceID)))
+
+// НЕБЕЗОПАСНО: прямой ввод может содержать \n для подделки логов
+log.Info("device event", zap.String("device_id", deviceID))
+```
+
+### 20.5 Правила использования
+
+1. **User input для HTML/DB**: используйте `String()` для полей, которые отображаются в UI или сохраняются в БД.
+2. **Логирование**: всегда используйте `LogString()` для любых пользовательских данных, попадающих в логи.
+3. **Структурные данные**: используйте `MapStringString()` и `MapStringInterface()` для batch-санитизации query params, headers, JSON payloads.
+4. **Не полагайтесь только на санитизацию**: используйте параметризованные запросы для SQL, CSP заголовки для HTML, и Content-Type для JSON.
+5. **Fuzzing**: `fuzz_test.go` обеспечивает автоматический поиск edge-cases. Запускайте `go test -fuzz=FuzzString` регулярно.
+6. **Order matters**: `String()` заменяет `&` первым, чтобы избежать double-encoding. Не меняйте порядок замен.
+
+## 21. Shared library `internal/telemetry` — OpenTelemetry distributed tracing
+
+### 21.1 Роль
+
+`internal/telemetry` — это **общая библиотека распределенного трейсинга OpenTelemetry**, которая обеспечивает:
+- Автоматическую инструментацию gRPC и HTTP сервисов.
+- Экспорт трейсов в OTLP-совместимый бэкенд (Jaeger, Grafana Tempo, Datadog).
+- Единый service name через environment variables.
+- Graceful shutdown для сброса буферизованных трейсов.
+
+### 21.2 Структура пакета
+
+```text
+internal/telemetry/
+├── trace.go    # InitTracer, service name resolution
+├── grpc.go     # gRPC server/client StatsHandler options
+├── http.go     # HTTP middleware with tracing
+└── telemetry_test.go # Unit-тесты
+```
+
+### 21.3 Инициализация трейсинга
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+func main() {
+    shutdownTraces := telemetry.InitTracer()
+    defer func() {
+        if err := shutdownTraces(context.Background()); err != nil {
+            log.Warn("Failed to shutdown traces", zap.Error(err))
+        }
+    }()
+
+    // ... запуск сервиса
+}
+```
+
+### 21.4 Service name resolution
+
+Priority:
+1. `OTEL_SERVICE_NAME`
+2. `SERVICE_NAME`
+3. `"unknown-service"` (fallback)
+
+### 21.5 gRPC инструментация
+
+```go
+// Серверная сторона
+grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        metrics.UnaryServerInterceptor("my-service"),
+        telemetry.ServerHandlerOption(),
+    ),
+)
+
+// Клиентская сторона
+conn, err := grpc.Dial(
+    target,
+    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("my-service")),
+    telemetry.ClientHandlerOption(),
+)
+```
+
+### 21.6 HTTP инструментация
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
+```
+
+Middleware автоматически:
+- Создает span для каждого входящего запроса.
+- Добавляет `X-Trace-ID` заголовок в ответ.
+- Логирует trace_id, method и path.
+
+### 21.7 Логирование trace_id
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+// В gRPC хендлере:
+telemetry.LogTraceFromContext(ctx, log)
+```
+
+### 21.8 Окружение
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Адрес OTLP коллектора | `localhost:4317` |
+| `OTEL_SERVICE_NAME` | Имя сервиса для трейсов | - |
+| `SERVICE_NAME` | Fallback имя сервиса | `unknown-service` |
+
+### 21.9 Правила использования
+
+1. **Инициализация**: вызывайте `InitTracer()` в `main()` до запуска серверов.
+2. **Shutdown**: всегда используйте `defer shutdownTraces(context.Background())` для graceful shutdown.
+3. **Service name**: задавайте `OTEL_SERVICE_NAME` в deployment manifests (Kubernetes, Docker Compose).
+4. **gRPC**: применяйте `ServerHandlerOption()` на сервере и `ClientHandlerOption()` на клиенте.
+5. **HTTP**: оборачивайте основной router в `HTTPMiddleware(log)`.
+6. **Trace context**: используйте `LogTraceFromContext(ctx, log)` в критических точках для корреляции логов и трейсов.
+7. **Error handling**: если `OTEL_EXPORTER_OTLP_ENDPOINT` не задан, трейсинг отключается без паники.
+8. **Тестирование**: unit-тесты не требуют запущенного OTLP коллектора; `InitTracer()` возвращает noop shutdown при отсутствии endpoint.
+
+## 22. Shared library `internal/testcontainers` — ephemeral infrastructure for integration tests
+
+### 22.1 Роль
+
+`internal/testcontainers` — это **общая библиотека для управления ephemeral инфраструктурой** в интеграционных и smoke-тестах. Она:
+- Запускает PostgreSQL, Valkey и RabbitMQ контейнеры для тестов.
+- Предоставляет единый API `StartInfrastructure(t)` для получения connection details.
+- Автоматически terminates контейнеры после завершения теста через `t.Cleanup`.
+- Содержит smoke-тесты для проверки работоспособности инфраструктуры.
+
+### 22.2 Структура пакета
+
+```text
+internal/testcontainers/
+├── containers.go        # StartInfrastructure, ResolveHost
+├── containers_test.go   # Unit-тесты для parsePort и ResolveHost
+└── smoke_test.go        # Smoke-тест с build tag `smoke`
+```
+
+### 22.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/testcontainers"
+
+func TestSomething(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    if !isDockerAvailable() {
+        t.Skip("Docker is not available")
+    }
+
+    infra := testcontainers.StartInfrastructure(t)
+    defer func() {
+        // Контейнеры автоматически terminates через t.Cleanup
+    }()
+
+    // Использовать connection details
+    cfg := db.Config{
+        Host:     infra.PostgresHost,
+        Port:     strconv.Itoa(infra.PostgresPort),
+        User:     "testuser",
+        Password: "testpass",
+        DBName:   "testdb",
+    }
+}
+```
+
+### 22.4 Container struct
+
+```go
+type Container struct {
+    Postgres     *postgres.PostgresContainer
+    Valkey       *valkey.ValkeyContainer
+    RabbitMQ     *rabbitmq.RabbitMQContainer
+
+    PostgresHost string
+    PostgresPort int
+    ValkeyHost   string
+    ValkeyPort   int
+    RabbitMQHost string
+    RabbitMQPort int
+}
+```
+
+### 22.5 ResolveHost
+
+```go
+// ResolveHost корректирует host для Docker Desktop (Windows/macOS)
+host := testcontainers.ResolveHost(t, infra.ValkeyHost)
+address := host + ":" + strconv.Itoa(infra.ValkeyPort)
+```
+
+### 22.6 Smoke tests
+
+Smoke-тесты помечены build tag `smoke` и запускаются отдельно:
+
+```bash
+go test -tags=smoke ./internal/testcontainers/...
+```
+
+### 22.7 Правила использования
+
+1. **Docker required**: интеграционные тесты требуют запущенный Docker. Используйте `testing.Short()` для пропуска.
+2. **Cleanup**: `StartInfrastructure` автоматически регистрирует `t.Cleanup` для termination контейнеров.
+3. **Ports**: используйте `infra.PostgresPort` и т.д. вместо хардкода портов.
+4. **Host resolution**: используйте `ResolveHost` для корректной работы на Docker Desktop.
+5. **Smoke tests**: smoke-тесты проверяют только доступность контейнеров, не запуская полные интеграционные сценарии.
+6. **Timeouts**: контейнеры имеют startup timeouts (30-60 секунд). Увеличивайте при необходимости.
+7. **Тестирование**: unit-тесты для `parsePort` и `ResolveHost` не требуют Docker и запускаются в обычном `go test`.
+
+## 23. Shared library `internal/totp` — TOTP two-factor authentication
+
+### 23.1 Роль
+
+`internal/totp` — это **библиотека для двухфакторной аутентификации (2FA) на основе TOTP**, которая обеспечивает:
+- Генерацию TOTP секретов и QR-кодов для enrollment.
+- Валидацию 6-значных кодов с учетом clock drift.
+- Управление резервными кодами (backup codes) с хешированием перед сохранением.
+- Шифрование/дешифрование TOTP секретов через AES-GCM.
+
+### 23.2 Структура пакета
+
+```text
+internal/totp/
+└── totp_service.go      # Service, GenerateTOTPSecret, ValidateTOTPCode, backup codes
+```
+
+### 23.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/totp"
+
+// Создание сервиса с шифрованием
+encryptor, _ := crypto.NewAESGCMEncryptor(encryptionKey)
+svc := totp.NewService(encryptor)
+
+// Генерация секрета для пользователя
+setup, err := svc.GenerateTOTPSecret("user@example.com")
+// setup.Secret — Base32 секрет
+// setup.QRCodeURL — URL для QR-кода
+// setup.BackupCodes — 10 резервных кодов в формате XXXX-XXXX
+
+// Валидация TOTP кода
+valid, err := svc.ValidateTOTPCode(passcode, setup.Secret)
+
+// Валидация резервного кода
+idx, err := totp.ValidateBackupCode(code, hashedBackupCodes)
+
+// Хеширование резервных кодов перед сохранением в БД
+hashedCodes := totp.HashBackupCodes(setup.BackupCodes)
+
+// Шифрование секрета
+ciphertext, err := svc.EncryptSecret(setup.Secret)
+
+// Дешифрование секрета
+plaintext, err := svc.DecryptSecret(ciphertext)
+```
+
+### 23.4 Конфигурация
+
+```go
+const (
+    Issuer           = "FitPulse"
+    BackupCodesCount = 10
+    BackupCodeLength = 8
+)
+```
+
+### 23.5 Security considerations
+
+1. **Secret encryption**: TOTP секреты должны шифроваться при хранении. Используйте `svc.EncryptSecret()` перед записью в БД.
+2. **Backup codes**: резервные коды хешируются SHA-256 перед сохранением. Никогда не храните их в plaintext.
+3. **Clock drift**: `ValidateTOTPCode` допускает skew ±1 период (30 секунд) для компенсации рассинхронизации часов.
+4. **Algorithm**: используется SHA-1 (совместимость с большинством authenticator apps). Для повышенной безопасности можно переключиться на SHA-256.
+5. **Period**: 30 секунд — стандартный период TOTP.
+
+### 23.6 Правила использования
+
+1. **Service**: всегда создавайте `totp.NewService(encryptor)` с настроенным шифрованием.
+2. **Enrollment**: сохраняйте только зашифрованный секрет (`EncryptSecret`) и хешированные резервные коды (`HashBackupCodes`).
+3. **Validation**: используйте `ValidateTOTPCode` для обычных кодов и `ValidateBackupCode` для резервных.
+4. **Backup codes**: после использовании резервного кода удалите его из списка валидных.
+5. **Error handling**: проверяйте `err` перед использованием результата. `ValidateBackupCode` возвращает `ErrInvalidBackupCode` при несовпадении.
+6. **Normalization**: `normalizeBackupCode` автоматически нормализует ввод (lowercase, убирает пробелы и дефисы). Не выполняйте нормализацию перед вызовом `HashBackupCodes` — она уже внутренняя.
+7. **Тестирование**: unit-тесты покрывают генерацию, валидацию, шифрование и нормализацию. Интеграционные тесты требуют реального времени.

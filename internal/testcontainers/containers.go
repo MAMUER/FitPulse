@@ -109,23 +109,27 @@ func StartInfrastructure(t *testing.T) *Container {
 		Valkey:       valkeyContainer,
 		RabbitMQ:     rabbitContainer,
 		PostgresHost: pgHost,
-		PostgresPort: portInt(pgPort),
+		PostgresPort: parsePort(pgPort.Port()),
 		ValkeyHost:   valkeyHost,
-		ValkeyPort:   portInt(valkeyPort),
+		ValkeyPort:   parsePort(valkeyPort.Port()),
 		RabbitMQHost: rabbitHost,
-		RabbitMQPort: portInt(rabbitPort),
+		RabbitMQPort: parsePort(rabbitPort.Port()),
 	}
 }
 
-func portInt(p interface{ Port() string }) int {
-	port, _ := strconv.Atoi(p.Port())
+func parsePort(s string) int {
+	port, _ := strconv.Atoi(s)
 	return port
 }
 
-// ResolveHost resolves a container host to an IP address.
-// On Docker Desktop (Windows/macOS) special handling may be required.
+// ResolveHost resolves a container host to an IP address suitable for connecting
+// from the host to a container. On Docker Desktop (Windows/macOS) the host may
+// need special handling.
 func ResolveHost(t *testing.T, host string) string {
 	t.Helper()
+	if host == "localhost" || host == "127.0.0.1" {
+		return host
+	}
 	ips, err := net.LookupHost(host)
 	if err == nil && len(ips) > 0 {
 		return ips[0]

@@ -8,20 +8,23 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	"github.com/MAMUER/project/internal/logger"
 )
 
+// ServerHandlerOption returns a gRPC server option that enables OpenTelemetry tracing.
 func ServerHandlerOption() grpc.ServerOption {
 	return grpc.StatsHandler(grpctrace.NewServerHandler())
 }
 
+// ClientHandlerOption returns a gRPC dial option that enables OpenTelemetry tracing.
 func ClientHandlerOption() grpc.DialOption {
 	return grpc.WithStatsHandler(grpctrace.NewClientHandler())
 }
 
-func LogTraceFromContext(ctx context.Context, log *zap.Logger, label string) {
+// LogTraceFromContext logs the trace ID from the current span if valid.
+func LogTraceFromContext(ctx context.Context, log *logger.Logger) {
 	if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
-		log.Info("gRPC tracing",
-			zap.String(label, span.SpanContext().TraceID().String()),
-		)
+		log.Info("gRPC tracing", zap.String("trace_id", span.SpanContext().TraceID().String()))
 	}
 }
