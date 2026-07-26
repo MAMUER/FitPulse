@@ -20,7 +20,7 @@ FitPulse — open-source fitness platform.
 | Target | Notes |
 | -------- | ------- |
 | `https://fittpulse.duckdns.org` | текущий production-домен (development/staging). При переходе на платный домен `fitpulse.example.com` он автоматически добавляется в scope. |
-| Веб-интерфейс (`web/`, `web/static/`, `web/templates/`) | frontend, статика, шаблоны |
+| Веб-интерфейс (`web/src/`, `web/static/fonts/`, `web/static/errors/`) | React SPA, шрифты, страницы ошибок |
 | Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
 | Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
 | Инфраструктура: K8s deployment manifests, Ingress NGINX ModSecurity configs (`configs/k8s/base/ingress-nginx/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |

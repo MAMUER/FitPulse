@@ -27,7 +27,7 @@ vet:
 
 lint:
 	@echo "Running golangci-lint..."
-	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0
+	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0 ./cmd/... ./internal/...
 	@echo "Lint complete."
 
 test:
@@ -43,19 +43,14 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-js-check:
-	@echo "Checking JavaScript syntax..."
-	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User'); Get-ChildItem web/static/js/*.js | ForEach-Object { node --check $$_.FullName }"
-	@echo "JS check complete."
-
 frontend-lint:
 	@echo "Running frontend lint..."
-	cd web && npm run lint 2>/dev/null || npx eslint src --ext .js,.jsx
+	cd web && npm run lint
 	@echo "Frontend lint complete."
 
 frontend-test:
 	@echo "Running frontend tests..."
-	cd web && npm run test 2>/dev/null || npx vitest run
+	cd web && npm run test
 	@echo "Frontend tests complete."
 
 frontend-build:

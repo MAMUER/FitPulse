@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateEmail, validatePassword, validateName, validateLoginPassword, validateNickname, validateAge, validateHeight, validateWeight, calculateBMI } from './validators'
+import { validateEmail, validatePassword, validateName, validateNickname, validateAge, validateHeight, validateWeight, calculateBMI } from './validators'
 
 describe('validators', () => {
   describe('validateEmail', () => {

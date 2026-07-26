@@ -94,10 +94,6 @@
 │   └── static/
 │       ├── fonts/                    # Self-hosted шрифты (JetBrains Mono, Inter)
 │       └── errors/                   # Страницы ошибок (403, 404, 500)
-│       │   │   ├── api.js
-│       │   │   ├── app.js
-│       │   │   └── modules.js
-│       │   └── errors/               # HTML шаблоны ошибок
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                   # Полный CI/CD пайплайн

@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"html/template"
 	"image/png"
 	"net/http"
 	"os"
@@ -31,10 +30,6 @@ import (
 // ========== Auth Handlers ==========
 
 const (
-	confirmFallbackHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: {{ .Token }}</p></div></body></html>`
-
-	confirmFallbackErrorHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>`
-
 	totpRateLimitAttempts = 5
 
 	googleOAuthStateCookie = "google_oauth_state"
@@ -511,54 +506,21 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+	_ = r.URL.Query().Get("token")
 
-	// Load template from web/templates/confirm.html
-	tmplPath := "./web/templates/confirm.html"
-	tmplBytes, err := os.ReadFile(tmplPath)
+	indexPath := "./web/dist/index.html"
+	indexBytes, err := os.ReadFile(indexPath)
 	if err != nil {
-		g.log.Warn("Failed to load confirm template, using fallback", zap.Error(err))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		g.renderConfirmFallback(w, token, token == "")
-		return
-	}
-
-	tmpl, parseErr := template.New("confirm").Parse(string(tmplBytes))
-	if parseErr != nil {
-		g.log.Warn("Failed to parse confirm template, using fallback", zap.Error(parseErr))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		g.renderConfirmFallback(w, token, false)
+		g.log.Error("Failed to load index.html", zap.Error(err))
+		http.Error(w, "Сервис временно недоступен", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if executeErr := tmpl.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-		g.log.Error("Failed to write confirm page", zap.Error(executeErr))
-	}
-}
-
-func (g *gateway) renderConfirmFallback(w http.ResponseWriter, token string, tokenEmpty bool) {
-	if tokenEmpty {
-		w.WriteHeader(http.StatusBadRequest)
-		fallbackTemplate, parseErr := template.New("confirmFallbackError").Parse(confirmFallbackErrorHTML)
-		if parseErr != nil {
-			g.log.Error("Failed to parse fallback error template", zap.Error(parseErr))
-			return
-		}
-		if executeErr := fallbackTemplate.Execute(w, nil); executeErr != nil {
-			g.log.Error("Failed to write fallback response", zap.Error(executeErr))
-		}
+	if _, err := w.Write(indexBytes); err != nil {
+		g.log.Error("Failed to write index.html", zap.Error(err))
+		http.Error(w, "Сервис временно недоступен", http.StatusInternalServerError)
 		return
-	}
-
-	fallbackTemplate, parseErr := template.New("confirmFallback").Parse(confirmFallbackHTML)
-	if parseErr != nil {
-		g.log.Error("Failed to parse fallback confirm template", zap.Error(parseErr))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-	if executeErr := fallbackTemplate.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-		g.log.Error("Failed to write fallback response", zap.Error(executeErr))
 	}
 }
 

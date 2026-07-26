@@ -33,10 +33,11 @@ Single Page Application (SPA) на React 19 с Vite, состоящая из к�
 
 ### 1.3. Технологии
 
-- **HTML5**, vanilla JS (ES2026), CSS-переменные.
-- **Chart.js** (`chart.umd.min.js`) — график пульса на Dashboard.
-- **Fetch API** через `web/static/js/api.js` для всех запросов к Gateway.
-- JWT хранится в `localStorage` и отправляется в заголовке `Authorization: Bearer`. Refresh token хранится в `session` cookie.
+- **React 19** с Vite 8, React Router v7.
+- **Chart.js** 4 + `react-chartjs-2` — график пульса на Dashboard.
+- **API**: `web/src/utils/api.js` с Bearer-авторизацией.
+- **State**: React Context API (`AuthContext`).
+- **Styling**: Plain CSS с CSS-переменными.
 
 ---
 
@@ -125,7 +126,7 @@ div#app
 **Логика переключения view:**
 
 - По клику на tab: удалить `active` у текущего view, добавить текущему, обновить `pageTitle`.
-- При открытии view вызывается соответствующий `init*()` из `app.js`.
+- При открытии view React Router подгружает соответствующий компонент.
 - `adminTab` отображается только для пользователей с ролью `admin`.
 
 ---
@@ -460,8 +461,8 @@ div#app
 
 ### 11.2. Страница подтверждения email (`/confirm`)
 
-- Серверный шаблон `web/templates/confirm.html` рендерится по `GET /confirm?token=`.
-- Fallback HTML встроен в `handlers_auth.go` при отсутствии шаблона.
+- React-компонент `web/src/components/Auth/Confirm.jsx` рендерится по `GET /confirm?token=`.
+- Backend возвращает HTML shell с встроенным `token` в `window.__CONFIRM_TOKEN__`, React подхватывает токен из URL query параметра.
 
 ### 11.3. Сетевые ошибки в SPA
 
@@ -489,7 +490,7 @@ div#app
 
 ## 13. API-интеграция
 
-Все запросы централизованы в `web/static/js/api.js`. Базовый путь: `/api/v1`.
+Все запросы централизованы в `web/src/utils/api.js`. Базовый путь: `/api/v1`.
 
 |Функция|Метод|Путь|
 |---|---|---|
@@ -574,7 +575,7 @@ div#app
 
 ## 15. Дизайн-токены (CSS-переменные)
 
-Основные переменные из `main.css`:
+Основные переменные из `web/src/index.css`:
 
 ```css
 :root {

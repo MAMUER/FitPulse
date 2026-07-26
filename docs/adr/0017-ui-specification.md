@@ -12,6 +12,46 @@ Frontend был переведён с vanilla JS/ES2026 на React 19 с Vite д
 
 Создать `docs/UI_SPECIFICATION.md` и мигрировать фронтенд на React:
 
+```text
+web/
+├── index.html
+├── package.json
+├── vite.config.js
+├── eslint.config.js
+├── vitest.config.js
+├── src/
+│   ├── main.jsx
+│   ├── App.jsx
+│   ├── index.css
+│   ├── contexts/
+│   │   └── AuthContext.jsx
+│   ├── utils/
+│   │   ├── api.js
+│   │   ├── validators.js
+│   │   └── exerciseNames.js
+│   ├── components/
+│   │   ├── Layout/
+│   │   ├── Auth/
+│   │   ├── Dashboard/
+│   │   ├── Profile/
+│   │   ├── Training/
+│   │   ├── Devices/
+│   │   ├── Achievements/
+│   │   ├── Diet/
+│   │   ├── Health/
+│   │   ├── ML/
+│   │   └── Admin/
+│   └── test/
+│       └── setup.js
+├── static/
+│   ├── fonts/
+│   └── errors/
+└── dist/
+    ├── index.html
+    ├── static/
+    └── errors/
+```
+
 1. **Архитектура**: React 19 + Vite + React Router v7; компоненты в `web/src/components/`; контексты в `web/src/contexts/`; утилиты в `web/src/utils/`.
 2. **Auth flow**: экран авторизации с состояниями login, register, verify и 2FA — dev-token mode + production email confirmation.
 3. **Dashboard**: 4 health-summary карточки (пульс, SpO₂, сон, давление), Chart.js график пульса, AI-рекомендации, today’s workout карточка.
@@ -37,4 +77,6 @@ Frontend был переведён с vanilla JS/ES2026 на React 19 с Vite д
 - `web/src/` — все React компоненты, контексты, утилиты
 - `web/vite.config.js`, `web/package.json`
 - `web/eslint.config.js`, `web/vitest.config.js`
+- `web/static/` — шрифты и HTML-страницы ошибок
+- `web/dist/` — production сборка Vite
 - Старые файлы `web/templates/`, `web/static/js/`, `web/static/css/` удалены

@@ -27,7 +27,8 @@ export default [
         setTimeout: true,
         clearTimeout: true,
         URLSearchParams: true,
-        navigator: true
+        navigator: true,
+        global: true
       }
     },
     settings: { react: { version: '19.2' } },
