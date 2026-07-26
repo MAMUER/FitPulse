@@ -18,40 +18,32 @@
 
 **Шаги**:
 
-1. **Подтвердить алерт** (Slack/Grafana OnCall)
-
-    ```bash
-    # Реакция :ack: в Slack или подтверждение в Grafana OnCall
-   ```
-
-2. **Проверить статус сервисов**
+1. **Проверить статус сервисов**
 
    ```bash
    kubectl get pods -n fitness-platform-production
    kubectl describe pod <pod-name> -n fitness-platform-production
    ```
 
-3. **Проверить логи**
+2. **Проверить логи**
 
    ```bash
    kubectl logs <pod-name> -n fitness-platform-production --tail=100
-   # Или через Kibana: индекс "fitness-logs-*", фильтр service="gateway"
    ```
 
-4. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
+3. **Перезапустить pod** (при `OOMKilled` или `CrashLoopBackOff`)
 
    ```bash
    kubectl rollout restart deployment/<deployment-name> -n fitness-platform-production
-   # Pod будет пересоздан deployment controller'ом
    ```
 
-5. **Откат** если проблема появилась после недавнего деплоя
+4. **Откат** если проблема появилась после недавнего деплоя
 
    ```bash
    kubectl rollout undo deployment/gateway -n fitness-platform-production
    ```
 
-6. **Эскалировать Tech Lead**, если проблема не решена за 5 минут.
+5. **Эскалировать Tech Lead**, если проблема не решена за 5 минут.
 
 ---
 
@@ -62,14 +54,10 @@
 **Шаги**:
 
 1. Открыть Grafana дашборд «FitPulse Service Overview».
-2. Изучить логи в Kibana на паттерны:
+2. Изучить логи сервисов на паттерны:
 
-   ```json
-   {
-     "level": "ERROR",
-     "service": "biometric-service",
-     "timestamp": "2026-05-06T*"
-   }
+   ```bash
+   kubectl logs -f deployment/<service> -n fitness-platform-production | grep -i "error\|panic"
    ```
 
 3. Масштабировать сервис, если исчерпан пул соединений к БД:
@@ -134,11 +122,9 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
    kubectl scale deployment user-service --replicas=5 -n fitness-platform-production
    ```
 
-4. **Мониторить восстановление пула**
+4. **Мониторить восстановление пула** через Grafana дашборд «Database Performance».
 
-   ```bash
-   # Следить за метрикой db_connection_pool_usage в Grafana
-   ```
+---
 
 ### Неудачный бэкап (SEV-1)
 
@@ -162,12 +148,11 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 3. **Запустить бэкап вручную**
 
    ```bash
-   # Через скрипт
-   scripts/backup-db.sh --encrypted --s3-upload
-
-   # Проверить
-   aws s3 ls s3://fitness-backups/
+   kubectl exec -n fitness-platform-production postgres-0 -- \
+     pg_dump -U postgres -d fitness -F c > /tmp/fitness-manual-$(date +%Y%m%d_%H%M%S).dump
    ```
+
+---
 
 ### Низкая уверенность ML-модели (SEV-4)
 
@@ -178,24 +163,18 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 1. **Проверить версии моделей**
 
    ```bash
-   curl http://classifier:8001/model-info
+   kubectl logs -f deployment/classifier -n fitness-platform-production | grep -i "model version"
    ```
 
 2. **Изучить последние предсказания**
 
    ```bash
-   # Kibana: service="classifier" AND action="CLASSIFY" AND confidence < 0.7
+   kubectl logs -f deployment/classifier -n fitness-platform-production | grep "CLASSIFY"
    ```
 
-3. **Запустить переобучение модели**
+3. **Создать тикет** для ML-команды для расследования дрифта.
 
-   ```bash
-   # Через admin endpoint ML-сервиса
-   curl -X POST http://classifier:8001/retrain \
-     -H "Authorization: Bearer $ML_ADMIN_TOKEN"
-   ```
-
-4. **Создать тикет** для ML-команды для расследования дрифта.
+---
 
 ### Device Aggregator: OAuth/webhook сбои (SEV-2)
 
@@ -244,7 +223,7 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 ### Доступ к Grafana
 
 ```text
-URL: https://grafana.fitpulse.app:3000
+URL: https://fittpulse.duckdns.org
 Username: admin
 Password: ${GRAFANA_ADMIN_PASSWORD}
 ```
@@ -253,46 +232,20 @@ Password: ${GRAFANA_ADMIN_PASSWORD}
 
 - `FitPulse Service Overview`: request rate, error rate, latency, ML метрики
 - `Database Performance`: соединения, время запросов, репликация
-- `ELK Stack Health`: индексы Elasticsearch, пропускная способность Logstash
-
-### Elasticsearch Snapshot и 90-дневная ротация
-
-```bash
-# Создать snapshot repository (единоразовая настройка)
-curl -X PUT "elasticsearch:9200/_snapshot/s3-backup" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "s3",
-    "settings": {
-      "bucket": "fitness-logs-backup",
-      "base_path": "snapshots"
-    }
-  }'
-
-# Создать ежедневный snapshot
-curl -X PUT "elasticsearch:9200/_snapshot/s3-backup/snapshot-$(date +%Y-%m-%d)" \
-  -H "Content-Type: application/json" \
-  -d '{"indices": "fitness-logs-*"}'
-
-# Архивировать старые индексы (> 90 дней) в холодное хранилище
-curl -X POST "elasticsearch:9200/fitness-logs-2026.01.01/_close"
-aws s3 cp elasticsearch-snapshot-2026.01.01.tar.gz s3://fitness-logs-archive/
-```
 
 ---
 
 ## Восстановление данных
 
-### PostgreSQL Point-in-Time Recovery (PITR)
+### PostgreSQL: восстановление из pg_dump
 
 ```bash
 # 1. Остановить текущий инстанс PostgreSQL
 kubectl scale deployment/postgres --replicas=0 -n fitness-platform-production
 
 # 2. Восстановить из бэкапа
-scripts/restore-db.sh --backup-file=fitness-backup-2026-05-05.sql.enc \
-  --target-time="2026-05-05T14:30:00Z" \
-  --use-wal-archive
+kubectl exec -i -n fitness-platform-production postgres-0 -- \
+  pg_restore -U postgres -d fitness /tmp/fitness-backup.dump
 
 # 3. Проверить целостность данных
 psql -h localhost -U postgres -d fitness \
@@ -300,37 +253,12 @@ psql -h localhost -U postgres -d fitness \
 
 # 4. Запустить PostgreSQL
 kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
-
-# 5. Мониторить репликацию на реплики
-kubectl logs -f postgres-replica-0 -n fitness-platform-production
-```
-
-### Восстановление Elasticsearch
-
-```bash
-# 1. Список доступных snapshots
-curl "elasticsearch:9200/_snapshot/s3-backup/_all"
-
-# 2. Восстановить конкретные индексы
-curl -X POST "elasticsearch:9200/_snapshot/s3-backup/snapshot-2026-05-05/_restore" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "indices": "fitness-logs-2026.05.05",
-    "rename_pattern": "(.+)",
-    "rename_replacement": "$1-restored"
-  }'
-
-# 3. Проверить восстановленные индексы
-curl "elasticsearch:9200/_cat/indices?v" | grep restored
-
-# 4. При необходимости объединить с живыми индексами
 ```
 
 ---
 
 ## Контакты и эскалация
 
-- **Дежурный инженер**: расписание в Grafana OnCall
 - **Tech Lead**: [tech-lead@fitpulse.app](mailto:tech-lead@fitpulse.app)
 - **CTO**: [cto@fitpulse.app](mailto:cto@fitpulse.app) (только SEV-1, эскалация после 15 мин)
 
@@ -340,7 +268,7 @@ curl "elasticsearch:9200/_cat/indices?v" | grep restored
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://<host>:8443/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
 |Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
@@ -351,5 +279,5 @@ curl "elasticsearch:9200/_cat/indices?v" | grep restored
 
 ---
 
-**Последнее обновление**: 2026-06-07  
+**Последнее обновление**: 2026-07-15  
 **Ведёт**: Platform Team

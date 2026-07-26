@@ -78,13 +78,7 @@ func JSONError(w http.ResponseWriter, r *http.Request, code int, message string)
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-// GetRequestID deprecated: compatibility wrapper around GetCorrelationID(ctx)
-func GetRequestID(ctx interface{}) string {
-	if ctx == nil {
-		return ""
-	}
-	if ctxValue, ok := ctx.(context.Context); ok {
-		return GetCorrelationID(ctxValue)
-	}
-	return ""
+// GetRequestID extracts correlation ID from context.
+func GetRequestID(ctx context.Context) string {
+	return GetCorrelationID(ctx)
 }

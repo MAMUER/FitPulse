@@ -10,7 +10,7 @@
 
 ## Решение
 
-Добавить в схему БД миграцию `V11__device_providers.sql` с тремя таблицами:
+Добавить в схему БД миграцию `V1__full_schema.sql` с таблицами для OAuth state, учёта провайдеров и audit trail:
 
 1. **`oauth_states`** — временные CSRF-токены OAuth, `expires_at + 10 мин`, с индексом по `expires_at`.
 2. **`device_provider_accounts`** — учётные записи OAuth-провайдеров:
@@ -32,7 +32,7 @@
 
 ## Реализация
 
-- Миграция: `db/migrations/V11__device_providers.sql`
+- Миграция: `db/migrations/V1__full_schema.sql`
 - Репозитории/сервисы в `cmd/device-aggregator/providers/`.
 - Шифрование `refresh_token` перед INSERT/UPDATE через `internal/crypto` (AES-256-GCM, `DEVICE_TOKEN_ENCRYPTION_KEY`), `Decrypt` — при необходимости использования токена для обновления `access_token`.
 - Использование `ON CONFLICT (user_id, provider) DO UPDATE`.

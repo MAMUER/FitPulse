@@ -15,6 +15,7 @@ import (
 
 const stageStage = "stage"
 
+// MockConfig configures a mock biometric source.
 type MockConfig struct {
 	DeviceType       string
 	NoiseLevel       float64
@@ -25,6 +26,7 @@ type MockConfig struct {
 	SupportedMetrics map[domain.MetricType]bool
 }
 
+// DefaultMockConfig returns default mock configuration for the given device type.
 func DefaultMockConfig(deviceType string) MockConfig {
 	caps := map[domain.MetricType]bool{
 		domain.MetricHeartRate: true, domain.MetricHRV: true,
@@ -62,6 +64,7 @@ type userPhysioState struct {
 	stressLevel, sleepQuality           float64
 }
 
+// MockBiometricSource is a mock implementation of BiometricSource for testing.
 type MockBiometricSource struct {
 	config    MockConfig
 	userID    string
@@ -85,12 +88,14 @@ func newMockBiometricSource(userID, deviceID string, config MockConfig) *MockBio
 	}
 }
 
+// NewMockBiometricSource creates a new mock biometric source with default configuration.
 func NewMockBiometricSource(userID, deviceID, deviceType string) domain.BiometricSource {
 	cfg := DefaultMockConfig(deviceType)
 	cfg.DeviceType = deviceType
 	return newMockBiometricSource(userID, deviceID, cfg)
 }
 
+// NewCustomMockBiometricSource creates a new mock biometric source with custom configuration.
 func NewCustomMockBiometricSource(userID, deviceID string, config MockConfig) domain.BiometricSource {
 	return newMockBiometricSource(userID, deviceID, config)
 }
@@ -106,6 +111,7 @@ func secureFloat64() float64 {
 	return float64(binary.LittleEndian.Uint64(b[:])) / float64(0x1_0000_0000_0000_0000)
 }
 
+// Fetch generates simulated biometric samples for the requested metrics.
 func (m *MockBiometricSource) Fetch(ctx context.Context, userID string, metricTypes []string) ([]domain.BiometricSample, error) {
 	delay := time.Duration(int64(secureFloat64()*float64(m.config.DelayMax-m.config.DelayMin))) + m.config.DelayMin
 	select {
@@ -230,14 +236,17 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
+// Supports reports whether the mock source supports the requested metric type.
 func (m *MockBiometricSource) Supports(metricType string) bool {
 	return m.config.SupportedMetrics[domain.MetricType(metricType)]
 }
 
+// DeviceType returns the configured device type.
 func (m *MockBiometricSource) DeviceType() string {
 	return m.config.DeviceType
 }
 
+// HealthCheck checks health of the mock source.
 func (m *MockBiometricSource) HealthCheck(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
@@ -247,22 +256,31 @@ func (m *MockBiometricSource) HealthCheck(ctx context.Context) error {
 	}
 }
 
+// Scenario defines a physiological scenario for the mock source.
 type Scenario int
 
 const (
+	// ScenarioNormal represents a normal physiological state.
 	ScenarioNormal Scenario = iota
+	// ScenarioHighStress represents a high stress state.
 	ScenarioHighStress
+	// ScenarioPoorSleep represents a poor sleep state.
 	ScenarioPoorSleep
+	// ScenarioLowFitness represents a low fitness state.
 	ScenarioLowFitness
+	// ScenarioRecovery represents a recovery state.
 	ScenarioRecovery
+	// ScenarioIllness represents an illness state.
 	ScenarioIllness
 )
 
+// ScenarioMock is a mock biometric source configured for a specific physiological scenario.
 type ScenarioMock struct {
 	*MockBiometricSource
 	scenario Scenario
 }
 
+// NewScenarioMock creates a mock source pre-configured for the given scenario.
 func NewScenarioMock(uid, did, dtype string, s Scenario) domain.BiometricSource {
 	base := newMockBiometricSource(uid, did, DefaultMockConfig(dtype))
 	switch s {
@@ -293,6 +311,7 @@ func NewScenarioMock(uid, did, dtype string, s Scenario) domain.BiometricSource 
 	return &ScenarioMock{base, s}
 }
 
+// Fetch generates simulated biometric samples for the requested metrics, overriding timestamps with the current time.
 func (s *ScenarioMock) Fetch(ctx context.Context, uid string, mt []string) ([]domain.BiometricSample, error) {
 	samples, err := s.MockBiometricSource.Fetch(ctx, uid, mt)
 	if err != nil {

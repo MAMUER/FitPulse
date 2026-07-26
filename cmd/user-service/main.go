@@ -11,12 +11,17 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
 	"google.golang.org/api/idtoken"
@@ -28,13 +33,15 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/auth"
+	"github.com/MAMUER/project/cmd/user-service/infra"
+	"github.com/MAMUER/project/cmd/user-service/ports"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/email"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
@@ -52,13 +59,13 @@ type User struct {
 
 type userServer struct {
 	pb.UnimplementedUserServiceServer
-	db               *sql.DB
-	log              *logger.Logger
-	jwtPrivateKeyPEM string
-	emailSender      *email.Sender
-	baseURL          string
-	googleClientID   string
-	totpService      *totp.Service
+	db             *sql.DB
+	log            *logger.Logger
+	tokenProvider  ports.TokenProvider
+	emailSender    email.EmailSender
+	baseURL        string
+	googleClientID string
+	totpService    *totp.Service
 }
 
 const argon2idParams = "m=65536,t=3,p=1"
@@ -97,86 +104,80 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	return subtle.ConstantTimeCompare(hash, computed) == 1
 }
 
+func toString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	s.log.Info("Register request", zap.String("email", req.Email))
 
-	// Валидация входных данных
 	if err := validator.ValidateRegisterRequest(req); err != nil {
 		s.log.Warn("Invalid register request", zap.Error(err))
 		return nil, fmt.Errorf("validate register request: %w", err)
 	}
 
-	// Санитизируем входные данные
 	email := sanitize.String(req.Email)
 	fullName := sanitize.String(req.FullName)
 	emailHash := db.EmailHash(email)
-
-	// Проверка существования пользователя
-	var exists bool
-	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists)
+	fullNameHash := db.BlindIndex(fullName)
+	fullNameNonce, err := db.GenerateNonce()
 	if err != nil {
-		s.log.Error("Database error checking user existence", zap.Error(err))
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
+	emailNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
+
+	var exists bool
+	if queryErr := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1)", emailHash).Scan(&exists); queryErr != nil {
+		s.log.Error("Database error checking user existence", zap.Error(queryErr))
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	if exists {
 		return nil, status.Error(codes.AlreadyExists, "user already exists")
 	}
 
-	// Хэширование пароля
 	hashed, err := hashPasswordArgon2id(req.Password)
 	if err != nil {
 		s.log.Error("Failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to hash password")
 	}
 
-	// Создание пользователя
 	userID := uuid.New().String()
-	var userQuery strings.Builder
-	userQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, created_at, updated_at) ")
-	userQuery.WriteString("VALUES ($1, ")
-	userQuery.WriteString(db.PgsodiumEncryptParam(2))
-	userQuery.WriteString(", $3, $4, ")
-	userQuery.WriteString(db.PgsodiumEncryptParam(5))
-	userQuery.WriteString(", $6, NOW(), NOW())")
-	_, err = s.db.ExecContext(ctx, userQuery.String(), userID, email, emailHash, string(hashed), fullName, req.Role)
-	if err != nil {
-		s.log.Error("Failed to create user", zap.Error(err))
+	userQuery, userArgs := buildUserInsertQuery(userID, email, emailHash, string(hashed), fullName, emailNonce, fullNameNonce, fullNameHash, req.Role)
+	if _, execErr := s.db.ExecContext(ctx, userQuery, userArgs...); execErr != nil {
+		s.log.Error("Failed to create user", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create user")
 	}
 
-	// Генерация токена подтверждения email
 	verificationToken := generateVerificationToken()
-	var emailVerificationQuery strings.Builder
-	emailVerificationQuery.WriteString("INSERT INTO email_verifications (user_id, email_encrypted, email_hash, token, token_encrypted, expires_at, used) ")
-	emailVerificationQuery.WriteString("VALUES ($1, ")
-	emailVerificationQuery.WriteString(db.PgsodiumEncryptParam(2))
-	emailVerificationQuery.WriteString(", $3, $4, ")
-	emailVerificationQuery.WriteString(db.PgsodiumEncryptParam(5))
-	emailVerificationQuery.WriteString(", NOW() + INTERVAL '24 hours', false)")
-	_, err = s.db.ExecContext(ctx, emailVerificationQuery.String(), userID, email, emailHash, verificationToken)
+	emailVerificationNonce, err := db.GenerateNonce()
 	if err != nil {
-		s.log.Error("Failed to create email verification record", zap.Error(err))
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
+	tokenVerificationNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
+	verificationQuery, verificationArgs := buildEmailVerificationInsertQuery(userID, email, emailHash, verificationToken, emailVerificationNonce, tokenVerificationNonce)
+	if _, execErr := s.db.ExecContext(ctx, verificationQuery, verificationArgs...); execErr != nil {
+		s.log.Error("Failed to create email verification record", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create verification token")
 	}
 
-	// Отправка письма подтверждения (не блокирует регистрацию при ошибке)
-	if s.emailSender != nil && s.baseURL != "" {
-		if sendErr := s.emailSender.SendVerificationEmail(email, verificationToken, s.baseURL); sendErr != nil {
-			s.log.Warn("Failed to send verification email (registration will proceed)",
-				zap.Error(sendErr),
-				zap.String("email", email))
-		} else {
-			s.log.Info("Verification email sent", zap.String("email", email))
-		}
-	}
+	sendVerificationEmailIfNeeded(ctx, s, email, verificationToken)
 
-	// Создание пустого профиля
-	_, err = s.db.ExecContext(ctx, `
-        INSERT INTO user_profiles (user_id) VALUES ($1)
-    `, userID)
-	if err != nil {
+	if _, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID); profileErr != nil {
 		s.log.Warn("Failed to create user profile, user will need to complete profile manually",
-			zap.Error(err),
+			zap.Error(profileErr),
 			zap.String("user_id", userID))
 	}
 
@@ -184,6 +185,47 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		UserId:  userID,
 		Message: "user created successfully. Verification token (dev only): " + verificationToken,
 	}, nil
+}
+
+func buildUserInsertQuery(userID, email, emailHash, passwordHash, fullName string, emailNonce []byte, fullNameNonce []byte, fullNameHash, role string) (string, []interface{}) {
+	var b strings.Builder
+	b.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, created_at, updated_at) ")
+	b.WriteString("VALUES ($1, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(2, 3))
+	b.WriteString(", $4, ")
+	b.WriteString("$5, $6, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
+	b.WriteString(", $9, ")
+	b.WriteString("$10, ")
+	b.WriteString("$11, NOW(), NOW())")
+	args := []interface{}{userID, email, emailNonce, emailHash, passwordHash, fullName, fullNameNonce, fullNameHash, role}
+	return b.String(), args
+}
+
+func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationToken string, emailNonce, tokenNonce []byte) (string, []interface{}) {
+	var b strings.Builder
+	b.WriteString("INSERT INTO email_verifications (user_id, email_encrypted, email_nonce, email_hash, token, token_encrypted, token_nonce, expires_at, used) ")
+	b.WriteString("VALUES ($1, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(2, 3))
+	b.WriteString(", $4, ")
+	b.WriteString("$5, $6, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
+	b.WriteString(", NOW() + INTERVAL '24 hours', false)")
+	args := []interface{}{userID, email, emailNonce, emailHash, verificationToken, verificationToken, tokenNonce}
+	return b.String(), args
+}
+
+func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, verificationToken string) {
+	if s.emailSender == nil || s.baseURL == "" {
+		return
+	}
+	if sendErr := s.emailSender.SendVerificationEmail(ctx, email, verificationToken, s.baseURL); sendErr != nil {
+		s.log.Warn("Failed to send verification email (registration will proceed)",
+			zap.Error(sendErr),
+			zap.String("email", email))
+	} else {
+		s.log.Info("Verification email sent", zap.String("email", email))
+	}
 }
 
 func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailRequest) (*pb.ConfirmEmailResponse, error) {
@@ -199,7 +241,7 @@ func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailReque
 	var expiresAt sql.NullTime
 	var confirmEmailQuery strings.Builder
 	confirmEmailQuery.WriteString("SELECT user_id, ")
-	confirmEmailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email"))
+	confirmEmailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	confirmEmailQuery.WriteString("\n        FROM email_verifications \n        WHERE token = $1")
 	err := s.db.QueryRowContext(ctx, confirmEmailQuery.String(), req.Token).Scan(&userID, &email, &used, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -272,7 +314,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	var user User
 	var loginQuery strings.Builder
 	loginQuery.WriteString("SELECT id, ")
-	loginQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email"))
+	loginQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	loginQuery.WriteString(", password_hash, role \n        FROM users \n        WHERE email_hash = $1")
 	err = s.db.QueryRowContext(ctx, loginQuery.String(), emailHash).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -291,7 +333,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	}
 
 	// Генерация JWT
-	token, err := auth.GenerateAccessToken(user.ID, user.Email, user.Role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := s.tokenProvider.GenerateAccessToken(user.ID, user.Email, user.Role, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -338,7 +380,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 		return nil, status.Error(codes.Unauthenticated, "email not confirmed")
 	}
 
-	token, tokenErr := auth.GenerateAccessToken(userID, emailVal, role, s.jwtPrivateKeyPEM, 15*time.Minute)
+	token, tokenErr := s.tokenProvider.GenerateAccessToken(userID, emailVal, role, 15*time.Minute)
 	if tokenErr != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(tokenErr))
 		return nil, status.Error(codes.Internal, "failed to generate token")
@@ -354,6 +396,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 	}, nil
 }
 
+// nolint:funlen // Google OAuth flow requires multiple nonce generations and INSERT logic.
 func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
 	err = s.db.QueryRowContext(ctx, `
 		SELECT id, role, email_confirmed FROM users WHERE provider = 'google' AND external_id = $1
@@ -390,17 +433,30 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 	}
 
 	nickname := extractLocalPart(emailVal)
+	nicknameHash := db.NicknameHash(nickname)
+	nicknameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return "", "", false, status.Error(codes.Internal, "failed to generate nonce")
+	}
+	emailNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return "", "", false, status.Error(codes.Internal, "failed to generate nonce")
+	}
 	userID = uuid.New().String()
 	var b strings.Builder
-	b.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, nickname_encrypted, role, provider, external_id, email_confirmed, created_at, updated_at) ")
+	b.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, nickname_encrypted, nickname_nonce, nickname_hash, role, provider, external_id, email_confirmed, created_at, updated_at) ")
 	b.WriteString("VALUES ($1, ")
-	b.WriteString(db.PgsodiumEncryptParam(2))
-	b.WriteString(", $3, NULL, ")
-	b.WriteString(db.PgsodiumEncryptParam(4))
-	b.WriteString(", ")
-	b.WriteString(db.PgsodiumEncryptParam(5))
-	b.WriteString(", 'client', 'google', $6, true, NOW(), NOW())")
-	_, insertErr := s.db.ExecContext(ctx, b.String(), userID, emailVal, emailHash, nickname, nickname, googleSub)
+	b.WriteString(db.PgsodiumRandomEncryptParam(2, 3))
+	b.WriteString(", $4, ")
+	b.WriteString("$5, NULL, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(6, 7))
+	b.WriteString(", $8, ")
+	b.WriteString("$9, ")
+	b.WriteString("'client', 'google', $10, true, NOW(), NOW())")
+	args := []interface{}{userID, emailVal, emailNonce, emailHash, nickname, nicknameNonce, nicknameHash, googleSub}
+	_, insertErr := s.db.ExecContext(ctx, b.String(), args...)
 	if insertErr != nil {
 		var pqErr *pq.Error
 		if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
@@ -435,11 +491,11 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	if db.PgsodiumKeyID() > 0 {
 		var getProfileQuery strings.Builder
 		getProfileQuery.WriteString("SELECT u.id, ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "u.email_nonce", "email"))
 		getProfileQuery.WriteString(",\n               ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
 		getProfileQuery.WriteString(",\n               ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "nickname"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 		err = s.db.QueryRowContext(ctx, getProfileQuery.String(), req.UserId).Scan(
 			&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
@@ -504,6 +560,111 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	return &profile, nil
 }
 
+func (s *userServer) GetUserByEmail(ctx context.Context, req *pb.GetUserByEmailRequest) (*pb.UserProfile, error) {
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	emailHash := db.EmailHash(req.Email)
+	var profile pb.UserProfile
+	var emailConfirmed bool
+	var createdAt, updatedAt sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email_confirmed, created_at, updated_at
+		FROM users
+		WHERE email_hash = $1
+	`, emailHash).Scan(&profile.UserId, &emailConfirmed, &createdAt, &updatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+	if err != nil {
+		s.log.Error("Database error getting user by email", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	profile.EmailConfirmed = emailConfirmed
+	if createdAt.Valid {
+		profile.CreatedAt = createdAt.Time.Format(time.RFC3339)
+	}
+	if updatedAt.Valid {
+		profile.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
+	}
+
+	if db.PgsodiumKeyID() > 0 {
+		var email string
+		emailQuery := strings.Builder{}
+		emailQuery.WriteString("SELECT ")
+		emailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
+		emailQuery.WriteString(" FROM users WHERE id = $1")
+		if err := s.db.QueryRowContext(ctx, emailQuery.String(), profile.UserId).Scan(&email); err != nil {
+			s.log.Error("Failed to decrypt email", zap.Error(err))
+			return nil, status.Error(codes.Internal, "failed to decrypt email")
+		}
+		profile.Email = email
+	}
+
+	return &profile, nil
+}
+
+func (s *userServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	if req.RefreshToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
+	}
+
+	var userID string
+	var expiresAt time.Time
+	err := s.db.QueryRowContext(ctx, `
+		SELECT user_id, expires_at FROM refresh_tokens WHERE token = $1 AND used = FALSE
+	`, req.RefreshToken).Scan(&userID, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+	}
+	if err != nil {
+		s.log.Error("Database error checking refresh token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if expiresAt.Before(time.Now()) {
+		return nil, status.Error(codes.Unauthenticated, "refresh token expired")
+	}
+
+	_, err = s.db.ExecContext(ctx, `UPDATE refresh_tokens SET used = TRUE WHERE token = $1`, req.RefreshToken)
+	if err != nil {
+		s.log.Error("Failed to mark refresh token as used", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	var email, role string
+	if err = s.db.QueryRowContext(ctx, `SELECT email, role FROM users WHERE id = $1`, userID).Scan(&email, &role); err != nil {
+		s.log.Error("Failed to get user for refresh", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	accessToken, err := s.tokenProvider.GenerateAccessToken(userID, email, role, 15*time.Minute)
+	if err != nil {
+		s.log.Error("Failed to generate access token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate access token")
+	}
+
+	newRefresh := s.tokenProvider.GenerateRefreshToken()
+	if _, err := s.db.ExecContext(ctx, `
+		INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)
+	`, userID, newRefresh, time.Now().Add(7*24*time.Hour)); err != nil {
+		s.log.Error("Failed to store new refresh token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	return &pb.RefreshTokenResponse{
+		AccessToken:  accessToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900,
+		UserId:       userID,
+		Role:         role,
+		RefreshToken: newRefresh,
+	}, nil
+}
+
 func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.UserProfile, error) {
 	if err := validator.ValidateProfileUpdate(req); err != nil {
 		s.log.Warn("Invalid profile update request", zap.Error(err))
@@ -512,13 +673,17 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	// Обновляем full_name и nickname в users table (если передан)
 	if req.FullName != nil || req.Nickname != nil {
+		fullNameNonce, _ := db.GenerateNonce()
+		fullNameHash := db.BlindIndex(toString(req.FullName))
+		nicknameNonce, _ := db.GenerateNonce()
+		nicknameHash := db.BlindIndex(toString(req.Nickname))
 		var updateProfileQuery strings.Builder
 		updateProfileQuery.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1 IS NULL THEN full_name_encrypted ELSE ")
-		updateProfileQuery.WriteString(db.PgsodiumEncryptParam(1))
-		updateProfileQuery.WriteString(" END,\n\t\t\t\tnickname_encrypted = CASE WHEN $2 IS NULL THEN nickname_encrypted ELSE ")
-		updateProfileQuery.WriteString(db.PgsodiumEncryptParam(2))
-		updateProfileQuery.WriteString(" END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $3")
-		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), req.FullName, req.Nickname, req.UserId)
+		updateProfileQuery.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
+		updateProfileQuery.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1 IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1 IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4 IS NULL THEN nickname_encrypted ELSE ")
+		updateProfileQuery.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
+		updateProfileQuery.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4 IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4 IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
+		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), toString(req.FullName), fullNameNonce, fullNameHash, toString(req.Nickname), nicknameNonce, nicknameHash, req.UserId)
 		if err != nil {
 			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
 			return nil, status.Error(codes.Internal, "failed to update user details")
@@ -683,11 +848,17 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 	}
 
 	// Update nickname in both encrypted and plaintext columns
+	nicknameHash := db.NicknameHash(req.NewNickname)
+	nicknameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to generate nonce")
+	}
 	var nicknameQuery strings.Builder
 	nicknameQuery.WriteString("UPDATE users SET nickname_encrypted = ")
-	nicknameQuery.WriteString(db.PgsodiumEncryptParam(1))
-	nicknameQuery.WriteString(", nickname = $1, updated_at = NOW() WHERE id = $2")
-	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, req.UserId)
+	nicknameQuery.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
+	nicknameQuery.WriteString(", nickname_nonce = $2, nickname_hash = $3, updated_at = NOW() WHERE id = $4")
+	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, nicknameNonce, nicknameHash, req.UserId)
 	if err != nil {
 		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to update nickname")
@@ -876,29 +1047,56 @@ func (s *userServer) GetTrainingStats(ctx context.Context, req *pb.GetTrainingSt
 	return &pb.GetTrainingStatsResponse{Stats: stats}, nil
 }
 
-// GetAchievements retrieves user's achievements (stub implementation).
+// GetAchievements retrieves all achievements with user's earned status from database.
 func (s *userServer) GetAchievements(ctx context.Context, req *pb.GetAchievementsRequest) (*pb.GetAchievementsResponse, error) {
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	// In real implementation, query achievements from database
-	// For now, return mock achievements
-	achievements := []*pb.Achievement{
-		{
-			AchievementId: "first_workout",
-			Title:         "First Workout",
-			Description:   "Completed your first training session",
-			EarnedDate:    "2024-01-15T10:00:00Z",
-			IconUrl:       "/icons/first_workout.png",
-		},
-		{
-			AchievementId: "week_streak",
-			Title:         "Week Streak",
-			Description:   "Worked out for 7 consecutive days",
-			EarnedDate:    "2024-02-01T10:00:00Z",
-			IconUrl:       "/icons/week_streak.png",
-		},
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT a.id, a.name, a.description, a.icon_url, ua.earned_at
+		FROM achievements a
+		LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = $1
+		ORDER BY a.created_at ASC
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to query achievements", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to query achievements")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close achievements rows", zap.Error(closeErr))
+		}
+	}()
+
+	var achievements []*pb.Achievement
+	for rows.Next() {
+		var id, name, description, iconURL string
+		var earnedAt sql.NullTime
+		if err := rows.Scan(&id, &name, &description, &iconURL, &earnedAt); err != nil {
+			s.log.Error("Failed to scan achievement", zap.Error(err))
+			continue
+		}
+		earnedDate := ""
+		if earnedAt.Valid {
+			earnedDate = earnedAt.Time.Format(time.RFC3339)
+		}
+		achievements = append(achievements, &pb.Achievement{
+			AchievementId: id,
+			Title:         name,
+			Description:   description,
+			EarnedDate:    earnedDate,
+			IconUrl:       iconURL,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		s.log.Error("Achievement rows error", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to read achievements")
+	}
+
+	if achievements == nil {
+		achievements = []*pb.Achievement{}
 	}
 
 	return &pb.GetAchievementsResponse{Achievements: achievements}, nil
@@ -950,65 +1148,6 @@ func safeInt32(v int) int32 {
 	return int32(v)
 }
 
-func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
-	// Валидация параметров
-	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is nil")
-	}
-	if req.PageSize <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "page_size must be greater than 0")
-	}
-	if req.Page < 0 {
-		return nil, status.Error(codes.InvalidArgument, "page must be non-negative")
-	}
-
-	offset := req.Page * req.PageSize
-	var listUsersQuery strings.Builder
-	listUsersQuery.WriteString("SELECT u.id, ")
-	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "email"))
-	listUsersQuery.WriteString(",\n               ")
-	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "full_name"))
-	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
-	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
-	if err != nil {
-		s.log.Error("Failed to list users", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
-	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
-		}
-	}()
-
-	var users []*pb.UserProfile
-	for rows.Next() {
-		var user pb.UserProfile
-		if scanErr := rows.Scan(&user.UserId, &user.Email, &user.FullName, &user.Role, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
-			s.log.Error("Failed to scan user", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "failed to read user data")
-		}
-		users = append(users, &user)
-	}
-
-	// Проверяем ошибку итерации
-	if rowErr := rows.Err(); rowErr != nil {
-		s.log.Error("Row iteration error", zap.Error(rowErr))
-		return nil, status.Error(codes.Internal, "error reading users")
-	}
-
-	var total int32
-	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE ($1 = '' OR role = $1)", req.Role).Scan(&total)
-	if err != nil {
-		s.log.Warn("Failed to count users", zap.Error(err))
-		// Не блокируем ответ, просто логируем
-	}
-
-	return &pb.ListUsersResponse{
-		Users: users,
-		Total: total,
-	}, nil
-}
-
 // generateVerificationToken generates a random 32-byte hex token for email verification.
 func generateVerificationToken() string {
 	b := make([]byte, 32)
@@ -1047,15 +1186,28 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	userID := uuid.New().String()
 	emailVal := sanitize.String(req.GetEmail())
 	fullName := sanitize.String(req.GetFullName())
+	fullNameHash := db.BlindIndex(fullName)
+	fullNameNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+	emailNonce, err := db.GenerateNonce()
+	if err != nil {
+		s.log.Error("Failed to generate nonce", zap.Error(err))
+		return nil, status.Error(codes.Internal, "internal error")
+	}
 	emailHash := db.EmailHash(emailVal)
 	var registerWithInviteQuery strings.Builder
-	registerWithInviteQuery.WriteString("INSERT INTO users (id, email_encrypted, email_hash, password_hash, full_name_encrypted, role, email_confirmed) ")
+	registerWithInviteQuery.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, email_confirmed) ")
 	registerWithInviteQuery.WriteString("VALUES ($1, ")
-	registerWithInviteQuery.WriteString(db.PgsodiumEncryptParam(2))
-	registerWithInviteQuery.WriteString(", $3, $4, ")
-	registerWithInviteQuery.WriteString(db.PgsodiumEncryptParam(5))
-	registerWithInviteQuery.WriteString(", $6, true)")
-	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailHash, string(hashedPassword), fullName, finalRole)
+	registerWithInviteQuery.WriteString(db.PgsodiumRandomEncryptParam(2, 3))
+	registerWithInviteQuery.WriteString(", $4, ")
+	registerWithInviteQuery.WriteString("$5, $6, ")
+	registerWithInviteQuery.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
+	registerWithInviteQuery.WriteString(", $9, ")
+	registerWithInviteQuery.WriteString("$10, true)")
+	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailNonce, emailHash, string(hashedPassword), fullName, fullNameNonce, fullNameHash, finalRole)
 
 	if err != nil {
 		var pqErr *pq.Error
@@ -1067,7 +1219,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	}
 
 	// Генерируем JWT (токен возвращается при login, не при регистрации)
-	_, err = auth.GenerateAccessToken(userID, req.GetEmail(), finalRole, s.jwtPrivateKeyPEM, 15*time.Minute)
+	_, err = s.tokenProvider.GenerateAccessToken(userID, req.GetEmail(), finalRole, 15*time.Minute)
 	if err != nil {
 		s.log.Error("Failed to generate JWT", zap.Error(err))
 		return nil, status.Error(codes.Internal, "internal error")
@@ -1115,7 +1267,7 @@ func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*
 	var totpEnabled bool
 	var setupTOTPQuery strings.Builder
 	setupTOTPQuery.WriteString("SELECT ")
-	setupTOTPQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email"))
+	setupTOTPQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	setupTOTPQuery.WriteString(", totp_enabled FROM users WHERE id = $1")
 	err := s.db.QueryRowContext(ctx, setupTOTPQuery.String(), req.UserId).Scan(&email, &totpEnabled)
 	if err != nil {
@@ -1658,12 +1810,383 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 	return &pb.DeleteMenstrualCycleResponse{Success: true, Message: "Menstrual cycle deleted"}, nil
 }
 
+func (s *userServer) storeDeviceTokens(ctx context.Context, userID, provider, providerUserID, accessToken, refreshToken string, scopes []string) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO device_provider_accounts (user_id, provider, provider_user_id, access_token, refresh_token, scopes, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+		ON CONFLICT (user_id, provider)
+		DO UPDATE SET
+			access_token = EXCLUDED.access_token,
+			refresh_token = EXCLUDED.refresh_token,
+			is_active = TRUE,
+			updated_at = NOW()
+	`, userID, provider, providerUserID, accessToken, nullIfStr(refreshToken), scopes)
+	return err
+}
+
+func (s *userServer) syncMedicalData(ctx context.Context, req interface{}, provider string, scopes []string, successMsg string, syncedCount int32) (success bool, message string, count int32, err error) {
+	castReq, ok := req.(interface {
+		GetUserId() string
+		GetAccessToken() string
+		GetRefreshToken() string
+	})
+	if !ok {
+		return false, "Invalid request type", 0, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	if castReq.GetUserId() == "" || castReq.GetAccessToken() == "" {
+		return false, "user_id and access_token are required", 0, status.Error(codes.InvalidArgument, "user_id and access_token are required")
+	}
+
+	if err := s.storeDeviceTokens(ctx, castReq.GetUserId(), provider, castReq.GetUserId(), castReq.GetAccessToken(), castReq.GetRefreshToken(), scopes); err != nil {
+		return false, "failed to store " + provider + " tokens", 0, status.Errorf(codes.Internal, "failed to store %s tokens: %v", provider, err)
+	}
+
+	return true, successMsg, syncedCount, nil
+}
+
 func (s *userServer) SyncFloData(ctx context.Context, req *pb.SyncFloDataRequest) (*pb.SyncFloDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncFloData not implemented yet")
+	success, message, syncedCycles, err := s.syncMedicalData(ctx, req, "flo", []string{"menstrual_cycle"}, "Flo tokens stored. Full sync pending API integration.", 0)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SyncFloDataResponse{Success: success, Message: message, SyncedCycles: syncedCycles}, nil
 }
 
 func (s *userServer) SyncOKOKData(ctx context.Context, req *pb.SyncOKOKDataRequest) (*pb.SyncOKOKDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncOKOKData not implemented yet")
+	success, message, syncedRecords, err := s.syncMedicalData(ctx, req, "okok", []string{"body_composition"}, "OKOK tokens stored. Full sync pending API integration.", 0)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SyncOKOKDataResponse{Success: success, Message: message, SyncedRecords: syncedRecords}, nil
+}
+
+func (s *userServer) GetUserClaims(ctx context.Context, req *pb.GetUserClaimsRequest) (*pb.GetUserClaimsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	var email string
+	var role string
+	var totpEnabled bool
+	var backupCodesRemaining int32
+
+	query := strings.Builder{}
+	query.WriteString("SELECT ")
+	query.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
+	query.WriteString(", role, totp_enabled, COALESCE(totp_backup_codes_remaining, 0) FROM users WHERE id = $1")
+
+	err := s.db.QueryRowContext(ctx, query.String(), req.UserId).Scan(&email, &role, &totpEnabled, &backupCodesRemaining)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		s.log.Error("Failed to get user claims", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	return &pb.GetUserClaimsResponse{
+		Email:                    email,
+		Role:                     role,
+		TotpEnabled:              totpEnabled,
+		TotpBackupCodesRemaining: backupCodesRemaining,
+	}, nil
+}
+
+func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest) (*pb.DeleteProfileResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+
+	var passwordHash string
+	err := s.db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id = $1", req.UserId).Scan(&passwordHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		s.log.Error("Failed to load user for deletion", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+
+	if !verifyPasswordArgon2id(passwordHash, req.Password) {
+		return nil, status.Error(codes.Unauthenticated, "invalid password")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.log.Error("Failed to begin delete profile transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Warn("Failed to rollback delete profile transaction", zap.Error(rollbackErr))
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE users SET
+			email_encrypted = NULL,
+			email_hash = NULL,
+			full_name_encrypted = NULL,
+			full_name_nonce = NULL,
+			full_name_hash = NULL,
+			nickname_encrypted = NULL,
+			nickname_nonce = NULL,
+			nickname_hash = NULL,
+			profile_photo_url = NULL,
+			password_hash = NULL,
+			email_confirmed = FALSE,
+			updated_at = NOW()
+		WHERE id = $1
+	`, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to delete profile", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to delete profile")
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.log.Error("Failed to commit delete profile transaction", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	s.log.Info("Profile deleted (GDPR)", zap.String("user_id", req.UserId))
+	return &pb.DeleteProfileResponse{Status: "deleted", Message: "Profile deleted successfully"}, nil
+}
+
+func (s *userServer) requireAdminRole(ctx context.Context, requesterID string) error {
+	if requesterID == "" {
+		return status.Error(codes.Unauthenticated, "requester_user_id is required")
+	}
+
+	var role string
+	err := s.db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = $1", requesterID).Scan(&role)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return status.Error(codes.NotFound, "requester not found")
+		}
+		s.log.Error("Failed to verify admin role", zap.Error(err), zap.String("requester_id", requesterID))
+		return status.Error(codes.Internal, "database error")
+	}
+	if role != "admin" {
+		return status.Error(codes.PermissionDenied, "admin role required")
+	}
+	return nil
+}
+
+func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
+	if err := s.requireAdminRole(ctx, req.RequesterUserId); err != nil {
+		return nil, err
+	}
+
+	if req.PageSize <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "page_size must be greater than 0")
+	}
+	if req.Page < 0 {
+		return nil, status.Error(codes.InvalidArgument, "page must be non-negative")
+	}
+
+	offset := req.Page * req.PageSize
+	var listUsersQuery strings.Builder
+	listUsersQuery.WriteString("SELECT u.id, ")
+	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.email_encrypted", "u.email_nonce", "email"))
+	listUsersQuery.WriteString(",\n               ")
+	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
+	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
+	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
+	if err != nil {
+		s.log.Error("Failed to list users", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Error("Failed to close rows for body composition", zap.Error(closeErr))
+		}
+	}()
+
+	var users []*pb.UserProfile
+	for rows.Next() {
+		var user pb.UserProfile
+		if scanErr := rows.Scan(&user.UserId, &user.Email, &user.FullName, &user.Role, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
+			s.log.Error("Failed to scan user", zap.Error(scanErr))
+			return nil, status.Error(codes.Internal, "failed to read user data")
+		}
+		users = append(users, &user)
+	}
+
+	if rowErr := rows.Err(); rowErr != nil {
+		s.log.Error("Row iteration error", zap.Error(rowErr))
+		return nil, status.Error(codes.Internal, "error reading users")
+	}
+
+	var total int32
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE ($1 = '' OR role = $1)", req.Role).Scan(&total)
+	if err != nil {
+		s.log.Warn("Failed to count users", zap.Error(err))
+	}
+
+	return &pb.ListUsersResponse{
+		Users: users,
+		Total: total,
+	}, nil
+}
+
+func (s *userServer) AdminListInvites(ctx context.Context, req *pb.AdminListInvitesRequest) (*pb.AdminListInvitesResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+	if req.Page < 0 {
+		req.Page = 0
+	}
+
+	offset := req.Page * req.PageSize
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT code, role, specialty, max_uses, used_count, is_active, created_at
+		FROM invite_codes
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`, req.PageSize, offset)
+	if err != nil {
+		s.log.Error("Failed to list invites", zap.Error(err))
+		return nil, status.Error(codes.Internal, "database error")
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+		}
+	}()
+
+	var invites []*pb.InviteInfo
+	baseURL := s.baseURL
+	if baseURL == "" {
+		baseURL = "https://fittpulse.duckdns.org"
+	}
+	for rows.Next() {
+		var inv pb.InviteInfo
+		var specialty sql.NullString
+		if scanErr := rows.Scan(&inv.Code, &inv.Role, &specialty, &inv.MaxUses, &inv.UsedCount, &inv.IsActive, &inv.CreatedAt); scanErr != nil {
+			s.log.Error("Failed to scan invite", zap.Error(scanErr))
+			continue
+		}
+		if specialty.Valid {
+			inv.Specialty = specialty.String
+		}
+		inv.InviteUrl = fmt.Sprintf("%s/register?invite=%s", baseURL, inv.Code)
+		invites = append(invites, &inv)
+	}
+	if rows.Err() != nil {
+		s.log.Error("Rows iteration error", zap.Error(rows.Err()))
+		return nil, status.Error(codes.Internal, "error reading invites")
+	}
+
+	var total int32
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM invite_codes").Scan(&total)
+	if err != nil {
+		s.log.Warn("Failed to count invites", zap.Error(err))
+	}
+
+	return &pb.AdminListInvitesResponse{
+		Invites: invites,
+		Total:   total,
+	}, nil
+}
+
+func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateInviteRequest) (*pb.AdminCreateInviteResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	role := req.GetRole()
+	if role == "" {
+		role = "client"
+	}
+	if role != "client" && role != "admin" {
+		return nil, status.Error(codes.InvalidArgument, "role must be 'client' or 'admin'")
+	}
+
+	maxUses := req.GetMaxUses()
+	if maxUses <= 0 {
+		maxUses = 1
+	}
+	if maxUses > 100 {
+		return nil, status.Error(codes.InvalidArgument, "max_uses must be between 1 and 100")
+	}
+
+	code := "INV-" + generateInviteCode()
+
+	var specialty interface{}
+	if req.GetSpecialty() != "" {
+		specialty = req.GetSpecialty()
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO invite_codes (code, role, specialty, max_uses, created_by, is_active, created_at)
+		VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+	`, code, role, specialty, maxUses, "")
+	if err != nil {
+		s.log.Error("Failed to create invite", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to create invite")
+	}
+
+	baseURL := s.baseURL
+	if baseURL == "" {
+		baseURL = "https://fittpulse.duckdns.org"
+	}
+	inviteURL := fmt.Sprintf("%s/register?invite=%s", baseURL, code)
+
+	s.log.Info("Invite code created",
+		zap.String("code", code),
+		zap.String("role", role),
+		zap.Int("max_uses", int(maxUses)),
+	)
+
+	return &pb.AdminCreateInviteResponse{
+		Code:      code,
+		Role:      role,
+		Specialty: req.GetSpecialty(),
+		MaxUses:   maxUses,
+		InviteUrl: inviteURL,
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeInviteRequest) (*pb.AdminRevokeInviteResponse, error) {
+	if err := s.requireAdminRole(ctx, ""); err != nil {
+		return nil, err
+	}
+
+	if req.GetCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "code is required")
+	}
+
+	result, err := s.db.ExecContext(ctx, `
+		UPDATE invite_codes SET is_active = FALSE WHERE code = $1
+	`, req.GetCode())
+	if err != nil {
+		s.log.Error("Failed to revoke invite", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to revoke invite")
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
+	s.log.Info("Invite code revoked", zap.String("code", req.GetCode()))
+	return &pb.AdminRevokeInviteResponse{Success: true, Message: "Invite revoked successfully"}, nil
+}
+
+func nullIfStr(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 func nullIfEmpty(v string) *string {
@@ -1868,8 +2391,10 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	usersQuery.WriteString(", email_hash = encode(digest(lower(email), 'sha256'), 'hex'), ")
 	usersQuery.WriteString("full_name_encrypted = ")
 	usersQuery.WriteString(enc("full_name"))
-	usersQuery.WriteString(", nickname_encrypted = ")
+	usersQuery.WriteString(", full_name_hash = encode(digest(lower(full_name), 'sha256'), 'hex'), ")
+	usersQuery.WriteString("nickname_encrypted = ")
 	usersQuery.WriteString(enc("nickname"))
+	usersQuery.WriteString(", nickname_hash = encode(digest(lower(nickname), 'sha256'), 'hex') ")
 	usersQuery.WriteString(" WHERE email_encrypted IS NULL")
 	res, err := s.db.ExecContext(ctx, usersQuery.String())
 	if err != nil {
@@ -1892,51 +2417,91 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	}
 }
 
-func buildUserServer(database *sql.DB, log *logger.Logger, jwtPrivateKeyPEM, baseURL, googleClientID string, emailSender *email.Sender, totpService *totp.Service) *userServer {
+func buildUserServer(database *sql.DB, log *logger.Logger, tokenProvider ports.TokenProvider, baseURL, googleClientID string, emailSender email.EmailSender, totpService *totp.Service) *userServer {
 	return &userServer{
-		db:               database,
-		log:              log,
-		jwtPrivateKeyPEM: jwtPrivateKeyPEM,
-		emailSender:      emailSender,
-		baseURL:          baseURL,
-		googleClientID:   googleClientID,
-		totpService:      totpService,
+		db:             database,
+		log:            log,
+		tokenProvider:  tokenProvider,
+		emailSender:    emailSender,
+		baseURL:        baseURL,
+		googleClientID: googleClientID,
+		totpService:    totpService,
 	}
 }
 
-func createGRPCServer() *grpc.Server {
-	var s *grpc.Server
-	if creds, err := grpctls.GetServerTLSCredentials(); err == nil && creds != nil {
-		s = grpc.NewServer(
-			grpc.Creds(creds),
-			grpc.ChainUnaryInterceptor(
-				middleware.CorrelationIDGRPC(),
-			),
-			telemetry.ServerHandlerOption(),
-		)
-	} else {
-		s = grpc.NewServer(
-			grpc.ChainUnaryInterceptor(
-				middleware.CorrelationIDGRPC(),
-			),
-			telemetry.ServerHandlerOption(),
-		)
+func createMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
 	}
-	return s
 }
 
-func registerAndServe(s *grpc.Server, svc *userServer, lis net.Listener, port string, log *logger.Logger) {
+func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
+	database, err := db.NewConnection(dbCfg)
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
+	return database
+}
+
+func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
+	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
+		middleware.RecoveryGRPC(log.Logger),
+		middleware.CorrelationIDGRPC(),
+		metrics.UnaryServerInterceptor("user-service"),
+	), telemetry.ServerHandlerOption()}
+	s := grpctls.NewServer(serverOpts...)
 	pb.RegisterUserServiceServer(s, svc)
+
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus("user.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
 	reflection.Register(s)
 
-	log.Info("User service starting", zap.String("port", port))
-	if err := s.Serve(lis); err != nil {
-		log.Fatal("Failed to serve", zap.Error(err))
+	return s
+}
+
+func initializeUserService(ctx context.Context, log *logger.Logger, database *sql.DB) *userServer {
+	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	if jwtPrivateKeyPEM == "" {
+		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
 	}
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	if jwtPublicKeyPEM == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
+	}
+
+	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
+	if totpEncryptionKey == "" {
+		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
+	}
+
+	totpEncryptor, initErr := crypto.NewAESGCMEncryptor(totpEncryptionKey)
+	if initErr != nil {
+		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
+	}
+
+	emailCfg := email.LoadConfig()
+	emailSender := email.NewSMTPClient(emailCfg)
+	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
+	googleClientID := config.GetEnv("GOOGLE_CLIENT_ID")
+	if googleClientID == "" {
+		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
+	}
+
+	tokenProvider := infra.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
+
+	svc := buildUserServer(database, log, tokenProvider, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
+	if err := svc.ensurePgsodiumKey(ctx); err != nil {
+		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
+	}
+	svc.reencryptPIIFromPgcrypto(ctx)
+	svc.backfillEncryptedPII(ctx)
+
+	return svc
 }
 
 func main() {
@@ -1951,6 +2516,10 @@ func main() {
 	}()
 
 	port := config.GetEnv("USER_SERVICE_PORT", "50051")
+	metricsPort := config.GetEnv("USER_SERVICE_METRICS_PORT", "9096")
+
+	metricsSrv := createMetricsServer(metricsPort)
+
 	dbCfg := db.Config{
 		Host:     config.GetEnv("DB_HOST", "localhost"),
 		Port:     config.GetEnv("DB_PORT", "5432"),
@@ -1960,51 +2529,62 @@ func main() {
 		SSLMode:  config.GetEnv("DB_SSLMODE", "disable"),
 	}
 
-	database, err := db.NewConnection(dbCfg)
-	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
-	}
+	database := connectDatabase(dbCfg, log)
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
 			log.Error("Failed to close database connection", zap.Error(closeErr))
 		}
 	}()
 
-	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
-	if jwtPrivateKeyPEM == "" {
-		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
-	}
+	svc := initializeUserService(context.Background(), log, database)
 
-	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
-	if totpEncryptionKey == "" {
-		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
-	}
-
-	totpEncryptor, initErr := crypto.NewAESGCMEncryptor(totpEncryptionKey)
-	if initErr != nil {
-		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
-	}
-
-	emailCfg := email.LoadConfig()
-	emailSender := email.NewSender(emailCfg)
-	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
-	googleClientID := config.GetEnv("GOOGLE_CLIENT_ID")
-	if googleClientID == "" {
-		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
-	}
-
-	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":"+port)
+	lc := net.ListenConfig{}
+	lis, err := lc.Listen(context.Background(), "tcp", ":"+port)
 	if err != nil {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}
 
-	svc := buildUserServer(database, log, jwtPrivateKeyPEM, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
-	if err := svc.ensurePgsodiumKey(context.Background()); err != nil {
-		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
-	}
-	svc.reencryptPIIFromPgcrypto(context.Background())
-	svc.backfillEncryptedPII(context.Background())
+	s := setupGRPCServer(log, svc)
 
-	s := createGRPCServer()
-	registerAndServe(s, svc, lis, port, log)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Metrics server failed", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		log.Info("User service starting", zap.String("port", port))
+		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			log.Fatal("Failed to serve", zap.Error(err))
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info("Shutting down user service")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		s.GracefulStop()
+	}()
+	go func() {
+		defer wg.Done()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}()
+	wg.Wait()
+	log.Info("User service stopped")
+}
+
+func generateInviteCode() string {
+	b := make([]byte, 6)
+	_, _ = rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)[:8]
 }

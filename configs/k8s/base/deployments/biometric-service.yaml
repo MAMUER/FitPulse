@@ -63,6 +63,8 @@ spec:
                 path: RABBITMQ_URL
               - key: REDIS_PASSWORD
                 path: REDIS_PASSWORD
+              - key: JWT_PUBLIC_KEY_PEM
+                path: JWT_PUBLIC_KEY_PEM
         - name: grpc-tls
           secret:
             secretName: app-secrets
@@ -92,6 +94,8 @@ spec:
           ports:
             - containerPort: 50052
               name: grpc
+            - containerPort: 9090
+              name: metrics
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -128,6 +132,13 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: BIOMETRIC_SERVICE_PORT
+            - name: BIOMETRIC_METRICS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: BIOMETRIC_METRICS_PORT
+            - name: JWT_PUBLIC_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
             - name: REDIS_HOST
               value: "valkey"
             - name: REDIS_PASSWORD_FILE

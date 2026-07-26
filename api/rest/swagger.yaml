@@ -3,33 +3,471 @@ info:
   title: Fitness Platform API
   version: 1.0.0
   description: API for personalized fitness management with biometric data integration
+
 servers:
-  - url: http://localhost:8080/api/v1
+  - url: https://fittpulse.duckdns.org/api/v1
+    description: Production server
+
+security:
+  - bearerAuth: []
+
 paths:
+  # ============================================================================
+  # AUTHENTICATION (public)
+  # ============================================================================
   /register:
     post:
+      tags:
+        - Authentication
       summary: Register new user
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - email
+                - password
+                - full_name
               properties:
                 email:
                   type: string
+                  format: email
                 password:
                   type: string
+                  minLength: 8
                 full_name:
                   type: string
                 role:
                   type: string
+                  enum: [user, admin, trainer]
+                  default: user
       responses:
         "200":
           description: User registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          description: Validation error
+        "409":
+          description: User already exists
+
+  /register/invite:
+    post:
+      tags:
+        - Authentication
+      summary: Register with invite code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - full_name
+                - invite_code
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                full_name:
+                  type: string
+                invite_code:
+                  type: string
+                license_number:
+                  type: string
+                specialty:
+                  type: string
+                phone:
+                  type: string
+                bio:
+                  type: string
+      responses:
+        "200":
+          description: User registered with invite
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  user_id:
+                    type: string
+                  message:
+                    type: string
+
+  /invite/validate:
+    post:
+      tags:
+        - Authentication
+      summary: Validate invite code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Invite code validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_valid:
+                    type: boolean
+                  role:
+                    type: string
+                  specialty:
+                    type: string
+                  error:
+                    type: string
+
   /login:
     post:
+      tags:
+        - Authentication
       summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      access_token:
+                        type: string
+                      token_type:
+                        type: string
+                      expires_in:
+                        type: integer
+                      refresh_token:
+                        type: string
+                  - type: object
+                    properties:
+                      requires_2fa:
+                        type: boolean
+                      temp_token:
+                        type: string
+                      message:
+                        type: string
+
+  /auth/confirm:
+    post:
+      tags:
+        - Authentication
+      summary: Confirm email with token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Email confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user_id:
+                    type: string
+
+  /auth/verify-status:
+    get:
+      tags:
+        - Authentication
+      summary: Check email verification status
+      security: []
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: Verification status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email_confirmed:
+                    type: boolean
+                  email:
+                    type: string
+
+  /auth/google:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth login
+      security: []
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+
+  /auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OAuth callback result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  user_id:
+                    type: string
+                  role:
+                    type: string
+
+  /auth/2fa/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify TOTP passcode
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - temp_token
+                - passcode
+              properties:
+                temp_token:
+                  type: string
+                passcode:
+                  type: string
+                is_backup_code:
+                  type: boolean
+      responses:
+        "200":
+          description: 2FA verified, tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  refresh_token:
+                    type: string
+                  backup_codes_remaining:
+                    type: integer
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  /logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout (revoke refresh token)
+      security: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /confirm:
+    get:
+      tags:
+        - Authentication
+      summary: Email confirmation page (HTML)
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML confirmation page
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+                  timestamp:
+                    type: string
+                  services:
+                    type: object
+                  classifier:
+                    type: object
+                  ml_generator:
+                    type: object
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: Prometheus metrics
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics text
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /.well-known/jwks.json:
+    get:
+      tags:
+        - System
+      summary: JWKS endpoint for JWT verification
+      security: []
+      responses:
+        "200":
+          description: JWKS JSON
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/security/csp-report:
+    post:
+      tags:
+        - System
+      summary: CSP violation report endpoint
+      security: []
       requestBody:
         required: true
         content:
@@ -37,25 +475,44 @@ paths:
             schema:
               type: object
               properties:
-                email:
+                type:
                   type: string
-                password:
+                url:
                   type: string
+                user_agent:
+                  type: string
+                body:
+                  type: object
+                report:
+                  type: object
       responses:
         "200":
-          description: Login successful
+          description: Report received
+
+  # ============================================================================
+  # PROFILE (protected)
+  # ============================================================================
   /profile:
     get:
+      tags:
+        - Profile
       summary: Get user profile
-      security:
-        - bearerAuth: []
       responses:
         "200":
           description: User profile
-    post:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  profile:
+                    type: object
+    put:
+      tags:
+        - Profile
       summary: Update user profile
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -65,9 +522,568 @@ paths:
       responses:
         "200":
           description: Profile updated
-  /devices/register:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+    delete:
+      tags:
+        - Profile
+      summary: Delete user account
+      security:
+        - bearerAuth: []
+        - criticalSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "deleted"
+
+  # ============================================================================
+  # HEALTH (protected)
+  # ============================================================================
+  /health/conditions:
+    get:
+      tags:
+        - Health
+      summary: List health conditions
+      parameters:
+        - name: condition_type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Health conditions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  conditions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HealthCondition"
+                  total:
+                    type: integer
     post:
-      summary: Register a wearable device
+      tags:
+        - Health
+      summary: Create health condition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertHealthConditionRequest"
+      responses:
+        "200":
+          description: Condition created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  condition:
+                    $ref: "#/components/schemas/HealthCondition"
+
+  /health/conditions/{condition_id}:
+    parameters:
+      - name: condition_id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+        - Health
+      summary: Delete health condition
+      responses:
+        "200":
+          description: Condition deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "deleted"
+
+  /health/body-composition:
+    get:
+      tags:
+        - Health
+      summary: List body composition records
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 10000
+      responses:
+        "200":
+          description: Body composition records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  records:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BodyCompositionRecord"
+                  total:
+                    type: integer
+    post:
+      tags:
+        - Health
+      summary: Create body composition record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BodyCompositionRequest"
+      responses:
+        "200":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  record:
+                    $ref: "#/components/schemas/BodyCompositionRecord"
+
+  /health/menstrual-cycles:
+    get:
+      tags:
+        - Health
+      summary: List menstrual cycles
+      responses:
+        "200":
+          description: Menstrual cycles list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  cycles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MenstrualCycle"
+                  total:
+                    type: integer
+    post:
+      tags:
+        - Health
+      summary: Create menstrual cycle record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenstrualCycleRequest"
+      responses:
+        "200":
+          description: Cycle created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  cycle:
+                    $ref: "#/components/schemas/MenstrualCycle"
+
+  /health/menstrual-cycles/{cycle_id}:
+    parameters:
+      - name: cycle_id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+        - Health
+      summary: Update menstrual cycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenstrualCycleRequest"
+      responses:
+        "200":
+          description: Cycle updated
+    delete:
+      tags:
+        - Health
+      summary: Delete menstrual cycle
+      responses:
+        "200":
+          description: Cycle deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "deleted"
+
+  /health/sync/flo:
+    post:
+      tags:
+        - Health
+      summary: Sync Flo app data
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_token
+                - refresh_token
+              properties:
+                access_token:
+                  type: string
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  result:
+                    type: object
+
+  /health/sync/okok:
+    post:
+      tags:
+        - Health
+      summary: Sync OKOK app data
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_token
+                - refresh_token
+              properties:
+                access_token:
+                  type: string
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  result:
+                    type: object
+
+  # ============================================================================
+  # AUTH (protected)
+  # ============================================================================
+  /auth/2fa/setup:
+    post:
+      tags:
+        - Authentication
+      summary: Setup TOTP 2FA
+      security:
+        - bearerAuth: []
+        - criticalSession: []
+      responses:
+        "200":
+          description: TOTP setup data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qr_code_url:
+                    type: string
+                  qr_code_base64:
+                    type: string
+                  secret:
+                    type: string
+                  backup_codes:
+                    type: array
+                    items:
+                      type: string
+
+  /auth/2fa/confirm:
+    post:
+      tags:
+        - Authentication
+      summary: Confirm TOTP setup
+      security:
+        - bearerAuth: []
+        - criticalSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - passcode
+              properties:
+                passcode:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                temp_secret:
+                  type: string
+                backup_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: 2FA enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /auth/2fa/status:
+    get:
+      tags:
+        - Authentication
+      summary: Get 2FA status
+      responses:
+        "200":
+          description: 2FA status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  backup_codes_remaining:
+                    type: integer
+
+  /auth/2fa/disable:
+    post:
+      tags:
+        - Authentication
+      summary: Disable 2FA
+      security:
+        - bearerAuth: []
+        - criticalSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - passcode
+              properties:
+                passcode:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /auth/critical-session:
+    post:
+      tags:
+        - Authentication
+      summary: Create critical session token
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Critical session token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  critical_session_token:
+                    type: string
+
+  # ============================================================================
+  # BIOMETRICS (protected)
+  # ============================================================================
+  /biometrics:
+    post:
+      tags:
+        - Biometrics
+      summary: Add biometric record
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - metric_type
+                - value
+                - timestamp
+              properties:
+                metric_type:
+                  type: string
+                  enum: [heart_rate, spo2, sleep, blood_pressure, steps, calories, distance, active_minutes, stress, respiration_rate, body_temperature, blood_glucose, oxygen_saturation, vo2_max, hrv, respiratory_rate, skin_temperature, glucose, lactate, caffeine_intake, water_intake, steps_per_minute, heart_rate_variability, sleep_stages, rem_sleep, deep_sleep, light_sleep, sleep_score, readiness_score, activity_score]
+                value:
+                  oneOf:
+                    - type: number
+                    - type: integer
+                timestamp:
+                  type: string
+                  format: date-time
+                device_type:
+                  type: string
+                  enum: [fitbit, garmin, withings, apple_watch, manual]
+                quality:
+                  type: string
+                  enum: [high, medium, low]
+                  default: medium
+      responses:
+        "200":
+          description: Record added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "created"
+    get:
+      tags:
+        - Biometrics
+      summary: Get biometric records
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: metric_type
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 10000
+      responses:
+        "200":
+          description: Biometric records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  records:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BiometricRecord"
+                  total:
+                    type: integer
+
+  # ============================================================================
+  # TRAINING (protected)
+  # ============================================================================
+  /training/generate:
+    post:
+      tags:
+        - Training
+      summary: Generate training plan
       security:
         - bearerAuth: []
       requestBody:
@@ -77,16 +1093,243 @@ paths:
             schema:
               type: object
               properties:
-                device_type:
+                duration_weeks:
+                  type: integer
+                  minimum: 1
+                  maximum: 52
+                available_days:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                    maximum: 6
+                class:
                   type: string
-                user_id:
+                  enum: [strength, cardio, flexibility, hiit, endurance, mixed]
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+      responses:
+        "200":
+          description: Plan generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  plan_id:
+                    type: string
+                  plan_data:
+                    type: object
+                  training_type:
+                    type: string
+
+  /training/plans:
+    get:
+      tags:
+        - Training
+      summary: Get user training plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        "200":
+          description: Training plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  plans:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+
+  /training/plans/{plan_id}:
+    get:
+      tags:
+        - Training
+      summary: Get specific training plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Training plan details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  plan_id:
+                    type: string
+                  plan_data:
+                    type: object
+
+  /training/progress:
+    get:
+      tags:
+        - Training
+      summary: Get user training progress
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  progress:
+                    type: object
+
+  /training/complete:
+    post:
+      tags:
+        - Training
+      summary: Complete a workout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan_id
+                - workout_id
+                - rating
+              properties:
+                plan_id:
+                  type: string
+                workout_id:
+                  type: string
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                feedback:
                   type: string
       responses:
-        "201":
+        "200":
+          description: Workout completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  # ============================================================================
+  # ACHIEVEMENTS (protected)
+  # ============================================================================
+  /achievements:
+    get:
+      tags:
+        - Achievements
+      summary: Get user achievements
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User achievements (protobuf-encoded JSON)
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ============================================================================
+  # DEVICES (protected)
+  # ============================================================================
+  /devices:
+    get:
+      tags:
+        - Devices
+      summary: List user devices
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User devices list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  devices:
+                    type: array
+                    items:
+                      type: object
+    post:
+      tags:
+        - Devices
+      summary: Register device
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - device_type
+              properties:
+                device_type:
+                  type: string
+                  enum: [fitbit, garmin, withings, apple_watch]
+      responses:
+        "200":
           description: Device registered
+          content:
+            application/json:
+               schema:
+                 type: object
+                 properties:
+                   status:
+                     type: string
+
   /devices/{device_id}/ingest:
     post:
-      summary: Ingest biometric data from a wearable device
+      tags:
+        - Devices
+      summary: Ingest biometric data from device
       security:
         - bearerAuth: []
       parameters:
@@ -104,120 +1347,252 @@ paths:
       responses:
         "200":
           description: Ingestion accepted
-  /biometrics:
-    post:
-      summary: Add biometric record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /devices/fitbit/auth:
+    get:
+      tags:
+        - Devices
+      summary: Start Fitbit OAuth flow
       security:
         - bearerAuth: []
+      responses:
+        "302":
+          description: Redirect to Fitbit OAuth
+
+  /devices/fitbit/callback:
+    get:
+      tags:
+        - Devices
+      summary: Fitbit OAuth callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to app
+
+  /devices/fitbit/disconnect:
+    post:
+      tags:
+        - Devices
+      summary: Disconnect Fitbit
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /devices/fitbit/webhook:
+    post:
+      tags:
+        - Devices
+      summary: Fitbit webhook endpoint
+      security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              properties:
-                metric_type:
-                  type: string
-                value:
-                  type: number
-                timestamp:
-                  type: string
-                device_type:
-                  type: string
       responses:
-        "200":
-          description: Record added
+        "204":
+          description: Webhook received
+
+  /devices/garmin/auth:
     get:
-      summary: Get biometric records
+      tags:
+        - Devices
+      summary: Start Garmin OAuth flow
       security:
         - bearerAuth: []
+      responses:
+        "302":
+          description: Redirect to Garmin OAuth
+
+  /devices/garmin/callback:
+    get:
+      tags:
+        - Devices
+      summary: Garmin OAuth callback
+      security: []
       parameters:
-        - name: metric_type
+        - name: code
           in: query
           schema:
             type: string
-        - name: limit
+        - name: state
           in: query
           schema:
-            type: integer
+            type: string
+        - name: oauth_verifier
+          in: query
+          schema:
+            type: string
       responses:
-        "200":
-          description: Biometric records
-  /training/generate:
+        "302":
+          description: Redirect to app
+
+  /devices/garmin/disconnect:
     post:
-      summary: Generate training plan
+      tags:
+        - Devices
+      summary: Disconnect Garmin
       security:
         - bearerAuth: []
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /devices/withings/auth:
+    get:
+      tags:
+        - Devices
+      summary: Start Withings OAuth flow
+      security:
+        - bearerAuth: []
+      responses:
+        "302":
+          description: Redirect to Withings OAuth
+
+  /devices/withings/callback:
+    get:
+      tags:
+        - Devices
+      summary: Withings OAuth callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to app
+
+  /devices/withings/disconnect:
+    post:
+      tags:
+        - Devices
+      summary: Disconnect Withings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /devices/withings/webhook:
+    post:
+      tags:
+        - Devices
+      summary: Withings webhook endpoint
+      security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              properties:
-                duration_weeks:
-                  type: integer
-                available_days:
-                  type: array
-                  items:
-                    type: integer
-                class:
-                  type: string
-                confidence:
-                  type: number
       responses:
         "200":
-          description: Plan generated
-  /training/plans:
+          description: Webhook received
+
+  /devices/providers:
     get:
-      summary: Get user training plans
+      tags:
+        - Devices
+      summary: List available device providers
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Training plans
-  /training/complete:
-    post:
-      summary: Complete a workout
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                plan_id:
-                  type: string
-                workout_id:
-                  type: string
-                rating:
-                  type: integer
-                feedback:
-                  type: string
-      responses:
-        "200":
-          description: Workout completed
-  /training/progress:
-    get:
-      summary: Get user progress
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: User progress
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    status:
+                      type: string
+
+  # ============================================================================
+  # ML (protected)
+  # ============================================================================
   /ml/classify:
-    get:
-      summary: Classify user state
+    post:
+      tags:
+        - ML
+      summary: Classify user state (proxied to classifier service)
       security:
         - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
       responses:
         "200":
           description: Classification result
+          content:
+            application/json:
+              schema:
+                type: object
+
   /ml/generate-plan:
     post:
-      summary: Generate plan via ML
+      tags:
+        - ML
+      summary: Generate training plan via ML (proxied)
       security:
         - bearerAuth: []
       requestBody:
@@ -226,46 +1601,626 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - duration_weeks
+                - available_days
               properties:
                 class_name:
                   type: string
                 confidence:
                   type: number
+                  minimum: 0
+                  maximum: 1
                 duration_weeks:
                   type: integer
                 available_days:
                   type: array
                   items:
                     type: integer
+                    minimum: 0
+                    maximum: 6
       responses:
         "200":
           description: Plan generated
-  /health:
-    get:
-      summary: Health check
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /ml/generate-diet:
+    post:
+      tags:
+        - ML
+      summary: Generate diet plan via ML (proxied)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
       responses:
         "200":
-          description: Service healthy
+          description: Diet plan generated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ============================================================================
+  # ADMIN (protected, admin role required)
+  # ============================================================================
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List users (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  users:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+
+  /admin/invites:
+    get:
+      tags:
+        - Admin
+      summary: List invite codes (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Invites list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  invites:
+                    type: array
+                    items:
+                      type: object
+                  page:
+                    type: integer
+
+    post:
+      tags:
+        - Admin
+      summary: Create invite code (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [user, admin, trainer]
+                  default: user
+                specialty:
+                  type: string
+                max_uses:
+                  type: integer
+                  default: 1
+      responses:
+        "200":
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  code:
+                    type: string
+                  role:
+                    type: string
+                  max_uses:
+                    type: integer
+                  specialty:
+                    type: string
+                  invite_url:
+                    type: string
+
+  /admin/invites/{code}/revoke:
+    post:
+      tags:
+        - Admin
+      summary: Revoke invite code (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  # ============================================================================
+  # DEVICE AGGREGATOR (separate service, port 8083)
+  # Note: Device Aggregator has its own /health endpoint on port 8083
+  # ============================================================================
+
+  /api/v1/devices/fitbit/auth:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Start Fitbit OAuth flow
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to Fitbit OAuth
+
+  /api/v1/devices/fitbit/callback:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Fitbit OAuth callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to app
+
+  /api/v1/devices/fitbit/webhook:
+    post:
+      tags:
+        - Device Aggregator
+      summary: Fitbit webhook endpoint
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "204":
+          description: Webhook received
+
+  /api/v1/devices/fitbit/disconnect:
+    post:
+      tags:
+        - Device Aggregator
+      summary: Disconnect Fitbit
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /api/v1/devices/garmin/auth:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Start Garmin OAuth flow
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to Garmin OAuth
+
+  /api/v1/devices/garmin/callback:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Garmin OAuth callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: oauth_verifier
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to app
+
+  /api/v1/devices/garmin/disconnect:
+    post:
+      tags:
+        - Device Aggregator
+      summary: Disconnect Garmin
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /api/v1/devices/withings/auth:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Start Withings OAuth flow
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to Withings OAuth
+
+  /api/v1/devices/withings/callback:
+    get:
+      tags:
+        - Device Aggregator
+      summary: Withings OAuth callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to app
+
+  /api/v1/devices/withings/disconnect:
+    post:
+      tags:
+        - Device Aggregator
+      summary: Disconnect Withings
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "disconnected"
+
+  /api/v1/devices/withings/webhook:
+    post:
+      tags:
+        - Device Aggregator
+      summary: Withings webhook endpoint
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook received
+
+  /api/v1/devices/providers:
+    get:
+      tags:
+        - Device Aggregator
+      summary: List available device providers
+      security: []
+      parameters:
+        - name: X-User-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    status:
+                      type: string
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    criticalSession:
+      type: apiKey
+      in: header
+      name: X-Critical-Session-Token
+
   schemas:
     HealthCondition:
       type: object
       properties:
-        code:
+        condition_id:
           type: string
-        label:
+        condition_type:
           type: string
-        category:
+          enum: [chronic, allergy, injury, cardiovascular, respiratory, metabolic, neurological, musculoskeletal, gastrointestinal, dermatological, mental_health, other]
+        condition_name:
           type: string
         severity:
           type: string
-        note:
+          enum: [mild, moderate, severe]
+        diagnosed_at:
           type: string
+          format: date-time
+        is_active:
+          type: boolean
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpsertHealthConditionRequest:
+      type: object
+      required:
+        - condition_type
+        - condition_name
+      properties:
+        condition_type:
+          type: string
+          enum: [chronic, allergy, injury, cardiovascular, respiratory, metabolic, neurological, musculoskeletal, gastrointestinal, dermatological, mental_health, other]
+        condition_name:
+          type: string
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+        diagnosed_at:
+          type: string
+          format: date-time
+        is_active:
+          type: boolean
+        notes:
+          type: string
+
+    BodyCompositionRecord:
+      type: object
+      properties:
+        record_id:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+        weight_kg:
+          type: number
+        height_cm:
+          type: integer
+        bmi:
+          type: number
+        body_fat_percentage:
+          type: number
+        muscle_mass_percentage:
+          type: number
+        bone_mass_percentage:
+          type: number
+        water_percentage:
+          type: number
+        visceral_fat_rating:
+          type: integer
+        metabolic_age:
+          type: integer
+        source:
+          type: string
+          enum: [manual, fitbit, garmin, withings, apple_health]
+        created_at:
+          type: string
+          format: date-time
+
+    BodyCompositionRequest:
+      type: object
+      required:
+        - recorded_at
+        - weight_kg
+        - height_cm
+      properties:
+        recorded_at:
+          type: string
+          format: date-time
+        weight_kg:
+          type: number
+        height_cm:
+          type: integer
+        bmi:
+          type: number
+        body_fat_percentage:
+          type: number
+        muscle_mass_percentage:
+          type: number
+        bone_mass_percentage:
+          type: number
+        water_percentage:
+          type: number
+        visceral_fat_rating:
+          type: integer
+        metabolic_age:
+          type: integer
+        source:
+          type: string
+          enum: [manual, fitbit, garmin, withings, apple_health]
+
+    MenstrualCycle:
+      type: object
+      properties:
+        cycle_id:
+          type: string
+        cycle_start_date:
+          type: string
+          format: date
+        cycle_end_date:
+          type: string
+          format: date
+        flow_intensity:
+          type: string
+          enum: [light, moderate, heavy, spotting]
+        symptoms:
+          type: array
+          items:
+            type: string
+        moods:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MenstrualCycleRequest:
+      type: object
+      required:
+        - cycle_start_date
+      properties:
+        cycle_start_date:
+          type: string
+          format: date
+        cycle_end_date:
+          type: string
+          format: date
+        flow_intensity:
+          type: string
+          enum: [light, moderate, heavy, spotting]
+        symptoms:
+          type: array
+          items:
+            type: string
+        moods:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+
     UpdateProfileRequest:
       type: object
       properties:
@@ -273,37 +2228,69 @@ components:
           type: string
         age:
           type: integer
+          minimum: 13
+          maximum: 120
         gender:
           type: string
+          enum: [male, female, other, prefer_not_to_say]
         height_cm:
           type: integer
+          minimum: 50
+          maximum: 250
         weight_kg:
           type: number
+          minimum: 20
+          maximum: 300
         fitness_level:
           type: string
+          enum: [beginner, intermediate, advanced, athlete]
         goals:
           type: array
           items:
             type: string
+            enum: [weight_loss, muscle_gain, endurance, flexibility, general_health, sport_specific]
         contraindications:
           type: array
           items:
             type: string
-        health_conditions:
-          type: array
-          items:
-            $ref: "#/components/schemas/HealthCondition"
-        custom_health_notes:
-          type: string
         nutrition:
           type: string
         sleep_hours:
           type: number
+          minimum: 0
+          maximum: 24
+
+    BiometricRecord:
+      type: object
+      properties:
+        record_id:
+          type: string
+        metric_type:
+          type: string
+        value:
+          oneOf:
+            - type: number
+            - type: integer
+        timestamp:
+          type: string
+          format: date-time
+        device_type:
+          type: string
+        quality:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
     BiometricIngestRequest:
       type: object
+      required:
+        - device_type
+        - records
       properties:
         device_type:
           type: string
+          enum: [fitbit, garmin, withings, apple_watch, manual]
         device_token:
           type: string
         sync_interval_ms:
@@ -312,12 +2299,20 @@ components:
           type: array
           items:
             type: object
+            required:
+              - metric_type
+              - value
+              - timestamp
             properties:
               metric_type:
                 type: string
               value:
-                type: number
+                oneOf:
+                  - type: number
+                  - type: integer
               timestamp:
                 type: string
+                format: date-time
               quality:
                 type: string
+                enum: [high, medium, low]

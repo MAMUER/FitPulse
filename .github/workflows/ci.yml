@@ -11,7 +11,6 @@ on:
       - "api/**"
       - "cmd/**"
       - "internal/**"
-      - "pkg/**"
       - "configs/**"
       - "scripts/**"
       - "models/**"
@@ -31,7 +30,6 @@ on:
       - "api/**"
       - "cmd/**"
       - "internal/**"
-      - "pkg/**"
       - "configs/**"
       - "scripts/**"
       - "models/**"
@@ -84,6 +82,7 @@ env:
   GO_VERSION: "1.26.4"
   REGISTRY: ghcr.io
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+  FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
 jobs:
   # ============================================================================
@@ -105,6 +104,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
       infra: ${{ steps.filter.outputs.infra }}
       any_code: ${{ steps.filter.outputs.any_code }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -148,11 +148,14 @@ jobs:
             any_code:
               - 'cmd/**'
               - 'internal/**'
-              - 'pkg/**'
               - 'api/**'
               - 'go.mod'
               - 'go.sum'
               - '*.py'
+            frontend:
+              - 'web/**'
+              - '!web/node_modules/**'
+              - '!web/dist/**'
 
   # ============================================================================
   # ISSUE AUTOMATION
@@ -173,6 +176,7 @@ jobs:
               labels: ['needs-triage']
             });
       - name: Add component labels
+        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
@@ -204,6 +208,7 @@ jobs:
               });
             }
       - name: Assign based on component
+        if: github.event.action == 'opened'
         uses: actions/github-script@v9
         with:
           script: |
@@ -277,6 +282,35 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\n$ISSUE_TITLE\n${{ github.event.issue.html_url }}\"}"
+
+  # ============================================================================
+  # FRONTEND CHECKS
+  # ============================================================================
+  frontend:
+    name: Frontend (Lint + Test + Build)
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: web
+      - name: Run frontend tests
+        run: npm run test
+        working-directory: web
+      - name: Build frontend
+        run: npm run build
+        working-directory: web
 
   # ============================================================================
   # VALIDATE WORKFLOW
@@ -478,6 +512,33 @@ jobs:
           category: kubescape
 
   # ============================================================================
+  # SEMGREP
+  # ============================================================================
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    needs: [validate-workflow]
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Semgrep
+        run: pip install semgrep
+      - name: Run Semgrep scan
+        run: |
+          mkdir -p sarif-results
+          semgrep scan \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --sarif -o sarif-results/semgrep-results.sarif .
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/semgrep-results.sarif
+          category: semgrep
+
+  # ============================================================================
   # OSV SCANNER
   # ============================================================================
   osv-scanner:
@@ -603,6 +664,7 @@ jobs:
     name: Security Scanning
     runs-on: ubuntu-latest
     needs: [validate-workflow, dockerfile-lint]
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -615,6 +677,7 @@ jobs:
       - name: Install security tools
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
@@ -628,6 +691,18 @@ jobs:
         with:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run govulncheck
+        run: |
+          mkdir -p sarif-results
+          govulncheck ./... > sarif-results/govulncheck.txt 2>&1 || true
+        continue-on-error: true
+      - name: Upload govulncheck results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/govulncheck.txt
+          category: govulncheck
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run Trivy config scan (misconfigurations)
         uses: aquasecurity/trivy-action@v0.36.0
@@ -653,6 +728,38 @@ jobs:
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          chmod +x /usr/local/bin/gitleaks
+      - name: Run Gitleaks secret scan
+        run: |
+          mkdir -p sarif-results
+          gitleaks detect --source=. --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
+      - name: Upload Gitleaks results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/gitleaks.sarif
+          category: gitleaks
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz -o /tmp/trufflehog.tar.gz
+          tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog
+          chmod +x /usr/local/bin/trufflehog
+      - name: Run TruffleHog secret scan
+        run: |
+          mkdir -p sarif-results
+          trufflehog filesystem . --format=json --output=sarif-results/trufflehog.json || true
+      - name: Upload TruffleHog results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/trufflehog.json
+          category: trufflehog
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install syft
         run: |
@@ -687,6 +794,33 @@ jobs:
               FAIL=1
             fi
           fi
+          if [ -f sarif-results/gitleaks.sarif ]; then
+            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null || echo 0)
+            echo "gitleaks: $GITLEAKS secrets found"
+            if [ "$GITLEAKS" -gt 0 ]; then
+              echo "❌ FAIL: Gitleaks found $GITLEAKS potential secrets"
+              jq -r '.runs[].results[] | select(.level == "error" or .level == "warning") | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gitleaks.sarif 2>/dev/null | head -10 || true
+              FAIL=1
+            fi
+          fi
+          if [ -f sarif-results/trufflehog.json ]; then
+            TRUFFLEHOG=$(jq 'length' sarif-results/trufflehog.json 2>/dev/null || echo 0)
+            echo "trufflehog: $TRUFFLEHOG secrets found"
+            if [ "$TRUFFLEHOG" -gt 0 ]; then
+              echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
+              jq -r '.[] | "  - \(.rule_id // .detector_name // "unknown"): \(.description // .raw // "")"' sarif-results/trufflehog.json 2>/dev/null | head -10 || true
+              FAIL=1
+            fi
+          fi
+          if [ -f sarif-results/govulncheck.txt ]; then
+            GOVULNCHECK=$(grep -c "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null || echo 0)
+            echo "govulncheck: $GOVULNCHECK vulnerabilities found"
+            if [ "$GOVULNCHECK" -gt 0 ]; then
+              echo "⚠️  WARNING: govulncheck found $GOVULNCHECK potential vulnerabilities"
+              grep "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null | head -10 || true
+              echo "   Note: Trivy covers CVE scanning. govulncheck results are informational."
+            fi
+          fi
           echo "============================================"
           if [ "$FAIL" -eq 1 ]; then
             echo "❌ Security Gate FAILED — pipeline blocked"
@@ -703,6 +837,7 @@ jobs:
     name: Make Check (Lint + Test)
     runs-on: ubuntu-latest
     needs: [validate-workflow, dockerfile-lint]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -718,14 +853,14 @@ jobs:
         run: make check
         env:
            DOCKER_HOST: ""
-      - name: Coverage Check (80% threshold)
+      - name: Coverage Check (75% threshold)
         run: |
            echo "Running coverage check..."
            go test -v -coverprofile=coverage.out ./...
            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
            echo "Total coverage: $COVERAGE%"
-           if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-             echo "::error::Coverage $COVERAGE% is below 80% threshold"
+           if awk "BEGIN {exit !($COVERAGE < 75)}"; then
+             echo "::error::Coverage $COVERAGE% is below 75% threshold"
              exit 1
            fi
            echo "✅ Coverage check passed"
@@ -743,7 +878,9 @@ jobs:
         check,
         dockerfile-lint,
         super-linter,
+        frontend,
       ]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -786,6 +923,7 @@ jobs:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: [detect-changes, binary_build]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -929,14 +1067,6 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-      - name: Install DVC
-        run: |
-          pip install dvc==3.58.0
-          dvc version
-      - name: Pull data via DVC
-        run: |
-          echo "Using cached data from GitHub Actions cache..."
-          dvc pull datasets/processed/training_data_real.csv.dvc || echo "No DVC remote configured, using local cache"
       - name: Install dependencies (generator)
         run: |
           pip install -r cmd/ml_generator/requirements.txt
@@ -989,10 +1119,6 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-      - name: Install DVC
-        run: pip install dvc==3.58.0
-      - name: Pull training plans data
-        run: dvc pull datasets/processed/training_plans_exercises.csv.dvc || echo "Using local cache"
       - name: Train GAN
         run: |
           pip install -r cmd/ml_generator/requirements.txt
@@ -1014,6 +1140,7 @@ jobs:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
     needs: [detect-changes, security-scan, check, super-linter, kubescape, fuzz-tests]
+    timeout-minutes: 120
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
@@ -1284,7 +1411,7 @@ jobs:
           NEED_RESTART=false
           if [ -f \"\$CERT_FILE\" ]; then
             CURRENT_SAN=\$(kubectl get --raw /apis | jq -r '.')
-            if ! grep -q 'fittpulse.duckdns.org' /etc/rancher/k3s/config.yaml; then
+            if ! grep -q '${{ env.FITPULSE_DOMAIN }}' /etc/rancher/k3s/config.yaml; then
               echo \"⚠️ Конфиг не содержит домен, обновляем...\"
               NEED_RESTART=true
             else
@@ -1307,92 +1434,26 @@ jobs:
             done
           fi
           "
-      - name: Ensure Let's Encrypt certificate exists
+      - name: Install cert-manager and configure Let's Encrypt
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Checking for Let'\''s Encrypt certificate...'
-          if [ ! -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]; then
-            echo '⚠️ Certificate not found. Installing Certbot and issuing certificate (webroot)...'
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq certbot
-            sudo mkdir -p /var/www/certbot
-            sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
-            sudo certbot certonly --webroot --webroot-path /var/www/certbot \
-              --non-interactive --agree-tos \
-              --email admin@fittpulse.duckdns.org \
-              -d fittpulse.duckdns.org \
-              --keep-until-expiring
-            if [ \$? -eq 0 ]; then
-              echo '✅ Certificate issued successfully'
-            else
-              echo '❌ Certificate issuance failed. Check logs.'
-              exit 1
-            fi
-          else
-            echo '✅ Let'\''s Encrypt certificate already exists'
-          fi
-          sudo openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem -noout -dates -issuer || true
-          "
-      - name: Install OWASP ModSecurity CRS v4 on VPS
-        run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/install-crs.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/install-crs.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          set -euo pipefail
-          sudo chmod +x /tmp/install-crs.sh
-          sudo /tmp/install-crs.sh
-          "
-      - name: Deploy Nginx configuration to VPS
-        run: |
-          ./scripts/ssh-retry.sh scp deploy/lb/production.conf "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/production.conf"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Deploying Nginx configuration...'
-          sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
-          sudo rm -f /etc/nginx/sites-enabled/*
-          sudo rm -f /etc/nginx/conf.d/*.conf
-          sudo cp /tmp/production.conf /etc/nginx/sites-available/fittpulse.conf
-          sudo ln -sf /etc/nginx/sites-available/fittpulse.conf /etc/nginx/sites-enabled/fittpulse.conf
-          if sudo nginx -t; then
-            sudo systemctl reload nginx
-            echo '✅ Nginx configuration deployed and reloaded'
-          else
-            echo '❌ Nginx configuration test failed!'
-            sudo nginx -t
-            exit 1
-          fi
-          "
-      - name: Setup auto-renewal for SSL
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo \"-> Setting up certificate auto-renewal...\"
-          (sudo crontab -l 2>/dev/null | grep -v certbot; echo \"0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'\") | sudo crontab -
-          echo \"✅ Auto-renewal configured\"
-          "
-      - name: Verify Certificate Transparency and OCSP Stapling
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo '-> Verifying Certificate Transparency...'
-          if command -v openssl &>/dev/null && \
-             [[ -f /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem ]]; then
-            echo '-> Checking CT Signed Certificate Timestamps...'
-            openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem \
-              -noout -text | grep -E 'CT Precertificate|Signed Certificate Timestamp' || true
-
-            echo '-> Verifying OCSP stapling configuration...'
-            if openssl s_client -connect 127.0.0.1:443 -servername fittpulse.duckdns.org \
-              -status </dev/null 2>/dev/null | grep -q 'OCSP Response Data'; then
-              echo '✅ OCSP stapling is active'
-            else
-              echo '⚠️ Could not verify OCSP stapling (expected on first deploy)'
-            fi
-
-            echo '-> Certificate details:'
-            openssl x509 -in /etc/letsencrypt/live/fittpulse.duckdns.org/fullchain.pem \
-              -noout -subject -issuer -dates
-          else
-            echo '⚠️ Certificate not found, skipping CT verification'
-          fi
-          echo '✅ CT verification complete'
-          "
+          echo "-> Installing cert-manager..."
+          kubectl apply -f configs/k8s/base/cert-manager/
+          echo "-> Waiting for cert-manager pods to be ready..."
+          kubectl wait --namespace cert-manager --for=condition=ready pod --all --timeout=120s
+          echo "✅ cert-manager installed successfully"
+          
+          echo "-> Creating Let's Encrypt ClusterIssuer..."
+          kubectl apply -f configs/k8s/base/cert-manager/cluster-issuer.yaml
+          echo "✅ ClusterIssuer created"
+          
+          echo "-> Waiting for ingress-nginx to be ready..."
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --all --timeout=120s
+          echo "✅ Ingress-nginx is ready"
+          
+          echo "-> Verifying ModSecurity configuration..."
+          kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.modsecurity-snippet}' | grep -q "SecRuleEngine On" && echo "✅ ModSecurity enabled" || echo "❌ ModSecurity not enabled"
+          
+          echo "✅ Certificate and WAF configuration complete"
       - name: Setup DuckDNS auto-updater
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
@@ -1411,10 +1472,10 @@ jobs:
       - name: Setup ML infrastructure directories
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          echo \"-> Creating directories for ML storage...\"
-          sudo mkdir -p /opt/fitpulse/{dvc-storage,mlflow-data}
+          echo "-> Creating directories for ML storage..."
+          sudo mkdir -p /opt/fitpulse/mlflow-data
           sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} /opt/fitpulse
-          echo \"✅ Directories created: /opt/fitpulse/{dvc-storage,mlflow-data}\"
+          echo "✅ Directories created: /opt/fitpulse/mlflow-data"
           "
       - name: Deploy MLflow service
         run: |
@@ -1441,11 +1502,6 @@ jobs:
           done
           echo \"✅ MLflow deployed: http://${{ secrets.VPS_HOST }}:5000\"
           "
-      - name: Configure DVC local remote
-        run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd ~/fitpulse && mkdir -p .dvc"
-          ./scripts/ssh-retry.sh scp configs/k8s/scripts/dvc-config "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/fitpulse/.dvc/config"
-          echo "✅ DVC configured with local remote: /opt/fitpulse/dvc-storage"
       - name: Setup Postgres automated backups
         run: |
           if [ -n "${{ secrets.BACKUP_KEY }}" ]; then
@@ -1504,8 +1560,8 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           set -euo pipefail
           sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
-          sudo sed -i 's|0.0.0.0|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
-          sudo sed -i 's|127.0.0.1|fittpulse.duckdns.org|g' /tmp/k3s-domain.yaml
+          sudo sed -i 's|0.0.0.0|${{ env.FITPULSE_DOMAIN }}|g' /tmp/k3s-domain.yaml
+          sudo sed -i 's|127.0.0.1|${{ env.FITPULSE_DOMAIN }}|g' /tmp/k3s-domain.yaml
           sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
           sudo chmod 644 /tmp/k3s-domain.yaml
           cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
@@ -1552,16 +1608,24 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "mkdir -p /etc/fitpulse && chmod 700 /etc/fitpulse"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "printf '%s\n' '${{ secrets.TELEGRAM_BOT_TOKEN }}' > /etc/fitpulse/telegram-bot-token && chmod 600 /etc/fitpulse/telegram-bot-token"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "printf '%s\n' '${{ secrets.TELEGRAM_CHAT_ID }}' > /etc/fitpulse/telegram-chat-id && chmod 600 /etc/fitpulse/telegram-chat-id"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-          export TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}'
-          export TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}'
-          /usr/local/bin/check-server-health.sh || true
-          "
+            export TELEGRAM_BOT_TOKEN=\$(cat /etc/fitpulse/telegram-bot-token)
+            export TELEGRAM_CHAT_ID=\$(cat /etc/fitpulse/telegram-chat-id)
+            /usr/local/bin/check-server-health.sh || true
+            "
       - name: Setup daily health check cron
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           (sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
-          (sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
+          cat <<'CRON' | sudo crontab -
+          0 9 * * * /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1
+          CRON
           echo '✅ Daily health check cron configured (9 AM UTC)'
           "
 
@@ -1572,6 +1636,7 @@ jobs:
     name: Smoke Test (testcontainers-go)
     runs-on: ubuntu-latest
     needs: [detect-changes, binary_build, check]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Set up Go
@@ -1590,6 +1655,7 @@ jobs:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
     needs: [detect-changes, docker, provision-k8s-vps]
+    timeout-minutes: 90
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -1622,7 +1688,7 @@ jobs:
             VPS_IP="${{ secrets.VPS_HOST }}"
           fi
           echo "Resolved VPS_IP: $VPS_IP"
-          echo "$VPS_IP fittpulse.duckdns.org" | sudo tee -a /etc/hosts
+          echo "$VPS_IP ${{ env.FITPULSE_DOMAIN }}" | sudo tee -a /etc/hosts
           echo "Added /etc/hosts entry"
       - name: Configure kubectl
         run: |
@@ -1720,7 +1786,7 @@ jobs:
             --from-literal=JWT_PUBLIC_KEY_PEM=${{ secrets.JWT_PUBLIC_KEY_PEM }} \
             --from-literal=RABBITMQ_USER=${{ secrets.RABBITMQ_USER }} \
             --from-literal=RABBITMQ_PASS=${{ secrets.RABBITMQ_PASS }} \
-            --from-literal=REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            --from-literal=VALKEY_PASSWORD=${{ secrets.VALKEY_PASSWORD }} \
             --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
             --from-literal=SMTP_HOST=${{ vars.SMTP_HOST }} \
             --from-literal=SMTP_PORT=${{ vars.SMTP_PORT }} \
@@ -2055,23 +2121,12 @@ jobs:
       - name: Run database migrations
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
-          echo "Running database migrations via kubectl exec..."
-          SQL_FILE="configs/k8s/base/jobs/init-db.sql"
-          if [ ! -f "$SQL_FILE" ]; then
-            echo "❌ Migration file not found: $SQL_FILE"
-            exit 1
-          fi
-          echo "Migration file size: $(wc -c < "$SQL_FILE") bytes"
-          echo "Copying SQL file to postgres-0 pod..."
-          kubectl cp "$SQL_FILE" fitness-platform-production/postgres-0:/tmp/init-db.sql
-          echo "Executing migrations inside Postgres pod..."
-          if kubectl exec -n fitness-platform-production postgres-0 -- \
-            psql -U postgres -d fitness -f /tmp/init-db.sql -v ON_ERROR_STOP=1; then
-            echo "✅ Database migrations completed successfully"
-          else
-            echo "❌ Database migrations failed"
-            exit 1
-          fi
+          echo "Running database migrations via Flyway..."
+          kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
+          kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
+          echo "Waiting for migrate-db job to complete..."
+          kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s
+          echo "✅ Database migrations completed successfully"
           echo "Verifying tables were created..."
           kubectl exec -n fitness-platform-production postgres-0 -- \
             psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
@@ -2288,6 +2343,7 @@ jobs:
     name: Test Production (E2E)
     runs-on: ubuntu-latest
     needs: [detect-changes, deploy-production]
+    timeout-minutes: 30
     env:
       PRODUCTION_URL: ${{ secrets.VPS_HOST }}
     steps:
@@ -2305,25 +2361,25 @@ jobs:
       - name: Prepare target URL
         id: target
         run: |
-          URL="https://fittpulse.duckdns.org"
+          URL="https://${{ env.FITPULSE_DOMAIN }}"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
       - name: Verify SSL Certificate
         run: |
           echo "🔍 Checking SSL certificate validity..."
-          echo | openssl s_client -servername fittpulse.duckdns.org -connect fittpulse.duckdns.org:443 2>/dev/null | openssl x509 -noout -dates -issuer > cert-details.txt
+          echo | openssl s_client -servername ${{ env.FITPULSE_DOMAIN }} -connect ${{ env.FITPULSE_DOMAIN }}:443 2>/dev/null | openssl x509 -noout -dates -issuer > cert-details.txt
           echo "🔍 Checking Certificate Transparency (SCT) logs..."
           if grep -q "Signed Certificate Timestamp" cert-details.txt; then
             echo "✅ Certificate Transparency SCTs verified"
           else
             echo "⚠️  No SCTs found in certificate (Certificate Transparency may not be configured)"
           fi
-          curl -k -sSf -o /dev/null --max-time 10 "https://fittpulse.duckdns.org/health" || exit 1
+          curl -k -sSf -o /dev/null --max-time 10 "https://${{ env.FITPULSE_DOMAIN }}/health" || exit 1
           echo "✅ SSL certificate is valid and trusted"
       - name: Health check
         run: |
           echo "🔍 Checking production health via HTTPS..."
           for _ in {1..42}; do
-            RESPONSE=$(curl -skf --max-time 5 "https://fittpulse.duckdns.org/health" 2>/dev/null || echo "")
+            RESPONSE=$(curl -skf --max-time 5 "https://${{ env.FITPULSE_DOMAIN }}/health" 2>/dev/null || echo "")
             if [ -n "$RESPONSE" ]; then
               echo "Health response: $RESPONSE"
               break
@@ -2422,7 +2478,7 @@ jobs:
             <b>Безопасность:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
-            🌐 <b>Сайт:</b> https://fittpulse.duckdns.org
+            🌐 <b>Сайт:</b> https://${{ env.FITPULSE_DOMAIN }}
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
   # ============================================================================

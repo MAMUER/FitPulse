@@ -50,7 +50,6 @@ func UnaryServerInterceptor(serviceName string) grpc.UnaryServerInterceptor {
 		resp, err := handler(ctx, req)
 		duration := time.Since(start)
 
-		// Извлекаем статус для метрик
 		statusCode := "ok"
 		errorCode := ""
 		if err != nil {

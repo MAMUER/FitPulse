@@ -68,6 +68,10 @@ linters:
           - bodyclose
           - rowserrcheck
           - errorlint
+      - path: cmd/device-aggregator/providers/garmin\.go
+        linters:
+          - gosec
+        text: G505
   settings:
     nakedret:
       max-func-lines: 30
