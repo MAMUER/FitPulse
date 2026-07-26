@@ -5,6 +5,11 @@ version: 2
 # При добавлении новых зависимостей: проверять через osv-scanner
 # Документация: автоматические проверки версий запускаются через .github/workflows/docs-check.yml
 # Debian base images: отслеживаются через ecosystem "docker" (python:3.14-slim и др.)
+#
+# ⚠️  Ограничения dependabot:
+# - Не отслеживает версии Ubuntu/ОС в markdown-документации (требуется docs-check.yml)
+# - Не проверяет консистентность версий между docs и code (требуется docs-check.yml)
+# - Для версий Ubuntu используйте docs-check.yml + ручное обновление при смене сервера
 
 registries:
   ghcr:
