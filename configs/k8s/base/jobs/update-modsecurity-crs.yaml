@@ -13,7 +13,7 @@ spec:
       template:
         spec:
           serviceAccountName: ingress-nginx
-          automountServiceAccountToken: true
+          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000

@@ -2592,3 +2592,66 @@ const (
 8. **Nonce injection**: `HTMLNonceInject` работает только для `/` и `/index.html`.
 9. **Testing**: `resetRateLimiters()` доступна для тестов. Не создавайте новые лимитеры в production коде.
 10. **Тестирование**: unit-тесты покрывают все middleware; rate limiter тесты используют `resetRateLimiters` для изоляции.
+
+## 26. Kubernetes deployment configs (`configs/k8s`) — Production infrastructure
+
+### 26.1 Роль
+
+`configs/k8s` — это **Kubernetes манифесты для production deployment** всей платформы на k3s. Обеспечивает:
+- Изоляцию namespace: `fitness-platform-production` (приложения), `ingress-nginx` (ингресс), `cert-manager` (TLS), `monitoring` (Prometheus/Grafana/Fluent Bit)
+- Zero-trust NetworkPolicy: DMZ → App → Data → Monitoring зоны
+- Security: Pod Security Standards `restricted`, `readOnlyRootFilesystem`, `drop ALL`, seccomp `RuntimeDefault`
+- Observability: Prometheus metrics, Grafana дашборды, Fluent Bit логирование, Alertmanager
+- WAF: ModSecurity CRS v4 на ingress-nginx
+- Автоматизация: Jobs для миграций, seed-admin, обновления CRS
+
+### 26.2 Структура
+
+```text
+configs/k8s/
+├── base/
+│   ├── namespace.yaml                    # fitness-platform-production namespace
+│   ├── configmap.yaml                    # Shared env config
+│   ├── resource-quota.yaml               # CPU/memory/pod quotas
+│   ├── limit-range.yaml                  # Default container limits
+│   ├── serviceaccount.yaml               # Per-service SA
+│   ├── rbac/                             # Roles and RoleBindings
+│   ├── network-policies/                 # Zero-trust network segmentation
+│   ├── deployments/                      # StatefulSets and Deployments
+│   ├── services/                         # ClusterIP/NodePort services
+│   ├── ingress-nginx/                    # NGINX Ingress + ModSecurity WAF
+│   ├── cert-manager/                     # Let's Encrypt ClusterIssuer
+│   ├── jobs/                             # DB migration, seed-admin, CRS update
+│   └── monitoring/                       # Prometheus, Grafana, Alertmanager, Fluent Bit
+└── overlays/
+    └── production/
+        ├── kustomization.yaml            # Image tags, ingress, HPA
+        ├── ingress.yaml                  # TLS, host rules
+        └── hpa.yaml                      # Autoscaling (1-1 replicas)
+```
+
+### 26.3 Безопасность
+
+1. **Pod Security Standards**: namespace `fitness-platform-production` использует `restricted`, ingress-nginx — `baseline` (из-за `hostNetwork: true`)
+2. **Network segmentation**: NetworkPolicy ограничивает трафик между DMZ, App, Data и Monitoring зонами
+3. **Secrets management**: все секреты через Kubernetes Secrets, монтируются как файлы (`_FILE` env vars)
+4. **ModSecurity WAF**: OWASP CRS v4 на ingress-nginx с автоматическим обновлением через CronJob
+5. **TLS**: Let's Encrypt через cert-manager, HSTS enforced
+6. **Security headers**: X-Frame-Options, X-Content-Type-Options, CSP, Permissions-Policy
+
+### 26.4 Мониторинг
+
+1. **Prometheus**: scrape интервал 30s, retention 1h, ServiceMonitor через annotations
+2. **Grafana**: provisioning через ConfigMap, дашборд "FitPulse Platform Overview"
+3. **Fluent Bit**: сбор логов контейнеров, парсинг Docker JSON, отправка в stdout
+4. **Alertmanager**: routing по severity, inhibit rules
+
+### 26.5 Правила использования
+
+1. **Deployment**: используйте `kubectl apply -k configs/k8s/overlays/production`
+2. **Secrets**: создайте `app-secrets` и `monitoring-secrets` перед deployment
+3. **Storage**: `local-path-provisioner` требует `/opt/local-path-provisioner` на каждой ноде
+4. **Images**: тегируются через `IMAGE_TAG` environment variable (default: `latest`)
+5. **Backup**: настройте `BACKUP_KEY` и `PGPASSWORD` для бэкапов
+6. **DNS**: DuckDNS update script требует `DUCKDNS_TOKEN` secret
+7. **Тестирование**: валидируйте YAML через `python -c "import yaml; list(yaml.safe_load_all(open('configs/k8s/base/namespace.yaml')))"`

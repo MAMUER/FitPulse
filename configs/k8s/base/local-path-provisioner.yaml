@@ -145,6 +145,8 @@ spec:
         app.kubernetes.io/part-of: k8s-system
     spec:
       serviceAccountName: local-path-provisioner-service-account
+      # Pod runs as root because the provisioner needs to create directories
+      # and set ownership on the host path.
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
