@@ -5,7 +5,7 @@
 torch>=2.13.0
 lightning>=2.6.5
 numpy>=2.3.0
-pandas>=2.3.0
+pandas>=3.0.5
 
 # API — FastAPI с uvloop (Linux only)
 uvicorn[standard]>=0.51.0
@@ -21,17 +21,17 @@ evidently>=0.6.5
 tensorboard>=2.21.0
 
 # Inference optimization
-onnxruntime>=1.27.0
+onnxruntime>=1.28.0
 optimum>=2.2.0
 onnxscript>=0.7.1
-onnx>=1.17.0
+onnx>=1.22.0
 
 # Async messaging
-aio-pika>=9.5.0
+aio-pika>=10.0.1
 valkey[hiredis]>=8.0.0
 
 # Security
-cryptography>=44.0.0
+cryptography>=49.0.0
 
 # Utils
 tenacity>=9.1.4
