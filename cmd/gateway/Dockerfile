@@ -1,5 +1,13 @@
 # syntax=docker/dockerfile:1
-# ========== Builder stage ==========
+# ========== Web builder stage ==========
+FROM node:24-alpine AS web-builder
+WORKDIR /app/web
+COPY web/package.json web/package-lock.json* ./
+RUN npm ci || npm install
+COPY web/ .
+RUN npm run build
+
+# ========== Go builder stage ==========
 FROM golang:1.26-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
@@ -17,6 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 -ldflags="-w -s" \
 -o /app/bin/gateway \
 ./cmd/gateway
+
 # ========== Runtime stage ==========
 FROM alpine:3.24
 # hadolint ignore=DL3018
@@ -26,7 +35,8 @@ RUN addgroup -g 1001 -S appgroup && \
 adduser -u 1001 -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/bin/gateway .
-COPY --from=builder --chown=appuser:appgroup /app/web ./web
+COPY --from=web-builder --chown=appuser:appgroup /app/web/dist ./web/dist
+COPY --from=builder --chown=appuser:appgroup /app/web/templates ./web/templates
 USER appuser
 EXPOSE 8080 8443
 ENTRYPOINT ["./gateway"]

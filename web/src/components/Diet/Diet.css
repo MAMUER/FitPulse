@@ -1,0 +1,475 @@
+.diet-summary {
+    background: linear-gradient(135deg, var(--green), var(--teal));
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+    color: white;
+}
+
+.diet-calories {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.diet-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.diet-macros {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.macro-item {
+    text-align: center;
+}
+
+.macro-value {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.macro-label {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.meal-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.meal-time {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.meal-name {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.meal-details {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.diet-controls {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.diet-controls h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.diet-controls .form-group {
+    margin-bottom: 12px;
+}
+
+.diet-controls label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.diet-controls input,
+.diet-controls select {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 17px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.diet-controls input:focus,
+.diet-controls select:focus {
+    background: #48484a;
+}
+
+.diet-totals {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.diet-totals .totals-row {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 8px;
+}
+
+.diet-totals .totals-item {
+    text-align: center;
+}
+
+.diet-totals .totals-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.diet-totals .totals-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.meal-template-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.meal-template-btn {
+    padding: 10px;
+    background: var(--bg-input);
+    border: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.meal-template-btn.selected {
+    border-color: var(--green);
+    background: rgba(48, 209, 88, 0.1);
+}
+
+.meal-template-btn:active {
+    transform: scale(0.97);
+}
+
+.health-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.health-section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.health-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.sync-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.sync-grid button {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.sync-grid button:active {
+    background: #48484a;
+}
+
+.health-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.health-card {
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    padding: 14px;
+}
+
+.health-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.badge {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.health-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.health-card-notes {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.health-card-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-danger-ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid rgba(255, 55, 95, 0.4);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-danger-ghost:active {
+    background: rgba(255, 55, 95, 0.12);
+}
+
+.ml-result {
+    margin-bottom: 20px;
+}
+
+.ml-classification {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    text-align: center;
+}
+
+.ml-classification .class-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.ml-classification .class-name {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.ml-classification .confidence {
+    font-size: 15px;
+    color: var(--green);
+}
+
+.ml-form {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.ml-form h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.ml-form .form-group {
+    margin-bottom: 12px;
+}
+
+.ml-form label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.ml-form select,
+.ml-form input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 17px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.ml-form select:focus,
+.ml-form input:focus {
+    background: #48484a;
+}
+
+.days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.day-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.day-chip input {
+    display: none;
+}
+
+.day-chip:has(input:checked) {
+    background: var(--purple);
+    color: white;
+}
+
+.day-chip:active {
+    transform: scale(0.95);
+}
+
+.admin-form {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.admin-form h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.admin-form .form-group {
+    margin-bottom: 12px;
+}
+
+.admin-form label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.admin-form select,
+.admin-form input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 17px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.admin-form select:focus,
+.admin-form input:focus {
+    background: #48484a;
+}
+
+.invite-card,
+.user-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.invite-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.invite-code {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--teal);
+}
+
+.invite-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.invite-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.user-email {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.user-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+}

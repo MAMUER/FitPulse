@@ -1,0 +1,22 @@
+.devices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.device-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 16px;
+}
+
+.device-card h4 {
+    margin: '0 0 8px 0';
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.device-card p {
+    margin: 0;
+}

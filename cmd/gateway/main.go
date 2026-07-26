@@ -565,8 +565,8 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	g.registerAdminRoutes(r, authMiddleware)
 
 	// ========== Static files ==========
-	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/")))
-	fsRoot := http.FileServer(http.Dir("./web/"))
+	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/dist/static/")))
+	fsRoot := http.FileServer(http.Dir("./web/dist/"))
 	r.Get("/static/*", fsStatic.ServeHTTP)
 	r.Get("/*", fsRoot.ServeHTTP)
 
