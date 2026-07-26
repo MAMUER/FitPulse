@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/instance: migrate-db
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: fitness-platform
-    app.kubernetes.io/version: "11"
+    app.kubernetes.io/version: "18"
     app.kubernetes.io/managed-by: kustomize
 spec:
   backoffLimit: 3
@@ -24,7 +24,7 @@ spec:
         app.kubernetes.io/instance: migrate-db
         app.kubernetes.io/component: database
         app.kubernetes.io/part-of: fitness-platform
-        app.kubernetes.io/version: "11"
+        app.kubernetes.io/version: "18"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
