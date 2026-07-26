@@ -11,7 +11,6 @@
 | Phase | Topology | Target Uptime | Notes |
 |-------|----------|---------------|-------|
 | Phase 1 | single-node k3s | **99.0%** | Без HA, single point of failure; planned maintenance excluded |
-| Phase 2+ | multi-node k3s / k8s | **99.5%** | При наличии реплик и автоматического восстановления |
 
 Расчёт: downtime ≤ 3.65 дня/год для 99.0%, ≤ 1.83 дня/год для 99.5%.
 Planned maintenance windows исключаются из расчёта.
@@ -24,13 +23,13 @@ Planned maintenance windows исключаются из расчёта.
 
 ## Severity & Response Times
 
-Детализация по severity, примерам и времени реакции приведена в [`BUG_BOUNTY_SCOPE.md`](BUG_BOUNTY_SCOPE.md).
+Оценка серьезности соответствует секции "Типы уязвимостей" в [`SECURITY.md`](SECURITY.md).
 
 Кратко (best effort, без юридических гарантий):
 
 | Priority | Response Time | Resolution Time |
 |----------|---------------|-----------------|
-| 🔴 Critical (Security) | 1–3 рабочих дня | 1–2 недели |
+| 🔴 Critical (Security) | 48 часов — подтверждение; 7 рабочих дней — assessment | 30 рабочих дней — план исправления |
 | 🟠 High (Bug blocking) | 3–7 рабочих дней | 2–4 недели |
 | 🟡 Medium (Feature) | 1–2 недели | Следующий релиз |
 | 🟢 Low (Nice to have) | Следующий релиз | Best effort |

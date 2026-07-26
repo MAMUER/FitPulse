@@ -3,7 +3,6 @@ package validator
 
 import (
 	"errors"
-	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,7 +11,9 @@ import (
 )
 
 const (
+	// MaxDurationWeeks is the maximum allowed plan duration in weeks.
 	MaxDurationWeeks = 52
+	// MaxAvailableDays is the maximum number of available training days per week.
 	MaxAvailableDays = 7
 )
 
@@ -26,8 +27,8 @@ var (
 	ErrWorkoutIDRequired      = errors.New("workout_id is required")
 )
 
-// ValidateGeneratePlanRequest checks request for training plan generation.
-// DurationWeeks is optional - defaults to 4 if not specified.
+// ValidateGeneratePlanRequest validates a GeneratePlanRequest.
+// DurationWeeks must be explicitly provided; defaults should be applied by the caller.
 func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	if req == nil {
 		return NilRequestError()
@@ -35,15 +36,11 @@ func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	if req.UserId == "" {
 		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
 	}
-	// Default duration to 4 weeks if not specified (for ML-generated plans)
-	if req.DurationWeeks == 0 {
-		req.DurationWeeks = 4
-	}
-	if req.DurationWeeks < 0 {
-		return fmt.Errorf("duration_weeks invalid: %w", status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error()))
+	if req.DurationWeeks <= 0 {
+		return status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error())
 	}
 	if req.DurationWeeks > MaxDurationWeeks {
-		return fmt.Errorf("duration_weeks too large: %w", status.Error(codes.InvalidArgument, ErrDurationWeeksTooLarge.Error()))
+		return status.Error(codes.InvalidArgument, ErrDurationWeeksTooLarge.Error())
 	}
 	if len(req.AvailableDays) == 0 {
 		return status.Error(codes.InvalidArgument, ErrAvailableDaysRequired.Error())
@@ -54,7 +51,7 @@ func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	return nil
 }
 
-// ValidateCompleteWorkoutRequest проверяет запрос завершения тренировки
+// ValidateCompleteWorkoutRequest validates a CompleteWorkoutRequest.
 func ValidateCompleteWorkoutRequest(req *pb.CompleteWorkoutRequest) error {
 	if req == nil {
 		return NilRequestError()
@@ -71,7 +68,7 @@ func ValidateCompleteWorkoutRequest(req *pb.CompleteWorkoutRequest) error {
 	return nil
 }
 
-// ValidateListPlansRequest проверяет запрос списка планов
+// ValidateListPlansRequest validates a ListPlansRequest.
 func ValidateListPlansRequest(req *pb.ListPlansRequest) error {
 	if req == nil {
 		return NilRequestError()
@@ -88,7 +85,7 @@ func ValidateListPlansRequest(req *pb.ListPlansRequest) error {
 	return nil
 }
 
-// ValidateGetProgressRequest проверяет запрос прогресса
+// ValidateGetProgressRequest validates a GetProgressRequest.
 func ValidateGetProgressRequest(req *pb.GetProgressRequest) error {
 	if req == nil {
 		return NilRequestError()

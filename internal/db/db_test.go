@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
@@ -61,6 +62,98 @@ func TestConfigConnectionString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := tt.config.ConnectionString()
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func TestConfigValidate(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    Config
+		wantError bool
+	}{
+		{
+			name: "valid config",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: false,
+		},
+		{
+			name: "empty host",
+			config: Config{
+				Host:     "",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty port",
+			config: Config{
+				Host:     "localhost",
+				Port:     "",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty user",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "",
+				Password: "postgres",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty password",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "",
+				DBName:   "testdb",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+		{
+			name: "empty dbname",
+			config: Config{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "postgres",
+				DBName:   "",
+				SSLMode:  "disable",
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -123,4 +216,33 @@ func TestConnectionPoolSettings(t *testing.T) {
 
 	assert.Equal(t, 25, db.Stats().MaxOpenConnections)
 	assert.Equal(t, 10, db.Stats().MaxIdleClosed)
+}
+
+func TestBlindIndex(t *testing.T) {
+	assert.Equal(t, "54657374", BlindIndex("Test"))
+	assert.Equal(t, "54657374", BlindIndex("Test"))
+	assert.NotEqual(t, BlindIndex("Test"), BlindIndex("test"))
+}
+
+func TestNicknameHash(t *testing.T) {
+	assert.Equal(t, NicknameHash("alice"), NicknameHash("alice"))
+	assert.NotEqual(t, NicknameHash("alice"), NicknameHash("bob"))
+}
+
+func TestGenerateNonce(t *testing.T) {
+	nonce, err := GenerateNonce()
+	assert.NoError(t, err)
+	assert.Len(t, nonce, 12)
+
+	nonce2, err := GenerateNonce()
+	assert.NoError(t, err)
+	assert.NotEqual(t, nonce, nonce2)
+}
+
+func TestPgsodiumDecryptParam(t *testing.T) {
+	SetPgsodiumKeyID(1)
+	sql := PgsodiumDecryptParam("u.full_name_encrypted", "u.full_name_nonce", "full_name")
+	assert.Contains(t, sql, "pgsodium.crypto_aead_aegis256_decrypt")
+	assert.NotContains(t, sql, "CASE WHEN")
+	assert.NotContains(t, sql, "pgsodium.crypto_aead_det_decrypt")
 }

@@ -39,8 +39,8 @@ func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Req
 			"notes": c.Notes, "created_at": c.CreatedAt, "updated_at": c.UpdatedAt,
 		}
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "conditions": conditions, "total": resp.Total}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send health conditions response", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "conditions": conditions, "total": resp.Total}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -72,8 +72,10 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "condition": condition}, g.responseSigningSecret, g.log.Logger, http.StatusCreated); err != nil {
-		g.log.Error("Failed to sign/send upsert health condition response", zap.Error(err))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "condition": condition}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -93,8 +95,9 @@ func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, pa
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]string{"status": "deleted"}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send delete response", zap.Error(err))
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -145,8 +148,10 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "record": record}, g.responseSigningSecret, g.log.Logger, http.StatusCreated); err != nil {
-		g.log.Error("Failed to sign/send body composition create response", zap.Error(err))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "record": record}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -180,8 +185,8 @@ func (g *gateway) listBodyCompositionHandler(w http.ResponseWriter, r *http.Requ
 			"source": rec.Source, "created_at": rec.CreatedAt,
 		}
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "records": records, "total": resp.Total}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send body composition response", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "records": records, "total": resp.Total}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -198,8 +203,8 @@ func (g *gateway) listMenstrualCyclesHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "cycles": resp.Cycles, "total": resp.Total}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send menstrual cycles response", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycles": resp.Cycles, "total": resp.Total}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -231,8 +236,10 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "cycle": cycle}, g.responseSigningSecret, g.log.Logger, http.StatusCreated); err != nil {
-		g.log.Error("Failed to sign/send menstrual cycle create response", zap.Error(err))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycle": cycle}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -270,8 +277,8 @@ func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "cycle": cycle}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send menstrual cycle update response", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycle": cycle}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 
@@ -300,8 +307,8 @@ func (g *gateway) syncDataHandler(w http.ResponseWriter, r *http.Request, syncFn
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok", "result": resp}, g.responseSigningSecret, g.log.Logger); err != nil {
-		g.log.Error("Failed to sign/send sync response", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "result": resp}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }
 

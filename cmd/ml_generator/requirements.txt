@@ -17,7 +17,6 @@ uvloop>=0.21.0; sys_platform != "win32"
 # MLOps
 wandb>=0.28.0
 prometheus-client>=0.25.0
-dvc[s3]>=3.67.0
 evidently>=0.6.5
 tensorboard>=2.21.0
 
@@ -35,5 +34,5 @@ valkey[hiredis]>=8.0.0
 cryptography>=44.0.0
 
 # Utils
-tenacity>=9.0.0
+tenacity>=9.1.4
 structlog>=24.4.0

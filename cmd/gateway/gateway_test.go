@@ -42,14 +42,6 @@ func TestHealthHandler_WithUserClient(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "ok")
 }
 
-func TestVerifyUserRole_NilDB(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{log: log, db: nil}
-
-	got := g.verifyUserRole(context.Background(), "user-id", "admin")
-	assert.False(t, got)
-}
-
 func TestGRPCClientGetters(t *testing.T) {
 	log := &logger.Logger{Logger: zap.NewNop()}
 

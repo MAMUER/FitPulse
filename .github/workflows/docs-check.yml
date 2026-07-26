@@ -28,37 +28,87 @@ jobs:
       - name: Check for version consistency
         run: |
           echo "-> Checking PostgreSQL version references..."
-          PG_REFS=$(grep -rn "postgres:17\|pg17\|PostgreSQL 17\|version: \"17\"\|version: '17'" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" || true)
+          PG_REFS=$(grep -rn "postgres:1[0-7]\|pg1[0-7]\|PostgreSQL 1[0-7]\|version: \"1[0-7]\"\|version: '1[0-7]'" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
           if [ -n "$PG_REFS" ]; then
-            echo "❌ Found outdated PostgreSQL 17 references:"
+            echo "❌ Found outdated PostgreSQL references (current: 18+):"
             echo "$PG_REFS"
             exit 1
           fi
           echo "✅ PostgreSQL version references are consistent (18+)"
 
           echo "-> Checking Kubernetes version references..."
-          K8S_REFS=$(grep -rn "v1\.31\|1\.31\.6\|Kubernetes 1\.28\|Kubernetes-1\.28" . --include="*.yml" --include="*.yaml" --include="*.md" || true)
+          K8S_REFS=$(grep -rn "v1\.\(2[8-9]\|3[0-5]\)\|Kubernetes 1\.\(2[8-9]\|3[0-5]\)\|Kubernetes-1\.\(2[8-9]\|3[0-5]\)" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" || true)
           if [ -n "$K8S_REFS" ]; then
-            echo "❌ Found outdated Kubernetes references:"
+            echo "❌ Found outdated Kubernetes references (current: 1.36+):"
             echo "$K8S_REFS"
             exit 1
           fi
           echo "✅ Kubernetes version references are consistent (1.36+)"
 
           echo "-> Checking Debian version references..."
-          DEBIAN_REFS=$(grep -rn "Debian 12\|debian 12\|debian:12\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" || true)
+          DEBIAN_REFS=$(grep -rn "debian:1[0-2]\|Debian 1[0-2]\|debian 1[0-2]\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
           if [ -n "$DEBIAN_REFS" ]; then
-            echo "❌ Found outdated Debian 12 references:"
+            echo "❌ Found outdated Debian references (current: 13+):"
             echo "$DEBIAN_REFS"
             exit 1
           fi
           echo "✅ Debian version references are consistent (13+)"
 
+          echo "-> Checking Alpine version references..."
+          ALPINE_REFS=$(grep -rn "alpine:3\.2[0-3]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" | grep -v "^\s*#" || true)
+          if [ -n "$ALPINE_REFS" ]; then
+            echo "❌ Found outdated Alpine references (current: 3.24+):"
+            echo "$ALPINE_REFS"
+            exit 1
+          fi
+          echo "✅ Alpine version references are consistent (3.24+)"
+
+          echo "-> Checking Go version references..."
+          GO_REFS=$(grep -rn "golang:1\.2[0-5]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          if [ -n "$GO_REFS" ]; then
+            echo "❌ Found outdated Go references (current: 1.26+):"
+            echo "$GO_REFS"
+            exit 1
+          fi
+          echo "✅ Go version references are consistent (1.26+)"
+
+          echo "-> Checking Python version references..."
+          PYTHON_REFS=$(grep -rn "python:3\.1[0-3]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          if [ -n "$PYTHON_REFS" ]; then
+            echo "❌ Found outdated Python references (current: 3.14+):"
+            echo "$PYTHON_REFS"
+            exit 1
+          fi
+          echo "✅ Python version references are consistent (3.14+)"
+
+          echo "-> Checking Valkey version references..."
+          VALKEY_REFS=$(grep -rn "valkey/valkey:[1-8]\b\|valkey:[1-8]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          if [ -n "$VALKEY_REFS" ]; then
+            echo "❌ Found outdated Valkey references (current: 9+):"
+            echo "$VALKEY_REFS"
+            exit 1
+          fi
+          echo "✅ Valkey version references are consistent (9+)"
+
+          echo "-> Checking RabbitMQ version references..."
+          RABBITMQ_REFS=$(grep -rn "rabbitmq:[1-3]\.[0-9]\|rabbitmq:4\.[0-2]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          if [ -n "$RABBITMQ_REFS" ]; then
+            echo "❌ Found outdated RabbitMQ references (current: 4.3+):"
+            echo "$RABBITMQ_REFS"
+            exit 1
+          fi
+          echo "✅ RabbitMQ version references are consistent (4.3+)"
+
       - name: Check markdown links
         run: |
           echo "-> Checking for broken markdown links..."
-          find docs -name "*.md" -exec grep -l "\[.*\](" {} \; | head -20
-          echo "✅ Markdown link check complete"
+          BROKEN_LINKS=$(find docs -name "*.md" -exec grep -Hn "\[.*\](" {} \; | grep -v "http" | grep -v "#" | grep -v "mailto:" | head -20 || true)
+          if [ -n "$BROKEN_LINKS" ]; then
+            echo "⚠️  Found relative markdown links (verify manually):"
+            echo "$BROKEN_LINKS"
+          else
+            echo "✅ No obvious broken relative markdown links found"
+          fi
 
       - name: Check ADR consistency
         run: |

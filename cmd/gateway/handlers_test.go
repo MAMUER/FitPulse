@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/cmd/gateway/infra"
 	"github.com/MAMUER/project/internal/logger"
 )
 
@@ -39,6 +40,9 @@ func (m *mockUserServiceClient) AuthenticateGoogle(ctx context.Context, req *use
 }
 func (m *mockUserServiceClient) GetProfile(ctx context.Context, req *userpb.GetProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
 	return &userpb.UserProfile{UserId: req.UserId, Email: "test@example.com"}, nil
+}
+func (m *mockUserServiceClient) GetUserByEmail(ctx context.Context, req *userpb.GetUserByEmailRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
+	return &userpb.UserProfile{UserId: "user-123", Email: req.Email, EmailConfirmed: true}, nil
 }
 func (m *mockUserServiceClient) UpdateProfile(ctx context.Context, req *userpb.UpdateProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
 	return &userpb.UserProfile{UserId: req.UserId, Email: "test@example.com"}, nil
@@ -131,6 +135,26 @@ func (m *mockUserServiceClient) SyncOKOKData(ctx context.Context, req *userpb.Sy
 	return &userpb.SyncOKOKDataResponse{}, nil
 }
 
+func (m *mockUserServiceClient) GetUserClaims(ctx context.Context, req *userpb.GetUserClaimsRequest, opts ...grpc.CallOption) (*userpb.GetUserClaimsResponse, error) {
+	return &userpb.GetUserClaimsResponse{Email: "test@example.com", Role: "admin", TotpEnabled: false}, nil
+}
+
+func (m *mockUserServiceClient) DeleteProfile(ctx context.Context, req *userpb.DeleteProfileRequest, opts ...grpc.CallOption) (*userpb.DeleteProfileResponse, error) {
+	return &userpb.DeleteProfileResponse{Status: "deleted"}, nil
+}
+
+func (m *mockUserServiceClient) AdminListInvites(ctx context.Context, req *userpb.AdminListInvitesRequest, opts ...grpc.CallOption) (*userpb.AdminListInvitesResponse, error) {
+	return &userpb.AdminListInvitesResponse{}, nil
+}
+
+func (m *mockUserServiceClient) AdminCreateInvite(ctx context.Context, req *userpb.AdminCreateInviteRequest, opts ...grpc.CallOption) (*userpb.AdminCreateInviteResponse, error) {
+	return &userpb.AdminCreateInviteResponse{Code: "INV-test"}, nil
+}
+
+func (m *mockUserServiceClient) AdminRevokeInvite(ctx context.Context, req *userpb.AdminRevokeInviteRequest, opts ...grpc.CallOption) (*userpb.AdminRevokeInviteResponse, error) {
+	return &userpb.AdminRevokeInviteResponse{Success: true}, nil
+}
+
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -139,10 +163,8 @@ func setupGateway() *gateway {
 	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 	return &gateway{
-		log:                   log,
-		jwtPrivateKeyPEM:      privateKeyPEM,
-		jwtPublicKeyPEM:       publicKeyPEM,
-		responseSigningSecret: "test-response-secret",
+		log:           log,
+		tokenProvider: infra.NewJWTAdapter(privateKeyPEM, publicKeyPEM),
 	}
 }
 

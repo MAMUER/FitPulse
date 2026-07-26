@@ -5,14 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
-	"html/template"
 	"image/png"
 	"net/http"
 	"os"
@@ -26,17 +24,12 @@ import (
 	"golang.org/x/time/rate"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/internal/auth"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
 // ========== Auth Handlers ==========
 
 const (
-	confirmFallbackHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1>Подтверждение email</h1><p>Токен: {{ .Token }}</p></div></body></html>`
-
-	confirmFallbackErrorHTML = `<html><body style='background:#0d1117;color:#c9d1d9;font-family:system-ui;'><div style='text-align:center;padding:40px;'><h1 style='color:#f85149;'>Ошибка</h1><p>Токен не найден</p></div></body></html>`
-
 	totpRateLimitAttempts = 5
 
 	googleOAuthStateCookie = "google_oauth_state"
@@ -57,32 +50,30 @@ func generateOAuthState() (string, error) {
 }
 
 func (g *gateway) userTOTPEnabled(ctx context.Context, userID string) bool {
-	if g.db == nil || userID == "" {
+	if userID == "" {
 		return false
 	}
 
-	var totpEnabled bool
-	if err := g.db.QueryRowContext(ctx, "SELECT totp_enabled FROM users WHERE id = $1", userID).Scan(&totpEnabled); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
-		}
+	resp, err := g.userClient.GetUserClaims(ctx, &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
+		g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
 		return false
 	}
 
-	return totpEnabled
+	return resp.GetTotpEnabled()
 }
 
 func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
-	if g.db == nil || userID == "" {
-		return "", errors.New("database unavailable")
+	if userID == "" {
+		return "", errors.New("user_id is empty")
 	}
 
-	var email, role string
-	if err := g.db.QueryRowContext(ctx, "SELECT email, role FROM users WHERE id = $1", userID).Scan(&email, &role); err != nil {
+	resp, err := g.userClient.GetUserClaims(ctx, &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
 		return "", fmt.Errorf("query user for JWT: %w", err)
 	}
 
-	token, err := auth.GenerateAccessToken(userID, email, role, g.jwtPrivateKeyPEM, 15*time.Minute)
+	token, err := g.tokenProvider.GenerateAccessToken(userID, resp.GetEmail(), resp.GetRole(), 15*time.Minute)
 	return token, fmt.Errorf("issue jwt: %w", err)
 }
 
@@ -90,8 +81,8 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 	if g.valkeyDB == nil {
 		return "", errors.New("valkey unavailable")
 	}
-	token := auth.GenerateRefreshToken()
-	fingerprint := auth.ComputeTokenFingerprint(token)
+	token := g.tokenProvider.GenerateRefreshToken()
+	fingerprint := g.tokenProvider.ComputeTokenFingerprint(token)
 	key := "refresh:" + token
 	fpKey := "refresh:fp:" + fingerprint
 	issuedKey := "refresh:issued:" + userID
@@ -111,7 +102,7 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	userID, err := g.valkeyDB.Get(ctx, "refresh:"+oldToken).Result()
 	if err != nil {
-		fingerprint := auth.ComputeTokenFingerprint(oldToken)
+		fingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
 		fpUserID, fpErr := g.valkeyDB.Get(ctx, "refresh:fp:"+fingerprint).Result()
 		if fpErr == nil && fpUserID != "" {
 			revokedKey := "refresh:revoked:" + fpUserID
@@ -128,7 +119,7 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 
 	_ = g.valkeyDB.Del(ctx, "refresh:"+oldToken).Err()
 
-	oldFingerprint := auth.ComputeTokenFingerprint(oldToken)
+	oldFingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
 	revokedKey := "refresh:revoked:" + userID
 	issuedKey := "refresh:issued:" + userID
 
@@ -216,6 +207,49 @@ func countOverLimit(g *gateway, key string) bool {
 	return !limiter.limiter.Allow()
 }
 
+func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
+	if g.sessionStore == nil {
+		return nil
+	}
+	token := r.Header.Get("X-Critical-Session-Token")
+	if token == "" {
+		g.log.Warn("Critical action without critical session token", zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		return nil
+	}
+	if err := g.sessionStore.ValidateCriticalSession(r.Context(), token, userID); err != nil {
+		g.log.Warn("Invalid critical session token", zap.Error(err), zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		return fmt.Errorf("invalid critical session: %w", err)
+	}
+	return nil
+}
+
+func (g *gateway) criticalSessionHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if g.sessionStore == nil {
+		http.Error(w, "Session store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	token, err := g.sessionStore.CreateCriticalSession(r.Context(), userID)
+	if err != nil {
+		g.log.Error("Failed to create critical session", zap.Error(err))
+		http.Error(w, "Failed to create critical session", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"critical_session_token": token,
+	}); err != nil {
+		g.log.Error("Failed to encode critical session response", zap.Error(err))
+	}
+}
+
 func encodeQRCodeBase64(qrCodeURL string) (string, error) {
 	key, err := otp.NewKeyFromURL(qrCodeURL)
 	if err != nil {
@@ -266,7 +300,8 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -310,7 +345,8 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -403,7 +439,8 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		g.log.Warn("Failed to issue refresh token", zap.Error(rtErr))
 	}
-	if err := middleware.SignAndSendJSON(w, loginResp, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -469,54 +506,21 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+	_ = r.URL.Query().Get("token")
 
-	// Load template from web/templates/confirm.html
-	tmplPath := "./web/templates/confirm.html"
-	tmplBytes, err := os.ReadFile(tmplPath)
+	indexPath := "./web/dist/index.html"
+	indexBytes, err := os.ReadFile(indexPath)
 	if err != nil {
-		g.log.Warn("Failed to load confirm template, using fallback", zap.Error(err))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		g.renderConfirmFallback(w, token, token == "")
-		return
-	}
-
-	tmpl, parseErr := template.New("confirm").Parse(string(tmplBytes))
-	if parseErr != nil {
-		g.log.Warn("Failed to parse confirm template, using fallback", zap.Error(parseErr))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		g.renderConfirmFallback(w, token, false)
+		g.log.Error("Failed to load index.html", zap.Error(err))
+		http.Error(w, "Сервис временно недоступен", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if executeErr := tmpl.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-		g.log.Error("Failed to write confirm page", zap.Error(executeErr))
-	}
-}
-
-func (g *gateway) renderConfirmFallback(w http.ResponseWriter, token string, tokenEmpty bool) {
-	if tokenEmpty {
-		w.WriteHeader(http.StatusBadRequest)
-		fallbackTemplate, parseErr := template.New("confirmFallbackError").Parse(confirmFallbackErrorHTML)
-		if parseErr != nil {
-			g.log.Error("Failed to parse fallback error template", zap.Error(parseErr))
-			return
-		}
-		if executeErr := fallbackTemplate.Execute(w, nil); executeErr != nil {
-			g.log.Error("Failed to write fallback response", zap.Error(executeErr))
-		}
+	if _, err := w.Write(indexBytes); err != nil {
+		g.log.Error("Failed to write index.html", zap.Error(err))
+		http.Error(w, "Сервис временно недоступен", http.StatusInternalServerError)
 		return
-	}
-
-	fallbackTemplate, parseErr := template.New("confirmFallback").Parse(confirmFallbackHTML)
-	if parseErr != nil {
-		g.log.Error("Failed to parse fallback confirm template", zap.Error(parseErr))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
-	}
-	if executeErr := fallbackTemplate.Execute(w, struct{ Token string }{Token: token}); executeErr != nil {
-		g.log.Error("Failed to write fallback response", zap.Error(executeErr))
 	}
 }
 
@@ -618,14 +622,14 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "ok",
 		"access_token": grpcResp.GetAccessToken(),
 		"token_type":   grpcResp.GetTokenType(),
 		"expires_in":   900,
 		"user_id":      grpcResp.GetUserId(),
 		"role":         grpcResp.GetRole(),
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+	}); err != nil {
 		g.log.Error("Failed to encode Google auth response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -638,6 +642,11 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
@@ -676,6 +685,11 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
@@ -774,13 +788,14 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Warn("Failed to issue refresh token after 2FA", zap.Error(rtErr))
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"access_token":           token,
 		"token_type":             "Bearer",
 		"expires_in":             900,
 		"refresh_token":          refreshToken,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+	}); err != nil {
 		g.log.Error("Failed to encode TOTP verify response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -791,6 +806,11 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
@@ -830,17 +850,13 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || g.db == nil {
+	if !ok || userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var enabled bool
-	var remaining int32
-	if err := g.db.QueryRowContext(r.Context(), `
-		SELECT totp_enabled, COALESCE(totp_backup_codes_remaining, 0)
-		FROM users WHERE id = $1
-	`, userID).Scan(&enabled, &remaining); err != nil {
+	resp, err := g.userClient.GetUserClaims(r.Context(), &userpb.GetUserClaimsRequest{UserId: userID})
+	if err != nil {
 		g.log.Error("Failed to load TOTP status", zap.Error(err), zap.String("user_id", userID))
 		http.Error(w, "Failed to load TOTP status", http.StatusInternalServerError)
 		return
@@ -848,8 +864,8 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"enabled":                enabled,
-		"backup_codes_remaining": remaining,
+		"enabled":                resp.GetTotpEnabled(),
+		"backup_codes_remaining": resp.GetTotpBackupCodesRemaining(),
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP status response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
@@ -898,19 +914,18 @@ func (g *gateway) checkVerificationStatusHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Query user profile by email — we use GetProfile which requires user_id,
-	// but since we only have email, we need to search via the user service.
-	// The gateway doesn't have a GetUserByEmail RPC, so we return a not found
-	// if we can't resolve the user. For now, we check if the user exists
-	// by attempting a profile lookup. In production, add a GetUserByEmail RPC.
-	// As a workaround, we return email_confirmed: false for unknown emails.
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"email_confirmed": false,
-		"email":           email,
-	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+	resp, err := g.userClient.GetUserByEmail(r.Context(), &userpb.GetUserByEmailRequest{Email: email})
+	if err != nil {
+		g.log.Error("Failed to get user by email", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"email_confirmed": false, "email": email})
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"email_confirmed": resp.EmailConfirmed,
+		"email":           email,
+	})
 }

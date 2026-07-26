@@ -7,7 +7,7 @@ import (
 )
 
 // scriptTagRE находит открывающие <script ...> теги, у которых ещё нет атрибута nonce.
-var scriptTagRE = regexp.MustCompile(`(?i)<script\b([^>]*?)(?:\s|>)()`)
+var scriptTagRE = regexp.MustCompile(`(?i)<script\b([^>]*?)(?:\s|>)`)
 
 func HTMLNonceInject(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
