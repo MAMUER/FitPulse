@@ -9,8 +9,8 @@ import TwoFASetup from './TwoFASetup';
 import './Profile.css';
 
 export default function Profile() {
-  const { refreshProfile, user } = useAuth();
-  const [profile, setProfile] = useState(null);
+  const { refreshProfile } = useAuth();
+  const [, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});

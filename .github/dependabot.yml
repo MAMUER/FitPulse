@@ -272,3 +272,37 @@ updates:
     labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 8. NPM — Frontend (React + Vite)
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "deps(npm/frontend)", include: "scope" }
+    labels: ["dependencies", "npm", "frontend"]
+    assignees: ["MAMUER"]
+    groups:
+      frontend-deps:
+        patterns:
+          - "react*"
+          - "@vitejs/*"
+          - "vite"
+          - "chart.js"
+          - "react-chartjs-2"
+          - "react-router-dom"
+        update-types:
+          - "minor"
+          - "patch"
+      frontend-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"

@@ -5,6 +5,8 @@
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.14+-3776AB.svg)](https://www.python.org/)
+[![Node Version](https://img.shields.io/badge/Node-24+-339933.svg)](https://nodejs.org/)
+[![React Version](https://img.shields.io/badge/React-19.2+-61DAFB.svg)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **FitPulse** — микросервисная платформа для персонализированных тренировок, ML-анализа биометрии и интеграции с носимыми устройствами.
@@ -156,6 +158,16 @@ FitPulse реализует комплексные меры безопаснос
 | RAM | 2 ГБ |
 | Storage | 30 ГБ |
 | Виртуализация | KVM |
+
+### Frontend Stack
+
+- **Framework**: React 19.2+ with Vite 8
+- **Routing**: React Router v7
+- **Charts**: Chart.js 4 + react-chartjs-2
+- **Styling**: Plain CSS with CSS Variables
+- **State**: React Context API
+- **Testing**: Vitest + React Testing Library
+- **Linting**: ESLint 9 with React plugins
 
 Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

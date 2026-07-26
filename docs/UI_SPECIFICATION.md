@@ -10,7 +10,7 @@
 
 ### 1.1. Тип приложения
 
-Single Page Application (SPA), состоящая из одного HTML-файла `web/index.html` с переключением `view` по классу `active`. Дополнительно используется серверный шаблон `web/templates/confirm.html` для страницы подтверждения email по маршруту `GET /confirm`.
+Single Page Application (SPA) на React 19 с Vite, состоящая из компонентов в `web/src/`. Маршрутизация реализована через React Router v7. Все view управляются React-компонентами с централизованным состоянием через Context API.
 
 ### 1.2. Навигация
 
@@ -545,21 +545,30 @@ div#app
 
 |Путь|Назначение|
 |---|---|
-|`web/index.html`|SPA: auth + все views (dashboard, profile, training, devices, achievements, diet, ml, admin)|
-|`web/templates/confirm.html`|Шаблон страницы подтверждения email (рендерится Go)|
-|`web/static/css/main.css`|Основные стили, CSS-переменные|
-|`web/static/css/modules.css`|Модульные стили|
-|`web/static/fonts/fonts.css`|Self-hosted шрифты (JetBrains Mono, Inter)|
-|`web/static/js/api.js`|Функции HTTP-запросов к Gateway|
-|`web/static/js/app.js`|Логика SPA: переключение view, инициализация модулей|
-|`web/static/js/modules.js`|Модули: устройства, достижения, тренировки, ML|
-|`web/static/errors/403.html`|Страница 403|
-|`web/static/errors/404.html`|Страница 404|
-|`web/static/errors/500.html`|Страница 500|
-|`web/static/errors/error.html`|Общий шаблон ошибки|
-|`web/static/errors/error-500.html`|Шаблон 500 ошибки|
+|`web/index.html`|Vite entry point для React SPA|
+|`web/src/main.jsx`|Точка входа React: BrowserRouter + AuthProvider|
+|`web/src/App.jsx`|Роутер с защищёнными маршрутами|
+|`web/src/index.css`|Глобальные стили, CSS-переменные|
+|`web/src/contexts/AuthContext.jsx`|Auth state management|
+|`web/src/utils/api.js`|HTTP-запросы к Gateway|
+|`web/src/utils/validators.js`|Валидаторы форм|
+|`web/src/components/Auth/`|Login, Register, 2FA, Confirm|
+|`web/src/components/Dashboard/`|Обзор с Chart.js|
+|`web/src/components/Profile/`|Профиль, смена пароля/email, 2FA|
+|`web/src/components/Training/`|Тренировочные планы|
+|`web/src/components/Devices/`|Интеграция с устройствами|
+|`web/src/components/Achievements/`|Достижения|
+|`web/src/components/Diet/`|Диета, калькулятор калорий|
+|`web/src/components/Health/`|Здоровье, менструальные циклы|
+|`web/src/components/ML/`|ML классификация, генерация планов|
+|`web/src/components/Admin/`|Админка: invites, users|
+|`web/src/components/Layout/`|Top bar, tab bar|
+|`web/static/fonts/`|Self-hosted шрифты (JetBrains Mono, Inter)|
+|`web/static/errors/`|Страницы ошибок (403, 404, 500)|
+|`web/vite.config.js`|Vite конфиг: proxy /api, alias @|
+|`web/package.json`|Зависимости React, Chart.js, React Router|
 
-Примечание: Более половины файлов в `web/templates/` (`achievements.html`, `base.html`, `dashboard.html`, `ml-classify.html`, `ml-generate.html`, `profile.html`, `training.html`) не используются в текущей версии кода. Основной фронтенд — это `web/index.html` (SPA).
+Примечание: Старые файлы `web/templates/` и `web/static/js/`, `web/static/css/` удалены после миграции на React.
 
 ---
 

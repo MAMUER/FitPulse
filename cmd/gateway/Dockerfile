@@ -36,7 +36,6 @@ adduser -u 1001 -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/bin/gateway .
 COPY --from=web-builder --chown=appuser:appgroup /app/web/dist ./web/dist
-COPY --from=builder --chown=appuser:appgroup /app/web/templates ./web/templates
 USER appuser
 EXPOSE 8080 8443
 ENTRYPOINT ["./gateway"]

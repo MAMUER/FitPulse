@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
-import { classifyState, generateMLPlan, getTrainingPlans, getPlan } from '../../utils/api';
+import { classifyState, generateMLPlan, getPlan } from '../../utils/api';
 import './ML.css';
 
 const TRAINING_CLASSES = [

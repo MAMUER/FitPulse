@@ -32,7 +32,7 @@ Refresh token используется для ротации через `POST /a
 |GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, access_token?, user_id?, role?}`|
 |POST|`/api/v1/devices/withings/webhook`|Webhook для Withings (публичный)|`{signature, body}`|`{status}`|
 |GET|`/health`|Health check|—|`200 OK`|
-|GET|`/confirm`|Страница подтверждения email (рендерится `web/templates/confirm.html`)|Query: `?token=`|HTML|
+|GET|`/confirm`|Страница подтверждения email (React SPA)|Query: `?token=`|HTML|
 
 ## Защищённые endpoints (JWT required)
 

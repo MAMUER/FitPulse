@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getProfile } from '../../utils/api';
-import { validateNickname, validateAge, validateHeight, validateWeight, calculateBMI } from '../../utils/validators';
+import { calculateBMI } from '../../utils/validators';
 import './Diet.css';
 
 const MEAL_TEMPLATES = {
@@ -112,7 +112,7 @@ export default function Diet() {
       setAllergies((p.allergies || []).join(', '));
       setDislikes((p.contraindications || []).join(', '));
       const goal = (p.goals && p.goals[0]) || '';
-      const bmi = calculateBMI(p.height_cm, p.weight_kg);
+      calculateBMI(p.height_cm, p.weight_kg);
       if (goal === 'weight_loss') setTemplate('weight_loss');
       else if (goal === 'muscle_gain') setTemplate('high_protein');
       else setTemplate('balanced');
@@ -158,13 +158,15 @@ export default function Diet() {
   const allergyList = useMemo(() => allergies.split(',').map(s => s.trim().toLowerCase()).filter(Boolean), [allergies]);
   const dislikeList = useMemo(() => dislikes.split(',').map(s => s.trim().toLowerCase()).filter(Boolean), [dislikes]);
 
-  const filterMeals = (mealList) => {
-    return mealList.filter(m => {
-      if (allergyList.some(a => a && m.name.toLowerCase().includes(a))) return false;
-      if (dislikeList.some(d => d && m.name.toLowerCase().includes(d))) return false;
-      return true;
-    });
-  };
+  const filterMeals = useMemo(() => {
+    return (mealList) => {
+      return mealList.filter(m => {
+        if (allergyList.some(a => a && m.name.toLowerCase().includes(a))) return false;
+        if (dislikeList.some(d => d && m.name.toLowerCase().includes(d))) return false;
+        return true;
+      });
+    };
+  }, [allergyList, dislikeList]);
 
   useEffect(() => {
     if (!nutrition) return;
@@ -188,7 +190,7 @@ export default function Diet() {
     });
 
     setMeals(generated);
-  }, [nutrition, template, mealCount, firstMealTime, allergyList, dislikeList]);
+  }, [nutrition, template, mealCount, firstMealTime, allergyList, dislikeList, filterMeals]);
 
   const totals = useMemo(() => {
     return meals.reduce((acc, m) => ({

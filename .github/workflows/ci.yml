@@ -104,6 +104,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
       infra: ${{ steps.filter.outputs.infra }}
       any_code: ${{ steps.filter.outputs.any_code }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -151,6 +152,10 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - '*.py'
+            frontend:
+              - 'web/**'
+              - '!web/node_modules/**'
+              - '!web/dist/**'
 
   # ============================================================================
   # ISSUE AUTOMATION
@@ -277,6 +282,35 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"🔴 Critical issue: #${{ github.event.issue.number }}\n$ISSUE_TITLE\n${{ github.event.issue.html_url }}\"}"
+
+  # ============================================================================
+  # FRONTEND CHECKS
+  # ============================================================================
+  frontend:
+    name: Frontend (Lint + Test + Build)
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: web
+      - name: Run frontend tests
+        run: npm run test
+        working-directory: web
+      - name: Build frontend
+        run: npm run build
+        working-directory: web
 
   # ============================================================================
   # VALIDATE WORKFLOW
@@ -844,6 +878,7 @@ jobs:
         check,
         dockerfile-lint,
         super-linter,
+        frontend,
       ]
     timeout-minutes: 30
     steps:

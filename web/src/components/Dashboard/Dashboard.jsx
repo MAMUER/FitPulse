@@ -92,7 +92,7 @@ export default function Dashboard() {
           setAiRecommendation(classifyRes.predicted_class);
           setAiDescription('AI анализ требует больше данных');
         }
-      } catch (err) {
+      } catch {
         setAiRecommendation('Ошибка анализа');
         setAiDescription('Сервис AI временно недоступен');
       }

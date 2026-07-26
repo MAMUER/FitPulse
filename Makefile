@@ -6,7 +6,7 @@ imports:
 		cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test test-cover check imports js-check
+.PHONY: proto tidy fmt vet lint test test-cover check imports js-check frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -48,9 +48,24 @@ js-check:
 	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User'); Get-ChildItem web/static/js/*.js | ForEach-Object { node --check $$_.FullName }"
 	@echo "JS check complete."
 
-check: tidy fmt vet imports lint test-cover js-check
+frontend-lint:
+	@echo "Running frontend lint..."
+	cd web && npm run lint 2>/dev/null || npx eslint src --ext .js,.jsx
+	@echo "Frontend lint complete."
+
+frontend-test:
+	@echo "Running frontend tests..."
+	cd web && npm run test 2>/dev/null || npx vitest run
+	@echo "Frontend tests complete."
+
+frontend-build:
+	@echo "Building frontend..."
+	cd web && npm run build
+	@echo "Frontend build complete."
+
+check: tidy fmt vet imports lint test-cover js-check frontend-lint frontend-test frontend-build
 	@echo "========================================"
-	@echo "  LOCAL CHECKS PASSED!"
+	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
 
 proto:
@@ -72,13 +87,16 @@ proto:
 
 help:
 	@echo "Available commands:"
-	@echo "  make tidy       - Tidy Go modules"
-	@echo "  make fmt        - Format Go code"
-	@echo "  make vet        - Run go vet"
-	@echo "  make lint       - Run golangci-lint"
-	@echo "  make test       - Run unit tests"
-	@echo "  make test-cover - Run tests with coverage report (75% threshold, business logic only)"
-	@echo "  make check      - Run tidy, fmt, vet, lint, test, js-check"
-	@echo "  make proto      - Generate proto files"
-	@echo "  make imports    - Update Go imports with gci"
-	@echo "  make js-check   - Check JavaScript syntax with Node.js"
+	@echo "  make tidy            - Tidy Go modules"
+	@echo "  make fmt             - Format Go code"
+	@echo "  make vet             - Run go vet"
+	@echo "  make lint            - Run golangci-lint"
+	@echo "  make test            - Run unit tests"
+	@echo "  make test-cover      - Run tests with coverage report (75% threshold, business logic only)"
+	@echo "  make check           - Run tidy, fmt, vet, lint, test, js-check, frontend-lint, frontend-test, frontend-build"
+	@echo "  make proto           - Generate proto files"
+	@echo "  make imports         - Update Go imports with gci"
+	@echo "  make js-check        - Check JavaScript syntax with Node.js"
+	@echo "  make frontend-lint   - Lint frontend code with ESLint"
+	@echo "  make frontend-test   - Run frontend tests with Vitest"
+	@echo "  make frontend-build  - Build frontend with Vite"

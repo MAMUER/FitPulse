@@ -18,6 +18,7 @@
 
 - **Go**: версия 1.26+
 - **Python**: версия 3.14+ (для ML-сервисов)
+- **Node.js**: версия 24+ (для frontend)
 - **Docker**: Docker Desktop / Docker Engine с поддержкой BuildKit (современные версии)
 - **Git**: для управления версиями
 
@@ -44,6 +45,7 @@
     ```bash
     go mod tidy
     pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
+    cd web && npm ci  # для frontend
     ```
 
  5. **Настройте окружение**: переменные окружения задаются через GitHub Secrets и Variables. Локальный запуск сервисов не поддерживается — deploy только на VPS. Для локальных интеграционных тестов используйте `testcontainers-go` (зависимости поднимаются автоматически при запуске `go test -tags=integration`).
@@ -221,7 +223,16 @@ make api-test
 # Нагрузочное тестирование (требует k6)
 make load-test
 
-# Полный набор проверок (tidy + fmt + vet + lint + tests + утилиты)
+# Frontend тесты
+cd web && npm run test
+
+# Frontend линтинг
+cd web && npm run lint
+
+# Frontend сборка
+cd web && npm run build
+
+# Полный набор проверок (tidy + fmt + vet + lint + tests + утилиты + frontend)
 make check
 ```
 
@@ -331,13 +342,16 @@ func TestMedicalService_ClassifyState(t *testing.T) {
 Fixes #123
 
 ## Чеклист
- - [ ] Код отформатирован (`go fmt ./...`)
- - [ ] Линтер пройден (`make lint`)
- - [ ] Покрытие тестами >= 75% для бизнес-логики (проверяется через `make test-cover`)
- - [ ] Документация обновлена
- - [ ] Изменения протестированы (`make check`)
- - [ ] Интеграционные тесты запущены локально при необходимости (`go test -v -tags=integration ./...`)
- - [ ] Все CI/CD проверки прошли успешно
+  - [ ] Код отформатирован (`go fmt ./...`)
+  - [ ] Линтер пройден (`make lint`)
+  - [ ] Покрытие тестами >= 75% для бизнес-логики (проверяется через `make test-cover`)
+  - [ ] Frontend линтер пройден (`cd web && npm run lint`)
+  - [ ] Frontend тесты пройдены (`cd web && npm run test`)
+  - [ ] Frontend сборка успешна (`cd web && npm run build`)
+  - [ ] Документация обновлена
+  - [ ] Изменения протестированы (`make check`)
+  - [ ] Интеграционные тесты запущены локально при необходимости (`go test -v -tags=integration ./...`)
+  - [ ] Все CI/CD проверки прошли успешно
 ```
 
 ## Code Review

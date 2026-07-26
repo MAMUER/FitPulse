@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateEmail, validatePassword, validateName, validateLoginPassword } from '../../utils/validators';
-import { verify2FA } from '../../utils/api';
+import { verify2FA, register } from '../../utils/api';
 import './Auth.css';
 
 export default function AuthScreen() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { login } = useAuth();
   const [mode, setMode] = useState('login'); // login, register, verify, login2fa
   const [errors, setErrors] = useState({});
@@ -141,7 +140,7 @@ export default function AuthScreen() {
         </div>
 
         {mode === 'login' && (
-          <form className="auth-form" onSubmit={handleLogin} novalidate>
+          <form className="auth-form" onSubmit={handleLogin} noValidate>
             <div className="field">
               <input
                 type="email"
@@ -180,7 +179,7 @@ export default function AuthScreen() {
         )}
 
         {mode === 'register' && (
-          <form className="auth-form" onSubmit={handleRegister} novalidate>
+          <form className="auth-form" onSubmit={handleRegister} noValidate>
             <div className="field">
               <input
                 type="text"
@@ -251,7 +250,7 @@ export default function AuthScreen() {
         )}
 
         {mode === 'login2fa' && (
-          <form className="auth-form" onSubmit={handleLogin2FA} novalidate>
+          <form className="auth-form" onSubmit={handleLogin2FA} noValidate>
             <h2>Двухфакторная аутентификация</h2>
             <p className="verify-text">Введите код из приложения-аутентификатора.</p>
             <div className="field">

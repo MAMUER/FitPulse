@@ -65,18 +65,35 @@
 │   └── validator/                    # Request validators
 ├── models/                           # ML модели
 ├── scripts/                          # Вспомогательные скрипты
-├── web/                              # SPA фронтенд
-│   ├── index.html                    # Основное SPA (auth + views)
-│   └── templates/
-│       └── confirm.html              # Шаблон страницы подтверждения email
-│   ├── static/
-│       │   ├── css/
-│       │   │   ├── main.css
-│       │   │   └── modules.css
-│       │   ├── fonts/
-│       │   │   ├── fonts.css
-│       │   │   └── *.woff2
-│       │   ├── js/
+├── web/                              # React SPA фронтенд
+│   ├── index.html                    # Vite entry point
+│   ├── package.json                  # Зависимости (React 19, React Router v7, Chart.js)
+│   ├── vite.config.js                # Vite конфиг с proxy /api
+│   ├── src/
+│   │   ├── main.jsx                  # Точка входа: BrowserRouter + AuthProvider
+│   │   ├── App.jsx                   # Роутер с защищёнными маршрутами
+│   │   ├── index.css                 # Глобальные стили, CSS-переменные
+│   │   ├── contexts/
+│   │   │   └── AuthContext.jsx        # Auth state management
+│   │   ├── utils/
+│   │   │   ├── api.js                # HTTP-запросы к Gateway
+│   │   │   ├── validators.js         # Валидаторы форм
+│   │   │   └── exerciseNames.js      # Названия упражнений
+│   │   └── components/
+│   │       ├── Layout/               # Top bar, tab bar
+│   │       ├── Auth/                 # Login, Register, 2FA, Confirm
+│   │       ├── Dashboard/            # Обзор с Chart.js
+│   │       ├── Profile/              # Профиль, смена пароля/email, 2FA
+│   │       ├── Training/             # Тренировочные планы
+│   │       ├── Devices/              # Интеграция с устройствами
+│   │       ├── Achievements/         # Достижения
+│   │       ├── Diet/                 # Диета, калькулятор калорий
+│   │       ├── Health/               # Здоровье, менструальные циклы
+│   │       ├── ML/                   # ML классификация, генерация планов
+│   │       └── Admin/                # Админка: invites, users
+│   └── static/
+│       ├── fonts/                    # Self-hosted шрифты (JetBrains Mono, Inter)
+│       └── errors/                   # Страницы ошибок (403, 404, 500)
 │       │   │   ├── api.js
 │       │   │   ├── app.js
 │       │   │   └── modules.js
@@ -2589,7 +2606,7 @@ const (
 5. **Rate limiting**: применяйте `AuthRateLimit` к auth endpoints, `RateLimit` для общего IP-лимита, `UserRateLimit` для authenticated пользователей.
 6. **Correlation ID**: используйте `CorrelationIDHTTP` и `CorrelationIDGRPC` для трейсинга между сервисами.
 7. **Error handling**: используйте `JSONError` для всех HTTP ошибок. 403 автоматически конвертируется в 404.
-8. **Nonce injection**: `HTMLNonceInject` работает только для `/` и `/index.html`.
+8. **Nonce injection**: `HTMLNonceInject` работает для `/` и `/index.html` (React SPA entry point). Все `<script>` теги в `index.html` получают nonce для CSP.
 9. **Testing**: `resetRateLimiters()` доступна для тестов. Не создавайте новые лимитеры в production коде.
 10. **Тестирование**: unit-тесты покрывают все middleware; rate limiter тесты используют `resetRateLimiters` для изоляции.
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   listHealthConditions,
   upsertHealthCondition,
@@ -7,7 +7,6 @@ import {
   createBodyComposition,
   listMenstrualCycles,
   createMenstrualCycle,
-  updateMenstrualCycle,
   deleteMenstrualCycle,
   syncFlo,
   syncOKOK,

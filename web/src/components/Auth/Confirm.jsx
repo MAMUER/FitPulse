@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { confirmEmail as apiConfirmEmail } from '../../utils/api';
 import './Confirm.css';
 

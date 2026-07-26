@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { getTrainingPlans, generateTrainingPlan as apiGeneratePlan, classifyState } from '../../utils/api';
-import { EXERCISE_NAME_MAP } from '../../utils/exerciseNames';
 import './Training.css';
 
 export default function Training() {

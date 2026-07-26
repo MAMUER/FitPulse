@@ -26,7 +26,7 @@ export function validateName(v) {
   if (!v) return 'Введите имя';
   if (v.length < 2) return 'Минимум 2 символа';
   if (v.length > 100) return 'Максимум 100 символов';
-  if (!/^[A-Za-zА-Яа-яЁё\s\-]+$/.test(v)) return 'Только буквы';
+  if (!/^[A-Za-zА-Яа-яЁё\s-]+$/.test(v)) return 'Только буквы';
   return '';
 }
 
@@ -34,7 +34,7 @@ export function validateNickname(v) {
   if (!v || !v.trim()) return 'Никнейм обязателен';
   if (v.trim().length < 2) return 'Минимум 2 символа';
   if (v.trim().length > 30) return 'Максимум 30 символов';
-  if (!/^[A-Za-zА-Яа-яЁё0-9_\s\-]+$/.test(v.trim())) return 'Только буквы, цифры, _ и -';
+  if (!/^[A-Za-zА-Яа-яЁё0-9_\s-]+$/.test(v.trim())) return 'Только буквы, цифры, _ и -';
   return '';
 }
 
