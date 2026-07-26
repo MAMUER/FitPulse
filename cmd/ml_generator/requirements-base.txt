@@ -30,7 +30,7 @@ aio-pika>=9.5.0
 valkey>=8.0.0
 
 # Security
-cryptography>=44.0.0
+cryptography>=49.0.0
 
 # Utils
 tenacity>=9.1.4
