@@ -154,10 +154,11 @@ FitPulse реализует комплексные меры безопаснос
 
 | Параметр | Значение |
 | --- | --- |
-| CPU | 1 vCPU |
-| RAM | 2 ГБ |
-| Storage | 30 ГБ |
+| CPU | 2 vCPU |
+| RAM | 4 ГБ |
+| Storage | 60 ГБ SSD |
 | Виртуализация | KVM |
+| ОС | Ubuntu 26.04 LTS |
 
 ### Frontend Stack
 

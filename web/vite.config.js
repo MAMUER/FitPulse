@@ -9,6 +9,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     assetsDir: 'static',
+    chunkSizeWarningLimit: 600,
   },
   server: {
     port: 5173,

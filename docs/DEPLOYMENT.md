@@ -42,11 +42,9 @@ curl -k https://localhost:8443/health
 
 ### Полный стек
 
-- **ОС**: Linux (Ubuntu 26+, Debian 13+)
-- **Kubernetes**: 1.36+ (k3s, k8s)
-- **CPU**: 1+ ядро
-- **RAM**: 2+ ГБ
-- **Диск**: 30+ ГБ SSD
+- **ОС**: Ubuntu 26.04 LTS (KVM)
+- **Сервер**: 2 vCPU / 4 ГБ RAM / 60 ГБ SSD
+- **Kubernetes**: k3s (рекомендуется для VPS)
 - **Сеть**: HTTPS (порт 8443), TLS 1.3
 
 
