@@ -14,7 +14,7 @@ pydantic>=2.13.4
 python-multipart>=0.0.32
 
 # MLOps
-wandb>=0.28.0
+wandb>=0.28.1
 prometheus-client>=0.25.0
 evidently>=0.6.5
 tensorboard>=2.21.0
