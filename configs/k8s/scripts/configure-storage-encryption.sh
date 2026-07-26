@@ -83,7 +83,7 @@ if [[ -d "${MOUNT_POINT}.bak" ]]; then
 fi
 
 # Add to fstab for persistence
-echo "${ENCRYPTED_VOLUME} ${MOUNT_POINT} ext4 defaults 0 2" >> /etc/fstab
+echo "${ENCRYPTED_VOLUME} ${MOUNT_POINT} ext4 defaults 0 2" >>/etc/fstab
 
 echo "✅ Encrypted storage configured at ${MOUNT_POINT}"
 echo "   To unlock on boot, add to /etc/crypttab:"
