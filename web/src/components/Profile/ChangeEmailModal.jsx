@@ -31,23 +31,35 @@ export default function ChangeEmailModal({ onClose }) {
   };
 
   return (
-    <div className="modal">
-      <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-content">
+    <div className='modal'>
+      <div className='modal-overlay' onClick={onClose} />
+      <div className='modal-content'>
         <h3>Сменить почту</h3>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Новый email</label>
-            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
-            <div className="field-error">{error}</div>
+            <input
+              type='email'
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+            />
+            <div className='field-error'>{error}</div>
           </div>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Текущий пароль</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input
+              type='password'
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Отмена</button>
-            <button type="submit" className="btn-primary" disabled={submitting}>
+          <div className='modal-actions'>
+            <button type='button' className='btn-secondary' onClick={onClose}>
+              Отмена
+            </button>
+            <button type='submit' className='btn-primary' disabled={submitting}>
               {submitting ? 'Сохранение...' : 'Сохранить новую почту'}
             </button>
           </div>

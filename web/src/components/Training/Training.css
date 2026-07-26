@@ -1,23 +1,23 @@
 .training-view {
-    padding-bottom: 80px;
+  padding-bottom: 80px;
 }
 
 .loading {
-    text-align: center;
-    padding: 40px;
-    color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
 }
 
 .plan-card h4 {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .plan-meta {
-    display: flex;
-    gap: 16px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 8px;
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 8px;
 }

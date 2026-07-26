@@ -14,11 +14,11 @@ fi
 if ! command -v trufflehog &>/dev/null; then
     if [[ "$CI_MODE" == "true" ]]; then
         echo "ERROR: TruffleHog not found in CI environment."
-        echo "   Install: go install github.com/trufflesecurity/trufflehog/v3@latest"
+        echo "   Install: go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
         exit 1
     else
         echo "TruffleHog not found. Please install it:"
-        echo "   go install github.com/trufflesecurity/trufflehog/v3@latest"
+        echo "   go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
         echo "   or visit https://github.com/trufflesecurity/trufflehog"
         echo "Skipping secret scan."
         exit 0

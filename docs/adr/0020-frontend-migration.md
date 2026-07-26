@@ -24,7 +24,7 @@ Frontend был реализован как набор vanilla JS-файлов (
 - **Chart.js (react-chartjs-2)**: графики пульса и других метрик.
 - **CSS**: сохраняем как plain CSS файлы для прямой портировки, без CSS-modules/styled-components.
 - **Vite proxy**: `/api` → `localhost:8080` для разработки.
-- **Тестирование**: Vitest + React Testing Library; ESLint 9.
+- **Тестирование**: Vitest + React Testing Library; Biome для линтинга и форматирования.
 
 ## Последствия
 
@@ -41,14 +41,14 @@ Frontend был реализован как набор vanilla JS-файлов (
 
 ## Реализация
 
-- `web/package.json` — React 19, React Router v7, Chart.js, Vite, ESLint, Vitest.
+- `web/package.json` — React 19, React Router v7, Chart.js, Vite, Biome, Vitest.
 - `web/vite.config.js` — proxy `/api` → backend, alias `@` → `src/`.
 - `web/src/main.jsx` — точка входа: BrowserRouter + AuthProvider.
 - `web/src/App.jsx` — роутер с protected routes.
 - `web/src/contexts/AuthContext.jsx` — auth state management.
 - `web/src/components/` — все экраны: Auth, Confirm, Dashboard, Profile, Training, Devices, Achievements, Diet, Health, ML, Admin.
 - `web/src/utils/api.js` — все REST-вызовы.
-- `web/eslint.config.js`, `web/vitest.config.js` — линтинг и тесты.
+- `web/biome.json`, `web/vitest.config.js` — линтинг/формат и тесты.
 - Удалены `web/templates/`, `web/static/js/`, `web/static/css/`.
 - `cmd/gateway/main.go` — статика теперь раздаётся из `web/dist/`.
 - `cmd/gateway/handlers_auth.go` — `/confirm` теперь отдает `web/dist/index.html` вместо `web/templates/confirm.html`.

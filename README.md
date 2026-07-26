@@ -168,7 +168,7 @@ FitPulse реализует комплексные меры безопаснос
 - **Styling**: Plain CSS with CSS Variables
 - **State**: React Context API
 - **Testing**: Vitest + React Testing Library
-- **Linting**: ESLint 9 with React plugins
+- **Linting/formatting**: Biome
 
 Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

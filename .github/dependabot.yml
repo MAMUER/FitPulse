@@ -8,6 +8,8 @@ version: 2
 #
 # ⚠️  Ограничения dependabot:
 # - Не отслеживает версии Ubuntu/ОС в markdown-документации (требуется docs-check.yml)
+# - Не отслеживает версии Go-инструментов, устанавливаемых через `go install` (protoc-gen-go, trufflehog и др.)
+#   Версии этих инструментов зафиксированы в документации и проверяются docs-check.yml
 # - Не проверяет консистентность версий между docs и code (требуется docs-check.yml)
 # - Для версий Ubuntu используйте docs-check.yml + ручное обновление при смене сервера
 
@@ -303,6 +305,7 @@ updates:
           - "chart.js"
           - "react-chartjs-2"
           - "react-router-dom"
+          - "@biomejs/*"
         update-types:
           - "minor"
           - "patch"

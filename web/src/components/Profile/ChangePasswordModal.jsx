@@ -36,29 +36,55 @@ export default function ChangePasswordModal({ onClose }) {
   };
 
   return (
-    <div className="modal">
-      <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-content">
+    <div className='modal'>
+      <div className='modal-overlay' onClick={onClose} />
+      <div className='modal-content'>
         <h3>Сменить пароль</h3>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Текущий пароль</label>
-            <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required />
-            <div className="field-error">{error && !current ? 'Введите текущий пароль' : ''}</div>
+            <input
+              type='password'
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              required
+            />
+            <div className='field-error'>
+              {error && !current ? 'Введите текущий пароль' : ''}
+            </div>
           </div>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Новый пароль</label>
-            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} />
-            <div className="field-error">{error && newPass.length < 8 ? 'Минимум 8 символов' : ''}</div>
+            <input
+              type='password'
+              value={newPass}
+              onChange={(e) => setNewPass(e.target.value)}
+              required
+              minLength={8}
+            />
+            <div className='field-error'>
+              {error && newPass.length < 8 ? 'Минимум 8 символов' : ''}
+            </div>
           </div>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Подтверждение пароля</label>
-            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required />
-            <div className="field-error">{error && confirm && newPass !== confirm ? 'Пароли не совпадают' : ''}</div>
+            <input
+              type='password'
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+            <div className='field-error'>
+              {error && confirm && newPass !== confirm
+                ? 'Пароли не совпадают'
+                : ''}
+            </div>
           </div>
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Отмена</button>
-            <button type="submit" className="btn-primary" disabled={submitting}>
+          <div className='modal-actions'>
+            <button type='button' className='btn-secondary' onClick={onClose}>
+              Отмена
+            </button>
+            <button type='submit' className='btn-primary' disabled={submitting}>
               {submitting ? 'Сохранение...' : 'Сохранить новый пароль'}
             </button>
           </div>

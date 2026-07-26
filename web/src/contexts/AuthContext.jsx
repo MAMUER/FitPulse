@@ -1,5 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { login as apiLogin, register as apiRegister, logout as apiLogout, getProfile } from '../utils/api';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+  getProfile,
+} from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -49,7 +60,19 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, isAdmin, login, register, logout, refreshProfile, setToken: (t) => setToken(t) }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        user,
+        loading,
+        isAdmin,
+        login,
+        register,
+        logout,
+        refreshProfile,
+        setToken: (t) => setToken(t),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

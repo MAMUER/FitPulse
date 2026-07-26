@@ -80,7 +80,12 @@ export async function register(email, password, fullName, role = 'client') {
 export async function registerWithInvite(code, name, email, password) {
   return apiRequest('/register/invite', {
     method: 'POST',
-    body: JSON.stringify({ invite_code: code, full_name: name, email, password }),
+    body: JSON.stringify({
+      invite_code: code,
+      full_name: name,
+      email,
+      password,
+    }),
   });
 }
 
@@ -105,7 +110,10 @@ export async function updateProfile(profile) {
 export async function changePassword(currentPassword, newPassword) {
   return apiRequest('/auth/change-password', {
     method: 'POST',
-    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
   });
 }
 
@@ -127,14 +135,22 @@ export async function setup2FA() {
 export async function confirm2FA(passcode, tempSecret, backupCodes) {
   return apiRequest('/auth/2fa/confirm', {
     method: 'POST',
-    body: JSON.stringify({ passcode, temp_secret: tempSecret, backup_codes: backupCodes }),
+    body: JSON.stringify({
+      passcode,
+      temp_secret: tempSecret,
+      backup_codes: backupCodes,
+    }),
   });
 }
 
 export async function verify2FA(tempToken, passcode, isBackupCode = false) {
   return apiRequest('/auth/2fa/verify', {
     method: 'POST',
-    body: JSON.stringify({ temp_token: tempToken, passcode, is_backup_code: isBackupCode }),
+    body: JSON.stringify({
+      temp_token: tempToken,
+      passcode,
+      is_backup_code: isBackupCode,
+    }),
   });
 }
 
@@ -162,10 +178,20 @@ export async function logout() {
   }
 }
 
-export async function addBiometricRecord(metricType, value, timestamp, deviceType) {
+export async function addBiometricRecord(
+  metricType,
+  value,
+  timestamp,
+  deviceType
+) {
   return apiRequest('/biometrics', {
     method: 'POST',
-    body: JSON.stringify({ metric_type: metricType, value, timestamp, device_type: deviceType }),
+    body: JSON.stringify({
+      metric_type: metricType,
+      value,
+      timestamp,
+      device_type: deviceType,
+    }),
   });
 }
 
@@ -176,7 +202,12 @@ export async function getBiometricRecords(metricType, from, to, limit = 100) {
   return apiRequest(url);
 }
 
-export async function generateTrainingPlan(durationWeeks = 4, availableDays = [1, 3, 5], classificationClass = '', confidence = 0) {
+export async function generateTrainingPlan(
+  durationWeeks = 4,
+  availableDays = [1, 3, 5],
+  classificationClass = '',
+  confidence = 0
+) {
   return apiRequest('/training/generate', {
     method: 'POST',
     body: JSON.stringify({
@@ -199,7 +230,12 @@ export async function getPlan(planId) {
 export async function completeWorkout(planId, workoutId, rating, feedback) {
   return apiRequest('/training/complete', {
     method: 'POST',
-    body: JSON.stringify({ plan_id: planId, workout_id: workoutId, rating, feedback }),
+    body: JSON.stringify({
+      plan_id: planId,
+      workout_id: workoutId,
+      rating,
+      feedback,
+    }),
   });
 }
 
@@ -213,7 +249,8 @@ export async function getAchievements() {
 
 export async function listHealthConditions(conditionType = '') {
   let url = '/health/conditions';
-  if (conditionType) url += `?condition_type=${encodeURIComponent(conditionType)}`;
+  if (conditionType)
+    url += `?condition_type=${encodeURIComponent(conditionType)}`;
   return apiRequest(url);
 }
 
@@ -261,20 +298,28 @@ export async function updateMenstrualCycle(cycleId, data) {
 }
 
 export async function deleteMenstrualCycle(cycleId) {
-  return apiRequest(`/health/menstrual-cycles/${cycleId}`, { method: 'DELETE' });
+  return apiRequest(`/health/menstrual-cycles/${cycleId}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function syncFlo(accessToken, refreshToken) {
   return apiRequest('/health/sync/flo', {
     method: 'POST',
-    body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
+    body: JSON.stringify({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    }),
   });
 }
 
 export async function syncOKOK(accessToken, refreshToken) {
   return apiRequest('/health/sync/okok', {
     method: 'POST',
-    body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
+    body: JSON.stringify({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    }),
   });
 }
 
@@ -304,15 +349,28 @@ export async function classifyState(biometrics) {
   });
 }
 
-export async function generateMLPlan(trainingClass, userProfile, goal, constraints) {
+export async function generateMLPlan(
+  trainingClass,
+  userProfile,
+  goal,
+  constraints
+) {
   return apiRequest('/ml/generate-plan', {
     method: 'POST',
-    body: JSON.stringify({ training_class: trainingClass, user_profile: userProfile, goal, constraints }),
+    body: JSON.stringify({
+      training_class: trainingClass,
+      user_profile: userProfile,
+      goal,
+      constraints,
+    }),
   });
 }
 
 export async function listInvites(page = 1, pageSize = 10, used = '') {
-  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
   if (used !== '') params.set('used', String(used));
   return apiRequest(`/invites?${params.toString()}`);
 }
@@ -332,4 +390,4 @@ export async function listUsers(page = 1, pageSize = 10) {
   return apiRequest(`/admin/users?page=${page}&page_size=${pageSize}`);
 }
 
-export { setAuthToken, getAuthToken, apiRequest };
+export { apiRequest, getAuthToken, setAuthToken };

@@ -1,23 +1,23 @@
 .profile-view {
-    max-width: 600px;
-    margin: 0 auto;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .bmi-hint {
-    margin-top: 12px;
-    padding: 12px;
-    background: var(--bg-input);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    color: var(--text-secondary);
-    display: block;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: block;
 }
 
 .twofa-section {
-    margin-top: 12px;
+  margin-top: 12px;
 }
 
 .goal-chip.selected {
-    background: var(--accent);
-    color: white;
+  background: var(--accent);
+  color: white;
 }

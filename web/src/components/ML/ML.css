@@ -1,201 +1,201 @@
 .ml-section {
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    margin-bottom: 20px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
 }
 
 .ml-section h3 {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
 .ml-result {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .ml-classification {
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    text-align: center;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
 }
 
 .ml-classification .class-label {
-    font-size: 14px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
 .ml-classification .class-name {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
 .ml-classification .confidence {
-    font-size: 15px;
-    color: var(--green);
+  font-size: 15px;
+  color: var(--green);
 }
 
 .ml-form {
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    margin-bottom: 20px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
 }
 
 .ml-form h3 {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
 .ml-form .form-group {
-    margin-bottom: 12px;
+  margin-bottom: 12px;
 }
 
 .ml-form label {
-    font-size: 13px;
-    color: var(--text-secondary);
-    font-weight: 500;
-    display: block;
-    margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 6px;
 }
 
 .ml-form select,
 .ml-form input {
-    width: 100%;
-    padding: 14px 16px;
-    background: var(--bg-input);
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 17px;
-    outline: none;
-    appearance: none;
-    -webkit-appearance: none;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 17px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .ml-form select:focus,
 .ml-form input:focus {
-    background: #48484a;
+  background: #48484a;
 }
 
 .days-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
 }
 
 .day-chip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 4px;
-    background: var(--bg-input);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.2s;
-    user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
 }
 
 .day-chip input {
-    display: none;
+  display: none;
 }
 
 .day-chip:has(input:checked) {
-    background: var(--purple);
-    color: white;
+  background: var(--purple);
+  color: white;
 }
 
 .day-chip:active {
-    transform: scale(0.95);
+  transform: scale(0.95);
 }
 
 .plans-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .plan-card {
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    padding: 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
 }
 
 .plan-card h4 {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .plan-card .plan-meta {
-    display: flex;
-    gap: 16px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 8px;
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 8px;
 }
 
 .plan-day-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .plan-day-name {
-    font-weight: 600;
-    font-size: 15px;
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .plan-day-type {
-    font-size: 13px;
-    color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .exercise-item {
-    display: flex;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--bg-input);
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--bg-input);
 }
 
 .exercise-item:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .exercise-number {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--blue);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 13px;
-    flex-shrink: 0;
-    color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  color: white;
 }
 
 .exercise-details {
-    flex: 1;
+  flex: 1;
 }
 
 .exercise-name {
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 2px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
 }
 
 .exercise-meta {
-    font-size: 12px;
-    color: var(--text-secondary);
+  font-size: 12px;
+  color: var(--text-secondary);
 }

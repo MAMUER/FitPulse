@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { deleteProfile } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { deleteProfile } from '../../utils/api';
 import './ProfileModals.css';
 
 export default function DeleteProfileModal({ onClose }) {
@@ -28,24 +28,34 @@ export default function DeleteProfileModal({ onClose }) {
   };
 
   return (
-    <div className="modal">
-      <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-content">
+    <div className='modal'>
+      <div className='modal-overlay' onClick={onClose} />
+      <div className='modal-content'>
         <h3 style={{ color: 'var(--accent)' }}>Удаление аккаунта</h3>
-        <p className="delete-warning">Это действие необратимо. Все ваши данные, тренировки и достижения будут удалены.</p>
-        <div className="form-group">
+        <p className='delete-warning'>
+          Это действие необратимо. Все ваши данные, тренировки и достижения
+          будут удалены.
+        </p>
+        <div className='form-group'>
           <label>Введите пароль для подтверждения</label>
           <input
-            type="password"
+            type='password'
             value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Текущий пароль"
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder='Текущий пароль'
           />
-          <div className="field-error">{error}</div>
+          <div className='field-error'>{error}</div>
         </div>
-        <div className="modal-actions">
-          <button type="button" className="btn-secondary" onClick={onClose}>Отмена</button>
-          <button type="button" className="btn-danger" onClick={handleDelete} disabled={submitting}>
+        <div className='modal-actions'>
+          <button type='button' className='btn-secondary' onClick={onClose}>
+            Отмена
+          </button>
+          <button
+            type='button'
+            className='btn-danger'
+            onClick={handleDelete}
+            disabled={submitting}
+          >
             {submitting ? 'Удаление...' : 'Удалить аккаунт'}
           </button>
         </div>

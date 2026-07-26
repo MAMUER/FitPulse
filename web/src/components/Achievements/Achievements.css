@@ -1,71 +1,71 @@
 .achievements-view {
-    max-width: 600px;
-    margin: 0 auto;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .achievements-view h3 {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 14px;
-    padding: 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  padding: 0 4px;
 }
 
 .competition-card {
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    padding: 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px;
 }
 
 .competition-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .competition-name {
-    font-weight: 600;
-    font-size: 16px;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .competition-status {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-weight: 600;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
 .competition-status.active {
-    background: rgba(48, 209, 88, 0.15);
-    color: var(--green);
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--green);
 }
 
 .competition-status.upcoming {
-    background: rgba(10, 132, 255, 0.15);
-    color: var(--blue);
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--blue);
 }
 
 .competition-status.finished {
-    background: rgba(142, 142, 147, 0.15);
-    color: var(--text-secondary);
+  background: rgba(142, 142, 147, 0.15);
+  color: var(--text-secondary);
 }
 
 .competition-desc {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
 }
 
 .competition-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .competition-rank {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--orange);
-    margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--orange);
+  margin-top: 8px;
 }

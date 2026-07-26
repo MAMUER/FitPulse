@@ -152,7 +152,26 @@ jobs:
             echo "$CHART_REFS"
             exit 1
           fi
-          echo "✅ Chart.js version references are consistent (4+)"
+           echo "✅ Chart.js version references are consistent (4+)"
+
+          echo "-> Checking Biome version references..."
+          BIOME_REFS=$(grep -rn "@biomejs/biome:[12]\.[0-9]\+\|Biome\s\+[12]\.[0-9]\+\|biome\s\+[12]\.[0-9]\+" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" || true)
+          if [ -n "$BIOME_REFS" ]; then
+            echo "❌ Found outdated Biome references (current: 2.5+):"
+            echo "$BIOME_REFS"
+            exit 1
+          fi
+           echo "✅ Biome version references are consistent (2.5+)"
+
+          echo "-> Checking Go tools versions..."
+          GO_TOOLS_REFS=$(grep -rn "go install.*@latest" . --include="*.md" --include="*.sh" --include="Makefile" --include="*.ps1" --include="*.bash" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="web/node_modules" || true)
+          if [ -n "$GO_TOOLS_REFS" ]; then
+            echo "❌ Found unpinned Go tool versions (@latest) in local development files:"
+            echo "$GO_TOOLS_REFS"
+            echo "   Pin versions explicitly, e.g. @v1.36.6 instead of @latest"
+            exit 1
+          fi
+          echo "✅ Go tools versions are pinned"
 
       - name: Check docs ↔ code version consistency
         run: |

@@ -17,7 +17,7 @@ web/
 ├── index.html
 ├── package.json
 ├── vite.config.js
-├── eslint.config.js
+├── biome.json
 ├── vitest.config.js
 ├── src/
 │   ├── main.jsx
@@ -63,7 +63,7 @@ web/
 9. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
 10. **Безопасность**: XSS (`textContent`), CSP nonce-based, HTTPS-only, JWT в `httpOnly` cookie (`Secure`, `SameSite=Strict`), rate-limit UI на 429.
 11. **API-слой**: `web/src/utils/api.js` централизует все REST-вызовы.
-12. **Тестирование**: Vitest + React Testing Library; ESLint 9 с React плагинами.
+12. **Тестирование**: Vitest + React Testing Library; Biome линтинг и форматирование.
 
 ## Последствия
 
@@ -76,7 +76,7 @@ web/
 - `docs/UI_SPECIFICATION.md`
 - `web/src/` — все React компоненты, контексты, утилиты
 - `web/vite.config.js`, `web/package.json`
-- `web/eslint.config.js`, `web/vitest.config.js`
+- `web/biome.json`, `web/vitest.config.js`
 - `web/static/` — шрифты и HTML-страницы ошибок
 - `web/dist/` — production сборка Vite
 - Старые файлы `web/templates/`, `web/static/js/`, `web/static/css/` удалены

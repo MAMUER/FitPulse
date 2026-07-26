@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
+import { useEffect, useRef, useState } from 'react';
 import { classifyState, generateMLPlan, getPlan } from '../../utils/api';
 import './ML.css';
 
@@ -33,7 +33,7 @@ export default function ML() {
       const data = await classifyState({});
       setClassification(data);
     } catch (e) {
-      alert('Ошибка анализа: ' + e.message);
+      alert(`Ошибка анализа: ${e.message}`);
     } finally {
       setClassifying(false);
     }
@@ -46,10 +46,15 @@ export default function ML() {
       const userProfile = {};
       const goal = '';
       const constraints = {};
-      const data = await generateMLPlan(form.trainingClass, userProfile, goal, constraints);
+      const data = await generateMLPlan(
+        form.trainingClass,
+        userProfile,
+        goal,
+        constraints
+      );
       setPlan(data);
     } catch (e) {
-      alert('Ошибка генерации: ' + e.message);
+      alert(`Ошибка генерации: ${e.message}`);
     } finally {
       setGenerating(false);
     }
@@ -75,7 +80,7 @@ export default function ML() {
         const labels = [];
         const values = [];
         weeks.forEach((week, wi) => {
-          (week.days || []).forEach(day => {
+          (week.days || []).forEach((day) => {
             labels.push(`Нед ${wi + 1} ${DAY_NAMES[day.day_of_week] || ''}`);
             values.push(day.duration || 0);
           });
@@ -85,20 +90,33 @@ export default function ML() {
           type: 'bar',
           data: {
             labels,
-            datasets: [{
-              label: 'Минуты',
-              data: values,
-              backgroundColor: 'rgba(255,55,95,0.6)',
-              borderRadius: 8,
-            }],
+            datasets: [
+              {
+                label: 'Минуты',
+                data: values,
+                backgroundColor: 'rgba(255,55,95,0.6)',
+                borderRadius: 8,
+              },
+            ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              y: { beginAtZero: true, ticks: { color: '#8e8e93' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-              x: { ticks: { color: '#8e8e93', maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#8e8e93' },
+                grid: { color: 'rgba(255,255,255,0.05)' },
+              },
+              x: {
+                ticks: {
+                  color: '#8e8e93',
+                  maxRotation: 45,
+                  font: { size: 10 },
+                },
+                grid: { display: false },
+              },
             },
           },
         });
@@ -120,8 +138,8 @@ export default function ML() {
 
     if (weeks.length === 0) {
       return (
-        <div className="empty-state">
-          <div className="empty-icon">📋</div>
+        <div className='empty-state'>
+          <div className='empty-icon'>📋</div>
           <h3>План пуст</h3>
           <p>Попробуйте сгенерировать план с другими параметрами</p>
         </div>
@@ -129,23 +147,36 @@ export default function ML() {
     }
 
     return weeks.map((week, wi) => (
-      <div key={wi} className="plan-card">
+      <div key={wi} className='plan-card'>
         <h4>Неделя {wi + 1}</h4>
-        <div className="plan-meta" style={{ marginBottom: 10 }}>
-          <span>Цель: {pd.goal || planData.training_goal || 'Общая тренировка'}</span>
+        <div className='plan-meta' style={{ marginBottom: 10 }}>
+          <span>
+            Цель: {pd.goal || planData.training_goal || 'Общая тренировка'}
+          </span>
         </div>
         {(week.days || []).map((day, di) => (
-          <div key={di} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--bg-input)' }}>
-            <div className="plan-day-header">
-              <div className="plan-day-name">{DAY_NAMES[day.day_of_week] || 'День ' + (di + 1)}</div>
-              <div className="plan-day-type">{day.training_type || '—'}</div>
+          <div
+            key={di}
+            style={{
+              marginBottom: 12,
+              paddingBottom: 12,
+              borderBottom: '1px solid var(--bg-input)',
+            }}
+          >
+            <div className='plan-day-header'>
+              <div className='plan-day-name'>
+                {DAY_NAMES[day.day_of_week] || `День ${di + 1}`}
+              </div>
+              <div className='plan-day-type'>{day.training_type || '—'}</div>
             </div>
             {(day.exercises || []).map((ex, ei) => (
-              <div key={ei} className="exercise-item">
-                <div className="exercise-number">{ei + 1}</div>
-                <div className="exercise-details">
-                  <div className="exercise-name">{ex.exercise_name || 'Упражнение'}</div>
-                  <div className="exercise-meta">
+              <div key={ei} className='exercise-item'>
+                <div className='exercise-number'>{ei + 1}</div>
+                <div className='exercise-details'>
+                  <div className='exercise-name'>
+                    {ex.exercise_name || 'Упражнение'}
+                  </div>
+                  <div className='exercise-meta'>
                     {ex.sets && <span>{ex.sets} подходов</span>}
                     {ex.reps && <span> · {ex.reps} повторений</span>}
                     {ex.duration && <span> · {ex.duration} мин</span>}
@@ -153,7 +184,17 @@ export default function ML() {
                 </div>
               </div>
             ))}
-            {day.duration && <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Длительность: {day.duration} мин</div>}
+            {day.duration && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                  marginTop: 4,
+                }}
+              >
+                Длительность: {day.duration} мин
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -161,49 +202,106 @@ export default function ML() {
   };
 
   return (
-    <div className="view active">
-      <section className="ml-section">
+    <div className='view active'>
+      <section className='ml-section'>
         <h3>Классификация состояния</h3>
-        <button className="btn-primary" onClick={handleClassify} disabled={classifying} style={{ marginBottom: 16 }}>
+        <button
+          className='btn-primary'
+          onClick={handleClassify}
+          disabled={classifying}
+          style={{ marginBottom: 16 }}
+        >
           {classifying ? 'Анализ...' : 'Анализировать'}
         </button>
         {classification && (
-          <div className="ml-result">
-            <div className="ml-classification">
-              <div className="class-label">Состояние</div>
-              <div className="class-name">{classification.predicted_class_ru || classification.predicted_class || '—'}</div>
-              <div className="confidence">Уверенность: {classification.confidence ? Math.round(classification.confidence * 100) + '%' : '—'}</div>
-              {classification.description && <p style={{ marginTop: 8, color: 'var(--text-secondary)', fontSize: 14 }}>{classification.description}</p>}
+          <div className='ml-result'>
+            <div className='ml-classification'>
+              <div className='class-label'>Состояние</div>
+              <div className='class-name'>
+                {classification.predicted_class_ru ||
+                  classification.predicted_class ||
+                  '—'}
+              </div>
+              <div className='confidence'>
+                Уверенность:{' '}
+                {classification.confidence
+                  ? `${Math.round(classification.confidence * 100)}%`
+                  : '—'}
+              </div>
+              {classification.description && (
+                <p
+                  style={{
+                    marginTop: 8,
+                    color: 'var(--text-secondary)',
+                    fontSize: 14,
+                  }}
+                >
+                  {classification.description}
+                </p>
+              )}
             </div>
           </div>
         )}
       </section>
 
-      <section className="ml-section">
+      <section className='ml-section'>
         <h3>Генерация плана</h3>
-        <form className="ml-form" onSubmit={handleGeneratePlan}>
-          <div className="form-group">
+        <form className='ml-form' onSubmit={handleGeneratePlan}>
+          <div className='form-group'>
             <label>Тип тренировки</label>
-            <select value={form.trainingClass} onChange={e => setForm(f => ({ ...f, trainingClass: e.target.value }))}>
-              {TRAINING_CLASSES.map(tc => <option key={tc.value} value={tc.value}>{tc.label}</option>)}
+            <select
+              value={form.trainingClass}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, trainingClass: e.target.value }))
+              }
+            >
+              {TRAINING_CLASSES.map((tc) => (
+                <option key={tc.value} value={tc.value}>
+                  {tc.label}
+                </option>
+              ))}
             </select>
           </div>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Длительность (недель)</label>
-            <input type="number" min="1" max="12" value={form.durationWeeks} onChange={e => setForm(f => ({ ...f, durationWeeks: Number(e.target.value) }))} />
+            <input
+              type='number'
+              min='1'
+              max='12'
+              value={form.durationWeeks}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  durationWeeks: Number(e.target.value),
+                }))
+              }
+            />
           </div>
-          <div className="form-group">
+          <div className='form-group'>
             <label>Дни тренировок</label>
-            <div className="days-grid">
+            <div className='days-grid'>
               {DAY_NAMES.map((d, idx) => (
-                <label key={idx} className={`day-chip ${form.days.includes(idx) ? 'selected' : ''}`}>
-                  <input type="checkbox" checked={form.days.includes(idx)} onChange={() => setForm(f => ({ days: f.days.includes(idx) ? f.days.filter(d => d !== idx) : [...f.days, idx] }))} />
+                <label
+                  key={idx}
+                  className={`day-chip ${form.days.includes(idx) ? 'selected' : ''}`}
+                >
+                  <input
+                    type='checkbox'
+                    checked={form.days.includes(idx)}
+                    onChange={() =>
+                      setForm((f) => ({
+                        days: f.days.includes(idx)
+                          ? f.days.filter((d) => d !== idx)
+                          : [...f.days, idx],
+                      }))
+                    }
+                  />
                   {d}
                 </label>
               ))}
             </div>
           </div>
-          <button type="submit" className="btn-primary" disabled={generating}>
+          <button type='submit' className='btn-primary' disabled={generating}>
             {generating ? 'Генерация...' : 'Сгенерировать план'}
           </button>
         </form>
@@ -212,13 +310,28 @@ export default function ML() {
       {plan && (
         <section>
           <h3 style={{ marginBottom: 12 }}>Сгенерированный план</h3>
-          <div id="generatedPlanDetail" className="plans-list">
+          <div id='generatedPlanDetail' className='plans-list'>
             {renderPlanContent()}
           </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', padding: 16, marginTop: 16 }}>
-            <h4 style={{ marginBottom: 12, fontSize: 14, color: 'var(--text-secondary)' }}>Прогресс</h4>
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 16,
+              marginTop: 16,
+            }}
+          >
+            <h4
+              style={{
+                marginBottom: 12,
+                fontSize: 14,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Прогресс
+            </h4>
             <div style={{ position: 'relative', height: 220 }}>
-              <canvas ref={chartRef} id="mlProgressChart" />
+              <canvas ref={chartRef} id='mlProgressChart' />
             </div>
           </div>
         </section>

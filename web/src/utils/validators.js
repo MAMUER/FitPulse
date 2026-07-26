@@ -31,10 +31,11 @@ export function validateName(v) {
 }
 
 export function validateNickname(v) {
-  if (!v || !v.trim()) return 'Никнейм обязателен';
+  if (!v?.trim()) return 'Никнейм обязателен';
   if (v.trim().length < 2) return 'Минимум 2 символа';
   if (v.trim().length > 30) return 'Максимум 30 символов';
-  if (!/^[A-Za-zА-Яа-яЁё0-9_\s-]+$/.test(v.trim())) return 'Только буквы, цифры, _ и -';
+  if (!/^[A-Za-zА-Яа-яЁё0-9_\s-]+$/.test(v.trim()))
+    return 'Только буквы, цифры, _ и -';
   return '';
 }
 

@@ -1252,8 +1252,8 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 - **`protoc`** — компилятор Protocol Buffers.
 - **Плагины генерации Go** (должны быть в `PATH`):
   ```bash
-  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
   ```
   Убедитесь, что `$GOPATH/bin` (по умолчанию `~/go/bin`) добавлен в `PATH`,
   иначе `protoc` завершится с ошибкой «protoc-gen-go: plugin not found».

@@ -173,8 +173,8 @@ docs(readme): обновить документацию
 - **`protoc`** (компилятор Protocol Buffers) — версия, совместимая с `protoc-gen-go`/`protoc-gen-go-grpc`.
 - **Плагины Go**:
   ```bash
-  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
   ```
   и убедитесь, что `$GOPATH/bin` (обычно `~/go/bin`) добавлен в `PATH`, иначе `protoc` не найдёт плагины.
 
@@ -191,7 +191,7 @@ sudo apt-get update && sudo apt-get install -y protobuf-compiler
 choco install protoc
 
 # Через Go (альтернатива, требует C-инструментарий)
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
 ```
 
 После правок в `api/proto/*.proto` сгенерируйте код и закоммитьте результат:

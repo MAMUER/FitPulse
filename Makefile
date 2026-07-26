@@ -1,6 +1,6 @@
 imports:
 	@echo "Updating Go imports with gci..."
-	@go run github.com/daixiang0/gci@latest write \
+	@go run github.com/daixiang0/gci@v0.14.0 write \
 		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
 		--skip-generated --skip-vendor \
 		cmd internal
@@ -92,6 +92,6 @@ help:
 	@echo "  make proto           - Generate proto files"
 	@echo "  make imports         - Update Go imports with gci"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
-	@echo "  make frontend-lint   - Lint frontend code with ESLint"
+	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"
 	@echo "  make frontend-build  - Build frontend with Vite"
