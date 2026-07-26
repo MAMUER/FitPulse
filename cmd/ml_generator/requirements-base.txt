@@ -26,7 +26,7 @@ onnxscript>=0.7.1
 onnx>=1.22.0
 
 # Async messaging
-aio-pika>=9.5.0
+aio-pika>=10.0.1
 valkey>=8.0.0
 
 # Security
