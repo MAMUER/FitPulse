@@ -11,6 +11,7 @@ import (
 )
 
 func TestRateLimit(t *testing.T) {
+	resetRateLimiters()
 	handler := RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -41,6 +42,7 @@ func TestRateLimit(t *testing.T) {
 }
 
 func TestRateLimitDifferentIPs(t *testing.T) {
+	resetRateLimiters()
 	handler := RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -58,6 +60,7 @@ func TestRateLimitDifferentIPs(t *testing.T) {
 }
 
 func TestRateLimitHealthAlwaysAllowed(t *testing.T) {
+	resetRateLimiters()
 	handler := RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

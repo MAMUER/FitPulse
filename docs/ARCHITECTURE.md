@@ -2499,3 +2499,96 @@ const (
 5. **Tests**: каждый валидатор должен иметь comprehensive unit-тесты с табличным driven testing.
 6. **gRPC codes**: используйте `codes.InvalidArgument` для ошибок валидации. Не используйте `codes.Internal` или другие коды.
 7. **Тестирование**: unit-тесты не требуют запущенных зависимостей; проверяйте как успешные, так и ошибочные сценарии.
+
+## 25. Shared library `internal/middleware` — HTTP and gRPC middleware
+
+### 25.1 Роль
+
+`internal/middleware` — это **shared библиотека middleware** для HTTP и gRPC, которая обеспечивает:
+- Корреляция запросов через `X-Correlation-ID` (HTTP + gRPC)
+- Единую обработку ошибок и JSON-ответы
+- Аутентификацию через JWT ES256 токены
+- Авторизацию на основе ролей (`RequireRole`, `RequirePrivilege`)
+- Логирование HTTP-запросов с метриками Prometheus
+- Rate limiting: per-IP, per-user и отдельный для auth-эндпоинтов
+- Безопасность: CSP nonce-based, HSTS, security headers, panic recovery
+- Валидация привилегий через БД для защиты от отозванных claims
+
+### 25.2 Структура пакета
+
+```text
+internal/middleware/
+├── context_keys.go      # Ключи контекста (CorrelationIDKey, UserIDKey, RoleKey, RequestIDKey)
+├── correlation.go       # CorrelationIDHTTP, CorrelationIDGRPC, CorrelationIDGRPCClient
+├── error_handler.go     # ErrorHandler, JSONError, responseWriter
+├── error_pages.go       # ErrorPages, serveErrorPage
+├── grpc_auth.go         # GRPCAuthInterceptor
+├── middleware.go        # RequestID, AuthMiddleware, RequireRole, LoggingMiddleware, RecoveryHTTP, RecoveryGRPC
+├── nonce_inject.go      # HTMLNonceInject, CSP nonce injection
+├── privilege.go         # RequirePrivilege, GetConfirmedPrivilege
+├── ratelimit.go         # AuthRateLimit, RateLimit, UserRateLimit
+└── security_headers.go  # SecurityHeaders, RemoveServerHeader, GetNonce, LogoutHeaders
+```
+
+### 25.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/middleware"
+
+// HTTP chain
+router.Use(middleware.RemoveServerHeader)
+router.Use(middleware.SecurityHeaders)
+router.Use(middleware.CorrelationIDHTTP)
+router.Use(middleware.RequestID)
+router.Use(middleware.ErrorHandler(log))
+router.Use(middleware.RecoveryMiddleware(log))
+router.Use(middleware.AuthRateLimit)
+router.Use(middleware.RateLimit)
+router.Use(middleware.UserRateLimit)
+router.Use(middleware.LoggingMiddleware(log, metrics.RequestDuration, metrics.RequestTotal, metrics.ErrorTotal))
+
+// gRPC interceptors
+server := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        middleware.RecoveryGRPC(log),
+        middleware.CorrelationIDGRPC(),
+        middleware.GRPCAuthInterceptor(publicKeyPEM, log),
+    ),
+)
+```
+
+### 25.4 Конфигурация
+
+```go
+// Rate limits
+const (
+    DefaultRate          = 10        // requests per second
+    DefaultBurst         = 50
+    AuthRate             = 5.0 / 60.0 // requests per second for auth endpoints
+    AuthBurst            = 5
+    UserRate             = 100
+    UserBurst            = 200
+)
+```
+
+### 25.5 Security considerations
+
+1. **CSP nonce-based**: все `<script>` теги на главной странице получают nonce, генерируемый `crypto/rand` (256 бит).
+2. **Security headers**: HSTS, X-Frame-Options, X-Content-Type-Options, Permissions Policy, COOP/COEP.
+3. **Panic recovery**: `RecoveryGRPC` возвращает `codes.Internal` при панике, предотвращая утечку информации.
+4. **IP extraction**: rate limiters используют `getClientIP` для корректной работы за reverse proxy.
+5. **Role verification**: `RequireRole` и `RequirePrivilege` проверяют актуальную роль в БД, а не только JWT claims.
+6. **Logout headers**: `LogoutHeaders` явно инвалидирует cookies через `Max-Age=0`.
+
+### 25.6 Правила использования
+
+1. **Order matters**: применяйте middleware в правильном порядке: security headers → correlation → request ID → recovery → auth → rate limit → logging.
+2. **gRPC auth**: используйте `GRPCAuthInterceptor` для gRPC сервисов. Ключ метаданных: `authorization`.
+3. **HTTP auth**: используйте `AuthMiddleware` для HTTP. Возвращает 404 вместо 401 для избежания раскрытия наличия endpoint.
+4. **Role checks**: используйте `RequireRole` (с проверкой в БД) или `RequirePrivilege` для авторизации.
+5. **Rate limiting**: применяйте `AuthRateLimit` к auth endpoints, `RateLimit` для общего IP-лимита, `UserRateLimit` для authenticated пользователей.
+6. **Correlation ID**: используйте `CorrelationIDHTTP` и `CorrelationIDGRPC` для трейсинга между сервисами.
+7. **Error handling**: используйте `JSONError` для всех HTTP ошибок. 403 автоматически конвертируется в 404.
+8. **Nonce injection**: `HTMLNonceInject` работает только для `/` и `/index.html`.
+9. **Testing**: `resetRateLimiters()` доступна для тестов. Не создавайте новые лимитеры в production коде.
+10. **Тестирование**: unit-тесты покрывают все middleware; rate limiter тесты используют `resetRateLimiters` для изоляции.

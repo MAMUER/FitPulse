@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/MAMUER/project/internal/auth/jwt"
 )
@@ -793,4 +796,73 @@ func TestCorrelationID(t *testing.T) {
 
 	assert.True(t, called)
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+// ==========================================
+// RecoveryGRPC Tests
+// ==========================================
+
+func TestRecoveryGRPC_ReturnsErrorOnPanic(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic("test panic")
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.Contains(t, st.Message(), "panic recovered")
+}
+
+func TestRecoveryGRPC_NoPanic(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	expectedResp := "success"
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return expectedResp, nil
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Equal(t, expectedResp, resp)
+	assert.NoError(t, err)
+}
+
+func TestRecoveryGRPC_PanicWithStringValue(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic("something went wrong")
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+}
+
+func TestRecoveryGRPC_PanicWithIntValue(t *testing.T) {
+	log, _ := zap.NewDevelopment()
+
+	interceptor := RecoveryGRPC(log)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		panic(42)
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Method"}, handler)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
 }
