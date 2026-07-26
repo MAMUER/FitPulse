@@ -23,7 +23,7 @@ FitPulse использует два компонента:
 **Входные признаки (7 признаков):**
 
 | # | Признак | Тип | Единица | Примечание |
-|---|---------|-----|---------|------------|
+| - | ------- | --- | ------- | ---------- |
 | 1 | `heart_rate` | float64 | уд/мин | Текущий или средний за последний час |
 | 2 | `heart_rate_variability` | float64 | мс | Heart Rate Variability (RMSSD) |
 | 3 | `spo2` | float64 | % | 70–100 |
@@ -74,7 +74,7 @@ FitPulse использует два компонента:
 **6 классов (имена как в коде):**
 
 | # | Класс (slug) | Название RU | Ключевые правила |
-|---|--------------|-------------|------------------|
+| - | ------------ | ----------- | ---------------- |
 | 1 | `recovery` | Восстановление | HRV > 80 И (HR < 60% HRmax Или sleep > 8) |
 | 2 | `endurance_basic` | Базовая выносливость E1-E2 | HRV 50–80, HR 65–80% HRmax, sleep 6–8 |
 | 3 | `endurance_threshold` | Пороговая выносливость E3 | HRV 40–50, HR 80–90% HRmax |
@@ -93,7 +93,7 @@ FitPulse использует два компонента:
 DDPM получает 32-dim conditional vector, построенный из полного профиля пользователя:
 
 | Index | Feature | Range | Описание |
-|-------|---------|-------|----------|
+| ----- | ------- | ----- | -------- |
 | 0 | age_normalized | 0–1 | (age - 18) / (100 - 18) |
 | 1 | bmi_normalized | 0–1 | (bmi - 15) / (40 - 15) |
 | 2 | fitness_level | 0–1 | beginner=0.0, intermediate=0.5, advanced=1.0 |
@@ -137,7 +137,7 @@ DDPM получает 32-dim conditional vector, построенный из п�
 **Plan Features (19 dimensions):**
 
 | Index | Feature | Range | Условная логика |
-|-------|---------|-------|-----------------|
+| ----- | ------- | ----- | --------------- |
 | 0 | duration_minutes | 0–100 | Recovery: 20–40; Overtraining/Illness: 0; Power: 60–100 |
 | 1 | intensity_level | 0–1 | Menstruation: -0.2; Illness: 0.0; Recovery: 0.3 |
 | 2 | rest_ratio | 0–1 | Overtraining: 0.5–0.7; HIIT: 0.3–0.4 |
@@ -267,7 +267,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 **TRAINING_TEMPLATES (6 классов):**
 
 | Класс | duration_range | intensity_range | exercises | rest_ratio |
-|-------|----------------|-----------------|-----------|------------|
+| -------- | -------------- | --------------- | --------- | ---------- |
 | recovery | 20–45 | 0.3–0.5 | walking, yoga, stretching, light_swimming, mobility | 0.7 |
 | endurance_basic | 45–90 | 0.5–0.7 | running, cycling, swimming, rowing, hiking | 0.4 |
 | endurance_threshold | 30–60 | 0.7–0.85 | tempo_run, threshold_intervals, fartlek, critical_power | 0.3 |
@@ -279,14 +279,18 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 
 ## Требования к GPU и обучению
 
-|Параметр|Значение|
-|---|---|
-|Минимум GPU|CUDA-capable, 4GB VRAM|
-|Рекомендуется|8GB+ VRAM (RTX 3070+)|
-|Данные для обучения|Исторические планы + биометрия + фидбек пользователей + менструальные циклы + заболевания + состав тела|
-|Частота переобучения|Раз в 2 недели (incremental)|
-|Валидация|Hold-out 20%, метрики: val_loss (MSE noise prediction)|
-|Версионирование|DVC для данных и моделей (`datasets/`, `models/`)|
+| Параметр | Значение |
+| -------- | -------- |
+| Минимум GPU | CUDA-capable, 4GB VRAM |
+| Рекомендуется | 8GB+ VRAM (RTX 3070+) |
+| Epochs | 500–1000 |
+| Batch size | 32–64 |
+| Optimizer | AdamW (lr=1e-4, weight_decay=1e-5) |
+| Scheduler | cosine annealing |
+| Данные для обучения | Исторические планы + биометрия + фидбек пользователей + менструальные циклы + заболевания + состав тела |
+| Частота переобучения | Раз в 2 недели (incremental) |
+| Валидация | Hold-out 20%, метрики: val_loss (MSE noise prediction) |
+| Версионирование | DVC для данных и моделей (`datasets/`, `models/`) |
 
 ---
 

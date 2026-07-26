@@ -172,18 +172,18 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
     - Заменить stub webhook на полноценные маршруты: Telegram webhook для первичных уведомлений, Slack/PagerDuty для production-каналов.
     - Настроить retention: история алертов хранится 90 дней.
 
-  6. **ON-CALL РОТАЦИЯ**:
-     - Внедрить Grafana OnCall или аналогичный инструмент для управления дежурствами.
-     - Настроить графики ротации, эскалацию по цепочке (SEV-1 → on-call engineer → Tech Lead → CTO) и уведомления через Slack/Telegram/PagerDuty.
-     - Интегрировать с Alertmanager: автоматическое создание инцидентов, acknowledgement, post-incident review tracking.
-     - Настроить handoff-процедуры при смене дежурного.
+6. **ON-CALL РОТАЦИЯ**:
+    - Внедрить Grafana OnCall или аналогичный инструмент для управления дежурствами.
+    - Настроить графики ротации, эскалацию по цепочке (SEV-1 → on-call engineer → Tech Lead → CTO) и уведомления через Slack/Telegram/PagerDuty.
+    - Интегрировать с Alertmanager: автоматическое создание инцидентов, acknowledgement, post-incident review tracking.
+    - Настроить handoff-процедуры при смене дежурного.
 
-  7. **CENTRALIZED LOGGING (ELK Stack)**:
-     - Развернуть Elasticsearch 8 + Logstash + Kibana на отдельном наборе подов или managed-сервисе.
-     - Настроить Fluent Bit на отправку JSON-логов вместо stdout: добавить Elasticsearch output plugin.
-     - Настроить retention: 90 дней горячего индекса, архив в S3 для compliance (152-ФЗ).
-     - Включить RBAC в Kibana: роли `admin`, `platform-team`, `auditor` (read-only).
-     - Интегрировать с Alertmanager: алерты на проблемы с логированием (pipeline down, indexing errors).
+7. **CENTRALIZED LOGGING (ELK Stack)**:
+    - Развернуть Elasticsearch 8 + Logstash + Kibana на отдельном наборе подов или managed-сервисе.
+    - Настроить Fluent Bit на отправку JSON-логов вместо stdout: добавить Elasticsearch output plugin.
+    - Настроить retention: 90 дней горячего индекса, архив в S3 для compliance (152-ФЗ).
+    - Включить RBAC в Kibana: роли `admin`, `platform-team`, `auditor` (read-only).
+    - Интегрировать с Alertmanager: алерты на проблемы с логированием (pipeline down, indexing errors).
 
 ### 6.3 Acceptance Criteria
 
@@ -203,7 +203,11 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 - аппаратного апгрейда/реновации VPS (обязательно, для поддержки HA-компонентов, Vault, Istio и бóльшего числа подов)
 - после увеличения ресурсов VPS необходимо пересчитать параметры Argon2id
 
-Текущие параметры Argon2id (memory 64 MB, iterations 3, parallelism 1) установлены с учётом ограничений текущего 2-vCPU / 4 ГБ сервера. После переезда на более мощный VPS параметры требуется пересчитать. **Best Practice**: реализовать автоматический benchmark Argon2id при старте сервиса для калибровки `memory`, `iterations` и `parallelism` (рекомендуется `parallelism` >= 2 для эффективного использования многоядерности CPU) под фактические `resources.limits`, сохраняя время хеширования в пределах 500мс–1с. Реализовать кастомный benchmark-цикл при старте сервиса (или использовать `github.com/go-crypt/go-crypt`), так как `github.com/alexedwards/argon2id` не имеет встроенного auto-tuning.
+Текущие параметры Argon2id (memory 64 MB, iterations 3, parallelism 1) установлены с учётом ограничений текущего 2-vCPU / 4 ГБ сервера.
+После переезда на более мощный VPS параметры требуется пересчитать.
+
+**Best Practice**: реализовать автоматический benchmark Argon2id при старте сервиса для калибровки `memory`, `iterations` и `parallelism` (рекомендуется `parallelism` >= 2 для эффективного использования многоядерности CPU) под фактические `resources.limits`, сохраняя время хеширования в пределах 500мс–1с.
+Реализовать кастомный benchmark-цикл при старте сервиса (или использовать `github.com/go-crypt/go-crypt`), так как `github.com/alexedwards/argon2id` не имеет встроенного auto-tuning.
 
 - Terraform для управления инфраструктурой
 - ArgoCD или Flux для GitOps
@@ -258,7 +262,9 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 ## 10. Bug Bounty / Researcher Program
 ### 10.1 Контекст
 
-Базовая self-hosted политика уже реализована: созданы `BUG_BOUNTY_SCOPE.md` и раздел в `SECURITY.md`, определены in-scope/out-of-scope цели и transparent SLA по ответу (best effort). Однако программа работает без бюджета, а отчёты принимаются на личный email, что создаёт operational риски. В Phase 2 требуется усилить криптографическую защиту отчётов и оценить возможность перехода на профессиональные платформы или выделения бюджета.
+Базовая self-hosted политика уже реализована: созданы `BUG_BOUNTY_SCOPE.md` и раздел в `SECURITY.md`, определены in-scope/out-of-scope цели и transparent SLA по ответу (best effort).
+Однако программа работает без бюджета, а отчёты принимаются на личный email, что создаёт operational риски.
+В Phase 2 требуется усилить криптографическую защиту отчётов и оценить возможность перехода на профессиональные платформы или выделения бюджета.
 
 ### 10.2 Задачи
 
@@ -433,7 +439,9 @@ FitPulse выходит за рамки wellness-приложения: plans г�
 
 ### 17.1 Контекст
 
-Текущий сервер (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) не позволяет запускать ежедневное ML-переобучение без влияния на отзывчивость приложения. Phase 1 покрывает базовую генерацию плана через `POST /ml/generate-plan` и классификацию состояния через `POST /ml/classify`. Ежедневная автоматическая модификация плана — это задача Phase 2, требующая отдельного планировщика/воркера и более мощной инфраструктуры.
+Текущий сервер (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) не позволяет запускать ежедневное ML-переобучение без влияния на отзывчивость приложения.
+Phase 1 покрывает базовую генерацию плана через `POST /ml/generate-plan` и классификацию состояния через `POST /ml/classify`.
+Ежедневная автоматическая модификация плана — это задача Phase 2, требующая отдельного планировщика/воркера и более мощной инфраструктуры.
 
 ### 17.2 Задачи
 
@@ -496,14 +504,14 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 ### 18.3 Блокеры
 
-|Блок|Блокирует|Причина|
-|---|---|---|
-|Infra provisioning|Vault, PostgreSQL HA, Service Mesh, Backup DR|Требует более мощного VPS и стабильного k8s|
-|Vault + Secrets|Secrets Rotation Automation, Service Mesh (cert-manager)|Требует центрального хранилища секретов|
-|PostgreSQL HA|Backup DR, Data Processor (production)|Требует стабильного Primary/Replica|
-|Service Mesh|Observability (tracing), Canary Deployments|Требует sidecar-инъекции и PeerAuthentication|
-|Security email + PGP|Bug Bounty, Pen Test, SECURITY.md обновление|Требует корпоративного ящика до публикации|
-|Compliance 152-ФЗ|Medical services integration, Medical app registration|Требует шифрования и audit trail|
+| Блок | Блокирует | Причина |
+| --- | --- | --- |
+| Infra provisioning | Vault, PostgreSQL HA, Service Mesh, Backup DR | Требует более мощного VPS и стабильного k8s |
+| Vault + Secrets | Secrets Rotation Automation, Service Mesh (cert-manager) | Требует центрального хранилища секретов |
+| PostgreSQL HA | Backup DR, Data Processor (production) | Требует стабильного Primary/Replica |
+| Service Mesh | Observability (tracing), Canary Deployments | Требует sidecar-инъекции и PeerAuthentication |
+| Security email + PGP | Bug Bounty, Pen Test, SECURITY.md обновление | Требует корпоративного ящика до публикации |
+| Compliance 152-ФЗ | Medical services integration, Medical app registration | Требует шифрования и audit trail |
 
 ### 18.4 Параллельные работы
 
@@ -523,41 +531,41 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 ### 19.2 Инфраструктура
 
-|Компонент|Текущая стоимость|Новая стоимость|Δ|
-|---|---|---|---|
-|VPS (2 vCPU / 4 ГБ / 60 ГБ)|~2 500 ₽/мес|~3 500 ₽/мес (4 vCPU / 8 ГБ / 80 ГБ SSD)|+1 000 ₽/мес|
-|Managed PostgreSQL (Yandex Managed)|—|~2 500–4 000 ₽/мес|+2 500–4 000 ₽/мес|
-|Vault (self-hosted на отдельном VPS)|—|~1 500 ₽/мес (2 vCPU / 4 ГБ)|+1 500 ₽/мес|
-|Backup storage (S3-compatible, 100 ГБ)|—|~300 ₽/мес|+300 ₽/мес|
-|Domain fitpulse.app (первый год)|—|~1 500 ₽/год|+125 ₽/мес|
-|SSL-сертификат (Let's Encrypt)|—|0 ₽/мес|0 ₽/мес|
-|**Итого инфраструктура**|**~1 500 ₽/мес**|**~8 000–10 500 ₽/мес**|**+6 500–9 000 ₽/мес**|
+| Компонент | Текущая стоимость | Новая стоимость | Δ |
+| --- | --- | --- | --- |
+| VPS (2 vCPU / 4 ГБ / 60 ГБ) | ~2 500 ₽/мес | ~3 500 ₽/мес (4 vCPU / 8 ГБ / 80 ГБ SSD) | +1 000 ₽/мес |
+| Managed PostgreSQL (Yandex Managed) | — | ~2 500–4 000 ₽/мес | +2 500–4 000 ₽/мес |
+| Vault (self-hosted на отдельном VPS) | — | ~1 500 ₽/мес (2 vCPU / 4 ГБ) | +1 500 ₽/мес |
+| Backup storage (S3-compatible, 100 ГБ) | — | ~300 ₽/мес | +300 ₽/мес |
+| Domain fitpulse.app (первый год) | — | ~1 500 ₽/год | +125 ₽/мес |
+| SSL-сертификат (Let's Encrypt) | — | 0 ₽/мес | 0 ₽/мес |
+| **Итого инфраструктура** | **~1 500 ₽/мес** | **~8 000–10 500 ₽/мес** | **+6 500–9 000 ₽/мес** |
 
 ### 19.3 ML-сервисы
 
-|Компонент|Стоимость|Примечание|
-|---|---|---|
-|MLflow (self-hosted)|0 ₽/мес|Запускается на существующем VPS|
-|DVC remote storage|0 ₽/мес|Локальный диск / S3-compatible |
-|GPU-воркер (если нужен inference acceleration)|~5 000–15 000 ₽/мес|Yandex Cloud GPU / Lambda Labs|
-|**Итого ML**|**0–15 000 ₽/мес**|Зависит от необходимости GPU|
+| Компонент | Стоимость | Примечание |
+| --- | --- | --- |
+| MLflow (self-hosted) | 0 ₽/мес | Запускается на существующем VPS |
+| DVC remote storage | 0 ₽/мес | Локальный диск / S3-compatible |
+| GPU-воркер (если нужен inference acceleration) | ~5 000–15 000 ₽/мес | Yandex Cloud GPU / Lambda Labs |
+| **Итого ML** | **0–15 000 ₽/мес** | Зависит от необходимости GPU |
 
 ### 19.4 Security / Compliance
 
-|Компонент|Стоимость|Примечание|
-|---|---|---|
-|Corp email (Yandex 360 / Google Workspace)|~300–600 ₽/мес за пользователя|1–2 пользователя|
-|PGP ключ / WKD|0 ₽/мес|Self-hosted|
-|Bug Bounty вознаграждения (опционально)|0–10 000 ₽/мес|Зависит от бюджета|
-|**Итого Security**|**300–10 600 ₽/мес**||
+| Компонент | Стоимость | Примечание |
+| --- | --- | --- |
+| Corp email (Yandex 360 / Google Workspace) | ~300–600 ₽/мес за пользователя | 1–2 пользователя |
+| PGP ключ / WKD | 0 ₽/мес | Self-hosted |
+| Bug Bounty вознаграждения (опционально) | 0–10 000 ₽/мес | Зависит от бюджета |
+| **Итого Security** | **300–10 600 ₽/мес** |
 
 ### 19.5 Итого Phase 2
 
-|Сценарий|Стоимость/мес|Годовая стоимость|
-|---|---|---|
-|Минимум (без GPU, без bug bounty)|~8 500 ₽/мес|~102 000 ₽/год|
-|Рекомендуемый (с observability, без GPU)|~12 000 ₽/мес|~144 000 ₽/год|
-|Максимальный (с GPU, bug bounty)|~25 000–35 000 ₽/мес|~300 000–420 000 ₽/год|
+| Сценарий | Стоимость/мес | Годовая стоимость |
+| --- | --- | --- |
+| Минимум (без GPU, без bug bounty) | ~8 500 ₽/мес | ~102 000 ₽/год |
+| Рекомендуемый (с observability, без GPU) | ~12 000 ₽/мес | ~144 000 ₽/год |
+| Максимальный (с GPU, bug bounty) | ~25 000–35 000 ₽/мес | ~300 000–420 000 ₽/год |
 
 **Trade-off**: На текущем 2-vCPU / 4 ГБ сервере невозможно запустить Vault + Istio + PostgreSQL HA одновременно. Требуется апгрейд VPS до минимум 4 vCPU / 16 ГБ RAM или разделение на 2 VPS.
 
@@ -571,23 +579,23 @@ Phase 2 требует специализации, которой нет у ед
 
 ### 20.2 Роли и ответственность
 
-|Роль|Занятость|Ответственность|
-|---|---|---|
-|**DevOps/Platform**|0.8 FTE|VPS provisioning, k8s, Vault, PostgreSQL HA, Service Mesh, CI/CD|
-|**Backend (Go)**|0.6 FTE|Secrets integration, mTLS migration, admin panel, compliance endpoints|
-|**ML/Data Engineer**|0.4 FTE|DVC pipeline, adaptive retrain, model versioning|
-|**Frontend**|0.3 FTE|Achievements, Diet, Devices views из UI_SPECIFICATION|
-|**Legal/Compliance**|0.2 FTE|152-ФЗ, медицинская регистрация, политики|
-|**Security**|0.2 FTE|Bug bounty, PGP, WAF rules, penetration testing|
-|**Product/Design**|0.1 FTE|Приоритизация фич, UI/UX approval|
+| Роль | Занятость | Ответственность |
+| --- | --- | --- |
+| **DevOps/Platform** | 0.8 FTE | VPS provisioning, k8s, Vault, PostgreSQL HA, Service Mesh, CI/CD |
+| **Backend (Go)** | 0.6 FTE | Secrets integration, mTLS migration, admin panel, compliance endpoints |
+| **ML/Data Engineer** | 0.4 FTE | DVC pipeline, adaptive retrain, model versioning |
+| **Frontend** | 0.3 FTE | Achievements, Diet, Devices views из UI_SPECIFICATION |
+| **Legal/Compliance** | 0.2 FTE | 152-ФЗ, медицинская регистрация, политики |
+| **Security** | 0.2 FTE | Bug bounty, PGP, WAF rules, penetration testing |
+| **Product/Design** | 0.1 FTE | Приоритизация фич, UI/UX approval |
 
 ### 20.3 Общие затраты
 
-|Сценарий|FTE|Срок|Человеко-часы|
-|---|---|---|---|
-|Агрессивный (все параллельно)|1.6 FTE|8 недель|~2 560 ч|
-|Рекомендуемый (последовательный)|0.8 FTE|16 недель|~2 560 ч|
-|Консервативный (1 человек, 0.5 FTE)|0.5 FTE|32 недели|~2 560 ч|
+| Сценарий | FTE | Срок | Человеко-часы |
+| --- | --- | --- | --- |
+| Агрессивный (все параллельно) | 1.6 FTE | 8 недель | ~2 560 ч |
+| Рекомендуемый (последовательный) | 0.8 FTE | 16 недель | ~2 560 ч |
+| Консервативный (1 человек, 0.5 FTE) | 0.5 FTE | 32 недели | ~2 560 ч |
 
 **Важно**: В текущем состоянии проект поддерживается 1 человеком (`@MAMUER`). Phase 2 **невозможна** без привлечения хотя бы одного дополнительного DevOps/Backend разработчика.
 
@@ -649,33 +657,33 @@ Phase 2 требует специализации, которой нет у ед
 
 ### 22.2 Риски
 
-|ID|Риск|Вероятность|Влияние|Митигация|Fallback|
-|---|---|---|---|---|---|
-|R1|Vault не справляется с нагрузкой при 100+ RPS|Средняя|Высокое|Load testing перед production; Vault cluster из 3 нод|Остаться на Kubernetes Secrets + внешний vault-агент|
-|R2|PostgreSQL HA failover работает некорректно|Средняя|Высокое|Ежеквартальные chaos tests; pg_basebackup проверка|Остаться на single PostgreSQL с ежедневными бэкапами|
-|R3|Istio потребляет > 1 ГБ RAM на control plane|Высокая|Среднее|Использовать Linkerd вместо Istio (легче)|Остаться на hand-rolled mTLS|
-|R4|ML retrain падает по памяти на 2 vCPU|Высокая|Среднее|Ограничить resources.limits; использовать swap|Перенести retrain на GitHub Actions / external GPU|
-|R5|152-ФЗ compliance не достигнут|Средняя|Высокое|Юридическая экспертиза на этапе проектирования|Ограничить функционал для РФ-пользователей|
-|R6|Корпоративный email не получен (бюджет)|Средняя|Среднее|Использовать бесплатный Yandex 360 для бизнеса|Остаться на личном email с PGP|
-|R7|Bug bounty программа привлекает неточные репорты|Высокая|Низкое|Чёткий scope, triage-процесс|Игнорировать некорректные репорты|
-|R8|DVC remote не доступен из k8s|Средняя|Среднее|Настроить S3-compatible storage (MinIO)|Локальный DVC cache без remote|
-|R9|Service Mesh конфликтует с существующими Network Policies|Средняя|Высокое|Тестирование в dev перед production|Откат на hand-rolled mTLS|
-|R10|Adaptive daily retrain перегружает API|Высокая|Высокое|Очередь RabbitMQ + rate limiting на retrain job|On-demand retrain только по запросу пользователя|
+| ID | Риск | Вероятность | Влияние | Митигация | Fallback |
+| --- | --- | --- | --- | --- | --- |
+| R1 | Vault не справляется с нагрузкой при 100+ RPS | Средняя | Высокое | Load testing перед production; Vault cluster из 3 нод | Остаться на Kubernetes Secrets + внешний vault-агент |
+| R2 | PostgreSQL HA failover работает некорректно | Средняя | Высокое | Ежеквартальные chaos tests; pg_basebackup проверка | Остаться на single PostgreSQL с ежедневными бэкапами |
+| R3 | Istio потребляет > 1 ГБ RAM на control plane | Высокая | Среднее | Использовать Linkerd вместо Istio (легче) | Остаться на hand-rolled mTLS |
+| R4 | ML retrain падает по памяти на 2 vCPU | Высокая | Среднее | Ограничить resources.limits; использовать swap | Перенести retrain на GitHub Actions / external GPU |
+| R5 | 152-ФЗ compliance не достигнут | Средняя | Высокое | Юридическая экспертиза на этапе проектирования | Ограничить функционал для РФ-пользователей |
+| R6 | Корпоративный email не получен (бюджет) | Средняя | Среднее | Использовать бесплатный Yandex 360 для бизнеса | Остаться на личном email с PGP |
+| R7 | Bug bounty программа привлекает неточные репорты | Высокая | Низкое | Чёткий scope, triage-процесс | Игнорировать некорректные репорты |
+| R8 | DVC remote не доступен из k8s | Средняя | Среднее | Настроить S3-compatible storage (MinIO) | Локальный DVC cache без remote |
+| R9 | Service Mesh конфликтует с существующими Network Policies | Средняя | Высокое | Тестирование в dev перед production | Откат на hand-rolled mTLS |
+| R10 | Adaptive daily retrain перегружает API | Высокая | Высокое | Очередь RabbitMQ + rate limiting на retrain job | On-demand retrain только по запросу пользователя |
 
 ### 22.3 Risk Response Plan
 
-|Риск|Ответ|Trigger|Action|
-|---|---|---|---|
-|R1|Mitigate|Vault latency > 500ms|Масштабировать Vault cluster|
-|R2|Mitigate|Failover > 30s|Откат на single PostgreSQL|
-|R3|Avoid|Istio memory > 1.5 ГБ|Использовать Linkerd|
-|R4|Transfer|ML retrain OOM|Перенести на external CI|
-|R5|Accept|Legal costs > 500k ₽|Ограничить функционал|
-|R6|Mitigate|Бюджет 0 ₽|Использовать бесплатный email|
-|R7|Accept|Трафик < 10 reports/мес|Низкие затраты на triage|
-|R8|Mitigate|DVC unavailable|MinIO fallback|
-|R9|Mitigate|Mesh errors > 1%|Откат на hand-rolled mTLS|
-|R10|Avoid|API latency > 2s|On-demand только|
+| Риск | Ответ | Trigger | Action |
+| --- | --- | --- | --- |
+| R1 | Mitigate | Vault latency > 500ms | Масштабировать Vault cluster |
+| R2 | Mitigate | Failover > 30s | Откат на single PostgreSQL |
+| R3 | Avoid | Istio memory > 1.5 ГБ | Использовать Linkerd |
+| R4 | Transfer | ML retrain OOM | Перенести на external CI |
+| R5 | Accept | Legal costs > 500k ₽ | Ограничить функционал |
+| R6 | Mitigate | Бюджет 0 ₽ | Использовать бесплатный email |
+| R7 | Accept | Трафик < 10 reports/мес | Низкие затраты на triage |
+| R8 | Mitigate | DVC unavailable | MinIO fallback |
+| R9 | Mitigate | Mesh errors > 1% | Откат на hand-rolled mTLS |
+| R10 | Avoid | API latency > 2s | On-demand только |
 
 ---
 
@@ -687,35 +695,35 @@ Phase 2 завершается, когда выполнены все Must-have �
 
 ### 23.2 Must-have (Phase 2 exit criteria)
 
-|Критерий|Метрика|Приоритет|
-|---|---|---|
-|Vault развёрнут и все секреты мигрированы|0 секретов в Kubernetes Secrets|P0|
-|PostgreSQL HA с failover < 30s|RTO < 30s, RPO = 0|P0|
-|Service Mesh активен между всеми сервисами|mTLS 100%, zero manual cert rotation|P0|
-|152-ФЗ compliance документация готова|Политика утверждена, audit log 3 года|P0|
-|Security email заменён на корпоративный|Личный email удалён из SECURITY.md|P0|
-|CI/CD pipeline обновлён (govulncheck, Gitleaks, TruffleHog)|Все scans проходят, Security Gate PASS|P1|
-|Backup DR протестирован|Recovery drill раз в квартал, RTO < 1ч|P1|
-|Observability: Grafana + Alertmanager|Дашборды покрывают все critical endpoints|P1|
+| Критерий | Метрика | Приоритет |
+| --- | --- | --- |
+| Vault развёрнут и все секреты мигрированы | 0 секретов в Kubernetes Secrets | P0 |
+| PostgreSQL HA с failover < 30s | RTO < 30s, RPO = 0 | P0 |
+| Service Mesh активен между всеми сервисами | mTLS 100%, zero manual cert rotation | P0 |
+| 152-ФЗ compliance документация готова | Политика утверждена, audit log 3 года | P0 |
+| Security email заменён на корпоративный | Личный email удалён из SECURITY.md | P0 |
+| CI/CD pipeline обновлён (govulncheck, Gitleaks, TruffleHog) | Все scans проходят, Security Gate PASS | P1 |
+| Backup DR протестирован | Recovery drill раз в квартал, RTO < 1ч | P1 |
+| Observability: Grafana + Alertmanager | Дашборды покрывают все critical endpoints | P1 |
 
 ### 23.3 Should-have (Phase 2 exit criteria — желательно)
 
-|Критерий|Меторика|Приоритет|
-|---|---|---|
-|CAPTCHA интегрирован|Error rate 429 ↓ на 50%|P2|
-|Bug bounty программа запущена|≥ 5 reports/мес|P2|
-|Ежеквартальный внешний пентест проведён|Отчёт с remediation plan|P2|
-|Medical services integration API готов|Sync с Flo/OKOK работает|P2|
-|Adaptive daily plan retrain (on-demand)|Retrain завершается < 10 мин|P3|
+| Критерий | Меторика | Приоритет |
+| --- | --- | --- |
+| CAPTCHA интегрирован | Error rate 429 ↓ на 50% | P2 |
+| Bug bounty программа запущена | ≥ 5 reports/мес | P2 |
+| Ежеквартальный внешний пентест проведён | Отчёт с remediation plan | P2 |
+| Medical services integration API готов | Sync с Flo/OKOK работает | P2 |
+| Adaptive daily plan retrain (on-demand) | Retrain завершается < 10 мин | P3 |
 
 ### 23.4 Could-have / Won't-have (переносится на Phase 3)
 
-|Критерий|Причина переноса|
-|---|---|
-|Canary Deployments (Flagger)|Требует Istio + extensive testing, низкий приоритет для 1-сервисной архитектуры|
-|Medical app registration в Минздраве|Юридический процесс 3-4 месяца, не зависит от технической реализации|
-|GPU-ускорение для ML|Дорого, текущий объём данных не требует GPU|
-|Full disaster recovery (warm standby на another VPS)|Требует второго VPS, дорого для учебного проекта|
+| Критерий | Причина переноса |
+| --- | --- |
+| Canary Deployments (Flagger) | Требует Istio + extensive testing, низкий приоритет для 1-сервисной архитектуры |
+| Medical app registration в Минздраве | Юридический процесс 3-4 месяца, не зависит от технической реализации |
+| GPU-ускорение для ML | Дорого, текущий объём данных не требует GPU |
+| Full disaster recovery (warm standby на another VPS) | Требует второго VPS, дорого для учебного проекта |
 
 ---
 
@@ -727,14 +735,14 @@ Phase 2 планируется на **3–4 месяца** (12–16 недель
 
 ### 24.2 Milestones
 
-|Milestone|Срок|Deliverables|Exit criteria|
-|---|---|---|---|
-|**M1: Foundation**|Недели 1–2|VPS upgrade, Vault deployed, corporate email|Vault отвечает < 10ms, email работает|
-|**M2: Security Hardening**|Недели 3–4|Secrets rotation automation, mTLS migration started, PGP key published|0 секретов в K8s Secrets, PGP fingerprint в SECURITY.md|
-|**M3: Database HA**|Недели 5–6|PostgreSQL HA deployed, failover tested, backup DR|RTO < 30s, recovery drill пройден|
-|**M4: Observability**|Недели 7–8|Service mesh deployed, Grafana dashboards, Alertmanager|Дашборды покрывают 100% critical endpoints, алерты работают|
-|**M5: Compliance**|Недели 9–10|152-ФЗ documentation, medical API, security email migrated, pen test vendor contracted|Политика утверждена, medical sync работает, pen test запланирован|
-|**M6: Polish**|Недели 11–12|CAPTCHA, bug bounty launch, adaptive retrain on-demand|Все Must-have критерии выполнены|
+| Milestone | Срок | Deliverables | Exit criteria |
+| --- | --- | --- | --- |
+| **M1: Foundation** | Недели 1–2 | VPS upgrade, Vault deployed, corporate email | Vault отвечает < 10ms, email работает |
+| **M2: Security Hardening** | Недели 3–4 | Secrets rotation automation, mTLS migration started, PGP key published | 0 секретов в K8s Secrets, PGP fingerprint в SECURITY.md |
+| **M3: Database HA** | Недели 5–6 | PostgreSQL HA deployed, failover tested, backup DR | RTO < 30s, recovery drill пройден |
+| **M4: Observability** | Недели 7–8 | Service mesh deployed, Grafana dashboards, Alertmanager | Дашборды покрывают 100% critical endpoints, алерты работают |
+| **M5: Compliance** | Недели 9–10 | 152-ФЗ documentation, medical API, security email migrated, pen test vendor contracted | Политика утверждена, medical sync работает, pen test запланирован |
+| **M6: Polish** | Недели 11–12 | CAPTCHA, bug bounty launch, adaptive retrain on-demand | Все Must-have критерии выполнены |
 
 ### 24.3 Gantt Chart (text-based)
 
@@ -823,12 +831,12 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 25.3 Go/No-go Criteria
 
-|Критерий|Go|No-go|
-|---|---|---|
-|Vault latency|P99 < 50ms|P99 > 200ms → откат|
-|PostgreSQL failover|RTO < 30s|RTO > 60s → откат на single|
-|Service Mesh overhead|Memory < 500MB/pod|Memory > 1GB/pod → Linkerd вместо Istio|
-|Budget|≤ 12 000 ₽/мес|≥ 20 000 ₽/мес → сокращение scope|
+| Критерий | Go | No-go |
+| --- | --- | --- |
+| Vault latency | P99 < 50ms | P99 > 200ms → откат |
+| PostgreSQL failover | RTO < 30s | RTO > 60s → откат на single |
+| Service Mesh overhead | Memory < 500MB/pod | Memory > 1GB/pod → Linkerd вместо Istio |
+| Budget | ≤ 12 000 ₽/мес | ≥ 20 000 ₽/мес → сокращение scope |
 
 ---
 
@@ -851,13 +859,13 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 26.3 Предварительный объём Phase 3
 
-|Этап|Срок|Ответственный|
-|---|---|---|
-|Canary Deployments|2–3 недели|DevOps/Backend|
-|Medical registration|3–4 недели|Legal|
-|Advanced ML (RL)|3–4 недели|ML Engineer|
-|Multi-region DR|4–6 недель|DevOps|
-|Full Service Mesh (Istio)|2–3 недели|Platform|
+| Этап | Срок | Ответственный |
+| --- | --- | --- |
+| Canary Deployments | 2–3 недели | DevOps/Backend |
+| Medical registration | 3–4 недели | Legal |
+| Advanced ML (RL) | 3–4 недели | ML Engineer |
+| Multi-region DR | 4–6 недель | DevOps |
+| Full Service Mesh (Istio) | 2–3 недели | Platform |
 
 **Итого Phase 3: 3–4 месяца**
 
@@ -871,11 +879,11 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 27.2 План
 
-|Этап|Устройство|Срок|Приоритет|Задачи|
-|---|---|---|---|---|
-|1|Withings|1 неделя|P0|OAuth 2.0, пул пульса/SpO₂/давления/температуры/сна/шагов|
-|2|Samsung Galaxy Watch|3–4 недели|P2|Samsung Health Connect API: требует регистрации в Samsung Developer Program, создания приложения в Samsung Galaxy Store, обязательной установки Samsung Health на телефон пользователя, OAuth 2.0 через Samsung account. Данные передаются с телефона, а не напрямую с часов.|
-|3|Huawei Watch D2|3–4 недели|P2|Huawei Health Kit: требует регистрации в Huawei Developer Alliance, официального приложения в AppGallery, OAuth 2.0 через Huawei ID. Данные идут через телефон. Аналогично Samsung — средняя сложность.|
+| Этап | Устройство | Срок | Приоритет | Задачи |
+| --- | --- | --- | --- | --- |
+| 1 | Withings | 1 неделя | P0 | OAuth 2.0, пул пульса/SpO₂/давления/температуры/сна/шагов |
+| 2 | Samsung Galaxy Watch | 3–4 недели | P2 | Samsung Health Connect API: требует регистрации в Samsung Developer Program, создания приложения в Samsung Galaxy Store, обязательной установки Samsung Health на телефон пользователя, OAuth 2.0 через Samsung account. Данные передаются с телефона, а не напрямую с часов. |
+| 3 | Huawei Watch D2 | 3–4 недели | P2 | Huawei Health Kit: требует регистрации в Huawei Developer Alliance, официального приложения в AppGallery, OAuth 2.0 через Huawei ID. Данные идут через телефон. Аналогично Samsung — средняя сложность. |
 
 ### 27.3 Acceptance Criteria
 

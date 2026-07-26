@@ -59,7 +59,7 @@ FitPulse — open-source fitness platform.
 Оценка серьезности соответствует секции "Типы уязвимостей" в [`SECURITY.md`](SECURITY.md). Ниже — ориентировочные временные рамки (best effort, без юридических гарантий):
 
 | Severity | Примеры | Время реакции (ориентир) |
-|----------|---------|--------------------------|
+| -------- | ------- | ------------------------ |
 | Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 48 часов — подтверждение; 7 рабочих дней — assessment; 30 рабочих дней — план исправления |
 | High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация, обход rate limit/auth middleware | 3–7 рабочих дней |
 | Medium | Missing security headers, weak crypto, info disclosure, session management issues | 1–2 недели |
