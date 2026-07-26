@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ml;
 
-option go_package = "github.com/MAMUER/Project/api/gen/ml";
+option go_package = "github.com/MAMUER/project/api/gen/ml";
 
 import "google/protobuf/struct.proto";
 
@@ -56,7 +56,7 @@ message BiometricData {
 }
 
 message ConnectedDevice {
-    string device_type = 1; // apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3
+    string device_type = 1; // fitbit, garmin, withings
     string device_id = 2;
     repeated string capabilities = 3;
 }
@@ -100,7 +100,7 @@ message ClassifyUserStateRequest {
 }
 
 message ClassifyUserStateResponse {
-    string state = 1; // recovery, endurance_e1e2, threshold_e3, strength_hiit, overtraining, illness
+    string state = 1; // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
     string state_ru = 2;
     double confidence = 3;
     map<string, double> scores = 4;

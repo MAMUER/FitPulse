@@ -14,8 +14,13 @@ fi
 MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
 DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
 TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
+SSH_STRICT_HOST_KEY_CHECKING="${SSH_STRICT_HOST_KEY_CHECKING:-yes}"
 
-COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+if [[ "$SSH_STRICT_HOST_KEY_CHECKING" == "yes" || "$SSH_STRICT_HOST_KEY_CHECKING" == "true" ]]; then
+    COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes)
+else
+    COMMON_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+fi
 
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
 	echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"

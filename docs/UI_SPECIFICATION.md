@@ -10,7 +10,7 @@
 
 ### 1.1. Тип приложения
 
-Single Page Application (SPA), состоящая из одного HTML-файла `web/index.html` с переключением `view` по классу `active`. Дополнительно используется серверный шаблон `web/templates/confirm.html` для страницы подтверждения email по маршруту `GET /confirm`.
+Single Page Application (SPA) на React 19 с Vite, состоящая из компонентов в `web/src/`. Маршрутизация реализована через React Router v7. Все view управляются React-компонентами с централизованным состоянием через Context API.
 
 ### 1.2. Навигация
 
@@ -24,6 +24,7 @@ Single Page Application (SPA), состоящая из одного HTML-фай�
 |Устройства|Smartphone|`devices`|`devicesView`|Устройства|—|
 |Достижения|Trophy|`achievements`|`achievementsView`|Достижения|—|
 |Диета|Container/bottle|`diet`|`dietView`|Диета|—|
+|Здоровье|Heart pulse|`health`|`healthView`|Здоровье|—|
 |Админка|Shield|`admin`|`adminView`|Админка|Скрыт по умолчанию (`display: none`)|
 
 Дополнительные view без tab-bar:
@@ -32,10 +33,11 @@ Single Page Application (SPA), состоящая из одного HTML-фай�
 
 ### 1.3. Технологии
 
-- **HTML5**, vanilla JS (ES2026), CSS-переменные.
-- **Chart.js** (`chart.umd.min.js`) — график пульса на Dashboard.
-- **Fetch API** через `web/static/js/api.js` для всех запросов к Gateway.
-- JWT хранится в `httpOnly` cookie (подробности в разделе 12).
+- **React 19** с Vite 8, React Router v7.
+- **Chart.js** 4 + `react-chartjs-2` — график пульса на Dashboard.
+- **API**: `web/src/utils/api.js` с Bearer-авторизацией.
+- **State**: React Context API (`AuthContext`).
+- **Styling**: Plain CSS с CSS-переменными.
 
 ---
 
@@ -114,16 +116,17 @@ div#app
         div#devicesView
         div#achievementsView
         div#dietView
+        div#healthView
         div#mlView (оверлей, не в tab-bar)
         div#adminView (скрыт display:none для не-админов)
     nav.tab-bar
-      button.tab × 7 (admin скрыт)
+      button.tab × 8 (admin скрыт)
 ```
 
 **Логика переключения view:**
 
 - По клику на tab: удалить `active` у текущего view, добавить текущему, обновить `pageTitle`.
-- При открытии view вызывается соответствующий `init*()` из `app.js`.
+- При открытии view React Router подгружает соответствующий компонент.
 - `adminTab` отображается только для пользователей с ролью `admin`.
 
 ---
@@ -236,7 +239,7 @@ div#app
 ### 4.3. Опасная зона (`danger-zone`)
 
 - Заголовок красным: «Опасная зона».
-- `deleteProfileBtn` → модалка подтверждения через пароль → `DELETE /profile`.
+- `deleteProfileBtn` → `confirm()` диалог с запросом пароля → `DELETE /profile` с `{password}` в теле запроса.
 
 ### 4.4. Эндпоинты
 
@@ -246,7 +249,7 @@ div#app
 |Обновить профиль|PUT|`/profile`|
 |Удалить профиль|DELETE|`/profile`|
 
-Примечание: смена пароля и email выполняются через `PUT /profile` с соответствующими полями, отдельные endpoints `/profile/security/*` не используются.
+Смена пароля и email выполняются через `PUT /profile` с соответствующими полями, отдельные endpoints `/profile/security/*` не используются.
 
 ---
 
@@ -280,7 +283,7 @@ div#app
 
 ### 5.4. Прогресс
 
-- График прогресса (Chart.js) — `GET /training/progress`.
+- График прогресса (Chart.js, столбчатая диаграмма) — `GET /training/progress`. Отображается в разделе «Достижения» (`achievementsView`) под списком челленджей.
 
 ---
 
@@ -294,7 +297,7 @@ div#app
 Список карточек:
 
 - Иконка устройства (emoji или SVG)
-- Название: `Apple Watch`, `Samsung Galaxy Watch`, `Huawei Watch D2`, `Amazfit T-Rex 3`
+- Название: `Fitbit`, `Garmin`, `Withings`
 - Статус: «Подключено» / «Отключено»
 - Кнопка «Отключить»
 
@@ -324,13 +327,15 @@ div#app
 
 ### 7.1. Достижения (`achievementsList`)
 
-Сетка карточек (`achievements-grid`):
+Сетка карточек (`achievements-grid`). Данные загружаются через `GET /api/v1/achievements` и отображаются все достижения из БД с статусом получено/заблокировано:
 
-- Первая тренировка
-- 7 дней подряд
-- 100 тренировок
-- Нормализация пульса
-- и т.д.
+- Первый шаг — первая завершённая тренировка
+- Десятка — 10 завершённых тренировок
+- Полтинник — 50 завершённых тренировок
+- Сто дней — 100 дней активности
+- Мастер спорта — 1000 завершённых тренировок
+
+Эндпоинт: `GET /api/v1/achievements`.
 
 ### 7.2. Соревнования (`competitionsList`)
 
@@ -338,7 +343,7 @@ div#app
 - Позиция в рейтинге.
 - Призы.
 
-Источник данных: `GET /training/progress` + бизнес-логика на клиенте.
+Источник данных: клиентские заглушки (персональные челленджи).
 
 ---
 
@@ -364,6 +369,36 @@ div#app
 - Ингредиенты/примеры блюд.
 
 Источник: `POST /ml/generate-plan` → диетная часть ответа.
+
+---
+
+## 8.5. Здоровье (`healthView`)
+
+**View ID:** `healthView`
+**Заголовок:** `Здоровье`
+
+### 8.5.1. Особенности здоровья (`healthConditionsList`)
+
+- Список заболеваний/состояний.
+- Кнопка «Добавить» → `POST /health/conditions`.
+- Эндпоинты: `GET /health/conditions`, `POST /health/conditions`, `DELETE /health/conditions/{condition_id}`.
+
+### 8.5.2. Состав тела (`bodyCompositionList`)
+
+- Журнал записей состава тела.
+- Кнопка «Добавить запись» → `POST /health/body-composition`.
+- Эндпоинты: `GET /health/body-composition`, `POST /health/body-composition`.
+
+### 8.5.3. Женский цикл (`menstrualCyclesList`)
+
+- Календарь/список циклов.
+- Кнопка «Добавить цикл» → `POST /health/menstrual-cycles`.
+- Эндпоинты: `GET /health/menstrual-cycles`, `POST /health/menstrual-cycles`, `PUT /health/menstrual-cycles/{cycle_id}`, `DELETE /health/menstrual-cycles/{cycle_id}`.
+
+### 8.5.4. Синхронизация
+
+- `syncFloBtn` → `POST /health/sync/flo`
+- `syncOKOKBtn` → `POST /health/sync/okok`
 
 ---
 
@@ -407,6 +442,11 @@ div#app
 - Карточки кодов: код, роль, статус, использовано/макс.
 - Эндпоинт: `GET /invites?page=&page_size=&used=`.
 
+### 10.3. Список пользователей
+
+- Бэкенд эндпоинт `GET /api/v1/admin/users` реализован.
+- UI в `adminView` отображает список пользователей в виде сетки: имя/email, роль, дата создания, дата обновления.
+
 ---
 
 ## 11. Обработка ошибок
@@ -415,22 +455,22 @@ div#app
 
 Серверные ошибки отображаются через `web/static/errors/`:
 
-- `403.html` — «Доступ запрещён»
-- `404.html` — «Страница не найдена»
-- `500.html` — «Внутренняя ошибка»
-- `error.html` / `error-500.html` — шаблоны для серверных ошибок.
+- `error.html` — общий шаблон для 404 «Страница не найдена»
+- `error-500.html` — шаблон для 500 «Внутренняя ошибка»
+- `403.html` — «Доступ запрещён» (уникальный, не дублирует error.html)
 
 ### 11.2. Страница подтверждения email (`/confirm`)
 
-- Серверный шаблон `web/templates/confirm.html` рендерится по `GET /confirm?token=`.
-- Fallback HTML встроен в `handlers_auth.go` при отсутствии шаблона.
+- React-компонент `web/src/components/Auth/Confirm.jsx` рендерится по `GET /confirm?token=`.
+- Backend возвращает HTML shell с встроенным `token` в `window.__CONFIRM_TOKEN__`, React подхватывает токен из URL query параметра.
 
 ### 11.3. Сетевые ошибки в SPA
 
 - Таймаут `fetch` — 10 секунд (AbortController + setTimeout).
-- При 403 — показ `403.html` (сервер возвращает 403 как 404 для предотвращения перечисления ресурсов; в SPA показ 403.html используется для внутренних проверок прав).
+- При 403 — для HTML запросов показ `403.html`; для JSON API сервер возвращает 403 как 404 для предотвращения перечисления ресурсов.
 - При 401 — попытка refresh токена → если fail → logout.
-- При 5xx — показ `500.html` + retry-кнопка.
+- При 429 — показ сообщения «Слишком много запросов, попробуйте через минуту» (или с учетом заголовка `Retry-After`).
+- При 5xx — показ `error-500.html` + retry-кнопка.
 
 ---
 
@@ -438,60 +478,67 @@ div#app
 
 |#|Мера|Реализация|
 |---|---|---|
-|1|XSS-защита|Везде `textContent` вместо `innerHTML` для пользовательских данных.|
-|2|CSP|`Content-Security-Policy` через NGINX + мета-тег в `index.html`.|
-|3|HTTPS-only|Все запросы идут на `https://` (HSTS).|
-|4|JWT в `httpOnly` cookie|Хранится в cookie с флагами `HttpOnly`, `Secure`, `SameSite=Strict`. При logout — сервер возвращает `Set-Cookie` с `Max-Age=0` (клиент не может удалить `httpOnly` cookie через JS).|
+|1|XSS-защита|В большинстве мест используется `innerHTML` для рендеринга данных. Для пользовательского ввода применяется `textContent` там, где это реализовано.|
+|2|CSP|`Content-Security-Policy` генерируется серверным middleware `SecurityHeaders` (nonce-based) + `HTMLNonceInject` добавляет `nonce` в `<script>` теги.|
+|3|HTTPS|Поддерживается TLS 1.3 + HSTS. Клиент использует относительные URLs (`/api/v1/...`), поэтому работает и по HTTP, и по HTTPS в зависимости от окружения.|
+|4|JWT хранение|Access token хранится в `localStorage`, отправляется в заголовке `Authorization: Bearer`. Refresh token хранится в `session` cookie.|
 |5|Валидация на клиенте|Все поля имеют `type`, `min`, `max`, `pattern`, `required`.|
-|6|Подпись ответов|Сервер подписывает HMAC-SHA256 критические JSON-ответы. *Рекомендация: если клиент не верифицирует подпись, она не несёт пользы для безопасности SPA и создаёт лишнюю нагрузку; следует либо реализовать верификацию (например, через короткий ключ из сессии), либо убрать подпись, полагаясь на TLS и CSP.*|
-|7|Rate limit UI|При 429 — показ сообщения «Слишком много запросов, попробуйте через минуту».|
+|6|Защита ответов|Транспорт защищён TLS 1.3 + HSTS + CSP|
+|7|Rate limit UI|При 429 показывается сообщение «Слишком много запросов, попробуйте через минуту» (или с учетом `Retry-After`).|
 
 ---
 
 ## 13. API-интеграция
 
-Все запросы централизованы в `web/static/js/api.js`:
+Все запросы централизованы в `web/src/utils/api.js`. Базовый путь: `/api/v1`.
 
 |Функция|Метод|Путь|
 |---|---|---|
-|`register(name, email, password)`|POST|`/api/v1/register`|
+|`register(email, password, fullName, role)`|POST|`/api/v1/register`|
+|`login(email, password)`|POST|`/api/v1/login`|
+|`getProfile()`|GET|`/api/v1/profile`|
+|`updateProfile(profile)`|PUT|`/api/v1/profile`|
+|`changePassword(currentPassword, newPassword)`|POST|`/api/v1/auth/change-password`|
+|`changeEmail(newEmail, password)`|POST|`/api/v1/auth/change-email`|
+|`get2FAStatus()`|GET|`/api/v1/auth/2fa/status`|
+|`setup2FA()`|POST|`/api/v1/auth/2fa/setup`|
+|`confirm2FA(passcode, tempSecret, backupCodes)`|POST|`/api/v1/auth/2fa/confirm`|
+|`verify2FA(tempToken, passcode, isBackupCode)`|POST|`/api/v1/auth/2fa/verify`|
+|`disable2FA(passcode)`|POST|`/api/v1/auth/2fa/disable`|
+|`deleteProfile(password)`|DELETE|`/api/v1/profile`|
+|`addBiometricRecord(metricType, value, timestamp, deviceType)`|POST|`/api/v1/biometrics`|
+|`getBiometricRecords(metricType, from, to, limit)`|GET|`/api/v1/biometrics`|
+|`generateTrainingPlan(durationWeeks, availableDays, classificationClass, confidence)`|POST|`/api/v1/training/generate`|
+|`getTrainingPlans(page, pageSize)`|GET|`/api/v1/training/plans`|
+|`getPlan(planId)`|GET|`/api/v1/training/plans/{plan_id}`|
+|`completeWorkout(planId, workoutId, rating, feedback)`|POST|`/api/v1/training/complete`|
+|`getProgress()`|GET|`/api/v1/training/progress`|
+|`getAchievements()`|GET|`/api/v1/achievements`|
+|`logout()`|POST|`/api/v1/logout`|
+|`listHealthConditions(conditionType)`|GET|`/api/v1/health/conditions`|
+|`upsertHealthCondition(data)`|POST|`/api/v1/health/conditions`|
+|`deleteHealthCondition(conditionId)`|DELETE|`/api/v1/health/conditions/{conditionId}`|
+|`listBodyComposition(from, to, limit)`|GET|`/api/v1/health/body-composition`|
+|`createBodyComposition(data)`|POST|`/api/v1/health/body-composition`|
+|`listMenstrualCycles()`|GET|`/api/v1/health/menstrual-cycles`|
+|`createMenstrualCycle(data)`|POST|`/api/v1/health/menstrual-cycles`|
+|`updateMenstrualCycle(cycleId, data)`|PUT|`/api/v1/health/menstrual-cycles/{cycleId}`|
+|`deleteMenstrualCycle(cycleId)`|DELETE|`/api/v1/health/menstrual-cycles/{cycleId}`|
+|`syncFlo(accessToken, refreshToken)`|POST|`/api/v1/health/sync/flo`|
+|`syncOKOK(accessToken, refreshToken)`|POST|`/api/v1/health/sync/okok`|
+|`fitbitAuth()`|GET|`/api/v1/devices/fitbit/auth`|
+|`withingsAuth()`|GET|`/api/v1/devices/withings/auth`|
+|`getProviders()`|GET|`/api/v1/devices/providers`|
+|`classifyState(biometrics)`|POST|`/api/v1/ml/classify`|
+|`generateMLPlan(trainingClass, user_profile, goal, constraints)`|POST|`/api/v1/ml/generate-plan`|
 |`registerWithInvite(code, name, email, password)`|POST|`/api/v1/register/invite`|
 |`validateInvite(code)`|POST|`/api/v1/invite/validate`|
-|`login(email, password)`|POST|`/api/v1/login`|
-|`confirmEmail(token)`|POST|`/api/v1/auth/confirm`|
-|`checkVerificationStatus(email)`|GET|`/api/v1/auth/verify-status`|
-|`refreshToken(refresh_token)`|POST|`/api/v1/auth/refresh`|
-|`verify2FA(temp_token, passcode, isBackupCode)`|POST|`/api/v1/auth/2fa/verify`|
-|`googleLogin()`|GET|`/api/v1/auth/google`|
-|`logout()`|POST|`/logout`|
-|`getProfile()`|GET|`/profile`|
-|`updateProfile(data)`|PUT|`/profile`|
-|`deleteProfile(password)`|DELETE|`/profile`|
-|`addBiometric(metric_type, value, timestamp, device_type)`|POST|`/biometrics`|
-|`getBiometrics(metric_type, from, to, limit)`|GET|`/biometrics`|
-|`generatePlan(duration_weeks, available_days, class, confidence)`|POST|`/training/generate`|
-|`getPlans(page, page_size)`|GET|`/training/plans`|
-|`getPlan(plan_id)`|GET|`/training/plans/{plan_id}`|
-|`completeTraining(plan_id, workout_id, rating, feedback)`|POST|`/training/complete`|
-|`getProgress()`|GET|`/training/progress`|
-|`classifyState(biometrics)`|POST|`/ml/classify`|
-|`generateMLPlan(training_class, user_profile, goal, constraints)`|POST|`/ml/generate-plan`|
-|`registerDevice(device_type, device_name)`|POST|`/devices/register`|
-|`ingestDevice(device_id, metrics)`|POST|`/devices/{device_id}/ingest`|
-|`listDevices()`|GET|`/devices`|
-|`registerDeviceSimple(device_type)`|POST|`/devices`|
-|`fitbitAuth()`|GET|`/devices/fitbit/auth`|
-|`withingsAuth()`|GET|`/devices/withings/auth`|
-|`getProviders()`|GET|`/devices/providers`|
-|`setupTOTP()`|POST|`/auth/2fa/setup`|
-|`confirmTOTP(passcode, temp_secret, backup_codes)`|POST|`/auth/2fa/confirm`|
-|`getTOTPStatus()`|GET|`/auth/2fa/status`|
-|`disableTOTP(passcode)`|POST|`/auth/2fa/disable`|
-|`createInvite(role, specialty, max_uses)`|POST|`/invites`|
-|`listInvites(page, page_size, used)`|GET|`/invites`|
-|`revokeInvite(code)`|POST|`/invites/{code}/revoke`|
+|`createInvite(role, specialty, maxUses)`|POST|`/api/v1/admin/invites`|
+|`listInvites(page, pageSize, used)`|GET|`/api/v1/admin/invites`|
+|`revokeInvite(code)`|POST|`/api/v1/admin/invites/{code}/revoke`|
+|`listUsers(page, pageSize)`|GET|`/api/v1/admin/users`|
 
-Все ответы — JSON. Ошибки имеют формат `{error: string}`.
+Все ответы — JSON. Ошибки имеют формат `{error: string}` или `{message: string}`.
 
 ---
 
@@ -499,44 +546,61 @@ div#app
 
 |Путь|Назначение|
 |---|---|
-|`web/index.html`|SPA: auth + все views (dashboard, profile, training, devices, achievements, diet, ml, admin)|
-|`web/templates/confirm.html`|Шаблон страницы подтверждения email (рендерится Go)|
-|`web/static/css/main.css`|Основные стили, CSS-переменные|
-|`web/static/css/modules.css`|Модульные стили|
-|`web/static/fonts/fonts.css`|Self-hosted шрифты (JetBrains Mono, Inter)|
-|`web/static/js/api.js`|Функции HTTP-запросов к Gateway|
-|`web/static/js/app.js`|Логика SPA: переключение view, инициализация модулей|
-|`web/static/js/modules.js`|Модули: устройства, достижения, тренировки, ML|
-|`web/static/errors/403.html`|Страница 403|
-|`web/static/errors/404.html`|Страница 404|
-|`web/static/errors/500.html`|Страница 500|
-|`web/static/errors/error.html`|Общий шаблон ошибки|
-|`web/static/errors/error-500.html`|Шаблон 500 ошибки|
+|`web/index.html`|Vite entry point для React SPA|
+|`web/src/main.jsx`|Точка входа React: BrowserRouter + AuthProvider|
+|`web/src/App.jsx`|Роутер с защищёнными маршрутами|
+|`web/src/index.css`|Глобальные стили, CSS-переменные|
+|`web/src/contexts/AuthContext.jsx`|Auth state management|
+|`web/src/utils/api.js`|HTTP-запросы к Gateway|
+|`web/src/utils/validators.js`|Валидаторы форм|
+|`web/src/components/Auth/`|Login, Register, 2FA, Confirm|
+|`web/src/components/Dashboard/`|Обзор с Chart.js|
+|`web/src/components/Profile/`|Профиль, смена пароля/email, 2FA|
+|`web/src/components/Training/`|Тренировочные планы|
+|`web/src/components/Devices/`|Интеграция с устройствами|
+|`web/src/components/Achievements/`|Достижения|
+|`web/src/components/Diet/`|Диета, калькулятор калорий|
+|`web/src/components/Health/`|Здоровье, менструальные циклы|
+|`web/src/components/ML/`|ML классификация, генерация планов|
+|`web/src/components/Admin/`|Админка: invites, users|
+|`web/src/components/Layout/`|Top bar, tab bar|
+|`web/static/fonts/`|Self-hosted шрифты (JetBrains Mono, Inter)|
+|`web/static/errors/`|Страницы ошибок (403, 404, 500)|
+|`web/vite.config.js`|Vite конфиг: proxy /api, alias @|
+|`web/package.json`|Зависимости React, Chart.js, React Router|
 
-Примечание: Более половины файлов в `web/templates/` (`achievements.html`, `base.html`, `dashboard.html`, `ml-classify.html`, `ml-generate.html`, `profile.html`, `training.html`) не используются в текущей версии кода. Основной фронтенд — это `web/index.html` (SPA).
+Примечание: Старые файлы `web/templates/` и `web/static/js/`, `web/static/css/` удалены после миграции на React.
 
 ---
 
 ## 15. Дизайн-токены (CSS-переменные)
 
-Основные переменные из `main.css`:
+Основные переменные из `web/src/index.css`:
 
 ```css
 :root {
-  --bg-primary: #0a0a0a;
-  --bg-surface: #1a1a1a;
-  --bg-elevated: #2a2a2a;
+  --bg-primary: #000000;
+  --bg-secondary: #1c1c1e;
+  --bg-card: #2c2c2e;
+  --bg-input: #3a3a3c;
   --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --accent: #4f46e5;
-  --accent-hover: #6366f1;
-  --red: #ef4444;
-  --green: #10b981;
-  --yellow: #f59e0b;
-  --radius-sm: 8px;
-  --radius-md: 12px;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #636366;
+  --accent: #ff375f;
+  --accent-secondary: #ff6b81;
+  --green: #30d158;
+  --blue: #0a84ff;
+  --orange: #ff9f0a;
+  --purple: #bf5af2;
+  --teal: #64d2ff;
+  --radius-sm: 12px;
+  --radius-md: 16px;
   --radius-lg: 20px;
+  --radius-xl: 24px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 ```
 
@@ -552,5 +616,5 @@ div#app
 2. **P1** — Training: список планов + генерация + завершение.
 3. **P2** — Devices: подключение + интеграции.
 4. **P3** — Achievements, Diet, ML-классификация.
-5. **P4** — Admin panel: invite-коды, список пользователей.
+5. **P4** — Admin panel: invite-коды (создание, список, отзыв), список пользователей.
 6. **UX/Polish** — скелетон-экраны, pull-to-refresh, offline-индикатор, skeleton loaders.

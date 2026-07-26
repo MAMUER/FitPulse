@@ -12,15 +12,15 @@
 │   │   └── ml.proto
 │   └── gen/                          # сгенерированные .go файлы (committed в репозиторий)
 ├── cmd/
-│   ├── gateway/                      # HTTP/gRPC gateway (nginx ingress)
+│   ├── gateway/                      # HTTP/gRPC gateway
 │   ├── user-service/                 # Users, auth, profile
 │   ├── biometric-service/            # Biometric data ingestion
 │   ├── training-service/             # Training plans
-│   ├── device-connector/             # External device sync (Fitbit/Withings)
+│   ├── device-connector/             # External device sync (Fitbit/Garmin/Withings)
 │   ├── device-aggregator/            # OAuth/webhook aggregator for devices
-│   ├── classifier/                   # ML classifier service
+│   ├── classifier/                   # Classifier service
 │   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
-│   └── data-processor/               # Background data processing
+│   └── data-processor/               # Background data processing (in repo, not deployed standalone)
 ├── configs/
 │   └── k8s/
 │       ├── base/
@@ -41,11 +41,7 @@
 │       └── scripts/                  # Helper scripts for k8s bootstrap
 ├── db/
 │   └── migrations/                   # SQL миграции (версионированные)
-├── deploy/
-│   ├── lb/
-│   │   ├── production.conf           # Host NGINX конфигурация
-│   │   └── install-crs.sh            # ModSecurity CRS установка
-│   └── compose/                      # Docker Compose окружения
+│       └── V1__full_schema.sql       # Consolidated idempotent schema
 ├── docs/                             # Документация
 ├── internal/
 │   ├── apperrors/                    # Application error types
@@ -68,24 +64,36 @@
 │   ├── totp/                         # TOTP 2FA
 │   └── validator/                    # Request validators
 ├── models/                           # ML модели
-├── pkg/                              # Публичные пакеты
 ├── scripts/                          # Вспомогательные скрипты
-├── web/                              # SPA фронтенд
-│   ├── index.html                    # Основное SPA (auth + views)
-│   └── templates/
-│       └── confirm.html              # Шаблон страницы подтверждения email
-│   ├── static/
-│       │   ├── css/
-│       │   │   ├── main.css
-│       │   │   └── modules.css
-│       │   ├── fonts/
-│       │   │   ├── fonts.css
-│       │   │   └── *.woff2
-│       │   ├── js/
-│       │   │   ├── api.js
-│       │   │   ├── app.js
-│       │   │   └── modules.js
-│       │   └── errors/               # HTML шаблоны ошибок
+├── web/                              # React SPA фронтенд
+│   ├── index.html                    # Vite entry point
+│   ├── package.json                  # Зависимости (React 19, React Router v7, Chart.js)
+│   ├── vite.config.js                # Vite конфиг с proxy /api
+│   ├── src/
+│   │   ├── main.jsx                  # Точка входа: BrowserRouter + AuthProvider
+│   │   ├── App.jsx                   # Роутер с защищёнными маршрутами
+│   │   ├── index.css                 # Глобальные стили, CSS-переменные
+│   │   ├── contexts/
+│   │   │   └── AuthContext.jsx        # Auth state management
+│   │   ├── utils/
+│   │   │   ├── api.js                # HTTP-запросы к Gateway
+│   │   │   ├── validators.js         # Валидаторы форм
+│   │   │   └── exerciseNames.js      # Названия упражнений
+│   │   └── components/
+│   │       ├── Layout/               # Top bar, tab bar
+│   │       ├── Auth/                 # Login, Register, 2FA, Confirm
+│   │       ├── Dashboard/            # Обзор с Chart.js
+│   │       ├── Profile/              # Профиль, смена пароля/email, 2FA
+│   │       ├── Training/             # Тренировочные планы
+│   │       ├── Devices/              # Интеграция с устройствами
+│   │       ├── Achievements/         # Достижения
+│   │       ├── Diet/                 # Диета, калькулятор калорий
+│   │       ├── Health/               # Здоровье, менструальные циклы
+│   │       ├── ML/                   # ML классификация, генерация планов
+│   │       └── Admin/                # Админка: invites, users
+│   └── static/
+│       ├── fonts/                    # Self-hosted шрифты (JetBrains Mono, Inter)
+│       └── errors/                   # Страницы ошибок (403, 404, 500)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                   # Полный CI/CD пайплайн
@@ -118,24 +126,29 @@ requirements:
 
 **Конфигурация**:
 
-- Quorum queues (Raft consensus) для отказоустойчивости (classic mirrored queues deprecated)
-- DLQ: `<queue-name>.dlq` для анализа ошибок
-- TTL на сообщениях: 24 часа для сообщений уведомлений
+- DLQ: `<queue-name>.dlq` для анализа ошибок (реализовано в `internal/queue/dlq.go`)
+- TTL на сообщениях: 24 часа для сообщений уведомлений (реализовано в `internal/queue/dlq.go`)
+- Persistent queues: `durable=true` при объявлении очередей
+- Мониторинг: queue depth, consumer lag, message rates через Prometheus
 
-### 1.2 Logging Stack: ELK (Elasticsearch, Logstash, Kibana)
+### 1.2 Logging Stack: Fluent Bit
 
 ```yaml
-component: "ELK Stack"
-purpose: "Централизованное хранение и анализ логов"
+component: "Fluent Bit"
+purpose: "Сбор и форматирование логов из подов Kubernetes"
 
-retention:
-  hot: "90 дней"
-  cold: "Архивация в S3 (1 год)"
+implementation:
+  - "Fluent Bit DaemonSet на каждом узле (fluent/fluent-bit:2.2.2)"
+  - "Сбор stdout/stderr контейнеров из /var/log/containers/*.log"
+  - "Парсинг docker/json_logs контейнеров"
+  - "Добавление Kubernetes метаданных (namespace, pod, container)"
+  - "Вывод в stdout в формате JSON lines"
 
-requirements:
-  - "Structured JSON logging (обязательные поля: timestamp, level, correlationId, userId)"
-  - "Индексация по service, action, error_code для быстрого поиска"
-  - "Role-based access в Kibana: dev → read-only, security → full access"
+current_state:
+  - "Fluent Bit DaemonSet развёрнут через configs/monitoring/fluent-bit/"
+  - "Output: stdout только, без центрального хранилища"
+  - "Kubernetes фильтр для обогащения логов метаданными"
+  - "HTTP health endpoint на порту 2020"
 ```
 
 **JSON-формат логов (обязательный)**:
@@ -166,10 +179,15 @@ requirements:
 component: "Prometheus + Grafana"
 purpose: "Сбор, хранение и визуализация метрик"
 
-requirements:
+implementation:
+  - "Prometheus развёрнут в Kubernetes (configs/monitoring/prometheus/)"
+  - "Grafana с provisioned дашборадами"
+  - "Alertmanager с базовыми алертами (вебхук)"
   - "Service discovery через Kubernetes annotations"
-  - "Recording rules для pre-aggregated метрик"
-  - "Alertmanager интеграция с Slack/PagerDuty"
+
+current_state:
+  - "Scrape configs настроены для всех сервисов"
+  - "Alertmanager: вебхук на localhost:9093"
 ```
 
 ---
@@ -178,14 +196,15 @@ requirements:
 
 |Параметр|Dev|Test|Staging|Prod|
 |---|---|---|---|---|
-|**K8s pods per service**|1|2|3|5+ (HPA: min=5, max=20)|
-|**PostgreSQL topology**|1 инстанс (локальный, PG 18)|1 primary + 1 replica|1 primary + 2 replicas|1 primary + 3 replicas (1 sync + 2 async, PG 18)|
-|**Valkey topology**|1 узел (Valkey 9)|3 узла (Sentinel)|3 узла (Sentinel)|6 узлов (Cluster mode, 3 master + 3 replica)|
-|**GPU resources**|CPU only|1× NVIDIA T4|2× NVIDIA T4|4+× NVIDIA A10 (ML inference)|
-|**Monitoring stack**|Базовый (логи в консоль)|ELK + Prometheus (full)|Полный + алерты в Slack|Полный + on-call ротация + PagerDuty|
-|**Backup strategy**|Нет|Ежедневно (pg_dump)|Каждые 12 часов (WAL-архивация)|Каждые 6 часов (WAL) + PITR|
-|**SSL/TLS**|Self-signed|Let's Encrypt (авто-ротация)|Corporate CA|Corporate CA + HSM|
-|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist + Hardware token|
+|**K8s pods per service**|1|1|1–2|1–3 (HPA при нагрузке)|
+|**PostgreSQL topology**|1 инстанс (postgres:18-alpine)|1 primary|1 primary + 1 replica|1 primary + 1–2 replicas (postgres:18 + pgsodium:pg18)|
+|**Valkey topology**|1 узел (valkey:9-alpine)|1 узел (standalone)|1 узел (standalone)|1 узел (standalone, Sentinel Phase 2)|
+|**RabbitMQ**|1 узел (rabbitmq:4.3-management-alpine, classic queues)|1 узел|1 узел|1 узел (quorum queues Phase 2)|
+|**GPU resources**|CPU only|CPU only|CPU only|CPU only (ML inference на CPU)|
+|**Monitoring stack**|Console logs|Prometheus + Grafana|Prometheus + Grafana + Alertmanager|Prometheus + Grafana + Alertmanager (Slack Phase 2)|
+|**Backup strategy**|Нет|Еженедельно (pg_dump)|Ежедневно (pg_dump)|Ежедневно (pg_dump) + WAL (Phase 2)|
+|**SSL/TLS**|Self-signed|Self-signed / Let's Encrypt|Let's Encrypt (авто-ротация)|Let's Encrypt / Corporate CA|
+|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist|
 
 ---
 
@@ -285,7 +304,7 @@ zones:
     allowed_egress: ["none"]
   
   monitoring-zone:
-    description: "ELK, Prometheus, Grafana"
+    description: "Prometheus, Grafana, Alertmanager"
     allowed_ingress: ["vpn-users"]
     allowed_egress: ["all"]
 
@@ -357,16 +376,19 @@ verification:
 
 ### 4.6 WAF (Web Application Firewall)
 
-**Опции**:
+**Текущая реализация**:
 
-- Nginx + ModSecurity (open-source, CRS ruleset)
-- AWS WAF / Cloudflare (managed rules + custom)
+- Ingress NGINX Controller с `hostNetwork: true` на портах 80/443
+- ModSecurity + OWASP CRS v4 (managed via ConfigMap)
+- cert-manager для автоматического управления TLS-сертификатами (Let's Encrypt)
+- Automated CRS updates через Kubernetes CronJob (еженедельно)
 
 **Правила**:
 
 - SQL injection, XSS, path traversal блокировка
 - Rate limiting: 100 req/min per IP для анонимных пользователей
 - Geo-blocking: доступ только из разрешённых регионов (опционально)
+- Health checks bypass WAF (`/health` endpoint)
 
 ### 4.7 Ротация секретов
 
@@ -379,6 +401,642 @@ verification:
   - "Compliance check: аудит политик"
   - "Тест отката: восстановление работы при компрометации ключа"
 ```
+
+---
+
+## 4.x User Service (user-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для управления пользователями, аутентификацией и профилями. Отвечает за:
+- Регистрацию и подтверждение email
+- Логин по паролю (Argon2id) и Google OAuth
+- Выдачу JWT access/refresh токенов
+- Управление профилями, целями и противопоказаниями
+- 2FA через TOTP с резервными кодами
+- Управление устройствами пользователя
+- Хранение состава тела, менструальных циклов, состояний здоровья
+- Пригласительные коды для регистрации тренеров/клиентов
+- Шифрование PII через pgsodium AEAD
+
+### 4.x.2 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `Register` | Регистрация пользователя |
+| `RegisterWithInvite` | Регистрация по invite-коду |
+| `ConfirmEmail` | Подтверждение email |
+| `Login` | Логин по паролю |
+| `AuthenticateGoogle` | Авторизация через Google |
+| `RefreshToken` | Обновление access token |
+| `GetProfile` | Получить профиль |
+| `GetUserByEmail` | Получить пользователя по email |
+| `UpdateProfile` | Обновить профиль |
+| `ChangePassword` | Сменить пароль |
+| `ChangeNickname` | Сменить никнейм |
+| `UploadProfilePhoto` | Загрузить фото профиля |
+| `RemoveProfilePhoto` | Удалить фото профиля |
+| `ListDevices` | Список устройств |
+| `AddDevice` | Добавить устройство |
+| `RemoveDevice` | Удалить устройство |
+| `SyncDeviceData` | Синхронизировать данные устройства |
+| `GetTrainingStats` | Статистика тренировок |
+| `GetAchievements` | Достижения пользователя |
+| `ListUsers` | Список пользователей (пагинация) |
+| `ValidateInviteCode` | Проверить invite-код |
+| `SetupTOTP` | Настроить 2FA |
+| `ConfirmTOTP` | Подтвердить включение 2FA |
+| `VerifyTOTP` | Проверить TOTP код |
+| `DisableTOTP` | Отключить 2FA |
+| `ListHealthConditions` | Список состояний здоровья |
+| `UpsertHealthCondition` | Создать/обновить состояние здоровья |
+| `DeleteHealthCondition` | Удалить состояние здоровья |
+| `ListBodyComposition` | Список записей состава тела |
+| `CreateBodyComposition` | Создать запись состава тела |
+| `ListMenstrualCycles` | Список менструальных циклов |
+| `CreateMenstrualCycle` | Создать менструальный цикл |
+| `UpdateMenstrualCycle` | Обновить менструальный цикл |
+| `DeleteMenstrualCycle` | Удалить менструальный цикл |
+| `SyncFloData` | Синхронизация с Flo |
+| `SyncOKOKData` | Синхронизация с OKOK |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|---|---|---|
+| `USER_SERVICE_PORT` | `50051` | Порт gRPC сервера |
+| `USER_SERVICE_METRICS_PORT` | `9096` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `JWT_PRIVATE_KEY_PEM` | — | PEM-ключ для JWT |
+| `TOTP_ENCRYPTION_KEY` | — | Ключ для шифрования TOTP секретов |
+| `BASE_URL` | `https://localhost:8443` | Базовый URL для ссылок верификации |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth Client ID |
+| `DB_ENCRYPTION_KEY` | — | Ключ для pgsodium PII шифрования |
+
+### 4.x.4 Безопасность
+
+- Пароли: Argon2id (m=65536, t=3, p=1), salt 16 байт, hash 32 байта
+- PII шифрование: pgsodium AEAD (`email_encrypted`, `full_name_encrypted`, `nickname_encrypted`, `token_encrypted`, `totp_secret_encrypted`)
+- Blind indexes: `email_hash`, `full_name_hash`, `nickname_hash` для поиска по зашифрованным полям
+- JWT: ES256, 15 минут access, 7 дней refresh
+- 2FA: TOTP (10 резервных кодов, хешированных через SHA256)
+- Google OAuth: автоматическая привязка/создание пользователя
+- Email верификация: токены с сроком 24 часа
+
+### 4.x.5 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
+
+### 4.x.6 Метрики
+
+- gRPC server interceptor: `metrics.UnaryServerInterceptor("user-service")`
+- HTTP endpoint: `:9096/metrics` (Prometheus `promhttp.Handler`)
+
+### 4.x.7 Middleware
+
+- gRPC recovery interceptor (`middleware.RecoveryGRPC`)
+- Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
+- Telemetry interceptor (`telemetry.ServerHandlerOption`)
+
+### 4.x.8 Особенности
+
+- Логгер: `internal/logger` с полем `service: "user-service"`
+- PII миграция: автоматическое перекодирование pgcrypto → pgsodium при старте
+- Backfill PII: заполнение шифрованных полей для существующих plaintext записей
+- Транзакционная целостность: `CreateMenstrualCycle` и `UpdateMenstrualCycle` используют транзакции
+- Invite-коды: хранятся в БД, поддерживают role/specialty/max_uses
+
+### 4.x.9 Интеграционные тесты
+
+Пропущены (`t.Skip`). Запуск: `go test ./cmd/user-service/...`
+
+---
+
+## 4.x Биометрический сервис (biometric-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для приёма, валидации, дедупликации и хранения биометрических данных (пульс, SpO2, температура, артериальное давление, шаги, HRV). Публикует события в RabbitMQ для асинхронной ML-обработки.
+
+### 4.x.2 gRPC-авторизация
+
+Все методы требуют JWT access token (ES256) в gRPC metadata:
+
+```text
+authorization: Bearer <access_token>
+```
+
+Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go`).
+Токен валидируется по JWKS публичному ключу из `JWT_PUBLIC_KEY_PEM_FILE`.
+
+### 4.x.3 Health Check
+
+Динамический health check раз в 10 секунд:
+- Пингует PostgreSQL (`db.PingContext`)
+- Пингует RabbitMQ (`queue.Publisher.Ping()`)
+- gRPC health protocol возвращает `SERVING` / `NOT_SERVING`
+
+### 4.x.4 Метрики
+
+- gRPC interceptor: `metrics.UnaryServerInterceptor("biometric-service")` — `grpc_requests_total`, `grpc_request_duration_seconds`, `grpc_errors_total`
+- HTTP endpoint: `:9090/metrics` (Prometheus `promhttp.Handler`)
+- Бизнес-метрики: `biometric_sync_lag_seconds`
+
+### 4.x.5 Дедупликация
+
+Уникальное ограничение на `(user_id, metric_type, timestamp, device_type)`.
+Миграция: `db/migrations/V1__full_schema.sql`.
+Вставки используют `ON CONFLICT DO NOTHING`.
+
+### 4.x.6 Валидация метрик
+
+| metric_type | диапазон |
+|---|---|
+| `heart_rate` | 30–220 |
+| `spo2` | 70–100 |
+| `temperature` | 35.5–38.5 °C |
+| `blood_pressure_systolic` | 80–200 |
+| `blood_pressure_diastolic` | 50–130 |
+| `steps` | 0–100000 |
+| `hrv` | 0–200 |
+
+### 4.x.7 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `AddRecord` | Добавить одну запись |
+| `BatchAddRecords` | Пакетная вставка с транзакцией |
+| `GetRecords` | Получить записи с фильтрацией по `from`/`to` и пагинацией `limit`/`offset` |
+| `GetLatest` | Последняя запись по типу |
+| `UpdateRecord` | Обновить запись по `id` |
+| `DeleteRecord` | Удалить запись по `id` |
+
+### 4.x.8 Интеграционные тесты
+
+Используют Testcontainers (PostgreSQL + RabbitMQ) через `internal/testcontainers`.
+Запуск: `go test ./cmd/biometric-service/...` (без `-short`).
+
+---
+
+## 4.x Training Service (training-service)
+
+### 4.x.1 Назначение
+
+gRPC-сервис для управления тренировочными планами. Отвечает за:
+- Генерацию персонализированных планов тренировок на основе классификации состояния пользователя
+- Хранение планов в PostgreSQL (`training_plans`, `training_plan_weeks`, `training_plan_days`, `training_exercises`)
+- Отслеживание выполнения тренировок (`workout_completions`)
+- Начисление достижений (`user_achievements`)
+- Публикацию событий о генерации планов в RabbitMQ
+
+### 4.x.2 gRPC методы
+
+| RPC | описание |
+|---|---|
+| `GeneratePlan` | Сгенерировать тренировочный план |
+| `GetPlan` | Получить план по ID |
+| `ListPlans` | Список планов пользователя |
+| `CompleteWorkout` | Отметить тренировку выполненной |
+| `GetProgress` | Прогресс пользователя |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `TRAINING_SERVICE_PORT` | `50053` | Порт gRPC сервера |
+| `TRAINING_SERVICE_METRICS_PORT` | `9095` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `RABBITMQ_URL` | — | RabbitMQ URL (опционально) |
+| `BIOMETRIC_SERVICE_ADDR` | — | Адрес biometric-service (не используется напрямую) |
+
+### 4.x.4 Генерация плана
+
+`GeneratePlan` выполняет:
+1. Валидацию запроса
+2. Удаление существующего активного плана пользователя
+3. Подготовку данных плана из запроса
+4. Расчёт дат начала и конца
+5. Сохранение плана и деталей в транзакции PostgreSQL
+6. Публикацию события `plan_generated` в RabbitMQ
+
+### 4.x.5 Достижения
+
+Автоматическое начисление достижений при выполнении тренировок:
+- `first_workout` — после 1 выполненной тренировки
+- `ten_workouts` — после 10 выполненных тренировок
+- `fifty_workouts` — после 50 выполненных тренировок
+
+### 4.x.6 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
+
+### 4.x.7 Метрики
+
+- gRPC server interceptor: `metrics.UnaryServerInterceptor("training-service")`
+- HTTP endpoint: `:9095/metrics` (Prometheus `promhttp.Handler`)
+
+### 4.x.8 Middleware
+
+- gRPC recovery interceptor (`middleware.RecoveryGRPC`)
+- Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
+- Telemetry interceptor (`telemetry.ServerHandlerOption`)
+
+### 4.x.9 Интеграционные тесты
+
+Пропущены (`t.Skip`). Запуск: `go test ./cmd/training-service/...`
+
+### 4.x.10 Особенности
+
+- Логгер: `internal/logger` с полем `service: "training-service"`
+- Транзакционная целостность: `GeneratePlan` использует единую транзакцию для плана и деталей
+- RabbitMQ опционален: сервис работает без очереди, но логирует предупреждение
+
+---
+
+## 4.x Классификатор состояний (classifier)
+
+### 4.x.1 Назначение
+
+HTTP-сервис для классификации физиологического состояния пользователя по 6 зонам на основе биометрических данных (пульс, HRV, SpO2, температура, АД, сон). Использует rule-based модель (замена реальной ML-модели в Phase 1). Gateway вызывает его для `POST /api/v1/ml/classify`.
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `POST /classify` | Классификация состояния |
+| `GET /health` | Health check |
+| `GET /metrics` | Prometheus метрики |
+| `GET /classes` | Список поддерживаемых классов |
+| `GET /model-info` | Информация о модели |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `CLASSIFIER_PORT` | `8001` | Порт сервера |
+| `CLASSIFIER_METRICS_PORT` | `9091` | Порт metrics-сервера |
+
+### 4.x.4 Формат запроса `POST /classify`
+
+```json
+{
+  "physiological_data": {
+    "heart_rate": 140.0,
+    "heart_rate_variability": 50.0,
+    "spo2": 98.0,
+    "temperature": 36.6,
+    "blood_pressure_systolic": 120.0,
+    "blood_pressure_diastolic": 80.0,
+    "sleep_hours": 7.0
+  },
+  "user_profile": {
+    "age": 30,
+    "fitness_level": "intermediate",
+    "goals": ["endurance"]
+  }
+}
+```
+
+### 4.x.5 Формат ответа
+
+```json
+{
+  "status": "success",
+  "state": "endurance_basic",
+  "confidence": 0.87,
+  "recommendation": ["Бег в аэробной зоне", "Велосипед (средняя интенсивность)"],
+  "fatigue_level": 0.3,
+  "motivation_score": 0.7,
+  "recovery_quality": 0.7,
+  "predicted_class": "endurance_basic",
+  "predicted_class_ru": "Базовая выносливость E1-E2",
+  "probabilities": {
+    "recovery": 0.02,
+    "endurance_basic": 0.87,
+    "endurance_threshold": 0.02,
+    "power_hiit": 0.02,
+    "overtraining": 0.05,
+    "illness": 0.02
+  },
+  "description": "Работа ниже лактатного порога...",
+  "hr_range": "65-80% HRmax",
+  "personalized_notes": "Учитывая цель похудения..."
+}
+```
+
+### 4.x.6 Классы состояний
+
+| # | Класс (slug) | Название RU | Ключевые правила |
+|---|--------------|-------------|------------------|
+| 0 | `recovery` | Восстановление | HRV > 50 И HR < 65% HRmax |
+| 1 | `endurance_basic` | Базовая выносливость E1-E2 | HR 65–80% HRmax, HRV 50–80 |
+| 2 | `endurance_threshold` | Пороговая выносливость E3 | HR 80–90% HRmax |
+| 3 | `power_hiit` | Силовая/HIIT | HR > 90% HRmax |
+| 4 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
+| 5 | `illness` | Заболевание | Температура > 37.5°C |
+
+### 4.x.7 Middleware
+
+- Recovery middleware (`middleware.RecoveryMiddleware`)
+- Request ID (`middleware.RequestID`)
+- CORS (`corsMiddleware`)
+- Логирование с Prometheus-метриками (`classifierLoggingMiddleware`)
+
+### 4.x.8 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+
+### 4.x.9 Метрики
+
+- `http_request_duration_seconds{method, path}`
+- `http_requests_total{method, path, status}`
+- `error_total{service="classifier", error_type}`
+- `classification_confidence{model_version="rule-based", class}`
+
+### 4.x.10 Валидация
+
+Валидация входных данных с диапазонами:
+- `heart_rate`: 20–250
+- `heart_rate_variability`: 0–300
+- `spo2`: 70–100
+- `temperature`: 30–45
+- `blood_pressure_systolic`: 60–250
+- `blood_pressure_diastolic`: 40–150
+- `sleep_hours`: 0–24
+
+Нулевые значения считаются не указанными и пропускаются.
+
+### 4.x.11 Интеграционные тесты
+
+Реальные e2e-тесты с поднятым HTTP-сервером:
+- Health check
+- Классификация с валидными данными
+- Обработка невалидного JSON
+- Валидационные ошибки
+
+Запуск: `go test ./cmd/classifier/...` (без `-short`).
+
+### 4.x.12 Особенности
+
+- Логгер: `internal/logger` с полем `service: "classifier"`
+- Gateway трансформирует ответ в контракт API: добавляет `status`, `state`, `fatigue_level`, `motivation_score`, `recovery_quality`
+- Mapping метрик: `hrv` → `heart_rate_variability`, `systolic_pressure` → `blood_pressure_systolic` и т.д.
+
+---
+
+## 4.x Device Aggregator (device-aggregator)
+
+### 4.x.1 Назначение
+
+HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Garmin, Withings). Отвечает за:
+- OAuth 2.0 flow для Fitbit и Withings
+- OAuth 1.0a flow для Garmin
+- Шифрование и хранение refresh-токенов в БД
+- Управление подключениями (подключение/отключение)
+- Обработка webhook-уведомлений от провайдеров
+- Список подключённых провайдеров для пользователя
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `GET /health` | Health check |
+| `GET /metrics` | Prometheus метрики |
+| `GET /api/v1/devices/fitbit/auth` | Start Fitbit OAuth |
+| `GET /api/v1/devices/fitbit/callback` | Fitbit OAuth callback |
+| `POST /api/v1/devices/fitbit/webhook` | Fitbit webhook |
+| `POST /api/v1/devices/fitbit/disconnect` | Disconnect Fitbit |
+| `GET /api/v1/devices/garmin/auth` | Start Garmin OAuth 1.0a |
+| `GET /api/v1/devices/garmin/callback` | Garmin OAuth callback |
+| `POST /api/v1/devices/garmin/disconnect` | Disconnect Garmin |
+| `GET /api/v1/devices/withings/auth` | Start Withings OAuth |
+| `GET /api/v1/devices/withings/callback` | Withings OAuth callback |
+| `POST /api/v1/devices/withings/webhook` | Withings webhook |
+| `POST /api/v1/devices/withings/disconnect` | Disconnect Withings |
+| `GET /api/v1/devices/providers` | List connected providers |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `DEVICE_AGGREGATOR_PORT` | `8083` | Порт сервера |
+| `DEVICE_AGGREGATOR_METRICS_PORT` | `9093` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `DEVICE_TOKEN_ENCRYPTION_KEY` | — | AES-256-GCM ключ для шифрования refresh-токенов (обязателен) |
+| `FITBIT_CLIENT_ID`, `FITBIT_CLIENT_SECRET`, `FITBIT_REDIRECT_URI` | — | Fitbit OAuth credentials |
+| `GARMIN_CONSUMER_KEY`, `GARMIN_CONSUMER_SECRET`, `GARMIN_CALLBACK_URL` | — | Garmin OAuth 1.0a credentials |
+| `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL` | — | Withings OAuth credentials |
+
+### 4.x.4 Безопасность
+
+- Refresh-токены шифруются через AES-256-GCM (`internal/crypto`)
+- Валидация redirect URI: только HTTPS, только доверенные хосты (`fitbit.com`, `withings.com`, `withings.net`, `duckdns.org`)
+- Webhook-подписи: HMAC-SHA256 для Withings
+- OAuth state параметр хранится в БД с TTL 10 минут
+
+### 4.x.5 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+
+### 4.x.6 Метрики
+
+- `http_request_duration_seconds{method, path}`
+- `http_requests_total{method, path, status}`
+- `error_total{service="device-aggregator", error_type}`
+- `biometric_sync_lag_seconds{device_type, user_segment}`
+
+### 4.x.7 Тесты
+
+- Unit-тесты для handlers: health, disconnect, OAuth callback, auth start, redirect validation
+- Запуск: `go test ./cmd/device-aggregator/...`
+
+### 4.x.8 Особенности
+
+- Логгер: `internal/logger` с полем `service: "device-aggregator"`
+- Middleware: recovery, request ID, correlation ID, logging с Prometheus
+- Garmin OAuth 1.0a использует `crypto/sha1` для подписи (требование Garmin Health API, см. `SECURITY.md`)
+
+---
+
+## 4.x Device Connector (device-connector)
+
+### 4.x.1 Назначение
+
+HTTP-сервис для регистрации носимых устройств и приёма биометрических данных с них. Отвечает за:
+- Регистрацию устройств пользователей (создание `device_id` и `device_token`)
+- Аутентификацию устройств по токену
+- Валидацию и дедупликацию входящих записей
+- Хранение сырых ingest-записей в PostgreSQL (`devices`, `device_ingest_log`)
+- Форвардинг валидных записей в `biometric-service` через gRPC
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `GET /health` | Health check |
+| `GET /metrics` | Prometheus метрики |
+| `POST /api/v1/devices/register` | Регистрация устройства |
+| `POST /api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `DEVICE_CONNECTOR_PORT` | `8082` | Порт сервера |
+| `DEVICE_CONNECTOR_METRICS_PORT` | `9094` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `BIOMETRIC_SERVICE_ADDR` | `localhost:50052` | Адрес biometric-service gRPC |
+
+### 4.x.4 Формат запроса `POST /api/v1/devices/register`
+
+```json
+{
+  "device_type": "fitbit",
+  "user_id": "user-123"
+}
+```
+
+### 4.x.5 Формат ответа регистрации
+
+```json
+{
+  "device_id": "uuid",
+  "device_type": "fitbit",
+  "user_id": "user-123",
+  "device_token": "uuid"
+}
+```
+
+### 4.x.6 Формат запроса `POST /api/v1/devices/{device_id}/ingest`
+
+```json
+{
+  "device_type": "fitbit",
+  "device_token": "uuid",
+  "sync_interval_ms": 5000,
+  "records": [
+    {
+      "metric_type": "heart_rate",
+      "value": 70.0,
+      "timestamp": "2024-01-01T00:00:00Z",
+      "quality": "good"
+    }
+  ]
+}
+```
+
+### 4.x.7 Формат ответа ingest
+
+```json
+{
+  "total_received": 10,
+  "duplicates": 2,
+  "forwarded": 8,
+  "failed": 0
+}
+```
+
+### 4.x.8 Валидация записей
+
+- `metric_type` не может быть пустым
+- `value` не может быть отрицательным
+- Для `heart_rate`: диапазон 30–220
+- Для `spo2`: диапазон 70–100
+- Для остальных метрик: проверка по `metricSyncRules`
+
+### 4.x.9 Дедупликация
+
+Дубликаты определяются по триплету `(device_id, timestamp, metric_type)` через таблицу `device_ingest_log`.
+
+### 4.x.10 gRPC форвардинг
+
+Валидные записи форвардятся в `biometric-service` через `AddRecord` с предварительной валидацией `validator.ValidateBiometricRecord`.
+
+### 4.x.11 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+
+### 4.x.12 Метрики
+
+- `http_request_duration_seconds{method, path}`
+- `http_requests_total{method, path, status}`
+- `error_total{service="device-connector", error_type}`
+- gRPC client metrics через `metrics.UnaryClientInterceptor`
+
+### 4.x.13 Middleware
+
+- Recovery middleware
+- Request ID
+- Correlation ID
+- Logging с Prometheus
+
+### 4.x.14 Тесты
+
+- Unit-тесты: `isValidDeviceType`, `metricSyncRules`, `healthHandler`, `registerDeviceHandler`, `ingestInputs`, `validateIngestRecord`, `authenticateDevice`
+- Запуск: `go test ./cmd/device-connector/...`
+
+### 4.x.15 Особенности
+
+- Логгер: `internal/logger` с полем `service: "device-connector"`
+- Поддерживаемые типы устройств: `fitbit`, `garmin`, `withings`
+- Токены устройств хранятся в базе в открытом виде (в production требует шифрования)
+
+---
+
+## 4.x Background Data Processor (data-processor)
+
+### 4.x.1 Назначение
+
+Фоновый сервис для потребления биометрических событий из RabbitMQ (`biometric_events`) и сохранения их в PostgreSQL. Обеспечивает:
+- Асинхронную запись биометрических данных с валидацией диапазонов
+- Prometheus-метрики обработки сообщений
+- Graceful shutdown с ожиданием завершения in-flight сообщений
+- Health check и metrics endpoints
+
+### 4.x.2 Endpoints
+
+| Endpoint | Назначение |
+|----------|-----------|
+| `GET /health` | Health check (JSON `{"status":"healthy"}`) |
+| `GET /metrics` | Prometheus метрики |
+
+### 4.x.3 Конфигурация
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `DATA_PROCESSOR_PORT` | `8084` | Порт health-сервера |
+| `DATA_PROCESSOR_METRICS_PORT` | `9092` | Порт metrics-сервера |
+| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
+| `RABBITMQ_URL` | — | RabbitMQ подключение (обязателен) |
+
+### 4.x.4 Graceful Shutdown
+
+- `signal.NotifyContext` для SIGINT/SIGTERM
+- Ожидание завершения текущих сообщений (таймаут 30 секунд)
+- Graceful shutdown health и metrics серверов
+
+### 4.x.5 Валидация событий
+
+Перед записью в БД проверяются:
+- `user_id` и `metric_type` не пустые
+- `value >= 0`
+- `value` в допустимых диапазонах для каждого типа метрики (heart_rate: 30–220, spo2: 70–100 и т.д.)
+
+### 4.x.6 Метрики
+
+- `error_total{service="data-processor", error_type="parse_error|validation_error|insert_error"}`
+- `queue_messages_total{queue, status}` (через `internal/queue`)
+
+### 4.x.7 Тесты
+
+- Unit-тесты: парсинг, валидация, getMetricRules, вставка в БД
+- Интеграционные тесты с Testcontainers (PostgreSQL + RabbitMQ), пропускаются если Docker недоступен
+- Запуск: `go test ./cmd/data-processor/...` (без `-short` для integration тестов)
 
 ---
 
@@ -396,46 +1054,45 @@ verification:
 #### Этап 2: Code Review
 
 - Требования:
-  - Minimum 2 approving reviews
-  - SAST scan: SonarQube (quality gate: no critical issues)
-  - Dependency scan: Snyk/Dependabot
+  - Minimum 1 approving review (Dependabot PRs auto-approve)
+  - SAST scan: gosec (не SonarQube)
+  - Dependency scan: govulncheck + Trivy + Dependabot
 - Артефакты:
   - Approved PR с changelog
 
 #### Этап 3: CI Build
 
 - Jobs:
-  - Unit tests (покрытие business-logic пакетов ≥75%, без инфраструктурных слоёв)
-  - Integration tests (TestContainers)
-  - Contract tests (Pact)
-  - Container scan: trivy/grype (no critical CVE)
-  - Build multi-arch image (amd64 + arm64)
-- Output: Immutable image tag: `sha256:abc123`
+  - Unit tests (`make check`)
+  - Security scanning: gosec SAST, govulncheck, Trivy (filesystem + config), Gitleaks, TruffleHog, Syft SBOM
+  - Container scan: Trivy image scan (no Grype)
+  - Build Docker images (single-arch, не multi-arch)
+- Output: Image tag: `ghcr.io/mamuer/project/<service>:<sha>`
 
 #### Этап 4: Deploy Test
 
-- Environment: `test`
-- Automation: fully automated
+- Environment: `test` (k3s on VPS)
+- Automation: fully automated via `provision-k8s-vps` job
 - Verification:
-  - Smoke tests: health checks, basic flows
-  - API contract validation
+  - Smoke tests: TestContainers health checks
+  - DB migrations applied
+  - Seed admin created
 
 #### Этап 5: Deploy Production
 
 - Environment: `production`
 - Действия:
   - UAT: тестирование продуктовой командой
-  - Performance tests: k6 (p95 < 3s)
-  - Security scan: OWASP ZAP full scan
-  - Chaos test: случайное убийство 1 пода
-- Approval: Product Owner + Tech Lead sign-off
+  - Performance tests: k6 (p95 < 3s) — **автоматизировано в CI**
+  - Security scan: Trivy + Kubescape — **автоматизировано в CI**
+- Approval: Product Owner + Tech Lead sign-off (ручное)
 
 #### Этап 6: Release Candidate
 
 - Артефакты:
   - Git tag: `v2.1.0-rc1`
   - Changelog: auto-generated + manual review
-  - Migration plan: K8s Job (`migrate-db.yaml`) + rollback via SQL down-migrations
+  - Migration plan: K8s Job (`migrate-db.yaml`)
   - Runbook: шаги деплоя + отката
 
 #### Этап 7: Deploy Production (Rolling)
@@ -443,9 +1100,9 @@ verification:
 **Rolling фаза**:
 
 ```yaml
-batches: "30% → 60% → 100%"
-interval: "30 minutes между батчами"
-health_check: "readiness probe + synthetic transactions"
+batches: "по одному поду на сервис"
+interval: "ручное подтверждение между обновлениями"
+health_check: "readiness probe"
 ```
 
 #### Этап 8: Post-Deploy Monitoring
@@ -458,7 +1115,7 @@ health_check: "readiness probe + synthetic transactions"
   - ML model confidence drift
 - Alert thresholds: см. раздел "Наблюдаемость"
 
-#### Этап 9: Автоматический откат (Rollback Trigger)
+#### Этап 9: Ручной откат (Rollback Trigger)
 
 **Откат срабатывает при**:
 
@@ -522,9 +1179,15 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 **Процесс**:
 
-- Ежеквартальный внешний пентест
-- Ежемесячный внутренний скан (OWASP ZAP)
+- Ежемесячный внутренний скан (gosec, Trivy, govulncheck)
 - Remediation SLA (best effort): critical 1–3 рабочих дней, high 3–7 рабочих дней
+
+### 6.6 Резервное копирование (Backup)
+
+**Требование**: Ежедневное резервное копирование с возможностью восстановления за < 1 час
+
+**Текущее состояние**:
+- Ежедневный `pg_dump` через cron job (`backup-postgres.sh`)
 
 ### 6.7 Документация (Documentation)
 
@@ -545,42 +1208,39 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 ### Инфраструктура
 
-- [ ] Матрица окружений применена ко всем компонентам
-- [ ] RabbitMQ настроен с persistent queues и DLQ
-- [ ] ELK Stack: 90 дней хранения, JSON-логи, RBAC в Kibana
-- [ ] Prometheus: service discovery, recording rules, Alertmanager
+- [x] Матрица окружений применена к основным компонентам
+- [x] RabbitMQ настроен с persistent queues и DLQ
+- [x] Prometheus: service discovery, дашборды Grafana
 
 ### Наблюдаемость
 
-- [ ] Все сервисы логируют в обязательном JSON-формате
-- [ ] Реализованы 6 обязательных Prometheus-метрик
-- [ ] Настроены алерты с эскалацией по уровням SEV
+- [x] Все сервисы логируют в обязательном JSON-формате
+- [x] Реализованы 6 обязательных Prometheus-метрик
 
 ### Безопасность
 
-- [ ] Network Policies разделяют зоны dmz/app/data/monitoring
-- [ ] RBAC: минимальные права, отдельные ServiceAccount
-- [ ] Шифрование: TDE/БД, volumes, secrets
-- [ ] mTLS для внутренних gRPC-вызовов
-- [ ] WAF настроен с базовым набором правил
+- [x] Network Policies разделяют зоны dmz/app/data/monitoring
+- [x] RBAC: минимальные права, отдельные ServiceAccount
+- [x] Шифрование: TDE/БД (pgcrypto), volumes, secrets
+- [x] mTLS для внутренних gRPC-вызовов (hand-rolled TLS 1.3)
+- [x] WAF настроен с базовым набором правил (Ingress NGINX + ModSecurity + OWASP CRS v4 + cert-manager)
 
 ### Релизный процесс
 
-- [ ] Пайплайн включает все этапы
-- [ ] Автоматический rollback при error rate > 5% или p95 > 10s
+- [x] Пайплайн включает стадии: lint, test, security scan, build, deploy
+- [x] Gosec
+- [x] Govulncheck + Trivy
 
 ### Приемка
 
-- [ ] Определены метрики для 99.9% availability
-- [ ] Настроены нагрузочные тесты для проверки p95 < 5s
-- [ ] План Chaos Engineering для проверки восстановления < 5 мин
-- [ ] Пентест запланирован до релиза
+- [x] Определены метрики для availability
+- [x] Настроены k6 нагрузочные тесты
 
 ### Документация
 
-- [ ] ADR для всех архитектурных решений
-- [ ] Runbook для эксплуатации и отката
-- [ ] OpenAPI-спецификация актуальна и покрыта тестами
+- [x] ADR для архитектурных решений
+- [x] Runbook для эксплуатации и отката
+- [x] API Specification (Protobuf + docs/API.md)
 
 ## 8. Генерация Protobuf (локальная разработка)
 
@@ -619,3 +1279,1392 @@ make proto
 
 См. также раздел «Протоколы (Protobuf)» в `CONTRIBUTING.md` для правил
 версионирования `.proto` файлов.
+
+## 9. Shared library `internal/auth` — ограничения и правила использования
+
+### 9.1 Роль
+
+`internal/auth` — это **общая библиотека JWT-аутентификации**, которая используется
+несколькими сервисами (`gateway`, `user-service`, `middleware`). Она предоставляет
+криптографические примитивы (ES256 ключи, подпись/валидация JWT, fingerprinting)
+и доменные типы для claims.
+
+### 9.2 Структура пакета
+
+```text
+internal/auth/
+├── claims.go   # Доменные типы (Claims, JWKSKey, JWKSResponse)
+└── jwt.go      # Инфраструктурная реализация (ES256, подпись, валидация)
+```
+
+- **`claims.go`**: зависит только от `github.com/golang-jwt/jwt/v5` для `RegisteredClaims`.
+  Не содержит криптографической логики. Может использоваться в domain-слое.
+- **`jwt.go`**: зависит от `crypto/ecdsa`, `crypto/x509`, `encoding/pem`, `jwt/v5`.
+  Содержит всю инфраструктурную логику. Должен использоваться только в infra-слое.
+
+### 9.3 Правила использования
+
+1. **Каждый сервис определяет свой порт** в `cmd/<service>/ports/auth.go`:
+   ```go
+   type TokenProvider interface {
+       GenerateAccessToken(userID, email, role string, ttl time.Duration) (string, error)
+       GenerateRefreshToken() string
+       ValidateAccessToken(token string) (*claims.Claims, error)
+       ComputeTokenFingerprint(token string) string
+   }
+   ```
+
+2. **Адаптер в infra-слое** (`cmd/<service>/infra/jwt_adapter.go`) реализует порт,
+   делегируя вызовы в `internal/auth/jwt`. Только композиционный корень (`main.go`)
+   знает о существовании `internal/auth`.
+
+3. **Применение/доменный слой НЕ импортирует `internal/auth/jwt`** напрямую.
+   Для передачи claims между слоями используется `internal/auth/claims`.
+
+4. **Запрещено** добавлять в `internal/auth` бизнес-логику (например,
+   хранение refresh-токенов, проверку ролей, интеграцию с БД). Этот пакет —
+   только криптографические утилиты.
+
+### 9.4 Обоснование
+
+Полная гексагональная архитектура требовала бы вынесения JWT-логики в отдельный
+auth-сервис. Однако для текущего масштаба проекта это избыточно. Компромисс:
+- **`internal/auth`** = shared library с четко очерченной ответственностью.
+- **Порты/адаптеры** в каждом сервисе сохраняют возможность тестирования
+  (mock-реализации `TokenProvider`) и возможность смены алгоритма/библиотеки
+  без изменения domain-слоя.
+
+### 9.5 Миграция с прямого импорта
+
+Если вы видите в коде сервиса прямой импорт `"github.com/MAMUER/project/internal/auth"`,
+это технический долг. Правильный паттерн:
+
+```go
+// ❌ Bad
+import "github.com/MAMUER/project/internal/auth"
+token, err := auth.GenerateAccessToken(...)
+
+// ✅ Good
+import "github.com/MAMUER/project/cmd/<service>/ports"
+import "github.com/MAMUER/project/cmd/<service>/infra"
+token, err := s.tokenProvider.GenerateAccessToken(...)
+```
+
+## 10. Shared library `internal/config` — типизированная конфигурация и env helpers
+
+### 10.1 Роль
+
+`internal/config` — это **общая библиотека конфигурации**, которая используется
+всем сервисами (`gateway`, `user-service`, `biometric-service` и др.). Она предоставляет:
+- helpers для чтения env vars с поддержкой `_FILE` суффикса (Docker/Kubernetes secrets)
+- typed accessors (`GetEnvInt`, `GetEnvBool`, `GetEnvDuration`, `GetEnvFloat64`, `GetEnvInt64`)
+- обязательные env vars с паникой при отсутствии (`GetEnvRequired`)
+- типизированные конфигурационные структуры (`CacheConfig`, `JWTConfig`, `ServerConfig`) с валидацией
+- centralized constants (`DefaultTimeout`, `MaxBatchSize`, `ValkeyTTLSeconds`, `JWTExpirationHours`, `MinHeartRate`, `MaxHeartRate`, `MinSpO2`, `MaxSpO2`, `CorrelationIDHeader`)
+
+### 10.2 Структура пакета
+
+```text
+internal/config/
+├── env.go          # GetEnv, GetEnvRequired, GetEnvInt, GetEnvInt64, GetEnvBool, GetEnvDuration, GetEnvFloat64
+├── config.go       # CacheConfig, JWTConfig, ServerConfig, Load*, Validate(), LogConfig
+├── limits.go       # DefaultTimeout, MaxBatchSize, ValkeyTTLSeconds, JWTExpirationHours, MinHeartRate, MaxHeartRate, MinSpO2, MaxSpO2, CorrelationIDHeader
+├── env_test.go
+├── config_test.go
+└── limits_test.go
+```
+
+### 10.3 Environment variable loading
+
+Приоритет источников: `KEY_FILE` > `KEY` > `defaultValue`.
+
+- Если `KEY_FILE` установлен, читается содержимое файла (trim).
+- Иначе возвращается значение `KEY`.
+- Если ни один источник не найден, возвращается `defaultValue` (если передан).
+
+Пример:
+
+```bash
+JWT_PRIVATE_KEY_PEM_FILE=/run/secrets/jwt_private_key.pem
+```
+
+```go
+privateKey := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+```
+
+### 10.4 Typed accessors
+
+| Функция | Тип возврата | Поведение при invalid/empty |
+| --- | --- | --- |
+| `GetEnv(key, default...)` | `string` | возвращает `defaultValue` |
+| `GetEnvRequired(key)` | `string` | паникует, если пусто |
+| `GetEnvInt(key, default)` | `int` | возвращает `default` |
+| `GetEnvInt64(key, default)` | `int64` | возвращает `default` |
+| `GetEnvBool(key, default)` | `bool` | возвращает `default` |
+| `GetEnvDuration(key, default)` | `time.Duration` | возвращает `default` |
+| `GetEnvFloat64(key, default)` | `float64` | возвращает `default` |
+
+`GetEnvBool` поддерживает: `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` (case-insensitive).
+
+### 10.5 Configuration structs
+
+```go
+type CacheConfig struct {
+    Addr     string
+    Password string
+    DB       int
+}
+
+type JWTConfig struct {
+    PrivateKeyPEM string
+    PublicKeyPEM  string
+}
+
+type ServerConfig struct {
+    Addr string
+}
+```
+
+Каждая структура имеет метод `Validate() error`.
+
+### 10.6 Loaders
+
+```go
+func LoadCacheConfig() CacheConfig
+func LoadJWTConfig() JWTConfig
+func LoadServerConfig(envVar, defaultAddr string) ServerConfig
+```
+
+- `LoadJWTConfig` использует `GetEnvRequired`, поэтому при отсутствии `JWT_PRIVATE_KEY_PEM` или `JWT_PUBLIC_KEY_PEM` процесс завершится panic на старте.
+
+### 10.7 Logging configuration
+
+```go
+config.LogConfig(log, cfg)
+```
+
+Логирует конфигурацию на уровне info, маскируя секреты (`[REDACTED]`).
+Поддерживаемые типы: `CacheConfig`, `JWTConfig`, `ServerConfig`.
+
+### 10.8 Constants
+
+| Constant | Значение | Назначение |
+| --- | --- | --- |
+| `DefaultTimeout` | `5s` | Таймаут внешних вызовов по умолчанию |
+| `MaxBatchSize` | `100` | Максимальный размер батча |
+| `ValkeyTTLSeconds` | `3600` | TTL записей Valkey по умолчанию |
+| `JWTExpirationHours` | `24` | Время жизни JWT по умолчанию |
+| `MinHeartRate` | `30` | Минимальный допустимый пульс, bpm |
+| `MaxHeartRate` | `220` | Максимальный допустимый пульс, bpm |
+| `MinSpO2` | `70` | Минимальный допустимый SpO2, % |
+| `MaxSpO2` | `100` | Максимальный допустимый SpO2, % |
+| `CorrelationIDHeader` | `X-Correlation-ID` | HTTP-заголовок для корреляции запросов |
+
+### 10.9 Правила использования
+
+1. **Вся конфигурация загружается через typed loaders** (`LoadCacheConfig`, `LoadJWTConfig`, `LoadServerConfig`).
+2. **Обязательные переменные** — только через `GetEnvRequired` или loaders, которые его используют.
+3. **Валидация** — вызывается сразу после загрузки конфигурации в композиционном корне (`main.go`).
+4. **Логирование** — `LogConfig` вызывается один раз после валидации для отладки/аудита.
+5. **Секреты** — передаются через `_FILE` или env vars, логируются в маскированном виде.
+
+## 11. Shared library `internal/domain` — доменные модели биометрических данных
+
+### 11.1 Роль
+
+`internal/domain` — это **ядро доменной модели** платформы. Он содержит:
+- Типизированные entity для биометрических измерений (`BiometricData`)
+- Enum `MetricType` для всех поддерживаемых метрик
+- Валидацию инвариантов на уровне домена
+- JSON-сериализацию для API
+
+### 11.2 Структура пакета
+
+```text
+internal/domain/
+├── biometric_data.go      # BiometricData entity, MetricType enum, Validate()
+└── biometric_data_test.go # Тесты конструктора, валидации, констант
+```
+
+### 11.3 Доменная модель
+
+```go
+type BiometricData struct {
+    ID         string     `json:"id"`
+    UserID     string     `json:"user_id"`
+    MetricType string     `json:"metric_type"`
+    Value      float64    `json:"value"`
+    Timestamp  time.Time  `json:"timestamp"`
+    DeviceType string     `json:"device_type"`
+    CreatedAt  time.Time  `json:"created_at"`
+}
+```
+
+### 11.4 MetricType enum
+
+```go
+const (
+    MetricHeartRate        MetricType = "heart_rate"
+    MetricHRV              MetricType = "hrv"
+    MetricSpO2             MetricType = "spo2"
+    MetricTemperature      MetricType = "temperature"
+    MetricBloodPressureSys MetricType = "blood_pressure_systolic"
+    MetricBloodPressureDia MetricType = "blood_pressure_diastolic"
+    MetricECG              MetricType = "ecg"
+    MetricSleepStage       MetricType = "sleep_stage"
+    MetricSteps            MetricType = "steps"
+    MetricDistance         MetricType = "distance"
+    MetricCalories         MetricType = "calories"
+    MetricRespiratoryRate  MetricType = "respiratory_rate"
+    MetricBloodGlucose     MetricType = "blood_glucose"
+    MetricOxygenSaturation MetricType = "oxygen_saturation"
+)
+```
+
+### 11.5 Валидация
+
+```go
+func NewBiometricData(userID, metricType string, value float64, timestamp time.Time, deviceType string) (*BiometricData, error)
+func (b *BiometricData) Validate() error
+```
+
+Правила:
+- `UserID` не может быть пустым
+- `MetricType` не может быть пустым
+- `Timestamp` не может быть нулевым
+- `Value` должен быть >= 0
+- `DeviceType` не может быть пустым
+- `CreatedAt` устанавливается автоматически в `time.Now()`
+
+### 11.6 Правила использования
+
+1. **Конструктор `NewBiometricData`** — всегда используйте его для создания сущности, он валидирует инварианты.
+2. **MetricType** — используйте только константы из пакета, избегайте magic strings.
+3. **Репозиторий** — `internal/repository/biometric_repository.go` маппит `BiometricData` в/из PostgreSQL через `database/sql`.
+4. **Сериализация** — JSON-теги используются для REST/gRPC responses.
+
+## 12. Shared library `internal/crypto` — шифрование AES-GCM
+
+### 11.1 Роль
+
+`internal/crypto` — это **общая библиотека симметричного шифрования**, которая используется
+всем сервисами для защиты чувствительных данных:
+- `device-aggregator`: шифрование токенов устройств перед сохранением в БД
+- `user-service`: шифрование TOTP-секретов перед сохранением в БД
+
+### 11.2 Структура пакета
+
+```text
+internal/crypto/
+└── totp_crypto.go   # AES-GCM encryptor (256-bit key)
+```
+
+### 11.3 Алгоритм и параметры
+
+| Параметр | Значение |
+| --- | --- |
+| Алгоритм | AES-256-GCM |
+| Размер ключа | 32 байта (256 бит) |
+| Nonce | CSPRNG, размер равен `NonceSize()` (обычно 12 байт) |
+| AAD | `nil` |
+
+### 11.4 API
+
+```go
+type AESGCMEncryptor struct { ... }
+
+func NewAESGCMEncryptor(keyMaterial string) (*AESGCMEncryptor, error)
+func (e *AESGCMEncryptor) Encrypt(plaintext []byte) ([]byte, error)
+func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
+```
+
+- `NewAESGCMEncryptor` принимает ключ в одном из форматов:
+  - base64-строка (декодируется автоматически)
+  - raw строка длиной 32 байта
+- `Encrypt` возвращает `nonce || ciphertext || tag`
+- `Decrypt` ожидает тот же формат, проверяет тег GCM
+
+### 11.5 Правила использования
+
+1. **Ключ загружается через `config`** в композиционном корне (`main.go`), передаётся в адаптер через DI.
+2. **Никакого stateful init**: нет `Init*()` функций, которые хранят encryptor в пакетном состоянии.
+3. **Данные никогда не логируются в открытом виде**: только маскированные или зашифрованные.
+4. **Ключ ротируется через замену env var** и перезапуск сервиса.
+
+## 13. Shared library `internal/db` — подключение к PostgreSQL и PII-шифрование
+
+### 13.1 Роль
+
+`internal/db` — это **общая библиотека работы с PostgreSQL**, которая используется
+всем сервисами для:
+- Создания подключений к PostgreSQL с connection pooling и метриками.
+- Шифрования PII-данных через pgsodium (rand AES-GCM + blind index).
+- Генерации nonce для шифрования полей.
+- Загрузки ключа шифрования `DB_ENCRYPTION_KEY` из окружения.
+
+### 13.2 Структура пакета
+
+```text
+internal/db/
+├── db.go        # Config, LoadConfig, NewConnection, connection pool metrics
+├── db_test.go   # Тесты подключения, пула, blind index, nonce, pgsodium helpers
+├── pgp.go       # EncryptionKey, EmailHash
+└── pgsodium.go  # PII-шифрование: aegis256 AEAD, blind index, nonce
+```
+
+### 13.3 Подключение к PostgreSQL
+
+```go
+type Config struct {
+    Host     string
+    Port     string
+    User     string
+    Password string
+    DBName   string
+    SSLMode  string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет обязательные поля.
+- `NewConnection(cfg)` открывает подключение, настраивает пул и запускает метрики.
+- Connection pool: `MaxOpenConns=25`, `MaxIdleConns=10`, `ConnMaxLifetime=5m`.
+- Метрика `DBConnectionPoolUsage` обновляется каждые 15 секунд.
+
+### 13.4 PII-шифрование (pgsodium)
+
+| Функция | Назначение |
+| --- | --- |
+| `BlindIndex(plaintext)` | lowercase hex SHA256 для поиска без утечки plaintext |
+| `NicknameHash(nickname)` | alias для `BlindIndex` |
+| `GenerateNonce()` | случайный 12-байтовый nonce для aegis256 AEAD |
+| `PgsodiumRandomEncryptParam($N, $M)` | рандомизированное шифрование с nonce |
+| `PgsodiumDecryptParam(ct, nonce, alias)` | расшифровка aegis256 |
+
+### 13.5 Ключи
+
+- `EncryptionKey()` возвращает ключ из `DB_ENCRYPTION_KEY` (64 hex chars или raw).
+- `SetPgsodiumKeyID(id)` фиксирует идентификатор ключа в keyring pgsodium.
+- `PgsodiumKeyringName()` возвращает имя ключа `fitpulse_pii`.
+
+### 13.6 Правила использования
+
+1. **Конфигурация загружается через `LoadConfig()`** в композиционном корне (`main.go`), затем валидируется.
+2. **Ключ pgsodium импортируется один раз** при старте через `ensurePgsodiumKey` (`cmd/user-service/main.go`).
+3. **Для всех PII-полей используется рандомизированное шифрование** (`PgsodiumRandomEncryptParam` + `GenerateNonce`) + blind index.
+4. **Детерминированное шифрование удалено**: все поля используют nonce + aegis256.
+5. **Никаких SQL-инъекций**: все литералы sanitize через `sanitize.String`, параметры передаются через `$N`.
+
+## 14. Shared library `internal/email` — SMTP email sending
+
+### 14.1 Роль
+
+`internal/email` — это **общая библиотека отправки email**, которая используется
+сервисами для:
+- Отправки писем подтверждения email при регистрации (`user-service`).
+- Поддержки TLS для production SMTP серверов (Yandex, Mail.ru, Gmail).
+- Контроля дневного лимита и пропуска тестовых доменов.
+
+### 14.2 Структура пакета
+
+```text
+internal/email/
+├── email.go      # Config, LoadConfig, EmailSender interface, SMTPClient
+└── email_test.go # Тесты конфигурации, SMTP, HTML шаблонов
+```
+
+### 14.3 Architecture
+
+```go
+// EmailSender is the port for sending emails.
+type EmailSender interface {
+    SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error
+}
+
+// SMTPClient is an SMTP implementation of EmailSender.
+type SMTPClient struct { ... }
+```
+
+- `EmailSender` — порт (интерфейс), который используется в доменных сервисах.
+- `SMTPClient` — адаптер, реализующий отправку через `net/smtp`.
+
+### 14.4 Configuration
+
+```go
+type Config struct {
+    Host            string
+    Port            int
+    User            string
+    Password        string
+    From            string
+    UseTLS          bool
+    DailyLimit      int      // 0 = unlimited
+    SkipSendDomains []string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет обязательные поля и корректность порта.
+- Environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `EMAIL_DAILY_LIMIT`, `EMAIL_SKIP_DOMAINS`.
+
+### 14.5 Правила использования
+
+1. **В сервисах используйте только порт `EmailSender`**, никогда не импортируйте `SMTPClient` напрямую в доменный слой.
+2. **Конфигурация загружается через `LoadConfig()`** в композиционном корне (`main.go`), затем валидируется.
+3. **Контекст обязателен**: `SendVerificationEmail(ctx, ...)` поддерживает отмену и таймауты.
+4. **Thread-safe daily limit**: `dailySent` защищен `sync.Mutex`, безопасен для concurrent use.
+5. **Skip domains** — используются для тестовых окружений, возвращают ошибку `skipped: test domain ...`.
+6. **TLS**: для production SMTP серверов используйте `UseTLS=true` с портом 465/587.
+
+## 15. Shared library `internal/logger` — structured logging
+
+### 15.1 Роль
+
+`internal/logger` — это **общая библиотека логирования**, которая обеспечивает:
+- Единый структурированный JSON-формат логов для всех сервисов.
+- Автоматическое добавление поля `service` в каждый лог для агрегации в ELK/Loki.
+- Контекстная пропагация: `correlationId`, `userId` из `context.Context`.
+- Development-режим с цветным консольным выводом для локальной разработки.
+- Флуент-API для построения цепочек логгеров без потери типа.
+
+### 15.2 Структура пакета
+
+```text
+internal/logger/
+├── logger.go      # Logger, New, Development, FromContext, WithRequestID, WithUserID ...
+└── logger_test.go # Unit-тесты всех методов и конфигураций
+```
+
+### 15.3 Создание логгера
+
+```go
+import "github.com/MAMUER/project/internal/logger"
+
+// Production: JSON в stdout/stderr
+log := logger.New("gateway")
+
+// Development: цветной вывод в консоль
+log := logger.Development("gateway")
+```
+
+Оба конструктора читают `LOG_LEVEL` из окружения (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+
+### 15.4 Контекстная пропагация
+
+Middleware кладут `correlationId` и `userId` в `context.Context`. Логгер автоматически их подхватывает:
+
+```go
+log := logger.FromContext(r.Context(), baseLogger)
+log.Info("request processed")
+```
+
+### 15.5 Fluent API
+
+Все методы возвращают `*Logger`, сохраняя fluent-цепочку:
+
+```go
+log := logger.New("gateway").
+    WithRequestID(cid).
+    WithUserID(uid).
+    WithAction("HTTP_REQUEST").
+    WithDuration(duration).
+    WithFields(zap.String("endpoint", path))
+
+log.Info("request completed")
+```
+
+Доступные методы:
+- `WithRequestID(correlationID string) *Logger`
+- `WithUserID(userID string) *Logger`
+- `WithAction(action string) *Logger`
+- `WithDuration(duration time.Duration) *Logger`
+- `WithMetadata(metadata map[string]interface{}) *Logger`
+- `WithFields(fields ...zap.Field) *Logger`
+- `WithCallerSkip(skip int) *Logger`
+
+### 15.6 Error-aware логирование
+
+```go
+log.Errorw("operation failed", err, zap.String("operation", "create"))
+```
+
+Поле `error` добавляется только если `err != nil`.
+
+### 15.7 Правила использования
+
+1. **Сервисное имя**: всегда передавайте имя сервиса в `New(service)` или `Development(service)`.
+2. **Контекст**: используйте `FromContext(ctx, base)` в хендлерах для автоматической подстановки correlationId/userId.
+3. **Локализация**: `New()` — для production, `Development()` — для локальной разработки.
+4. **Fluent API**: не вызывайте `l.Logger` напрямую, используйте методы `*Logger`.
+5. **Sync**: вызывайте `defer log.Sync()` в `main()` для гарантии записи буферизированных логов.
+
+## 16. Shared library `internal/grpc` — gRPC server/client utilities with mTLS
+
+### 16.1 Роль
+
+`internal/grpc` — это **общая библиотека для работы с gRPC**, которая используется
+всем сервисами для:
+- Создания gRPC серверов с опциональным mutual TLS.
+- Создания gRPC клиентов с опциональным TLS.
+- Регистрации health check сервиса.
+- Централизованной загрузки TLS конфигурации из окружения.
+
+### 16.2 Структура пакета
+
+```text
+internal/grpc/
+├── grpc.go      # NewServer, NewClient, Config, LoadConfig
+├── grpc_test.go # Тесты серверов, клиентов, TLS конфигурации
+└── tls.go       # GetServerTLSCredentials, GetClientTLSCredentials
+```
+
+### 16.3 Configuration
+
+```go
+type Config struct {
+    CertFile string
+    KeyFile  string
+    CAFile   string
+}
+```
+
+- `LoadConfig()` загружает конфигурацию из env vars с поддержкой `_FILE` суффикса.
+- `Validate()` проверяет, что если TLS включен, то указаны cert и key.
+- Environment variables: `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CA_FILE`.
+
+### 16.4 Server
+
+```go
+func NewServer(opts ...grpc.ServerOption) *grpc.Server
+```
+
+- Автоматически загружает TLS credentials из env vars.
+- Если TLS не настроен, создает insecure сервер.
+- Автоматически регистрирует `grpc_health_v1.Health` сервис.
+
+### 16.5 Client
+
+```go
+func NewClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+```
+
+- Автоматически загружает CA из env vars.
+- Если CA не указан, создает insecure подключение.
+- Поддерживает все стандартные `grpc.DialOption`.
+
+### 16.6 TLS
+
+- TLS 1.3 minimum (`tls.VersionTLS13`).
+- mTLS: если указан `GRPC_TLS_CA_FILE`, сервер требует и проверяет client cert.
+- Пути к файлам проверяются на path traversal (`..`).
+
+### 16.7 Правила использования
+
+1. **Серверы**: используйте `grpctls.NewServer(opts...)` вместо ручного вызова `GetServerTLSCredentials()`.
+2. **Клиенты**: используйте `grpctls.NewClient(target, opts...)` вместо ручного вызова `GetClientTLSCredentials()`.
+3. **Конфигурация**: загружается через `grpctls.LoadConfig()` в композиционном корне (`main.go`), затем валидируется.
+4. **Health check**: регистрируется автоматически в `NewServer`.
+5. **Secrets**: сертификаты поддерживают `_FILE` суффикс для Docker/Kubernetes secrets.
+
+## 17. Shared library `internal/metrics` — Prometheus observability
+
+### 17.1 Роль
+
+`internal/metrics` — это **общая библиотека метрик Prometheus**, которая обеспечивает:
+- Единые именования и labels для HTTP и gRPC метрик во всех сервисах.
+- Стандартные метрики: `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, `error_total`.
+- Бизнес-метрики: `classification_confidence`, `db_connection_pool_usage`, `notification_queue_depth`, `biometric_sync_lag_seconds`, `backup_success`.
+- gRPC interceptors для автоматического сбора метрик на серверной и клиентской стороне.
+
+### 17.2 Структура пакета
+
+```text
+internal/metrics/
+├── metrics.go      # Общие HTTP метрики
+├── extended.go     # Бизнес-метрики
+├── rpc.go          # gRPC interceptors и RPC метрики
+├── class_names.go  # Маппинг ID классов тренировок
+├── metrics_test.go # Тесты HTTP метрик
+└── rpc_test.go     # Тесты gRPC interceptors
+```
+
+### 17.3 Использование HTTP метрик
+
+```go
+import "github.com/MAMUER/project/internal/metrics"
+
+// В middleware или хендлере:
+metrics.RequestsTotal.WithLabelValues(r.Method, r.URL.Path, statusStr).Inc()
+metrics.RequestDuration.WithLabelValues(r.Method, r.URL.Path).Observe(duration.Seconds())
+metrics.ErrorTotal.WithLabelValues("gateway", errorType).Inc()
+```
+
+### 17.4 Использование gRPC interceptors
+
+```go
+// Серверная сторона
+grpc.NewServer(
+    grpc.UnaryInterceptor(metrics.UnaryServerInterceptor("biometric-service")),
+)
+
+// Клиентская сторона
+conn, err := grpc.Dial(
+    target,
+    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")),
+)
+```
+
+### 17.5 Бизнес-метрики
+
+```go
+// Доля использования connection pool
+metrics.DBConnectionPoolUsage.WithLabelValues("users_db", "main").Set(usage)
+
+// Глубина очереди уведомлений
+metrics.NotificationQueueDepth.WithLabelValues("email", "high").Set(float64(depth))
+
+// Задержка синхронизации биометрических данных
+metrics.BiometricSyncLagSeconds.WithLabelValues("heart_rate", "premium").Set(lag)
+
+// Успешность бэкапов
+metrics.BackupSuccess.WithLabelValues("postgres", "daily").Set(1)
+```
+
+### 17.6 Маппинг классов тренировок
+
+```go
+import "github.com/MAMUER/project/internal/metrics"
+
+// Получить имя класса по ID
+name := metrics.ClassNamesByID[3] // "power_hiit"
+
+// Все отсортированные имена классов
+for _, name := range metrics.AllClassNames {
+    fmt.Println(name)
+}
+```
+
+### 17.7 Правила использования
+
+1. **Именование**: используйте существующие метрики, не создавайте дубликаты. Новые бизнес-метрики добавляйте в `extended.go`.
+2. **Labels**: используйте осмысленные значения labels, избегайте high-cardinality (например, user IDs).
+3. **gRPC**: применяйте `UnaryServerInterceptor` на сервере и `UnaryClientInterceptor` на клиенте для автоматического сбора метрик.
+4. **Тестирование**: метрики регистрируются в default registry через `promauto`. В тестах используйте `prometheus.NewRegistry()` и пересоздавайте метрики через `prometheus.NewCounterVec` для изоляции.
+5. **ClassNames**: `AllClassNames` отсортирован для детерминированного вывода. `ClassNamesByID` — это конфигурационный мап, не изменяйте его в рантайме.
+
+## 18. Shared library `internal/queue` — RabbitMQ messaging with DLQ
+
+### 18.1 Роль
+
+`internal/queue` — это **адаптер обмена сообщениями на RabbitMQ**, который обеспечивает:
+- Публикацию событий в durable очереди с подтверждением доставки.
+- Потребление сообщений с ручным подтверждением (`Ack`/`Nack`).
+- Автоматическую настройку Dead Letter Queue (DLQ) для обработки неудачных сообщений.
+- Prometheus-метрики глубины очереди и количества опубликованных сообщений.
+
+### 18.2 Структура пакета
+
+```text
+internal/queue/
+├── interface.go  # Publisher, Consumer интерфейсы и опции
+├── queue.go      # Реализации Publisher/Consumer, метрики, depth reporter
+├── dlq.go        # Объявление очереди с DLQ
+├── queue_test.go # Unit и интеграционные тесты
+```
+
+### 18.3 Интерфейсы
+
+```go
+type Publisher interface {
+    Publish(ctx context.Context, event interface{}) error
+    Ping() error
+    Close() error
+}
+
+type Consumer interface {
+    Messages() <-chan amqp.Delivery
+    Ack(tag uint64, multiple bool) error
+    Nack(tag uint64, multiple, requeue bool) error
+    Close() error
+}
+```
+
+### 18.4 Создание Publisher
+
+```go
+pub, err := queue.NewPublisher(
+    rabbitURL,
+    "biometric_events",
+    log, // *logger.Logger
+    queue.WithPublisherPriority("high"),
+)
+```
+
+### 18.5 Создание Consumer
+
+```go
+consumer, err := queue.NewConsumer(
+    rabbitURL,
+    "biometric_events",
+    log, // *logger.Logger
+    queue.WithConsumerPriority("high"),
+)
+```
+
+### 18.6 Dead Letter Queue
+
+`DeclareQueueWithDLQ` автоматически создает DLQ и настраивает основную очередь:
+- DLQ: `<queue-name>.dlq`
+- TTL сообщений: 24 часа
+- Максимальная длина очереди: 10 000 сообщений
+- Routing key для DLQ: `<queue-name>.dlq`
+
+### 18.7 Метрики
+
+```go
+// Глубина очереди (обновляется через StartDepthReporter)
+metrics.NotificationQueueDepth.WithLabelValues("biometric_events", "high").Set(float64(depth))
+
+// Количество published сообщений
+queue.ExportQueueDepth(queueName, priority, depth)
+```
+
+### 18.8 Depth Reporter
+
+```go
+// Запускает периодическое обновление глубины очереди
+stop := queue.StartDepthReporter(ctx, channel, "biometric_events", queue.WithConsumerPriority("high"))
+defer stop()
+```
+
+### 18.9 Правила использования
+
+1. **Логгер**: передавайте `*logger.Logger` вместо `*zap.Logger` для согласованности с проектом.
+2. **Приоритет**: используйте `WithPublisherPriority`/`WithConsumerPriority` для корректного标签ования метрик.
+3. **Context**: `Publish` принимает `context.Context` для отмены и таймаутов.
+4. **Ack/Nack**: вызывайте `Ack` только после успешной обработки сообщения. Используйте `Nack` с `requeue=false` для отправки в DLQ.
+5. **Закрытие**: всегда вызывайте `Close()` для освобождения соединений. Повторный `Close()` безопасен.
+6. **DLQ**: мониторьте DLQ отдельно — сообщения в ней требуют ручного анализа или автоматического reprocessing.
+7. **Тестирование**: интеграционные тесты требуют запущенного RabbitMQ. Unit-тесты используют `-short` флаг для пропуска.
+
+## 19. Shared library `internal/repository` — data access layer for biometric data
+
+### 19.1 Роль
+
+`internal/repository` — это **слой доступа к данным (repository layer)** для персистентности биометрических данных. Он:
+- Абстрагирует SQL-операции от доменного и application слоя (ports and adapters).
+- Предоставляет интерфейс `BiometricRepository` для инъекции зависимостей.
+- Гарантирует контекстную пропагацию (`context.Context`) для отмены и таймаутов.
+- Обеспечивает стандартную обработку ошибок: `sql.ErrNoRows` для "not found", обернутые ошибки для DB ошибок.
+
+### 19.2 Структура пакета
+
+```text
+internal/repository/
+├── biometric_repository.go      # BiometricRepository interface + PostgreSQL implementation
+└── biometric_repository_test.go # Unit-тесты с sqlmock
+```
+
+### 19.3 Интерфейс
+
+```go
+type BiometricRepository interface {
+    Save(ctx context.Context, data *domain.BiometricData) error
+    GetByUser(ctx context.Context, userID string, limit int) ([]*domain.BiometricData, error)
+    GetLatest(ctx context.Context, userID, metricType string) (*domain.BiometricData, error)
+}
+```
+
+### 19.4 Использование
+
+```go
+repo := repository.NewBiometricRepository(db)
+
+// Сохранить запись (ID генерируется автоматически, если пустой)
+err := repo.Save(ctx, &domain.BiometricData{
+    UserID:     "user-123",
+    MetricType: "heart_rate",
+    Value:      72.5,
+    Timestamp:  time.Now(),
+    DeviceType: "smartwatch",
+    CreatedAt:  time.Now(),
+})
+
+// Получить последние 10 записей пользователя
+records, err := repo.GetByUser(ctx, "user-123", 10)
+
+// Получить последнюю запись для конкретного типа метрики
+latest, err := repo.GetLatest(ctx, "user-123", "heart_rate")
+if errors.Is(err, sql.ErrNoRows) {
+    // Нет данных — обработать gracefully
+}
+```
+
+### 19.5 Правила использования
+
+1. **Интерфейс**: внедряйте `BiometricRepository` через конструктор (DIP), не используйте `*sql.DB` напрямую в usecases.
+2. **Контекст**: всегда передавайте `ctx` для поддержки отмены и таймаутов.
+3. **Валидация**: репозиторий проверяет обязательные поля (`user_id`, `metric_type`) и возвращает ошибки до выполнения SQL.
+4. **Ошибки**: `GetLatest` возвращает `sql.ErrNoRows` при отсутствии данных, а не кастомную ошибку.
+5. **UUID**: `Save` генерирует UUID, если `data.ID` пустой. Если ID задан — используется он.
+6. **Лимиты**: `GetByUser` проверяет, что `limit >= 0`. Отрицательные лимиты возвращают ошибку.
+7. **Тестирование**: используйте `sqlmock` для unit-тестирования. Интеграционные тесты требуют PostgreSQL.
+
+## 20. Shared library `internal/sanitize` — input sanitization for security
+
+### 20.1 Роль
+
+`internal/sanitize` — это **библиотека санитизации входных данных**, которая обеспечивает:
+- Базовая защиту от XSS через экранирование HTML-символов.
+- Защиту от log injection через удаление управляющих символов.
+- Очистка строк перед записью в базу данных, логирование или отображение.
+- Фаззинг-тесты для проверки устойчивости к обходным атакам.
+
+### 20.2 Структура пакета
+
+```text
+internal/sanitize/
+├── sanitize.go      # String, LogString, Strings, MapStringString, MapStringInterface
+├── sanitize_test.go # Unit-тесты
+└── fuzz_test.go     # Fuzzing-тесты для String
+```
+
+### 20.3 Основные функции
+
+```go
+// String sanitizes a string for safe HTML output and storage.
+// Trims whitespace and escapes: & < > " ' \
+sanitized := sanitize.String(userInput)
+
+// LogString removes control characters to prevent log injection.
+// Strips ASCII 0x00-0x1F and 0x7F (newlines, tabs, null bytes, etc.)
+safeLog := sanitize.LogString(userInput)
+
+// Strings sanitizes a slice of strings.
+result := sanitize.Strings([]string{"<script>", "normal"})
+
+// MapStringString sanitizes all values in a map[string]string.
+cleaned := sanitize.MapStringString(params)
+
+// MapStringInterface sanitizes string values in a map[string]interface{}.
+// Recursively handles nested maps and []string slices.
+cleaned := sanitize.MapStringInterface(jsonPayload)
+```
+
+### 20.4 LogString против log injection
+
+OWASP рекомендует удалять все управляющие символы из пользовательского ввода перед логированием:
+
+```go
+// БЕЗОПАСНО: LogString удаляет все управляющие символы
+log.Info("device event", zap.String("device_id", sanitize.LogString(deviceID)))
+
+// НЕБЕЗОПАСНО: прямой ввод может содержать \n для подделки логов
+log.Info("device event", zap.String("device_id", deviceID))
+```
+
+### 20.5 Правила использования
+
+1. **User input для HTML/DB**: используйте `String()` для полей, которые отображаются в UI или сохраняются в БД.
+2. **Логирование**: всегда используйте `LogString()` для любых пользовательских данных, попадающих в логи.
+3. **Структурные данные**: используйте `MapStringString()` и `MapStringInterface()` для batch-санитизации query params, headers, JSON payloads.
+4. **Не полагайтесь только на санитизацию**: используйте параметризованные запросы для SQL, CSP заголовки для HTML, и Content-Type для JSON.
+5. **Fuzzing**: `fuzz_test.go` обеспечивает автоматический поиск edge-cases. Запускайте `go test -fuzz=FuzzString` регулярно.
+6. **Order matters**: `String()` заменяет `&` первым, чтобы избежать double-encoding. Не меняйте порядок замен.
+
+## 21. Shared library `internal/telemetry` — OpenTelemetry distributed tracing
+
+### 21.1 Роль
+
+`internal/telemetry` — это **общая библиотека распределенного трейсинга OpenTelemetry**, которая обеспечивает:
+- Автоматическую инструментацию gRPC и HTTP сервисов.
+- Экспорт трейсов в OTLP-совместимый бэкенд (Jaeger, Grafana Tempo, Datadog).
+- Единый service name через environment variables.
+- Graceful shutdown для сброса буферизованных трейсов.
+
+### 21.2 Структура пакета
+
+```text
+internal/telemetry/
+├── trace.go    # InitTracer, service name resolution
+├── grpc.go     # gRPC server/client StatsHandler options
+├── http.go     # HTTP middleware with tracing
+└── telemetry_test.go # Unit-тесты
+```
+
+### 21.3 Инициализация трейсинга
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+func main() {
+    shutdownTraces := telemetry.InitTracer()
+    defer func() {
+        if err := shutdownTraces(context.Background()); err != nil {
+            log.Warn("Failed to shutdown traces", zap.Error(err))
+        }
+    }()
+
+    // ... запуск сервиса
+}
+```
+
+### 21.4 Service name resolution
+
+Priority:
+1. `OTEL_SERVICE_NAME`
+2. `SERVICE_NAME`
+3. `"unknown-service"` (fallback)
+
+### 21.5 gRPC инструментация
+
+```go
+// Серверная сторона
+grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        metrics.UnaryServerInterceptor("my-service"),
+        telemetry.ServerHandlerOption(),
+    ),
+)
+
+// Клиентская сторона
+conn, err := grpc.Dial(
+    target,
+    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("my-service")),
+    telemetry.ClientHandlerOption(),
+)
+```
+
+### 21.6 HTTP инструментация
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
+```
+
+Middleware автоматически:
+- Создает span для каждого входящего запроса.
+- Добавляет `X-Trace-ID` заголовок в ответ.
+- Логирует trace_id, method и path.
+
+### 21.7 Логирование trace_id
+
+```go
+import "github.com/MAMUER/project/internal/telemetry"
+
+// В gRPC хендлере:
+telemetry.LogTraceFromContext(ctx, log)
+```
+
+### 21.8 Окружение
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Адрес OTLP коллектора | `localhost:4317` |
+| `OTEL_SERVICE_NAME` | Имя сервиса для трейсов | - |
+| `SERVICE_NAME` | Fallback имя сервиса | `unknown-service` |
+
+### 21.9 Правила использования
+
+1. **Инициализация**: вызывайте `InitTracer()` в `main()` до запуска серверов.
+2. **Shutdown**: всегда используйте `defer shutdownTraces(context.Background())` для graceful shutdown.
+3. **Service name**: задавайте `OTEL_SERVICE_NAME` в deployment manifests (Kubernetes, Docker Compose).
+4. **gRPC**: применяйте `ServerHandlerOption()` на сервере и `ClientHandlerOption()` на клиенте.
+5. **HTTP**: оборачивайте основной router в `HTTPMiddleware(log)`.
+6. **Trace context**: используйте `LogTraceFromContext(ctx, log)` в критических точках для корреляции логов и трейсов.
+7. **Error handling**: если `OTEL_EXPORTER_OTLP_ENDPOINT` не задан, трейсинг отключается без паники.
+8. **Тестирование**: unit-тесты не требуют запущенного OTLP коллектора; `InitTracer()` возвращает noop shutdown при отсутствии endpoint.
+
+## 22. Shared library `internal/testcontainers` — ephemeral infrastructure for integration tests
+
+### 22.1 Роль
+
+`internal/testcontainers` — это **общая библиотека для управления ephemeral инфраструктурой** в интеграционных и smoke-тестах. Она:
+- Запускает PostgreSQL, Valkey и RabbitMQ контейнеры для тестов.
+- Предоставляет единый API `StartInfrastructure(t)` для получения connection details.
+- Автоматически terminates контейнеры после завершения теста через `t.Cleanup`.
+- Содержит smoke-тесты для проверки работоспособности инфраструктуры.
+
+### 22.2 Структура пакета
+
+```text
+internal/testcontainers/
+├── containers.go        # StartInfrastructure, ResolveHost
+├── containers_test.go   # Unit-тесты для parsePort и ResolveHost
+└── smoke_test.go        # Smoke-тест с build tag `smoke`
+```
+
+### 22.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/testcontainers"
+
+func TestSomething(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    if !isDockerAvailable() {
+        t.Skip("Docker is not available")
+    }
+
+    infra := testcontainers.StartInfrastructure(t)
+    defer func() {
+        // Контейнеры автоматически terminates через t.Cleanup
+    }()
+
+    // Использовать connection details
+    cfg := db.Config{
+        Host:     infra.PostgresHost,
+        Port:     strconv.Itoa(infra.PostgresPort),
+        User:     "testuser",
+        Password: "testpass",
+        DBName:   "testdb",
+    }
+}
+```
+
+### 22.4 Container struct
+
+```go
+type Container struct {
+    Postgres     *postgres.PostgresContainer
+    Valkey       *valkey.ValkeyContainer
+    RabbitMQ     *rabbitmq.RabbitMQContainer
+
+    PostgresHost string
+    PostgresPort int
+    ValkeyHost   string
+    ValkeyPort   int
+    RabbitMQHost string
+    RabbitMQPort int
+}
+```
+
+### 22.5 ResolveHost
+
+```go
+// ResolveHost корректирует host для Docker Desktop (Windows/macOS)
+host := testcontainers.ResolveHost(t, infra.ValkeyHost)
+address := host + ":" + strconv.Itoa(infra.ValkeyPort)
+```
+
+### 22.6 Smoke tests
+
+Smoke-тесты помечены build tag `smoke` и запускаются отдельно:
+
+```bash
+go test -tags=smoke ./internal/testcontainers/...
+```
+
+### 22.7 Правила использования
+
+1. **Docker required**: интеграционные тесты требуют запущенный Docker. Используйте `testing.Short()` для пропуска.
+2. **Cleanup**: `StartInfrastructure` автоматически регистрирует `t.Cleanup` для termination контейнеров.
+3. **Ports**: используйте `infra.PostgresPort` и т.д. вместо хардкода портов.
+4. **Host resolution**: используйте `ResolveHost` для корректной работы на Docker Desktop.
+5. **Smoke tests**: smoke-тесты проверяют только доступность контейнеров, не запуская полные интеграционные сценарии.
+6. **Timeouts**: контейнеры имеют startup timeouts (30-60 секунд). Увеличивайте при необходимости.
+7. **Тестирование**: unit-тесты для `parsePort` и `ResolveHost` не требуют Docker и запускаются в обычном `go test`.
+
+## 23. Shared library `internal/totp` — TOTP two-factor authentication
+
+### 23.1 Роль
+
+`internal/totp` — это **библиотека для двухфакторной аутентификации (2FA) на основе TOTP**, которая обеспечивает:
+- Генерацию TOTP секретов и QR-кодов для enrollment.
+- Валидацию 6-значных кодов с учетом clock drift.
+- Управление резервными кодами (backup codes) с хешированием перед сохранением.
+- Шифрование/дешифрование TOTP секретов через AES-GCM.
+
+### 23.2 Структура пакета
+
+```text
+internal/totp/
+└── totp_service.go      # Service, GenerateTOTPSecret, ValidateTOTPCode, backup codes
+```
+
+### 23.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/totp"
+
+// Создание сервиса с шифрованием
+encryptor, _ := crypto.NewAESGCMEncryptor(encryptionKey)
+svc := totp.NewService(encryptor)
+
+// Генерация секрета для пользователя
+setup, err := svc.GenerateTOTPSecret("user@example.com")
+// setup.Secret — Base32 секрет
+// setup.QRCodeURL — URL для QR-кода
+// setup.BackupCodes — 10 резервных кодов в формате XXXX-XXXX
+
+// Валидация TOTP кода
+valid, err := svc.ValidateTOTPCode(passcode, setup.Secret)
+
+// Валидация резервного кода
+idx, err := totp.ValidateBackupCode(code, hashedBackupCodes)
+
+// Хеширование резервных кодов перед сохранением в БД
+hashedCodes := totp.HashBackupCodes(setup.BackupCodes)
+
+// Шифрование секрета
+ciphertext, err := svc.EncryptSecret(setup.Secret)
+
+// Дешифрование секрета
+plaintext, err := svc.DecryptSecret(ciphertext)
+```
+
+### 23.4 Конфигурация
+
+```go
+const (
+    Issuer           = "FitPulse"
+    BackupCodesCount = 10
+    BackupCodeLength = 8
+)
+```
+
+### 23.5 Security considerations
+
+1. **Secret encryption**: TOTP секреты должны шифроваться при хранении. Используйте `svc.EncryptSecret()` перед записью в БД.
+2. **Backup codes**: резервные коды хешируются SHA-256 перед сохранением. Никогда не храните их в plaintext.
+3. **Clock drift**: `ValidateTOTPCode` допускает skew ±1 период (30 секунд) для компенсации рассинхронизации часов.
+4. **Algorithm**: используется SHA-1 (совместимость с большинством authenticator apps). Для повышенной безопасности можно переключиться на SHA-256.
+5. **Period**: 30 секунд — стандартный период TOTP.
+
+### 23.6 Правила использования
+
+1. **Service**: всегда создавайте `totp.NewService(encryptor)` с настроенным шифрованием.
+2. **Enrollment**: сохраняйте только зашифрованный секрет (`EncryptSecret`) и хешированные резервные коды (`HashBackupCodes`).
+3. **Validation**: используйте `ValidateTOTPCode` для обычных кодов и `ValidateBackupCode` для резервных.
+4. **Backup codes**: после использовании резервного кода удалите его из списка валидных.
+5. **Error handling**: проверяйте `err` перед использованием результата. `ValidateBackupCode` возвращает `ErrInvalidBackupCode` при несовпадении.
+6. **Normalization**: `normalizeBackupCode` автоматически нормализует ввод (lowercase, убирает пробелы и дефисы). Не выполняйте нормализацию перед вызовом `HashBackupCodes` — она уже внутренняя.
+7. **Тестирование**: unit-тесты покрывают генерацию, валидацию, шифрование и нормализацию. Интеграционные тесты требуют реального времени.
+
+## 24. Shared library `internal/validator` — gRPC request validation
+
+### 24.1 Роль
+
+`internal/validator` — это **shared библиотека для валидации gRPC запросов**, которая обеспечивает:
+- Централизованную валидацию входных данных для всех сервисов (user, training, biometric).
+- Единообразную обработку ошибок через gRPC status codes (`codes.InvalidArgument`).
+- Избегание дублирования валидационной логики между сервисами.
+
+### 24.2 Структура пакета
+
+```text
+internal/validator/
+├── biometric.go       # ValidateBiometricRequest, ValidateBiometricRecord
+├── training.go        # ValidateGeneratePlanRequest, ValidateCompleteWorkoutRequest, etc.
+├── user.go            # ValidateRegisterRequest, ValidateLoginRequest, ValidateProfileUpdate
+└── validator_test.go  # Unit-тесты для всех валидаторов
+```
+
+### 24.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/validator"
+
+// User service
+if err := validator.ValidateRegisterRequest(req); err != nil {
+    return nil, fmt.Errorf("validate register request: %w", err)
+}
+
+// Training service
+if req.DurationWeeks == 0 {
+    req.DurationWeeks = 4
+}
+if err := validator.ValidateGeneratePlanRequest(req); err != nil {
+    return nil, fmt.Errorf("validate generate plan request: %w", err)
+}
+
+// Biometric service
+if err := validator.ValidateBiometricRequest(req); err != nil {
+    return nil, err
+}
+```
+
+### 24.4 Конфигурация
+
+```go
+const (
+    MaxDurationWeeks = 52
+    MaxAvailableDays = 7
+)
+```
+
+### 24.5 Security considerations
+
+1. **Input validation**: все внешние gRPC запросы проходят через валидаторы перед обработкой.
+2. **Consistent errors**: все ошибки возвращаются как gRPC status errors с кодом `InvalidArgument`.
+3. **No side effects**: валидаторы не должны мутировать входные запросы. Значения по умолчанию применяются в сервисном слое.
+4. **Range checks**: числовые поля проверяются на допустимые диапазоны (например, пульс 30-220).
+
+### 24.6 Правила использования
+
+1. **Service layer**: валидаторы вызываются в gRPC handler'ах перед бизнес-логикой.
+2. **Error handling**: возвращайте ошибку валидатора напрямую или оборачивайте через `fmt.Errorf("context: %w", err)` для сохранения gRPC status.
+3. **Defaults**: применяйте значения по умолчанию в сервисном слое, а не в валидаторах.
+4. **New validators**: добавляйте валидаторы для новых сущностей в соответствующие файлы (`biometric.go`, `training.go`, `user.go`).
+5. **Tests**: каждый валидатор должен иметь comprehensive unit-тесты с табличным driven testing.
+6. **gRPC codes**: используйте `codes.InvalidArgument` для ошибок валидации. Не используйте `codes.Internal` или другие коды.
+7. **Тестирование**: unit-тесты не требуют запущенных зависимостей; проверяйте как успешные, так и ошибочные сценарии.
+
+## 25. Shared library `internal/middleware` — HTTP and gRPC middleware
+
+### 25.1 Роль
+
+`internal/middleware` — это **shared библиотека middleware** для HTTP и gRPC, которая обеспечивает:
+- Корреляция запросов через `X-Correlation-ID` (HTTP + gRPC)
+- Единую обработку ошибок и JSON-ответы
+- Аутентификацию через JWT ES256 токены
+- Авторизацию на основе ролей (`RequireRole`, `RequirePrivilege`)
+- Логирование HTTP-запросов с метриками Prometheus
+- Rate limiting: per-IP, per-user и отдельный для auth-эндпоинтов
+- Безопасность: CSP nonce-based, HSTS, security headers, panic recovery
+- Валидация привилегий через БД для защиты от отозванных claims
+
+### 25.2 Структура пакета
+
+```text
+internal/middleware/
+├── context_keys.go      # Ключи контекста (CorrelationIDKey, UserIDKey, RoleKey, RequestIDKey)
+├── correlation.go       # CorrelationIDHTTP, CorrelationIDGRPC, CorrelationIDGRPCClient
+├── error_handler.go     # ErrorHandler, JSONError, responseWriter
+├── error_pages.go       # ErrorPages, serveErrorPage
+├── grpc_auth.go         # GRPCAuthInterceptor
+├── middleware.go        # RequestID, AuthMiddleware, RequireRole, LoggingMiddleware, RecoveryHTTP, RecoveryGRPC
+├── nonce_inject.go      # HTMLNonceInject, CSP nonce injection
+├── privilege.go         # RequirePrivilege, GetConfirmedPrivilege
+├── ratelimit.go         # AuthRateLimit, RateLimit, UserRateLimit
+└── security_headers.go  # SecurityHeaders, RemoveServerHeader, GetNonce, LogoutHeaders
+```
+
+### 25.3 Использование
+
+```go
+import "github.com/MAMUER/project/internal/middleware"
+
+// HTTP chain
+router.Use(middleware.RemoveServerHeader)
+router.Use(middleware.SecurityHeaders)
+router.Use(middleware.CorrelationIDHTTP)
+router.Use(middleware.RequestID)
+router.Use(middleware.ErrorHandler(log))
+router.Use(middleware.RecoveryMiddleware(log))
+router.Use(middleware.AuthRateLimit)
+router.Use(middleware.RateLimit)
+router.Use(middleware.UserRateLimit)
+router.Use(middleware.LoggingMiddleware(log, metrics.RequestDuration, metrics.RequestTotal, metrics.ErrorTotal))
+
+// gRPC interceptors
+server := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        middleware.RecoveryGRPC(log),
+        middleware.CorrelationIDGRPC(),
+        middleware.GRPCAuthInterceptor(publicKeyPEM, log),
+    ),
+)
+```
+
+### 25.4 Конфигурация
+
+```go
+// Rate limits
+const (
+    DefaultRate          = 10        // requests per second
+    DefaultBurst         = 50
+    AuthRate             = 5.0 / 60.0 // requests per second for auth endpoints
+    AuthBurst            = 5
+    UserRate             = 100
+    UserBurst            = 200
+)
+```
+
+### 25.5 Security considerations
+
+1. **CSP nonce-based**: все `<script>` теги на главной странице получают nonce, генерируемый `crypto/rand` (256 бит).
+2. **Security headers**: HSTS, X-Frame-Options, X-Content-Type-Options, Permissions Policy, COOP/COEP.
+3. **Panic recovery**: `RecoveryGRPC` возвращает `codes.Internal` при панике, предотвращая утечку информации.
+4. **IP extraction**: rate limiters используют `getClientIP` для корректной работы за reverse proxy.
+5. **Role verification**: `RequireRole` и `RequirePrivilege` проверяют актуальную роль в БД, а не только JWT claims.
+6. **Logout headers**: `LogoutHeaders` явно инвалидирует cookies через `Max-Age=0`.
+
+### 25.6 Правила использования
+
+1. **Order matters**: применяйте middleware в правильном порядке: security headers → correlation → request ID → recovery → auth → rate limit → logging.
+2. **gRPC auth**: используйте `GRPCAuthInterceptor` для gRPC сервисов. Ключ метаданных: `authorization`.
+3. **HTTP auth**: используйте `AuthMiddleware` для HTTP. Возвращает 404 вместо 401 для избежания раскрытия наличия endpoint.
+4. **Role checks**: используйте `RequireRole` (с проверкой в БД) или `RequirePrivilege` для авторизации.
+5. **Rate limiting**: применяйте `AuthRateLimit` к auth endpoints, `RateLimit` для общего IP-лимита, `UserRateLimit` для authenticated пользователей.
+6. **Correlation ID**: используйте `CorrelationIDHTTP` и `CorrelationIDGRPC` для трейсинга между сервисами.
+7. **Error handling**: используйте `JSONError` для всех HTTP ошибок. 403 автоматически конвертируется в 404.
+8. **Nonce injection**: `HTMLNonceInject` работает для `/` и `/index.html` (React SPA entry point). Все `<script>` теги в `index.html` получают nonce для CSP.
+9. **Testing**: `resetRateLimiters()` доступна для тестов. Не создавайте новые лимитеры в production коде.
+10. **Тестирование**: unit-тесты покрывают все middleware; rate limiter тесты используют `resetRateLimiters` для изоляции.
+
+## 26. Kubernetes deployment configs (`configs/k8s`) — Production infrastructure
+
+### 26.1 Роль
+
+`configs/k8s` — это **Kubernetes манифесты для production deployment** всей платформы на k3s. Обеспечивает:
+- Изоляцию namespace: `fitness-platform-production` (приложения), `ingress-nginx` (ингресс), `cert-manager` (TLS), `monitoring` (Prometheus/Grafana/Fluent Bit)
+- Zero-trust NetworkPolicy: DMZ → App → Data → Monitoring зоны
+- Security: Pod Security Standards `restricted`, `readOnlyRootFilesystem`, `drop ALL`, seccomp `RuntimeDefault`
+- Observability: Prometheus metrics, Grafana дашборды, Fluent Bit логирование, Alertmanager
+- WAF: ModSecurity CRS v4 на ingress-nginx
+- Автоматизация: Jobs для миграций, seed-admin, обновления CRS
+
+### 26.2 Структура
+
+```text
+configs/k8s/
+├── base/
+│   ├── namespace.yaml                    # fitness-platform-production namespace
+│   ├── configmap.yaml                    # Shared env config
+│   ├── resource-quota.yaml               # CPU/memory/pod quotas
+│   ├── limit-range.yaml                  # Default container limits
+│   ├── serviceaccount.yaml               # Per-service SA
+│   ├── rbac/                             # Roles and RoleBindings
+│   ├── network-policies/                 # Zero-trust network segmentation
+│   ├── deployments/                      # StatefulSets and Deployments
+│   ├── services/                         # ClusterIP/NodePort services
+│   ├── ingress-nginx/                    # NGINX Ingress + ModSecurity WAF
+│   ├── cert-manager/                     # Let's Encrypt ClusterIssuer
+│   ├── jobs/                             # DB migration, seed-admin, CRS update
+│   └── monitoring/                       # Prometheus, Grafana, Alertmanager, Fluent Bit
+└── overlays/
+    └── production/
+        ├── kustomization.yaml            # Image tags, ingress, HPA
+        ├── ingress.yaml                  # TLS, host rules
+        └── hpa.yaml                      # Autoscaling (1-1 replicas)
+```
+
+### 26.3 Безопасность
+
+1. **Pod Security Standards**: namespace `fitness-platform-production` использует `restricted`, ingress-nginx — `baseline` (из-за `hostNetwork: true`)
+2. **Network segmentation**: NetworkPolicy ограничивает трафик между DMZ, App, Data и Monitoring зонами
+3. **Secrets management**: все секреты через Kubernetes Secrets, монтируются как файлы (`_FILE` env vars)
+4. **ModSecurity WAF**: OWASP CRS v4 на ingress-nginx с автоматическим обновлением через CronJob
+5. **TLS**: Let's Encrypt через cert-manager, HSTS enforced
+6. **Security headers**: X-Frame-Options, X-Content-Type-Options, CSP, Permissions-Policy
+
+### 26.4 Мониторинг
+
+1. **Prometheus**: scrape интервал 30s, retention 1h, ServiceMonitor через annotations
+2. **Grafana**: provisioning через ConfigMap, дашборд "FitPulse Platform Overview"
+3. **Fluent Bit**: сбор логов контейнеров, парсинг Docker JSON, отправка в stdout
+4. **Alertmanager**: routing по severity, inhibit rules
+
+### 26.5 Правила использования
+
+1. **Deployment**: используйте `kubectl apply -k configs/k8s/overlays/production`
+2. **Secrets**: создайте `app-secrets` и `monitoring-secrets` перед deployment
+3. **Storage**: `local-path-provisioner` требует `/opt/local-path-provisioner` на каждой ноде
+4. **Images**: тегируются через `IMAGE_TAG` environment variable (default: `latest`)
+5. **Backup**: настройте `BACKUP_KEY` и `PGPASSWORD` для бэкапов
+6. **DNS**: DuckDNS update script требует `DUCKDNS_TOKEN` secret
+7. **Тестирование**: валидируйте YAML через `python -c "import yaml; list(yaml.safe_load_all(open('configs/k8s/base/namespace.yaml')))"`

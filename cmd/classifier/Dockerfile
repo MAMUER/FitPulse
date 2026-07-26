@@ -14,7 +14,6 @@ RUN go mod download
 
 COPY cmd/classifier/ ./cmd/classifier/
 COPY internal/ ./internal/
-COPY pkg/ ./pkg/
 COPY api/ ./api/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
@@ -36,6 +35,6 @@ COPY --from=builder --chown=appuser:appgroup /app/bin/classifier .
 
 USER appuser
 
-EXPOSE 8001
+EXPOSE 8001 9091
 
 ENTRYPOINT ["./classifier"]

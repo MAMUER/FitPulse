@@ -3,10 +3,10 @@ imports:
 	@go run github.com/daixiang0/gci@latest write \
 		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
 		--skip-generated --skip-vendor \
-		cmd internal pkg
+		cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test test-cover check imports
+.PHONY: proto tidy fmt vet lint test test-cover check imports js-check frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -27,7 +27,7 @@ vet:
 
 lint:
 	@echo "Running golangci-lint..."
-	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0
+	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0 ./cmd/... ./internal/...
 	@echo "Lint complete."
 
 test:
@@ -37,15 +37,30 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile=coverage.out ./internal/... ./pkg/...
+	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
 	@echo "Checking coverage threshold (>= 75%)..."
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-check: tidy fmt vet imports lint test-cover
+frontend-lint:
+	@echo "Running frontend lint..."
+	cd web && npm run lint
+	@echo "Frontend lint complete."
+
+frontend-test:
+	@echo "Running frontend tests..."
+	cd web && npm run test
+	@echo "Frontend tests complete."
+
+frontend-build:
+	@echo "Building frontend..."
+	cd web && npm run build
+	@echo "Frontend build complete."
+
+check: tidy fmt vet imports lint test-cover js-check frontend-lint frontend-test frontend-build
 	@echo "========================================"
-	@echo "  LOCAL CHECKS PASSED!"
+	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
 
 proto:
@@ -67,12 +82,16 @@ proto:
 
 help:
 	@echo "Available commands:"
-	@echo "  make tidy       - Tidy Go modules"
-	@echo "  make fmt        - Format Go code"
-	@echo "  make vet        - Run go vet"
-	@echo "  make lint       - Run golangci-lint"
-	@echo "  make test       - Run unit tests"
-	@echo "  make test-cover - Run tests with coverage report (75% threshold, business logic only)"
-	@echo "  make check      - Run tidy, fmt, vet, lint, test"
-	@echo "  make proto      - Generate proto files"
-	@echo "  make imports    - Update Go imports with gci"
+	@echo "  make tidy            - Tidy Go modules"
+	@echo "  make fmt             - Format Go code"
+	@echo "  make vet             - Run go vet"
+	@echo "  make lint            - Run golangci-lint"
+	@echo "  make test            - Run unit tests"
+	@echo "  make test-cover      - Run tests with coverage report (75% threshold, business logic only)"
+	@echo "  make check           - Run tidy, fmt, vet, lint, test, js-check, frontend-lint, frontend-test, frontend-build"
+	@echo "  make proto           - Generate proto files"
+	@echo "  make imports         - Update Go imports with gci"
+	@echo "  make js-check        - Check JavaScript syntax with Node.js"
+	@echo "  make frontend-lint   - Lint frontend code with ESLint"
+	@echo "  make frontend-test   - Run frontend tests with Vitest"
+	@echo "  make frontend-build  - Build frontend with Vite"

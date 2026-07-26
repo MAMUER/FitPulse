@@ -10,6 +10,7 @@ import (
 // Publisher — интерфейс для отправки сообщений в очередь
 type Publisher interface {
 	Publish(ctx context.Context, event interface{}) error
+	Ping() error
 	Close() error
 }
 

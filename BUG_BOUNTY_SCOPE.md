@@ -19,11 +19,11 @@ FitPulse — open-source fitness platform.
 
 | Target | Notes |
 | -------- | ------- |
-| `https://fittpulse.duckdns.org` | production domain + все поддомены при их появлении |
-| Веб-интерфейс (`web/`, `web/static/`, `web/templates/`) | frontend, статика, шаблоны |
+| `https://fittpulse.duckdns.org` | текущий production-домен (development/staging). При переходе на платный домен `fitpulse.example.com` он автоматически добавляется в scope. |
+| Веб-интерфейс (`web/src/`, `web/static/fonts/`, `web/static/errors/`) | React SPA, шрифты, страницы ошибок |
 | Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
 | Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
-| Инфраструктура: K8s deployment manifests, NGINX configs (`deploy/lb/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |
+| Инфраструктура: K8s deployment manifests, Ingress NGINX ModSecurity configs (`configs/k8s/base/ingress-nginx/`), scripts (`scripts/`, `configs/k8s/scripts/`) | без доступа к живому кластеру |
 | CI/CD workflows и secrets handling | без доступа к GitHub Secrets |
 
 ### Исключения из in-scope
@@ -54,17 +54,15 @@ FitPulse — open-source fitness platform.
 - 7 рабочих дней — assessment и triage
 - 30 рабочих дней — план исправления для критических уязвимостей
 
----
-
 ## Severity & Response
 
-Оценка серьезности и сроки реагирования приведены в `.github/SLA.md`. Ниже — ориентировочные временные рамки (best effort, без юридических гарантий):
+Оценка серьезности соответствует секции "Типы уязвимостей" в [`SECURITY.md`](SECURITY.md). Ниже — ориентировочные временные рамки (best effort, без юридических гарантий):
 
 | Severity | Примеры | Время реакции (ориентир) |
 |----------|---------|--------------------------|
-| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 1–3 рабочих дня |
+| Critical | RCE, SQLi с доступом к данным, auth bypass, утечка PII/tokens, подделка JWT/2FA | 48 часов — подтверждение; 7 рабочих дней — assessment; 30 рабочих дней — план исправления |
 | High | XSS, CSRF, недостатки контроля доступа, небезопасная десериализация, обход rate limit/auth middleware | 3–7 рабочих дней |
-| Medium | Missing security headers, weak crypto, info disclosure, небезопасная конфигурация NGINX/K8s | 1–2 недели |
+| Medium | Missing security headers, weak crypto, info disclosure, session management issues | 1–2 недели |
 | Low | Missing rate limiting, verbose errors, missing CSP directives | Следующий релиз / best effort |
 
 > **Важно**: SLA не является юридическим обязательством. Проект распространяется "как есть" без гарантий. Реакция осуществляется добровольцами в свободное время (best effort).

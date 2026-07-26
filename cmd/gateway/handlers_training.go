@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
+	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -41,7 +42,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	class := req.Class
 	if class == "" {
-		class = "endurance_e1e2"
+		class = "endurance_basic"
 	}
 
 	availableDays := make([]int32, len(req.AvailableDays))
@@ -110,7 +111,8 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 		"training_type": class,
 	}
 
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -155,7 +157,6 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert protobuf plans to JSON
 	plans := make([]map[string]interface{}, len(resp.Plans))
 	for i, plan := range resp.Plans {
 		planDataJSON, err := json.Marshal(plan.PlanData)
@@ -171,7 +172,6 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Extract common fields for frontend compatibility
 		durationWeeks, _ := planData["duration_weeks"].(float64)
 		trainingGoal, _ := planData["training_goal"].(string)
 
@@ -182,9 +182,8 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			"status":         plan.Status,
 			"duration_weeks": durationWeeks,
 			"training_goal":  trainingGoal,
-			// Also expose start_date/end_date as strings for frontend
-			"start_date": plan.StartDate.AsTime().Format("2006-01-02"),
-			"end_date":   plan.EndDate.AsTime().Format("2006-01-02"),
+			"start_date":     plan.StartDate.AsTime().Format("2006-01-02"),
+			"end_date":       plan.EndDate.AsTime().Format("2006-01-02"),
 		}
 	}
 
@@ -194,9 +193,9 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		"total":  resp.Total,
 	}
 
-	if err := middleware.SignAndSendJSON(w, response, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 	}
 }
 
@@ -234,7 +233,8 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -264,7 +264,8 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{"status": "ok"}, g.responseSigningSecret, g.log.Logger); err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
 		return
@@ -274,7 +275,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	planID := chi.URLParam(r, "plan_id")
 	if planID == "" {
-		http.Error(w, "plan_id требуется", http.StatusBadRequest)
+		http.Error(w, "plan_id required", http.StatusBadRequest)
 		return
 	}
 
@@ -294,38 +295,49 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	planDataJSON, err := json.Marshal(resp.GetPlanData())
-	if err != nil {
-		g.log.Error("Failed to marshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-		return
+	planDataMap := resp.GetPlanData().AsMap()
+	if planDataMap == nil {
+		planDataMap = map[string]interface{}{}
 	}
-	planData := make(map[string]interface{})
-	if len(planDataJSON) > 0 && string(planDataJSON) != "null" {
-		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
-			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	planData["plan_id"] = resp.GetId()
-	planData["user_id"] = resp.GetUserId()
-	planData["status"] = resp.GetStatus()
-
+	planDataMap["plan_id"] = resp.GetId()
+	planDataMap["user_id"] = resp.GetUserId()
+	planDataMap["status"] = resp.GetStatus()
 	if resp.GetStartDate() != nil {
-		planData["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
+		planDataMap["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
 	}
 	if resp.GetEndDate() != nil {
-		planData["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
+		planDataMap["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := middleware.SignAndSendJSON(w, map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"plan_id":   resp.GetId(),
-		"plan_data": planData,
-	}, g.responseSigningSecret, g.log.Logger); err != nil {
+		"plan_data": planDataMap,
+	}); err != nil {
+		g.log.Error("Failed to encode response", zap.Error(err))
+	}
+}
+
+func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := g.userClient.GetAchievements(r.Context(), &userpb.GetAchievementsRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		g.log.Error("Failed to get achievements", zap.Error(err))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
 }

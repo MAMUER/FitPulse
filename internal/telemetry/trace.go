@@ -19,22 +19,27 @@ var (
 	tp           *sdktrace.TracerProvider
 )
 
+// InitTracer initializes OpenTelemetry tracing with OTLP export.
+// It returns a shutdown function that should be deferred in main().
+// If OTLP endpoint is not configured or initialization fails, it returns a no-op shutdown function.
 func InitTracer() func(context.Context) error {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "localhost:4317"
+		return noopShutdown
 	}
 
 	ctx := context.Background()
 
 	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
-		return func(context.Context) error { return nil }
+		return noopShutdown
 	}
 
-	res, err := resource.New(ctx, resource.WithAttributes(semconv.ServiceNameKey.String(serviceName())))
+	res, err := resource.New(ctx, resource.WithAttributes(
+		semconv.ServiceNameKey.String(serviceName()),
+	))
 	if err != nil {
-		return func(context.Context) error { return nil }
+		return noopShutdown
 	}
 
 	tp = sdktrace.NewTracerProvider(
@@ -44,20 +49,24 @@ func InitTracer() func(context.Context) error {
 
 	otel.SetTracerProvider(tp)
 
-	shutdownFn := func(ctx context.Context) error {
-		var shutdownErr error
-		shutdownOnce.Do(func() {
-			if tp != nil {
-				shutdownErr = tp.Shutdown(ctx)
-			}
-		})
-		if shutdownErr != nil {
-			return fmt.Errorf("shutdown tracer: %w", shutdownErr)
-		}
-		return nil
-	}
+	return shutdown
+}
 
-	return shutdownFn
+func noopShutdown(context.Context) error {
+	return nil
+}
+
+func shutdown(ctx context.Context) error {
+	var shutdownErr error
+	shutdownOnce.Do(func() {
+		if tp != nil {
+			shutdownErr = tp.Shutdown(ctx)
+		}
+	})
+	if shutdownErr != nil {
+		return fmt.Errorf("shutdown tracer: %w", shutdownErr)
+	}
+	return nil
 }
 
 func serviceName() string {

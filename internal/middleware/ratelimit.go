@@ -75,6 +75,21 @@ func init() {
 	}()
 }
 
+func resetRateLimiters() {
+	rateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		rateLimiterInstance.visitors.Delete(key)
+		return true
+	})
+	userRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		userRateLimiterInstance.visitors.Delete(key)
+		return true
+	})
+	authRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		authRateLimiterInstance.visitors.Delete(key)
+		return true
+	})
+}
+
 // AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5)
 func AuthRateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +97,7 @@ func AuthRateLimit(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip := r.RemoteAddr
+		ip := getClientIP(r)
 		v, ok := authRateLimiterInstance.visitors.Load(ip)
 		if !ok {
 			limiter := rate.NewLimiter(5.0/60.0, 5)
@@ -106,7 +121,7 @@ func RateLimit(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip := r.RemoteAddr
+		ip := getClientIP(r)
 		v, ok := rateLimiterInstance.visitors.Load(ip)
 		if !ok {
 			limiter := rate.NewLimiter(10, 50)

@@ -94,11 +94,11 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 	}
 
 	_, err = p.db.ExecContext(ctx, `
-		INSERT INTO device_provider_accounts 
+		INSERT INTO device_provider_accounts
 		(user_id, provider, provider_user_id, access_token, refresh_token, token_expires_at, scopes, is_active)
 		VALUES ($1, 'fitbit', $2, $3, $4, $5, $6, TRUE)
-		ON CONFLICT (user_id, provider) 
-		DO UPDATE SET 
+		ON CONFLICT (user_id, provider)
+		DO UPDATE SET
 			access_token = EXCLUDED.access_token,
 			refresh_token = EXCLUDED.refresh_token,
 			token_expires_at = EXCLUDED.token_expires_at,
@@ -107,8 +107,11 @@ func (p *FitbitProvider) ExchangeCode(ctx context.Context, code, state string) e
 	`, userID, profile.User.EncodedID, tokenResp.AccessToken, encryptedRefresh,
 		time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second),
 		strings.Split(tokenResp.Scope, " "))
+	if err != nil {
+		return fmt.Errorf("upsert device provider account: %w", err)
+	}
 
-	return fmt.Errorf("upsert device provider account: %w", err)
+	return nil
 }
 
 func (p *FitbitProvider) exchangeCodeForTokens(code string) (*FitbitTokenResponse, error) {

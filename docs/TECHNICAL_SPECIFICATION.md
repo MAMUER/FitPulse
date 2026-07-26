@@ -38,10 +38,8 @@
 - классификацию состояния по 6 признакам;
 - генерацию тренировочных планов на 4–12 недель;
 - генерацию диеты с расчётом макронутриентов;
-- ежедневную адаптивную модификацию плана;
 - разграничение ролей (client, admin);
 - логирование (slog) + OpenTelemetry traces;
-- HMAC-SHA256 подпись критических ответов;
 - принудительную инвалидацию сессии при logout;
 - однократное использование auth-кодов;
 - замену 403 на 404;
@@ -62,7 +60,7 @@
 |Classifier|Классификация состояния (6 классов, Go-алгоритм)|
 |ML Generator|Генерация планов (GAN, Python/FastAPI)|
 |Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer)|
-|Gateway|Единая точка входа (REST → gRPC)|
+|Gateway|Единая точка входа (REST → gRPC). Не имеет прямого доступа к БД; делегирует пользовательские/админ-операции в user-service|
 |NGINX|SSL termination, CSP, rate limiting|
 
 ### 4.2. Требования к надёжности
@@ -71,27 +69,26 @@
 - health-check (`GET /health`);
 - graceful shutdown;
 - обработка ошибок подключения к БД;
-- HMAC-SHA256 подпись критических ответов;
 - валидация входных данных (gRPC status codes);
 - deduplication данных с устройств (device_id + timestamp + metric_type);
 - SAST (gosec), govulncheck, Trivy, TruffleHog, Gitleaks в CI/CD.
 
 ### 4.3. Условия эксплуатации
 
-- сервер: Linux x86_64, 8+ ГБ ОЗУ, 20 ГБ диска;
+- сервер: KVM, 2 vCPU, 4 ГБ ОЗУ, 60 ГБ SSD, Ubuntu 26.04;
 - клиент: мобильный веб-браузер с поддержкой ES2026;
 - сеть: HTTPS (порт 8443), TLS 1.3 only.
 
 ### 4.4. Минимальные требования к серверу
 
 - CPU: 2 ядра
-- RAM: 8+ ГБ (для ML-сервисов)
-- Диск: 20 ГБ (SSD рекомендуется)
+- RAM: 4 ГБ
+- Диск: 60 ГБ SSD
 - Сеть: 100 Мбит/с
 
 ### 4.5. Информационная совместимость
 
-**Входные данные:** email (RFC 5322, max 254), пароль (min 8), invite-код (`ROLE-YYYY-<hash>`, max 50), биометрия (heart_rate 30–220, spo2 70–100, temperature 35.5–38.5, blood_pressure 80–200/50–130), роль (client, admin), устройство (apple_watch, samsung_galaxy_watch, huawei_watch_d2, amazfit_trex3).
+**Входные данные:** email (RFC 5322, max 254), пароль (min 8), invite-код (`ROLE-YYYY-<hash>`, max 50), биометрия (heart_rate 30–220, spo2 70–100, temperature 35.5–38.5, blood_pressure 80–200/50–130), роль (client, admin), устройство (fitbit, garmin, withings).
 
 **Выходные данные:** JSON (UTF-8), Protobuf (binary).
 
@@ -108,7 +105,7 @@
 - описание программы;
 - README.md;
 - Swagger-спецификация (`api/rest/swagger.yaml`);
-- схема БД (`configs/k8s/base/jobs/init-db.sql`, `scripts/migrations/`);
+- схема БД (`db/migrations/V1__full_schema.sql`);
 - Security Policy (`SECURITY.md`);
 - ADR ([docs/adr/](docs/adr/)).
 
@@ -136,7 +133,7 @@
 - `go vet ./...` — статический анализ
 - `golangci-lint run` — расширенный линтинг
 - `go test -v -timeout 5m ./...` — unit-тесты
-- Покрытие ≥ 75% для business-logic пакетов (`internal/...`, `pkg/...`), исключая инфраструктурные слои (`grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`) и сгенерированный код (`api/gen/`, `mocks/`).
+- Покрытие ≥ 75% для business-logic пакетов (`internal/...`), исключая инфраструктурные слои (`grpc`, `db`, `queue`, `middleware`, `crypto`, `totp`, `telemetry`, `testcontainers`) и сгенерированный код (`api/gen/`, `mocks/`).
 
 ### 8.2. CI/CD Pipeline
 

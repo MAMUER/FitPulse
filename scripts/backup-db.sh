@@ -13,9 +13,15 @@ if [[ -z "${PGDATABASE:-}" ]]; then
 	exit 1
 fi
 
+if [[ -z "${BACKUP_KEY:-}" ]]; then
+	echo "ERROR: BACKUP_KEY environment variable must be set"
+	exit 1
+fi
+
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 FILENAME="${BACKUP_DIR}/backup-${PGDATABASE}-${TIMESTAMP}.dump"
 ENCRYPTED="${FILENAME}.enc"
+CHECKSUM="${ENCRYPTED}.sha256"
 
 export PGPASSWORD="${PGPASSWORD:-}"
 
@@ -34,9 +40,11 @@ if [[ $PG_DUMP_STATUS -ne 0 ]]; then
 fi
 
 openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$BACKUP_KEY" -in "$FILENAME" -out "$ENCRYPTED"
+sha256sum "$ENCRYPTED" > "$CHECKSUM"
 rm -f "$FILENAME"
 
 echo "Encrypted backup created: $ENCRYPTED"
+echo "Checksum saved: $CHECKSUM"
 
 if [[ -n "$PROMETHEUS_TEXTFILE_DIR" ]]; then
 	mkdir -p "$PROMETHEUS_TEXTFILE_DIR"

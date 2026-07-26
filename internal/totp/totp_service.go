@@ -22,29 +22,27 @@ const (
 	BackupCodeLength = 8
 )
 
+// TOTPSetup contains the data needed to complete TOTP enrollment.
 type TOTPSetup struct {
 	Secret      string
 	QRCodeURL   string
 	BackupCodes []string
 }
 
+// Service manages TOTP lifecycle: secret generation, passcode validation,
+// backup-code verification, and secret encryption/decryption.
 type Service struct {
 	encryptor *crypto.AESGCMEncryptor
 }
 
+// NewService creates a TOTP service backed by the provided encryptor.
+// If encryptor is nil, encryption/decryption methods will return errors.
 func NewService(encryptor *crypto.AESGCMEncryptor) *Service {
 	return &Service{encryptor: encryptor}
 }
 
+// GenerateTOTPSecret creates a new TOTP key and backup codes for the given user.
 func (s *Service) GenerateTOTPSecret(userEmail string) (*TOTPSetup, error) {
-	return GenerateTOTPSecret(userEmail)
-}
-
-func (s *Service) ValidateTOTPCode(passcode string, secret string) (bool, error) {
-	return ValidateTOTPCode(passcode, secret)
-}
-
-func GenerateTOTPSecret(userEmail string) (*TOTPSetup, error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      Issuer,
 		AccountName: userEmail,
@@ -53,12 +51,12 @@ func GenerateTOTPSecret(userEmail string) (*TOTPSetup, error) {
 		Algorithm:   otp.AlgorithmSHA1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate TOTP key: %w", err)
+		return nil, fmt.Errorf("generate TOTP key: %w", err)
 	}
 
 	backupCodes, err := generateBackupCodes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate backup codes: %w", err)
+		return nil, fmt.Errorf("generate backup codes: %w", err)
 	}
 
 	return &TOTPSetup{
@@ -68,7 +66,9 @@ func GenerateTOTPSecret(userEmail string) (*TOTPSetup, error) {
 	}, nil
 }
 
-func ValidateTOTPCode(passcode string, secret string) (bool, error) {
+// ValidateTOTPCode checks a 6-digit passcode against the TOTP secret.
+// It allows a skew of 1 period (30 seconds) to account for clock drift.
+func (s *Service) ValidateTOTPCode(passcode, secret string) (bool, error) {
 	if len(passcode) != 6 {
 		return false, nil
 	}
@@ -80,11 +80,13 @@ func ValidateTOTPCode(passcode string, secret string) (bool, error) {
 		Algorithm: otp.AlgorithmSHA1,
 	})
 	if err != nil {
-		return false, fmt.Errorf("TOTP validation error: %w", err)
+		return false, fmt.Errorf("validate TOTP code: %w", err)
 	}
 	return valid, nil
 }
 
+// ValidateBackupCode checks a backup code against a list of hashed backup codes.
+// It returns the index of the matched code, or -1 with ErrInvalidBackupCode if not found.
 func ValidateBackupCode(code string, hashedCodes []string) (int, error) {
 	normalizedCode := normalizeBackupCode(code)
 	codeHash := hashBackupCode(normalizedCode)
@@ -93,10 +95,13 @@ func ValidateBackupCode(code string, hashedCodes []string) (int, error) {
 			return i, nil
 		}
 	}
-	return -1, errors.New("invalid backup code")
+	return -1, ErrInvalidBackupCode
 }
 
-// HashBackupCodes хеширует резервные коды перед сохранением в БД
+// ErrInvalidBackupCode is returned when a backup code does not match any stored hash.
+var ErrInvalidBackupCode = errors.New("invalid backup code")
+
+// HashBackupCodes hashes backup codes before storing them in the database.
 func HashBackupCodes(codes []string) []string {
 	hashed := make([]string, len(codes))
 	for i, code := range codes {
@@ -105,21 +110,26 @@ func HashBackupCodes(codes []string) []string {
 	return hashed
 }
 
+// EncryptSecret encrypts a TOTP secret using the service encryptor.
 func (s *Service) EncryptSecret(secret string) ([]byte, error) {
 	if s == nil || s.encryptor == nil {
 		return nil, errors.New("TOTP encryption service not initialized")
 	}
 	ciphertext, err := s.encryptor.Encrypt([]byte(secret))
-	return ciphertext, fmt.Errorf("encrypt secret: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt TOTP secret: %w", err)
+	}
+	return ciphertext, nil
 }
 
+// DecryptSecret decrypts a TOTP secret using the service encryptor.
 func (s *Service) DecryptSecret(ciphertext []byte) (string, error) {
 	if s == nil || s.encryptor == nil {
 		return "", errors.New("TOTP encryption service not initialized")
 	}
 	plaintext, err := s.encryptor.Decrypt(ciphertext)
 	if err != nil {
-		return "", fmt.Errorf("decrypt totp secret: %w", err)
+		return "", fmt.Errorf("decrypt TOTP secret: %w", err)
 	}
 	return string(plaintext), nil
 }
