@@ -4,7 +4,7 @@
 # Core ML — PyTorch с torch.compile()
 torch>=2.13.0
 lightning>=2.6.5
-numpy>=2.3.0
+numpy>=2.5.1
 pandas>=3.0.5
 
 # API — FastAPI с uvloop (Linux only)
@@ -12,10 +12,10 @@ uvicorn[standard]>=0.51.0
 fastapi>=0.140.0
 pydantic>=2.13.4
 python-multipart>=0.0.32
-uvloop>=0.21.0; sys_platform != "win32"
+uvloop>=0.22.1; sys_platform != "win32"
 
 # MLOps
-wandb>=0.28.0
+wandb>=0.28.1
 prometheus-client>=0.25.0
 evidently>=0.6.5
 tensorboard>=2.21.0
@@ -35,4 +35,4 @@ cryptography>=49.0.0
 
 # Utils
 tenacity>=9.1.4
-structlog>=24.4.0
+structlog>=26.1.0
