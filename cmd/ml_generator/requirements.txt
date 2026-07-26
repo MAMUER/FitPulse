@@ -4,7 +4,7 @@
 # Core ML — PyTorch с torch.compile()
 torch>=2.13.0
 lightning>=2.6.5
-numpy>=2.3.0
+numpy>=2.5.1
 pandas>=3.0.5
 
 # API — FastAPI с uvloop (Linux only)
