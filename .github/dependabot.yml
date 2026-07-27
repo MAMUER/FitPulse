@@ -245,10 +245,10 @@ updates:
     registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════
-  # 6. KUBERNETES MANIFESTS — базовые deployment'ы
+  # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
-    directory: "/configs/k8s/base/deployments"
+    directory: "/configs/k8s/base"
     schedule:
       {
         interval: "weekly",
@@ -257,10 +257,25 @@ updates:
         timezone: "Europe/Moscow",
       }
     open-pull-requests-limit: 5
-    commit-message: { prefix: "deps(k8s/deployments)", include: "scope" }
+    commit-message: { prefix: "deps(k8s/base)", include: "scope" }
     labels: ["dependencies", "docker", "kubernetes"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    ignore:
+      - dependency-name: "alpine"
+      - dependency-name: "busybox"
+      - dependency-name: "postgres"
+      - dependency-name: "valkey/valkey"
+      - dependency-name: "rabbitmq"
+      - dependency-name: "grafana/grafana"
+      - dependency-name: "prom/prometheus"
+      - dependency-name: "prom/alertmanager"
+      - dependency-name: "fluent/fluent-bit"
+      - dependency-name: "prom/node-exporter"
+      - dependency-name: "rancher/local-path-provisioner"
+      - dependency-name: "rancher/mirrored-pause"
+      - dependency-name: "rancher/mirrored-coredns-coredns"
+      - dependency-name: "registry.k8s.io/ingress-nginx/controller"
 
   # ═══════════════════════════════════════════════════════════════
   # 7. KUBERNETES MANIFESTS — ingress-nginx
@@ -277,6 +292,24 @@ updates:
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(k8s/ingress-nginx)", include: "scope" }
     labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
+    assignees: ["MAMUER"]
+    registries: ["ghcr"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 8. KUBERNETES MANIFESTS — overlays/production
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "docker"
+    directory: "/configs/k8s/overlays/production"
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(k8s/overlays)", include: "scope" }
+    labels: ["dependencies", "docker", "kubernetes"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
 

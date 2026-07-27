@@ -77,7 +77,7 @@ spec:
                 path: client.key
       containers:
         - name: device-connector
-          image: ghcr.io/mamuer/project/device-connector:latest
+          image: ghcr.io/mamuer/project/device-connector:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true

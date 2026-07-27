@@ -75,7 +75,7 @@ spec:
                 path: client.key
       containers:
         - name: gateway
-          image: ghcr.io/mamuer/project/gateway:latest
+          image: ghcr.io/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true

@@ -118,7 +118,7 @@ data:
       restartPolicy: Never
       containers:
         - name: helper-pod
-          image: busybox:latest
+          image: busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args: ["echo 'Helper pod started'; sleep 3600"]

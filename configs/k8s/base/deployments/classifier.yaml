@@ -51,7 +51,7 @@ spec:
           emptyDir: {}
       containers:
         - name: classifier
-          image: ghcr.io/mamuer/project/classifier:latest
+          image: ghcr.io/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true

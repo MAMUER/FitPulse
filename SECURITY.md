@@ -142,6 +142,21 @@
 | `KSV-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | `hostPID: true` требуется для доступа к `/proc/[pid]` всех процессов хоста. |
 | `KSV-0009` | `configs/k8s/base/ingress-nginx/deployment.yaml` | `hostNetwork: true` необходим ingress-nginx на bare-metal/VPS для приёма трафика на порты 80/443 без внешнего балансировщика. |
 | `KSV-0109` | `configs/k8s/base/ingress-nginx/configmap.yaml` | Ложноположительное: ключ `server-tokens: "false"` — это не секрет, а настройка скрытия версии nginx в заголовках ответа. |
+| `KSV-0117` | `configs/k8s/base/ingress-nginx/deployment.yaml` | Принятый риск: ingress-nginx обязан слушать привилегированные порты 80/443 для обработки HTTP/HTTPS трафика. Без этого работа контроллера невозможна. |
+| `KSV-01010` | `configs/k8s/base/ingress-nginx/configmap.yaml`, `configs/k8s/base/deployments/valkey-config.yaml`, `configs/k8s/base/configmap.yaml` | Ложноположительное: в ConfigMap хранятся только общедоступные конфигурационные параметры (HSTS `hsts-max-age`, содержимое `valkey.conf`, номера портов сервисов). Секреты (пароли, токены, ключи) хранятся в Kubernetes Secrets (`app-secrets`, `fittpulse-duckdns-org-tls`), не в ConfigMap. |
+
+### Kubescape — принятые исключения
+
+| Правило | Манифест | Обоснование |
+| ------- | -------- | ----------- |
+| `C-0013` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner использует `busybox:1.37.0` (явный тег, не `:latest`) для helper pods. Контроль срабатывает из-за привилегированного доступа к хостовой ФС, который необходим для создания PersistentVolumes. |
+| `C-0017` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner требует доступа к привилегированным портам хоста для управления директориями PersistentVolumes. |
+| `C-0055` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods с elevated privileges для настройки прав на директориях хоста. Это стандартный паттерн для local-path provisioner безCSI-интеграции. |
+| `C-0034` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner использует hostPath volumes для доступа к локальному хранилищу узлов. Без этого работа provisioner невозможна. |
+| `C-0045` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: helper pods local-path-provisioner требуют привилегированного контекста безопасности для управления правами на хостовой ФС. |
+| `C-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
+| `C-0056` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: fluent-bit требует доступа к `/var/log`, `/var/lib/docker/containers`, `/run/log` для сбора логов хоста и контейнеров. Без этого централизованное логирование невозможно. |
+| `C-0018` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: fluent-bit запускается с привилегиями для чтения логов всех pods в namespace. Это необходимо для работы как cluster-wide logging agent. |
 | `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное: уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
 | `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное: официальный образ `prom/node-exporter` из `docker.io` (trusted). |
 | `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное: официальный образ `grafana/grafana` из `docker.io` (trusted). |
@@ -156,6 +171,8 @@
 | `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
 | `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены избыточные права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает ConfigMap `local-path-config` через volume mount. |
 | `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
+| `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется local-path-provisioner для диагностики helper pods при создании PersistentVolumes. Без этого отладка проблем с PV невозможна. |
+| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы `gateway`, `backend`, `device-connector`, `app-service` и `ingress-nginx-tls-reader` должны читать определённые secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в namespace `fitness-platform-production`. Доступ ограничен конкретными `resourceNames` и verbs `get`/`list`/`watch`, что соответствует минимальному принципу. Полный доступ ко всем secrets namespace отсутствует. |
 
 ### gosec — принятые исключения
 

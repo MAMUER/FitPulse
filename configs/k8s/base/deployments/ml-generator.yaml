@@ -52,7 +52,7 @@ spec:
             sizeLimit: 100Mi
       containers:
         - name: ml-generator
-          image: ghcr.io/mamuer/project/ml-generator:latest
+          image: ghcr.io/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true

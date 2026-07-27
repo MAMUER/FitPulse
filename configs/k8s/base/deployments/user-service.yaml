@@ -115,7 +115,7 @@ spec:
                 path: client.key
       containers:
         - name: user-service
-          image: ghcr.io/mamuer/project/user-service:latest
+          image: ghcr.io/mamuer/project/user-service:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true

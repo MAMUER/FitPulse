@@ -81,7 +81,7 @@ spec:
                 path: client.key
       containers:
         - name: biometric-service
-          image: ghcr.io/mamuer/project/biometric-service:latest
+          image: ghcr.io/mamuer/project/biometric-service:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
