@@ -119,7 +119,7 @@ jobs:
           echo "✅ Node.js version references are consistent (26+)"
 
           echo "-> Checking Ubuntu version references..."
-          UBUNTU_REFS=$(grep -rn "ubuntu:[12][0-9]\|Ubuntu\s\+12[0-9]\|ubuntu\s\+12[0-9]\|Ubuntu\s\+26\|ubuntu\s\+26" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          UBUNTU_REFS=$(grep -rn "ubuntu:1[0-9]\.[0-9]\+\|ubuntu:2[0-5]\.[0-9]\+\|Ubuntu\s\+1[0-9]\b\|Ubuntu\s\+2[0-5]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
           if [ -n "$UBUNTU_REFS" ]; then
             echo "❌ Found outdated Ubuntu references (current: 26.04+):"
             echo "$UBUNTU_REFS"
