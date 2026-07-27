@@ -1,51 +1,11 @@
-ignore:
-  - id: GHSA-qwww-vcr4-c8h2
-    paths:
-      - web/package-lock.json
-
-  - id: KSV-0121
-    paths:
-      - configs/monitoring/node-exporter/daemonset.yaml
-
-  - id: KSV-0010
-    paths:
-      - configs/monitoring/node-exporter/daemonset.yaml
-
-  - id: KSV-0009
-    paths:
-      - configs/k8s/base/ingress-nginx/deployment.yaml
-
-  - id: KSV-0109
-    paths:
-      - configs/k8s/base/ingress-nginx/configmap.yaml
-
-  - id: KSV-0125
-    paths:
-      - configs/monitoring/node-exporter/daemonset.yaml
-      - configs/monitoring/grafana/deployment.yaml
-      - configs/monitoring/fluent-bit/daemonset.yaml
-      - configs/k8s/base/local-path-provisioner.yaml
-      - configs/monitoring/alertmanager/deployment.yaml
-      - configs/monitoring/prometheus/deployment.yaml
-
-  - id: KSV-0023
-    paths:
-      - configs/monitoring/node-exporter/daemonset.yaml
-      - configs/monitoring/fluent-bit/daemonset.yaml
-
-  - id: KSV-0012
-    paths:
-      - configs/monitoring/node-exporter/daemonset.yaml
-      - configs/k8s/base/local-path-provisioner.yaml
-
-  - id: KSV-0022
-    paths:
-      - configs/k8s/base/local-path-provisioner.yaml
-
-  - id: KSV-0048
-    paths:
-      - configs/k8s/base/local-path-provisioner.yaml
-
-  - id: KSV-0049
-    paths:
-      - configs/k8s/base/local-path-provisioner.yaml
+GHSA-qwww-vcr4-c8h2
+KSV-0109
+KSV-0121
+KSV-0010
+KSV-0009
+KSV-0125
+KSV-0023
+KSV-0012
+KSV-0022
+KSV-0048
+KSV-0049

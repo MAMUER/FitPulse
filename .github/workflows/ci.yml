@@ -766,8 +766,10 @@ jobs:
           echo "============================================"
           FAIL=0
           if [ -f sarif-results/gosec.sarif ]; then
-            GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
-            GOSEC_HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/gosec.sarif 2>/dev/null || echo 0)
+            GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null | head -1 || echo 0)
+            GOSEC_CRITICAL=$(printf '%s' "$GOSEC_CRITICAL")
+            GOSEC_HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/gosec.sarif 2>/dev/null | head -1 || echo 0)
+            GOSEC_HIGH=$(printf '%s' "$GOSEC_HIGH")
             echo "gosec: $GOSEC_CRITICAL critical, $GOSEC_HIGH high"
             if [ "$GOSEC_CRITICAL" -gt 0 ]; then
               echo "❌ FAIL: gosec found $GOSEC_CRITICAL critical issues"
@@ -776,7 +778,8 @@ jobs:
             fi
           fi
           if [ -f sarif-results/trivy-fs.sarif ]; then
-            TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null || echo 0)
+            TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null | head -1 || echo 0)
+            TRIVY_CRITICAL=$(printf '%s' "$TRIVY_CRITICAL")
             echo "trivy-fs: $TRIVY_CRITICAL critical CVEs"
             if [ "$TRIVY_CRITICAL" -gt 0 ]; then
               echo "❌ FAIL: Trivy found $TRIVY_CRITICAL critical vulnerabilities in dependencies"
@@ -786,6 +789,7 @@ jobs:
           fi
           if [ -f sarif-results/gitleaks.sarif ]; then
             GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
+            GITLEAKS=$(printf '%s' "$GITLEAKS")
             if [ -z "$GITLEAKS" ]; then GITLEAKS=0; fi
             echo "gitleaks: $GITLEAKS secrets found"
             if [ "$GITLEAKS" -gt 0 ]; then
@@ -795,7 +799,8 @@ jobs:
             fi
           fi
           if [ -f sarif-results/trufflehog.json ]; then
-            TRUFFLEHOG=$(jq 'length' sarif-results/trufflehog.json 2>/dev/null || echo 0)
+            TRUFFLEHOG=$(jq 'length' sarif-results/trufflehog.json 2>/dev/null | head -1 || echo 0)
+            TRUFFLEHOG=$(printf '%s' "$TRUFFLEHOG")
             echo "trufflehog: $TRUFFLEHOG secrets found"
             if [ "$TRUFFLEHOG" -gt 0 ]; then
               echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
