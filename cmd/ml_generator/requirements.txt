@@ -16,8 +16,8 @@ uvloop>=0.22.1; sys_platform != "win32"
 
 # MLOps
 wandb>=0.28.1
-prometheus-client>=0.25.0
-evidently>=0.6.5
+prometheus-client>=0.26.0
+evidently>=0.7.21
 tensorboard>=2.21.0
 
 # Inference optimization
