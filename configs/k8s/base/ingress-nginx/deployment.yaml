@@ -18,6 +18,10 @@ spec:
         app.kubernetes.io/name: ingress-nginx
         app.kubernetes.io/instance: ingress-nginx
     spec:
+      # hostNetwork is required for NGINX Ingress Controller on bare-metal/VPS
+      # to bind to host ports 80/443 directly. This is the standard pattern for
+      # ingress-nginx on single-node k3s clusters without a load balancer.
+      # See: https://kubernetes.github.io/ingress-nginx/deploy/bare-metal/
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: ingress-nginx
@@ -45,18 +49,23 @@ spec:
         ports:
         - containerPort: 80
           name: http
-          hostPort: 80
         - containerPort: 443
           name: https
-          hostPort: 443
         volumeMounts:
         - name: modsecurity-crs
           mountPath: /etc/nginx/modsecurity-crs
           readOnly: true
+        - name: nginx-run
+          mountPath: /var/run/nginx.pid
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-tmp
+          mountPath: /tmp
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
           runAsUser: 101
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
         readinessProbe:
@@ -89,3 +98,9 @@ spec:
         configMap:
           name: modsecurity-crs
           defaultMode: 420
+      - name: nginx-run
+        emptyDir: {}
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-tmp
+        emptyDir: {}

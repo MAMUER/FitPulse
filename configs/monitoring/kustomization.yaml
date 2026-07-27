@@ -5,6 +5,7 @@ resources:
   - alertmanager
   - grafana
   - fluent-bit
+  - node-exporter
 namespace: fitness-platform-production
 labels:
   - pairs:

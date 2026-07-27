@@ -46,25 +46,19 @@ on:
     - cron: "16 11 * * 3" # OSV weekly
     - cron: "25 13 * * 1" # Semgrep weekly
     - cron: "0 0 * * 0" # Fuzz tests weekly
-    - cron: "0 2 * * 1" # ML retrain weekly Monday 2AM
   workflow_dispatch:
     inputs:
       run_mode:
         description: "Select execution mode"
         required: false
         type: choice
-        options: [full, maintenance, ml-retrain, recreate-cluster]
+        options: [full, maintenance, recreate-cluster]
       maintenance_type:
         description: "For maintenance mode: update|audit|vulncheck"
         required: false
         type: choice
         options: [update, audit, vulncheck]
         default: "update"
-      force_retrain:
-        description: "Force ML retrain even if no data changes"
-        required: false
-        type: boolean
-        default: false
   release:
     types: [created]
   issues:
@@ -131,7 +125,6 @@ jobs:
               - 'internal/device/**'
             classifier:
               - 'cmd/classifier/**'
-              - 'cmd/ml_generator/**'
               - 'models/**'
               - 'datasets/**'
             k8s:
@@ -632,6 +625,7 @@ jobs:
       - name: Run Trivy filesystem vulnerability scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          trivy-config: trivy.yaml
           scan-type: "fs"
           scanners: "vuln"
           severity: "CRITICAL,HIGH"
@@ -700,6 +694,7 @@ jobs:
       - name: Run Trivy config scan (misconfigurations)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          trivy-config: trivy.yaml
           scan-type: "config"
           scanners: "misconfig"
           severity: "CRITICAL,HIGH"
@@ -709,6 +704,7 @@ jobs:
         id: trivy-fs
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          trivy-config: trivy.yaml
           scan-type: "fs"
           scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
@@ -956,18 +952,12 @@ jobs:
             docker push "${{ env.REGISTRY }}/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}"
             docker push "${{ env.REGISTRY }}/mamuer/project/classifier:latest"
           fi
-          if [ -f "models/generator.h5" ] || [ -f "models/generator.keras" ]; then
-            docker build -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}" \
-              -t "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest" \
-              -f cmd/ml_generator/Dockerfile .
-            docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}"
-            docker push "${{ env.REGISTRY }}/mamuer/project/ml-generator:latest"
-          fi
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          trivy-config: trivy.yaml
           image-ref: "${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}"
           format: sarif
           output: trivy-image.sarif
@@ -1040,95 +1030,9 @@ jobs:
       base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
       upload-assets: true
 
-  # ============================================================================
-  # ML RETRAIN
-  # ============================================================================
-  ml-retrain-classifier:
-    name: ML Retrain Classifier
-    runs-on: ubuntu-latest
-    if: >-
-      (github.event.schedule == '0 2 * * 1' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'ml-retrain')) &&
-      github.event_name != 'issues'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-          cache: "pip"
-      - name: Install dependencies (generator)
-        run: |
-          pip install -r cmd/ml_generator/requirements.txt
-      - name: Train generator with MLflow tracking
-        run: |
-          cd cmd/ml_generator
-          python train_gan.py
-        env:
-          MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
-      - name: Validate model quality
-        run: |
-          python -c "
-          import json
-          with open('models/training_history.json') as f:
-              h = json.load(f)
-          assert h['metrics']['test_accuracy'] > 0.7, 'Model accuracy too low!'
-          print('✅ Model quality check passed')
-          "
-      - name: Save model as artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ml-models-classifier
-          path: models/
-          retention-days: 7
-      - name: Notify on completion
-        if: always()
-        uses: appleboy/telegram-action@v1.0.1
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          message: |
-            🔄 ML Classifier Retraining: ${{ job.status }}
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-  ml-retrain-generator:
-    name: ML Retrain Generator
-    runs-on: ubuntu-latest
-    needs: ml-retrain-classifier
-    if: >-
-      (github.event.schedule == '0 2 * * 1' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'ml-retrain')) &&
-      github.event_name != 'issues'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-          cache: "pip"
-      - name: Train GAN
-        run: |
-          pip install -r cmd/ml_generator/requirements.txt
-          cd cmd/ml_generator
-          python train_gan.py
-        env:
-          MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
-      - name: Save generator model as artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ml-models-generator
-          path: models/
-          retention-days: 7
-
-  # ============================================================================
-  # PROVISION K8S
-  # ============================================================================
+   # ============================================================================
+   # PROVISION K8S
+   # ============================================================================
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
@@ -1329,7 +1233,7 @@ jobs:
           k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
           echo ''
           echo '-> Removing old application images (keep only last 3 versions)...'
-          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+          for svc in user-service biometric-service training-service gateway device-connector classifier; do
             echo \"Cleaning \$svc...\"
             docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
               sort -k2 -r | \
@@ -1825,7 +1729,7 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           echo "Updating image tags to :$SHA"
           cd configs/k8s/overlays/production
-          for svc in user-service biometric-service training-service gateway classifier ml-generator; do
+          for svc in user-service biometric-service training-service gateway classifier; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
           done
       - name: Cleanup disk space on VPS
@@ -1851,7 +1755,7 @@ jobs:
           docker builder prune -f --filter 'until=24h' || true
           echo ''
           echo '-> Removing old application images (keep only last 3 versions)...'
-          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+          for svc in user-service biometric-service training-service gateway device-connector classifier; do
             echo \"Cleaning \$svc...\"
             docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
               sort -k2 -r | \
@@ -1882,7 +1786,7 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           echo 'Logging in to GHCR on VPS...'
           echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
-          for svc in user-service biometric-service training-service gateway device-connector classifier ml-generator; do
+          for svc in user-service biometric-service training-service gateway device-connector classifier; do
             echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
             docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
           done
@@ -2269,7 +2173,7 @@ jobs:
               ERROR_FOUND=1
             fi
           done
-          for app in user-service training-service biometric-service gateway device-connector classifier ml-generator valkey; do
+          for app in user-service training-service biometric-service gateway device-connector classifier valkey; do
             if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
               echo "❌ Pod(s) for $app are not Running"
               ERROR_FOUND=1

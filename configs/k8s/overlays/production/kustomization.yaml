@@ -4,6 +4,7 @@ resources:
   - ../../base
   - ingress.yaml
   - hpa.yaml
+  - ingress-nginx-tls-role.yaml
 images:
   - name: ghcr.io/mamuer/project/user-service
     newTag: ${IMAGE_TAG:-latest}

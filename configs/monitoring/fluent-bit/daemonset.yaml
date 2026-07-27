@@ -16,10 +16,25 @@ spec:
         app: fluent-bit
     spec:
       serviceAccountName: fluent-bit
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: fluent-bit
           image: fluent/fluent-bit:2.2.2
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 2020
               name: metrics
@@ -41,6 +56,8 @@ spec:
             - name: runlog
               mountPath: /run/log
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: config
           configMap:
@@ -54,6 +71,8 @@ spec:
         - name: runlog
           hostPath:
             path: /run/log
+        - name: tmp
+          emptyDir: {}
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists

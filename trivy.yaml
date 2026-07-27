@@ -1,0 +1,9 @@
+misconfiguration:
+  trusted_registries:
+    - docker.io
+    - quay.io
+    - gcr.io
+    - registry.k8s.io
+    - ghcr.io
+    - public.ecr.aws
+    - mcr.microsoft.com

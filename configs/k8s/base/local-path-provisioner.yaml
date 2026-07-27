@@ -152,6 +152,8 @@ spec:
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: local-path-provisioner
           image: rancher/local-path-provisioner:v0.0.26
@@ -165,10 +167,12 @@ spec:
             - /etc/local-path-config/helperPod.yaml
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
               add: ["DAC_OVERRIDE"]
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               cpu: "5m"

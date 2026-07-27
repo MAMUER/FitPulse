@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ingress-nginx-tls-reader
+  namespace: fitness-platform-production
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["fittpulse-duckdns-org-tls"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ingress-nginx-tls-reader-binding
+  namespace: fitness-platform-production
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx
+    namespace: ingress-nginx
+roleRef:
+  kind: Role
+  name: ingress-nginx-tls-reader
+  apiGroup: rbac.authorization.k8s.io
