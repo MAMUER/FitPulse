@@ -9,7 +9,7 @@ pandas>=3.0.5
 
 # API — FastAPI (without uvloop for Windows)
 uvicorn>=0.51.0
-fastapi>=0.140.0
+fastapi>=0.140.7
 pydantic>=2.13.4
 python-multipart>=0.0.32
 
