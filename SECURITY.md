@@ -90,7 +90,13 @@
 
 ### Защита API
 
-- **CSP**: строгая nonce-based политика для всех ответов (nonce генерируется через `crypto/rand`, 32 байта = 256 бит энтропии, кодируется стандартным base64) + `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp` для предотвращения cross-origin утечек и изоляции контекста.
+- **CSP**: строгая nonce-based политика для всех ответов (nonce генерируется через
+  `crypto/rand`, 32 байта = 256 бит энтропии, кодируется стандартным base64) +
+  `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy: camera=(), microphone=(), geolocation=()`,
+  `Cross-Origin-Opener-Policy: same-origin`,
+  `Cross-Origin-Embedder-Policy: require-corp` для предотвращения cross-origin
+  утечек и изоляции контекста.
   Атрибут `nonce` автоматически впрыскивается middleware `HTMLNonceInject` во все `<script>` теги HTML-ответа.
   Нарушения CSP логируются в ELK: директивы `report-uri /api/security/csp-report` и `report-to csp-endpoint` (`Report-To` header), обработчик `cspReportHandler` пишет структурированные `CSP_VIOLATION` события в zap.
   **Статус**: реализовано в `internal/middleware/security_headers.go` и `internal/middleware/nonce_inject.go`, эндпоинт `POST /api/security/csp-report` в `cmd/gateway`.
@@ -126,13 +132,39 @@
 - **SBOM generation**: syft (SPDX, CycloneDX)
 - **Image signing**: cosign
 
+#### Принятые риски Trivy misconfiguration
+
+В `trivy.yaml` определены исключения для правил, которые являются ложноположительными для специфичных рабочих нагрузок:
+
+| Правило | Файл | Обоснование |
+|---------|------|-------------|
+| `KSV-0121` | `configs/monitoring/node-exporter/daemonset.yaml` | HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
+| `KSV-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | `hostPID: true` требуется для доступа к `/proc/[pid]` всех процессов хоста. |
+| `KSV-0009` | `configs/k8s/base/ingress-nginx/deployment.yaml` | `hostNetwork: true` необходим ingress-nginx на bare-metal/VPS для приёма трафика на порты 80/443 без внешнего балансировщика. |
+| `KSV-0109` | `configs/k8s/base/ingress-nginx/configmap.yaml` | Ложноположительное: ключ `server-tokens: "false"` — это не секрет, а настройка скрытия версии nginx в заголовках ответа. |
+| `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное: уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
+| `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное: официальный образ `prom/node-exporter` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное: официальный образ `grafana/grafana` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/fluent-bit/daemonset.yaml` | Ложноположительное: официальный образ `fluent/fluent-bit` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/k8s/base/local-path-provisioner.yaml` | Ложноположительное: официальный образ `rancher/local-path-provisioner` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/alertmanager/deployment.yaml` | Ложноположительное: официальный образ `prom/alertmanager` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/prometheus/deployment.yaml` | Ложноположительное: официальный образ `prom/prometheus` из `docker.io` (trusted). |
+| `KSV-0023` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
+| `KSV-0023` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: HostPath `/var/log`, `/var/lib/docker/containers`, `/run/log` необходимы fluent-bit'у для сбора логов хоста и контейнеров. Без них логирование невозможно. |
+| `KSV-0012` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter требует root для доступа к `/proc` и `/sys` хоста. |
+| `KSV-0012` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner требует root и `DAC_OVERRIDE` для управления правами на PersistentVolumes. |
+| `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
+| `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены избыточные права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает ConfigMap `local-path-config` через volume mount. |
+| `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
+
 ### Инфраструктура
 
 - **Сетевая сегментация**: Kubernetes Network Policies (dmz/app/data/monitoring)
 - **RBAC**: минимальные права, отдельные ServiceAccount на сервис
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
   - device-connector-sa, classifier-sa, ml-generator-sa
-  - Per-service Roles с жестким ограничением `resourceNames` для чтения только специфичных секретов
+  - app-service-account (для Jobs: migrate-db, seed-admin)
+  - Каждая Role ограничена `resourceNames` на конкретные secrets и configmaps (например, `app-secrets`, `app-config`, `db-migrations`, `fittpulse-duckdns-org-tls`).
 - **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
 - **WAF**:
    1. Ingress NGINX Controller (`hostNetwork: true`, порты 80/443) + ModSecurity + OWASP CRS v4. Правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Конфигурация в `configs/k8s/base/ingress-nginx/`. CRS rules автоматически обновляются через CronJob (`configs/k8s/base/jobs/update-modsecurity-crs.yaml`).

@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM alpine:3.24
 
 # Update libssl3 to fix CVE-2026-45447 (use-after-free in PKCS#7 verification)
-# Fixed in libssl3 3.5.7-r0; alpine:3.23 ships 3.5.6-r0 by default
+# Fixed in libssl3 3.5.7-r0; alpine:3.24 ships 3.5.7-r0 by default
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates tzdata

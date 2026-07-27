@@ -2,51 +2,89 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: gateway-role
+  namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
+    resources: ["secrets"]
+    resourceNames: ["app-secrets", "fittpulse-duckdns-org-tls"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["app-config"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: backend-role
+  namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
+    resources: ["secrets"]
+    resourceNames: ["app-secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["app-config"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: device-connector-role
+  namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
+    resources: ["secrets"]
+    resourceNames: ["app-secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["app-config"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: classifier-role
+  namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
+    resources: ["configmaps"]
+    resourceNames: ["app-config"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: ml-generator-role
+  namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
+    resources: ["configmaps"]
+    resourceNames: ["app-config"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-service-role
+  namespace: fitness-platform-production
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["app-secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["db-migrations"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: gateway-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: gateway-sa
@@ -59,6 +97,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: backend-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: user-service-sa
@@ -75,6 +114,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: device-connector-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: device-connector-sa
@@ -87,6 +127,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: classifier-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: classifier-sa
@@ -99,6 +140,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: ml-generator-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: ml-generator-sa
@@ -111,6 +153,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: app-service-rolebinding
+  namespace: fitness-platform-production
 subjects:
   - kind: ServiceAccount
     name: app-service-account

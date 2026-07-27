@@ -220,7 +220,7 @@ current_state:
 | `level` | enum | DEBUG/INFO/WARN/ERROR/FATAL |
 | `service` | string | Имя микросервиса |
 | `correlationId` | UUID | ID для трассировки запроса по сервисам |
-| `userId` | string\ | null | ID пользователя (если аутентифицирован) |
+| `userId` | string \| null | ID пользователя (если аутентифицирован) |
 | `action` | string | Семантическое имя действия (UPPER_SNAKE_CASE) |
 
 ### 3.2 Prometheus-метрики (обязательный набор)

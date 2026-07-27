@@ -6,7 +6,7 @@ imports:
 		cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test test-cover check imports js-check frontend-lint frontend-test frontend-build
+.PHONY: proto tidy fmt vet lint test test-cover check imports js-check frontend-install frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -43,6 +43,11 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	cd web && npm install
+	@echo "Frontend dependencies installed."
+
 frontend-lint:
 	@echo "Running frontend lint..."
 	cd web && npm run lint
@@ -58,7 +63,7 @@ frontend-build:
 	cd web && npm run build
 	@echo "Frontend build complete."
 
-check: tidy fmt vet imports lint test-cover js-check frontend-lint frontend-test frontend-build
+check: tidy fmt vet imports lint test-cover proto js-check frontend-install frontend-lint frontend-test frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -66,7 +71,6 @@ check: tidy fmt vet imports lint test-cover js-check frontend-lint frontend-test
 proto:
 	@echo "Generating proto files..."
 	@echo "Требуются: protoc + protoc-gen-go + protoc-gen-go-grpc в PATH (см. docs/ARCHITECTURE.md §8, CONTRIBUTING.md §Протоколы)"
-	mkdir -p api/gen/user api/gen/biometric api/gen/training api/gen/ml
 	@echo "Generating user proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/user --go_opt=paths=source_relative --go-grpc_out=api/gen/user --go-grpc_opt=paths=source_relative api/proto/user.proto
 	@echo "Generating biometric proto..."
@@ -85,8 +89,9 @@ help:
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
 	@echo "  make test-cover      - Run tests with coverage report (75% threshold, business logic only)"
-	@echo "  make check           - Run tidy, fmt, vet, lint, test, js-check, frontend-lint, frontend-test, frontend-build"
+	@echo "  make check           - Run tidy, fmt, vet, lint, test, proto, js-check, frontend-install, frontend-lint, frontend-test, frontend-build"
 	@echo "  make proto           - Generate proto files"
+	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
