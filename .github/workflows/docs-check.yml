@@ -56,7 +56,7 @@ jobs:
           echo "✅ Kubernetes version references are consistent (1.36+)"
 
           echo "-> Checking Debian version references..."
-          DEBIAN_REFS=$(grep -rn "debian:1[0-2]\|Debian 1[0-2]\|debian 1[0-2]\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)
+          DEBIAN_REFS=$(grep -rn "debian:1[0-2]\|Debian 1[0-2]\|debian 1[0-2]\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir=".github" || true)
           if [ -n "$DEBIAN_REFS" ]; then
             echo "❌ Found outdated Debian references (current: 13+):"
             echo "$DEBIAN_REFS"

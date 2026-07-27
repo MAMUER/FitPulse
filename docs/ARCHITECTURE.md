@@ -194,17 +194,17 @@ current_state:
 
 ## 2. Матрица конфигураций по окружениям
 
-|Параметр|Dev|Test|Staging|Prod|
-|---|---|---|---|---|
-|**K8s pods per service**|1|1|1–2|1–3 (HPA при нагрузке)|
-|**PostgreSQL topology**|1 инстанс (postgres:18-alpine)|1 primary|1 primary + 1 replica|1 primary + 1–2 replicas (postgres:18 + pgsodium:pg18)|
-|**Valkey topology**|1 узел (valkey:9-alpine)|1 узел (standalone)|1 узел (standalone)|1 узел (standalone, Sentinel Phase 2)|
-|**RabbitMQ**|1 узел (rabbitmq:4.3-management-alpine, classic queues)|1 узел|1 узел|1 узел (quorum queues Phase 2)|
-|**GPU resources**|CPU only|CPU only|CPU only|CPU only (ML inference на CPU)|
-|**Monitoring stack**|Console logs|Prometheus + Grafana|Prometheus + Grafana + Alertmanager|Prometheus + Grafana + Alertmanager (Slack Phase 2)|
-|**Backup strategy**|Нет|Еженедельно (pg_dump)|Ежедневно (pg_dump)|Ежедневно (pg_dump) + WAL (Phase 2)|
-|**SSL/TLS**|Self-signed|Self-signed / Let's Encrypt|Let's Encrypt (авто-ротация)|Let's Encrypt / Corporate CA|
-|**Access control**|Локальный доступ|VPN|VPN + 2FA (TOTP)|2FA + IP whitelist|
+| Параметр | Dev | Test | Staging | Prod |
+| --- | --- | --- | --- | --- |
+| **K8s pods per service** | 1 | 1 | 1–2 | 1–3 (HPA при нагрузке) |
+| **PostgreSQL topology** | 1 инстанс (postgres:18-alpine) | 1 primary | 1 primary + 1 replica | 1 primary + 1–2 replicas (postgres:18 + pgsodium:pg18) |
+| **Valkey topology** | 1 узел (valkey:9-alpine) | 1 узел (standalone) | 1 узел (standalone) | 1 узел (standalone, Sentinel Phase 2) |
+| **RabbitMQ** | 1 узел (rabbitmq:4.3-management-alpine, classic queues) | 1 узел | 1 узел | 1 узел (quorum queues Phase 2) |
+| **GPU resources** | CPU only | CPU only | CPU only | CPU only (ML inference на CPU) |
+| **Monitoring stack** | Console logs | Prometheus + Grafana | Prometheus + Grafana + Alertmanager | Prometheus + Grafana + Alertmanager (Slack Phase 2) |
+| **Backup strategy** | Нет | Еженедельно (pg_dump) | Ежедневно (pg_dump) | Ежедневно (pg_dump) + WAL (Phase 2) |
+| **SSL/TLS** | Self-signed | Self-signed / Let's Encrypt | Let's Encrypt (авто-ротация) | Let's Encrypt / Corporate CA |
+| **Access control** | Локальный доступ | VPN | VPN + 2FA (TOTP) | 2FA + IP whitelist |
 
 ---
 
@@ -214,14 +214,14 @@ current_state:
 
 Все сервисы должны логировать в следующем формате:
 
-|Поле|Тип|Описание|
-|---|---|---|
-|`timestamp`|ISO8601|Время события в UTC|
-|`level`|enum|DEBUG/INFO/WARN/ERROR/FATAL|
-|`service`|string|Имя микросервиса|
-|`correlationId`|UUID|ID для трассировки запроса по сервисам|
-|`userId`|string\|null|ID пользователя (если аутентифицирован)|
-|`action`|string|Семантическое имя действия (UPPER_SNAKE_CASE)|
+| Поле | Тип | Описание |
+| --- | --- | --- |
+| `timestamp` | ISO8601 | Время события в UTC |
+| `level` | enum | DEBUG/INFO/WARN/ERROR/FATAL |
+| `service` | string | Имя микросервиса |
+| `correlationId` | UUID | ID для трассировки запроса по сервисам |
+| `userId` | string\ | null | ID пользователя (если аутентифицирован) |
+| `action` | string | Семантическое имя действия (UPPER_SNAKE_CASE) |
 
 ### 3.2 Prometheus-метрики (обязательный набор)
 
@@ -259,19 +259,19 @@ prometheus_metrics:
 
 #### Критические (SEV-1)
 
-|Алерт|Условие|Каналы|
-|---|---|---|
-|`ServiceDown`|`up{job=~'fitness-.*'} == 0` за 2 мин|Slack + Grafana OnCall|
-|`DBConnectionPoolExhausted`|`db_connection_pool_usage > 0.9` за 1 мин|Grafana OnCall|
-|`BackupFailed`|`backup_success{type='full'} == 0`|Grafana OnCall|
+| Алерт | Условие | Каналы |
+| --- | --- | --- |
+| `ServiceDown` | `up{job=~'fitness-.*'} == 0` за 2 мин | Slack + Grafana OnCall |
+| `DBConnectionPoolExhausted` | `db_connection_pool_usage > 0.9` за 1 мин | Grafana OnCall |
+| `BackupFailed` | `backup_success{type='full'} == 0` | Grafana OnCall |
 
 #### Предупреждения (SEV-3)
 
-|Алерт|Условие|Каналы|
-|---|---|---|
-|`HighErrorRate`|`rate(error_total[5m]) / rate(request_total[5m]) > 0.01` за 5 мин|Slack|
-|`HighLatency`|`histogram_quantile(0.95, ...) > 5` за 10 мин|Slack|
-|`LowMLConfidence`|`classification_confidence < 0.7` за 15 мин|Slack|
+| Алерт | Условие | Каналы |
+| --- | --- | --- |
+| `HighErrorRate` | `rate(error_total[5m]) / rate(request_total[5m]) > 0.01` за 5 мин | Slack |
+| `HighLatency` | `histogram_quantile(0.95, ...) > 5` за 10 мин | Slack |
+| `LowMLConfidence` | `classification_confidence < 0.7` за 15 мин | Slack |
 
 **Политика эскалации**:
 
@@ -343,10 +343,10 @@ verification:
 
 ### 4.4 Управление зависимостями
 
-|Инструмент|Функция|
-|---|---|
-|Dependabot|Еженедельный скан, авто-PR для минорных обновлений|
-|Snyk|Интеграция в CI/CD, блокировка мержа при critical CVE|
+| Инструмент | Функция |
+| --- | --- |
+| Dependabot | Еженедельный скан, авто-PR для минорных обновлений |
+| Snyk | Интеграция в CI/CD, блокировка мержа при critical CVE |
 
 **Политики** (best effort, без юридических гарантий):
 
@@ -422,7 +422,7 @@ gRPC-сервис для управления пользователями, ау
 ### 4.x.2 gRPC методы
 
 | RPC | описание |
-|---|---|
+| --- | --- |
 | `Register` | Регистрация пользователя |
 | `RegisterWithInvite` | Регистрация по invite-коду |
 | `ConfirmEmail` | Подтверждение email |
@@ -463,7 +463,7 @@ gRPC-сервис для управления пользователями, ау
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|---|---|---|
+| --- | --- | --- |
 | `USER_SERVICE_PORT` | `50051` | Порт gRPC сервера |
 | `USER_SERVICE_METRICS_PORT` | `9096` | Порт metrics-сервера |
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
@@ -552,7 +552,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 ### 4.x.6 Валидация метрик
 
 | metric_type | диапазон |
-|---|---|
+| --- | --- |
 | `heart_rate` | 30–220 |
 | `spo2` | 70–100 |
 | `temperature` | 35.5–38.5 °C |
@@ -564,7 +564,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 ### 4.x.7 gRPC методы
 
 | RPC | описание |
-|---|---|
+| --- | --- |
 | `AddRecord` | Добавить одну запись |
 | `BatchAddRecords` | Пакетная вставка с транзакцией |
 | `GetRecords` | Получить записи с фильтрацией по `from`/`to` и пагинацией `limit`/`offset` |
@@ -593,7 +593,7 @@ gRPC-сервис для управления тренировочными пл�
 ### 4.x.2 gRPC методы
 
 | RPC | описание |
-|---|---|
+| --- | --- |
 | `GeneratePlan` | Сгенерировать тренировочный план |
 | `GetPlan` | Получить план по ID |
 | `ListPlans` | Список планов пользователя |
@@ -603,7 +603,7 @@ gRPC-сервис для управления тренировочными пл�
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|------------|---------|----------|
+| ------------ | --------- | ---------- |
 | `TRAINING_SERVICE_PORT` | `50053` | Порт gRPC сервера |
 | `TRAINING_SERVICE_METRICS_PORT` | `9095` | Порт metrics-сервера |
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
@@ -664,7 +664,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.x.2 Endpoints
 
 | Endpoint | Назначение |
-|----------|-----------|
+| ---------- | ----------- |
 | `POST /classify` | Классификация состояния |
 | `GET /health` | Health check |
 | `GET /metrics` | Prometheus метрики |
@@ -674,7 +674,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|------------|---------|----------|
+| ------------ | --------- | ---------- |
 | `CLASSIFIER_PORT` | `8001` | Порт сервера |
 | `CLASSIFIER_METRICS_PORT` | `9091` | Порт metrics-сервера |
 
@@ -729,7 +729,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.x.6 Классы состояний
 
 | # | Класс (slug) | Название RU | Ключевые правила |
-|---|--------------|-------------|------------------|
+| --- | -------------- | ------------- | ------------------ |
 | 0 | `recovery` | Восстановление | HRV > 50 И HR < 65% HRmax |
 | 1 | `endurance_basic` | Базовая выносливость E1-E2 | HR 65–80% HRmax, HRV 50–80 |
 | 2 | `endurance_threshold` | Пороговая выносливость E3 | HR 80–90% HRmax |
@@ -802,7 +802,7 @@ HTTP-сервис для управления OAuth-подключениями �
 ### 4.x.2 Endpoints
 
 | Endpoint | Назначение |
-|----------|-----------|
+| ---------- | ----------- |
 | `GET /health` | Health check |
 | `GET /metrics` | Prometheus метрики |
 | `GET /api/v1/devices/fitbit/auth` | Start Fitbit OAuth |
@@ -821,7 +821,7 @@ HTTP-сервис для управления OAuth-подключениями �
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|------------|---------|----------|
+| ------------ | --------- | ---------- |
 | `DEVICE_AGGREGATOR_PORT` | `8083` | Порт сервера |
 | `DEVICE_AGGREGATOR_METRICS_PORT` | `9093` | Порт metrics-сервера |
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
@@ -876,7 +876,7 @@ HTTP-сервис для регистрации носимых устройст�
 ### 4.x.2 Endpoints
 
 | Endpoint | Назначение |
-|----------|-----------|
+| ---------- | ----------- |
 | `GET /health` | Health check |
 | `GET /metrics` | Prometheus метрики |
 | `POST /api/v1/devices/register` | Регистрация устройства |
@@ -885,7 +885,7 @@ HTTP-сервис для регистрации носимых устройст�
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|------------|---------|----------|
+| ------------ | --------- | ---------- |
 | `DEVICE_CONNECTOR_PORT` | `8082` | Порт сервера |
 | `DEVICE_CONNECTOR_METRICS_PORT` | `9094` | Порт metrics-сервера |
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
@@ -1001,14 +1001,14 @@ HTTP-сервис для регистрации носимых устройст�
 ### 4.x.2 Endpoints
 
 | Endpoint | Назначение |
-|----------|-----------|
+| ---------- | ----------- |
 | `GET /health` | Health check (JSON `{"status":"healthy"}`) |
 | `GET /metrics` | Prometheus метрики |
 
 ### 4.x.3 Конфигурация
 
 | Переменная | Default | Описание |
-|------------|---------|----------|
+| ------------ | --------- | ---------- |
 | `DATA_PROCESSOR_PORT` | `8084` | Порт health-сервера |
 | `DATA_PROCESSOR_METRICS_PORT` | `9092` | Порт metrics-сервера |
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
@@ -1545,21 +1545,21 @@ func (b *BiometricData) Validate() error
 
 ## 12. Shared library `internal/crypto` — шифрование AES-GCM
 
-### 11.1 Роль
+### 12.1 Роль
 
 `internal/crypto` — это **общая библиотека симметричного шифрования**, которая используется
 всем сервисами для защиты чувствительных данных:
 - `device-aggregator`: шифрование токенов устройств перед сохранением в БД
 - `user-service`: шифрование TOTP-секретов перед сохранением в БД
 
-### 11.2 Структура пакета
+### 12.2 Структура пакета
 
 ```text
 internal/crypto/
 └── totp_crypto.go   # AES-GCM encryptor (256-bit key)
 ```
 
-### 11.3 Алгоритм и параметры
+### 12.3 Алгоритм и параметры
 
 | Параметр | Значение |
 | --- | --- |
@@ -1568,7 +1568,7 @@ internal/crypto/
 | Nonce | CSPRNG, размер равен `NonceSize()` (обычно 12 байт) |
 | AAD | `nil` |
 
-### 11.4 API
+### 12.4 API
 
 ```go
 type AESGCMEncryptor struct { ... }
@@ -1584,7 +1584,7 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
 - `Encrypt` возвращает `nonce || ciphertext || tag`
 - `Decrypt` ожидает тот же формат, проверяет тег GCM
 
-### 11.5 Правила использования
+### 12.5 Правила использования
 
 1. **Ключ загружается через `config`** в композиционном корне (`main.go`), передаётся в адаптер через DI.
 2. **Никакого stateful init**: нет `Init*()` функций, которые хранят encryptor в пакетном состоянии.
@@ -2260,7 +2260,7 @@ telemetry.LogTraceFromContext(ctx, log)
 ### 21.8 Окружение
 
 | Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
+| ------------ | ---------- | -------------- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Адрес OTLP коллектора | `localhost:4317` |
 | `OTEL_SERVICE_NAME` | Имя сервиса для трейсов | - |
 | `SERVICE_NAME` | Fallback имя сервиса | `unknown-service` |

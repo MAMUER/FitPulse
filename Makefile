@@ -39,7 +39,7 @@ test-cover:
 	@echo "Running tests with coverage..."
 	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
 	@echo "Checking coverage threshold (>= 75%)..."
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
+	@bash scripts/coverage-check.sh
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
@@ -66,10 +66,7 @@ check: tidy fmt vet imports lint test-cover js-check frontend-lint frontend-test
 proto:
 	@echo "Generating proto files..."
 	@echo "Требуются: protoc + protoc-gen-go + protoc-gen-go-grpc в PATH (см. docs/ARCHITECTURE.md §8, CONTRIBUTING.md §Протоколы)"
-	powershell -Command "if (!(Test-Path 'api/gen/user')) { New-Item -ItemType Directory -Path 'api/gen/user' -Force }"
-	powershell -Command "if (!(Test-Path 'api/gen/biometric')) { New-Item -ItemType Directory -Path 'api/gen/biometric' -Force }"
-	powershell -Command "if (!(Test-Path 'api/gen/training')) { New-Item -ItemType Directory -Path 'api/gen/training' -Force }"
-	powershell -Command "if (!(Test-Path 'api/gen/ml')) { New-Item -ItemType Directory -Path 'api/gen/ml' -Force }"
+	mkdir -p api/gen/user api/gen/biometric api/gen/training api/gen/ml
 	@echo "Generating user proto..."
 	protoc --proto_path=api/proto --go_out=api/gen/user --go_opt=paths=source_relative --go-grpc_out=api/gen/user --go-grpc_opt=paths=source_relative api/proto/user.proto
 	@echo "Generating biometric proto..."

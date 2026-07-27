@@ -9,7 +9,7 @@
 ## Uptime Target
 
 | Phase | Topology | Target Uptime | Notes |
-|-------|----------|---------------|-------|
+| -------- | ------------------ | --------------- | -------------------------------------------------------------------------- |
 | Phase 1 | single-node k3s | **99.0%** | Без HA, single point of failure; planned maintenance excluded |
 
 Расчёт: downtime ≤ 3.65 дня/год для 99.0%, ≤ 1.83 дня/год для 99.5%.
@@ -28,7 +28,7 @@ Planned maintenance windows исключаются из расчёта.
 Кратко (best effort, без юридических гарантий):
 
 | Priority | Response Time | Resolution Time |
-|----------|---------------|-----------------|
+| ---------- | --------------- | ----------------- |
 | 🔴 Critical (Security) | 48 часов — подтверждение; 7 рабочих дней — assessment | 30 рабочих дней — план исправления |
 | 🟠 High (Bug blocking) | 3–7 рабочих дней | 2–4 недели |
 | 🟡 Medium (Feature) | 1–2 недели | Следующий релиз |

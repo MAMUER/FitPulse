@@ -13,7 +13,7 @@
 
 Разделить `internal/auth` на две части и внедрить паттерн ports/adapters в каждом сервисе:
 
-```
+```text
 internal/auth/
 ├── claims/          # Доменные типы (Claims, JWKSKey, JWKSResponse)
 └── jwt/             # Инфраструктурная реализация (ES256, подпись, валидация)
@@ -25,7 +25,7 @@ cmd/gateway/
 cmd/user-service/
 ├── ports/auth.go    # TokenProvider интерфейс
 └── infra/jwt_adapter.go  # Адаптер → internal/auth/jwt
-```
+```text
 
 ### Правила
 
