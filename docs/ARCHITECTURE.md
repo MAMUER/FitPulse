@@ -404,9 +404,9 @@ verification:
 
 ---
 
-## 4.x User Service (user-service)
+## 4.8 User Service (user-service)
 
-### 4.x.1 Назначение
+### 4.8.1 Назначение
 
 gRPC-сервис для управления пользователями, аутентификацией и профилями. Отвечает за:
 - Регистрацию и подтверждение email
@@ -419,7 +419,7 @@ gRPC-сервис для управления пользователями, ау
 - Пригласительные коды для регистрации тренеров/клиентов
 - Шифрование PII через pgsodium AEAD
 
-### 4.x.2 gRPC методы
+### 4.8.2 gRPC методы
 
 | RPC | описание |
 | --- | --- |
@@ -460,7 +460,7 @@ gRPC-сервис для управления пользователями, ау
 | `SyncFloData` | Синхронизация с Flo |
 | `SyncOKOKData` | Синхронизация с OKOK |
 
-### 4.x.3 Конфигурация
+### 4.8.3 Конфигурация
 
 | Переменная | Default | Описание |
 | --- | --- | --- |
@@ -473,7 +473,7 @@ gRPC-сервис для управления пользователями, ау
 | `GOOGLE_CLIENT_ID` | — | Google OAuth Client ID |
 | `DB_ENCRYPTION_KEY` | — | Ключ для pgsodium PII шифрования |
 
-### 4.x.4 Безопасность
+### 4.8.4 Безопасность
 
 - Пароли: Argon2id (m=65536, t=3, p=1), salt 16 байт, hash 32 байта
 - PII шифрование: pgsodium AEAD (`email_encrypted`, `full_name_encrypted`, `nickname_encrypted`, `token_encrypted`, `totp_secret_encrypted`)
@@ -483,23 +483,23 @@ gRPC-сервис для управления пользователями, ау
 - Google OAuth: автоматическая привязка/создание пользователя
 - Email верификация: токены с сроком 24 часа
 
-### 4.x.5 Graceful Shutdown
+### 4.8.5 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
 
-### 4.x.6 Метрики
+### 4.8.6 Метрики
 
 - gRPC server interceptor: `metrics.UnaryServerInterceptor("user-service")`
 - HTTP endpoint: `:9096/metrics` (Prometheus `promhttp.Handler`)
 
-### 4.x.7 Middleware
+### 4.8.7 Middleware
 
 - gRPC recovery interceptor (`middleware.RecoveryGRPC`)
 - Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
 - Telemetry interceptor (`telemetry.ServerHandlerOption`)
 
-### 4.x.8 Особенности
+### 4.8.8 Особенности
 
 - Логгер: `internal/logger` с полем `service: "user-service"`
 - PII миграция: автоматическое перекодирование pgcrypto → pgsodium при старте
@@ -507,19 +507,19 @@ gRPC-сервис для управления пользователями, ау
 - Транзакционная целостность: `CreateMenstrualCycle` и `UpdateMenstrualCycle` используют транзакции
 - Invite-коды: хранятся в БД, поддерживают role/specialty/max_uses
 
-### 4.x.9 Интеграционные тесты
+### 4.8.9 Интеграционные тесты
 
 Пропущены (`t.Skip`). Запуск: `go test ./cmd/user-service/...`
 
 ---
 
-## 4.x Биометрический сервис (biometric-service)
+## 4.9 Биометрический сервис (biometric-service)
 
-### 4.x.1 Назначение
+### 4.9.1 Назначение
 
 gRPC-сервис для приёма, валидации, дедупликации и хранения биометрических данных (пульс, SpO2, температура, артериальное давление, шаги, HRV). Публикует события в RabbitMQ для асинхронной ML-обработки.
 
-### 4.x.2 gRPC-авторизация
+### 4.9.2 gRPC-авторизация
 
 Все методы требуют JWT access token (ES256) в gRPC metadata:
 
@@ -530,26 +530,26 @@ authorization: Bearer <access_token>
 Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go`).
 Токен валидируется по JWKS публичному ключу из `JWT_PUBLIC_KEY_PEM_FILE`.
 
-### 4.x.3 Health Check
+### 4.9.3 Health Check
 
 Динамический health check раз в 10 секунд:
 - Пингует PostgreSQL (`db.PingContext`)
 - Пингует RabbitMQ (`queue.Publisher.Ping()`)
 - gRPC health protocol возвращает `SERVING` / `NOT_SERVING`
 
-### 4.x.4 Метрики
+### 4.9.4 Метрики
 
 - gRPC interceptor: `metrics.UnaryServerInterceptor("biometric-service")` — `grpc_requests_total`, `grpc_request_duration_seconds`, `grpc_errors_total`
 - HTTP endpoint: `:9090/metrics` (Prometheus `promhttp.Handler`)
 - Бизнес-метрики: `biometric_sync_lag_seconds`
 
-### 4.x.5 Дедупликация
+### 4.9.5 Дедупликация
 
 Уникальное ограничение на `(user_id, metric_type, timestamp, device_type)`.
 Миграция: `db/migrations/V1__full_schema.sql`.
 Вставки используют `ON CONFLICT DO NOTHING`.
 
-### 4.x.6 Валидация метрик
+### 4.9.6 Валидация метрик
 
 | metric_type | диапазон |
 | --- | --- |
@@ -561,7 +561,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 | `steps` | 0–100000 |
 | `hrv` | 0–200 |
 
-### 4.x.7 gRPC методы
+### 4.9.7 gRPC методы
 
 | RPC | описание |
 | --- | --- |
@@ -572,16 +572,16 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 | `UpdateRecord` | Обновить запись по `id` |
 | `DeleteRecord` | Удалить запись по `id` |
 
-### 4.x.8 Интеграционные тесты
+### 4.9.8 Интеграционные тесты
 
 Используют Testcontainers (PostgreSQL + RabbitMQ) через `internal/testcontainers`.
 Запуск: `go test ./cmd/biometric-service/...` (без `-short`).
 
 ---
 
-## 4.x Training Service (training-service)
+## 4.10 Training Service (training-service)
 
-### 4.x.1 Назначение
+### 4.10.1 Назначение
 
 gRPC-сервис для управления тренировочными планами. Отвечает за:
 - Генерацию персонализированных планов тренировок на основе классификации состояния пользователя
@@ -590,7 +590,7 @@ gRPC-сервис для управления тренировочными пл�
 - Начисление достижений (`user_achievements`)
 - Публикацию событий о генерации планов в RabbitMQ
 
-### 4.x.2 gRPC методы
+### 4.10.2 gRPC методы
 
 | RPC | описание |
 | --- | --- |
@@ -600,7 +600,7 @@ gRPC-сервис для управления тренировочными пл�
 | `CompleteWorkout` | Отметить тренировку выполненной |
 | `GetProgress` | Прогресс пользователя |
 
-### 4.x.3 Конфигурация
+### 4.10.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
@@ -610,7 +610,7 @@ gRPC-сервис для управления тренировочными пл�
 | `RABBITMQ_URL` | — | RabbitMQ URL (опционально) |
 | `BIOMETRIC_SERVICE_ADDR` | — | Адрес biometric-service (не используется напрямую) |
 
-### 4.x.4 Генерация плана
+### 4.10.4 Генерация плана
 
 `GeneratePlan` выполняет:
 1. Валидацию запроса
@@ -620,34 +620,34 @@ gRPC-сервис для управления тренировочными пл�
 5. Сохранение плана и деталей в транзакции PostgreSQL
 6. Публикацию события `plan_generated` в RabbitMQ
 
-### 4.x.5 Достижения
+### 4.10.5 Достижения
 
 Автоматическое начисление достижений при выполнении тренировок:
 - `first_workout` — после 1 выполненной тренировки
 - `ten_workouts` — после 10 выполненных тренировок
 - `fifty_workouts` — после 50 выполненных тренировок
 
-### 4.x.6 Graceful Shutdown
+### 4.10.6 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Graceful shutdown gRPC сервера (`GracefulStop`) и metrics-сервера (таймаут 10 секунд)
 
-### 4.x.7 Метрики
+### 4.10.7 Метрики
 
 - gRPC server interceptor: `metrics.UnaryServerInterceptor("training-service")`
 - HTTP endpoint: `:9095/metrics` (Prometheus `promhttp.Handler`)
 
-### 4.x.8 Middleware
+### 4.10.8 Middleware
 
 - gRPC recovery interceptor (`middleware.RecoveryGRPC`)
 - Correlation ID interceptor (`middleware.CorrelationIDGRPC`)
 - Telemetry interceptor (`telemetry.ServerHandlerOption`)
 
-### 4.x.9 Интеграционные тесты
+### 4.10.9 Интеграционные тесты
 
 Пропущены (`t.Skip`). Запуск: `go test ./cmd/training-service/...`
 
-### 4.x.10 Особенности
+### 4.10.10 Особенности
 
 - Логгер: `internal/logger` с полем `service: "training-service"`
 - Транзакционная целостность: `GeneratePlan` использует единую транзакцию для плана и деталей
@@ -655,13 +655,13 @@ gRPC-сервис для управления тренировочными пл�
 
 ---
 
-## 4.x Классификатор состояний (classifier)
+## 4.11 Классификатор состояний (classifier)
 
-### 4.x.1 Назначение
+### 4.11.1 Назначение
 
 HTTP-сервис для классификации физиологического состояния пользователя по 6 зонам на основе биометрических данных (пульс, HRV, SpO2, температура, АД, сон). Использует rule-based модель (замена реальной ML-модели в Phase 1). Gateway вызывает его для `POST /api/v1/ml/classify`.
 
-### 4.x.2 Endpoints
+### 4.11.2 Endpoints
 
 | Endpoint | Назначение |
 | ---------- | ----------- |
@@ -671,14 +671,14 @@ HTTP-сервис для классификации физиологическо
 | `GET /classes` | Список поддерживаемых классов |
 | `GET /model-info` | Информация о модели |
 
-### 4.x.3 Конфигурация
+### 4.11.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
 | `CLASSIFIER_PORT` | `8001` | Порт сервера |
 | `CLASSIFIER_METRICS_PORT` | `9091` | Порт metrics-сервера |
 
-### 4.x.4 Формат запроса `POST /classify`
+### 4.11.4 Формат запроса `POST /classify`
 
 ```json
 {
@@ -699,7 +699,7 @@ HTTP-сервис для классификации физиологическо
 }
 ```
 
-### 4.x.5 Формат ответа
+### 4.11.5 Формат ответа
 
 ```json
 {
@@ -726,7 +726,7 @@ HTTP-сервис для классификации физиологическо
 }
 ```
 
-### 4.x.6 Классы состояний
+### 4.11.6 Классы состояний
 
 | # | Класс (slug) | Название RU | Ключевые правила |
 | --- | -------------- | ------------- | ------------------ |
@@ -737,26 +737,26 @@ HTTP-сервис для классификации физиологическо
 | 4 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
 | 5 | `illness` | Заболевание | Температура > 37.5°C |
 
-### 4.x.7 Middleware
+### 4.11.7 Middleware
 
 - Recovery middleware (`middleware.RecoveryMiddleware`)
 - Request ID (`middleware.RequestID`)
 - CORS (`corsMiddleware`)
 - Логирование с Prometheus-метриками (`classifierLoggingMiddleware`)
 
-### 4.x.8 Graceful Shutdown
+### 4.11.8 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
 
-### 4.x.9 Метрики
+### 4.11.9 Метрики
 
 - `http_request_duration_seconds{method, path}`
 - `http_requests_total{method, path, status}`
 - `error_total{service="classifier", error_type}`
 - `classification_confidence{model_version="rule-based", class}`
 
-### 4.x.10 Валидация
+### 4.11.10 Валидация
 
 Валидация входных данных с диапазонами:
 - `heart_rate`: 20–250
@@ -769,7 +769,7 @@ HTTP-сервис для классификации физиологическо
 
 Нулевые значения считаются не указанными и пропускаются.
 
-### 4.x.11 Интеграционные тесты
+### 4.11.11 Интеграционные тесты
 
 Реальные e2e-тесты с поднятым HTTP-сервером:
 - Health check
@@ -779,7 +779,7 @@ HTTP-сервис для классификации физиологическо
 
 Запуск: `go test ./cmd/classifier/...` (без `-short`).
 
-### 4.x.12 Особенности
+### 4.11.12 Особенности
 
 - Логгер: `internal/logger` с полем `service: "classifier"`
 - Gateway трансформирует ответ в контракт API: добавляет `status`, `state`, `fatigue_level`, `motivation_score`, `recovery_quality`
@@ -787,9 +787,9 @@ HTTP-сервис для классификации физиологическо
 
 ---
 
-## 4.x Device Aggregator (device-aggregator)
+## 4.12 Device Aggregator (device-aggregator)
 
-### 4.x.1 Назначение
+### 4.12.1 Назначение
 
 HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Garmin, Withings). Отвечает за:
 - OAuth 2.0 flow для Fitbit и Withings
@@ -799,7 +799,7 @@ HTTP-сервис для управления OAuth-подключениями �
 - Обработка webhook-уведомлений от провайдеров
 - Список подключённых провайдеров для пользователя
 
-### 4.x.2 Endpoints
+### 4.12.2 Endpoints
 
 | Endpoint | Назначение |
 | ---------- | ----------- |
@@ -818,7 +818,7 @@ HTTP-сервис для управления OAuth-подключениями �
 | `POST /api/v1/devices/withings/disconnect` | Disconnect Withings |
 | `GET /api/v1/devices/providers` | List connected providers |
 
-### 4.x.3 Конфигурация
+### 4.12.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
@@ -830,31 +830,31 @@ HTTP-сервис для управления OAuth-подключениями �
 | `GARMIN_CONSUMER_KEY`, `GARMIN_CONSUMER_SECRET`, `GARMIN_CALLBACK_URL` | — | Garmin OAuth 1.0a credentials |
 | `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL` | — | Withings OAuth credentials |
 
-### 4.x.4 Безопасность
+### 4.12.4 Безопасность
 
 - Refresh-токены шифруются через AES-256-GCM (`internal/crypto`)
 - Валидация redirect URI: только HTTPS, только доверенные хосты (`fitbit.com`, `withings.com`, `withings.net`, `duckdns.org`)
 - Webhook-подписи: HMAC-SHA256 для Withings
 - OAuth state параметр хранится в БД с TTL 10 минут
 
-### 4.x.5 Graceful Shutdown
+### 4.12.5 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
 
-### 4.x.6 Метрики
+### 4.12.6 Метрики
 
 - `http_request_duration_seconds{method, path}`
 - `http_requests_total{method, path, status}`
 - `error_total{service="device-aggregator", error_type}`
 - `biometric_sync_lag_seconds{device_type, user_segment}`
 
-### 4.x.7 Тесты
+### 4.12.7 Тесты
 
 - Unit-тесты для handlers: health, disconnect, OAuth callback, auth start, redirect validation
 - Запуск: `go test ./cmd/device-aggregator/...`
 
-### 4.x.8 Особенности
+### 4.12.8 Особенности
 
 - Логгер: `internal/logger` с полем `service: "device-aggregator"`
 - Middleware: recovery, request ID, correlation ID, logging с Prometheus
@@ -862,9 +862,9 @@ HTTP-сервис для управления OAuth-подключениями �
 
 ---
 
-## 4.x Device Connector (device-connector)
+## 4.13 Device Connector (device-connector)
 
-### 4.x.1 Назначение
+### 4.13.1 Назначение
 
 HTTP-сервис для регистрации носимых устройств и приёма биометрических данных с них. Отвечает за:
 - Регистрацию устройств пользователей (создание `device_id` и `device_token`)
@@ -873,7 +873,7 @@ HTTP-сервис для регистрации носимых устройст�
 - Хранение сырых ingest-записей в PostgreSQL (`devices`, `device_ingest_log`)
 - Форвардинг валидных записей в `biometric-service` через gRPC
 
-### 4.x.2 Endpoints
+### 4.13.2 Endpoints
 
 | Endpoint | Назначение |
 | ---------- | ----------- |
@@ -882,7 +882,7 @@ HTTP-сервис для регистрации носимых устройст�
 | `POST /api/v1/devices/register` | Регистрация устройства |
 | `POST /api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
 
-### 4.x.3 Конфигурация
+### 4.13.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
@@ -891,7 +891,7 @@ HTTP-сервис для регистрации носимых устройст�
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
 | `BIOMETRIC_SERVICE_ADDR` | `localhost:50052` | Адрес biometric-service gRPC |
 
-### 4.x.4 Формат запроса `POST /api/v1/devices/register`
+### 4.13.4 Формат запроса `POST /api/v1/devices/register`
 
 ```json
 {
@@ -900,7 +900,7 @@ HTTP-сервис для регистрации носимых устройст�
 }
 ```
 
-### 4.x.5 Формат ответа регистрации
+### 4.13.5 Формат ответа регистрации
 
 ```json
 {
@@ -911,7 +911,7 @@ HTTP-сервис для регистрации носимых устройст�
 }
 ```
 
-### 4.x.6 Формат запроса `POST /api/v1/devices/{device_id}/ingest`
+### 4.13.6 Формат запроса `POST /api/v1/devices/{device_id}/ingest`
 
 ```json
 {
@@ -929,7 +929,7 @@ HTTP-сервис для регистрации носимых устройст�
 }
 ```
 
-### 4.x.7 Формат ответа ingest
+### 4.13.7 Формат ответа ingest
 
 ```json
 {
@@ -940,7 +940,7 @@ HTTP-сервис для регистрации носимых устройст�
 }
 ```
 
-### 4.x.8 Валидация записей
+### 4.13.8 Валидация записей
 
 - `metric_type` не может быть пустым
 - `value` не может быть отрицательным
@@ -948,39 +948,39 @@ HTTP-сервис для регистрации носимых устройст�
 - Для `spo2`: диапазон 70–100
 - Для остальных метрик: проверка по `metricSyncRules`
 
-### 4.x.9 Дедупликация
+### 4.13.9 Дедупликация
 
 Дубликаты определяются по триплету `(device_id, timestamp, metric_type)` через таблицу `device_ingest_log`.
 
-### 4.x.10 gRPC форвардинг
+### 4.13.10 gRPC форвардинг
 
 Валидные записи форвардятся в `biometric-service` через `AddRecord` с предварительной валидацией `validator.ValidateBiometricRecord`.
 
-### 4.x.11 Graceful Shutdown
+### 4.13.11 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
 
-### 4.x.12 Метрики
+### 4.13.12 Метрики
 
 - `http_request_duration_seconds{method, path}`
 - `http_requests_total{method, path, status}`
 - `error_total{service="device-connector", error_type}`
 - gRPC client metrics через `metrics.UnaryClientInterceptor`
 
-### 4.x.13 Middleware
+### 4.13.13 Middleware
 
 - Recovery middleware
 - Request ID
 - Correlation ID
 - Logging с Prometheus
 
-### 4.x.14 Тесты
+### 4.13.14 Тесты
 
 - Unit-тесты: `isValidDeviceType`, `metricSyncRules`, `healthHandler`, `registerDeviceHandler`, `ingestInputs`, `validateIngestRecord`, `authenticateDevice`
 - Запуск: `go test ./cmd/device-connector/...`
 
-### 4.x.15 Особенности
+### 4.13.15 Особенности
 
 - Логгер: `internal/logger` с полем `service: "device-connector"`
 - Поддерживаемые типы устройств: `fitbit`, `garmin`, `withings`
@@ -988,9 +988,9 @@ HTTP-сервис для регистрации носимых устройст�
 
 ---
 
-## 4.x Background Data Processor (data-processor)
+## 4.14 Background Data Processor (data-processor)
 
-### 4.x.1 Назначение
+### 4.14.1 Назначение
 
 Фоновый сервис для потребления биометрических событий из RabbitMQ (`biometric_events`) и сохранения их в PostgreSQL. Обеспечивает:
 - Асинхронную запись биометрических данных с валидацией диапазонов
@@ -998,14 +998,14 @@ HTTP-сервис для регистрации носимых устройст�
 - Graceful shutdown с ожиданием завершения in-flight сообщений
 - Health check и metrics endpoints
 
-### 4.x.2 Endpoints
+### 4.14.2 Endpoints
 
 | Endpoint | Назначение |
 | ---------- | ----------- |
 | `GET /health` | Health check (JSON `{"status":"healthy"}`) |
 | `GET /metrics` | Prometheus метрики |
 
-### 4.x.3 Конфигурация
+### 4.14.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
@@ -1014,25 +1014,25 @@ HTTP-сервис для регистрации носимых устройст�
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
 | `RABBITMQ_URL` | — | RabbitMQ подключение (обязателен) |
 
-### 4.x.4 Graceful Shutdown
+### 4.14.4 Graceful Shutdown
 
 - `signal.NotifyContext` для SIGINT/SIGTERM
 - Ожидание завершения текущих сообщений (таймаут 30 секунд)
 - Graceful shutdown health и metrics серверов
 
-### 4.x.5 Валидация событий
+### 4.14.5 Валидация событий
 
 Перед записью в БД проверяются:
 - `user_id` и `metric_type` не пустые
 - `value >= 0`
 - `value` в допустимых диапазонах для каждого типа метрики (heart_rate: 30–220, spo2: 70–100 и т.д.)
 
-### 4.x.6 Метрики
+### 4.14.6 Метрики
 
 - `error_total{service="data-processor", error_type="parse_error|validation_error|insert_error"}`
 - `queue_messages_total{queue, status}` (через `internal/queue`)
 
-### 4.x.7 Тесты
+### 4.14.7 Тесты
 
 - Unit-тесты: парсинг, валидация, getMetricRules, вставка в БД
 - Интеграционные тесты с Testcontainers (PostgreSQL + RabbitMQ), пропускаются если Docker недоступен

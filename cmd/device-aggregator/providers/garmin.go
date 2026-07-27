@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" // nolint:G505 // HMAC-SHA1 is required by OAuth 1.0a for Garmin Health API signatures
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"

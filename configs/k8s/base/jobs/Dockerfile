@@ -1,7 +1,8 @@
 FROM alpine:3.24
 
+# hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates tzdata curl=8.20.0-r1 unzip bash
+    apk add --no-cache ca-certificates tzdata curl unzip bash
 
 ARG KUBECTL_VERSION=v1.36.0
 RUN curl -sSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \

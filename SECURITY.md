@@ -134,10 +134,10 @@
 
 #### Принятые риски Trivy misconfiguration
 
-В `trivy.yaml` определены исключения для правил, которые являются ложноположительными для специфичных рабочих нагрузок:
+В `.trivyignore` определены исключения для правил, которые являются ложноположительными для специфичных рабочих нагрузок:
 
 | Правило | Файл | Обоснование |
-|---------|------|-------------|
+| ------- | ---- | ----------- |
 | `KSV-0121` | `configs/monitoring/node-exporter/daemonset.yaml` | HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
 | `KSV-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | `hostPID: true` требуется для доступа к `/proc/[pid]` всех процессов хоста. |
 | `KSV-0009` | `configs/k8s/base/ingress-nginx/deployment.yaml` | `hostNetwork: true` необходим ingress-nginx на bare-metal/VPS для приёма трафика на порты 80/443 без внешнего балансировщика. |

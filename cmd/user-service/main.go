@@ -396,7 +396,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 	}, nil
 }
 
-// nolint:funlen // Google OAuth flow requires multiple nonce generations and INSERT logic.
+// Google OAuth flow requires multiple nonce generations and INSERT logic.
 func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
 	err = s.db.QueryRowContext(ctx, `
 		SELECT id, role, email_confirmed FROM users WHERE provider = 'google' AND external_id = $1
@@ -2433,8 +2433,9 @@ func createMetricsServer(metricsPort string) *http.Server {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	return &http.Server{
-		Addr:    ":" + metricsPort,
-		Handler: metricsMux,
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 }
 

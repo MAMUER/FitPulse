@@ -18,7 +18,7 @@
 Использовать Docker multi-stage build в `cmd/gateway/Dockerfile`:
 
 1. **Stage `node-builder`**: `node:24-alpine` — клонирует репозиторий, устанавливает зависимости, собирает фронтенд (`npm run build`), артефакт — `web/dist/`.
-2. **Stage `go-builder`**: `golang:1.24-alpine` — копирует `go.mod/go.sum`, качает зависимости, компилирует Go backend.
+2. **Stage `go-builder`**: `golang:1.26-alpine` — копирует `go.mod/go.sum`, качает зависимости, компилирует Go backend.
 3. **Stage `runtime`**: `alpine:3.24` — содержит только runtime-зависимости (ca-certificates, tzdata), копирует бинарный файл gateway и `web/dist/` из builder-стадий.
 4. **Gateway** слушает на порту 8080, раздаёт `web/dist/` через `http.FileServer`, все `/api/v1/*` запросы проксирует в backend-сервисы.
 5. **Email confirm**: `/confirm` отдаёт `web/dist/index.html` для hydrated React SPA, а не отдельный HTML-шаблон.

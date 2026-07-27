@@ -415,7 +415,11 @@ func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
 func createMetricsServer(metricsPort string) *http.Server {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
-	return &http.Server{Addr: ":" + metricsPort, Handler: metricsMux}
+	return &http.Server{
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 }
 
 func startMetricsServer(srv *http.Server, log *logger.Logger) {

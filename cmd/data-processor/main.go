@@ -43,8 +43,9 @@ func main() {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsSrv := &http.Server{
-		Addr:    ":" + metricsPort,
-		Handler: metricsMux,
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	healthMux := http.NewServeMux()
@@ -53,8 +54,9 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	})
 	healthSrv := &http.Server{
-		Addr:    ":" + port,
-		Handler: healthMux,
+		Addr:              ":" + port,
+		Handler:           healthMux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

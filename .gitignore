@@ -10,8 +10,9 @@
 *.prof
 coverage/
 htmlcov/
-*coverage*
+coverage.html
 coverage
+coverage_adapters
 build/
 dist/
 target/
