@@ -289,7 +289,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
@@ -782,7 +782,7 @@ jobs:
             fi
           fi
           if [ -f sarif-results/gitleaks.sarif ]; then
-            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null || echo 0)
+            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
             echo "gitleaks: $GITLEAKS secrets found"
             if [ "$GITLEAKS" -gt 0 ]; then
               echo "❌ FAIL: Gitleaks found $GITLEAKS potential secrets"

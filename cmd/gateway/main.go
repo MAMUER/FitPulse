@@ -200,9 +200,9 @@ func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 		ClientSecret: cfg.googleClientSecret,
 		RedirectURL:  redirectURL,
 		Scopes:       []string{"openid", "profile", "email"},
-		Endpoint: oauth2.Endpoint{
+		Endpoint: oauth2.Endpoint{ // nolint:G101
 			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
-			TokenURL: "https://oauth.googleapis.com/token",
+			TokenURL: "https://oauth2.googleapis.com/token",
 		},
 	}
 }

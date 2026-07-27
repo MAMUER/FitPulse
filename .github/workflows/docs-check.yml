@@ -110,13 +110,13 @@ jobs:
           echo "✅ RabbitMQ version references are consistent (4.3+)"
 
           echo "-> Checking Node.js version references..."
-          NODE_REFS=$(grep -rn "node:2[0-9]\|Node\.js\s\+2[0-9]\|node\s\+2[0-9]\|Node\.js\s\+24\|node\s\+24" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" || true)
+          NODE_REFS=$(grep -rn "node:2[0-9]\|Node\.js\s\+2[0-9]\|node\s\+2[0-9]\|Node\.js\s\+24\|node\s\+24" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" | grep -v "node:2[6-9]\|Node\.js\s\+2[6-9]\|node\s\+2[6-9]" || true)
           if [ -n "$NODE_REFS" ]; then
-            echo "❌ Found outdated Node.js references (current: 24+):"
+            echo "❌ Found outdated Node.js references (current: 26+):"
             echo "$NODE_REFS"
             exit 1
           fi
-          echo "✅ Node.js version references are consistent (24+)"
+          echo "✅ Node.js version references are consistent (26+)"
 
           echo "-> Checking Ubuntu version references..."
           UBUNTU_REFS=$(grep -rn "ubuntu:[12][0-9]\|Ubuntu\s\+12[0-9]\|ubuntu\s\+12[0-9]\|Ubuntu\s\+26\|ubuntu\s\+26" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" || true)

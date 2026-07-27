@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ========== Web builder stage ==========
-FROM node:24-alpine AS web-builder
+FROM node:26-alpine AS web-builder
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json* ./
 RUN npm ci || npm install

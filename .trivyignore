@@ -21,7 +21,9 @@
   paths:
     - configs/k8s/base/ingress-nginx/configmap.yaml
 
-# GHSA-qwww-vcr4-c8h2: уязвимость касается только unstable RSC API, которые не используются
+# GHSA-qwww-vcr4-c8h2: уязвимость касается только unstable RSC API, которые не используются в проекте.
+# Исправление в react-router-dom v8.3.0, но на текущий момент последняя доступная версия — v7.18.1.
+# При выходе v8.3.0+ нужно обновить зависимость и удалить это исключение.
 - id: GHSA-qwww-vcr4-c8h2
   paths:
     - web/package-lock.json
