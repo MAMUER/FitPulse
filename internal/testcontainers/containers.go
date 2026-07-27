@@ -59,7 +59,7 @@ func StartInfrastructure(t *testing.T) *Container {
 		t.Fatalf("failed to start valkey container: %v", err)
 	}
 
-	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4-management-alpine",
+	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
 		testcontainers.WithEnv(map[string]string{
 			"RABBITMQ_DEFAULT_USER": "testuser",
 			"RABBITMQ_DEFAULT_PASS": "testpass",

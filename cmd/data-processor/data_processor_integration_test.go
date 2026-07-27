@@ -45,7 +45,7 @@ func TestDataProcessorIntegration(t *testing.T) {
 	}
 	_ = pgContainer.Terminate(ctx)
 
-	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4-management-alpine",
+	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
 		testcontainers.WithEnv(map[string]string{
 			"RABBITMQ_DEFAULT_USER": "testuser",
 			"RABBITMQ_DEFAULT_PASS": "testpass",
