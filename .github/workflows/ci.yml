@@ -785,7 +785,7 @@ jobs:
             fi
           fi
           if [ -f sarif-results/gitleaks.sarif ]; then
-            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null || echo 0)
+            GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
             if [ -z "$GITLEAKS" ]; then GITLEAKS=0; fi
             echo "gitleaks: $GITLEAKS secrets found"
             if [ "$GITLEAKS" -gt 0 ]; then
@@ -845,16 +845,7 @@ jobs:
         env:
            DOCKER_HOST: ""
       - name: Coverage Check (75% threshold)
-        run: |
-           echo "Running coverage check..."
-           go test -v -coverprofile=coverage.out ./...
-           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-           echo "Total coverage: $COVERAGE%"
-           if awk "BEGIN {exit !($COVERAGE < 75)}"; then
-             echo "::error::Coverage $COVERAGE% is below 75% threshold"
-             exit 1
-           fi
-           echo "✅ Coverage check passed"
+        run: bash scripts/coverage-check.sh
 
   # ============================================================================
   # BUILD BINARIES

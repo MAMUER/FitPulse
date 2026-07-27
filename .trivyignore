@@ -1,66 +1,51 @@
-# Trivy ignore rules
-# Принятые риски и ложноположительные срабатывания для Security Gate
+ignore:
+  - id: GHSA-qwww-vcr4-c8h2
+    paths:
+      - web/package-lock.json
 
-# KSV-0121: node-exporter требует HostPath /proc, /sys и / для сбора метрик хоста
-- id: KSV-0121
-  paths:
-    - configs/monitoring/node-exporter/daemonset.yaml
+  - id: KSV-0121
+    paths:
+      - configs/monitoring/node-exporter/daemonset.yaml
 
-# KSV-0010: hostPID необходим node-exporter'у для доступа к /proc/[pid]
-- id: KSV-0010
-  paths:
-    - configs/monitoring/node-exporter/daemonset.yaml
+  - id: KSV-0010
+    paths:
+      - configs/monitoring/node-exporter/daemonset.yaml
 
-# KSV-0009: hostNetwork=true необходим ingress-nginx на bare-metal/VPS
-- id: KSV-0009
-  paths:
-    - configs/k8s/base/ingress-nginx/deployment.yaml
+  - id: KSV-0009
+    paths:
+      - configs/k8s/base/ingress-nginx/deployment.yaml
 
-# KSV-0109: ключ server-tokens это настройка безопасности, а не секрет
-- id: KSV-0109
-  paths:
-    - configs/k8s/base/ingress-nginx/configmap.yaml
+  - id: KSV-0109
+    paths:
+      - configs/k8s/base/ingress-nginx/configmap.yaml
 
-# GHSA-qwww-vcr4-c8h2: уязвимость касается только unstable RSC API, которые не используются в проекте.
-# Исправление в react-router-dom v8.3.0, но на текущий момент последняя доступная версия — v7.18.1.
-# При выходе v8.3.0+ нужно обновить зависимость и удалить это исключение.
-- id: GHSA-qwww-vcr4-c8h2
-  paths:
-    - web/package-lock.json
+  - id: KSV-0125
+    paths:
+      - configs/monitoring/node-exporter/daemonset.yaml
+      - configs/monitoring/grafana/deployment.yaml
+      - configs/monitoring/fluent-bit/daemonset.yaml
+      - configs/k8s/base/local-path-provisioner.yaml
+      - configs/monitoring/alertmanager/deployment.yaml
+      - configs/monitoring/prometheus/deployment.yaml
 
-# KSV-0125: официальные образы из docker.io, Trivy не распознаёт короткие имена
-- id: KSV-0125
-  paths:
-    - configs/monitoring/node-exporter/daemonset.yaml
-    - configs/monitoring/grafana/deployment.yaml
-    - configs/monitoring/fluent-bit/daemonset.yaml
-    - configs/k8s/base/local-path-provisioner.yaml
-    - configs/monitoring/alertmanager/deployment.yaml
-    - configs/monitoring/prometheus/deployment.yaml
+  - id: KSV-0023
+    paths:
+      - configs/monitoring/node-exporter/daemonset.yaml
+      - configs/monitoring/fluent-bit/daemonset.yaml
 
-# KSV-0023: HostPath необходимы node-exporter и fluent-bit для сбора метрик/логов хоста
-- id: KSV-0023
-  paths:
-    - configs/monitoring/node-exporter/daemonset.yaml
-    - configs/monitoring/fluent-bit/daemonset.yaml
+  - id: KSV-0012
+    paths:
+      - configs/monitoring/node-exporter/daemonset.yaml
+      - configs/k8s/base/local-path-provisioner.yaml
 
-# KSV-0012: root необходим node-exporter и local-path-provisioner
-- id: KSV-0012
-  paths:
-    - configs/monitoring/node-exporter/daemonset.yaml
-    - configs/k8s/base/local-path-provisioner.yaml
+  - id: KSV-0022
+    paths:
+      - configs/k8s/base/local-path-provisioner.yaml
 
-# KSV-0022: DAC_OVERRIDE необходим local-path-provisioner для управления правами на PV
-- id: KSV-0022
-  paths:
-    - configs/k8s/base/local-path-provisioner.yaml
+  - id: KSV-0048
+    paths:
+      - configs/k8s/base/local-path-provisioner.yaml
 
-# KSV-0048: local-path-provisioner создает helper pods для настройки директорий на узлах
-- id: KSV-0048
-  paths:
-    - configs/k8s/base/local-path-provisioner.yaml
-
-# KSV-0049: local-path-provisioner только читает ConfigMap local-path-config
-- id: KSV-0049
-  paths:
-    - configs/k8s/base/local-path-provisioner.yaml
+  - id: KSV-0049
+    paths:
+      - configs/k8s/base/local-path-provisioner.yaml
