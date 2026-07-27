@@ -50,6 +50,10 @@ func safeIntToInt32(v int) int32 {
 }
 
 func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordRequest) (*pb.AddRecordResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is nil")
+	}
+
 	start := time.Now()
 	s.log.Info("BIOMETRIC_DATA_RECEIVED",
 		zap.String("action", "BIOMETRIC_DATA_RECEIVED"),

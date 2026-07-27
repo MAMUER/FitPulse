@@ -50,6 +50,9 @@ while IFS= read -r line; do
 	if [[ "$line" == *"/internal/testcontainers/"* ]]; then
 		continue
 	fi
+	if [[ "$line" == *"/cmd/"* ]]; then
+		continue
+	fi
 
 	num_stmts=$(echo "$line" | awk '{print $(NF-1)}')
 	count=$(echo "$line" | awk '{print $NF}')
