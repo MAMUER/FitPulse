@@ -42,4 +42,7 @@ USER appuser
 
 EXPOSE 50053
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD sh -c 'cat > /dev/tcp/localhost/50053' || exit 1
+
 ENTRYPOINT ["./training-service"]

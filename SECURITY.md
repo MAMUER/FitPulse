@@ -144,6 +144,8 @@
 | `KSV-0109` | `configs/k8s/base/ingress-nginx/configmap.yaml` | Ложноположительное: ключ `server-tokens: "false"` — это не секрет, а настройка скрытия версии nginx в заголовках ответа. |
 | `KSV-0117` | `configs/k8s/base/ingress-nginx/deployment.yaml` | Принятый риск: ingress-nginx обязан слушать привилегированные порты 80/443 для обработки HTTP/HTTPS трафика. Без этого работа контроллера невозможна. |
 | `KSV-01010` | `configs/k8s/base/ingress-nginx/configmap.yaml`, `configs/k8s/base/deployments/valkey-config.yaml`, `configs/k8s/base/configmap.yaml` | Ложноположительное: в ConfigMap хранятся только общедоступные конфигурационные параметры (HSTS `hsts-max-age`, содержимое `valkey.conf`, номера портов сервисов). Секреты (пароли, токены, ключи) хранятся в Kubernetes Secrets (`app-secrets`, `fittpulse-duckdns-org-tls`), не в ConfigMap. |
+| `KSV-0116` | `configs/k8s/base/local-path-provisioner.yaml`, `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: оба компонента по дизайну работают с root GID. local-path-provisioner helper-pod требует root для управления правами на хостовой ФС при создании PV. node-exporter требует root для доступа к `/proc`, `/sys` и `/host/root` для сбора системных метрик. Альтернатива — delegation + service account с минимальными правами, но функционально эквивалентна. |
+| `KSV-0105` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter по дизайну работает с UID 0 для доступа к хостовым `/proc`, `/sys` и `/host/root`. Без root доступ сборка метрик невозможна. |
 
 ### Kubescape — принятые исключения
 
@@ -172,7 +174,8 @@
 | `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены избыточные права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает ConfigMap `local-path-config` через volume mount. |
 | `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
 | `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется local-path-provisioner для диагностики helper pods при создании PersistentVolumes. Без этого отладка проблем с PV невозможна. |
-| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы `gateway`, `backend`, `device-connector`, `app-service` и `ingress-nginx-tls-reader` должны читать определённые secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в namespace `fitness-platform-production`. Доступ ограничен конкретными `resourceNames` и verbs `get`/`list`/`watch`, что соответствует минимальному принципу. Полный доступ ко всем secrets namespace отсутствует. |
+| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы `gateway`, `backend`, `device-connector`, `app-service` и `ingress-nginx-tls-reader` должны читать определённые secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в namespace `fitness-platform-production`. Доступ ограничен 
+конкретными `resourceNames` и verbs `get`/`list`/`watch`, что соответствует минимальному принципу. Полный доступ ко всем secrets namespace отсутствует. |
 
 ### gosec — принятые исключения
 
