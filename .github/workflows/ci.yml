@@ -952,15 +952,15 @@ jobs:
             docker push "${{ env.REGISTRY }}/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}"
              docker push "${{ env.REGISTRY }}/mamuer/project/classifier:latest"
            fi
-       - name: Build and push CRS updater image
-         run: |
+      - name: Build and push CRS updater image
+        run: |
            docker buildx build \
              --cache-from=type=gha \
              --cache-to=type=gha,mode=max \
              -t "${{ env.REGISTRY }}/mamuer/project/crs-updater:v1" \
              -f "configs/k8s/base/jobs/Dockerfile" configs/k8s/base/jobs \
              --push
-       - name: Scan gateway image with Trivy
+      - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
