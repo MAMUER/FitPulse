@@ -398,6 +398,28 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 
 // Google OAuth flow requires multiple nonce generations and INSERT logic.
 func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
+	userID, role, emailConfirmed, err = s.findGoogleUserBySub(ctx, googleSub)
+	if err == nil {
+		return userID, role, emailConfirmed, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		s.log.Error("Database error during Google auth", zap.Error(err))
+		return "", "", false, status.Error(codes.Internal, "database error")
+	}
+
+	userID, role, emailConfirmed, err = s.linkGoogleToEmailUser(ctx, googleSub, emailHash)
+	if err == nil {
+		return userID, role, emailConfirmed, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		s.log.Error("Database error during Google auth", zap.Error(err))
+		return "", "", false, status.Error(codes.Internal, "database error")
+	}
+
+	return s.createGoogleUser(ctx, googleSub, emailHash, emailVal)
+}
+
+func (s *userServer) findGoogleUserBySub(ctx context.Context, googleSub string) (userID, role string, emailConfirmed bool, err error) {
 	err = s.db.QueryRowContext(ctx, `
 		SELECT id, role, email_confirmed FROM users WHERE provider = 'google' AND external_id = $1
 	`, googleSub).Scan(&userID, &role, &emailConfirmed)
@@ -408,12 +430,10 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 		}
 		return userID, role, emailConfirmed, nil
 	}
+	return "", "", false, err
+}
 
-	if !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("Database error during Google auth", zap.Error(err))
-		return "", "", false, status.Error(codes.Internal, "database error")
-	}
-
+func (s *userServer) linkGoogleToEmailUser(ctx context.Context, googleSub, emailHash string) (userID, role string, emailConfirmed bool, err error) {
 	err = s.db.QueryRowContext(ctx, `
 		SELECT id, role, email_confirmed FROM users WHERE email_hash = $1
 	`, emailHash).Scan(&userID, &role, &emailConfirmed)
@@ -426,12 +446,10 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 		}
 		return userID, role, emailConfirmed, nil
 	}
+	return "", "", false, err
+}
 
-	if !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("Database error during Google auth", zap.Error(err))
-		return "", "", false, status.Error(codes.Internal, "database error")
-	}
-
+func (s *userServer) createGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
 	nickname := extractLocalPart(emailVal)
 	nicknameHash := db.NicknameHash(nickname)
 	nicknameNonce, err := db.GenerateNonce()
@@ -444,7 +462,31 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 		s.log.Error("Failed to generate nonce", zap.Error(err))
 		return "", "", false, status.Error(codes.Internal, "failed to generate nonce")
 	}
+
 	userID = uuid.New().String()
+	query, args := s.buildGoogleUserInsertQuery(userID, emailVal, emailHash, emailNonce, nickname, nicknameNonce, nicknameHash, googleSub)
+	_, insertErr := s.db.ExecContext(ctx, query, args...)
+	if insertErr != nil {
+		var pqErr *pq.Error
+		if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
+			return "", "", false, status.Error(codes.AlreadyExists, "user already exists")
+		}
+		s.log.Error("Failed to create OAuth user", zap.Error(insertErr))
+		return "", "", false, status.Error(codes.Internal, "failed to create user")
+	}
+
+	role = "client"
+	emailConfirmed = true
+
+	_, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
+	if profileErr != nil {
+		s.log.Warn("Failed to create profile for OAuth user", zap.Error(profileErr), zap.String("user_id", userID))
+	}
+
+	return userID, role, emailConfirmed, nil
+}
+
+func (s *userServer) buildGoogleUserInsertQuery(userID, emailVal, emailHash string, emailNonce []byte, nickname string, nicknameNonce []byte, nicknameHash, googleSub string) (string, []interface{}) {
 	var b strings.Builder
 	b.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, nickname_encrypted, nickname_nonce, nickname_hash, role, provider, external_id, email_confirmed, created_at, updated_at) ")
 	b.WriteString("VALUES ($1, ")
@@ -456,23 +498,7 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 	b.WriteString("$9, ")
 	b.WriteString("'client', 'google', $10, true, NOW(), NOW())")
 	args := []interface{}{userID, emailVal, emailNonce, emailHash, nickname, nicknameNonce, nicknameHash, googleSub}
-	_, insertErr := s.db.ExecContext(ctx, b.String(), args...)
-	if insertErr != nil {
-		var pqErr *pq.Error
-		if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
-			return "", "", false, status.Error(codes.AlreadyExists, "user already exists")
-		}
-		s.log.Error("Failed to create OAuth user", zap.Error(insertErr))
-		return "", "", false, status.Error(codes.Internal, "failed to create user")
-	}
-	role = "client"
-	emailConfirmed = true
-
-	_, profileErr := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
-	if profileErr != nil {
-		s.log.Warn("Failed to create profile for OAuth user", zap.Error(profileErr), zap.String("user_id", userID))
-	}
-	return userID, role, emailConfirmed, nil
+	return b.String(), args
 }
 
 func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.UserProfile, error) {

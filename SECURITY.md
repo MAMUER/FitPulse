@@ -157,6 +157,14 @@
 | `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены избыточные права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает ConfigMap `local-path-config` через volume mount. |
 | `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
 
+### gosec — принятые исключения
+
+| Правило | Файл | Обоснование |
+|---------|------|-------------|
+| `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Google OAuth endpoints (`https://accounts.google.com/o/oauth2/auth`, `https://oauth2.googleapis.com/token`), известные всем разработчикам. Не являются credentials. |
+| `G101` | `cmd/gateway/helpers.go:94` | Ложноположительное: ключи мапы — пользовательские сообщения об ошибках (gRPC status text), а не пароли/токены/секреты. |
+| `G505` | `cmd/device-aggregator/providers/garmin.go:7` | Принятый риск: `crypto/sha1` требуется для HMAC-SHA1 подписи в OAuth 1.0a протоколе Garmin Health API. Это upstream-требование интеграции, а не слабое хеширование паролей. |
+
 ### Инфраструктура
 
 - **Сетевая сегментация**: Kubernetes Network Policies (dmz/app/data/monitoring)

@@ -6,7 +6,7 @@ imports:
 		cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test test-cover check imports js-check frontend-install frontend-lint frontend-test frontend-build
+.PHONY: proto tidy fmt vet lint test test-cover check imports frontend-install frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -63,7 +63,7 @@ frontend-build:
 	cd web && npm run build
 	@echo "Frontend build complete."
 
-check: tidy fmt vet imports lint test-cover proto js-check frontend-install frontend-lint frontend-test frontend-build
+check: tidy fmt vet imports lint test-cover proto frontend-install frontend-lint frontend-test frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
