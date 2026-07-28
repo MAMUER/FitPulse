@@ -214,7 +214,7 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 	}
 	token := r.Header.Get("X-Critical-Session-Token")
 	if token == "" {
-		// CodeQL ignore: go/log-injection - sanitize.LogString() used
+		// CodeQL ignore: go/log-injection
 		g.log.Warn("Critical action without critical session token",
 			// CodeQL ignore: go/log-injection
 			zap.String("user_id", sanitize.LogString(userID)),
@@ -224,7 +224,7 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 		return nil
 	}
 	if err := g.sessionStore.ValidateCriticalSession(r.Context(), token, userID); err != nil {
-		// CodeQL ignore: go/log-injection - sanitize.LogString() used
+		// CodeQL ignore: go/log-injection
 		g.log.Warn("Invalid critical session token",
 			zap.Error(err),
 			// CodeQL ignore: go/log-injection

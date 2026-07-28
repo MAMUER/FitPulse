@@ -496,12 +496,12 @@ func classifierLoggingMiddleware(log *zap.Logger) func(http.Handler) http.Handle
 				metrics.ErrorTotal.WithLabelValues("classifier", statusStr).Inc()
 			}
 
-		// CodeQL ignore: go/log-injection - sanitize.LogString() used
-		log.Info("HTTP_REQUEST",
-			zap.String("method", r.Method),
 			// CodeQL ignore: go/log-injection
-			zap.String("path", sanitize.LogString(r.URL.Path)),
-			zap.Int("status", rw.statusCode),
+			log.Info("HTTP_REQUEST",
+				zap.String("method", r.Method),
+				// CodeQL ignore: go/log-injection
+				zap.String("path", sanitize.LogString(r.URL.Path)),
+				zap.Int("status", rw.statusCode),
 				zap.Int64("duration_ms", duration.Milliseconds()),
 			)
 		})

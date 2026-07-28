@@ -66,7 +66,7 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 		v = report.Report
 	}
 
-	// CodeQL ignore: go/log-injection - sanitize.LogString() used
+	// CodeQL ignore: go/log-injection
 	g.log.Warn("CSP_VIOLATION",
 		// CodeQL ignore: go/log-injection
 		zap.String("document_uri", sanitize.LogString(v.DocumentURI)),

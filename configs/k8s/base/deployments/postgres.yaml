@@ -43,6 +43,10 @@ spec:
         runAsGroup: 999
         fsGroup: 999
         fsGroupChangePolicy: "OnRootMismatch"
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 60
@@ -103,6 +107,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data

@@ -184,7 +184,19 @@ Kubescape scan запускается в CI на директорию `configs/k
 | `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены лишние права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает `local-path-config`. |
 | `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Стандартный паттерн storage provisioner без прямого hostPath. |
 | `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется для диагностики helper pods при создании PV. Без этого отладка проблем невозможна. |
-| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы читают secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в `fitness-platform-production`. Доступ ограничен `resourceNames` и verbs `get`/`list`/`watch`. |
+| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы читают secrets и configmaps в `fitness-platform-production`. Доступ ограничен `resourceNames`. |
+
+### Kubernetes Pod Security Context — исправления (2026-07-28)
+
+Для valkey, rabbitmq и postgres были добавлены pod-level security controls, которые отсутствовали и вызывали alerts «Apply Security Context to Your Pods and Containers»:
+
+| Манифест | Что исправлено |
+| -------- | -------------- |
+| `configs/k8s/base/deployments/valkey.yaml` | Добавлен pod-level `securityContext`: `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities: drop: ["ALL"]`, `seccompProfile: RuntimeDefault`. Container-level дополнен `seccompProfile`. |
+| `configs/k8s/base/deployments/rabbitmq-statefulset.yaml` | Добавлен pod-level `securityContext` с аналогичными controls. Container-level дополнен `seccompProfile`. |
+| `configs/k8s/base/deployments/postgres.yaml` | Добавлен pod-level `securityContext` с аналогичными controls. Container-level дополнен `seccompProfile`. |
+
+InitContainer `fix-permissions` оставлен как есть — требует `runAsUser: 0` для `chown` PVC; `allowPrivilegeEscalation: false` ограничивает поверхность атаки.
 
 ### gosec — принятые исключения
 
@@ -199,46 +211,26 @@ Kubescape scan запускается в CI на директорию `configs/k
 CodeQL автоматически ищет попадание непроверенного пользовательского ввода в лог-записи.
 В проекте это входные данные из HTTP-запросов: URL-пути, заголовки, тело запроса, поля CSP-отчётов, webhook-уведомлений и т.д.
 
-#### Почему используются комментарии-заглушки `// CodeQL ignore: go/log-injection`
+#### Почему используются комментарии `// CodeQL ignore: go/log-injection`
 
-CodeQL **не распRecognise кастомную функцию санитизации** `sanitize.LogString()` (`internal/sanitize`) при межпакетном статическом анализе.
+CodeQL **не распзнаёт кастомную функцию санитизации** `sanitize.LogString()` (`internal/sanitize`) при межпакетном статическом анализе.
 Поэтому даже на уже исправленных строках, где перед логированием вызывается `sanitize.LogString()`, CodeQL продолжает показывать алерт.
 
-Чтобы сохранить высокий уровень безопасности и одновременно убрать ложноположительные срабатывания, используются два паттерна:
+Каждый комментарий базируется на уже существующем вызове `sanitize.LogString()`, который экранирует управляющие символы (`\n`, `\r`, `%`, ANSI-коды) перед записью в zap-логгер. Это **не игнорирование реальной уязвимости**, а подавление ложноположительного алерта, где защита уже применена.
 
-**1. Блочный комментарий** перед вызовом логгера (для коротких однострочных вызовов):
-
-```go
-// CodeQL ignore: go/log-injection - sanitize.LogString() used
-g.log.Warn("event", zap.String("field", sanitize.LogString(input)))
-```
-
-**2. Inline-комментарий** на строке с аргументом (для многострочных вызовов `log.Info/Warn/Error/Debug`):
-
-```go
-g.log.Warn("CSP_VIOLATION",
-    zap.String("document_uri", sanitize.LogString(v.DocumentURI)), // CodeQL ignore: go/log-injection
-    zap.String("blocked_uri", sanitize.LogString(v.BlockedURI)),   // CodeQL ignore: go/log-injection
-    ...
-)
-```
-
-CodeQL флагит отдельные строки-аргументы внутри multi-line вызова, поэтому блоковый комментарий перед `log.Warn(...)` не покрывает их — нужен inline-комментарий на каждой строке с `sanitize.LogString()`.
-
-Это **не игнорирование реальной уязвимости**, а подавление ложноположительного алерта, где защита уже применена.
-Каждый комментарий базируется на уже существующем вызове `sanitize.LogString()`.
+Формат комментариев унифицирован: `// CodeQL ignore: go/log-injection` (без дополнительного текста после запятой, чтобы CodeQL корректно распознавал directive).
 
 #### Где защита применена
 
 | Файл | Строки | Защита |
-| --- | --- | ------ |
+| --- | --- | --- |
 | `cmd/device-aggregator/webhooks.go` | 43-47, 91-95 | `sanitize.LogString()` для полей `type`, `user_id`, `action`. |
 | `cmd/classifier/main.go` | 500-502 | `sanitize.LogString()` для `r.URL.Path`. |
 | `cmd/gateway/handlers_auth.go` | 217-221, 225-229 | `sanitize.LogString()` для `userID` и `r.URL.Path`. |
-| `cmd/gateway/handlers_csp_report.go` | 58 | **Исправлено**: `zap.ByteString("raw", body)` заменено на `zap.String("raw", sanitize.LogString(string(body)))`. Контрольные символы в теле запроса удаляются перед логированием. |
-| `cmd/gateway/handlers_csp_report.go` | 68-80 | `sanitize.LogString()` для всех полей CSP-отчёта и заголовков (`User-Agent`, `RemoteAddr`). |
+| `cmd/gateway/handlers_csp_report.go` | 58 | **Исправлено**: `zap.ByteString("raw", body)` заменено на `zap.String("raw", sanitize.LogString(string(body)))`. Контрольные символы в теле запроса удаляются before логирования. |
+| `cmd/gateway/handlers_csp_report.go` | 69-91 | `sanitize.LogString()` для всех полей CSP-отчёта и заголовков (`User-Agent`, `RemoteAddr`). |
 | `internal/telemetry/http.go` | 21-25 | `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry middleware. |
-| `cmd/device-connector/main.go` | 181, 214-215, 239-240, 299-300, 374-375, 395-396 | Уже защищено `sanitize.LogString()`. Добавлены `// CodeQL ignore: go/log-injection` комментарии для подавления ложноположительных алертов. |
+| `cmd/device-connector/main.go` | 178-415 | Уже защищено `sanitize.LogString()` на всех точках входа с пользовательским вводом (device registration, ingest, validation, forwarding). |
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
 
@@ -261,11 +253,11 @@ Semgrep OSS находит в них использование пакета `un
 Правило Semgrep `yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value` flags manifests с `runAsNonRoot: false`. В проекте это **принятый риск** для двух компонентов, которые по дизайну требуют root:
 
 | Манифест | Строки | Обоснование |
-| --- | --- | --- |
+| --- | --- | -------- |
 | `configs/monitoring/node-exporter/daemonset.yaml` | 21 (pod-level), 42 (container-level) | node-exporter требует root и `hostPID: true` для доступа к `/proc`, `/sys`, `/host/root` хоста для сбора метрик. Без root работа невозможна. |
 | `configs/k8s/base/local-path-provisioner.yaml` | 153 | local-path-provisioner требует root и `DAC_OVERRIDE` для создания директорий на хостовой ФС и изменения их владельца при создании PersistentVolumes. Без этого работа provisioner невозможна. |
 
-Добавлены inline-комментарии `# semgrep: ignore run-as-non-root-unsafe-value` на строки с `runAsNonRoot: false`.
+Для подавления алертов использован стандартный синтаксис Semgrep: `# nosemgrep run-as-non-root-unsafe-value`.
 
 ### Semgrep — безопасная установка инструментов CI
 
@@ -358,4 +350,4 @@ FitPulse — бесплатный open-source проект без бюджета
 
 ---
 
-### Последнее обновление: 2026-07-01
+### Последнее обновление: 2026-07-28

@@ -473,92 +473,20 @@ jobs:
             --output kubescape-results.sarif \
             --verbose || true
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
-            jq '.runs |= map(
-              .results |= map(
-                 select(
-                   (.ruleId // "") != "C-0012" and
-                   (.ruleId // "") != "C-0013" and
-                   (.ruleId // "") != "C-0017" and
-                   (.ruleId // "") != "C-0055" and
-                   (.ruleId // "") != "C-0034" and
-                   (.ruleId // "") != "C-0045" and
-                   (.ruleId // "") != "C-0048" and
-                   (.ruleId // "") != "C-0056" and
-                   (.ruleId // "") != "C-0018" and
-                   (.ruleId // "") != "C-0016" and
-                   (.ruleId // "") != "C-0237" and
-                   (.ruleId // "") != "C-0009" and
-                   (.ruleId // "") != "C-0010" and
-                   (.ruleId // "") != "C-0011" and
-                   (.ruleId // "") != "C-0021" and
-                   (.ruleId // "") != "C-0022" and
-                   (.ruleId // "") != "C-0006" and
-                   (.ruleId // "") != "C-0007" and
-                   (.ruleId // "") != "C-0008" and
-                   (.ruleId // "") != "C-0024" and
-                   (.ruleId // "") != "C-0025" and
-                   (.ruleId // "") != "C-0028" and
-                   (.ruleId // "") != "C-0029" and
-                   (.ruleId // "") != "C-0030" and
-                   (.ruleId // "") != "C-0031" and
-                   (.ruleId // "") != "C-0032" and
-                   (.ruleId // "") != "C-0033" and
-                   (.ruleId // "") != "C-0034" and
-                   (.ruleId // "") != "C-0042" and
-                   (.ruleId // "") != "C-0049" and
-                   (.ruleId // "") != "C-0050" and
-                   (.ruleId // "") != "C-0051" and
-                   (.ruleId // "") != "C-0052" and
-                   (.ruleId // "") != "C-0053" and
-                    (.ruleId // "") != "C-0054" and
-                    (.ruleId // "") != "C-0057" and
-                    (.ruleId // "") != "C-0058" and
-                    (.ruleId // "") != "C-0059" and
-                    (.ruleId // "") != "C-0060" and
-                    (.ruleId // "") != "C-0061" and
-                    (.ruleId // "") != "C-0062" and
-                    (.ruleId // "") != "C-0063" and
-                    (.ruleId // "") != "C-0064" and
-                    (.ruleId // "") != "C-0065" and
-                    (.ruleId // "") != "C-0066" and
-                    (.ruleId // "") != "C-0067" and
-                    (.ruleId // "") != "C-0068" and
-                    (.ruleId // "") != "C-0069" and
-                    (.ruleId // "") != "C-0070" and
-                    (.ruleId // "") != "C-0071" and
-                    (.ruleId // "") != "C-0072" and
-                    (.ruleId // "") != "C-0073" and
-                    (.ruleId // "") != "C-0074" and
-                    (.ruleId // "") != "C-0075" and
-                    (.ruleId // "") != "C-0076" and
-                    (.ruleId // "") != "C-0077" and
-                    (.ruleId // "") != "C-0078" and
-                    (.ruleId // "") != "C-0079" and
-                    (.ruleId // "") != "C-0080" and
-                    (.ruleId // "") != "C-0081" and
-                    (.ruleId // "") != "C-0082" and
-                    (.ruleId // "") != "C-0083" and
-                    (.ruleId // "") != "C-0084" and
-                    (.ruleId // "") != "C-0085" and
-                    (.ruleId // "") != "C-0086" and
-                    (.ruleId // "") != "C-0087" and
-                    (.ruleId // "") != "C-0088" and
-                    (.ruleId // "") != "C-0089" and
-                    (.ruleId // "") != "C-0090" and
-                    (.ruleId // "") != "C-0091" and
-                    (.ruleId // "") != "C-0092" and
-                    (.ruleId // "") != "C-0093" and
-                    (.ruleId // "") != "C-0094" and
-                    (.ruleId // "") != "C-0095" and
-                    (.ruleId // "") != "C-0096" and
-                    (.ruleId // "") != "C-0097" and
-                    (.ruleId // "") != "C-0098" and
-                    (.ruleId // "") != "C-0099" and
-                    (.ruleId // "") != "C-0100" and
+             jq '.runs |= map(
+               .results |= map(
+                  select(
                     (.locations[0].physicalLocation.artifactLocation.uri | test("\\.[^/]+$"))
+                    and
+                    ((.ruleId // "") | IN(
+                      "C-0012", "C-0013", "C-0017", "C-0016",
+                      "C-0009", "C-0010", "C-0011", "C-0021", "C-0022",
+                      "C-0055", "C-0045", "C-0048", "C-0056",
+                      "C-0237"
+                    ) | not)
                   )
-              )
-            )' kubescape-results.sarif > kubescape-results-fixed.sarif
+               )
+             )' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif
           fi
       - name: Upload Kubescape results

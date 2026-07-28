@@ -213,7 +213,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 	device, err := s.authenticateDevice(r.Context(), deviceID, req.DeviceToken)
 	if err != nil {
-		// CodeQL ignore: go/log-injection - sanitize.LogString() used
+		// CodeQL ignore: go/log-injection
 		s.log.Warn("Device authentication failed",
 			// CodeQL ignore: go/log-injection
 			zap.String("device_id", sanitize.LogString(deviceID)),
@@ -241,7 +241,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		s.forwardRecords(r.Context(), pbRecords, &stats)
 	}
 
-	// CodeQL ignore: go/log-injection - sanitize.LogString() used
+	// CodeQL ignore: go/log-injection
 	s.log.Info("Ingest completed",
 		// CodeQL ignore: go/log-injection
 		zap.String("device_id", sanitize.LogString(deviceID)),
@@ -304,7 +304,7 @@ func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, 
 		}
 		if exists {
 			stats.Duplicates++
-			// CodeQL ignore: go/log-injection - sanitize.LogString() used
+			// CodeQL ignore: go/log-injection
 			s.log.Debug("Duplicate record skipped",
 				// CodeQL ignore: go/log-injection
 				zap.String("device_id", sanitize.LogString(deviceID)),
@@ -383,7 +383,7 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			Timestamp:  pbRec.Timestamp,
 			DeviceType: pbRec.DeviceType,
 		}); err != nil {
-			// CodeQL ignore: go/log-injection - sanitize.LogString() used
+			// CodeQL ignore: go/log-injection
 			s.log.Warn("Record failed validation before forwarding",
 				// CodeQL ignore: go/log-injection
 				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
@@ -407,13 +407,13 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			if ok {
 				errMsg = st.Message()
 			}
-		// CodeQL ignore: go/log-injection - sanitize.LogString() used
-		s.log.Error("Failed to forward record to biometric-service",
 			// CodeQL ignore: go/log-injection
-			zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
-			// CodeQL ignore: go/log-injection
-			zap.String("error", sanitize.LogString(errMsg)),
-		)
+			s.log.Error("Failed to forward record to biometric-service",
+				// CodeQL ignore: go/log-injection
+				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+				// CodeQL ignore: go/log-injection
+				zap.String("error", sanitize.LogString(errMsg)),
+			)
 			stats.Failed++
 			continue
 		}
