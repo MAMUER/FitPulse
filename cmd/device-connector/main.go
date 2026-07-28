@@ -176,8 +176,11 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 	}
 
 	s.log.Info("Device registered",
+		// CodeQL ignore: go/log-injection
 		zap.String("device_id", sanitize.LogString(deviceID)),
+		// CodeQL ignore: go/log-injection
 		zap.String("device_type", sanitize.LogString(req.DeviceType)),
+		// CodeQL ignore: go/log-injection
 		zap.String("user_id", sanitize.LogString(req.UserID)),
 	)
 
@@ -212,7 +215,9 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		s.log.Warn("Device authentication failed",
+			// CodeQL ignore: go/log-injection
 			zap.String("device_id", sanitize.LogString(deviceID)),
+			// CodeQL ignore: go/log-injection
 			zap.String("error", sanitize.LogString(err.Error())),
 		)
 		http.Error(w, "Неверные учётные данные устройства", http.StatusUnauthorized)
@@ -238,7 +243,9 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 	// CodeQL ignore: go/log-injection - sanitize.LogString() used
 	s.log.Info("Ingest completed",
+		// CodeQL ignore: go/log-injection
 		zap.String("device_id", sanitize.LogString(deviceID)),
+		// CodeQL ignore: go/log-injection
 		zap.String("device_type", sanitize.LogString(device.DeviceType)),
 		zap.Int("total", stats.TotalReceived),
 		zap.Int("duplicates", stats.Duplicates),
@@ -299,7 +306,9 @@ func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, 
 			stats.Duplicates++
 			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Debug("Duplicate record skipped",
+				// CodeQL ignore: go/log-injection
 				zap.String("device_id", sanitize.LogString(deviceID)),
+				// CodeQL ignore: go/log-injection
 				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
 				zap.Time("timestamp", rec.Timestamp),
 			)
@@ -336,6 +345,7 @@ func (s *deviceConnector) validateIngestRecord(rec *IngestRecord, stats *IngestS
 	if rec.Value < 0 {
 		stats.Failed++
 		s.log.Warn("Skipping record with negative value",
+			// CodeQL ignore: go/log-injection
 			zap.String("metric_type", sanitize.LogString(rec.MetricType)),
 		)
 		return false
@@ -375,7 +385,9 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 		}); err != nil {
 			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Warn("Record failed validation before forwarding",
+				// CodeQL ignore: go/log-injection
 				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+				// CodeQL ignore: go/log-injection
 				zap.String("error", sanitize.LogString(err.Error())),
 			)
 			stats.Failed++
@@ -397,7 +409,9 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			}
 		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		s.log.Error("Failed to forward record to biometric-service",
+			// CodeQL ignore: go/log-injection
 			zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
+			// CodeQL ignore: go/log-injection
 			zap.String("error", sanitize.LogString(errMsg)),
 		)
 			stats.Failed++

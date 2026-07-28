@@ -216,7 +216,9 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 	if token == "" {
 		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		g.log.Warn("Critical action without critical session token",
+			// CodeQL ignore: go/log-injection
 			zap.String("user_id", sanitize.LogString(userID)),
+			// CodeQL ignore: go/log-injection
 			zap.String("path", sanitize.LogString(r.URL.Path)),
 		)
 		return nil
@@ -225,7 +227,9 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		g.log.Warn("Invalid critical session token",
 			zap.Error(err),
+			// CodeQL ignore: go/log-injection
 			zap.String("user_id", sanitize.LogString(userID)),
+			// CodeQL ignore: go/log-injection
 			zap.String("path", sanitize.LogString(r.URL.Path)),
 		)
 		return fmt.Errorf("invalid critical session: %w", err)
