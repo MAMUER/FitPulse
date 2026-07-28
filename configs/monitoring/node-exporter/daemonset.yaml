@@ -18,7 +18,8 @@ spec:
       automountServiceAccountToken: false
       hostPID: true
       securityContext:
-        runAsNonRoot: false # nosemgrep run-as-non-root-unsafe-value - node-exporter requires root for host /proc,/sys,/host/root
+        # nosemgrep run-as-non-root-unsafe-value - node-exporter requires root for host /proc,/sys,/host/root
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
         seccompProfile:
@@ -39,7 +40,8 @@ spec:
               containerPort: 9100
               protocol: TCP
           securityContext:
-            runAsNonRoot: false # nosemgrep run-as-non-root-unsafe-value - node-exporter requires root for host /proc,/sys,/host/root
+            # nosemgrep run-as-non-root-unsafe-value - node-exporter requires root for host /proc,/sys,/host/root
+            runAsNonRoot: false
             runAsUser: 0
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

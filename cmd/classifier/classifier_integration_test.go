@@ -32,8 +32,8 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	handler = classifierLoggingMiddleware(log.Logger)(handler)
 
 	// nosemgrep avoid-bind-to-all-interfaces - test uses :0 to get a random available port
-	srv := &http.Server{Addr: ":0", Handler: handler}
-	ln, err := net.Listen("tcp", ":0")
+	srv := &http.Server{Addr: ":0", Handler: handler} // nosemgrep avoid-bind-to-all-interfaces
+	ln, err := net.Listen("tcp", ":0")                // nosemgrep avoid-bind-to-all-interfaces
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
