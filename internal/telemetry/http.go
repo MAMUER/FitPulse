@@ -16,15 +16,15 @@ func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return otelhttp.NewHandler(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
- 				if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
- 					traceID := span.SpanContext().TraceID().String()
- 					// CodeQL ignore: go/log-injection - sanitize.LogString() used
- 					log.Info("request tracing",
- 						zap.String("trace_id", traceID),
- 						zap.String("method", r.Method),
- 						// CodeQL ignore: go/log-injection
- 						zap.String("path", sanitize.LogString(r.URL.Path)),
- 					)
+				if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
+					traceID := span.SpanContext().TraceID().String()
+					// CodeQL ignore: go/log-injection - sanitize.LogString() used
+					log.Info("request tracing",
+						zap.String("trace_id", traceID),
+						zap.String("method", r.Method),
+						// CodeQL ignore: go/log-injection
+						zap.String("path", sanitize.LogString(r.URL.Path)),
+					)
 					w.Header().Set("X-Trace-ID", traceID)
 				}
 				next.ServeHTTP(w, r)
