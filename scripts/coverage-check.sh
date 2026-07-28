@@ -1,85 +1,52 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COVERAGE_FILE="coverage.out"
+coverage_file="coverage.out"
 
-if [ ! -f "$COVERAGE_FILE" ]; then
-	echo "coverage.out not found. Run 'go test -coverprofile=coverage.out ./...' first."
-	exit 1
+if [ ! -f "$coverage_file" ]; then
+  echo "ERROR: coverage.out not found. Run 'go test -coverprofile=coverage.out ./...' first."
+  exit 1
 fi
 
 total_statements=0
 total_covered=0
 
 while IFS= read -r line; do
-	line="${line#"${line%%[![:space:]]*}"}"
-	if [[ "$line" =~ ^mode: ]]; then
-		continue
-	fi
-	if [[ -z "$line" ]]; then
-		continue
-	fi
+  [ -z "$line" ] && continue
+  [[ "$line" == mode:* ]] && continue
+  [[ "$line" == *"/api/gen/"* ]] && continue
+  [[ "$line" == *"/mocks/"* ]] && continue
+  [[ "$line" == *"/internal/grpc/"* ]] && continue
+  [[ "$line" == *"/internal/db/"* ]] && continue
+  [[ "$line" == *"/internal/queue/"* ]] && continue
+  [[ "$line" == *"/internal/middleware/"* ]] && continue
+  [[ "$line" == *"/internal/crypto/"* ]] && continue
+  [[ "$line" == *"/internal/totp/"* ]] && continue
+  [[ "$line" == *"/internal/telemetry/"* ]] && continue
+  [[ "$line" == *"/internal/testcontainers/"* ]] && continue
 
-	if [[ "$line" == *"/api/gen/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/mocks/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/grpc/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/db/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/queue/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/middleware/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/crypto/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/totp/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/telemetry/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/internal/testcontainers/"* ]]; then
-		continue
-	fi
-	if [[ "$line" == *"/cmd/"* ]]; then
-		continue
-	fi
+  num_stmts=$(echo "$line" | awk '{print $(NF-1)}')
+  count=$(echo "$line" | awk '{print $NF}')
 
-	num_stmts=$(echo "$line" | awk '{print $(NF-1)}')
-	count=$(echo "$line" | awk '{print $NF}')
-
-	if [[ -z "$num_stmts" || -z "$count" ]]; then
-		continue
-	fi
-
-	total_statements=$((total_statements + num_stmts))
-	if [ "$count" -gt 0 ]; then
-		total_covered=$((total_covered + num_stmts))
-	fi
-done <"$COVERAGE_FILE"
+  if [ -n "$num_stmts" ] && [ -n "$count" ]; then
+    total_statements=$((total_statements + num_stmts))
+    if [ "$count" -gt 0 ]; then
+      total_covered=$((total_covered + num_stmts))
+    fi
+  fi
+done < "$coverage_file"
 
 if [ "$total_statements" -eq 0 ]; then
-	echo "No business-logic statements found in coverage.out"
-	exit 1
+  echo "ERROR: No business-logic statements found in coverage.out"
+  exit 1
 fi
 
-coverage=$(awk "BEGIN {print ($total_covered / $total_statements) * 100}")
-coverage_rounded=$(awk "BEGIN {printf \"%.2f\", $coverage}")
-
-echo "Coverage: $coverage_rounded% of statements (business logic only, excluding generated/mocks/infrastructure)"
+coverage=$(awk "BEGIN {printf \"%.2f\", ($total_covered / $total_statements) * 100}")
+echo "Coverage: ${coverage}% of statements (business logic only, excluding generated/mocks/infrastructure)"
 
 if awk "BEGIN {exit !($coverage < 75)}"; then
-	echo "Coverage threshold (>= 75%) not met. Current: $coverage_rounded%"
-	exit 1
+  echo "ERROR: Coverage threshold (>= 75%) not met. Current: ${coverage}%"
+  exit 1
 fi
 
 exit 0

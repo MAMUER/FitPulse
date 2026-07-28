@@ -1,0 +1,10 @@
+# Generated code — exlude from SAST
+api/gen/
+
+# Vendor / lock files
+vendor/
+go.sum
+package-lock.json
+
+# CI scripts (bash, powershell) — linted separately by super-linter
+scripts/

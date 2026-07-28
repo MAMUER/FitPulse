@@ -150,7 +150,7 @@ spec:
       # Pod runs as root because the provisioner needs to create directories
       # and set ownership on the host path.
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: false # semgrep: ignore run-as-non-root-unsafe-value - local-path-provisioner requires root for hostPath management
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
