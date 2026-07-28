@@ -55,7 +55,8 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 
 	var report CSPReportBody
 	if err := json.Unmarshal(body, &report); err != nil {
-		g.log.Warn("CSP report parse error", zap.Error(err), zap.String("raw", sanitize.LogString(string(body)))) // CodeQL ignore: go/log-injection
+		// CodeQL ignore: go/log-injection
+		g.log.Warn("CSP report parse error", zap.Error(err), zap.String("raw", sanitize.LogString(string(body))))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -67,17 +68,17 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 
 	// CodeQL ignore: go/log-injection - sanitize.LogString() used
 	g.log.Warn("CSP_VIOLATION",
-		zap.String("document_uri", sanitize.LogString(v.DocumentURI)),               // CodeQL ignore: go/log-injection
-		zap.String("blocked_uri", sanitize.LogString(v.BlockedURI)),                 // CodeQL ignore: go/log-injection
-		zap.String("violated_directive", sanitize.LogString(v.ViolatedDirective)),   // CodeQL ignore: go/log-injection
-		zap.String("effective_directive", sanitize.LogString(v.EffectiveDirective)), // CodeQL ignore: go/log-injection
-		zap.String("disposition", sanitize.LogString(v.Disposition)),                // CodeQL ignore: go/log-injection
-		zap.String("source_file", sanitize.LogString(v.SourceFile)),                 // CodeQL ignore: go/log-injection
+		zap.String("document_uri", sanitize.LogString(v.DocumentURI)),
+		zap.String("blocked_uri", sanitize.LogString(v.BlockedURI)),
+		zap.String("violated_directive", sanitize.LogString(v.ViolatedDirective)),
+		zap.String("effective_directive", sanitize.LogString(v.EffectiveDirective)),
+		zap.String("disposition", sanitize.LogString(v.Disposition)),
+		zap.String("source_file", sanitize.LogString(v.SourceFile)),
 		zap.Int("line_number", v.LineNumber),
 		zap.Int("column_number", v.ColumnNumber),
-		zap.String("script_sample", sanitize.LogString(v.ScriptSample)),          // CodeQL ignore: go/log-injection
-		zap.String("user_agent", sanitize.LogString(r.Header.Get("User-Agent"))), // CodeQL ignore: go/log-injection
-		zap.String("client_ip", sanitize.LogString(r.RemoteAddr)),                // CodeQL ignore: go/log-injection
+		zap.String("script_sample", sanitize.LogString(v.ScriptSample)),
+		zap.String("user_agent", sanitize.LogString(r.Header.Get("User-Agent"))),
+		zap.String("client_ip", sanitize.LogString(r.RemoteAddr)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")
