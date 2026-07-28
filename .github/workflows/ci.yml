@@ -988,7 +988,7 @@ jobs:
           services="user-service biometric-service training-service gateway device-connector"
           for svc in $services; do
             echo "Signing $svc..."
-            echo "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+            echo "$COSIGN_PRIVATE_KEY" | base64 -d > /tmp/cosign.key
             cosign sign --yes --key /tmp/cosign.key \
               "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
             rm -f /tmp/cosign.key
