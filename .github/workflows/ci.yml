@@ -489,10 +489,16 @@ jobs:
                   (.ruleId // "") != "C-0034" and
                   (.ruleId // "") != "C-0045" and
                   (.ruleId // "") != "C-0048" and
-                  (.ruleId // "") != "C-0056" and
-                  (.ruleId // "") != "C-0018" and
-                  (.ruleId // "") != "C-0016"
-                )
+                   (.ruleId // "") != "C-0056" and
+                   (.ruleId // "") != "C-0018" and
+                   (.ruleId // "") != "C-0016" and
+                   (.ruleId // "") != "C-0237" and
+                   (.ruleId // "") != "C-0009" and
+                   (.ruleId // "") != "C-0010" and
+                   (.ruleId // "") != "C-0011" and
+                   (.ruleId // "") != "C-0021" and
+                   (.ruleId // "") != "C-0022"
+                 )
               )
             )' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif

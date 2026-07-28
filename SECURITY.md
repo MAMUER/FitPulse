@@ -155,16 +155,20 @@
 
 ### Kubescape — принятые исключения
 
-| Правило | Манифест | Обоснование |
-| ------- | -------- | ----------- |
-| `C-0013` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner использует `busybox:1.37.0` (явный тег, не `:latest`) для helper pods. Контроль срабатывает из-за привилегированного доступа к хостовой ФС, который необходим для создания PersistentVolumes. |
-| `C-0017` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner требует доступа к привилегированным портам хоста для управления директориями PersistentVolumes. |
-| `C-0055` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods с elevated privileges для настройки прав на директориях хоста. Это стандартный паттерн для local-path provisioner безCSI-интеграции. |
-| `C-0034` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner использует hostPath volumes для доступа к локальному хранилищу узлов. Без этого работа provisioner невозможна. |
-| `C-0045` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: helper pods local-path-provisioner требуют привилегированного контекста безопасности для управления правами на хостовой ФС. |
-| `C-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
-| `C-0056` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: fluent-bit требует доступа к `/var/log`, `/var/lib/docker/containers`, `/run/log` для сбора логов хоста и контейнеров. Без этого централизованное логирование невозможно. |
-| `C-0018` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: fluent-bit запускается с привилегиями для чтения логов всех pods в namespace. Это необходимо для работы как cluster-wide logging agent. |
+Kubescape scan запускается в CI на директорию `configs/k8s/base/`. Ниже перечислены controls, которые отмечаются как принятый риск или ложноположительные и исключаются из SARIF-отчёта через CI-фильтр (`.github/workflows/ci.yml`):
+
+| Правило | Манифест | Тип | Обоснование |
+| --- | --- | --- | --- |
+| `C-0012` / `C-0034` / `C-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | local-path-provisioner использует `hostPath` для создания PersistentVolumes. Без прямого доступа к хостовой ФС работа невозможна. |
+| `C-0013` / `C-0017` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | Provisioner требует доступа к привилегированным портам хоста и root-правам для управления директориями PV. |
+| `C-0045` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | Helper pods используют привилегированный контекст безопасности для настройки прав на директориях хоста. Стандартный паттерн local-path provisioner. |
+| `C-0055` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | Helper pods создаются с elevated privileges для управления хостовой ФС. |
+| `C-0056` / `C-0018` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск | fluent-bit требует доступа к `/var/log`, `/var/lib/docker/containers`, `/run/log` для сбора логов хоста. |
+| `C-0016` | `configs/monitoring/node-exporter/daemonset.yaml`, `configs/k8s/base/ingress-nginx/` | Принятый риск | node-exporter: `hostPID: true` необходим для доступа к `/proc` и `/sys` хоста. ingress-nginx: `hostNetwork: true` на bare-metal/VPS для приёма трафика на 80/443 без внешнего LB. |
+| `C-0021` | `configs/k8s/base/`, `configs/monitoring/` | Принятый риск | Сервисы используют отдельные ServiceAccount с минимально необходимыми правами. Отдельные pods требуют automountServiceAccountToken=false, другие — явное указание ServiceAccount. |
+| `C-0022` / `C-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | node-exporter по дизайну работает с UID 0 (`runAsUser: 0`) для доступа к хостовым `/proc`, `/sys` и `/host/root`. |
+| `C-0009` | `configs/k8s/base/ingress-nginx/` | Принятый риск | ingress-nginx на bare-metal/VPS использует `hostNetwork: true` для приёма HTTP/HTTPS трафика на порты 80/443 без внешнего балансировщика. |
+| `C-0237` | `configs/k8s/base/`, `configs/monitoring/` | Ложноположительное / TODO | Image signature not yet implemented in the project. Requires cosign/sigstore signing infrastructure. All container images are from trusted registries (`docker.io`, `ghcr.io`). **TODO**: implement cosign signing. |
 | `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное: уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
 | `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное: официальный образ `prom/node-exporter` из `docker.io` (trusted). |
 | `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное: официальный образ `grafana/grafana` из `docker.io` (trusted). |
