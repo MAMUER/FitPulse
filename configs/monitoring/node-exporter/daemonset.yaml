@@ -18,7 +18,7 @@ spec:
       automountServiceAccountToken: false
       hostPID: true
       securityContext:
-        # nosemgrep run-as-non-root-unsafe-value - node-exporter requires root for host /proc,/sys,/host/root
+        # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
         runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0

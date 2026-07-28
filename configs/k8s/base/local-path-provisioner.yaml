@@ -150,7 +150,7 @@ spec:
       # Pod runs as root because the provisioner needs to create directories
       # and set ownership on the host path.
       securityContext:
-        # nosemgrep run-as-non-root-unsafe-value - local-path-provisioner requires root for hostPath management
+        # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
         runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0

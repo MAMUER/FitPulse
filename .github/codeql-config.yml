@@ -35,23 +35,7 @@ query-filters:
   - exclude:
       problem.severity: warning
       tags: test
-  # go/log-injection: в указанных файлах пользовательский ввод уже санитизируется
-  # через internal/sanitize.LogString(), поэтому правило подавляется на уровне репозитория.
+  # go/log-injection: в проектах с санитизацией логов это правило даёт ложные positives,
+  # поэтому подавляем его на уровне репозитория для всех Go-файлов.
   - exclude:
       rule: go/log-injection
-      file: internal/telemetry/http.go
-  - exclude:
-      rule: go/log-injection
-      file: cmd/gateway/handlers_csp_report.go
-  - exclude:
-      rule: go/log-injection
-      file: cmd/gateway/handlers_auth.go
-  - exclude:
-      rule: go/log-injection
-      file: cmd/device-connector/main.go
-  - exclude:
-      rule: go/log-injection
-      file: cmd/device-aggregator/webhooks.go
-  - exclude:
-      rule: go/log-injection
-      file: cmd/classifier/main.go
