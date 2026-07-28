@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
@@ -20,7 +21,7 @@ func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 					log.Info("request tracing",
 						zap.String("trace_id", traceID),
 						zap.String("method", r.Method),
-						zap.String("path", r.URL.Path),
+						zap.String("path", sanitize.LogString(r.URL.Path)),
 					)
 					w.Header().Set("X-Trace-ID", traceID)
 				}

@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 // CSPReportBody описывает тело отчёта о нарушении CSP.
@@ -64,17 +66,17 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.log.Warn("CSP_VIOLATION",
-		zap.String("document_uri", v.DocumentURI),
-		zap.String("blocked_uri", v.BlockedURI),
-		zap.String("violated_directive", v.ViolatedDirective),
-		zap.String("effective_directive", v.EffectiveDirective),
-		zap.String("disposition", v.Disposition),
-		zap.String("source_file", v.SourceFile),
+		zap.String("document_uri", sanitize.LogString(v.DocumentURI)),
+		zap.String("blocked_uri", sanitize.LogString(v.BlockedURI)),
+		zap.String("violated_directive", sanitize.LogString(v.ViolatedDirective)),
+		zap.String("effective_directive", sanitize.LogString(v.EffectiveDirective)),
+		zap.String("disposition", sanitize.LogString(v.Disposition)),
+		zap.String("source_file", sanitize.LogString(v.SourceFile)),
 		zap.Int("line_number", v.LineNumber),
 		zap.Int("column_number", v.ColumnNumber),
-		zap.String("script_sample", v.ScriptSample),
-		zap.String("user_agent", r.Header.Get("User-Agent")),
-		zap.String("client_ip", r.RemoteAddr),
+		zap.String("script_sample", sanitize.LogString(v.ScriptSample)),
+		zap.String("user_agent", sanitize.LogString(r.Header.Get("User-Agent"))),
+		zap.String("client_ip", sanitize.LogString(r.RemoteAddr)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")

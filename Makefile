@@ -6,6 +6,7 @@ imports:
 		cmd internal
 	@echo "Imports updated."
 
+SHELL := /bin/bash
 .PHONY: proto tidy fmt vet lint test test-cover check imports frontend-install frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
@@ -39,7 +40,7 @@ test-cover:
 	@echo "Running tests with coverage..."
 	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
 	@echo "Checking coverage threshold (>= 75%)..."
-	@bash scripts/coverage-check.sh
+	@powershell -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
@@ -70,19 +71,7 @@ check: tidy fmt vet imports lint test-cover proto frontend-install frontend-lint
 
 proto:
 	@echo "Generating proto files..."
-	@if command -v protoc >/dev/null 2>&1; then \
-		echo "Generating user proto..." && \
-		protoc --proto_path=api/proto --go_out=api/gen/user --go_opt=paths=source_relative --go-grpc_out=api/gen/user --go-grpc_opt=paths=source_relative api/proto/user.proto && \
-		echo "Generating biometric proto..." && \
-		protoc --proto_path=api/proto --go_out=api/gen/biometric --go_opt=paths=source_relative --go-grpc_out=api/gen/biometric --go-grpc_opt=paths=source_relative api/proto/biometric.proto && \
-		echo "Generating training proto..." && \
-		protoc --proto_path=api/proto --go_out=api/gen/training --go_opt=paths=source_relative --go-grpc_out=api/gen/training --go-grpc_opt=paths=source_relative api/proto/training.proto && \
-		echo "Generating ml proto..." && \
-		protoc --proto_path=api/proto --go_out=api/gen/ml --go_opt=paths=source_relative --go-grpc_out=api/gen/ml --go-grpc_opt=paths=source_relative api/proto/ml.proto && \
-		echo "Proto generation complete"; \
-	else \
-		echo "⚠️  protoc not found, skipping proto generation. Install protoc + protoc-gen-go + protoc-gen-go-grpc to enable."; \
-	fi
+	@bash scripts/proto.sh
 
 help:
 	@echo "Available commands:"

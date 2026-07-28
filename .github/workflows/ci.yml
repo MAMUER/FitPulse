@@ -461,7 +461,9 @@ jobs:
       - name: Install Kubescape
         run: |
           echo "Installing Kubescape via official installer..."
-          curl -sL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | sudo bash -s -- --binary-folder /usr/local/bin
+          curl -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh -o /tmp/install-kubescape.sh
+          sudo bash /tmp/install-kubescape.sh -s -- --binary-folder /usr/local/bin
+          rm -f /tmp/install-kubescape.sh
           echo "Verifying installation..."
           kubescape version
       - name: Run Kubescape scan
@@ -753,7 +755,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install syft
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
+          bash /tmp/install.sh -b /usr/local/bin
+          rm -f /tmp/install.sh
       - name: Generate SBOM with syft
         run: |
           mkdir -p sbom
@@ -981,6 +985,7 @@ jobs:
       - name: Install cosign
         run: |
           go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Sign Docker images with cosign
         if: github.event_name != 'pull_request'
         env:

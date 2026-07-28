@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 func fitbitWebhookHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,8 +41,8 @@ func fitbitWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := notification["user_id"].(string)
 
 	log.Info("Fitbit webhook received",
-		zap.String("type", notificationType),
-		zap.String("user_id", userID),
+		zap.String("type", sanitize.LogString(notificationType)),
+		zap.String("user_id", sanitize.LogString(userID)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -88,7 +89,7 @@ func withingsWebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	action, _ := notification["action"].(string)
 	log.Info("Withings webhook received",
-		zap.String("action", action),
+		zap.String("action", sanitize.LogString(action)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")

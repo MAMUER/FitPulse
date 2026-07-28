@@ -20,6 +20,7 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 type server struct {
@@ -497,7 +498,7 @@ func classifierLoggingMiddleware(log *zap.Logger) func(http.Handler) http.Handle
 
 			log.Info("HTTP_REQUEST",
 				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
+				zap.String("path", sanitize.LogString(r.URL.Path)),
 				zap.Int("status", rw.statusCode),
 				zap.Int64("duration_ms", duration.Milliseconds()),
 			)

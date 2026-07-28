@@ -25,6 +25,7 @@ import (
 
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 // ========== Auth Handlers ==========
@@ -213,11 +214,18 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 	}
 	token := r.Header.Get("X-Critical-Session-Token")
 	if token == "" {
-		g.log.Warn("Critical action without critical session token", zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		g.log.Warn("Critical action without critical session token",
+			zap.String("user_id", sanitize.LogString(userID)),
+			zap.String("path", sanitize.LogString(r.URL.Path)),
+		)
 		return nil
 	}
 	if err := g.sessionStore.ValidateCriticalSession(r.Context(), token, userID); err != nil {
-		g.log.Warn("Invalid critical session token", zap.Error(err), zap.String("user_id", userID), zap.String("path", r.URL.Path))
+		g.log.Warn("Invalid critical session token",
+			zap.Error(err),
+			zap.String("user_id", sanitize.LogString(userID)),
+			zap.String("path", sanitize.LogString(r.URL.Path)),
+		)
 		return fmt.Errorf("invalid critical session: %w", err)
 	}
 	return nil

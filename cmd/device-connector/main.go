@@ -210,6 +210,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 	device, err := s.authenticateDevice(r.Context(), deviceID, req.DeviceToken)
 	if err != nil {
+		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		s.log.Warn("Device authentication failed",
 			zap.String("device_id", sanitize.LogString(deviceID)),
 			zap.String("error", sanitize.LogString(err.Error())),
@@ -235,6 +236,7 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 		s.forwardRecords(r.Context(), pbRecords, &stats)
 	}
 
+	// CodeQL ignore: go/log-injection - sanitize.LogString() used
 	s.log.Info("Ingest completed",
 		zap.String("device_id", sanitize.LogString(deviceID)),
 		zap.String("device_type", sanitize.LogString(device.DeviceType)),
@@ -295,6 +297,7 @@ func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, 
 		}
 		if exists {
 			stats.Duplicates++
+			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Debug("Duplicate record skipped",
 				zap.String("device_id", sanitize.LogString(deviceID)),
 				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
@@ -370,6 +373,7 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			Timestamp:  pbRec.Timestamp,
 			DeviceType: pbRec.DeviceType,
 		}); err != nil {
+			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Warn("Record failed validation before forwarding",
 				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
 				zap.String("error", sanitize.LogString(err.Error())),
@@ -391,6 +395,7 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			if ok {
 				errMsg = st.Message()
 			}
+			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Error("Failed to forward record to biometric-service",
 				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
 				zap.String("error", sanitize.LogString(errMsg)),
