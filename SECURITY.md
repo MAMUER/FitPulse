@@ -150,6 +150,7 @@
 | `KSV-0021` | `monitoring/grafana`, `monitoring/fluent-bit`, `jobs/seed-admin`, `jobs/migrate-db`, `deployments/rabbitmq-statefulset`, `deployments/postgres` | Официальные образы используют низкие GID по дизайну (Grafana 472, Fluent-bit 1000, PostgreSQL 999, RabbitMQ 1000). |
 | `KSV-0039` | `.trivyignore` (global ignore) | Глобально игнорируется: Trivy file scanner не сопоставляет LimitRange с workload'ами из разных файлов/директорий, хотя политики существуют для `fitness-platform-production`, `ingress-nginx` и `local-path-storage`. |
 | `KSV-0040` | `.trivyignore` (global ignore) | Глобально игнорируется: Trivy file scanner не сопоставляет ResourceQuota с workload'ами из разных файлов/директорий, хотя политики существуют для `fitness-platform-production`, `ingress-nginx` и `local-path-storage`. |
+| `KSV-0106` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходима local-path-provisioner для создания директорий на хостовой ФС и изменения их владельца при подключении taints/tolerations и привязке к узлам. Без этого создание PV на `hostPath` невозможно. |
 
 ### Kubescape — принятые исключения
 
@@ -190,20 +191,35 @@
 
 ### CodeQL — логирование пользовательского ввода (go/log-injection)
 
-Все точки логирования пользовательского ввода защищены функцией `sanitize.LogString()` из `internal/sanitize`, которая удаляет управляющие символы (переводы строк, возвраты каретки и другие ASCII 0x00-0x1F, 0x7F) для предотвращения инъекций в логи.
+CodeQL автоматически ищет попадание непроверенного пользовательского ввода в лог-записи.
+В проекте это входные данные из HTTP-запросов: URL-пути, заголовки, тело запроса, поля CSP-отчётов, webhook-уведомлений и т.д.
 
-CodeQL не распознаёт кастомную функцию санитизации при межпакетном анализе, поэтому на уже защищённых строках добавлены комментарии `// CodeQL ignore: go/log-injection - sanitize.LogString() used`.
+#### Почему используются комментарии-заглушки `// CodeQL ignore: go/log-injection`
 
-Защита реализована через `sanitize.LogString()` вместо игнорирования правила глобально. Комментарии добавлены только туда, где санитизация уже применена, но CodeQL не видит связь с пользовательским вводом. Это позволяет сохранить высокий уровень безопасности и не скрывать реальные уязвимости.
+CodeQL **не распознаёт кастомную функцию санитизации** `sanitize.LogString()` (`internal/sanitize`) при межпакетном статическом анализе.
+Поэтому даже на уже исправленных строках, где перед логированием вызывается `sanitize.LogString()`, CodeQL продолжает показывать алерт.
 
-| Файл | Строки | Статус |
-| --- | --- | --- |
-| `cmd/device-aggregator/webhooks.go` | 43, 44, 91 | Исправлено: добавлен `sanitize.LogString()` для полей `type`, `user_id`, `action` из вебхуков Fitbit/Withings. |
-| `cmd/classifier/main.go` | 500 | Исправлено: добавлен `sanitize.LogString()` для `r.URL.Path` в middleware логирования HTTP запросов. |
-| `cmd/gateway/handlers_auth.go` | 216, 220 | Исправлено: добавлен `sanitize.LogString()` для `userID` и `r.URL.Path` при проверке критической сессии. |
-| `cmd/gateway/handlers_csp_report.go` | 67-76 | Исправлено: добавлен `sanitize.LogString()` для всех полей CSP отчёта и заголовков запроса. |
-| `internal/telemetry/http.go` | 23 | Исправлено: добавлен `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry логировании. |
-| `cmd/device-connector/main.go` | 181, 214-215, 239-240, 299-300, 374-375, 395-396 | Уже защищено `sanitize.LogString()`. Добавлены `// CodeQL ignore: go/log-injection` комментарии, так как CodeQL не распознаёт кастомный санитайзер. |
+Чтобы сохранить высокий уровень безопасности и одновременно убрать ложноположительные срабатывания, на защищённых строках добавлены комментарии:
+
+```go
+// CodeQL ignore: go/log-injection - sanitize.LogString() used
+g.log.Info("...", zap.String("field", sanitize.LogString(userInput)))
+```
+
+Это **не игнорирование реальной уязвимости**, а подавление ложноположительного алерта, где защита уже применена.
+Каждый комментарий базируется на уже существующем вызове `sanitize.LogString()`.
+
+#### Где защита применена
+
+| Файл | Строки | Защита |
+| --- | --- | ------ |
+| `cmd/device-aggregator/webhooks.go` | 43-47, 91-95 | `sanitize.LogString()` для полей `type`, `user_id`, `action`. |
+| `cmd/classifier/main.go` | 500-502 | `sanitize.LogString()` для `r.URL.Path`. |
+| `cmd/gateway/handlers_auth.go` | 217-221, 225-229 | `sanitize.LogString()` для `userID` и `r.URL.Path`. |
+| `cmd/gateway/handlers_csp_report.go` | 58 | **Исправлено**: `zap.ByteString("raw", body)` заменено на `zap.String("raw", sanitize.LogString(string(body)))`. Контрольные символы в теле запроса удаляются перед логированием. |
+| `cmd/gateway/handlers_csp_report.go` | 68-80 | `sanitize.LogString()` для всех полей CSP-отчёта и заголовков (`User-Agent`, `RemoteAddr`). |
+| `internal/telemetry/http.go` | 21-25 | `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry middleware. |
+| `cmd/device-connector/main.go` | 181, 214-215, 239-240, 299-300, 374-375, 395-396 | Уже защищено `sanitize.LogString()`. Добавлены `// CodeQL ignore: go/log-injection` комментарии для подавления ложноположительных алертов. |
 
 ### Semgrep — безопасная установка инструментов CI
 
@@ -213,6 +229,45 @@ CodeQL не распознаёт кастомную функцию санити�
 | --- | --- | --- |
 | Kubescape | `.github/workflows/ci.yml:464` | Заменено на `curl -fsSL ... -o /tmp/install-kubescape.sh && sudo bash /tmp/install-kubescape.sh` |
 | Syft | `.github/workflows/ci.yml:756` | Заменено на `curl -fsSL ... -o /tmp/install.sh && bash /tmp/install.sh` |
+
+#### Semgrep — GitHub Actions mutable tags (`github-actions-mutable-action-tag`)
+
+Semgrep OSS обнаружил mutable tags/branch references в `uses:` шагах GitHub Actions.
+Mutable tags позволяют владельцу action'а перенаправить тег на вредоносный коммит (атака на цепочку поставок, как в инцидентах с trivy-action и kics-github-action).
+
+В проекте **все third-party и GitHub Actions зафиксированы на полный 40-символьный SHA коммита** вместо mutable tags (`@v4`, `@v7`, `@latest`, `master` и т.д.).
+
+Обновление SHA при выходе новой версии action'а выполняется вручную в рамках quarterly maintenance (через `.github/workflows/ci.yml`). Dependabot отслеживает появление новых тегов и поднимает PR с обновлением версии — после слияния PR SHA обновляется вручную.
+
+Обработаны workflow-файлы:
+- `.github/workflows/ci.yml` — 43 записи `uses:` зафиксированы на SHA
+- `.github/workflows/docs-check.yml` — 1 запись `uses:` зафиксирована на SHA
+
+Список затронутых actions и их SHAs:
+
+| Action | Tag | SHA |
+| --- | --- | --- |
+| `actions/github-script` | v9 | `373c709c...` |
+| `actions/setup-node` | v7 | `82076278...` |
+| `actions/checkout` | v7 | `3d3c42e5...` |
+| `actions/cache` | v6 | `55cc8345...` |
+| `actions/setup-go` | v7 | `b7ad1dad...` |
+| `actions/upload-artifact` | v7 | `043fb46d...` |
+| `actions/download-artifact` | v8 | `3e5f45b2...` |
+| `actions/dependency-review-action` | v5 | `a1d282b3...` |
+| `aquasecurity/trivy-action` | v0.36.0 | `a9c7b0f0...` |
+| `github/codeql-action/*` | v4 | `adfda868...` |
+| `google/osv-scanner-action` | v2.3.8 | `9a498708...` |
+| `docker/login-action` | v4.5.1 | `abd2ef45...` |
+| `docker/setup-buildx-action` | v4 | `bb05f3f5...` |
+| `super-linter/super-linter` | v8 | `729e0f96...` |
+| `rhysd/actionlint` | v1.7.12 | `914e7df2...` |
+| `peter-evans/create-pull-request` | v8 | `5f6978fa...` |
+| `slsa-framework/slsa-github-generator` | v2.1.0 | `f7dd8c54...` |
+| `webfactory/ssh-agent` | v0.10.0 | `e8387483...` |
+| `k6io/action` | v0.3.1 | `e4714b73...` |
+| `appleboy/telegram-action` | v1.0.1 | `221e6b68...` |
+| `dorny/paths-filter` | v4 | `7b450fff...` |
 
 ### Инфраструктура
 

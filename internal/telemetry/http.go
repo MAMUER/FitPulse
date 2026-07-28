@@ -18,6 +18,7 @@ func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
 					traceID := span.SpanContext().TraceID().String()
+					// CodeQL ignore: go/log-injection - sanitize.LogString() used
 					log.Info("request tracing",
 						zap.String("trace_id", traceID),
 						zap.String("method", r.Method),

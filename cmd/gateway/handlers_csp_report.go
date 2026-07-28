@@ -55,7 +55,7 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 
 	var report CSPReportBody
 	if err := json.Unmarshal(body, &report); err != nil {
-		g.log.Warn("CSP report parse error", zap.Error(err), zap.ByteString("raw", body))
+		g.log.Warn("CSP report parse error", zap.Error(err), zap.String("raw", sanitize.LogString(string(body))))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -65,6 +65,7 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 		v = report.Report
 	}
 
+	// CodeQL ignore: go/log-injection - sanitize.LogString() used
 	g.log.Warn("CSP_VIOLATION",
 		zap.String("document_uri", sanitize.LogString(v.DocumentURI)),
 		zap.String("blocked_uri", sanitize.LogString(v.BlockedURI)),

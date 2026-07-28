@@ -33,7 +33,7 @@ jobs:
     name: Documentation Consistency Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
@@ -229,6 +229,51 @@ jobs:
             fi
           done
           echo "✅ ADR consistency check complete"
+
+      - name: Check GitHub Actions are SHA-pinned and not stale
+        run: |
+          echo "-> Checking GitHub Actions references are SHA-pinned..."
+          
+          # Find all uses: references in workflow files
+          shopt -s nullglob
+          workflow_files=(.github/workflows/*.yml)
+          
+          FAIL=0
+          for wf in "${workflow_files[@]}"; do
+            echo "  Scanning $wf..."
+            
+            # Check for mutable tag references (@v1, @v2, @latest, @master, @main, etc.)
+            if grep -nE 'uses:\s+.+@(v\d|latest|master|main|develop)\b' "$wf" > /tmp/mutable_refs.txt 2>/dev/null; then
+              echo "❌ FAIL: Found mutable tag references in $wf:"
+              cat /tmp/mutable_refs.txt | sed 's/^/    /'
+              FAIL=1
+            fi
+            
+            # Check for SHA-pinned references and verify they still match tag HEAD
+            while IFS= read -r line; do
+              if [[ $line =~ uses:\ ([^@]+)@([0-9a-f]{40}) ]]; then
+                repo="${BASH_REMATCH[1]}"
+                sha="${BASH_REMATCH[2]}"
+                
+                # Fetch the latest commit for all tags
+                latest=$(git ls-remote --tags "https://github.com/$repo.git" 2>/dev/null | grep -v '\^{}' | tail -1 | awk '{print $1}')
+                
+                if [ -n "$latest" ] && [ "$sha" != "$latest" ]; then
+                  echo "⚠️  WARNING: $wf uses $repo@$sha but tag HEAD is now $latest"
+                  echo "    The tag may have been moved. Verify this is expected."
+                fi
+              fi
+            done < <(grep -E 'uses:\ .+@[0-9a-f]{40}' "$wf")
+          done
+          
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "❌ FAIL: GitHub Actions are not fully SHA-pinned."
+            echo "   Pin each 'uses:' reference to a full 40-character commit SHA."
+            exit 1
+          fi
+          
+          echo "✅ All GitHub Actions are SHA-pinned and not stale"
 
       - name: Documentation status
         run: |

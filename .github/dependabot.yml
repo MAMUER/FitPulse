@@ -31,6 +31,8 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Europe/Moscow"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     commit-message:
       prefix: "deps(go)"
@@ -66,6 +68,8 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Europe/Moscow"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
@@ -94,6 +98,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/gateway)", include: "scope" }
     labels: ["dependencies", "docker", "gateway"]
@@ -109,6 +115,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/user-service)", include: "scope" }
     labels: ["dependencies", "docker", "user-service"]
@@ -124,6 +132,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       { prefix: "deps(docker/biometric-service)", include: "scope" }
@@ -140,6 +150,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       { prefix: "deps(docker/training-service)", include: "scope" }
@@ -156,6 +168,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       { prefix: "deps(docker/device-connector)", include: "scope" }
@@ -172,6 +186,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       { prefix: "deps(docker/device-aggregator)", include: "scope" }
@@ -188,6 +204,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
     labels: ["dependencies", "docker", "classifier"]
@@ -206,6 +224,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
     labels: ["dependencies", "python", "ml-generator"]
@@ -238,6 +258,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
     labels: ["dependencies", "docker", "ml-generator"]
@@ -256,6 +278,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(k8s/base)", include: "scope" }
     labels: ["dependencies", "docker", "kubernetes"]
@@ -289,6 +313,8 @@ updates:
         time: "09:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(k8s/ingress-nginx)", include: "scope" }
     labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
@@ -307,6 +333,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message: { prefix: "deps(k8s/overlays)", include: "scope" }
     labels: ["dependencies", "docker", "kubernetes"]
@@ -325,6 +353,8 @@ updates:
         time: "08:00",
         timezone: "Europe/Moscow",
       }
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(npm/frontend)", include: "scope" }
     labels: ["dependencies", "npm", "frontend"]
