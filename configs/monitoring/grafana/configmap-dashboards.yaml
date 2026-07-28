@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
+  namespace: fitness-platform-production
   labels:
     app: grafana
 data:

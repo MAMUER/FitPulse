@@ -7,6 +7,8 @@ resources:
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - configmap.yaml
+  - resource-quota.yaml
+  - limit-range.yaml
   - modsecurity/crs-configmap.yaml
   - deployment.yaml
   - service.yaml

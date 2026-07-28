@@ -143,9 +143,11 @@
 | `KSV-0009` | `configs/k8s/base/ingress-nginx/deployment.yaml` | `hostNetwork: true` необходим ingress-nginx на bare-metal/VPS для приёма трафика на порты 80/443 без внешнего балансировщика. |
 | `KSV-0109` | `configs/k8s/base/ingress-nginx/configmap.yaml` | Ложноположительное: ключ `server-tokens: "false"` — это не секрет, а настройка скрытия версии nginx в заголовках ответа. |
 | `KSV-0117` | `configs/k8s/base/ingress-nginx/deployment.yaml` | Принятый риск: ingress-nginx обязан слушать привилегированные порты 80/443 для обработки HTTP/HTTPS трафика. Без этого работа контроллера невозможна. |
-| `KSV-01010` | `configs/k8s/base/ingress-nginx/configmap.yaml`, `configs/k8s/base/deployments/valkey-config.yaml`, `configs/k8s/base/configmap.yaml` | Ложноположительное: в ConfigMap хранятся только общедоступные конфигурационные параметры (HSTS `hsts-max-age`, содержимое `valkey.conf`, номера портов сервисов). Секреты (пароли, токены, ключи) хранятся в Kubernetes Secrets (`app-secrets`, `fittpulse-duckdns-org-tls`), не в ConfigMap. |
-| `KSV-0116` | `configs/k8s/base/local-path-provisioner.yaml`, `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: оба компонента по дизайну работают с root GID. local-path-provisioner helper-pod требует root для управления правами на хостовой ФС при создании PV. node-exporter требует root для доступа к `/proc`, `/sys` и `/host/root` для сбора системных метрик. Альтернатива — delegation + service account с минимальными правами, но функционально эквивалентна. |
+| `KSV-01010` | `configs/k8s/base/ingress-nginx/configmap.yaml`, `configs/k8s/base/deployments/valkey-config.yaml`, `configs/k8s/base/configmap.yaml` | Ложноположительное: в ConfigMap только общедоступные параметры (HSTS, `valkey.conf`, порты). Секреты хранятся в Kubernetes Secrets, не в ConfigMap. |
+| `KSV-0116` | `configs/k8s/base/local-path-provisioner.yaml`, `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: оба компонента работают с root GID по дизайну. local-path-provisioner требует root для управления правами на хостовой ФС при создании PV. node-exporter требует root для доступа к `/proc`, `/sys` и `/host/root`. |
 | `KSV-0105` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter по дизайну работает с UID 0 для доступа к хостовым `/proc`, `/sys` и `/host/root`. Без root доступ сборка метрик невозможна. |
+| `KSV-0020` | `monitoring/grafana`, `monitoring/fluent-bit`, `jobs/seed-admin`, `jobs/migrate-db`, `deployments/rabbitmq-statefulset`, `deployments/postgres` | Официальные образы используют низкие UID по дизайну (Grafana 472, Fluent-bit 1000, PostgreSQL 999, RabbitMQ 1000, Flyway 1000). |
+| `KSV-0021` | `monitoring/grafana`, `monitoring/fluent-bit`, `jobs/seed-admin`, `jobs/migrate-db`, `deployments/rabbitmq-statefulset`, `deployments/postgres` | Официальные образы используют низкие GID по дизайну (Grafana 472, Fluent-bit 1000, PostgreSQL 999, RabbitMQ 1000). |
 
 ### Kubescape — принятые исключения
 
@@ -171,11 +173,10 @@
 | `KSV-0012` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter требует root для доступа к `/proc` и `/sys` хоста. |
 | `KSV-0012` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner требует root и `DAC_OVERRIDE` для управления правами на PersistentVolumes. |
 | `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
-| `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены избыточные права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает ConfigMap `local-path-config` через volume mount. |
-| `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Это стандартный паттерн для storage provisioners без прямого доступа к hostPath. |
-| `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется local-path-provisioner для диагностики helper pods при создании PersistentVolumes. Без этого отладка проблем с PV невозможна. |
-| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы `gateway`, `backend`, `device-connector`, `app-service` и `ingress-nginx-tls-reader` должны читать определённые secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в namespace `fitness-platform-production`. Доступ ограничен 
-конкретными `resourceNames` и verbs `get`/`list`/`watch`, что соответствует минимальному принципу. Полный доступ ко всем secrets namespace отсутствует. |
+| `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены лишние права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает `local-path-config`. |
+| `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Стандартный паттерн storage provisioner без прямого hostPath. |
+| `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется для диагностики helper pods при создании PV. Без этого отладка проблем невозможна. |
+| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы читают secrets (`app-secrets`, `fittpulse-duckdns-org-tls`) и configmaps (`app-config`) в `fitness-platform-production`. Доступ ограничен `resourceNames` и verbs `get`/`list`/`watch`. |
 
 ### gosec — принятые исключения
 
@@ -210,10 +211,10 @@
 
 ## Bug Bounty
 
-FitPulse — бесплатный open-source проект без бюджета на вознаграждения.  
+FitPulse — бесплатный open-source проект без бюджета на вознаграждения.
 Программа Bug Bounty **не активна в денежном выражении**, но мы принимаем добровольные сообщения об уязвимостях и публично атрибутируем исследователей.
 
-Мы благодарим исследователей за ответственное раскрытие уязвимостей.  
+Мы благодарим исследователей за ответственное раскрытие уязвимостей.
 
 Подробности: scope, severity tiers, правила disclosure — в файле [BUG_BOUNTY_SCOPE.md](BUG_BOUNTY_SCOPE.md).
 

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ingress-nginx-quota
+  namespace: ingress-nginx
+spec:
+  hard:
+    requests.cpu: "2000m"
+    requests.memory: "2Gi"
+    limits.cpu: "4000m"
+    limits.memory: "4Gi"
+    pods: "20"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"

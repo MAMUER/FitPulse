@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: fluent-bit
+  namespace: fitness-platform-production
   labels:
     app: fluent-bit
 ---

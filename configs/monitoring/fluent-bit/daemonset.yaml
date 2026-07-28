@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: fluent-bit
+  namespace: fitness-platform-production
   labels:
     app: fluent-bit
   annotations:
