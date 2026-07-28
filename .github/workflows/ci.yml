@@ -159,7 +159,7 @@ jobs:
     steps:
       - name: Add triage label
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             await github.rest.issues.addLabels({
@@ -170,7 +170,7 @@ jobs:
             });
       - name: Add component labels
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const issue = context.payload.issue;
@@ -202,7 +202,7 @@ jobs:
             }
       - name: Assign based on component
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const issue = context.payload.issue;
@@ -239,7 +239,7 @@ jobs:
             }
       - name: Welcome new contributors
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const issue = context.payload.issue;
@@ -263,7 +263,7 @@ jobs:
               });
             }
       - name: Security issue handling
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             console.log('Security issue detected:', context.issue.number);
@@ -349,7 +349,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Lint Code Base
-        uses: super-linter/super-linter@729e0f967409dceb0a898cdd94a5534719f85c36 # originally: v8
+        uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918
         env:
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: "main"
@@ -400,20 +400,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql-config.yml
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
           upload: failure-only
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
@@ -498,7 +498,7 @@ jobs:
             mv kubescape-results-fixed.sarif kubescape-results.sarif
           fi
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         if: always() && hashFiles('kubescape-results.sarif') != ''
         with:
           sarif_file: kubescape-results.sarif
@@ -526,7 +526,7 @@ jobs:
             --config p/owasp-top-ten \
             --sarif -o sarif-results/semgrep-results.sarif .
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -623,7 +623,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Run Trivy filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -681,7 +681,7 @@ jobs:
             echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         if: always()
         with:
           sarif_file: sarif-results/gosec.sarif
@@ -693,7 +693,7 @@ jobs:
           govulncheck ./... > sarif-results/govulncheck.txt 2>&1 || true
         continue-on-error: true
       - name: Run Trivy config scan (misconfigurations)
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -704,7 +704,7 @@ jobs:
           skip-dirs: "configs/k8s/overlays/production"
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -716,7 +716,7 @@ jobs:
           exit-code: "0"
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -732,7 +732,7 @@ jobs:
           gitleaks detect --source=. --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -748,7 +748,7 @@ jobs:
           trufflehog filesystem . --format=json --output=sarif-results/trufflehog.json || true
       - name: Upload TruffleHog results
         if: always() && hashFiles('sarif-results/trufflehog.json') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: sarif-results/trufflehog.json
           category: trufflehog
@@ -965,7 +965,7 @@ jobs:
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -978,7 +978,7 @@ jobs:
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
