@@ -169,22 +169,22 @@ Kubescape scan запускается в CI на директорию `configs/k
 | `C-0022` / `C-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | node-exporter по дизайну работает с UID 0 (`runAsUser: 0`) для доступа к хостовым `/proc`, `/sys` и `/host/root`. |
 | `C-0009` | `configs/k8s/base/ingress-nginx/` | Принятый риск | ingress-nginx на bare-metal/VPS использует `hostNetwork: true` для приёма HTTP/HTTPS трафика на порты 80/443 без внешнего балансировщика. |
 | `C-0237` | `configs/k8s/base/`, `configs/monitoring/` | Ложноположительное / TODO | Image signature not yet implemented in the project. Requires cosign/sigstore signing infrastructure. All container images are from trusted registries (`docker.io`, `ghcr.io`). **TODO**: implement cosign signing. |
-| `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное: уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
-| `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное: официальный образ `prom/node-exporter` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное: официальный образ `grafana/grafana` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/fluent-bit/daemonset.yaml` | Ложноположительное: официальный образ `fluent/fluent-bit` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/k8s/base/local-path-provisioner.yaml` | Ложноположительное: официальный образ `rancher/local-path-provisioner` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/alertmanager/deployment.yaml` | Ложноположительное: официальный образ `prom/alertmanager` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/prometheus/deployment.yaml` | Ложноположительное: официальный образ `prom/prometheus` из `docker.io` (trusted). |
-| `KSV-0023` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
-| `KSV-0023` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск: HostPath `/var/log`, `/var/lib/docker/containers`, `/run/log` необходимы fluent-bit'у для сбора логов хоста и контейнеров. Без них логирование невозможно. |
-| `KSV-0012` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter требует root для доступа к `/proc` и `/sys` хоста. |
-| `KSV-0012` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner требует root и `DAC_OVERRIDE` для управления правами на PersistentVolumes. |
-| `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
-| `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено: в ClusterRole `local-path-provisioner-role` удалены лишние права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает `local-path-config`. |
-| `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: local-path-provisioner создает helper pods для настройки директорий на узлах. Стандартный паттерн storage provisioner без прямого hostPath. |
-| `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: доступ к `pods/log` требуется для диагностики helper pods при создании PV. Без этого отладка проблем невозможна. |
-| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск: сервисы читают secrets и configmaps в `fitness-platform-production`. Доступ ограничен `resourceNames`. |
+| `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное | уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
+| `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное | официальный образ `prom/node-exporter` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное | официальный образ `grafana/grafana` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/fluent-bit/daemonset.yaml` | Ложноположительное | официальный образ `fluent/fluent-bit` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/k8s/base/local-path-provisioner.yaml` | Ложноположительное | официальный образ `rancher/local-path-provisioner` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/alertmanager/deployment.yaml` | Ложноположительное | официальный образ `prom/alertmanager` из `docker.io` (trusted). |
+| `KSV-0125` | `configs/monitoring/prometheus/deployment.yaml` | Ложноположительное | официальный образ `prom/prometheus` из `docker.io` (trusted). |
+| `KSV-0023` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
+| `KSV-0023` | `configs/monitoring/fluent-bit/daemonset.yaml` | Принятый риск | HostPath `/var/log`, `/var/lib/docker/containers`, `/run/log` необходимы fluent-bit'у для сбора логов хоста и контейнеров. Без них логирование невозможно. |
+| `KSV-0012` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | node-exporter требует root для доступа к `/proc` и `/sys` хоста. |
+| `KSV-0012` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | local-path-provisioner требует root и `DAC_OVERRIDE` для управления правами на PersistentVolumes. |
+| `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
+| `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено | в ClusterRole `local-path-provisioner-role` удалены лишние права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает `local-path-config`. |
+| `KSV-0048` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | local-path-provisioner создает helper pods для настройки директорий на узлах. Стандартный паттерн storage provisioner без прямого hostPath. |
+| `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | доступ к `pods/log` требуется для диагностики helper pods при создании PV. Без этого отладка проблем невозможна. |
+| `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск | сервисы читают secrets и configmaps в `fitness-platform-production`. Доступ ограничен `resourceNames`. |
 
 ### Kubernetes Pod Security Context — исправления (2026-07-28)
 
