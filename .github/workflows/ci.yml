@@ -100,10 +100,10 @@ jobs:
       any_code: ${{ steps.filter.outputs.any_code }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # originally: v4
         id: filter
         with:
           filters: |
@@ -159,7 +159,7 @@ jobs:
     steps:
       - name: Add triage label
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
         with:
           script: |
             await github.rest.issues.addLabels({
@@ -170,7 +170,7 @@ jobs:
             });
       - name: Add component labels
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -202,7 +202,7 @@ jobs:
             }
       - name: Assign based on component
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -239,7 +239,7 @@ jobs:
             }
       - name: Welcome new contributors
         if: github.event.action == 'opened'
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -263,7 +263,7 @@ jobs:
               });
             }
       - name: Security issue handling
-        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # originally: v9
         with:
           script: |
             console.log('Security issue detected:', context.issue.number);
@@ -285,9 +285,9 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # originally: v7
         with:
           node-version: '26'
           cache: 'npm'
@@ -312,11 +312,11 @@ jobs:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
-        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # originally: v1.7.12
 
   # ============================================================================
   # DOCKERFILE LINT
@@ -325,7 +325,7 @@ jobs:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Run Hadolint on all Dockerfiles
         run: |
           find cmd -maxdepth 2 -type f -name Dockerfile -print0 | sort -z | while IFS= read -r -d '' dockerfile; do
@@ -345,11 +345,11 @@ jobs:
     needs: [validate-workflow]
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Lint Code Base
-        uses: super-linter/super-linter@729e0f967409dceb0a898cdd94a5534719f85c36
+        uses: super-linter/super-linter@729e0f967409dceb0a898cdd94a5534719f85c36 # originally: v8
         env:
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: "main"
@@ -398,28 +398,28 @@ jobs:
             build-mode: autobuild
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/init@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql-config.yml
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/analyze@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
           upload: failure-only
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
           wait-for-processing: true
       - name: Cache CodeQL databases
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # originally: v6
         with:
           path: ~/.codeql
           key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py') }}
@@ -436,9 +436,9 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Dependency Review
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # originally: v5
         with:
           comment-summary-in-pr: always
           base-ref: ${{ github.event.pull_request.base.sha }}
@@ -457,7 +457,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Install Kubescape
         run: |
           echo "Installing Kubescape via official installer..."
@@ -498,7 +498,7 @@ jobs:
             mv kubescape-results-fixed.sarif kubescape-results.sarif
           fi
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         if: always() && hashFiles('kubescape-results.sarif') != ''
         with:
           sarif_file: kubescape-results.sarif
@@ -515,7 +515,7 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Install Semgrep
         run: pip install semgrep
       - name: Run Semgrep scan
@@ -526,7 +526,7 @@ jobs:
             --config p/owasp-top-ten \
             --sarif -o sarif-results/semgrep-results.sarif .
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -542,9 +542,9 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Run OSV Scanner (Go dependencies)
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # originally: v2.3.8
         continue-on-error: true
         with:
           scan-args: |-
@@ -572,9 +572,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: "1.26"
           cache: true
@@ -590,11 +590,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.schedule == '0 9 1 * *' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -603,7 +603,7 @@ jobs:
           go get -u ./...
           go mod tidy
       - name: Create pull request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # originally: v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: monthly dependency update"
@@ -621,9 +621,9 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.schedule == '0 9 1 1,4,7,10 *' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Run Trivy filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -638,9 +638,9 @@ jobs:
     name: OSV Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -661,11 +661,11 @@ jobs:
     needs: [validate-workflow, dockerfile-lint]
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -681,7 +681,7 @@ jobs:
             echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         if: always()
         with:
           sarif_file: sarif-results/gosec.sarif
@@ -693,7 +693,7 @@ jobs:
           govulncheck ./... > sarif-results/govulncheck.txt 2>&1 || true
         continue-on-error: true
       - name: Run Trivy config scan (misconfigurations)
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -704,7 +704,7 @@ jobs:
           skip-dirs: "configs/k8s/overlays/production"
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -716,7 +716,7 @@ jobs:
           exit-code: "0"
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -732,7 +732,7 @@ jobs:
           gitleaks detect --source=. --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -748,7 +748,7 @@ jobs:
           trufflehog filesystem . --format=json --output=sarif-results/trufflehog.json || true
       - name: Upload TruffleHog results
         if: always() && hashFiles('sarif-results/trufflehog.json') != ''
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: sarif-results/trufflehog.json
           category: trufflehog
@@ -839,11 +839,11 @@ jobs:
     needs: [validate-workflow, dockerfile-lint]
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -873,11 +873,11 @@ jobs:
       ]
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -901,7 +901,7 @@ jobs:
           done
           echo "✅ All binaries built successfully"
           ls -lh bin/
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # originally: v7
         with:
           name: binaries
           path: bin/
@@ -916,11 +916,11 @@ jobs:
     needs: [detect-changes, binary_build]
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Login to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # originally: v4.5.1
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -930,7 +930,7 @@ jobs:
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # originally: v4
       - name: Build and push Go services
         run: |
           services="user-service biometric-service training-service gateway device-connector"
@@ -965,7 +965,7 @@ jobs:
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # originally: v0.36.0
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -978,7 +978,7 @@ jobs:
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7
+        uses: github/codeql-action/upload-sarif@adfda868f108ac4222129de456ea554034a27db7 # originally: v4
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
@@ -1014,7 +1014,7 @@ jobs:
     outputs:
       digests: ${{ steps.hash.outputs.digests }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Build artifacts
         run: |
           mkdir -p bin
@@ -1037,7 +1037,7 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # originally: v2.1.0
     with:
       base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
       upload-assets: true
@@ -1056,8 +1056,8 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1482,7 +1482,7 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/k3s-config.yaml" \
             ./k3s-config.yaml
       - name: Upload kubeconfig artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # originally: v7
         with:
           name: kubeconfig
           path: ./k3s-config.yaml
@@ -1497,8 +1497,8 @@ jobs:
     needs: [deploy-production]
     if: always() && needs.deploy-production.result == 'success'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1547,9 +1547,9 @@ jobs:
     needs: [detect-changes, binary_build, check]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -1568,12 +1568,12 @@ jobs:
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1581,7 +1581,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -2256,9 +2256,9 @@ jobs:
     env:
       PRODUCTION_URL: ${{ secrets.VPS_HOST }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -2309,7 +2309,7 @@ jobs:
         run: |
           python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
       - name: Performance test (k6)
-        uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec
+        uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # originally: v0.3.1
         with:
           filename: load-test.k6
         env:
@@ -2333,7 +2333,7 @@ jobs:
         smoke-test,
       ]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Collect job statuses
         id: statuses
         run: |
@@ -2368,7 +2368,7 @@ jobs:
             echo "smoke_test=$SMOKE_TEST"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
-        uses: appleboy/telegram-action@221e6b684967abe813051ee4a37dd61770a83ad3
+        uses: appleboy/telegram-action@221e6b684967abe813051ee4a37dd61770a83ad3 # originally: v1.0.1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -2409,4 +2409,5 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 

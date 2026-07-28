@@ -40,7 +40,7 @@ test-cover:
 	@echo "Running tests with coverage..."
 	@go test -count=1 -v -coverprofile=coverage.out ./internal/...
 	@echo "Checking coverage threshold (>= 75%)..."
-	@powershell -ExecutionPolicy Bypass -File scripts/coverage-check.ps1
+	@bash scripts/coverage-check.sh
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 

@@ -33,7 +33,7 @@ jobs:
     name: Documentation Consistency Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
         with:
           fetch-depth: 0
 
@@ -207,9 +207,13 @@ jobs:
       - name: Check markdown links
         run: |
           echo "-> Checking for broken markdown links..."
-          BROKEN_LINKS=$(find docs -name "*.md" -exec grep -Hn "\[.*\](" {} \; | grep -v "http" | grep -v "#" | grep -v "mailto:" | head -20 || true)
+          BROKEN_LINKS=$(find docs -name "*.md" -exec grep -Hn "\[.*\](" {} \; 2>/dev/null \
+            | grep -v "http" \
+            | grep -v "mailto:" \
+            | grep -vE '\./|\.\./' \
+            | head -20 || true)
           if [ -n "$BROKEN_LINKS" ]; then
-            echo "⚠️  Found relative markdown links (verify manually):"
+            echo "⚠️  Found suspicious markdown links (verify manually):"
             echo "$BROKEN_LINKS"
           else
             echo "✅ No obvious broken relative markdown links found"
@@ -234,33 +238,40 @@ jobs:
         run: |
           echo "-> Checking GitHub Actions references are SHA-pinned..."
           
-          # Find all uses: references in workflow files
           shopt -s nullglob
           workflow_files=(.github/workflows/*.yml)
           
           FAIL=0
+          declare -A warned_actions
+          
           for wf in "${workflow_files[@]}"; do
             echo "  Scanning $wf..."
             
-            # Check for mutable tag references (@v1, @v2, @latest, @master, @main, etc.)
             if grep -nE 'uses:\s+.+@(v\d|latest|master|main|develop)\b' "$wf" > /tmp/mutable_refs.txt 2>/dev/null; then
               echo "❌ FAIL: Found mutable tag references in $wf:"
               cat /tmp/mutable_refs.txt | sed 's/^/    /'
               FAIL=1
             fi
             
-            # Check for SHA-pinned references and verify they still match tag HEAD
             while IFS= read -r line; do
               if [[ $line =~ uses:\ ([^@]+)@([0-9a-f]{40}) ]]; then
                 repo="${BASH_REMATCH[1]}"
                 sha="${BASH_REMATCH[2]}"
+                key="${repo}@${sha}"
                 
-                # Fetch the latest commit for all tags
-                latest=$(git ls-remote --tags "https://github.com/$repo.git" 2>/dev/null | grep -v '\^{}' | tail -1 | awk '{print $1}')
-                
-                if [ -n "$latest" ] && [ "$sha" != "$latest" ]; then
-                  echo "⚠️  WARNING: $wf uses $repo@$sha but tag HEAD is now $latest"
-                  echo "    The tag may have been moved. Verify this is expected."
+                if [[ -z "${warned_actions[$key]+x}" ]]; then
+                  warned_actions[$key]=1
+                  
+                  tag_version=$(echo "$line" | grep -oP '# originally: \K.+' | head -1)
+                  
+                  if [ -n "$tag_version" ]; then
+                    tag_sha=$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_version" 2>/dev/null | grep -v '\^{}' | head -1 | awk '{print $1}')
+                    
+                    if [ -n "$tag_sha" ] && [ "$sha" != "$tag_sha" ]; then
+                      echo "⚠️  WARNING: $wf uses $repo@$sha but tag $tag_version HEAD is now $tag_sha"
+                      echo "    The pinned SHA no longer matches the tag. The tag may have been moved (supply-chain risk). Update the SHA if this is a legitimate new release."
+                    fi
+                  fi
                 fi
               fi
             done < <(grep -E 'uses:\ .+@[0-9a-f]{40}' "$wf")
@@ -273,7 +284,7 @@ jobs:
             exit 1
           fi
           
-          echo "✅ All GitHub Actions are SHA-pinned and not stale"
+          echo "✅ All GitHub Actions are SHA-pinned and consistent"
 
       - name: Documentation status
         run: |

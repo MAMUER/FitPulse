@@ -176,9 +176,9 @@ func (s *deviceConnector) registerDeviceHandler(w http.ResponseWriter, r *http.R
 	}
 
 	s.log.Info("Device registered",
-		zap.String("device_id", sanitize.LogString(deviceID)),
-		zap.String("device_type", sanitize.LogString(req.DeviceType)),
-		zap.String("user_id", sanitize.LogString(req.UserID)),
+		zap.String("device_id", sanitize.LogString(deviceID)),         // CodeQL ignore: go/log-injection
+		zap.String("device_type", sanitize.LogString(req.DeviceType)), // CodeQL ignore: go/log-injection
+		zap.String("user_id", sanitize.LogString(req.UserID)),         // CodeQL ignore: go/log-injection
 	)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -212,8 +212,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		// CodeQL ignore: go/log-injection - sanitize.LogString() used
 		s.log.Warn("Device authentication failed",
-			zap.String("device_id", sanitize.LogString(deviceID)),
-			zap.String("error", sanitize.LogString(err.Error())),
+			zap.String("device_id", sanitize.LogString(deviceID)), // CodeQL ignore: go/log-injection
+			zap.String("error", sanitize.LogString(err.Error())),  // CodeQL ignore: go/log-injection
 		)
 		http.Error(w, "Неверные учётные данные устройства", http.StatusUnauthorized)
 		return
@@ -238,8 +238,8 @@ func (s *deviceConnector) ingestHandler(w http.ResponseWriter, r *http.Request) 
 
 	// CodeQL ignore: go/log-injection - sanitize.LogString() used
 	s.log.Info("Ingest completed",
-		zap.String("device_id", sanitize.LogString(deviceID)),
-		zap.String("device_type", sanitize.LogString(device.DeviceType)),
+		zap.String("device_id", sanitize.LogString(deviceID)),            // CodeQL ignore: go/log-injection
+		zap.String("device_type", sanitize.LogString(device.DeviceType)), // CodeQL ignore: go/log-injection
 		zap.Int("total", stats.TotalReceived),
 		zap.Int("duplicates", stats.Duplicates),
 		zap.Int("forwarded", stats.Forwarded),
@@ -299,8 +299,8 @@ func (s *deviceConnector) processIngestRecords(ctx context.Context, tx *sql.Tx, 
 			stats.Duplicates++
 			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Debug("Duplicate record skipped",
-				zap.String("device_id", sanitize.LogString(deviceID)),
-				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
+				zap.String("device_id", sanitize.LogString(deviceID)),         // CodeQL ignore: go/log-injection
+				zap.String("metric_type", sanitize.LogString(rec.MetricType)), // CodeQL ignore: go/log-injection
 				zap.Time("timestamp", rec.Timestamp),
 			)
 			continue
@@ -336,7 +336,7 @@ func (s *deviceConnector) validateIngestRecord(rec *IngestRecord, stats *IngestS
 	if rec.Value < 0 {
 		stats.Failed++
 		s.log.Warn("Skipping record with negative value",
-			zap.String("metric_type", sanitize.LogString(rec.MetricType)),
+			zap.String("metric_type", sanitize.LogString(rec.MetricType)), // CodeQL ignore: go/log-injection
 		)
 		return false
 	}
@@ -375,8 +375,8 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 		}); err != nil {
 			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Warn("Record failed validation before forwarding",
-				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
-				zap.String("error", sanitize.LogString(err.Error())),
+				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)), // CodeQL ignore: go/log-injection
+				zap.String("error", sanitize.LogString(err.Error())),            // CodeQL ignore: go/log-injection
 			)
 			stats.Failed++
 			continue
@@ -397,8 +397,8 @@ func (s *deviceConnector) forwardRecords(ctx context.Context, pbRecords []*biome
 			}
 			// CodeQL ignore: go/log-injection - sanitize.LogString() used
 			s.log.Error("Failed to forward record to biometric-service",
-				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)),
-				zap.String("error", sanitize.LogString(errMsg)),
+				zap.String("metric_type", sanitize.LogString(pbRec.MetricType)), // CodeQL ignore: go/log-injection
+				zap.String("error", sanitize.LogString(errMsg)),                 // CodeQL ignore: go/log-injection
 			)
 			stats.Failed++
 			continue
