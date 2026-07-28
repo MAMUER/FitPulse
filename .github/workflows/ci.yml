@@ -988,7 +988,15 @@ jobs:
           services="user-service biometric-service training-service gateway device-connector"
           for svc in $services; do
             echo "Signing $svc..."
-            echo "$COSIGN_PRIVATE_KEY" | base64 -d > /tmp/cosign.key
+            if [ -z "$COSIGN_PRIVATE_KEY" ]; then
+              echo "COSIGN_PRIVATE_KEY is empty" >&2
+              exit 1
+            fi
+            if grep -q 'BEGIN' <<<"$COSIGN_PRIVATE_KEY"; then
+              printf '%s' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+            else
+              printf '%s' "$COSIGN_PRIVATE_KEY" | base64 -d > /tmp/cosign.key
+            fi
             cosign sign --yes --key /tmp/cosign.key \
               "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
             rm -f /tmp/cosign.key
