@@ -31,6 +31,7 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	handler = middleware.RequestID(handler)
 	handler = classifierLoggingMiddleware(log.Logger)(handler)
 
+	// semgrep:ignore avoid-bind-to-all-interfaces - test uses :0 to get a random available port
 	srv := &http.Server{Addr: ":0", Handler: handler}
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
