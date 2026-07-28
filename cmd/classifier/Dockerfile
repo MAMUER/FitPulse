@@ -25,7 +25,7 @@ FROM alpine:3.24
 
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-	apk add --no-cache ca-certificates tzdata curl=8.20.0-r1 && \
+	apk add --no-cache ca-certificates tzdata curl && \
 	addgroup -g 1001 -S appgroup && \
 	adduser -u 1001 -S appuser -G appgroup
 
