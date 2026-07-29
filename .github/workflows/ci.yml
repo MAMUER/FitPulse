@@ -1244,6 +1244,31 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
+      - name: Configure CPU governor and k3s watchdog
+        run: |
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
+          set -euo pipefail
+          echo "-> Configuring CPU governor..."
+          if [ -d /sys/devices/system/cpu/cpufreq ]; then
+            for gov in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do
+              [ -f "$gov" ] && echo "performance" | sudo tee "$gov" >/dev/null || true
+            done
+            echo "✅ CPU governor set to performance"
+          else
+            echo "⚠️ CPU frequency scaling not available, skipping governor"
+          fi
+          echo "-> Configuring k3s systemd watchdog..."
+          sudo mkdir -p /etc/systemd/system/k3s.service.d
+          cat <<EOT | sudo tee /etc/systemd/system/k3s.service.d/99-performance.conf
+          [Service]
+          CPUQuota=180%
+          WatchdogSec=30s
+          Restart=always
+          RestartSec=10s
+          EOT
+          sudo systemctl daemon-reload
+          echo "✅ k3s watchdog and CPU quota configured"
+          EOF
       - name: Configure Docker and System log rotation
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'

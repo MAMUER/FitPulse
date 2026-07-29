@@ -18,6 +18,7 @@ dist/
 target/
 bin/
 dev/
+scripts/cleanup-vps.sh
 
 # Dependencies
 vendor/

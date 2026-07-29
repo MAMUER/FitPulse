@@ -18,3 +18,5 @@ kubelet-arg:
   - "eviction-hard=memory.available<500Mi,nodefs.available<10%,imagefs.available<10%"
   - "eviction-soft=memory.available<700Mi"
   - "eviction-soft-grace-period=memory.available=2m"
+  - "cpu-manager-policy=static"
+  - "topology-manager-policy=best-effort"
