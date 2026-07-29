@@ -951,7 +951,6 @@ jobs:
             exit 0
           fi
           SERVICES="user-service biometric-service training-service gateway device-connector"
-          FAIL=0
           for svc in $SERVICES; do
             echo "Verifying $svc..."
             if cosign verify --key /tmp/cosign-keys/cosign.pub \
