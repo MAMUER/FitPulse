@@ -44,20 +44,20 @@ query-filters:
   # go/log-injection: в проектах с санитизацией логов это правило даёт ложные positives
   # для конкретных файлов, где пользовательский ввод явно проходит через sanitize.LogString().
   - exclude:
-      rule: go/log-injection
-      file: internal/telemetry/http.go
+      id: go/log-injection
+      path: internal/telemetry/http.go
   - exclude:
-      rule: go/log-injection
-      file: cmd/gateway/handlers_csp_report.go
+      id: go/log-injection
+      path: cmd/gateway/handlers_csp_report.go
   - exclude:
-      rule: go/log-injection
-      file: cmd/gateway/handlers_auth.go
+      id: go/log-injection
+      path: cmd/gateway/handlers_auth.go
   - exclude:
-      rule: go/log-injection
-      file: cmd/device-connector/main.go
+      id: go/log-injection
+      path: cmd/device-connector/main.go
   - exclude:
-      rule: go/log-injection
-      file: cmd/device-aggregator/webhooks.go
+      id: go/log-injection
+      path: cmd/device-aggregator/webhooks.go
   - exclude:
-      rule: go/log-injection
-      file: cmd/classifier/main.go
+      id: go/log-injection
+      path: cmd/classifier/main.go
