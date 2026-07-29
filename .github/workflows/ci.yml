@@ -929,9 +929,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Install cosign
-        run: |
-          go install github.com/sigstore/cosign/v2/cmd/cosign@latest
-          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+        uses: sigstore/cosign-installer@v3.8.1 # Официальный и самый быстрый способ
       - name: Download cosign public key
         env:
           COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
@@ -1138,7 +1136,7 @@ jobs:
               echo "COSIGN_PRIVATE_KEY is empty" >&2
               exit 1
             fi
-            if printf '%s' "$COSIGN_PRIVATE_KEY" | grep -q '-----BEGIN .*PRIVATE KEY-----'; then
+            if printf '%s' "$COSIGN_PRIVATE_KEY" | grep -q -- '-----BEGIN .*PRIVATE KEY-----'; then
               printf '%s' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
             elif printf '%s' "$COSIGN_PRIVATE_KEY" | grep -q '\\n'; then
               printf '%b' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
@@ -1149,7 +1147,7 @@ jobs:
                 exit 1
               fi
             fi
-            if ! grep -q '-----BEGIN .*PRIVATE KEY-----' /tmp/cosign.key; then
+            if ! grep -q -- '-----BEGIN .*PRIVATE KEY-----' /tmp/cosign.key; then
               echo "COSIGN_PRIVATE_KEY did not produce a valid PEM block" >&2
               sed -n '1,5p' /tmp/cosign.key >&2
               exit 1
