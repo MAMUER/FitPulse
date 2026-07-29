@@ -33,74 +33,74 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - name: controller
-        image: registry.k8s.io/ingress-nginx/controller:v1.11.3
-        args:
-        - /nginx-ingress-controller
-        - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
-        - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
-        - --ingress-class=nginx
-        - --admission-webhooks=disabled
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        ports:
-        - containerPort: 80
-          name: http
-        - containerPort: 443
-          name: https
-        volumeMounts:
-        - name: modsecurity-crs
-          mountPath: /etc/nginx/modsecurity-crs
-          readOnly: true
-        - name: nginx-run
-          mountPath: /var/run/nginx.pid
-        - name: nginx-cache
-          mountPath: /var/cache/nginx
-        - name: nginx-tmp
-          mountPath: /tmp
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsNonRoot: true
-          runAsUser: 101
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 10254
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 10254
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        resources:
-          requests:
-            cpu: "50m"
-            memory: "64Mi"
-          limits:
-            cpu: "200m"
-            memory: "128Mi"
+        - name: controller
+          image: registry.k8s.io/ingress-nginx/controller:v1.11.3
+          args:
+            - /nginx-ingress-controller
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --ingress-class=nginx
+            - --admission-webhooks=disabled
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+          volumeMounts:
+            - name: modsecurity-crs
+              mountPath: /etc/nginx/modsecurity-crs
+              readOnly: true
+            - name: nginx-run
+              mountPath: /var/run/nginx.pid
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
       volumes:
-      - name: modsecurity-crs
-        configMap:
-          name: modsecurity-crs
-          defaultMode: 420
-      - name: nginx-run
-        emptyDir: {}
-      - name: nginx-cache
-        emptyDir: {}
-      - name: nginx-tmp
-        emptyDir: {}
+        - name: modsecurity-crs
+          configMap:
+            name: modsecurity-crs
+            defaultMode: 420
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}

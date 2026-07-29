@@ -289,8 +289,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # originally: v7
         with:
-          node-version: '26'
-          cache: 'npm'
+          node-version: "26"
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
         run: npm ci
@@ -847,7 +847,7 @@ jobs:
       - name: Run make check
         run: make check
         env:
-           DOCKER_HOST: ""
+          DOCKER_HOST: ""
       - name: Coverage Check (75% threshold)
         run: bash scripts/coverage-check.sh
 
@@ -920,7 +920,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
- 
+
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -951,12 +951,12 @@ jobs:
            fi
       - name: Build and push CRS updater image
         run: |
-           docker buildx build \
-             --cache-from=type=gha \
-             --cache-to=type=gha,mode=max \
-             -t "${{ env.REGISTRY }}/mamuer/project/crs-updater:v1" \
-             -f "configs/k8s/base/jobs/Dockerfile" configs/k8s/base/jobs \
-             --push
+          docker buildx build \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            -t "${{ env.REGISTRY }}/mamuer/project/crs-updater:v1" \
+            -f "configs/k8s/base/jobs/Dockerfile" configs/k8s/base/jobs \
+            --push
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true
@@ -1056,13 +1056,21 @@ jobs:
       base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
       upload-assets: true
 
-   # ============================================================================
-   # PROVISION K8S
-   # ============================================================================
+    # ============================================================================
+    # PROVISION K8S
+    # ============================================================================
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, security-scan, check, super-linter, kubescape, fuzz-tests]
+    needs:
+      [
+        detect-changes,
+        security-scan,
+        check,
+        super-linter,
+        kubescape,
+        fuzz-tests,
+      ]
     timeout-minutes: 120
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -1364,18 +1372,18 @@ jobs:
           echo "-> Waiting for cert-manager pods to be ready..."
           kubectl wait --namespace cert-manager --for=condition=ready pod --all --timeout=120s
           echo "✅ cert-manager installed successfully"
-          
+
           echo "-> Creating Let's Encrypt ClusterIssuer..."
           kubectl apply -f configs/k8s/base/cert-manager/cluster-issuer.yaml
           echo "✅ ClusterIssuer created"
-          
+
           echo "-> Waiting for ingress-nginx to be ready..."
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --all --timeout=120s
           echo "✅ Ingress-nginx is ready"
-          
+
           echo "-> Verifying ModSecurity configuration..."
           kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.modsecurity-snippet}' | grep -q "SecRuleEngine On" && echo "✅ ModSecurity enabled" || echo "❌ ModSecurity not enabled"
-          
+
           echo "✅ Certificate and WAF configuration complete"
       - name: Setup DuckDNS auto-updater
         run: |
@@ -2423,6 +2431,3 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-

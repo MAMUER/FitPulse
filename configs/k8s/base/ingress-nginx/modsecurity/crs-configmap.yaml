@@ -8,13 +8,13 @@ data:
     # OWASP ModSecurity CRS v4 Setup
     # Default configuration file for the OWASP ModSecurity Core Rule Set (CRS)
     # https://github.com/coreruleset/coreruleset
-    
+
     SecRuleEngine On
     SecRequestBodyAccess On
     SecResponseBodyAccess Off
     SecRequestBodyLimit 13107200
     SecRequestBodyNoFilesLimit 131072
-    
+
     # Logging
     SecAuditEngine RelevantOnly
     SecAuditLogRelevantStatus "^(?:5|4(?!04))"
@@ -23,11 +23,11 @@ data:
     SecAuditLog /var/log/nginx/modsecurity_audit.log
     SecDebugLog /var/log/nginx/modsecurity_debug.log
     SecDebugLogLevel 0
-    
+
     # Exclude health check endpoint from WAF rules
     SecRule REQUEST_URI "@beginsWith /health" \
         "id:1000001,phase:1,allow,ctl:ruleEngine=Off"
-    
+
     # Include request body in ARGS
     SecRuleUpdateTargetById 100001 ARGS
     SecRuleUpdateTargetById 100002 ARGS

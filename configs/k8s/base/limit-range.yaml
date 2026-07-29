@@ -5,16 +5,16 @@ metadata:
   namespace: fitness-platform-production
 spec:
   limits:
-  - type: Container
-    default:
-      cpu: "100m"
-      memory: "128Mi"
-    defaultRequest:
-      cpu: "50m"
-      memory: "64Mi"
-    max:
-      cpu: "2000m"
-      memory: "2Gi"
-    min:
-      cpu: "10m"
-      memory: "16Mi"
+    - type: Container
+      default:
+        cpu: "100m"
+        memory: "128Mi"
+      defaultRequest:
+        cpu: "50m"
+        memory: "64Mi"
+      max:
+        cpu: "2000m"
+        memory: "2Gi"
+      min:
+        cpu: "10m"
+        memory: "16Mi"

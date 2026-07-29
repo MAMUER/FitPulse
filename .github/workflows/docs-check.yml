@@ -237,13 +237,13 @@ jobs:
       - name: Check GitHub Actions are SHA-pinned and not stale
         run: |
           echo "-> Checking GitHub Actions references are SHA-pinned..."
-          
+
           shopt -s nullglob
           workflow_files=(.github/workflows/*.yml)
-          
+
           FAIL=0
           declare -A warned_actions
-          
+
           for wf in "${workflow_files[@]}"; do
             echo "  Scanning $wf..."
             
@@ -276,14 +276,14 @@ jobs:
               fi
             done < <(grep -E 'uses:\ .+@[0-9a-f]{40}' "$wf")
           done
-          
+
           if [ "$FAIL" -eq 1 ]; then
             echo ""
             echo "❌ FAIL: GitHub Actions are not fully SHA-pinned."
             echo "   Pin each 'uses:' reference to a full 40-character commit SHA."
             exit 1
           fi
-          
+
           echo "✅ All GitHub Actions are SHA-pinned and consistent"
 
       - name: Documentation status

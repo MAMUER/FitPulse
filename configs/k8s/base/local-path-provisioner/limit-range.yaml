@@ -5,16 +5,16 @@ metadata:
   namespace: local-path-storage
 spec:
   limits:
-  - type: Container
-    default:
-      cpu: "50m"
-      memory: "64Mi"
-    defaultRequest:
-      cpu: "10m"
-      memory: "16Mi"
-    max:
-      cpu: "500m"
-      memory: "512Mi"
-    min:
-      cpu: "5m"
-      memory: "8Mi"
+    - type: Container
+      default:
+        cpu: "50m"
+        memory: "64Mi"
+      defaultRequest:
+        cpu: "10m"
+        memory: "16Mi"
+      max:
+        cpu: "500m"
+        memory: "512Mi"
+      min:
+        cpu: "5m"
+        memory: "8Mi"

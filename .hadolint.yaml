@@ -1,5 +1,5 @@
 failure-threshold: warning
 
 ignored:
-  - DL3008  # apt-get install: allow unpinned versions
-  - DL3018  # apk upgrade intentionally upgrades all packages
+  - DL3008 # apt-get install: allow unpinned versions
+  - DL3018 # apk upgrade intentionally upgrades all packages

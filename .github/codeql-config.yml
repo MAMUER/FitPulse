@@ -1,60 +1,59 @@
 name: "CodeQL Configuration"
 # Пути для анализа
 paths:
-  - cmd
-  - internal
-  - pkg
-  - api
-  - scripts
+    - cmd
+    - internal
+    - pkg
+    - api
+    - scripts
 # Пути для игнорирования (полное исключение из анализа)
 paths-ignore:
-  - "**/*.pb.go"
-  - "**/*_test.go"
-  - "**/vendor/**"
-  - "**/node_modules/**"
-  - "**/*.min.js"
-  - "**/testdata/**"
-  - "**/mocks/**"
-  - "**/generated/**"
-  - "api/gen/**"
-  - "bin/**"
-  - "coverage/**"
-  - "datasets/**"
-  - "models/**"
-  - "**/cmd/gateway/handlers_auth.go"
-  - "**/cmd/gateway/handlers_csp_report.go"
-  - "**/cmd/device-connector/main.go"
-  - "**/cmd/device-aggregator/webhooks.go"
-  - "**/cmd/classifier/main.go"
-  - "**/internal/telemetry/http.go"
+    - "**/*.pb.go"
+    - "**/*_test.go"
+    - "**/vendor/**"
+    - "**/node_modules/**"
+    - "**/*.min.js"
+    - "**/testdata/**"
+    - "**/mocks/**"
+    - "**/generated/**"
+    - "api/gen/**"
+    - "bin/**"
+    - "coverage/**"
+    - "datasets/**"
+    - "models/**"
+    - "**/cmd/gateway/handlers_auth.go"
+    - "**/cmd/gateway/handlers_csp_report.go"
+    - "**/cmd/device-connector/main.go"
+    - "**/cmd/device-aggregator/webhooks.go"
+    - "**/cmd/classifier/main.go"
+    - "**/internal/telemetry/http.go"
 # Дополнительные запросы для расширенного анализа
 queries:
-  - uses: security-extended
-  - uses: security-and-quality
+    - uses: security-extended
+    - uses: security-and-quality
 # Фильтры для запросов
 query-filters:
-  # Исключаем предупреждения о тестовом коде
-  - exclude:
-      problem.severity: warning
-      tags: test
-  # go/log-injection: в проектах с санитизацией логов это правило даёт ложные positives
-  # для конкретных файлов, где пользовательский ввод явно проходит через sanitize.LogString().
-  # ВАЖНО: path принимает регулярное выражение, и отступы в YAML должны быть строгими!
-  - exclude:
-      id: go/log-injection
-      path: ".*internal/telemetry/http\\.go.*"
-  - exclude:
-      id: go/log-injection
-      path: ".*cmd/gateway/handlers_csp_report\\.go.*"
-  - exclude:
-      id: go/log-injection
-      path: ".*cmd/gateway/handlers_auth\\.go.*"
-  - exclude:
-      id: go/log-injection
-      path: ".*cmd/device-connector/main\\.go.*"
-  - exclude:
-      id: go/log-injection
-      path: ".*cmd/device-aggregator/webhooks\\.go.*"
-  - exclude:
-      id: go/log-injection
-      path: ".*cmd/classifier/main\\.go.*"
+    # Исключаем предупреждения о тестовом коде
+    - exclude:
+          problem.severity: warning
+          tags: test
+    # go/log-injection: в проектах с санитизацией логов это правило даёт ложные positives
+    # для конкретных файлов, где пользовательский ввод явно проходит через sanitize.LogString().
+    - exclude:
+          id: go/log-injection
+          path: ".*internal/telemetry/http\\.go.*"
+    - exclude:
+          id: go/log-injection
+          path: ".*cmd/gateway/handlers_csp_report\\.go.*"
+    - exclude:
+          id: go/log-injection
+          path: ".*cmd/gateway/handlers_auth\\.go.*"
+    - exclude:
+          id: go/log-injection
+          path: ".*cmd/device-connector/main\\.go.*"
+    - exclude:
+          id: go/log-injection
+          path: ".*cmd/device-aggregator/webhooks\\.go.*"
+    - exclude:
+          id: go/log-injection
+          path: ".*cmd/classifier/main\\.go.*"

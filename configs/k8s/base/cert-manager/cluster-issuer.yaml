@@ -10,15 +10,15 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod-account-key
     solvers:
-    - http01:
-        ingress:
-          class: nginx
-          podTemplate:
-            spec:
-              securityContext:
-                runAsNonRoot: true
-                runAsUser: 1000
-                runAsGroup: 1000
-                fsGroup: 1000
-                seccompProfile:
-                  type: RuntimeDefault
+      - http01:
+          ingress:
+            class: nginx
+            podTemplate:
+              spec:
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  fsGroup: 1000
+                  seccompProfile:
+                    type: RuntimeDefault
