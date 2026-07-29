@@ -186,18 +186,6 @@ Kubescape scan запускается в CI на директорию `configs/k
 | `KSV-0042` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | доступ к `pods/log` требуется для диагностики helper pods при создании PV. Без этого отладка проблем невозможна. |
 | `KSV-0113` | `configs/k8s/base/rbac/rbac.yaml`, `configs/k8s/overlays/production/ingress-nginx-tls-role.yaml` | Принятый риск | сервисы читают secrets и configmaps в `fitness-platform-production`. Доступ ограничен `resourceNames`. |
 
-### Kubernetes Pod Security Context — исправления (2026-07-28)
-
-Для valkey, rabbitmq и postgres были добавлены pod-level security controls, которые отсутствовали и вызывали alerts «Apply Security Context to Your Pods and Containers»:
-
-| Манифест | Что исправлено |
-| -------- | -------------- |
-| `configs/k8s/base/deployments/valkey.yaml` | Добавлен pod-level `securityContext`: `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities: drop: ["ALL"]`, `seccompProfile: RuntimeDefault`. Container-level дополнен `seccompProfile`. |
-| `configs/k8s/base/deployments/rabbitmq-statefulset.yaml` | Добавлен pod-level `securityContext` с аналогичными controls. Container-level дополнен `seccompProfile`. |
-| `configs/k8s/base/deployments/postgres.yaml` | Добавлен pod-level `securityContext` с аналогичными controls. Container-level дополнен `seccompProfile`. |
-
-InitContainer `fix-permissions` оставлен как есть — требует `runAsUser: 0` для `chown` PVC; `allowPrivilegeEscalation: false` ограничивает поверхность атаки.
-
 ### gosec — принятые исключения
 
 | Правило | Файл | Обоснование |
@@ -205,36 +193,6 @@ InitContainer `fix-permissions` оставлен как есть — требу�
 | `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Google OAuth endpoints (`https://accounts.google.com/o/oauth2/auth`, `https://oauth2.googleapis.com/token`), известные всем разработчикам. Не являются credentials. |
 | `G101` | `cmd/gateway/helpers.go:94` | Ложноположительное: ключи мапы — пользовательские сообщения об ошибках (gRPC status text), а не пароли/токены/секреты. |
 | `G505` | `cmd/device-aggregator/providers/garmin.go:7` | Принятый риск: `crypto/sha1` требуется для HMAC-SHA1 подписи в OAuth 1.0a протоколе Garmin Health API. Это upstream-требование интеграции, а не слабое хеширование паролей. |
-
-### CodeQL — логирование пользовательского ввода (go/log-injection)
-
-CodeQL автоматически ищет попадание непроверенного пользовательского ввода в лог-записи.
-В проекте это входные данные из HTTP-запросов: URL-пути, заголовки, тело запроса, поля CSP-отчётов, webhook-уведомлений и т.д.
-
-В указанных файлах пользовательский ввод перед логированием **уже санитизируется** через `internal/sanitize.LogString()`:
-
-| Файл | Защита |
-| --- | --- |
-| `internal/telemetry/http.go` | `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry middleware. |
-| `cmd/gateway/handlers_csp_report.go` | `sanitize.LogString()` для полей CSP-отчёта, заголовков (`User-Agent`, `RemoteAddr`) и сырого тела запроса. |
-| `cmd/gateway/handlers_auth.go` | `sanitize.LogString()` для `userID` и `r.URL.Path`. |
-| `cmd/device-connector/main.go` | `sanitize.LogString()` на всех точках входа с пользовательским вводом. |
-| `cmd/device-aggregator/webhooks.go` | `sanitize.LogString()` для полей webhook-уведомлений (`type`, `user_id`, `action`). |
-| `cmd/classifier/main.go` | `sanitize.LogString()` для `r.URL.Path` в HTTP middleware. |
-
-#### Код как защита + comment-level супрессоры
-
-Для каждой строки с потенциальной уязвимостью оставлен comment `// CodeQL ignore: go/log-injection` на той же строке с `zap.String(...)`:
-
-```go
-zap.String("path", sanitize.LogString(r.URL.Path)), // CodeQL ignore: go/log-injection
-```
-
-Формат директивы унифицирован: `// CodeQL ignore: go/log-injection` без дополнительного текста, чтобы CodeQL корректно распознавал директиву.
-
-#### Дополнительная защита на уровне конфигурации
-
-Помимо inline-супрессоров, файл `.github/codeql-config.yml` содержит `query-filters`, которые исключают правило `go/log-injection` для указанных выше файлов на уровне конфигурации CodeQL. Это позволяет не дублировать супрессоры при добавлении новых точек логирования в тех же файлах.
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
 
