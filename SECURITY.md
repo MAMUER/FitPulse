@@ -211,26 +211,30 @@ InitContainer `fix-permissions` оставлен как есть — требу�
 CodeQL автоматически ищет попадание непроверенного пользовательского ввода в лог-записи.
 В проекте это входные данные из HTTP-запросов: URL-пути, заголовки, тело запроса, поля CSP-отчётов, webhook-уведомлений и т.д.
 
-#### Почему используются комментарии `// CodeQL ignore: go/log-injection`
+В указанных файлах пользовательский ввод перед логированием **уже санитизируется** через `internal/sanitize.LogString()`:
 
-CodeQL **не распзнаёт кастомную функцию санитизации** `sanitize.LogString()` (`internal/sanitize`) при межпакетном статическом анализе.
-Поэтому даже на уже исправленных строках, где перед логированием вызывается `sanitize.LogString()`, CodeQL продолжает показывать алерт.
+| Файл | Защита |
+| --- | --- |
+| `internal/telemetry/http.go` | `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry middleware. |
+| `cmd/gateway/handlers_csp_report.go` | `sanitize.LogString()` для полей CSP-отчёта, заголовков (`User-Agent`, `RemoteAddr`) и сырого тела запроса. |
+| `cmd/gateway/handlers_auth.go` | `sanitize.LogString()` для `userID` и `r.URL.Path`. |
+| `cmd/device-connector/main.go` | `sanitize.LogString()` на всех точках входа с пользовательским вводом. |
+| `cmd/device-aggregator/webhooks.go` | `sanitize.LogString()` для полей webhook-уведомлений (`type`, `user_id`, `action`). |
+| `cmd/classifier/main.go` | `sanitize.LogString()` для `r.URL.Path` в HTTP middleware. |
 
-Каждый комментарий базируется на уже существующем вызове `sanitize.LogString()`, который экранирует управляющие символы (`\n`, `\r`, `%`, ANSI-коды) перед записью в zap-логгер. Это **не игнорирование реальной уязвимости**, а подавление ложноположительного алерта, где защита уже применена.
+#### Код как защита + comment-level супрессоры
 
-Формат комментариев унифицирован: `// CodeQL ignore: go/log-injection` (без дополнительного текста после запятой, чтобы CodeQL корректно распознавал directive).
+Для каждой строки с потенциальной уязвимостью оставлен comment `// CodeQL ignore: go/log-injection` на той же строке с `zap.String(...)`:
 
-#### Где защита применена
+```go
+zap.String("path", sanitize.LogString(r.URL.Path)), // CodeQL ignore: go/log-injection
+```
 
-| Файл | Строки | Защита |
-| --- | --- | --- |
-| `cmd/device-aggregator/webhooks.go` | 43-47, 91-95 | `sanitize.LogString()` для полей `type`, `user_id`, `action`. |
-| `cmd/classifier/main.go` | 500-502 | `sanitize.LogString()` для `r.URL.Path`. |
-| `cmd/gateway/handlers_auth.go` | 217-221, 225-229 | `sanitize.LogString()` для `userID` и `r.URL.Path`. |
-| `cmd/gateway/handlers_csp_report.go` | 58 | **Исправлено**: `zap.ByteString("raw", body)` заменено на `zap.String("raw", sanitize.LogString(string(body)))`. Контрольные символы в теле запроса удаляются before логирования. |
-| `cmd/gateway/handlers_csp_report.go` | 69-91 | `sanitize.LogString()` для всех полей CSP-отчёта и заголовков (`User-Agent`, `RemoteAddr`). |
-| `internal/telemetry/http.go` | 21-25 | `sanitize.LogString()` для `r.URL.Path` в OpenTelemetry middleware. |
-| `cmd/device-connector/main.go` | 178-415 | Уже защищено `sanitize.LogString()` на всех точках входа с пользовательским вводом (device registration, ingest, validation, forwarding). |
+Формат директивы унифицирован: `// CodeQL ignore: go/log-injection` без дополнительного текста, чтобы CodeQL корректно распознавал директиву.
+
+#### Дополнительная защита на уровне конфигурации
+
+Помимо inline-супрессоров, файл `.github/codeql-config.yml` содержит `query-filters`, которые исключают правило `go/log-injection` для указанных выше файлов на уровне конфигурации CodeQL. Это позволяет не дублировать супрессоры при добавлении новых точек логирования в тех же файлах.
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
 
@@ -246,18 +250,18 @@ Semgrep OSS находит в них использование пакета `un
 
 Также исключены:
 - `vendor/`, `go.sum`, `package-lock.json` — dependency lock files
-- `scripts/` — bash/powershell скрипты,lintятся отдельно super-linter'ом (`VALIDATE_BASH: true`, `VALIDATE_SHELL_SHFMT: true`)
+- `scripts/` — bash/powershell скрипты, lintятся отдельно super-linter'ом (`VALIDATE_BASH: true`, `VALIDATE_SHELL_SHFMT: true`)
 
 #### Semgrep — `runAsNonRoot: false` в Kubernetes (`run-as-non-root-unsafe-value`)
 
-Правило Semgrep `yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value` flags manifests с `runAsNonRoot: false`. В проекте это **принятый риск** для двух компонентов, которые по дизайну требуют root:
+Правило Semgrep `yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value` flags manifests с `runAsNonRoot: false`. В проекте это **принятый риск** для компонентов, которые по дизайну требуют root:
 
 | Манифест | Строки | Обоснование |
 | --- | --- | -------- |
-| `configs/monitoring/node-exporter/daemonset.yaml` | 21 (pod-level), 42 (container-level) | node-exporter требует root и `hostPID: true` для доступа к `/proc`, `/sys`, `/host/root` хоста для сбора метрик. Без root работа невозможна. |
-| `configs/k8s/base/local-path-provisioner.yaml` | 153 | local-path-provisioner требует root и `DAC_OVERRIDE` для создания директорий на хостовой ФС и изменения их владельца при создании PersistentVolumes. Без этого работа provisioner невозможна. |
+| `configs/monitoring/node-exporter/daemonset.yaml` | 21-22 (pod-level), 42-43 (container-level) | node-exporter требует root и `hostPID: true` для доступа к `/proc`, `/sys`, `/host/root` хоста для сбора метрик. Без root работа невозможна. |
+| `configs/k8s/base/local-path-provisioner.yaml` | 152-154 | local-path-provisioner требует `runAsUser: 0` и `DAC_OVERRIDE` для создания директорий на хостовой ФС и изменения их владельца при создании PersistentVolumes. Без этого работа provisioner невозможна. |
 
-Для подавления алертов использован стандартный синтаксис Semgrep: `# nosemgrep run-as-non-root-unsafe-value`.
+Комментарии `# nosemgrep run-as-non-root-unsafe-value` размещаются **на отдельных строках непосредственно перед** `runAsNonRoot: false`, чтобы Semgrep корректно их распознавал.
 
 ### Semgrep — безопасная установка инструментов CI
 

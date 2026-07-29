@@ -40,10 +40,9 @@ func fitbitWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	notificationType, _ := notification["type"].(string)
 	userID, _ := notification["user_id"].(string)
 
-	// CodeQL ignore: go/log-injection
 	log.Info("Fitbit webhook received",
-		zap.String("type", sanitize.LogString(notificationType)), // CodeQL ignore: go/log-injection
-		zap.String("user_id", sanitize.LogString(userID)),        // CodeQL ignore: go/log-injection
+		zap.String("type", sanitize.LogString(notificationType)),
+		zap.String("user_id", sanitize.LogString(userID)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -89,9 +88,9 @@ func withingsWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	action, _ := notification["action"].(string)
-	// CodeQL ignore: go/log-injection
+
 	log.Info("Withings webhook received",
-		zap.String("action", sanitize.LogString(action)), // CodeQL ignore: go/log-injection
+		zap.String("action", sanitize.LogString(action)),
 	)
 
 	w.Header().Set("Content-Type", "application/json")
