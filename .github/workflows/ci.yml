@@ -1119,43 +1119,42 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-docker
       - name: Install cosign
-        run: |
-          go install github.com/sigstore/cosign/v2/cmd/cosign@latest
-          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+        uses: sigstore/cosign-installer@v3.8.1
       - name: Sign Docker images with cosign
         if: github.event_name != 'pull_request'
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-          COSIGN_EXPERIMENTAL: 1
         run: |
           services="user-service biometric-service training-service gateway device-connector"
+          
+          if [ -z "$COSIGN_PRIVATE_KEY" ]; then
+            echo "❌ COSIGN_PRIVATE_KEY is empty" >&2
+            exit 1
+          fi
+
+          if echo "$COSIGN_PRIVATE_KEY" | grep -q -- '-----BEGIN .*PRIVATE KEY-----'; then
+            echo "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+          elif echo "$COSIGN_PRIVATE_KEY" | grep -q '\\n'; then
+            printf '%b' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+          else
+            echo "$COSIGN_PRIVATE_KEY" | base64 -d > /tmp/cosign.key
+          fi
+
+          if ! grep -q -- '-----BEGIN .*PRIVATE KEY-----' /tmp/cosign.key; then
+            echo "❌ COSIGN_PRIVATE_KEY did not produce a valid PEM block."
+            echo "💡 Проверьте секрет COSIGN_PRIVATE_KEY в GitHub Settings. Возможно, при копировании ключа в base64-часть попал случайный перенос строки."
+            head -n 5 /tmp/cosign.key >&2
+            exit 1
+          fi
+
           for svc in $services; do
             echo "Signing $svc..."
-            if [ -z "$COSIGN_PRIVATE_KEY" ]; then
-              echo "COSIGN_PRIVATE_KEY is empty" >&2
-              exit 1
-            fi
-            if printf '%s' "$COSIGN_PRIVATE_KEY" | grep -q -- '-----BEGIN .*PRIVATE KEY-----'; then
-              printf '%s' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
-            elif printf '%s' "$COSIGN_PRIVATE_KEY" | grep -q '\\n'; then
-              printf '%b' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
-            else
-              if ! printf '%s' "$COSIGN_PRIVATE_KEY" | base64 -d > /tmp/cosign.key 2>/tmp/cosign.key.err; then
-                echo "Failed to decode COSIGN_PRIVATE_KEY as base64:" >&2
-                sed -n '1,20p' /tmp/cosign.key.err >&2
-                exit 1
-              fi
-            fi
-            if ! grep -q -- '-----BEGIN .*PRIVATE KEY-----' /tmp/cosign.key; then
-              echo "COSIGN_PRIVATE_KEY did not produce a valid PEM block" >&2
-              sed -n '1,5p' /tmp/cosign.key >&2
-              exit 1
-            fi
             cosign sign --yes --key /tmp/cosign.key \
               "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
-            rm -f /tmp/cosign.key /tmp/cosign.key.err
           done
+          
+          rm -f /tmp/cosign.key
 
   # ============================================================================
   # SLSA PROVENANCE
