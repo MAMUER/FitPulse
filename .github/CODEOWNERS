@@ -1,30 +1,31 @@
-# Global owners
-
 * @MAMUER
 
-## Go code
+# Security-sensitive paths require approval from @MAMUER
+/.github/ @MAMUER
+/configs/k8s/ @MAMUER
+/configs/monitoring/ @MAMUER
+/scripts/ @MAMUER
+/deploy/ @MAMUER
+/Makefile @MAMUER
 
-*.go @MAMUER
-cmd/** @MAMUER
-internal/** @MAMUER
+# Backend services
+/cmd/gateway/ @MAMUER
+/internal/gateway/ @MAMUER
+/cmd/user-service/ @MAMUER
+/internal/user/ @MAMUER
+/cmd/biometric-service/ @MAMUER
+/internal/biometric/ @MAMUER
+/cmd/training-service/ @MAMUER
+/internal/training/ @MAMUER
+/cmd/device-connector/ @MAMUER
+/internal/device/ @MAMUER
+/cmd/classifier/ @MAMUER
+/models/ @MAMUER
+/datasets/ @MAMUER
 
-## Kubernetes configs
+# Database
+/db/migrations/ @MAMUER
 
-configs/k8s/** @MAMUER
-
-## CI/CD
-
-.github/workflows/** @MAMUER
-
-## Security-sensitive files
-
-go.mod @MAMUER
-go.sum @MAMUER
-
-# Python code
-
-cmd/ml_generator/** @MAMUER
-
-# Frontend
-
-web/** @MAMUER
+# Security documentation
+/SECURITY.md @MAMUER
+/BUG_BOUNTY_SCOPE.md @MAMUER

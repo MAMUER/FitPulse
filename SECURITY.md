@@ -282,21 +282,73 @@ Mutable tags позволяют владельцу action'а перенапра�
   - app-service-account (для Jobs: migrate-db, seed-admin)
   - Каждая Role ограничена `resourceNames` на конкретные secrets и configmaps (например, `app-secrets`, `app-config`, `db-migrations`, `fittpulse-duckdns-org-tls`).
 - **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
+- **Policy-as-Code (Kyverno)**: В кластере развёрнуты Kyverno policies (`configs/k8s/policy/`):
+  - `disallow-privileged` — запрет привилегированных контейнеров (Enforce)
+  - `require-readonly-root-filesystem` — требование readOnlyRootFilesystem (Audit)
+  - `require-run-as-non-root` — требование runAsNonRoot + allowPrivilegeEscalation=false (Audit)
+  - `require-resource-limits` — требование resource limits для всех контейнеров (Audit)
 - **WAF**:
    1. Ingress NGINX Controller (`hostNetwork: true`, порты 80/443) + ModSecurity + OWASP CRS v4. Правила для SQLi, XSS, request smuggling, кастомные исключения для `/health`. Конфигурация в `configs/k8s/base/ingress-nginx/`. CRS rules автоматически обновляются через CronJob (`configs/k8s/base/jobs/update-modsecurity-crs.yaml`).
    2. cert-manager в кластере управляет TLS-сертификатами (Let's Encrypt). ClusterIssuer `letsencrypt-prod` для автоматического выпуска и продления сертификатов.
+- **Image provenance**: Все образы подписываются cosign при пуше в main. В PR выполняется проверка сигнатуры (cosign verify). Публичный ключ хранится в GitHub Secrets (`COSIGN_PUBLIC_KEY`).
 - **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
+- **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
+- **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.
+
+## CI/CD Безопасность
+
+### Сканеры SAST и Dependency
+
+| Инструмент | Что проверяет | Как запускается |
+| --- | --- | --- |
+| **CodeQL** | Статический анализ Go/Python кода, security-extended + security-and-quality queries | При каждом push/PR в main, weekly cron |
+| **gosec** | Go SAST: SQL injection, hardcoded credentials, unsafe crypto, log injection | В `security-scan` job |
+| **Semgrep** | SAST для Go (security-audit, owasp-top-ten) + YAML IaC (Kubernetes security) | При каждом push/PR, weekly cron |
+| **govulncheck** | Известные уязвимости в Go dependencies (Go Vulnerability Database) | В `security-scan` job |
+| **Trivy (fs)** | CVE в Go/Python dependencies + secrets + misconfig в коде | При каждом push/PR |
+| **Trivy (config)** | Misconfigurations в Kubernetes manifests (`configs/k8s/`) | При каждом push/PR |
+| **Trivy (image)** | CVE + secrets в Docker-образах (gateway) после сборки | После `docker` job |
+| **Gitleaks** | Секреты в git-истории и рабочей директории | В `security-scan` job |
+| **TruffleHog** | Дополнительный сканер секретов (v3.82.0) | В `security-scan` job |
+| **Dependency Review** | Автоматический комментарий в PR с новыми/обновлёнными dependencies | Только для PR |
+| **Monthly Dependency Update** | Автоматическое обновление Go dependencies (1-го числа каждого месяца) | Scheduled |
+| **OSV Scanner** | CVE в Go/Python dependencies через Google OSV | Weekly cron + manual |
+| **Syft** | SBOM generation (SPDX + CycloneDX) для артефактов | В `security-scan` job |
+
+### Infrastructure Security
+
+| Инструмент | Что проверяет | Как запускается |
+| --- | --- | --- |
+| **Kubescape** | CIS Benchmark + security controls для Kubernetes manifests | При каждом push/PR в `configs/k8s/` |
+| **Checkov** | IaC security scanner для Terraform/K8s/CI (дополнение к Trivy/Kubescape) | При каждом push/PR |
+| **Kube-bench** | CIS Benchmark для running k3s/k8s нод | При каждом push/PR |
+| **Kube-hunter** | Penetration testing кластера (passive scan) | При каждом push/PR |
+| **Hadolint** | Линтинг Dockerfile'ов | При каждом push/PR |
+| **Super-linter** | Мультиязычный линтинг (JSON, YAML, Markdown, Bash, Shell, Python, Dockerfile) | При каждом push/PR |
+| **actionlint** | Валидация GitHub Actions workflow синтаксиса | При каждом push/PR |
+
+### Policy-as-Code
+
+### Kubernetes Security
+
+| Контроль | Назначение |
+| --- | --- |
+| **Kyverno policies** (`configs/k8s/policy/`) | Cluster-side enforce: disallow privileged containers, require readOnlyRootFilesystem, require runAsNonRoot, require resource limits. Deploy вместе с приложением. |
+| **Pod Security Standards** | Baseline/restrictedPSP через pod security admission в k3s |
+| **Network Policies** | Сегментация traffic: dmz/app/data/monitoring namespaces |
+| **RBAC** | Минимальные права, отдельные ServiceAccount на сервис с ограничениями `resourceNames` |
+| **Image provenance** | Все образы подписываются cosign при пуше в main. В PR выполняется проверка сигнатуры (cosign verify). |
+
+### Supply Chain Security
+
+| Контроль | Назначение |
+| --- | --- |
+| **CODEOWNERS** | Mandatory review от @MAMUER для security-sensitive путей |
+| **SHA-pinned actions** | Все GitHub Actions зафиксированы на SHA, не на mutable tags |
+| **Cosign** | Image signing для production-образов |
+| **SBOM** | Syft генерирует SPDX + CycloneDX SBOM при каждом сборке |
 
 ## Процесс исправления
-
-1. **Получение отчёта** → Валидация и классификация
-2. **Исследование** → Определение масштаба и влияния
-3. **Исправление** → Разработка патча
-4. **Тестирование** → Проверка исправления и регрессионное тестирование
-5. **Релиз** → Выпуск обновления с указанием CVE (если применимо)
-6. **Post-mortem** → Анализ инцидента и улучшение процессов
-
-## Bug Bounty
 
 FitPulse — бесплатный open-source проект без бюджета на вознаграждения.
 Программа Bug Bounty **не активна в денежном выражении**, но мы принимаем добровольные сообщения об уязвимостях и публично атрибутируем исследователей.
@@ -312,4 +364,4 @@ FitPulse — бесплатный open-source проект без бюджета
 
 ---
 
-### Последнее обновление: 2026-07-28
+### Последнее обновление: 2026-07-29
