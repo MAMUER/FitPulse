@@ -15,6 +15,6 @@ kubelet-arg:
   - "max-pods=110"
   - "kube-reserved=cpu=200m,memory=512Mi"
   - "system-reserved=cpu=100m,memory=256Mi"
-  - "eviction-hard=memory.available<200Mi,nodefs.available<10%,imagefs.available<10%"
-  - "eviction-soft=memory.available<300Mi"
+  - "eviction-hard=memory.available<500Mi,nodefs.available<10%,imagefs.available<10%"
+  - "eviction-soft=memory.available<700Mi"
   - "eviction-soft-grace-period=memory.available=2m"
