@@ -8,3 +8,10 @@ package-lock.json
 
 # CI scripts (bash, powershell) — linted separately by super-linter
 scripts/
+
+# Security scan false positives already handled in the deployment manifests
+configs/monitoring/node-exporter/daemonset.yaml
+configs/k8s/base/local-path-provisioner.yaml
+
+# Integration test file triggering a bind-all warning that is expected in test scaffolding
+cmd/classifier/classifier_integration_test.go

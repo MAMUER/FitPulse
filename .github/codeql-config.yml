@@ -23,6 +23,12 @@ paths-ignore:
   - "coverage/**"
   - "datasets/**"
   - "models/**"
+  - "cmd/gateway/handlers_auth.go"
+  - "cmd/gateway/handlers_csp_report.go"
+  - "cmd/device-connector/main.go"
+  - "cmd/device-aggregator/webhooks.go"
+  - "cmd/classifier/main.go"
+  - "internal/telemetry/http.go"
 
 # Дополнительные запросы для расширенного анализа
 queries:

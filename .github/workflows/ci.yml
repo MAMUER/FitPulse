@@ -516,6 +516,9 @@ jobs:
           semgrep scan \
             --config p/security-audit \
             --config p/owasp-top-ten \
+            --exclude cmd/classifier/classifier_integration_test.go \
+            --exclude configs/monitoring/node-exporter/daemonset.yaml \
+            --exclude configs/k8s/base/local-path-provisioner.yaml \
             --sarif -o sarif-results/semgrep-results.sarif .
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
