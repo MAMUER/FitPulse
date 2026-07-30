@@ -36,9 +36,8 @@ func main() {
 
 	deviceEncryptor := initDeviceEncryptor(log)
 	fitbit := providers.NewFitbitProvider(database, log.Logger, deviceEncryptor)
-	garmin := providers.NewGarminProvider(database, log.Logger, deviceEncryptor)
 	withings := providers.NewWithingsProvider(database, log.Logger, deviceEncryptor)
-	agg := newAggregator(database, log, fitbit, garmin, withings)
+	agg := newAggregator(database, log, fitbit, withings)
 
 	r := setupRouter(log, agg)
 
@@ -141,10 +140,6 @@ func setupRouter(log *logger.Logger, agg *aggregator) http.Handler {
 	r.Get("/api/v1/devices/fitbit/callback", agg.fitbitCallbackHandler)
 	r.Post("/api/v1/devices/fitbit/webhook", fitbitWebhookHandler)
 	r.Post("/api/v1/devices/fitbit/disconnect", agg.fitbitDisconnectHandler)
-
-	r.Get("/api/v1/devices/garmin/auth", agg.garminAuthHandler)
-	r.Get("/api/v1/devices/garmin/callback", agg.garminCallbackHandler)
-	r.Post("/api/v1/devices/garmin/disconnect", agg.garminDisconnectHandler)
 
 	r.Get("/api/v1/devices/withings/auth", agg.withingsAuthHandler)
 	r.Get("/api/v1/devices/withings/callback", agg.withingsCallbackHandler)

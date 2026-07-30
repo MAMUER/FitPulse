@@ -114,7 +114,6 @@ func TestPlatformAdapter_HealthCheck_Success(t *testing.T) {
 func TestNewAdapterFactory(t *testing.T) {
 	factory := NewAdapterFactory(map[string]string{
 		"fitbit": "fitbit-api-key",
-		"garmin": "garmin-api-key",
 	})
 
 	require.NotNil(t, factory)
@@ -126,7 +125,6 @@ func TestNewAdapterFactory(t *testing.T) {
 func TestAdapterFactory_CreateAdapter(t *testing.T) {
 	factory := NewAdapterFactory(map[string]string{
 		"fitbit": "fitbit-api-key",
-		"garmin": "garmin-api-key",
 	})
 
 	t.Run("creates fitbit adapter", func(t *testing.T) {
@@ -135,14 +133,6 @@ func TestAdapterFactory_CreateAdapter(t *testing.T) {
 		require.NotNil(t, adapter)
 		assert.Equal(t, "fitbit", adapter.DeviceType())
 		assert.True(t, adapter.Supports("heart_rate"))
-	})
-
-	t.Run("creates garmin adapter", func(t *testing.T) {
-		adapter, err := factory.CreateAdapter("garmin", "user-1", "device-1")
-		require.NoError(t, err)
-		require.NotNil(t, adapter)
-		assert.Equal(t, "garmin", adapter.DeviceType())
-		assert.True(t, adapter.Supports("temperature"))
 	})
 
 	t.Run("creates withings adapter", func(t *testing.T) {
@@ -205,11 +195,9 @@ func TestAdapterFactory_CreateAdapter(t *testing.T) {
 func TestAdapterFactory_Supports(t *testing.T) {
 	factory := NewAdapterFactory(map[string]string{
 		"fitbit": "fitbit-api-key",
-		"garmin": "garmin-api-key",
 	})
 
 	assert.True(t, factory.Supports("fitbit", "heart_rate"))
-	assert.True(t, factory.Supports("garmin", "temperature"))
 	assert.False(t, factory.Supports("fitbit", "temperature"))
 	assert.False(t, factory.Supports("unknown", "heart_rate"))
 }

@@ -19,12 +19,11 @@ type aggregator struct {
 	db       *sql.DB
 	log      *logger.Logger
 	fitbit   *providers.FitbitProvider
-	garmin   *providers.GarminProvider
 	withings *providers.WithingsProvider
 }
 
-func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider, garmin *providers.GarminProvider, withings *providers.WithingsProvider) *aggregator {
-	return &aggregator{db: db, log: log, fitbit: fitbit, garmin: garmin, withings: withings}
+func newAggregator(db *sql.DB, log *logger.Logger, fitbit *providers.FitbitProvider, withings *providers.WithingsProvider) *aggregator {
+	return &aggregator{db: db, log: log, fitbit: fitbit, withings: withings}
 }
 
 func (a *aggregator) healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -157,21 +156,6 @@ func (a *aggregator) fitbitCallbackHandler(w http.ResponseWriter, r *http.Reques
 
 func (a *aggregator) fitbitDisconnectHandler(w http.ResponseWriter, r *http.Request) {
 	a.handleDisconnect(w, r, a.fitbit.Disconnect, "Fitbit")
-}
-
-func (a *aggregator) garminAuthHandler(w http.ResponseWriter, r *http.Request) {
-	a.handleAuthStart(w, r, a.garmin.GetAuthURL, "Garmin", "garmin")
-}
-
-func (a *aggregator) garminCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	a.handleOAuthCallback(w, r, func(ctx context.Context, code, state string) error {
-		oauthVerifier := r.URL.Query().Get("oauth_verifier")
-		return a.garmin.ExchangeCode(ctx, code, oauthVerifier, state)
-	}, "Garmin")
-}
-
-func (a *aggregator) garminDisconnectHandler(w http.ResponseWriter, r *http.Request) {
-	a.handleDisconnect(w, r, a.garmin.Disconnect, "Garmin")
 }
 
 func (a *aggregator) withingsAuthHandler(w http.ResponseWriter, r *http.Request) {

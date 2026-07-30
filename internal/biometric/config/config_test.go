@@ -13,9 +13,9 @@ func TestDefaultAdapterConfig(t *testing.T) {
 	cfg := DefaultAdapterConfig()
 
 	assert.NotEmpty(t, cfg.Vendors)
-	assert.Len(t, cfg.Vendors, 6)
+	assert.Len(t, cfg.Vendors, 5)
 
-	vendors := []string{"fitbit", "garmin", "withings", "health_connect", "terra", "rook"}
+	vendors := []string{"fitbit", "withings", "health_connect", "terra", "rook"}
 	for _, vendor := range vendors {
 		t.Run(vendor, func(t *testing.T) {
 			v, ok := cfg.Vendors[vendor]
@@ -40,14 +40,6 @@ func TestDefaultAdapterConfigFitbit(t *testing.T) {
 	assert.Equal(t, "fitbit", v.DeviceType)
 }
 
-func TestDefaultAdapterConfigGarmin(t *testing.T) {
-	cfg := DefaultAdapterConfig()
-	v := cfg.Vendors["garmin"]
-
-	assert.Equal(t, "https://connectapi.garmin.com", v.BaseURL)
-	assert.True(t, v.Enabled)
-}
-
 func TestDefaultAdapterConfigWithings(t *testing.T) {
 	cfg := DefaultAdapterConfig()
 	v := cfg.Vendors["withings"]
@@ -60,9 +52,9 @@ func TestDefaultVendorCapabilities(t *testing.T) {
 	caps := DefaultVendorCapabilities()
 
 	assert.NotEmpty(t, caps.Vendors)
-	assert.Len(t, caps.Vendors, 3)
+	assert.Len(t, caps.Vendors, 2)
 
-	vendors := []string{"fitbit", "garmin", "withings"}
+	vendors := []string{"fitbit", "withings"}
 	for _, vendor := range vendors {
 		t.Run(vendor, func(t *testing.T) {
 			v, ok := caps.Vendors[vendor]
@@ -84,20 +76,6 @@ func TestDefaultVendorCapabilitiesFitbit(t *testing.T) {
 	assert.False(t, fitbit[domain.MetricECG])
 	assert.True(t, fitbit[domain.MetricSleepStage])
 	assert.True(t, fitbit[domain.MetricSteps])
-}
-
-func TestDefaultVendorCapabilitiesGarmin(t *testing.T) {
-	caps := DefaultVendorCapabilities()
-	garmin := caps.Vendors["garmin"]
-
-	assert.True(t, garmin[domain.MetricHeartRate])
-	assert.True(t, garmin[domain.MetricHRV])
-	assert.True(t, garmin[domain.MetricSpO2])
-	assert.True(t, garmin[domain.MetricTemperature])
-	assert.False(t, garmin[domain.MetricBloodPressureSys])
-	assert.False(t, garmin[domain.MetricECG])
-	assert.True(t, garmin[domain.MetricSleepStage])
-	assert.True(t, garmin[domain.MetricSteps])
 }
 
 func TestDefaultVendorCapabilitiesWithings(t *testing.T) {

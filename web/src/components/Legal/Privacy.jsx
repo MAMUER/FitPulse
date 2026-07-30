@@ -136,9 +136,6 @@ export default function Privacy() {
             )
           </li>
           <li>
-            <strong>Garmin Health API</strong> — синхронизация биометрических данных
-          </li>
-          <li>
             <strong>Withings API</strong> — синхронизация биометрических данных
           </li>
           <li>

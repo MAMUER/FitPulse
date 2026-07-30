@@ -15,12 +15,6 @@ export default function Devices() {
       capabilities: 'Пульс, SpO₂, Сон, Шаги, HRV',
     },
     {
-      type: 'garmin',
-      name: 'Garmin',
-      icon: '⌚',
-      capabilities: 'Пульс, SpO₂, Сон, Шаги, HRV, Темп',
-    },
-    {
       type: 'withings',
       name: 'Withings',
       icon: '⚖️',

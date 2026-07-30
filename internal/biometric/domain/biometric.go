@@ -79,21 +79,16 @@ func AllMetricTypes() []MetricType {
 // VendorCapabilities returns supported metrics for each device type.
 func VendorCapabilities() map[string]map[MetricType]bool {
 	return map[string]map[MetricType]bool{
-		"fitbit": {
-			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
-			MetricTemperature: false, MetricBloodPressureSys: false,
-			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
-		},
-		"garmin": {
-			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
-			MetricTemperature: true, MetricBloodPressureSys: false,
-			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
-		},
-		"withings": {
-			MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
-			MetricTemperature: true, MetricBloodPressureSys: true,
-			MetricECG: false, MetricSleepStage: true, MetricSteps: true,
-		},
+	"fitbit": {
+		MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
+		MetricTemperature: false, MetricBloodPressureSys: false,
+		MetricECG: false, MetricSleepStage: true, MetricSteps: true,
+	},
+	"withings": {
+		MetricHeartRate: true, MetricHRV: true, MetricSpO2: true,
+		MetricTemperature: true, MetricBloodPressureSys: true,
+		MetricECG: false, MetricSleepStage: true, MetricSteps: true,
+	},
 	}
 }
 

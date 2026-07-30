@@ -56,7 +56,7 @@ message BiometricData {
 }
 
 message ConnectedDevice {
-    string device_type = 1; // fitbit, garmin, withings
+    string device_type = 1; // fitbit, withings
     string device_id = 2;
     repeated string capabilities = 3;
 }

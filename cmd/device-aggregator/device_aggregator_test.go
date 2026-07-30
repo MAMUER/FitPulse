@@ -180,7 +180,7 @@ func TestHandleAuthStart_InvalidRedirectHost(t *testing.T) {
 
 func TestNewAggregator(t *testing.T) {
 	log := logger.New("device-aggregator-test")
-	agg := newAggregator(nil, log, nil, nil, nil)
+	agg := newAggregator(nil, log, nil, nil)
 	assert.NotNil(t, agg)
 	assert.NotNil(t, agg.log)
 }

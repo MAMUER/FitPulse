@@ -26,7 +26,6 @@ func TestVendorCapabilities(t *testing.T) {
 	caps := VendorCapabilities()
 
 	assert.Contains(t, caps, "fitbit")
-	assert.Contains(t, caps, "garmin")
 	assert.Contains(t, caps, "withings")
 
 	// Test Fitbit capabilities
@@ -34,12 +33,6 @@ func TestVendorCapabilities(t *testing.T) {
 	assert.True(t, fitbit[MetricHeartRate])
 	assert.False(t, fitbit[MetricECG])
 	assert.False(t, fitbit[MetricTemperature])
-
-	// Test Garmin capabilities
-	garmin := caps["garmin"]
-	assert.True(t, garmin[MetricHeartRate])
-	assert.True(t, garmin[MetricTemperature])
-	assert.False(t, garmin[MetricBloodPressureSys])
 
 	// Test Withings capabilities
 	withings := caps["withings"]

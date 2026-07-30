@@ -178,17 +178,17 @@ export default function AuthScreen() {
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-              gap: 10,
-              textAlign: 'left',
-              marginTop: 18,
-            }}
-          >
-            {[
-              '📊 Биометрия и активность',
-              '⌚ Garmin / Withings',
-              '🤖 AI-планы тренировок',
-              '🔒 End-to-end защита',
-            ].map((feature) => (
+                  gap: 10,
+                  textAlign: 'left',
+                  marginTop: 18,
+                }}
+              >
+                {[
+                  '📊 Биометрия и активность',
+                  '⌚ Withings',
+                  '🤖 AI-планы тренировок',
+                  '🔒 End-to-end защита',
+                ].map((feature) => (
               <div
                 key={feature}
                 style={{

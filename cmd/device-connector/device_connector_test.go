@@ -31,7 +31,6 @@ func TestIsValidDeviceType(t *testing.T) {
 		want     bool
 	}{
 		{"fitbit", "fitbit", true},
-		{"garmin", "garmin", true},
 		{"withings", "withings", true},
 		{"invalid type", "unknown_device", false},
 		{"empty string", "", false},

@@ -1016,7 +1016,7 @@ paths:
                   format: date-time
                 device_type:
                   type: string
-                  enum: [fitbit, garmin, withings, apple_watch, manual]
+                  enum: [fitbit, withings, apple_watch, manual]
                 quality:
                   type: string
                   enum: [high, medium, low]
@@ -1313,7 +1313,7 @@ paths:
               properties:
                 device_type:
                   type: string
-                  enum: [fitbit, garmin, withings, apple_watch]
+                  enum: [fitbit, withings, apple_watch]
       responses:
         "200":
           description: Device registered
@@ -1419,61 +1419,8 @@ paths:
             schema:
               type: object
       responses:
-        "204":
-          description: Webhook received
-
-  /devices/garmin/auth:
-    get:
-      tags:
-        - Devices
-      summary: Start Garmin OAuth flow
-      security:
-        - bearerAuth: []
-      responses:
-        "302":
-          description: Redirect to Garmin OAuth
-
-  /devices/garmin/callback:
-    get:
-      tags:
-        - Devices
-      summary: Garmin OAuth callback
-      security: []
-      parameters:
-        - name: code
-          in: query
-          schema:
-            type: string
-        - name: state
-          in: query
-          schema:
-            type: string
-        - name: oauth_verifier
-          in: query
-          schema:
-            type: string
-      responses:
-        "302":
-          description: Redirect to app
-
-  /devices/garmin/disconnect:
-    post:
-      tags:
-        - Devices
-      summary: Disconnect Garmin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Disconnected
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "disconnected"
+         "204":
+           description: Webhook received
 
   /devices/withings/auth:
     get:
@@ -1872,69 +1819,6 @@ paths:
                     type: string
                     example: "disconnected"
 
-  /api/v1/devices/garmin/auth:
-    get:
-      tags:
-        - Device Aggregator
-      summary: Start Garmin OAuth flow
-      security: []
-      parameters:
-        - name: X-User-ID
-          in: header
-          required: true
-          schema:
-            type: string
-      responses:
-        "302":
-          description: Redirect to Garmin OAuth
-
-  /api/v1/devices/garmin/callback:
-    get:
-      tags:
-        - Device Aggregator
-      summary: Garmin OAuth callback
-      security: []
-      parameters:
-        - name: code
-          in: query
-          schema:
-            type: string
-        - name: state
-          in: query
-          schema:
-            type: string
-        - name: oauth_verifier
-          in: query
-          schema:
-            type: string
-      responses:
-        "302":
-          description: Redirect to app
-
-  /api/v1/devices/garmin/disconnect:
-    post:
-      tags:
-        - Device Aggregator
-      summary: Disconnect Garmin
-      security: []
-      parameters:
-        - name: X-User-ID
-          in: header
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Disconnected
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "disconnected"
-
   /api/v1/devices/withings/auth:
     get:
       tags:
@@ -2128,7 +2012,7 @@ components:
           type: integer
         source:
           type: string
-          enum: [manual, fitbit, garmin, withings, apple_health]
+          enum: [manual, fitbit, withings, apple_health]
         created_at:
           type: string
           format: date-time
@@ -2163,7 +2047,7 @@ components:
           type: integer
         source:
           type: string
-          enum: [manual, fitbit, garmin, withings, apple_health]
+          enum: [manual, fitbit, withings, apple_health]
 
     MenstrualCycle:
       type: object
@@ -2290,7 +2174,7 @@ components:
       properties:
         device_type:
           type: string
-          enum: [fitbit, garmin, withings, apple_watch, manual]
+                  enum: [fitbit, withings, apple_watch, manual]
         device_token:
           type: string
         sync_interval_ms:

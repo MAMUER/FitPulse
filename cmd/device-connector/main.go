@@ -37,7 +37,7 @@ import (
 // isValidDeviceType checks if the device type is supported
 func isValidDeviceType(dt string) bool {
 	switch dt {
-	case "fitbit", "garmin", "withings":
+	case "fitbit", "withings":
 		return true
 	}
 	return false

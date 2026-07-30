@@ -10,5 +10,6 @@ resources:
   - training-service.yaml
   - gateway-service.yaml
   - device-connector-service.yaml
+  - device-aggregator-service.yaml
   - classifier-service.yaml
   - ml-generator-service.yaml
