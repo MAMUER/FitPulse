@@ -58,9 +58,6 @@ Refresh token используется для ротации через `POST /a
 |GET|`/api/v1/devices/fitbit/callback`|Fitbit callback|Query: `code`, `state`|`{status}`|
 |POST|`/api/v1/devices/fitbit/webhook`|Fitbit webhook (публичный)|JSON body|`{status}`|
 |POST|`/api/v1/devices/fitbit/disconnect`|Disconnect Fitbit|Header: `X-User-ID`|`{status}`|
-|GET|`/api/v1/devices/garmin/auth`|Garmin OAuth 1.0a|Header: `X-User-ID`|Redirect to Garmin|
-|GET|`/api/v1/devices/garmin/callback`|Garmin callback|Query: `code`, `state`, `oauth_verifier`|`{status}`|
-|POST|`/api/v1/devices/garmin/disconnect`|Disconnect Garmin|Header: `X-User-ID`|`{status}`|
 |GET|`/api/v1/devices/withings/auth`|Withings OAuth|Header: `X-User-ID`|Redirect to Withings|
 |GET|`/api/v1/devices/withings/callback`|Withings callback|Query: `code`, `state`|`{status}`|
 |POST|`/api/v1/devices/withings/webhook`|Withings webhook (публичный)|Header: `X-Withings-Signature`, JSON body|`{status}`|

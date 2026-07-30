@@ -13,7 +13,7 @@ import './Auth.css';
 export default function AuthScreen() {
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
-  const [mode, setMode] = useState('login'); // login, register, verify, login2fa
+  const [mode, setMode] = useState('login');
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     email: '',
@@ -154,6 +154,65 @@ export default function AuthScreen() {
           <div className='logo-icon'>💓</div>
           <h1>FitPulse</h1>
           <p>Ваш персональный AI-тренер</p>
+        </div>
+
+        <div
+          className='auth-landing'
+          style={{
+            textAlign: 'center',
+            color: 'var(--text-secondary)',
+            fontSize: 15,
+            lineHeight: 1.6,
+            maxWidth: 520,
+            margin: '0 auto 28px',
+            padding: '0 20px',
+          }}
+        >
+          <p style={{ marginBottom: 12 }}>
+            FitPulse — это открытая платформа для фитнес- и health-трекинга.
+            Мы помогаем отслеживать пульс, SpO2, шаги, сон и тренировки,
+            синхронизировать данные с носимых устройств и получать
+            персонализированные insights.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 10,
+              textAlign: 'left',
+              marginTop: 18,
+            }}
+          >
+            {[
+              '📊 Биометрия и активность',
+              '⌚ Garmin / Withings',
+              '🤖 AI-планы тренировок',
+              '🔒 End-to-end защита',
+            ].map((feature) => (
+              <div
+                key={feature}
+                style={{
+                  background: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '12px 14px',
+                  fontSize: 13,
+                }}
+              >
+                {feature}
+              </div>
+            ))}
+          </div>
+          <p
+            style={{
+              marginTop: 16,
+              fontSize: 13,
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            Мы собираем только данные, необходимые для работы сервиса:
+            учётные записи, биометрию с устройств, технические логи.
+            Вы можете запросить копию или удаление данных в любой момент.
+          </p>
         </div>
 
         {mode === 'login' && (
@@ -388,6 +447,27 @@ export default function AuthScreen() {
             </p>
           </div>
         )}
+
+        <div
+          style={{
+            textAlign: 'center',
+            color: 'var(--text-tertiary)',
+            fontSize: 13,
+            display: 'flex',
+            gap: 16,
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            padding: '0 24px 24px',
+          }}
+        >
+          <a href='/privacy' style={{ color: 'inherit', textDecoration: 'none' }}>
+            Политика конфиденциальности
+          </a>
+          <span>•</span>
+          <a href='/terms' style={{ color: 'inherit', textDecoration: 'none' }}>
+            Пользовательское соглашение
+          </a>
+        </div>
       </div>
     </div>
   );

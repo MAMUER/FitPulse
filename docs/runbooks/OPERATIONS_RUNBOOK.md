@@ -178,7 +178,7 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 
 ### Device Aggregator: OAuth/webhook сбои (SEV-2)
 
-**Симптомы**: пользователи не могут подключить Fitbit/Garmin/Withings, webhook'и не доставляются.
+**Симптомы**: пользователи не могут подключить Fitbit/Withings, webhook'и не доставляются.
 
 **Шаги**:
 

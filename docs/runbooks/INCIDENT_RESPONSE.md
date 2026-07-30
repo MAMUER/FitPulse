@@ -66,7 +66,7 @@ kubectl logs -f deployment/gateway -n fitness-platform-production --tail=200
 **Проверка новых сервисов**:
 
 ```bash
-# Device Aggregator (OAuth, Fitbit/Garmin/Withings)
+# Device Aggregator (OAuth, Fitbit/Withings)
 kubectl get pods -n fitness-platform-production -l app=device-aggregator
 kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
 

@@ -54,23 +54,6 @@
 - Information disclosure
 - Session management issues
 
-#### Осознанные исключения: HMAC-SHA1 в Garmin OAuth 1.0a
-
-В `cmd/device-aggregator/providers/garmin.go` используется `crypto/sha1` для формирования `oauth_signature` по спецификации **OAuth 1.0a**. Garmin Health API строго требует `oauth_signature_method: HMAC-SHA1`; замена алгоритма приведёт к отклонению всех запросов авторизации и синхронизации данных.
-
-Использование SHA1 ограничено только подписью исходящих запросов к внешнему сервису Garmin. Криптографически значимые данные (пароли, refresh-токены, TOTP-секреты, PII) шифруются по современным стандартам: Argon2id, AES-256-GCM, pgsodium/libsodium.
-
-Исключение зафиксировано в `.golangci.yml`:
-
-```yaml
-- path: cmd/device-aggregator/providers/garmin\.go
-  linters:
-    - gosec
-  text: G505
-```
-
-При отключении интеграции с Garmin или переходе на их OAuth 2.0 (если появится) это исключение должно быть удалено.
-
 ### Низкая опасность
 
 - Missing rate limiting
@@ -192,7 +175,6 @@ Kubescape scan запускается в CI на директорию `configs/k
 | --------- | ------ | ------------- |
 | `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Google OAuth endpoints (`https://accounts.google.com/o/oauth2/auth`, `https://oauth2.googleapis.com/token`), известные всем разработчикам. Не являются credentials. |
 | `G101` | `cmd/gateway/helpers.go:94` | Ложноположительное: ключи мапы — пользовательские сообщения об ошибках (gRPC status text), а не пароли/токены/секреты. |
-| `G505` | `cmd/device-aggregator/providers/garmin.go:7` | Принятый риск: `crypto/sha1` требуется для HMAC-SHA1 подписи в OAuth 1.0a протоколе Garmin Health API. Это upstream-требование интеграции, а не слабое хеширование паролей. |
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
 
@@ -292,6 +274,14 @@ Mutable tags позволяют владельцу action'а перенапра�
    2. cert-manager в кластере управляет TLS-сертификатами (Let's Encrypt). ClusterIssuer `letsencrypt-prod` для автоматического выпуска и продления сертификатов.
 - **Image provenance**: Все образы подписываются cosign при пуше в main. В PR выполняется проверка сигнатуры (cosign verify). Публичный ключ хранится в GitHub Secrets (`COSIGN_PUBLIC_KEY`).
 - **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
+- **External dependencies**:
+  - [DuckDNS](https://www.duckdns.org/domains) — бесплатный динамический DNS для `fittpulse.duckdns.org`. Токен хранится в GitHub Secrets как `DUCKDNS_TOKEN`, используется в CI (`configs/k8s/scripts/duckdns-update.sh`) и на VPS в `/etc/duckdns/token`.
+  - Telegram Bot API — уведомления в чат при деплое/инцидентах
+  - Let's Encrypt / cert-manager — TLS-сертификаты для внешнего домена
+  - GitHub Actions / GHCR — CI/CD и registry образов
+  - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Google OAuth 2.0 вход (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` в GitHub Secrets). Privacy Policy: `https://fittpulse.duckdns.org/privacy`. Terms of Service: `https://fittpulse.duckdns.org/terms`. Authorized domain: `fittpulse.duckdns.org`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
+  - [Withings Developer Dashboard](https://developer.withings.com/dashboard/) — синхронизация биометрических данных из устройств Withings (пульс, SpO2, шаги, сон, масса, активность). В текущей конфигурации указаны Callback URLs: `https://fittpulse.duckdns.org/api/v1/devices/withings/callback` и `https://fittpulse.duckdns.org/api/v1/devices/withings/webhook`; API Endpoint: `https://wbsapi.withings.net`. Secrets `WITHINGS_CLIENT_ID` и `WITHINGS_CLIENT_SECRET` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`. При переходе на платный домен callback URLs должны быть обновлены на `https://fitpulse.app/api/v1/devices/withings/callback` и `https://fitpulse.app/api/v1/devices/withings/webhook`.
+  - [Yandex app passwords](https://id.yandex.ru/security/app-passwords) — SMTP-провайдер — отправка писем. Secrets: `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
 - **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
 - **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.
 

@@ -875,7 +875,7 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 27.1 Контекст
 
-Текущие интегрированные устройства: Fitbit (OAuth 2.0) и Garmin (OAuth 1.0a). В UI присутствуют карточки для Fitbit, Garmin и Withings. Samsung Galaxy Watch и Huawei Watch D2 поддерживаются только в roadmap Phase 2.
+Текущие интегрированные устройства: Fitbit (OAuth 2.0) и Withings (OAuth 2.0). В UI присутствуют карточки для Fitbit и Withings. Samsung Galaxy Watch и Huawei Watch D2 поддерживаются только в roadmap Phase 2.
 
 ### 27.2 План
 
@@ -898,4 +898,63 @@ Phase 2 считается завершённой, когда выполнены
 - Device-aggregator получает нового провайдера на каждое устройство
 - OAuth-токены хранятся в `device_provider_accounts` с шифрованием
 - Для устройств без публичного OAuth API (Samsung Galaxy Watch, Huawei Watch D2) требуется регистрация в соответствующих developer programs и создание мобильного приложения для передачи данных с телефона на backend
+
+---
+
+## 28. Полноценная двухфакторная верификация через Google (после покупки платного домена)
+
+### 28.1 Контекст
+
+На текущем домене `fittpulse.duckdns.org` (бесплатный динамический DNS, DuckDNS) Google блокирует перевод OAuth consent screen в production и окончательную branding verification. Приложение остаётся в статусе **testing** с ограничениями: 7 дней жизни токенов, вход доступен только добавленным вручную тестовым пользователям.
+
+Чтобы разблокировать полноценный вход для всех пользователей через Google OAuth 2.0 с production-статусом consent screen, требуется:
+- подтверждённый домен, принадлежащий проекту;
+- живой homepage на этом домене;
+- privacy policy и terms of service на том же домене;
+- branding verification пройдена.
+
+### 28.2 Предпосылки
+
+- Приобретён платный домен, например `fitpulse.app` (стоимость ~1 500 ₽/год, см. раздел 19.2).
+- DNS-записи домена указывают на VPS / внешний load balancer, где поднят кластер k3s.
+- В Google Cloud Console:
+  - добавлен `fitpulse.app` в **Authorized domains** для проекта `fitpulse-1780824080979`;
+  - настроен OAuth 2.0 Client ID (Web application) с authorised redirect URIs:
+    - `https://fitpulse.app/api/v1/auth/google/callback`
+  - в consent screen указаны:
+    - Homepage: `https://fitpulse.app`
+    - Privacy Policy: `https://fitpulse.app/privacy`
+    - Terms of Service: `https://fitpulse.app/terms`
+- На VPS / в k8s:
+  - cert-manager выписывает TLS-сертификат для `fitpulse.app`;
+  - ingress/routes проксируют `/`, `/privacy`, `/terms` на gateway;
+  - SPA на React отдаёт главную страницу и юридические страницы.
+
+### 28.3 Задачи
+
+| Этап | Задача | Срок | Приоритет |
+| --- | --- | --- | --- |
+| 1 | Приобрести домен `fitpulse.app` и направить DNS на инфраструктуру | 1 день | P0 |
+| 2 | Подготовить инфраструктуру: TLS через cert-manager, Ingress/Route для `fitpulse.app` | 2–3 дня | P0 |
+| 3 | Обновить `SECURITY.md`, CI конфиги, deployment manifests под новый домен | 1 день | P1 |
+| 4 | В Google Cloud Console обновить authorized domains, consent screen URLs, redirect URIs | 1 день | P0 |
+| 5 | Пройти branding verification (логотип 120×120, скриншоты, описание) | 1–2 дня | P0 |
+| 6 | Перевести consent screen из testing в production | 1 день | P0 |
+| 7 | Удалить `fitpulse.duckdns.org` из authorised domains после успешной миграции | 1 день | P1 |
+
+### 28.4 Acceptance Criteria
+
+- `https://fitpulse.app`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
+- Google OAuth consent screen находится в статусе **production**.
+- Вход через Google работает для любых пользователей без ограничения в 100 аккаунтов и без 7-дневного истечения токена.
+- Backup/fallback: при проблемах с доменом можно заminutes на `fittpulse.duckdns.org` и продолжить тестирование, не меняя код.
+
+### 28.5 Риски и mitigation
+
+| Риск | Вероятность | Воздействие | Mitigation |
+| --- | --- | --- | --- |
+| Домен не прошёл верификацию | Средняя | Высокое | Предварительно submit в Google, подготовить все материалы (логотип, скриншоты, описание) |
+| Проблемы с DNS propagation | Средняя | Среднее | Использовать TTL 300s на время переезда, мониторить `dig`/`nslookup` |
+| Просрочение сертификата cert-manager | Низкая | Низкое | cert-manager автоматически продлевает; настроить алерты за 7 дней до истечения |
+| Утеря DuckDNS как fallback | Низкая | Среднее | Оставить DuckDNS как secondary A/AAAA до полного cutover |
 

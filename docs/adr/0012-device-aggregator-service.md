@@ -12,7 +12,7 @@
 
 Выделить отдельный микросервис `device-aggregator` (Go, chi/v5, порт 8083) для:
 
-- унифицированного OAuth-flow по Fitbit, Garmin и последующим провайдерам;
+- унифицированного OAuth-flow по Fitbit и последующим провайдерам;
 - хранения и обновления OAuth-токенов в БД (`device_provider_accounts`);
 - защиты от CSRF через `oauth_states` с TTL;
 - проброса OAuth-запросов из Gateway через `proxyToDeviceAggregator`;
@@ -34,7 +34,6 @@
 
 - `cmd/device-aggregator/main.go` — сервер и маршрутизация.
 - `cmd/device-aggregator/providers/fitbit.go` — Fitbit OAuth 2.0 интеграция.
-- `cmd/device-aggregator/providers/garmin.go` — Garmin Health API OAuth 1.0a заглушка.
 - `cmd/device-aggregator/providers/withings.go` — Withings заглушка.
 - `cmd/device-aggregator/aggregator.go` — общий интерфейс провайдеров.
 - `cmd/device-aggregator/webhooks.go` — обработка webhook’ов.

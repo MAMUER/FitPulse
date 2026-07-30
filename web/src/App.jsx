@@ -11,6 +11,8 @@ import Layout from './components/Layout/Layout';
 import ML from './components/ML/ML';
 import Profile from './components/Profile/Profile';
 import Training from './components/Training/Training';
+import Privacy from './components/Legal/Privacy';
+import Terms from './components/Legal/Terms';
 import { useAuth } from './contexts/AuthContext';
 
 export default function App() {
@@ -38,6 +40,8 @@ export default function App() {
     return (
       <Routes>
         <Route path='/confirm' element={<Confirm />} />
+        <Route path='/privacy' element={<Privacy />} />
+        <Route path='/terms' element={<Terms />} />
         <Route path='*' element={<AuthScreen />} />
       </Routes>
     );

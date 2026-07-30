@@ -16,7 +16,7 @@
 │   ├── user-service/                 # Users, auth, profile
 │   ├── biometric-service/            # Biometric data ingestion
 │   ├── training-service/             # Training plans
-│   ├── device-connector/             # External device sync (Fitbit/Garmin/Withings)
+│   ├── device-connector/             # External device sync (Fitbit/Withings)
 │   ├── device-aggregator/            # OAuth/webhook aggregator for devices
 │   ├── classifier/                   # Classifier service
 │   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
@@ -791,9 +791,8 @@ HTTP-сервис для классификации физиологическо
 
 ### 4.12.1 Назначение
 
-HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Garmin, Withings). Отвечает за:
+HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Withings). Отвечает за:
 - OAuth 2.0 flow для Fitbit и Withings
-- OAuth 1.0a flow для Garmin
 - Шифрование и хранение refresh-токенов в БД
 - Управление подключениями (подключение/отключение)
 - Обработка webhook-уведомлений от провайдеров
@@ -809,9 +808,6 @@ HTTP-сервис для управления OAuth-подключениями �
 | `GET /api/v1/devices/fitbit/callback` | Fitbit OAuth callback |
 | `POST /api/v1/devices/fitbit/webhook` | Fitbit webhook |
 | `POST /api/v1/devices/fitbit/disconnect` | Disconnect Fitbit |
-| `GET /api/v1/devices/garmin/auth` | Start Garmin OAuth 1.0a |
-| `GET /api/v1/devices/garmin/callback` | Garmin OAuth callback |
-| `POST /api/v1/devices/garmin/disconnect` | Disconnect Garmin |
 | `GET /api/v1/devices/withings/auth` | Start Withings OAuth |
 | `GET /api/v1/devices/withings/callback` | Withings OAuth callback |
 | `POST /api/v1/devices/withings/webhook` | Withings webhook |
@@ -827,7 +823,6 @@ HTTP-сервис для управления OAuth-подключениями �
 | `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
 | `DEVICE_TOKEN_ENCRYPTION_KEY` | — | AES-256-GCM ключ для шифрования refresh-токенов (обязателен) |
 | `FITBIT_CLIENT_ID`, `FITBIT_CLIENT_SECRET`, `FITBIT_REDIRECT_URI` | — | Fitbit OAuth credentials |
-| `GARMIN_CONSUMER_KEY`, `GARMIN_CONSUMER_SECRET`, `GARMIN_CALLBACK_URL` | — | Garmin OAuth 1.0a credentials |
 | `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL` | — | Withings OAuth credentials |
 
 ### 4.12.4 Безопасность
@@ -858,7 +853,6 @@ HTTP-сервис для управления OAuth-подключениями �
 
 - Логгер: `internal/logger` с полем `service: "device-aggregator"`
 - Middleware: recovery, request ID, correlation ID, logging с Prometheus
-- Garmin OAuth 1.0a использует `crypto/sha1` для подписи (требование Garmin Health API, см. `SECURITY.md`)
 
 ---
 
@@ -983,7 +977,7 @@ HTTP-сервис для регистрации носимых устройст�
 ### 4.13.15 Особенности
 
 - Логгер: `internal/logger` с полем `service: "device-connector"`
-- Поддерживаемые типы устройств: `fitbit`, `garmin`, `withings`
+- Поддерживаемые типы устройств: `fitbit`, `withings`
 - Токены устройств хранятся в базе в открытом виде (в production требует шифрования)
 
 ---
