@@ -110,7 +110,7 @@ func (s *Storage) SaveMetrics(ctx context.Context, payload *OpenWearablesWebhook
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	// nolint:log-injection // user_id and source are sanitized via sanitize.LogString
+	// codeql[go/log-injection] user_id and source are sanitized via sanitize.LogString
 	s.log.Info("metrics saved",
 		zap.String("user_id", sanitize.LogString(payload.UserID)),
 		zap.String("source", sanitize.LogString(string(payload.Source))),

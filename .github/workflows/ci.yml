@@ -1909,19 +1909,29 @@ jobs:
             -n fitness-platform-production \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
            echo "imagePullSecret created/updated"
-      - name: Build and push Open Wearables images
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-           echo "Cloning Open Wearables repo..."
-           git clone --depth 1 https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
-           echo "Building Open Wearables backend..."
-           docker build -t ghcr.io/mamuer/project/open-wearables-backend:latest -f /tmp/open-wearables/backend/Dockerfile /tmp/open-wearables/backend
-           echo "Building Open Wearables frontend..."
-           docker build -t ghcr.io/mamuer/project/open-wearables-frontend:latest -f /tmp/open-wearables/frontend/Dockerfile /tmp/open-wearables/frontend
-           echo "Pushing Open Wearables images..."
-           docker push ghcr.io/mamuer/project/open-wearables-backend:latest
-           docker push ghcr.io/mamuer/project/open-wearables-frontend:latest
-           echo "Open Wearables images pushed"
+        - name: Get short SHA
+          if: steps.connectivity.outputs.reachable == 'true'
+          id: sha
+          run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        - name: Build and push Open Wearables images
+         if: steps.connectivity.outputs.reachable == 'true'
+         run: |
+            echo "Cloning Open Wearables repo..."
+            git clone --depth 1 https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
+            echo "Building Open Wearables backend..."
+            docker build -t ghcr.io/mamuer/project/open-wearables-backend:${{ steps.sha.outputs.short_sha }} \
+              -t ghcr.io/mamuer/project/open-wearables-backend:latest \
+              -f /tmp/open-wearables/backend/Dockerfile /tmp/open-wearables/backend
+            echo "Building Open Wearables frontend..."
+            docker build -t ghcr.io/mamuer/project/open-wearables-frontend:${{ steps.sha.outputs.short_sha }} \
+              -t ghcr.io/mamuer/project/open-wearables-frontend:latest \
+              -f /tmp/open-wearables/frontend/Dockerfile /tmp/open-wearables/frontend
+            echo "Pushing Open Wearables images..."
+            docker push ghcr.io/mamuer/project/open-wearables-backend:${{ steps.sha.outputs.short_sha }}
+            docker push ghcr.io/mamuer/project/open-wearables-backend:latest
+            docker push ghcr.io/mamuer/project/open-wearables-frontend:${{ steps.sha.outputs.short_sha }}
+            docker push ghcr.io/mamuer/project/open-wearables-frontend:latest
+            echo "Open Wearables images pushed"
       - name: Ensure service account exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |

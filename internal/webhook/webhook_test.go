@@ -341,3 +341,78 @@ type mockResult struct{}
 func (m *mockResult) RowsAffected() (int64, error) {
 	return 1, nil
 }
+
+func TestHandleListProviders(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/providers?user_id=user-1", nil)
+		server.handleListProviders(w, r)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "providers")
+	})
+
+	t.Run("missing user_id", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/providers", nil)
+		server.handleListProviders(w, r)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("method not allowed", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/providers?user_id=user-1", nil)
+		server.handleListProviders(w, r)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+}
+
+func TestHandleDisconnect(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/disconnect?user_id=user-1&source=open_wearables", nil)
+		server.handleDisconnect(w, r)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("missing user_id", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/disconnect?source=open_wearables", nil)
+		server.handleDisconnect(w, r)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("missing source", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/disconnect?user_id=user-1", nil)
+		server.handleDisconnect(w, r)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("method not allowed", func(t *testing.T) {
+		mockDB := &mockDB{}
+		log := zap.NewNop()
+		server := NewServer("8085", mockDB, log)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/open-wearables/disconnect?user_id=user-1&source=open_wearables", nil)
+		server.handleDisconnect(w, r)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+}

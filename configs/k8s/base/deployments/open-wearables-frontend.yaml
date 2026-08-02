@@ -47,7 +47,7 @@ spec:
         - name: ghcr-pull-secret
       containers:
         - name: frontend
-          image: ghcr.io/mamuer/project/open-wearables-frontend:latest
+          image: ghcr.io/mamuer/project/open-wearables-frontend:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -84,6 +84,8 @@ spec:
             requests:
               cpu: "15m"
               memory: "32Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "200Mi"

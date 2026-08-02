@@ -57,7 +57,7 @@ spec:
                 path: OPEN_WEARABLES_WEBHOOK_SECRET
       containers:
         - name: backend
-          image: ghcr.io/mamuer/project/open-wearables-backend:latest
+          image: ghcr.io/mamuer/project/open-wearables-backend:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -124,6 +124,8 @@ spec:
             requests:
               cpu: "50m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "200m"
               memory: "256Mi"
+              ephemeral-storage: "200Mi"
