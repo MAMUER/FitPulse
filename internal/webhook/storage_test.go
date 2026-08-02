@@ -10,37 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type mockRowsForSources struct {
-	sources []SourceInfo
-	idx     int
-}
-
-func (r *mockRowsForSources) Next() bool {
-	r.idx++
-	return r.idx <= len(r.sources)
-}
-
-func (r *mockRowsForSources) Scan(dest ...interface{}) error {
-	if r.idx-1 < len(r.sources) {
-		src := r.sources[r.idx-1]
-		if s, ok := dest[0].(*string); ok {
-			*s = src.Source
-		}
-		if t, ok := dest[1].(*time.Time); ok {
-			*t = src.ConnectedAt
-		}
-	}
-	return nil
-}
-
-func (r *mockRowsForSources) Close() error {
-	return nil
-}
-
-func (r *mockRowsForSources) Err() error {
-	return nil
-}
-
 type mockDBForSources struct {
 	sources []SourceInfo
 }

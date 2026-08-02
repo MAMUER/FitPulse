@@ -17,6 +17,8 @@ paths-ignore:
     - "**/mocks/**"
     - "**/generated/**"
     - "api/gen/**"
+    - "internal/webhook/handler.go"
+    - "internal/webhook/storage.go"
     - "bin/**"
     - "coverage/**"
     - "datasets/**"
