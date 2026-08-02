@@ -66,10 +66,11 @@ func TestBiometricServiceIntegration(t *testing.T) {
 			value DOUBLE PRECISION NOT NULL CHECK (value >= 0),
 			timestamp TIMESTAMPTZ NOT NULL,
 			device_type VARCHAR(50),
+			source VARCHAR(100) NOT NULL DEFAULT 'unknown',
 			created_at TIMESTAMPTZ DEFAULT NOW(),
-			UNIQUE (user_id, metric_type, timestamp, device_type)
+			UNIQUE (user_id, metric_type, timestamp, source)
 		);
-		CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp);
+		CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp, source);
 	`)
 	require.NoError(t, err)
 
