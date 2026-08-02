@@ -38,7 +38,7 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile=coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/user-service/...
+	@go test -count=1 -v -coverprofile coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/user-service/...
 	@echo "Checking coverage threshold (>= ${COVERAGE_THRESHOLD:-50}%)..."
 	@bash scripts/coverage-check.sh
 	go tool cover -html=coverage.out -o coverage.html
