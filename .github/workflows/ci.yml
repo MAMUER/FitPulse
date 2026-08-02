@@ -1036,12 +1036,29 @@ jobs:
           cache: true
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
-      - name: Run make check
-        run: make check
+      - name: Tidy Go modules
+        run: make tidy
+      - name: Format Go code
+        run: make fmt
+      - name: Run go vet
+        run: make vet
+      - name: Update Go imports
+        run: make imports
+      - name: Run golangci-lint
+        run: make lint
+      - name: Run tests with coverage
+        run: make test-cover
         env:
           DOCKER_HOST: ""
-      - name: Coverage Check (75% threshold)
-        run: bash scripts/coverage-check.sh
+          COVERAGE_THRESHOLD: 50
+      - name: Install frontend dependencies
+        run: make frontend-install
+      - name: Lint frontend
+        run: make frontend-lint
+      - name: Run frontend tests
+        run: make frontend-test
+      - name: Build frontend
+        run: make frontend-build
 
   # ============================================================================
   # BUILD BINARIES
