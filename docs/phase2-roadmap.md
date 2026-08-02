@@ -125,7 +125,7 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
 ### 6.1 Контекст
 
 - Для GA-релиза необходимы расширенные возможности наблюдаемости.
-- Production-окружения содержат: gateway, user-service, biometric-service, training-service, device-connector, device-aggregator, classifier, ml-generator, data-processor.
+- Production-окружения содержат: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor.
 - Production domain: fittpulse.duckdns.org
 - Актуальные сервисы и endpoints:
   - Portal: <https://fittpulse.duckdns.org>
@@ -713,7 +713,7 @@ Phase 2 завершается, когда выполнены все Must-have �
 | CAPTCHA интегрирован | Error rate 429 ↓ на 50% | P2 |
 | Bug bounty программа запущена | ≥ 5 reports/мес | P2 |
 | Ежеквартальный внешний пентест проведён | Отчёт с remediation plan | P2 |
-| Medical services integration API готов | Sync с Flo/OKOK работает | P2 |
+| Open Wearables интеграция готова | Webhook + biometric-service | P0 |
 | Adaptive daily plan retrain (on-demand) | Retrain завершается < 10 мин | P3 |
 
 ### 23.4 Could-have / Won't-have (переносится на Phase 3)
@@ -875,29 +875,28 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 27.1 Контекст
 
-Текущие интегрированные устройства: Fitbit (OAuth 2.0) и Withings (OAuth 2.0). В UI присутствуют карточки для Fitbit и Withings. Samsung Galaxy Watch и Huawei Watch D2 поддерживаются только в roadmap Phase 2.
+Текущие интегрированные источники здоровья: Open Wearables (агрегатор Apple Health, Garmin, Health Connect и др.). Samsung Galaxy Watch и Huawei Watch D2 поддерживаются через Open Wearables в roadmap Phase 2.
 
 ### 27.2 План
 
-| Этап | Устройство | Срок | Приоритет | Задачи |
+| Этап | Источник/устройство | Срок | Приоритет | Задачи |
 | --- | --- | --- | --- | --- |
-| 1 | Withings | 1 неделя | P0 | OAuth 2.0, пул пульса/SpO₂/давления/температуры/сна/шагов |
-| 2 | Samsung Galaxy Watch | 3–4 недели | P2 | Samsung Health Connect API: требует регистрации в Samsung Developer Program, создания приложения в Samsung Galaxy Store, обязательной установки Samsung Health на телефон пользователя, OAuth 2.0 через Samsung account. Данные передаются с телефона, а не напрямую с часов. |
-| 3 | Huawei Watch D2 | 3–4 недели | P2 | Huawei Health Kit: требует регистрации в Huawei Developer Alliance, официального приложения в AppGallery, OAuth 2.0 через Huawei ID. Данные идут через телефон. Аналогично Samsung — средняя сложность. |
+| 1 | Open Wearables | Завершён | P0 | Агрегация данных здоровья через единый webhook |
+| 2 | Samsung Galaxy Watch | 3–4 недели | P2 | Через Open Wearables / Samsung Health Connect |
+| 3 | Huawei Watch D2 | 3–4 недели | P2 | Через Open Wearables / Huawei Health Kit |
 
 ### 27.3 Acceptance Criteria
 
-- Каждое устройство имеет working OAuth flow (auth → callback → token storage)
+- Каждое устройство имеет working Open Wearables integration (aggregator → webhook → biometric-service)
 - Минимум 3 метрики (heart_rate, spo2, sleep) синхронизируются автоматически
-- Данные поступают через общий `POST /devices/{id}/ingest` в device-connector
+- Данные поступают через `POST /api/v1/integrations/open-wearables/webhook` в biometric-service
 - UI отображает статус подключения и последнюю синхронизацию
 
 ### 27.4 Архитектурные ограничения
 
-- Device-connector остаётся универсальным: валидирует записи, дедуплицирует, переправляет в biometric-service
-- Device-aggregator получает нового провайдера на каждое устройство
-- OAuth-токены хранятся в `device_provider_accounts` с шифрованием
-- Для устройств без публичного OAuth API (Samsung Galaxy Watch, Huawei Watch D2) требуется регистрация в соответствующих developer programs и создание мобильного приложения для передачи данных с телефона на backend
+- Biometric-service остаётся универсальным: принимает webhook от Open Wearables, валидирует, сохраняет в `biometric_data`
+- Device-aggregator используется как легковесный webhook-forwarder для Open Wearables
+- Прямые OAuth-интеграции (Fitbit, Withings, Flo, OKOK) удалены из кодовой базы
 
 ---
 

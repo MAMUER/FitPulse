@@ -63,16 +63,16 @@ kubectl rollout undo deployment/gateway -n fitness-platform-production
 kubectl logs -f deployment/gateway -n fitness-platform-production --tail=200
 ```
 
-**Проверка новых сервисов**:
+**Проверка webhook-сервиса**:
 
 ```bash
-# Device Aggregator (OAuth, Fitbit/Withings)
-kubectl get pods -n fitness-platform-production -l app=device-aggregator
-kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
+# Open Wearables webhook (через biometric-service)
+kubectl get pods -n fitness-platform-production -l app=biometric-service
+kubectl logs -f deployment/biometric-service -n fitness-platform-production | grep -i "webhook\|error\|panic"
 
 # Проверить health endpoints
 curl -k https://fittpulse.duckdns.org/health
-curl http://device-aggregator:8083/health
+curl http://biometric-service:8085/health
 ```
 
 **Действия Communications**:
@@ -248,10 +248,7 @@ Action Items:
 |---|---|---|---|
 |Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
-|Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
-|Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
-|Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
-|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
+|Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
 |ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 

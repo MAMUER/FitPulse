@@ -1836,57 +1836,6 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 	return &pb.DeleteMenstrualCycleResponse{Success: true, Message: "Menstrual cycle deleted"}, nil
 }
 
-func (s *userServer) storeDeviceTokens(ctx context.Context, userID, provider, providerUserID, accessToken, refreshToken string, scopes []string) error {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO device_provider_accounts (user_id, provider, provider_user_id, access_token, refresh_token, scopes, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-		ON CONFLICT (user_id, provider)
-		DO UPDATE SET
-			access_token = EXCLUDED.access_token,
-			refresh_token = EXCLUDED.refresh_token,
-			is_active = TRUE,
-			updated_at = NOW()
-	`, userID, provider, providerUserID, accessToken, nullIfStr(refreshToken), scopes)
-	return err
-}
-
-func (s *userServer) syncMedicalData(ctx context.Context, req interface{}, provider string, scopes []string, successMsg string, syncedCount int32) (success bool, message string, count int32, err error) {
-	castReq, ok := req.(interface {
-		GetUserId() string
-		GetAccessToken() string
-		GetRefreshToken() string
-	})
-	if !ok {
-		return false, "Invalid request type", 0, status.Error(codes.InvalidArgument, "invalid request")
-	}
-
-	if castReq.GetUserId() == "" || castReq.GetAccessToken() == "" {
-		return false, "user_id and access_token are required", 0, status.Error(codes.InvalidArgument, "user_id and access_token are required")
-	}
-
-	if err := s.storeDeviceTokens(ctx, castReq.GetUserId(), provider, castReq.GetUserId(), castReq.GetAccessToken(), castReq.GetRefreshToken(), scopes); err != nil {
-		return false, "failed to store " + provider + " tokens", 0, status.Errorf(codes.Internal, "failed to store %s tokens: %v", provider, err)
-	}
-
-	return true, successMsg, syncedCount, nil
-}
-
-func (s *userServer) SyncFloData(ctx context.Context, req *pb.SyncFloDataRequest) (*pb.SyncFloDataResponse, error) {
-	success, message, syncedCycles, err := s.syncMedicalData(ctx, req, "flo", []string{"menstrual_cycle"}, "Flo tokens stored. Full sync pending API integration.", 0)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.SyncFloDataResponse{Success: success, Message: message, SyncedCycles: syncedCycles}, nil
-}
-
-func (s *userServer) SyncOKOKData(ctx context.Context, req *pb.SyncOKOKDataRequest) (*pb.SyncOKOKDataResponse, error) {
-	success, message, syncedRecords, err := s.syncMedicalData(ctx, req, "okok", []string{"body_composition"}, "OKOK tokens stored. Full sync pending API integration.", 0)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.SyncOKOKDataResponse{Success: success, Message: message, SyncedRecords: syncedRecords}, nil
-}
-
 func (s *userServer) GetUserClaims(ctx context.Context, req *pb.GetUserClaimsRequest) (*pb.GetUserClaimsResponse, error) {
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -2206,13 +2155,6 @@ func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeI
 
 	s.log.Info("Invite code revoked", zap.String("code", req.GetCode()))
 	return &pb.AdminRevokeInviteResponse{Success: true, Message: "Invite revoked successfully"}, nil
-}
-
-func nullIfStr(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }
 
 func nullIfEmpty(v string) *string {

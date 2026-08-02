@@ -128,12 +128,6 @@ func (m *mockUserServiceClient) UpdateMenstrualCycle(ctx context.Context, req *u
 func (m *mockUserServiceClient) DeleteMenstrualCycle(ctx context.Context, req *userpb.DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error) {
 	return &userpb.DeleteMenstrualCycleResponse{Success: true}, nil
 }
-func (m *mockUserServiceClient) SyncFloData(ctx context.Context, req *userpb.SyncFloDataRequest, opts ...grpc.CallOption) (*userpb.SyncFloDataResponse, error) {
-	return &userpb.SyncFloDataResponse{}, nil
-}
-func (m *mockUserServiceClient) SyncOKOKData(ctx context.Context, req *userpb.SyncOKOKDataRequest, opts ...grpc.CallOption) (*userpb.SyncOKOKDataResponse, error) {
-	return &userpb.SyncOKOKDataResponse{}, nil
-}
 
 func (m *mockUserServiceClient) GetUserClaims(ctx context.Context, req *userpb.GetUserClaimsRequest, opts ...grpc.CallOption) (*userpb.GetUserClaimsResponse, error) {
 	return &userpb.GetUserClaimsResponse{Email: "test@example.com", Role: "admin", TotpEnabled: false}, nil

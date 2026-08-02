@@ -178,32 +178,29 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 
 ### Device Aggregator: OAuth/webhook сбои (SEV-2)
 
-**Симптомы**: пользователи не могут подключить Fitbit/Withings, webhook'и не доставляются.
+**Симптомы**: пользователи не видят данные от источников здоровья, webhook от Open Wearables не доставляется.
 
 **Шаги**:
 
-1. **Проверить logs device-aggregator**
+1. **Проверить logs biometric-service**
 
-   ```bash
-   kubectl logs -f deployment/device-aggregator -n fitness-platform-production | grep -i "error\|panic"
-   ```
+    ```bash
+    kubectl logs -f deployment/biometric-service -n fitness-platform-production | grep -i "webhook\|error\|panic"
+    ```
 
-2. **Проверить health**
+2. **Проверить health webhook**
 
-   ```bash
-   curl http://device-aggregator:8083/health
-   ```
+    ```bash
+    curl http://biometric-service:8085/health
+    ```
 
-3. **Проверить токены в БД**
+3. **Проверить метрики webhook**
 
-   ```sql
-   SELECT provider, is_active, last_sync_at 
-   FROM device_provider_accounts 
-   WHERE is_active = FALSE 
-   ORDER BY updated_at DESC LIMIT 10;
-   ```
+    ```bash
+    curl http://biometric-service:8085/metrics | grep -i "webhook"
+    ```
 
-4. **Переавторизовать проблемного пользователя** через `/api/v1/devices/fitbit/auth`.
+4. **Проверить статус источника** в UI и при необходимости отключить/подключить источник через Open Wearables.
 
 ---
 
@@ -270,10 +267,7 @@ kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 |---|---|---|---|
 |Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
-|Biometric Service|`app=biometric-service`|gRPC health|`kubectl logs -f deployment/biometric-service`|
-|Training Service|`app=training-service`|gRPC health|`kubectl logs -f deployment/training-service`|
-|Device Connector|`app=device-connector`|`http://device-connector:8082/health`|`kubectl logs -f deployment/device-connector`|
-|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8083/health`|`kubectl logs -f deployment/device-aggregator`|
+|Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
 |ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
 

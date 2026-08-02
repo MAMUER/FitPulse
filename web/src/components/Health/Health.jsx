@@ -7,8 +7,6 @@ import {
   listBodyComposition,
   listHealthConditions,
   listMenstrualCycles,
-  syncFlo,
-  syncOKOK,
   upsertHealthCondition,
 } from '../../utils/api';
 import './Health.css';
@@ -125,19 +123,6 @@ export default function Health() {
       });
       showToast('Цикл добавлен');
       loadAll();
-    } catch (e) {
-      showToast(`Ошибка: ${e.message}`);
-    }
-  };
-
-  const handleSync = async (fn, name) => {
-    const access_token = prompt(`Токен доступа для ${name}:`);
-    if (!access_token) return;
-    const refresh_token = prompt(`Refresh токен для ${name}:`);
-    if (!refresh_token) return;
-    try {
-      await fn(access_token, refresh_token);
-      showToast(`Синхронизация с ${name} выполнена`);
     } catch (e) {
       showToast(`Ошибка: ${e.message}`);
     }
@@ -267,14 +252,6 @@ export default function Health() {
         <div className='health-actions'>
           <button className='btn-secondary' onClick={handleAddMenstrualCycle}>
             Добавить
-          </button>
-        </div>
-        <div className='sync-grid'>
-          <button onClick={() => handleSync(syncFlo, 'Flo')}>
-            Синхронизировать Flo
-          </button>
-          <button onClick={() => handleSync(syncOKOK, 'OKOK')}>
-            Синхронизировать OKOK
           </button>
         </div>
         <div id='menstrualCyclesList' className='health-list'>

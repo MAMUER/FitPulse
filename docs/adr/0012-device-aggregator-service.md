@@ -1,41 +1,25 @@
-# ADR 0012: Device Aggregator Service — Dedicated OAuth Integration Layer
+# ADR 0012: Device Aggregator Service — Webhook Relay for Open Wearables
 
 ## Статус
 
-Принято
+Принято / Устарел
 
 ## Контекст
 
-Архитектура требует централизованной обработки OAuth-авторизации носимых устройств с поддержкой CSRF-защиты, хранения токенов и webhook-интеграции. Исходный проект предполагал адаптерный подход к устройствам, но не описывал отдельный сервис-агрегатор как компонент. В результате появился новый микросервис `cmd/device-aggregator`.
+Изначально архитектура предполагала выделенный `device-aggregator` для унифицированной обработки OAuth авторизации носимых устройств (Fitbit, Withings) с хранением токенов и webhook-интеграцией. В рамках миграции на Open Wearables прямая OAuth-интеграция с отдельными провайдерами удалена из кодовой базы.
 
 ## Решение
 
-Выделить отдельный микросервис `device-aggregator` (Go, chi/v5, порт 8083) для:
-
-- унифицированного OAuth-flow по Fitbit и последующим провайдерам;
-- хранения и обновления OAuth-токенов в БД (`device_provider_accounts`);
-- защиты от CSRF через `oauth_states` с TTL;
-- проброса OAuth-запросов из Gateway через `proxyToDeviceAggregator`;
-- приёма webhook-уведомлений от провайдеров.
-
-Плюсы такого:
-
-- изоляция OAuth-логики от остальных микросервисов;
-- переиспользуемость: Gateway и Device Connector обращаются к тому же агрегатору;
-- независимое масштабирование и мониторинг.
+`device-aggregator` сохранён как легковесный relay/validator для webhook от Open Wearables. Прямые OAuth-роуты (`/devices/fitbit/*`, `/devices/withings/*`) удалены. Основная логика сохранения метрик перенесена в `biometric-service` через `POST /api/v1/integrations/open-wearables/webhook`.
 
 ## Последствия
 
-- **Плюсы**: чёткое разделение ответственности, изоляция секретов/токенов от других доменов, единая точка OAuth-логики.
-- **Нейтрально**: новый сервис требует своих Deployment/Service в K8s, health-check’ов и версии в CI/CD.
-- **Риски**: должен быть отказоустойчивым, так как хранит токены; при сбое — переавторизация пользователей.
+- **Плюсы**: упрощение архитектуры, единая точка сохранения биометрики, снижение количества секретов.
+- **Нейтрально**: `device-aggregator` продолжает жить как отдельный deployment, но его нагрузка снижена.
+- **Риски**: при отказе Open Wearables интеграция теряется; требуется мониторинг доставки webhook.
 
 ## Реализация
 
-- `cmd/device-aggregator/main.go` — сервер и маршрутизация.
-- `cmd/device-aggregator/providers/fitbit.go` — Fitbit OAuth 2.0 интеграция.
-- `cmd/device-aggregator/providers/withings.go` — Withings заглушка.
-- `cmd/device-aggregator/aggregator.go` — общий интерфейс провайдеров.
-- `cmd/device-aggregator/webhooks.go` — обработка webhook’ов.
-- `cmd/device-aggregator/Dockerfile` — контейнеризация.
-- K8s манифест `configs/k8s/base/deployments/device-aggregator.yaml` пока не добавлен.
+- `cmd/device-aggregator/webhooks.go` — общий обработчик webhook для Open Wearables.
+- `cmd/device-aggregator/main.go` — роутинг только `/api/v1/integrations/open-wearables/webhook`.
+- K8s deployment оставлен без секретов `FITBIT_*`/`WITHINGS_*`.

@@ -54,8 +54,6 @@ const (
 	UserService_CreateMenstrualCycle_FullMethodName  = "/user.UserService/CreateMenstrualCycle"
 	UserService_UpdateMenstrualCycle_FullMethodName  = "/user.UserService/UpdateMenstrualCycle"
 	UserService_DeleteMenstrualCycle_FullMethodName  = "/user.UserService/DeleteMenstrualCycle"
-	UserService_SyncFloData_FullMethodName           = "/user.UserService/SyncFloData"
-	UserService_SyncOKOKData_FullMethodName          = "/user.UserService/SyncOKOKData"
 	UserService_GetUserClaims_FullMethodName         = "/user.UserService/GetUserClaims"
 	UserService_DeleteProfile_FullMethodName         = "/user.UserService/DeleteProfile"
 	UserService_AdminListInvites_FullMethodName      = "/user.UserService/AdminListInvites"
@@ -102,8 +100,6 @@ type UserServiceClient interface {
 	CreateMenstrualCycle(ctx context.Context, in *CreateMenstrualCycleRequest, opts ...grpc.CallOption) (*MenstrualCycle, error)
 	UpdateMenstrualCycle(ctx context.Context, in *UpdateMenstrualCycleRequest, opts ...grpc.CallOption) (*MenstrualCycle, error)
 	DeleteMenstrualCycle(ctx context.Context, in *DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*DeleteMenstrualCycleResponse, error)
-	SyncFloData(ctx context.Context, in *SyncFloDataRequest, opts ...grpc.CallOption) (*SyncFloDataResponse, error)
-	SyncOKOKData(ctx context.Context, in *SyncOKOKDataRequest, opts ...grpc.CallOption) (*SyncOKOKDataResponse, error)
 	GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error)
 	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*DeleteProfileResponse, error)
 	AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error)
@@ -469,26 +465,6 @@ func (c *userServiceClient) DeleteMenstrualCycle(ctx context.Context, in *Delete
 	return out, nil
 }
 
-func (c *userServiceClient) SyncFloData(ctx context.Context, in *SyncFloDataRequest, opts ...grpc.CallOption) (*SyncFloDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SyncFloDataResponse)
-	err := c.cc.Invoke(ctx, UserService_SyncFloData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *userServiceClient) SyncOKOKData(ctx context.Context, in *SyncOKOKDataRequest, opts ...grpc.CallOption) (*SyncOKOKDataResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SyncOKOKDataResponse)
-	err := c.cc.Invoke(ctx, UserService_SyncOKOKData_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *userServiceClient) GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserClaimsResponse)
@@ -578,8 +554,6 @@ type UserServiceServer interface {
 	CreateMenstrualCycle(context.Context, *CreateMenstrualCycleRequest) (*MenstrualCycle, error)
 	UpdateMenstrualCycle(context.Context, *UpdateMenstrualCycleRequest) (*MenstrualCycle, error)
 	DeleteMenstrualCycle(context.Context, *DeleteMenstrualCycleRequest) (*DeleteMenstrualCycleResponse, error)
-	SyncFloData(context.Context, *SyncFloDataRequest) (*SyncFloDataResponse, error)
-	SyncOKOKData(context.Context, *SyncOKOKDataRequest) (*SyncOKOKDataResponse, error)
 	GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error)
 	DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error)
 	AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error)
@@ -699,12 +673,6 @@ func (UnimplementedUserServiceServer) UpdateMenstrualCycle(context.Context, *Upd
 }
 func (UnimplementedUserServiceServer) DeleteMenstrualCycle(context.Context, *DeleteMenstrualCycleRequest) (*DeleteMenstrualCycleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMenstrualCycle not implemented")
-}
-func (UnimplementedUserServiceServer) SyncFloData(context.Context, *SyncFloDataRequest) (*SyncFloDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncFloData not implemented")
-}
-func (UnimplementedUserServiceServer) SyncOKOKData(context.Context, *SyncOKOKDataRequest) (*SyncOKOKDataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncOKOKData not implemented")
 }
 func (UnimplementedUserServiceServer) GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserClaims not implemented")
@@ -1372,42 +1340,6 @@ func _UserService_DeleteMenstrualCycle_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_SyncFloData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SyncFloDataRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UserServiceServer).SyncFloData(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UserService_SyncFloData_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).SyncFloData(ctx, req.(*SyncFloDataRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _UserService_SyncOKOKData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SyncOKOKDataRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UserServiceServer).SyncOKOKData(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UserService_SyncOKOKData_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).SyncOKOKData(ctx, req.(*SyncOKOKDataRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _UserService_GetUserClaims_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserClaimsRequest)
 	if err := dec(in); err != nil {
@@ -1644,14 +1576,6 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMenstrualCycle",
 			Handler:    _UserService_DeleteMenstrualCycle_Handler,
-		},
-		{
-			MethodName: "SyncFloData",
-			Handler:    _UserService_SyncFloData_Handler,
-		},
-		{
-			MethodName: "SyncOKOKData",
-			Handler:    _UserService_SyncOKOKData_Handler,
 		},
 		{
 			MethodName: "GetUserClaims",

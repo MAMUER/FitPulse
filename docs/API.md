@@ -30,7 +30,7 @@ Refresh token используется для ротации через `POST /a
 |POST|`/api/v1/auth/2fa/verify`|Проверка TOTP после логина|`{temp_token, passcode, is_backup_code?}`|`{status, access_token, refresh_token, token_type, expires_in, backup_codes_remaining?}`|
 |GET|`/api/v1/auth/google`|Google OAuth логин|—|Redirect to Google|
 |GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, access_token?, user_id?, role?}`|
-|POST|`/api/v1/devices/withings/webhook`|Webhook для Withings (публичный)|`{signature, body}`|`{status}`|
+|POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
 |GET|`/health`|Health check|—|`200 OK`|
 |GET|`/confirm`|Страница подтверждения email (React SPA)|Query: `?token=`|HTML|
 
@@ -51,18 +51,7 @@ Refresh token используется для ротации через `POST /a
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
 |POST|`/ml/classify`|Классификация состояния|— (используются последние биометрические данные пользователя)|`{status, state, confidence, recommendation, fatigue_level, motivation_score, recovery_quality}`|
 |POST|`/ml/generate-plan`|Генерация плана (GAN)|`{training_class, user_profile, goal?, constraints?}`|`{status, training_plan, diet_plan}`|
-|POST|`/devices/register`|Регистрация устройства|`{device_type, user_id}`|`{device_id, device_type, user_id, device_token}`|
-|POST|`/api/v1/devices/{device_id}/ingest`|Приём данных с устройства|Header: `device_token`, Body: `{device_type, sync_interval_ms, records: [{metric_type, value, timestamp, quality}]}`|`{total_received, duplicates, forwarded, failed}`|
-|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
-|GET|`/api/v1/devices/fitbit/auth`|Fitbit OAuth|Header: `X-User-ID`|Redirect to Fitbit|
-|GET|`/api/v1/devices/fitbit/callback`|Fitbit callback|Query: `code`, `state`|`{status}`|
-|POST|`/api/v1/devices/fitbit/webhook`|Fitbit webhook (публичный)|JSON body|`{status}`|
-|POST|`/api/v1/devices/fitbit/disconnect`|Disconnect Fitbit|Header: `X-User-ID`|`{status}`|
-|GET|`/api/v1/devices/withings/auth`|Withings OAuth|Header: `X-User-ID`|Redirect to Withings|
-|GET|`/api/v1/devices/withings/callback`|Withings callback|Query: `code`, `state`|`{status}`|
-|POST|`/api/v1/devices/withings/webhook`|Withings webhook (публичный)|Header: `X-Withings-Signature`, JSON body|`{status}`|
-|POST|`/api/v1/devices/withings/disconnect`|Disconnect Withings|Header: `X-User-ID`|`{status}`|
-|GET|`/api/v1/devices/providers`|List providers|Header: `X-User-ID`|`{status, providers}`|
+|POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
 |POST|`/auth/2fa/setup`|Настройка TOTP|—|`{status, qr_code_url, qr_code_base64, secret, backup_codes}`|
 |POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{passcode, temp_secret?, backup_codes?}`|`{status, message}`|
 |GET|`/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
@@ -126,8 +115,6 @@ Refresh token используется для ротации через `POST /a
 |`CreateMenstrualCycle`|`CreateMenstrualCycleRequest`|`MenstrualCycle`|Создать цикл|
 |`UpdateMenstrualCycle`|`UpdateMenstrualCycleRequest`|`MenstrualCycle`|Обновить цикл|
 |`DeleteMenstrualCycle`|`DeleteMenstrualCycleRequest`|`DeleteMenstrualCycleResponse`|Удалить цикл|
-|`SyncFloData`|`SyncFloDataRequest`|`SyncFloDataResponse`|Синхронизация Flo|
-|`SyncOKOKData`|`SyncOKOKDataRequest`|`SyncOKOKDataResponse`|Синхронизация OKOK|
 |`GetUserClaims`|`GetUserClaimsRequest`|`GetUserClaimsResponse`|Получить email/role/TOTP-статус пользователя|
 |`DeleteProfile`|`DeleteProfileRequest`|`DeleteProfileResponse`|Удаление профиля (GDPR)|
 |`AdminListInvites`|`AdminListInvitesRequest`|`AdminListInvitesResponse`|Список invite-кодов (admin)|

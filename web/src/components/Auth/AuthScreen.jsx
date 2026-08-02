@@ -169,8 +169,8 @@ export default function AuthScreen() {
           }}
         >
           <p style={{ marginBottom: 12 }}>
-            FitPulse — это открытая платформа для фитнес- и health-трекинга.
-            Мы помогаем отслеживать пульс, SpO2, шаги, сон и тренировки,
+            FitPulse — это открытая платформа для фитнес- и health-трекинга. Мы
+            помогаем отслеживать пульс, SpO2, шаги, сон и тренировки,
             синхронизировать данные с носимых устройств и получать
             персонализированные insights.
           </p>
@@ -178,17 +178,17 @@ export default function AuthScreen() {
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: 10,
-                  textAlign: 'left',
-                  marginTop: 18,
-                }}
-              >
-                {[
-                  '📊 Биометрия и активность',
-                  '⌚ Withings',
-                  '🤖 AI-планы тренировок',
-                  '🔒 End-to-end защита',
-                ].map((feature) => (
+              gap: 10,
+              textAlign: 'left',
+              marginTop: 18,
+            }}
+          >
+            {[
+              '📊 Биометрия и активность',
+              '⌚ Все основные бренды',
+              '🤖 AI-планы тренировок',
+              '🔒 End-to-end защита',
+            ].map((feature) => (
               <div
                 key={feature}
                 style={{
@@ -209,9 +209,9 @@ export default function AuthScreen() {
               color: 'var(--text-tertiary)',
             }}
           >
-            Мы собираем только данные, необходимые для работы сервиса:
-            учётные записи, биометрию с устройств, технические логи.
-            Вы можете запросить копию или удаление данных в любой момент.
+            Мы собираем только данные, необходимые для работы сервиса: учётные
+            записи, биометрию с устройств, технические логи. Вы можете запросить
+            копию или удаление данных в любой момент.
           </p>
         </div>
 
@@ -460,7 +460,10 @@ export default function AuthScreen() {
             padding: '0 24px 24px',
           }}
         >
-          <a href='/privacy' style={{ color: 'inherit', textDecoration: 'none' }}>
+          <a
+            href='/privacy'
+            style={{ color: 'inherit', textDecoration: 'none' }}
+          >
             Политика конфиденциальности
           </a>
           <span>•</span>

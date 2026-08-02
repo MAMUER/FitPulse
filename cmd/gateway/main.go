@@ -40,24 +40,23 @@ import (
 )
 
 type gateway struct {
-	userClient         userpb.UserServiceClient
-	userConn           *grpc.ClientConn
-	biometricAddr      string
-	biometricClient    biometricpb.BiometricServiceClient
-	trainingAddr       string
-	trainingClient     trainingpb.TrainingServiceClient
-	classifierURL      string
-	mlGeneratorURL     string
-	deviceConnectorURL string
-	log                *logger.Logger
-	tokenProvider      ports.TokenProvider
-	sessionStore       *cache.SessionStore
-	valkeyDB           *redis.Client
-	rmqCh              *amqp.Channel
-	mlAsync            bool
-	requestDuration    *prometheus.HistogramVec
-	requestTotal       *prometheus.CounterVec
-	errorTotal         *prometheus.CounterVec
+	userClient      userpb.UserServiceClient
+	userConn        *grpc.ClientConn
+	biometricAddr   string
+	biometricClient biometricpb.BiometricServiceClient
+	trainingAddr    string
+	trainingClient  trainingpb.TrainingServiceClient
+	classifierURL   string
+	mlGeneratorURL  string
+	log             *logger.Logger
+	tokenProvider   ports.TokenProvider
+	sessionStore    *cache.SessionStore
+	valkeyDB        *redis.Client
+	rmqCh           *amqp.Channel
+	mlAsync         bool
+	requestDuration *prometheus.HistogramVec
+	requestTotal    *prometheus.CounterVec
+	errorTotal      *prometheus.CounterVec
 
 	googleOAuthConfig *oauth2.Config
 
@@ -65,8 +64,7 @@ type gateway struct {
 	trainingMu       sync.Mutex
 	totpRateLimiters sync.Map
 
-	deviceAggregatorProxy *httputil.ReverseProxy
-	deviceConnectorProxy  *httputil.ReverseProxy
+	biometricWebhookProxy *httputil.ReverseProxy
 }
 
 func main() {
@@ -153,7 +151,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		trainingServiceAddr:  config.GetEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
 		classifierURL:        config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
 		mlGeneratorURL:       config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
-		deviceConnectorURL:   config.GetEnv("DEVICE_CONNECTOR_URL", "http://localhost:8082"),
 		mlAsync:              config.GetEnv("ML_ASYNC", "false") == "true",
 		valkeyAddr:           valkeyAddress(),
 		appBaseURL:           config.GetEnv("APP_BASE_URL"),
@@ -225,7 +222,6 @@ type gatewayConfig struct {
 	trainingServiceAddr  string
 	classifierURL        string
 	mlGeneratorURL       string
-	deviceConnectorURL   string
 	rabbitmqURL          string
 	valkeyAddr           string
 	appBaseURL           string
@@ -377,33 +373,26 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 
 func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool, tokenProvider ports.TokenProvider) *gateway {
 	g := &gateway{
-		userClient:         userClient,
-		biometricAddr:      cfg.biometricServiceAddr,
-		trainingAddr:       cfg.trainingServiceAddr,
-		classifierURL:      cfg.classifierURL,
-		mlGeneratorURL:     cfg.mlGeneratorURL,
-		deviceConnectorURL: cfg.deviceConnectorURL,
-		log:                log,
-		tokenProvider:      tokenProvider,
-		sessionStore:       sessionStore,
-		valkeyDB:           valkeyDB,
-		rmqCh:              rmqCh,
-		mlAsync:            mlAsync,
-		requestDuration:    metrics.requestDuration,
-		requestTotal:       metrics.requestTotal,
-		errorTotal:         metrics.errorTotal,
-		googleOAuthConfig:  cfg.googleOAuthConfig,
+		userClient:        userClient,
+		biometricAddr:     cfg.biometricServiceAddr,
+		trainingAddr:      cfg.trainingServiceAddr,
+		classifierURL:     cfg.classifierURL,
+		mlGeneratorURL:    cfg.mlGeneratorURL,
+		log:               log,
+		tokenProvider:     tokenProvider,
+		sessionStore:      sessionStore,
+		valkeyDB:          valkeyDB,
+		rmqCh:             rmqCh,
+		mlAsync:           mlAsync,
+		requestDuration:   metrics.requestDuration,
+		requestTotal:      metrics.requestTotal,
+		errorTotal:        metrics.errorTotal,
+		googleOAuthConfig: cfg.googleOAuthConfig,
 	}
 
-	aggregatorTarget, _ := url.Parse("http://device-aggregator:8083")
-	g.deviceAggregatorProxy = httputil.NewSingleHostReverseProxy(aggregatorTarget)
-	g.deviceAggregatorProxy.Rewrite = func(req *httputil.ProxyRequest) {
-		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
-	}
-
-	connectorTarget, _ := url.Parse(cfg.deviceConnectorURL)
-	g.deviceConnectorProxy = httputil.NewSingleHostReverseProxy(connectorTarget)
-	g.deviceConnectorProxy.Rewrite = func(req *httputil.ProxyRequest) {
+	biometricWebhookTarget, _ := url.Parse("http://biometric-service:8085")
+	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(biometricWebhookTarget)
+	g.biometricWebhookProxy.Rewrite = func(req *httputil.ProxyRequest) {
 		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
 	}
 
@@ -585,8 +574,6 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 	r.Get("/api/v1/auth/google", g.googleLoginHandler)
 	r.Get("/api/v1/auth/google/callback", g.googleCallbackHandler)
 	r.Get("/health", g.healthHandler)
-	// Webhook endpoint - БЕЗ authMiddleware
-	r.Post("/api/v1/devices/withings/webhook", g.proxyToDeviceAggregator)
 	// Metrics endpoint
 	r.Method("GET", "/metrics", promhttp.Handler())
 
@@ -627,8 +614,6 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
 		r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
 		r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
-		r.Post("/health/sync/flo", g.syncFloHandler)
-		r.Post("/health/sync/okok", g.syncOKOKHandler)
 
 		// 2FA TOTP (protected routes - require auth)
 		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
@@ -654,25 +639,11 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Post("/ml/generate-plan", g.mlGenerateHandler)
 		r.Post("/ml/generate-diet", g.mlDietHandler)
 
-		// Devices — проксирование на device-connector
-		r.Post("/devices/register", g.proxyToDeviceConnector)
-		r.Post("/devices/{device_id}/ingest", g.proxyToDeviceConnector)
-		r.Get("/devices", g.listDevicesHandler)
-		r.Post("/devices", g.registerDeviceHandler)
-
 		// Logout
 		r.Post("/logout", g.logoutHandler)
 
-		// Device aggregator proxy
-		r.Get("/devices/fitbit/auth", g.proxyToDeviceAggregator)
-		r.Get("/devices/fitbit/callback", g.proxyToDeviceAggregator)
-		r.Post("/devices/fitbit/disconnect", g.proxyToDeviceAggregator)
-
-		r.Get("/devices/providers", g.proxyToDeviceAggregator)
-
-		r.Get("/devices/withings/auth", g.proxyToDeviceAggregator)
-		r.Get("/devices/withings/callback", g.proxyToDeviceAggregator)
-		r.Post("/devices/withings/disconnect", g.proxyToDeviceAggregator)
+		// Open Wearables webhook
+		r.Post("/api/v1/integrations/open-wearables/webhook", g.proxyToBiometricWebhook)
 	})
 }
 
@@ -740,12 +711,8 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	return g.trainingClient, nil
 }
 
-func (g *gateway) proxyToDeviceAggregator(w http.ResponseWriter, r *http.Request) {
-	g.deviceAggregatorProxy.ServeHTTP(w, r)
-}
-
-func (g *gateway) proxyToDeviceConnector(w http.ResponseWriter, r *http.Request) {
-	g.deviceConnectorProxy.ServeHTTP(w, r)
+func (g *gateway) proxyToBiometricWebhook(w http.ResponseWriter, r *http.Request) {
+	g.biometricWebhookProxy.ServeHTTP(w, r)
 }
 
 func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {

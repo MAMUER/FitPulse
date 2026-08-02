@@ -1,190 +1,178 @@
-import { useEffect, useState } from 'react';
-import { fitbitAuth, getProviders, withingsAuth } from '../../utils/api';
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import './Devices.css';
 
-export default function Devices() {
-  const [providers, setProviders] = useState([]);
-  const [selectedDevice, setSelectedDevice] = useState(null);
-  const [connecting, setConnecting] = useState(false);
+const OPEN_WEARABLES_WIDGET_URL =
+  'https://cdn.openwearables.com/widget/v1/embed.js';
+const OPEN_WEARABLES_APP_ID =
+  process.env.REACT_APP_OPEN_WEARABLES_APP_ID || 'fitpulse-app';
 
-  const devices = [
-    {
-      type: 'fitbit',
-      name: 'Fitbit',
-      icon: '⌚',
-      capabilities: 'Пульс, SpO₂, Сон, Шаги, HRV',
-    },
-    {
-      type: 'withings',
-      name: 'Withings',
-      icon: '⚖️',
-      capabilities: 'Вес, Пульс, SpO₂, Сон',
-    },
-  ];
+export default function Devices() {
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+  const [providers, setProviders] = useState([]);
+  const { token } = useAuth();
 
   useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
+    if (!token) return;
+
+    if (!document.getElementById('open-wearables-widget-script')) {
+      const script = document.createElement('script');
+      script.id = 'open-wearables-widget-script';
+      script.src = OPEN_WEARABLES_WIDGET_URL;
+      script.async = true;
+      script.onerror = () => {
+        setStatus('error');
+        setError('Не удалось загрузить виджет Open Wearables');
+      };
+      document.body.appendChild(script);
+    }
+
+    const handleMessage = (event) => {
+      const allowedOrigins = [
+        'https://openwearables.com',
+        'https://cdn.openwearables.com',
+      ];
+
+      if (!allowedOrigins.includes(event.origin)) {
+        return;
+      }
+
+      const { type, data } = event.data || {};
+
+      if (type === 'OPEN_WEARABLES_CONNECTED') {
+        setStatus('connected');
+        loadProviders();
+      } else if (type === 'OPEN_WEARABLES_ERROR') {
+        setStatus('error');
+        setError(data?.message || 'Ошибка подключения');
+      } else if (type === 'OPEN_WEARABLES_CLOSED') {
+        setStatus('idle');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [token]);
+
+  const handleConnect = useCallback(() => {
+    setStatus('loading');
+    setError('');
+
+    if (window.OpenWearablesWidget) {
+      window.OpenWearablesWidget.init({
+        appId: OPEN_WEARABLES_APP_ID,
+        userId: getUserIdFromToken(token),
+        onSuccess: () => {
+          setStatus('connected');
+          loadProviders();
+        },
+        onError: (err) => {
+          setStatus('error');
+          setError(err.message || 'Ошибка подключения');
+        },
+        onClose: () => {
+          setStatus('idle');
+        },
+      });
+    } else {
+      setTimeout(() => {
+        if (window.OpenWearablesWidget) {
+          handleConnect();
+        } else {
+          setStatus('error');
+          setError('Виджет не загрузился. Попробуйте позже.');
+        }
+      }, 1000);
+    }
+  }, [token]);
 
   const loadProviders = async () => {
     try {
-      const data = await getProviders();
+      const res = await fetch('/api/v1/integrations/providers', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
       setProviders(data.providers || []);
     } catch (e) {
       console.error('Failed to load providers:', e);
     }
   };
 
-  const handleConnect = async () => {
-    if (!selectedDevice) {
-      alert('Выберите устройство из списка выше');
-      return;
-    }
-    setConnecting(true);
+  const handleDisconnect = async (source) => {
+    if (!confirm(`Отключить источник ${source}?`)) return;
     try {
-      if (selectedDevice === 'fitbit') {
-        await fitbitAuth();
-      } else if (selectedDevice === 'withings') {
-        await withingsAuth();
-      }
-      await loadProviders();
-    } catch (e) {
-      alert(`Ошибка подключения: ${e.message}`);
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async (provider) => {
-    if (!confirm(`Отключить ${provider}?`)) return;
-    try {
-      await fetch(`/api/v1/devices/${provider}/disconnect`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-        },
-      });
-      await loadProviders();
+      await disconnectIntegration(source);
+      loadProviders();
     } catch (e) {
       alert(`Ошибка отключения: ${e.message}`);
     }
   };
 
+  const getUserIdFromToken = (jwtToken) => {
+    try {
+      const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+      return payload.sub || payload.user_id;
+    } catch {
+      return 'anonymous';
+    }
+  };
+
   return (
     <div className='view active'>
-      <h3>Подключённые устройства</h3>
-      <div id='connectedDevicesList' className='devices-list'>
-        {providers.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Нет подключённых устройств
-          </p>
-        ) : (
-          providers.map((p) => (
-            <div key={p.provider} className='device-card'>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div>
-                  <h4>{p.provider}</h4>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    ID: {p.provider_user_id}
-                    {p.last_sync_at && (
-                      <>
-                        <br />
-                        Последняя синхронизация:{' '}
-                        {new Date(p.last_sync_at).toLocaleString('ru-RU')}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <span
-                    style={{
-                      padding: '4px 8px',
-                      background: p.is_active
-                        ? 'var(--green)'
-                        : 'var(--text-tertiary)',
-                      color: 'white',
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                  >
-                    {p.is_active ? 'Активен' : 'Отключён'}
-                  </span>
-                  {p.is_active && (
-                    <button
-                      onClick={() => handleDisconnect(p.provider)}
-                      className='btn-secondary'
-                      style={{ padding: '8px 12px', fontSize: 13 }}
-                    >
-                      Отключить
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      <h3>Источники здоровья</h3>
 
-      <div className='device-selector'>
-        {devices.map((device) => (
-          <div
-            key={device.type}
-            className={`device-option ${selectedDevice === device.type ? 'selected' : ''}`}
-            onClick={() => setSelectedDevice(device.type)}
-          >
-            <div className='device-icon'>{device.icon}</div>
-            <div className='device-name'>{device.name}</div>
-            <div className='device-capabilities'>{device.capabilities}</div>
+      <div className='integration-status'>
+        {status === 'connected' && (
+          <div className='success-message'>
+            ✅ Успешно подключено! Данные будут синхронизироваться
+            автоматически.
           </div>
-        ))}
+        )}
+        {status === 'loading' && (
+          <div className='loading-message'>
+            ⏳ Подключение к Open Wearables...
+          </div>
+        )}
+        {status === 'error' && <div className='error-message'>❌ {error}</div>}
       </div>
 
       <button
         className='action-btn'
         onClick={handleConnect}
-        disabled={connecting}
+        disabled={status === 'loading'}
       >
-        {connecting ? 'Подключение...' : 'Подключить устройство'}
+        {status === 'loading'
+          ? 'Подключение...'
+          : 'Подключить источники здоровья'}
       </button>
 
-      <div
-        style={{
-          marginTop: 16,
-          paddingTop: 16,
-          borderTop: '1px solid var(--border)',
-        }}
-      >
-        <h4
-          style={{
-            marginBottom: 12,
-            fontSize: 14,
-            color: 'var(--text-secondary)',
-          }}
-        >
-          Интеграции
-        </h4>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            onClick={fitbitAuth}
-            className='btn-secondary'
-            style={{ padding: '8px 12px', fontSize: 13 }}
-          >
-            ⌚ Fitbit
-          </button>
-          <button
-            onClick={withingsAuth}
-            className='btn-secondary'
-            style={{ padding: '8px 12px', fontSize: 13 }}
-          >
-            ⚖️ Withings
-          </button>
-        </div>
+      <div className='connected-sources'>
+        <h4>Подключённые источники</h4>
+        {providers.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+            Нет подключённых источников
+          </p>
+        ) : (
+          providers.map((p) => (
+            <div key={p.source} className='source-card'>
+              <div className='source-info'>
+                <h4>{p.source_name || p.source}</h4>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Подключён:{' '}
+                  {new Date(p.connected_at).toLocaleDateString('ru-RU')}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDisconnect(p.source)}
+                className='btn-secondary'
+                style={{ padding: '8px 12px', fontSize: 13 }}
+              >
+                Отключить
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -12,7 +12,9 @@ coverage/
 htmlcov/
 coverage.html
 coverage
-coverage_adapters
+coverage_*
+coverage_a*
+coverage-w*
 build/
 dist/
 target/

@@ -28,7 +28,7 @@ describe('App Router', () => {
 
   it('renders without crashing', () => {
     renderApp();
-    expect(screen.getByText(/fitpulse/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/fitpulse/i).length).toBeGreaterThan(0);
   });
 });
 

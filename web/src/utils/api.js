@@ -303,36 +303,14 @@ export async function deleteMenstrualCycle(cycleId) {
   });
 }
 
-export async function syncFlo(accessToken, refreshToken) {
-  return apiRequest('/health/sync/flo', {
-    method: 'POST',
-    body: JSON.stringify({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    }),
-  });
-}
-
-export async function syncOKOK(accessToken, refreshToken) {
-  return apiRequest('/health/sync/okok', {
-    method: 'POST',
-    body: JSON.stringify({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    }),
-  });
-}
-
-export async function fitbitAuth() {
-  window.location.href = '/api/v1/devices/fitbit/auth';
-}
-
-export async function withingsAuth() {
-  window.location.href = '/api/v1/devices/withings/auth';
-}
-
 export async function getProviders() {
-  return apiRequest('/devices/providers');
+  return apiRequest('/integrations/providers');
+}
+
+export async function disconnectIntegration(source) {
+  return apiRequest(`/integrations/${source}/disconnect`, {
+    method: 'POST',
+  });
 }
 
 export async function confirmEmail(token) {

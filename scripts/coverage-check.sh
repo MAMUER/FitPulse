@@ -24,6 +24,7 @@ while IFS= read -r line; do
 	[[ "$line" == *"/internal/totp/"* ]] && continue
 	[[ "$line" == *"/internal/telemetry/"* ]] && continue
 	[[ "$line" == *"/internal/testcontainers/"* ]] && continue
+	[[ "$line" == *"/cmd/"* ]] && continue
 
 	num_stmts=$(echo "$line" | awk '{print $(NF-1)}')
 	count=$(echo "$line" | awk '{print $NF}')

@@ -14,10 +14,7 @@
 ├── cmd/
 │   ├── gateway/                      # HTTP/gRPC gateway
 │   ├── user-service/                 # Users, auth, profile
-│   ├── biometric-service/            # Biometric data ingestion
-│   ├── training-service/             # Training plans
-│   ├── device-connector/             # External device sync (Fitbit/Withings)
-│   ├── device-aggregator/            # OAuth/webhook aggregator for devices
+│   ├── biometric-service/            # Biometric data ingestion + Open Wearables webhook
 │   ├── classifier/                   # Classifier service
 │   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
 │   └── data-processor/               # Background data processing (in repo, not deployed standalone)
@@ -457,8 +454,6 @@ gRPC-сервис для управления пользователями, ау
 | `CreateMenstrualCycle` | Создать менструальный цикл |
 | `UpdateMenstrualCycle` | Обновить менструальный цикл |
 | `DeleteMenstrualCycle` | Удалить менструальный цикл |
-| `SyncFloData` | Синхронизация с Flo |
-| `SyncOKOKData` | Синхронизация с OKOK |
 
 ### 4.8.3 Конфигурация
 
@@ -791,133 +786,70 @@ HTTP-сервис для классификации физиологическо
 
 ### 4.12.1 Назначение
 
-HTTP-сервис для управления OAuth-подключениями носимых устройств (Fitbit, Withings). Отвечает за:
-- OAuth 2.0 flow для Fitbit и Withings
-- Шифрование и хранение refresh-токенов в БД
-- Управление подключениями (подключение/отключение)
-- Обработка webhook-уведомлений от провайдеров
-- Список подключённых провайдеров для пользователя
+Легковесный HTTP-relay для Open Wearables webhook. В рамках миграции на Open Wearables прямые OAuth-интеграции удалены, `device-aggregator` оставлен как минимальный webhook-forwarder без хранения токенов.
 
 ### 4.12.2 Endpoints
 
 | Endpoint | Назначение |
 | ---------- | ----------- |
 | `GET /health` | Health check |
-| `GET /metrics` | Prometheus метрики |
-| `GET /api/v1/devices/fitbit/auth` | Start Fitbit OAuth |
-| `GET /api/v1/devices/fitbit/callback` | Fitbit OAuth callback |
-| `POST /api/v1/devices/fitbit/webhook` | Fitbit webhook |
-| `POST /api/v1/devices/fitbit/disconnect` | Disconnect Fitbit |
-| `GET /api/v1/devices/withings/auth` | Start Withings OAuth |
-| `GET /api/v1/devices/withings/callback` | Withings OAuth callback |
-| `POST /api/v1/devices/withings/webhook` | Withings webhook |
-| `POST /api/v1/devices/withings/disconnect` | Disconnect Withings |
-| `GET /api/v1/devices/providers` | List connected providers |
+| `POST /api/v1/integrations/open-wearables/webhook` | Проксирование webhook от Open Wearables в biometric-service |
 
 ### 4.12.3 Конфигурация
 
 | Переменная | Default | Описание |
 | ------------ | --------- | ---------- |
 | `DEVICE_AGGREGATOR_PORT` | `8083` | Порт сервера |
-| `DEVICE_AGGREGATOR_METRICS_PORT` | `9093` | Порт metrics-сервера |
-| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
-| `DEVICE_TOKEN_ENCRYPTION_KEY` | — | AES-256-GCM ключ для шифрования refresh-токенов (обязателен) |
-| `FITBIT_CLIENT_ID`, `FITBIT_CLIENT_SECRET`, `FITBIT_REDIRECT_URI` | — | Fitbit OAuth credentials |
-| `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL` | — | Withings OAuth credentials |
 
 ### 4.12.4 Безопасность
 
-- Refresh-токены шифруются через AES-256-GCM (`internal/crypto`)
-- Валидация redirect URI: только HTTPS, только доверенные хосты (`fitbit.com`, `withings.com`, `withings.net`, `duckdns.org`)
-- Webhook-подписи: HMAC-SHA256 для Withings
-- OAuth state параметр хранится в БД с TTL 10 минут
+- Валидация HMAC-SHA256 подписи выполняется в `biometric-service`
+- Реле не хранит секреты
 
 ### 4.12.5 Graceful Shutdown
 
-- `signal.NotifyContext` для SIGINT/SIGTERM
-- Graceful shutdown основного и metrics серверов (таймаут 10 секунд)
+- Ожидание SIGINT/SIGTERM с таймаутом 10 секунд
 
 ### 4.12.6 Метрики
 
 - `http_request_duration_seconds{method, path}`
 - `http_requests_total{method, path, status}`
 - `error_total{service="device-aggregator", error_type}`
-- `biometric_sync_lag_seconds{device_type, user_segment}`
 
-### 4.12.7 Тесты
-
-- Unit-тесты для handlers: health, disconnect, OAuth callback, auth start, redirect validation
-- Запуск: `go test ./cmd/device-aggregator/...`
-
-### 4.12.8 Особенности
+### 4.12.7 Особенности
 
 - Логгер: `internal/logger` с полем `service: "device-aggregator"`
-- Middleware: recovery, request ID, correlation ID, logging с Prometheus
+- Без依赖мости на базу данных и шифрование токенов
 
 ---
 
-## 4.13 Device Connector (device-connector)
-
-### 4.13.1 Назначение
-
-HTTP-сервис для регистрации носимых устройств и приёма биометрических данных с них. Отвечает за:
-- Регистрацию устройств пользователей (создание `device_id` и `device_token`)
-- Аутентификацию устройств по токену
-- Валидацию и дедупликацию входящих записей
-- Хранение сырых ingest-записей в PostgreSQL (`devices`, `device_ingest_log`)
-- Форвардинг валидных записей в `biometric-service` через gRPC
-
-### 4.13.2 Endpoints
-
-| Endpoint | Назначение |
-| ---------- | ----------- |
-| `GET /health` | Health check |
-| `GET /metrics` | Prometheus метрики |
-| `POST /api/v1/devices/register` | Регистрация устройства |
-| `POST /api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
-
-### 4.13.3 Конфигурация
-
-| Переменная | Default | Описание |
-| ------------ | --------- | ---------- |
-| `DEVICE_CONNECTOR_PORT` | `8082` | Порт сервера |
-| `DEVICE_CONNECTOR_METRICS_PORT` | `9094` | Порт metrics-сервера |
-| `DB_HOST`, `DB_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_SSLMODE` | — | PostgreSQL подключение |
-| `BIOMETRIC_SERVICE_ADDR` | `localhost:50052` | Адрес biometric-service gRPC |
-
-### 4.13.4 Формат запроса `POST /api/v1/devices/register`
+### 4.13.5 Формат ответа регистрации источника
 
 ```json
 {
-  "device_type": "fitbit",
-  "user_id": "user-123"
-}
-```
-
-### 4.13.5 Формат ответа регистрации
-
-```json
-{
-  "device_id": "uuid",
-  "device_type": "fitbit",
+  "source": "open_wearables",
   "user_id": "user-123",
-  "device_token": "uuid"
+  "connected_at": "2024-01-01T00:00:00Z"
 }
 ```
 
-### 4.13.6 Формат запроса `POST /api/v1/devices/{device_id}/ingest`
+### 4.13.6 Формат запроса `POST /api/v1/integrations/open-wearables/webhook`
 
 ```json
 {
-  "device_type": "fitbit",
-  "device_token": "uuid",
-  "sync_interval_ms": 5000,
-  "records": [
+  "user_id": "user-123",
+  "source": "open_wearables",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "metrics": [
     {
       "metric_type": "heart_rate",
-      "value": 70.0,
-      "timestamp": "2024-01-01T00:00:00Z",
-      "quality": "good"
+      "value": 72.0,
+      "unit": "bpm",
+      "timestamp": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
     }
   ]
 }
@@ -977,8 +909,7 @@ HTTP-сервис для регистрации носимых устройст�
 ### 4.13.15 Особенности
 
 - Логгер: `internal/logger` с полем `service: "device-connector"`
-- Поддерживаемые типы устройств: `fitbit`, `withings`
-- Токены устройств хранятся в базе в открытом виде (в production требует шифрования)
+- Источники данных поступают через Open Wearables webhook
 
 ---
 

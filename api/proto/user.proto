@@ -40,8 +40,6 @@ service UserService {
     rpc CreateMenstrualCycle(CreateMenstrualCycleRequest) returns (MenstrualCycle);
     rpc UpdateMenstrualCycle(UpdateMenstrualCycleRequest) returns (MenstrualCycle);
     rpc DeleteMenstrualCycle(DeleteMenstrualCycleRequest) returns (DeleteMenstrualCycleResponse);
-    rpc SyncFloData(SyncFloDataRequest) returns (SyncFloDataResponse);
-    rpc SyncOKOKData(SyncOKOKDataRequest) returns (SyncOKOKDataResponse);
     rpc GetUserClaims(GetUserClaimsRequest) returns (GetUserClaimsResponse);
     rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
     rpc AdminListInvites(AdminListInvitesRequest) returns (AdminListInvitesResponse);
@@ -489,30 +487,6 @@ message DeleteMenstrualCycleRequest {
 message DeleteMenstrualCycleResponse {
     bool success = 1;
     string message = 2;
-}
-
-message SyncFloDataRequest {
-    string user_id = 1;
-    string access_token = 2;
-    string refresh_token = 3;
-}
-
-message SyncFloDataResponse {
-    bool success = 1;
-    string message = 2;
-    int32 synced_cycles = 3;
-}
-
-message SyncOKOKDataRequest {
-    string user_id = 1;
-    string access_token = 2;
-    string refresh_token = 3;
-}
-
-message SyncOKOKDataResponse {
-    bool success = 1;
-    string message = 2;
-    int32 synced_records = 3;
 }
 
 message GetUserClaimsRequest {

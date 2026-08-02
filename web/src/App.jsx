@@ -8,11 +8,11 @@ import Devices from './components/Devices/Devices';
 import Diet from './components/Diet/Diet';
 import Health from './components/Health/Health';
 import Layout from './components/Layout/Layout';
+import Privacy from './components/Legal/Privacy';
+import Terms from './components/Legal/Terms';
 import ML from './components/ML/ML';
 import Profile from './components/Profile/Profile';
 import Training from './components/Training/Training';
-import Privacy from './components/Legal/Privacy';
-import Terms from './components/Legal/Terms';
 import { useAuth } from './contexts/AuthContext';
 
 export default function App() {

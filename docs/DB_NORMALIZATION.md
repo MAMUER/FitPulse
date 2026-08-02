@@ -34,7 +34,7 @@
 
 - `devices`
 - `biometric_data`
-- `device_ingest_log`
+- `webhook_nonces`
 
 ### Тренировки
 
@@ -281,7 +281,7 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 - `user_body_composition.water_percentage` ограничен диапазоном `[1, 100]`.
 - `user_body_composition.visceral_fat_rating` ограничен диапазоном `[1, 59]`.
 - `user_body_composition.metabolic_age` ограничен диапазоном `[10, 100]`.
-- `user_body_composition.source` ограничен CHECK (`okok`, `manual`).
+- `user_body_composition.source` ограничен CHECK (`manual`).
 - `user_menstrual_cycles.cycle_end_date >= cycle_start_date` через `CONSTRAINT chk_cycle_dates`.
 - `training_plans.duration_weeks` ограничен диапазоном `(0, 52]`.
 - `training_plan_weeks.week_number` ограничен `CHECK (week_number > 0)`.

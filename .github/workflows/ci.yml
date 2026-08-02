@@ -822,8 +822,63 @@ jobs:
             echo "   Fix the issues above before merging."
             exit 1
           else
-            echo "✅ Security Gate PASSED — no critical issues found"
-           fi
+           echo "✅ Security Gate PASSED — no critical issues found"
+          fi
+
+  # ============================================================================
+  # SONARCLOUD ANALYSIS
+  # ============================================================================
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [security-scan, check, super-linter]
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # originally: v7
+        with:
+          node-version: "26"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: web
+      - name: Run tests and collect coverage
+        run: |
+          mkdir -p coverage
+          go test -coverprofile=coverage/coverage.out ./...
+          npm run test -- --coverage --watchAll=false
+          mv web/coverage/lcov.info coverage/lcov.info 2>/dev/null || true
+        working-directory: web
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarqube-scan-action@a3b756f32c77830433b1b35a6b3b97a7a2f1b6a1 # originally: v5.0.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.organization=mamuer
+            -Dsonar.projectKey=fitness-platform
+            -Dsonar.sources=cmd,internal,api,web/src
+            -Dsonar.tests=cmd,internal
+            -Dsonar.test.inclusions=**/*_test.go
+            -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go
+            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**
+            -Dsonar.go.coverage.reportPaths=coverage/coverage.out
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true
 
   # ============================================================================
   # POLICY AS CODE — CONVENTIONAL COMMITS
@@ -1726,6 +1781,23 @@ jobs:
           "
 
   # ============================================================================
+  # CSP HEADERS CHECK
+  # ============================================================================
+  csp-headers-check:
+    name: CSP Headers Check
+    runs-on: ubuntu-latest
+    needs: [provision-k8s-vps, health-check]
+    if: always() && needs.provision-k8s-vps.result == 'success' && needs.health-check.result == 'success'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - name: Check CSP and security headers
+        env:
+          CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"
+        run: |
+          chmod +x scripts/csp-check.sh
+          bash scripts/csp-check.sh
+
+  # ============================================================================
   # SMOKE TEST (TESTCONTAINERS)
   # ============================================================================
   smoke-test:
@@ -1899,6 +1971,7 @@ jobs:
             --from-literal=WITHINGS_CLIENT_ID=${{ secrets.WITHINGS_CLIENT_ID }} \
             --from-literal=WITHINGS_CLIENT_SECRET=${{ secrets.WITHINGS_CLIENT_SECRET }} \
             --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
+            --from-literal=OPEN_WEARABLES_WEBHOOK_SECRET=${{ secrets.OPEN_WEARABLES_WEBHOOK_SECRET }} \
             --from-literal=GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
             --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
             --from-literal=GOOGLE_REDIRECT_URL=${{ vars.GOOGLE_REDIRECT_URL }} \

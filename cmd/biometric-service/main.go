@@ -30,6 +30,7 @@ import (
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
+	"github.com/MAMUER/project/internal/webhook"
 )
 
 type biometricServer struct {
@@ -82,9 +83,9 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 	timestamp := req.Timestamp.AsTime()
 
 	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (user_id, metric_type, timestamp, device_type) DO NOTHING
+		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source)
+		VALUES ($1, $2, $3, $4, $5, $6, $6)
+		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING
 	`, id, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType)
 	if err != nil {
 		s.log.Error("Failed to insert record", zap.Error(err))
@@ -146,9 +147,9 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		_ = tx.Rollback()
 	}()
 
-	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (user_id, metric_type, timestamp, device_type) DO NOTHING`
+	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
 
 	inserted := 0
 	for _, rec := range req.Records {
@@ -164,7 +165,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		}
 
 		result, err := tx.ExecContext(ctx, query,
-			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, time.Now(),
+			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, rec.DeviceType, time.Now(),
 		)
 		if err != nil {
 			_ = tx.Rollback()
@@ -476,6 +477,7 @@ func main() {
 
 	port := config.GetEnv("BIOMETRIC_SERVICE_PORT", "50052")
 	metricsPort := config.GetEnv("BIOMETRIC_METRICS_PORT", "9090")
+	webhookPort := config.GetEnv("OPEN_WEARABLES_WEBHOOK_PORT", "8085")
 	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
 
 	dbCfg := db.Config{
@@ -531,6 +533,10 @@ func main() {
 
 	metricsSrv := createMetricsServer(metricsPort)
 	startMetricsServer(metricsSrv, log)
+
+	webhookSrv := webhook.NewServer(webhookPort, webhook.NewSQLDBAdapter(database), log.Logger)
+	webhookSrv.Start()
+	defer func() { _ = webhookSrv.Stop(context.Background()) }()
 
 	setupGracefulShutdown(log, grpcServer, metricsSrv)
 

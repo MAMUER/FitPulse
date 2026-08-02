@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -291,57 +290,5 @@ func (g *gateway) deleteMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 			return fmt.Errorf("delete menstrual cycle: %w", err)
 		}
 		return nil
-	})
-}
-
-func (g *gateway) syncDataHandler(w http.ResponseWriter, r *http.Request, syncFn func(string) (interface{}, error)) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
-		return
-	}
-	resp, err := syncFn(userID)
-	if err != nil {
-		g.log.Error("Failed to sync data", zap.Error(err))
-		httpCode, errMsg := grpcToHTTPStatus(err)
-		http.Error(w, errMsg, httpCode)
-		return
-	}
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "result": resp}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-	}
-}
-
-type syncProviderRequest struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-func (g *gateway) syncProviderHandler(w http.ResponseWriter, r *http.Request, syncFn func(context.Context, string, string, string) (interface{}, error)) {
-	var req syncProviderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
-		return
-	}
-
-	syncWrapper := func(userID string) (interface{}, error) {
-		return syncFn(r.Context(), userID, req.AccessToken, req.RefreshToken)
-	}
-	g.syncDataHandler(w, r, syncWrapper)
-}
-
-func (g *gateway) syncFloHandler(w http.ResponseWriter, r *http.Request) {
-	g.syncProviderHandler(w, r, func(ctx context.Context, userID, accessToken, refreshToken string) (interface{}, error) {
-		return g.userClient.SyncFloData(ctx, &userpb.SyncFloDataRequest{
-			UserId: userID, AccessToken: accessToken, RefreshToken: refreshToken,
-		})
-	})
-}
-
-func (g *gateway) syncOKOKHandler(w http.ResponseWriter, r *http.Request) {
-	g.syncProviderHandler(w, r, func(ctx context.Context, userID, accessToken, refreshToken string) (interface{}, error) {
-		return g.userClient.SyncOKOKData(ctx, &userpb.SyncOKOKDataRequest{
-			UserId: userID, AccessToken: accessToken, RefreshToken: refreshToken,
-		})
 	})
 }

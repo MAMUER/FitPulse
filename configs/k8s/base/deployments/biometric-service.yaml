@@ -65,6 +65,8 @@ spec:
                 path: REDIS_PASSWORD
               - key: JWT_PUBLIC_KEY_PEM
                 path: JWT_PUBLIC_KEY_PEM
+              - key: OPEN_WEARABLES_WEBHOOK_SECRET
+                path: OPEN_WEARABLES_WEBHOOK_SECRET
         - name: grpc-tls
           secret:
             secretName: app-secrets
@@ -98,6 +100,8 @@ spec:
               name: grpc
             - containerPort: 9090
               name: metrics
+            - containerPort: 8085
+              name: webhook
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -149,6 +153,8 @@ spec:
               value: "/etc/secrets/RABBITMQ_URL"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50052"
+            - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
+              value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
           livenessProbe:
             grpc:
               port: 50052

@@ -4385,246 +4385,6 @@ func (x *DeleteMenstrualCycleResponse) GetMessage() string {
 	return ""
 }
 
-type SyncFloDataRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	RefreshToken  string                 `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SyncFloDataRequest) Reset() {
-	*x = SyncFloDataRequest{}
-	mi := &file_user_proto_msgTypes[69]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SyncFloDataRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SyncFloDataRequest) ProtoMessage() {}
-
-func (x *SyncFloDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[69]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SyncFloDataRequest.ProtoReflect.Descriptor instead.
-func (*SyncFloDataRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{69}
-}
-
-func (x *SyncFloDataRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *SyncFloDataRequest) GetAccessToken() string {
-	if x != nil {
-		return x.AccessToken
-	}
-	return ""
-}
-
-func (x *SyncFloDataRequest) GetRefreshToken() string {
-	if x != nil {
-		return x.RefreshToken
-	}
-	return ""
-}
-
-type SyncFloDataResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	SyncedCycles  int32                  `protobuf:"varint,3,opt,name=synced_cycles,json=syncedCycles,proto3" json:"synced_cycles,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SyncFloDataResponse) Reset() {
-	*x = SyncFloDataResponse{}
-	mi := &file_user_proto_msgTypes[70]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SyncFloDataResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SyncFloDataResponse) ProtoMessage() {}
-
-func (x *SyncFloDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[70]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SyncFloDataResponse.ProtoReflect.Descriptor instead.
-func (*SyncFloDataResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{70}
-}
-
-func (x *SyncFloDataResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *SyncFloDataResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *SyncFloDataResponse) GetSyncedCycles() int32 {
-	if x != nil {
-		return x.SyncedCycles
-	}
-	return 0
-}
-
-type SyncOKOKDataRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	RefreshToken  string                 `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SyncOKOKDataRequest) Reset() {
-	*x = SyncOKOKDataRequest{}
-	mi := &file_user_proto_msgTypes[71]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SyncOKOKDataRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SyncOKOKDataRequest) ProtoMessage() {}
-
-func (x *SyncOKOKDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[71]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SyncOKOKDataRequest.ProtoReflect.Descriptor instead.
-func (*SyncOKOKDataRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{71}
-}
-
-func (x *SyncOKOKDataRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *SyncOKOKDataRequest) GetAccessToken() string {
-	if x != nil {
-		return x.AccessToken
-	}
-	return ""
-}
-
-func (x *SyncOKOKDataRequest) GetRefreshToken() string {
-	if x != nil {
-		return x.RefreshToken
-	}
-	return ""
-}
-
-type SyncOKOKDataResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	SyncedRecords int32                  `protobuf:"varint,3,opt,name=synced_records,json=syncedRecords,proto3" json:"synced_records,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SyncOKOKDataResponse) Reset() {
-	*x = SyncOKOKDataResponse{}
-	mi := &file_user_proto_msgTypes[72]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SyncOKOKDataResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SyncOKOKDataResponse) ProtoMessage() {}
-
-func (x *SyncOKOKDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[72]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SyncOKOKDataResponse.ProtoReflect.Descriptor instead.
-func (*SyncOKOKDataResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{72}
-}
-
-func (x *SyncOKOKDataResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *SyncOKOKDataResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *SyncOKOKDataResponse) GetSyncedRecords() int32 {
-	if x != nil {
-		return x.SyncedRecords
-	}
-	return 0
-}
-
 type GetUserClaimsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -4634,7 +4394,7 @@ type GetUserClaimsRequest struct {
 
 func (x *GetUserClaimsRequest) Reset() {
 	*x = GetUserClaimsRequest{}
-	mi := &file_user_proto_msgTypes[73]
+	mi := &file_user_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4646,7 +4406,7 @@ func (x *GetUserClaimsRequest) String() string {
 func (*GetUserClaimsRequest) ProtoMessage() {}
 
 func (x *GetUserClaimsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[73]
+	mi := &file_user_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4659,7 +4419,7 @@ func (x *GetUserClaimsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserClaimsRequest.ProtoReflect.Descriptor instead.
 func (*GetUserClaimsRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{73}
+	return file_user_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GetUserClaimsRequest) GetUserId() string {
@@ -4681,7 +4441,7 @@ type GetUserClaimsResponse struct {
 
 func (x *GetUserClaimsResponse) Reset() {
 	*x = GetUserClaimsResponse{}
-	mi := &file_user_proto_msgTypes[74]
+	mi := &file_user_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4693,7 +4453,7 @@ func (x *GetUserClaimsResponse) String() string {
 func (*GetUserClaimsResponse) ProtoMessage() {}
 
 func (x *GetUserClaimsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[74]
+	mi := &file_user_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4706,7 +4466,7 @@ func (x *GetUserClaimsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserClaimsResponse.ProtoReflect.Descriptor instead.
 func (*GetUserClaimsResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{74}
+	return file_user_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *GetUserClaimsResponse) GetEmail() string {
@@ -4747,7 +4507,7 @@ type DeleteProfileRequest struct {
 
 func (x *DeleteProfileRequest) Reset() {
 	*x = DeleteProfileRequest{}
-	mi := &file_user_proto_msgTypes[75]
+	mi := &file_user_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4759,7 +4519,7 @@ func (x *DeleteProfileRequest) String() string {
 func (*DeleteProfileRequest) ProtoMessage() {}
 
 func (x *DeleteProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[75]
+	mi := &file_user_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4772,7 +4532,7 @@ func (x *DeleteProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProfileRequest.ProtoReflect.Descriptor instead.
 func (*DeleteProfileRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{75}
+	return file_user_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *DeleteProfileRequest) GetUserId() string {
@@ -4799,7 +4559,7 @@ type DeleteProfileResponse struct {
 
 func (x *DeleteProfileResponse) Reset() {
 	*x = DeleteProfileResponse{}
-	mi := &file_user_proto_msgTypes[76]
+	mi := &file_user_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4811,7 +4571,7 @@ func (x *DeleteProfileResponse) String() string {
 func (*DeleteProfileResponse) ProtoMessage() {}
 
 func (x *DeleteProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[76]
+	mi := &file_user_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4824,7 +4584,7 @@ func (x *DeleteProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProfileResponse.ProtoReflect.Descriptor instead.
 func (*DeleteProfileResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{76}
+	return file_user_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *DeleteProfileResponse) GetStatus() string {
@@ -4857,7 +4617,7 @@ type InviteInfo struct {
 
 func (x *InviteInfo) Reset() {
 	*x = InviteInfo{}
-	mi := &file_user_proto_msgTypes[77]
+	mi := &file_user_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4869,7 +4629,7 @@ func (x *InviteInfo) String() string {
 func (*InviteInfo) ProtoMessage() {}
 
 func (x *InviteInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[77]
+	mi := &file_user_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4882,7 +4642,7 @@ func (x *InviteInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteInfo.ProtoReflect.Descriptor instead.
 func (*InviteInfo) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{77}
+	return file_user_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *InviteInfo) GetCode() string {
@@ -4951,7 +4711,7 @@ type AdminListInvitesRequest struct {
 
 func (x *AdminListInvitesRequest) Reset() {
 	*x = AdminListInvitesRequest{}
-	mi := &file_user_proto_msgTypes[78]
+	mi := &file_user_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4963,7 +4723,7 @@ func (x *AdminListInvitesRequest) String() string {
 func (*AdminListInvitesRequest) ProtoMessage() {}
 
 func (x *AdminListInvitesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[78]
+	mi := &file_user_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4976,7 +4736,7 @@ func (x *AdminListInvitesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListInvitesRequest.ProtoReflect.Descriptor instead.
 func (*AdminListInvitesRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{78}
+	return file_user_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *AdminListInvitesRequest) GetPage() int32 {
@@ -5003,7 +4763,7 @@ type AdminListInvitesResponse struct {
 
 func (x *AdminListInvitesResponse) Reset() {
 	*x = AdminListInvitesResponse{}
-	mi := &file_user_proto_msgTypes[79]
+	mi := &file_user_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5015,7 +4775,7 @@ func (x *AdminListInvitesResponse) String() string {
 func (*AdminListInvitesResponse) ProtoMessage() {}
 
 func (x *AdminListInvitesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[79]
+	mi := &file_user_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5028,7 +4788,7 @@ func (x *AdminListInvitesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListInvitesResponse.ProtoReflect.Descriptor instead.
 func (*AdminListInvitesResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{79}
+	return file_user_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *AdminListInvitesResponse) GetInvites() []*InviteInfo {
@@ -5056,7 +4816,7 @@ type AdminCreateInviteRequest struct {
 
 func (x *AdminCreateInviteRequest) Reset() {
 	*x = AdminCreateInviteRequest{}
-	mi := &file_user_proto_msgTypes[80]
+	mi := &file_user_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5068,7 +4828,7 @@ func (x *AdminCreateInviteRequest) String() string {
 func (*AdminCreateInviteRequest) ProtoMessage() {}
 
 func (x *AdminCreateInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[80]
+	mi := &file_user_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5081,7 +4841,7 @@ func (x *AdminCreateInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateInviteRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreateInviteRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{80}
+	return file_user_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *AdminCreateInviteRequest) GetRole() string {
@@ -5119,7 +4879,7 @@ type AdminCreateInviteResponse struct {
 
 func (x *AdminCreateInviteResponse) Reset() {
 	*x = AdminCreateInviteResponse{}
-	mi := &file_user_proto_msgTypes[81]
+	mi := &file_user_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5131,7 +4891,7 @@ func (x *AdminCreateInviteResponse) String() string {
 func (*AdminCreateInviteResponse) ProtoMessage() {}
 
 func (x *AdminCreateInviteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[81]
+	mi := &file_user_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5144,7 +4904,7 @@ func (x *AdminCreateInviteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateInviteResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreateInviteResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{81}
+	return file_user_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *AdminCreateInviteResponse) GetCode() string {
@@ -5198,7 +4958,7 @@ type AdminRevokeInviteRequest struct {
 
 func (x *AdminRevokeInviteRequest) Reset() {
 	*x = AdminRevokeInviteRequest{}
-	mi := &file_user_proto_msgTypes[82]
+	mi := &file_user_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5210,7 +4970,7 @@ func (x *AdminRevokeInviteRequest) String() string {
 func (*AdminRevokeInviteRequest) ProtoMessage() {}
 
 func (x *AdminRevokeInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[82]
+	mi := &file_user_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5223,7 +4983,7 @@ func (x *AdminRevokeInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminRevokeInviteRequest.ProtoReflect.Descriptor instead.
 func (*AdminRevokeInviteRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{82}
+	return file_user_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *AdminRevokeInviteRequest) GetCode() string {
@@ -5243,7 +5003,7 @@ type AdminRevokeInviteResponse struct {
 
 func (x *AdminRevokeInviteResponse) Reset() {
 	*x = AdminRevokeInviteResponse{}
-	mi := &file_user_proto_msgTypes[83]
+	mi := &file_user_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5255,7 +5015,7 @@ func (x *AdminRevokeInviteResponse) String() string {
 func (*AdminRevokeInviteResponse) ProtoMessage() {}
 
 func (x *AdminRevokeInviteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[83]
+	mi := &file_user_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5268,7 +5028,7 @@ func (x *AdminRevokeInviteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminRevokeInviteResponse.ProtoReflect.Descriptor instead.
 func (*AdminRevokeInviteResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{83}
+	return file_user_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *AdminRevokeInviteResponse) GetSuccess() bool {
@@ -5638,23 +5398,7 @@ const file_user_proto_rawDesc = "" +
 	"\bcycle_id\x18\x02 \x01(\tR\acycleId\"R\n" +
 	"\x1cDeleteMenstrualCycleResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"u\n" +
-	"\x12SyncFloDataRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
-	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\"n\n" +
-	"\x13SyncFloDataResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
-	"\rsynced_cycles\x18\x03 \x01(\x05R\fsyncedCycles\"v\n" +
-	"\x13SyncOKOKDataRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
-	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\"q\n" +
-	"\x14SyncOKOKDataResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +
-	"\x0esynced_records\x18\x03 \x01(\x05R\rsyncedRecords\"/\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"/\n" +
 	"\x14GetUserClaimsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa3\x01\n" +
 	"\x15GetUserClaimsResponse\x12\x14\n" +
@@ -5704,7 +5448,7 @@ const file_user_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"O\n" +
 	"\x19AdminRevokeInviteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\x8c\x19\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\x81\x18\n" +
 	"\vUserService\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
 	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
@@ -5742,9 +5486,7 @@ const file_user_proto_rawDesc = "" +
 	"\x13ListMenstrualCycles\x12 .user.ListMenstrualCyclesRequest\x1a!.user.ListMenstrualCyclesResponse\x12O\n" +
 	"\x14CreateMenstrualCycle\x12!.user.CreateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12O\n" +
 	"\x14UpdateMenstrualCycle\x12!.user.UpdateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12]\n" +
-	"\x14DeleteMenstrualCycle\x12!.user.DeleteMenstrualCycleRequest\x1a\".user.DeleteMenstrualCycleResponse\x12B\n" +
-	"\vSyncFloData\x12\x18.user.SyncFloDataRequest\x1a\x19.user.SyncFloDataResponse\x12E\n" +
-	"\fSyncOKOKData\x12\x19.user.SyncOKOKDataRequest\x1a\x1a.user.SyncOKOKDataResponse\x12H\n" +
+	"\x14DeleteMenstrualCycle\x12!.user.DeleteMenstrualCycleRequest\x1a\".user.DeleteMenstrualCycleResponse\x12H\n" +
 	"\rGetUserClaims\x12\x1a.user.GetUserClaimsRequest\x1a\x1b.user.GetUserClaimsResponse\x12H\n" +
 	"\rDeleteProfile\x12\x1a.user.DeleteProfileRequest\x1a\x1b.user.DeleteProfileResponse\x12Q\n" +
 	"\x10AdminListInvites\x12\x1d.user.AdminListInvitesRequest\x1a\x1e.user.AdminListInvitesResponse\x12T\n" +
@@ -5763,7 +5505,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 84)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),               // 0: user.RegisterRequest
 	(*RegisterResponse)(nil),              // 1: user.RegisterResponse
@@ -5834,21 +5576,17 @@ var file_user_proto_goTypes = []any{
 	(*UpdateMenstrualCycleRequest)(nil),   // 66: user.UpdateMenstrualCycleRequest
 	(*DeleteMenstrualCycleRequest)(nil),   // 67: user.DeleteMenstrualCycleRequest
 	(*DeleteMenstrualCycleResponse)(nil),  // 68: user.DeleteMenstrualCycleResponse
-	(*SyncFloDataRequest)(nil),            // 69: user.SyncFloDataRequest
-	(*SyncFloDataResponse)(nil),           // 70: user.SyncFloDataResponse
-	(*SyncOKOKDataRequest)(nil),           // 71: user.SyncOKOKDataRequest
-	(*SyncOKOKDataResponse)(nil),          // 72: user.SyncOKOKDataResponse
-	(*GetUserClaimsRequest)(nil),          // 73: user.GetUserClaimsRequest
-	(*GetUserClaimsResponse)(nil),         // 74: user.GetUserClaimsResponse
-	(*DeleteProfileRequest)(nil),          // 75: user.DeleteProfileRequest
-	(*DeleteProfileResponse)(nil),         // 76: user.DeleteProfileResponse
-	(*InviteInfo)(nil),                    // 77: user.InviteInfo
-	(*AdminListInvitesRequest)(nil),       // 78: user.AdminListInvitesRequest
-	(*AdminListInvitesResponse)(nil),      // 79: user.AdminListInvitesResponse
-	(*AdminCreateInviteRequest)(nil),      // 80: user.AdminCreateInviteRequest
-	(*AdminCreateInviteResponse)(nil),     // 81: user.AdminCreateInviteResponse
-	(*AdminRevokeInviteRequest)(nil),      // 82: user.AdminRevokeInviteRequest
-	(*AdminRevokeInviteResponse)(nil),     // 83: user.AdminRevokeInviteResponse
+	(*GetUserClaimsRequest)(nil),          // 69: user.GetUserClaimsRequest
+	(*GetUserClaimsResponse)(nil),         // 70: user.GetUserClaimsResponse
+	(*DeleteProfileRequest)(nil),          // 71: user.DeleteProfileRequest
+	(*DeleteProfileResponse)(nil),         // 72: user.DeleteProfileResponse
+	(*InviteInfo)(nil),                    // 73: user.InviteInfo
+	(*AdminListInvitesRequest)(nil),       // 74: user.AdminListInvitesRequest
+	(*AdminListInvitesResponse)(nil),      // 75: user.AdminListInvitesResponse
+	(*AdminCreateInviteRequest)(nil),      // 76: user.AdminCreateInviteRequest
+	(*AdminCreateInviteResponse)(nil),     // 77: user.AdminCreateInviteResponse
+	(*AdminRevokeInviteRequest)(nil),      // 78: user.AdminRevokeInviteRequest
+	(*AdminRevokeInviteResponse)(nil),     // 79: user.AdminRevokeInviteResponse
 }
 var file_user_proto_depIdxs = []int32{
 	36, // 0: user.GetUserByEmailResponse.user:type_name -> user.UserProfile
@@ -5860,7 +5598,7 @@ var file_user_proto_depIdxs = []int32{
 	52, // 6: user.ListHealthConditionsResponse.conditions:type_name -> user.HealthCondition
 	58, // 7: user.ListBodyCompositionResponse.records:type_name -> user.BodyCompositionRecord
 	62, // 8: user.ListMenstrualCyclesResponse.cycles:type_name -> user.MenstrualCycle
-	77, // 9: user.AdminListInvitesResponse.invites:type_name -> user.InviteInfo
+	73, // 9: user.AdminListInvitesResponse.invites:type_name -> user.InviteInfo
 	0,  // 10: user.UserService.Register:input_type -> user.RegisterRequest
 	39, // 11: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
 	2,  // 12: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
@@ -5896,57 +5634,53 @@ var file_user_proto_depIdxs = []int32{
 	65, // 42: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
 	66, // 43: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
 	67, // 44: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
-	69, // 45: user.UserService.SyncFloData:input_type -> user.SyncFloDataRequest
-	71, // 46: user.UserService.SyncOKOKData:input_type -> user.SyncOKOKDataRequest
-	73, // 47: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
-	75, // 48: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
-	78, // 49: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
-	80, // 50: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
-	82, // 51: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
-	1,  // 52: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 53: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 54: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 55: user.UserService.Login:output_type -> user.LoginResponse
-	5,  // 56: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
-	36, // 57: user.UserService.GetProfile:output_type -> user.UserProfile
-	36, // 58: user.UserService.GetUserByEmail:output_type -> user.UserProfile
-	36, // 59: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	12, // 60: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	14, // 61: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	16, // 62: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
-	18, // 63: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
-	20, // 64: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
-	23, // 65: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
-	25, // 66: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
-	27, // 67: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
-	29, // 68: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
-	32, // 69: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
-	35, // 70: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
-	38, // 71: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	41, // 72: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	43, // 73: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
-	45, // 74: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
-	47, // 75: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
-	49, // 76: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
-	51, // 77: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
-	54, // 78: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
-	52, // 79: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
-	57, // 80: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
-	60, // 81: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
-	58, // 82: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
-	64, // 83: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
-	62, // 84: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
-	62, // 85: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
-	68, // 86: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
-	70, // 87: user.UserService.SyncFloData:output_type -> user.SyncFloDataResponse
-	72, // 88: user.UserService.SyncOKOKData:output_type -> user.SyncOKOKDataResponse
-	74, // 89: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
-	76, // 90: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
-	79, // 91: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
-	81, // 92: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
-	83, // 93: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
-	52, // [52:94] is the sub-list for method output_type
-	10, // [10:52] is the sub-list for method input_type
+	69, // 45: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
+	71, // 46: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
+	74, // 47: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
+	76, // 48: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
+	78, // 49: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
+	1,  // 50: user.UserService.Register:output_type -> user.RegisterResponse
+	1,  // 51: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
+	3,  // 52: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
+	5,  // 53: user.UserService.Login:output_type -> user.LoginResponse
+	5,  // 54: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
+	36, // 55: user.UserService.GetProfile:output_type -> user.UserProfile
+	36, // 56: user.UserService.GetUserByEmail:output_type -> user.UserProfile
+	36, // 57: user.UserService.UpdateProfile:output_type -> user.UserProfile
+	12, // 58: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
+	14, // 59: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
+	16, // 60: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
+	18, // 61: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
+	20, // 62: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
+	23, // 63: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
+	25, // 64: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
+	27, // 65: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
+	29, // 66: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
+	32, // 67: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
+	35, // 68: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
+	38, // 69: user.UserService.ListUsers:output_type -> user.ListUsersResponse
+	41, // 70: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
+	43, // 71: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
+	45, // 72: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
+	47, // 73: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
+	49, // 74: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
+	51, // 75: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
+	54, // 76: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
+	52, // 77: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
+	57, // 78: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
+	60, // 79: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
+	58, // 80: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
+	64, // 81: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
+	62, // 82: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
+	62, // 83: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
+	68, // 84: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
+	70, // 85: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
+	72, // 86: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
+	75, // 87: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
+	77, // 88: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
+	79, // 89: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
+	50, // [50:90] is the sub-list for method output_type
+	10, // [10:50] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -5964,7 +5698,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   84,
+			NumMessages:   80,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

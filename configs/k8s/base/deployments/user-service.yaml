@@ -77,20 +77,6 @@ spec:
                 path: SMTP_FROM
               - key: APP_BASE_URL
                 path: APP_BASE_URL
-              - key: FITBIT_CLIENT_ID
-                path: FITBIT_CLIENT_ID
-              - key: FITBIT_CLIENT_SECRET
-                path: FITBIT_CLIENT_SECRET
-              - key: FITBIT_REDIRECT_URI
-                path: FITBIT_REDIRECT_URI
-              - key: FITBIT_VERIFIER_SECRET
-                path: FITBIT_VERIFIER_SECRET
-              - key: WITHINGS_CLIENT_ID
-                path: WITHINGS_CLIENT_ID
-              - key: WITHINGS_CLIENT_SECRET
-                path: WITHINGS_CLIENT_SECRET
-              - key: WITHINGS_REDIRECT_URI
-                path: WITHINGS_REDIRECT_URI
               - key: GOOGLE_CLIENT_ID
                 path: GOOGLE_CLIENT_ID
               - key: GOOGLE_CLIENT_SECRET
@@ -181,20 +167,6 @@ spec:
               value: "/etc/secrets/SMTP_FROM"
             - name: APP_BASE_URL_FILE
               value: "/etc/secrets/APP_BASE_URL"
-            - name: FITBIT_CLIENT_ID_FILE
-              value: "/etc/secrets/FITBIT_CLIENT_ID"
-            - name: FITBIT_CLIENT_SECRET_FILE
-              value: "/etc/secrets/FITBIT_CLIENT_SECRET"
-            - name: FITBIT_REDIRECT_URI_FILE
-              value: "/etc/secrets/FITBIT_REDIRECT_URI"
-            - name: FITBIT_VERIFIER_SECRET_FILE
-              value: "/etc/secrets/FITBIT_VERIFIER_SECRET"
-            - name: WITHINGS_CLIENT_ID_FILE
-              value: "/etc/secrets/WITHINGS_CLIENT_ID"
-            - name: WITHINGS_CLIENT_SECRET_FILE
-              value: "/etc/secrets/WITHINGS_CLIENT_SECRET"
-            - name: WITHINGS_REDIRECT_URI_FILE
-              value: "/etc/secrets/WITHINGS_REDIRECT_URI"
             - name: GOOGLE_CLIENT_ID_FILE
               value: "/etc/secrets/GOOGLE_CLIENT_ID"
             - name: GOOGLE_CLIENT_SECRET_FILE

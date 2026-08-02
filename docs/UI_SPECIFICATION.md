@@ -297,15 +297,15 @@ div#app
 Список карточек:
 
 - Иконка устройства (emoji или SVG)
-- Название: `Fitbit`, `Withings`
-- Статус: «Подключено» / «Отключено»
+- Название: `Open Wearables`
+- Статус: «Подключено» / «Отключён»
 - Кнопка «Отключить»
 
 Эндпоинты:
 
-- `GET /devices` — список устройств.
-- `POST /devices` — регистрация устройства.
-- `POST /devices/{id}/ingest` — приём данных.
+- `GET /api/v1/integrations/providers` — список источников.
+- `POST /api/v1/integrations/{source}/disconnect` — отключение источника.
+- `POST /api/v1/integrations/open-wearables/webhook` — приём данных от Open Wearables.
 - Управление состоянием через локальное состояние приложения.
 
 ### 6.2. Выбор устройства (`deviceSelector`)
@@ -314,9 +314,9 @@ div#app
 
 ### 6.3. Интеграции
 
-- Fitbit OAuth: `GET /devices/fitbit/auth`, `GET /devices/fitbit/callback`, `POST /devices/fitbit/disconnect`.
-- Withings OAuth: `GET /devices/withings/auth`, `GET /devices/withings/callback`, `POST /devices/withings/disconnect`, `POST /api/v1/devices/withings/webhook`.
-- Список провайдеров: `GET /devices/providers`.
+- Open Wearables: `POST /api/v1/integrations/open-wearables/webhook` (webhook от агрегатора).
+- Список провайдеров: `GET /api/v1/integrations/providers`.
+- Отключение источника: `POST /api/v1/integrations/{source}/disconnect`.
 
 ---
 
@@ -397,8 +397,9 @@ div#app
 
 ### 8.5.4. Синхронизация
 
-- `syncFloBtn` → `POST /health/sync/flo`
-- `syncOKOKBtn` → `POST /health/sync/okok`
+- Данные поступают через Open Wearables webhook: `POST /api/v1/integrations/open-wearables/webhook`.
+- Список источников: `GET /api/v1/integrations/providers`.
+- Отключение источника: `POST /api/v1/integrations/{source}/disconnect`.
 
 ---
 
@@ -524,11 +525,8 @@ div#app
 |`createMenstrualCycle(data)`|POST|`/api/v1/health/menstrual-cycles`|
 |`updateMenstrualCycle(cycleId, data)`|PUT|`/api/v1/health/menstrual-cycles/{cycleId}`|
 |`deleteMenstrualCycle(cycleId)`|DELETE|`/api/v1/health/menstrual-cycles/{cycleId}`|
-|`syncFlo(accessToken, refreshToken)`|POST|`/api/v1/health/sync/flo`|
-|`syncOKOK(accessToken, refreshToken)`|POST|`/api/v1/health/sync/okok`|
-|`fitbitAuth()`|GET|`/api/v1/devices/fitbit/auth`|
-|`withingsAuth()`|GET|`/api/v1/devices/withings/auth`|
-|`getProviders()`|GET|`/api/v1/devices/providers`|
+|`getProviders()`|GET|`/api/v1/integrations/providers`|
+|`disconnectIntegration(source)`|POST|`/api/v1/integrations/{source}/disconnect`|
 |`classifyState(biometrics)`|POST|`/api/v1/ml/classify`|
 |`generateMLPlan(trainingClass, user_profile, goal, constraints)`|POST|`/api/v1/ml/generate-plan`|
 |`registerWithInvite(code, name, email, password)`|POST|`/api/v1/register/invite`|
