@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-wearables-frontend
+  namespace: fitness-platform-production
+  labels:
+    app: open-wearables-frontend
+    tier: frontend
+    environment: production
+    app.kubernetes.io/name: open-wearables-frontend
+    app.kubernetes.io/instance: open-wearables-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  revisionHistoryLimit: 1
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-wearables-frontend
+  template:
+    metadata:
+      labels:
+        app: open-wearables-frontend
+        zone: dmz
+        environment: production
+        app.kubernetes.io/name: open-wearables-frontend
+        app.kubernetes.io/instance: open-wearables-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 20
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: frontend
+          image: ghcr.io/mamuer/project/open-wearables-frontend:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: VITE_API_URL
+              value: "https://openwearables.fittpulse.duckdns.org"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "15m"
+              memory: "32Mi"
+            limits:
+              cpu: "50m"
+              memory: "64Mi"

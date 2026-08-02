@@ -3,6 +3,7 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/metrics"
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 // Server represents the Open Wearables webhook server
@@ -44,6 +46,8 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/integrations/open-wearables/webhook", s.handleWebhook)
+	mux.HandleFunc("/api/v1/integrations/providers", s.handleListProviders)
+	mux.HandleFunc("/api/v1/integrations/open-wearables/disconnect", s.handleDisconnect)
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -84,6 +88,75 @@ func (s *Server) Stop(ctx context.Context) error {
 		return nil
 	}
 	return s.server.Shutdown(ctx)
+}
+
+func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		WriteResponse(w, http.StatusBadRequest, WebhookResponse{
+			Status:  "error",
+			Message: "user_id is required",
+		})
+		return
+	}
+
+	storage := NewStorage(s.db, s.log)
+	sources, err := storage.GetSources(r.Context(), userID)
+	if err != nil {
+		s.log.Error("failed to get sources", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
+		WriteResponse(w, http.StatusInternalServerError, WebhookResponse{
+			Status:  "error",
+			Message: "failed to get sources",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"providers": sources,
+	})
+}
+
+func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.URL.Query().Get("user_id")
+	source := r.URL.Query().Get("source")
+	if userID == "" || source == "" {
+		WriteResponse(w, http.StatusBadRequest, WebhookResponse{
+			Status:  "error",
+			Message: "user_id and source are required",
+		})
+		return
+	}
+
+	storage := NewStorage(s.db, s.log)
+	count, err := storage.DeleteBySource(r.Context(), userID, source)
+	if err != nil {
+		s.log.Error("failed to disconnect source", zap.Error(err),
+			zap.String("user_id", sanitize.LogString(userID)),
+			zap.String("source", sanitize.LogString(source)))
+		WriteResponse(w, http.StatusInternalServerError, WebhookResponse{
+			Status:  "error",
+			Message: "failed to disconnect source",
+		})
+		return
+	}
+
+	WriteResponse(w, http.StatusOK, WebhookResponse{
+		Status:  "success",
+		Message: fmt.Sprintf("disconnected %s, removed %d records", source, count),
+	})
 }
 
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +213,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if payload.Nonce != "" {
 		storage := NewStorage(s.db, s.log)
 		if err := storage.CheckAndSaveNonce(r.Context(), payload.UserID, payload.Nonce, payload.Timestamp); err != nil {
-			s.log.Warn("webhook nonce check failed", zap.Error(err), zap.String("user_id", payload.UserID))
+			s.log.Warn("webhook nonce check failed", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 			metrics.ErrorTotal.WithLabelValues("webhook", "nonce_reused").Inc()
 			WriteResponse(w, http.StatusConflict, WebhookResponse{
 				Status:  "error",
@@ -151,7 +224,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := payload.Validate(); err != nil {
-		s.log.Error("payload validation failed", zap.Error(err), zap.String("user_id", payload.UserID))
+		s.log.Error("payload validation failed", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 		WriteResponse(w, http.StatusBadRequest, WebhookResponse{
 			Status:  "error",
 			Message: fmt.Sprintf("validation failed: %v", err),
@@ -161,7 +234,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	storage := NewStorage(s.db, s.log)
 	if err := storage.SaveMetrics(r.Context(), payload); err != nil {
-		s.log.Error("failed to save metrics", zap.Error(err), zap.String("user_id", payload.UserID))
+		s.log.Error("failed to save metrics", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 		metrics.ErrorTotal.WithLabelValues("webhook", "save_failed").Inc()
 		WriteResponse(w, http.StatusInternalServerError, WebhookResponse{
 			Status:  "error",

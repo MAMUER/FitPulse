@@ -2174,7 +2174,7 @@ components:
       properties:
         device_type:
           type: string
-                  enum: [fitbit, withings, apple_watch, manual]
+          enum: [fitbit, withings, apple_watch, manual]
         device_token:
           type: string
         sync_interval_ms:

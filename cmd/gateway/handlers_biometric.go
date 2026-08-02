@@ -15,6 +15,20 @@ import (
 
 // ========== Biometric Handlers ==========
 
+func (g *gateway) proxyToBiometricWithUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		return
+	}
+
+	q := r.URL.Query()
+	q.Set("user_id", userID)
+	r.URL.RawQuery = q.Encode()
+
+	g.biometricWebhookProxy.ServeHTTP(w, r)
+}
+
 func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {

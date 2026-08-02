@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 var (
@@ -138,8 +140,8 @@ func WriteResponse(w http.ResponseWriter, statusCode int, response WebhookRespon
 // LogFields returns zap fields for logging
 func LogFields(payload *OpenWearablesWebhookPayload) []zap.Field {
 	return []zap.Field{
-		zap.String("user_id", payload.UserID),
-		zap.String("source", string(payload.Source)),
+		zap.String("user_id", sanitize.LogString(payload.UserID)),
+		zap.String("source", sanitize.LogString(string(payload.Source))),
 		zap.Int("metrics_count", len(payload.Metrics)),
 		zap.Time("timestamp", payload.Timestamp),
 	}

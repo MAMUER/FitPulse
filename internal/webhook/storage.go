@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 const (
@@ -32,6 +34,18 @@ const (
 		SELECT created_at FROM webhook_nonces
 		WHERE user_id = $1 AND nonce = $2
 	`
+
+	getSourcesQuery = `
+		SELECT DISTINCT source, MAX(created_at)
+		FROM biometric_data
+		WHERE user_id = $1 AND device_type = 'open_wearables'
+		GROUP BY source
+	`
+
+	deleteBySourceQuery = `
+		DELETE FROM biometric_data
+		WHERE user_id = $1 AND source = $2 AND device_type = 'open_wearables'
+	`
 )
 
 // Storage handles persistence of webhook metrics
@@ -43,6 +57,8 @@ type Storage struct {
 // DB is an interface for database operations
 type DB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error)
+	GetSources(ctx context.Context, userID string) ([]SourceInfo, error)
+	DeleteBySource(ctx context.Context, userID, source string) (int64, error)
 }
 
 // RowScanner abstracts sql.Row Scan
@@ -86,7 +102,7 @@ func (s *Storage) SaveMetrics(ctx context.Context, payload *OpenWearablesWebhook
 	for _, metric := range payload.Metrics {
 		if err := s.saveMetric(ctx, tx, payload, metric); err != nil {
 			return fmt.Errorf("save metric %s for user %s: %w",
-				metric.Type, payload.UserID, err)
+				sanitize.LogString(string(metric.Type)), sanitize.LogString(payload.UserID), err)
 		}
 	}
 
@@ -95,8 +111,8 @@ func (s *Storage) SaveMetrics(ctx context.Context, payload *OpenWearablesWebhook
 	}
 
 	s.log.Info("metrics saved",
-		zap.String("user_id", payload.UserID),
-		zap.String("source", string(payload.Source)),
+		zap.String("user_id", sanitize.LogString(payload.UserID)),
+		zap.String("source", sanitize.LogString(string(payload.Source))),
 		zap.Int("count", len(payload.Metrics)),
 	)
 
@@ -122,6 +138,23 @@ func (s *Storage) saveMetric(ctx context.Context, tx Tx, payload *OpenWearablesW
 	}
 
 	return nil
+}
+
+// SourceInfo represents a connected source
+type SourceInfo struct {
+	Source      string    `json:"source"`
+	SourceName  string    `json:"source_name"`
+	ConnectedAt time.Time `json:"connected_at"`
+}
+
+// GetSources returns distinct Open Wearables sources for a user
+func (s *Storage) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return s.db.GetSources(ctx, userID)
+}
+
+// DeleteBySource removes biometric data for a user and source
+func (s *Storage) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return s.db.DeleteBySource(ctx, userID, source)
 }
 
 // CheckAndSaveNonce checks if a nonce has already been used and saves it
@@ -168,6 +201,46 @@ func (a *SQLDBAdapter) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, er
 		return nil, err
 	}
 	return &SQLTxAdapter{tx: tx}, nil
+}
+
+func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	rows, err := a.db.QueryContext(ctx, getSourcesQuery, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query sources: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var sources []SourceInfo
+	for rows.Next() {
+		var source string
+		var connectedAt time.Time
+		if err := rows.Scan(&source, &connectedAt); err != nil {
+			return nil, fmt.Errorf("scan source: %w", err)
+		}
+		sources = append(sources, SourceInfo{
+			Source:      source,
+			SourceName:  source,
+			ConnectedAt: connectedAt,
+		})
+	}
+
+	return sources, rows.Err()
+}
+
+func (a *SQLDBAdapter) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	result, err := a.db.ExecContext(ctx, deleteBySourceQuery, userID, source)
+	if err != nil {
+		return 0, fmt.Errorf("delete by source: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+
+	return count, nil
 }
 
 // SQLTxAdapter adapts *sql.Tx to webhook.Tx

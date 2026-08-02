@@ -38,11 +38,11 @@ WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/bin/biometric-service .
 
-USER appuser
+USER 1001
 
 EXPOSE 50052
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD sh -c 'cat > /dev/tcp/localhost/50052' || exit 1
+  CMD ["sh", "-c", "cat > /dev/tcp/localhost/50052 || exit 1"]
 
 ENTRYPOINT ["./biometric-service"]

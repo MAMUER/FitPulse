@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-wearables
+  namespace: fitness-platform-production
+  labels:
+    app: open-wearables
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: open-wearables
+    app.kubernetes.io/instance: open-wearables
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  revisionHistoryLimit: 1
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-wearables
+  template:
+    metadata:
+      labels:
+        app: open-wearables
+        zone: internal
+        environment: production
+        app.kubernetes.io/name: open-wearables
+        app.kubernetes.io/instance: open-wearables
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 20
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: open-wearables-sa
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
+            items:
+              - key: OPEN_WEARABLES_WEBHOOK_SECRET
+                path: OPEN_WEARABLES_WEBHOOK_SECRET
+      containers:
+        - name: backend
+          image: ghcr.io/mamuer/project/open-wearables-backend:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres-service:5432/open_wearables"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@valkey:6379/0"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+            - name: OPEN_WEARABLES_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: OPEN_WEARABLES_WEBHOOK_SECRET
+            - name: API_BASE_URL
+              value: "https://fittpulse.duckdns.org"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"

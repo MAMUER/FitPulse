@@ -12,3 +12,5 @@ resources:
   - gateway.yaml
   - classifier.yaml
   - ml-generator.yaml
+  - open-wearables.yaml
+  - open-wearables-frontend.yaml

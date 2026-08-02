@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-wearables
+  namespace: fitness-platform-production
+  labels:
+    app: open-wearables
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: open-wearables
+    app.kubernetes.io/instance: open-wearables
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: fitness-platform
+spec:
+  selector:
+    app: open-wearables
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP

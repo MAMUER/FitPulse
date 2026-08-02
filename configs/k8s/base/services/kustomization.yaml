@@ -11,3 +11,5 @@ resources:
   - gateway-service.yaml
   - classifier-service.yaml
   - ml-generator-service.yaml
+  - open-wearables-service.yaml
+  - open-wearables-frontend-service.yaml

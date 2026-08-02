@@ -1908,7 +1908,20 @@ jobs:
             --docker-password=${{ secrets.GHCR_TOKEN }} \
             -n fitness-platform-production \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
-          echo "imagePullSecret created/updated"
+           echo "imagePullSecret created/updated"
+      - name: Build and push Open Wearables images
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+           echo "Cloning Open Wearables repo..."
+           git clone --depth 1 https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
+           echo "Building Open Wearables backend..."
+           docker build -t ghcr.io/mamuer/project/open-wearables-backend:latest -f /tmp/open-wearables/backend/Dockerfile /tmp/open-wearables/backend
+           echo "Building Open Wearables frontend..."
+           docker build -t ghcr.io/mamuer/project/open-wearables-frontend:latest -f /tmp/open-wearables/frontend/Dockerfile /tmp/open-wearables/frontend
+           echo "Pushing Open Wearables images..."
+           docker push ghcr.io/mamuer/project/open-wearables-backend:latest
+           docker push ghcr.io/mamuer/project/open-wearables-frontend:latest
+           echo "Open Wearables images pushed"
       - name: Ensure service account exists
         if: steps.connectivity.outputs.reachable == 'true'
         run: |
@@ -1964,13 +1977,6 @@ jobs:
             --from-literal=APP_BASE_URL=${{ vars.APP_BASE_URL }} \
             --from-literal=SEED_ADMIN_EMAIL=${{ secrets.SEED_ADMIN_EMAIL }} \
             --from-literal=SEED_ADMIN_PASSWORD=${{ secrets.SEED_ADMIN_PASSWORD }} \
-            --from-literal=FITBIT_CLIENT_ID=${{ secrets.FITBIT_CLIENT_ID }} \
-            --from-literal=FITBIT_CLIENT_SECRET=${{ secrets.FITBIT_CLIENT_SECRET }} \
-            --from-literal=FITBIT_REDIRECT_URI=${{ vars.FITBIT_REDIRECT_URI }} \
-            --from-literal=FITBIT_VERIFIER_SECRET=${{ secrets.FITBIT_VERIFIER_SECRET }} \
-            --from-literal=WITHINGS_CLIENT_ID=${{ secrets.WITHINGS_CLIENT_ID }} \
-            --from-literal=WITHINGS_CLIENT_SECRET=${{ secrets.WITHINGS_CLIENT_SECRET }} \
-            --from-literal=WITHINGS_REDIRECT_URI=${{ vars.WITHINGS_REDIRECT_URI }} \
             --from-literal=OPEN_WEARABLES_WEBHOOK_SECRET=${{ secrets.OPEN_WEARABLES_WEBHOOK_SECRET }} \
             --from-literal=GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
             --from-literal=GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
@@ -2504,6 +2510,17 @@ jobs:
           kubectl get pods -n fitness-platform-production
           kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=50s || echo "Gateway not ready yet"
           sleep 30
+      - name: Deploy Open Wearables
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          echo "=== Deploying Open Wearables ==="
+          kubectl apply -k configs/k8s/base/ -n fitness-platform-production
+          kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
+          kubectl apply -k configs/k8s/overlays/production/ -n fitness-platform-production
+          echo "Waiting for Open Wearables pods to be ready..."
+          kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "Open Wearables backend not ready yet"
+          kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "Open Wearables frontend not ready yet"
+          echo "✅ Open Wearables deployed"
 
   # ============================================================================
   # TEST PRODUCTION

@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: open-wearables-ingress
+  namespace: fitness-platform-production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - openwearables.fittpulse.duckdns.org
+      secretName: openwearables-fittpulse-duckdns-org-tls
+  rules:
+    - host: openwearables.fittpulse.duckdns.org
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: open-wearables
+                port:
+                  number: 8000
+          - path: /(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: open-wearables-frontend
+                port:
+                  number: 3000

@@ -591,6 +591,9 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	// Refresh token (public - uses opaque refresh token)
 	r.Post("/api/v1/auth/refresh", g.refreshHandler)
+
+	// Open Wearables webhook (public - Open Wearables sends this)
+	r.Post("/api/v1/integrations/open-wearables/webhook", g.proxyToBiometricWebhook)
 }
 
 // registerProtectedRoutes registers routes under /api/v1 that require authentication.
@@ -642,8 +645,17 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		// Logout
 		r.Post("/logout", g.logoutHandler)
 
-		// Open Wearables webhook
-		r.Post("/api/v1/integrations/open-wearables/webhook", g.proxyToBiometricWebhook)
+		// Open Wearables integration management (requires auth)
+		r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+		r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
+			r.Post("/disconnect", func(w http.ResponseWriter, r *http.Request) {
+				source := chi.URLParam(r, "source")
+				q := r.URL.Query()
+				q.Set("source", source)
+				r.URL.RawQuery = q.Encode()
+				g.proxyToBiometricWithUser(w, r)
+			})
+		})
 	})
 }
 

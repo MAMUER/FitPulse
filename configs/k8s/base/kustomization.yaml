@@ -6,6 +6,7 @@ resources:
   - limit-range.yaml
   - configmap.yaml
   - serviceaccount.yaml
+  - serviceaccount-open-wearables.yaml
   - rbac
   - network-policies
   - deployments

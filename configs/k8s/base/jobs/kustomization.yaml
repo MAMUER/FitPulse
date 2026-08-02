@@ -12,3 +12,4 @@ resources:
   - migrate-db.yaml
   - seed-admin.yaml
   - update-modsecurity-crs.yaml
+  - create-open-wearables-db.yaml

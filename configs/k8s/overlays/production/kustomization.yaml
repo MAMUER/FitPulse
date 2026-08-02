@@ -5,6 +5,7 @@ resources:
   - ingress.yaml
   - hpa.yaml
   - ingress-nginx-tls-role.yaml
+  - open-wearables-ingress.yaml
 images:
   - name: ghcr.io/mamuer/project/user-service
     newTag: ${IMAGE_TAG:-latest}
@@ -17,4 +18,8 @@ images:
   - name: ghcr.io/mamuer/project/classifier
     newTag: ${IMAGE_TAG:-latest}
   - name: ghcr.io/mamuer/project/ml-generator
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/open-wearables-backend
+    newTag: ${IMAGE_TAG:-latest}
+  - name: ghcr.io/mamuer/project/open-wearables-frontend
     newTag: ${IMAGE_TAG:-latest}

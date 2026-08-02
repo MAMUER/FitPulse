@@ -13,6 +13,7 @@ service BiometricService {
     rpc GetLatest(GetLatestRequest) returns (BiometricRecord);
     rpc UpdateRecord(UpdateRecordRequest) returns (BiometricRecord);
     rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
+    rpc GetSources(GetSourcesRequest) returns (GetSourcesResponse);
 }
 
 message BiometricRecord {
@@ -77,4 +78,17 @@ message DeleteRecordRequest {
 
 message DeleteRecordResponse {
     bool deleted = 1;
+}
+
+message GetSourcesRequest {
+    string user_id = 1;
+}
+
+message GetSourcesResponse {
+    repeated SourceInfo sources = 1;
+}
+
+message SourceInfo {
+    string source = 1;
+    google.protobuf.Timestamp connected_at = 2;
 }

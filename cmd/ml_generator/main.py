@@ -14,7 +14,7 @@ import numpy as np
 import onnxruntime as ort
 import structlog
 from aio_pika import connect_robust
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from prometheus_client import Gauge
 from pydantic import BaseModel, ConfigDict, Field
 from valkey.asyncio import Valkey

@@ -224,16 +224,40 @@ func (m *mockDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 	return &mockTx{}, nil
 }
 
+func (m *mockDB) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return []SourceInfo{{Source: "open_wearables", SourceName: "open_wearables", ConnectedAt: time.Now()}}, nil
+}
+
+func (m *mockDB) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 1, nil
+}
+
 type mockDBWithNonce struct{}
 
 func (m *mockDBWithNonce) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 	return &mockTxWithNonce{}, nil
 }
 
+func (m *mockDBWithNonce) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return []SourceInfo{{Source: "open_wearables", SourceName: "open_wearables", ConnectedAt: time.Now()}}, nil
+}
+
+func (m *mockDBWithNonce) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 1, nil
+}
+
 type mockDBForNewNonce struct{}
 
 func (m *mockDBForNewNonce) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 	return &mockTxForNewNonce{}, nil
+}
+
+func (m *mockDBForNewNonce) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return []SourceInfo{{Source: "open_wearables", SourceName: "open_wearables", ConnectedAt: time.Now()}}, nil
+}
+
+func (m *mockDBForNewNonce) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 1, nil
 }
 
 type mockTx struct{}

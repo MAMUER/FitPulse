@@ -109,3 +109,5 @@ help:
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"
 	@echo "  make frontend-build  - Build frontend with Vite"
+
+tidy:
