@@ -38,11 +38,11 @@ WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/bin/training-service .
 
-USER appuser
+USER 1001
 
 EXPOSE 50053
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD sh -c 'cat > /dev/tcp/localhost/50053' || exit 1
+  CMD ["sh", "-c", "cat > /dev/tcp/localhost/50053"]
 
 ENTRYPOINT ["./training-service"]

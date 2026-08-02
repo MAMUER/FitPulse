@@ -13,7 +13,7 @@ RUN addgroup -g 1000 -S appgroup && \
     adduser -u 1000 -S appuser -G appgroup
 
 WORKDIR /app
-USER appuser
+USER 1000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD true
+  CMD ["/bin/true"]

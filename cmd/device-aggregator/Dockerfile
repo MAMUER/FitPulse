@@ -21,8 +21,8 @@ RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/bin/device-aggregator .
 
-USER appuser
+USER 1001
 EXPOSE 8083
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD sh -c 'cat > /dev/tcp/localhost/8083' || exit 1
+  CMD ["sh", "-c", "cat > /dev/tcp/localhost/8083"]
 ENTRYPOINT ["./device-aggregator"]

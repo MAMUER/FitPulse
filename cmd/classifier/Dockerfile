@@ -33,11 +33,11 @@ WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/bin/classifier .
 
-USER appuser
+USER 1001
 
 EXPOSE 8001 9091
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8001/health || exit 1
+  CMD ["curl", "-f", "http://localhost:8001/health"]
 
 ENTRYPOINT ["./classifier"]

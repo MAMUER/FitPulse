@@ -108,6 +108,7 @@ func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 	storage := NewStorage(s.db, s.log)
 	sources, err := storage.GetSources(r.Context(), userID)
 	if err != nil {
+		// nolint:log-injection // user_id is sanitized via sanitize.LogString
 		s.log.Error("failed to get sources", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		WriteResponse(w, http.StatusInternalServerError, WebhookResponse{
 			Status:  "error",
@@ -143,6 +144,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	storage := NewStorage(s.db, s.log)
 	count, err := storage.DeleteBySource(r.Context(), userID, source)
 	if err != nil {
+		// nolint:log-injection // user_id and source are sanitized via sanitize.LogString
 		s.log.Error("failed to disconnect source", zap.Error(err),
 			zap.String("user_id", sanitize.LogString(userID)),
 			zap.String("source", sanitize.LogString(source)))
@@ -212,8 +214,9 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Nonce != "" {
 		storage := NewStorage(s.db, s.log)
-		if err := storage.CheckAndSaveNonce(r.Context(), payload.UserID, payload.Nonce, payload.Timestamp); err != nil {
-			s.log.Warn("webhook nonce check failed", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
+	if err := storage.CheckAndSaveNonce(r.Context(), payload.UserID, payload.Nonce, payload.Timestamp); err != nil {
+		// nolint:log-injection // user_id is sanitized via sanitize.LogString
+		s.log.Warn("webhook nonce check failed", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 			metrics.ErrorTotal.WithLabelValues("webhook", "nonce_reused").Inc()
 			WriteResponse(w, http.StatusConflict, WebhookResponse{
 				Status:  "error",
@@ -224,6 +227,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := payload.Validate(); err != nil {
+		// nolint:log-injection // user_id is sanitized via sanitize.LogString
 		s.log.Error("payload validation failed", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 		WriteResponse(w, http.StatusBadRequest, WebhookResponse{
 			Status:  "error",
@@ -234,6 +238,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	storage := NewStorage(s.db, s.log)
 	if err := storage.SaveMetrics(r.Context(), payload); err != nil {
+		// nolint:log-injection // user_id is sanitized via sanitize.LogString
 		s.log.Error("failed to save metrics", zap.Error(err), zap.String("user_id", sanitize.LogString(payload.UserID)))
 		metrics.ErrorTotal.WithLabelValues("webhook", "save_failed").Inc()
 		WriteResponse(w, http.StatusInternalServerError, WebhookResponse{

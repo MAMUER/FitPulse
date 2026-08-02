@@ -28,7 +28,7 @@ spec:
                 path: POSTGRES_PASSWORD
       containers:
         - name: create-db
-          image: postgres:16-alpine
+          image: postgres:18-alpine
           command:
             - /bin/sh
             - -c

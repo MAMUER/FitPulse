@@ -2,8 +2,8 @@
 FROM python:3.14-slim AS builder
 
 # Security: non-root user
-RUN groupadd -r mluser && \
-    useradd -r -g mluser -d /app -s /sbin/nologin mluser
+RUN groupadd -r mluser -g 1001 && \
+    useradd -r -u 1001 -g mluser -d /app -s /sbin/nologin mluser
 
 WORKDIR /app
 
@@ -26,8 +26,8 @@ RUN pip install --no-cache-dir --retries 5 --timeout 120 -r /tmp/requirements.tx
 # Runtime stage
 FROM python:3.14-slim AS runtime
 
-RUN groupadd -r mluser && \
-    useradd -r -g mluser -d /app -s /sbin/nologin mluser
+RUN groupadd -r mluser -g 1001 && \
+    useradd -r -u 1001 -g mluser -d /app -s /sbin/nologin mluser
 
 WORKDIR /app
 
@@ -36,20 +36,20 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Create models directory
-RUN mkdir -p /app/models && chown -R mluser:mluser /app/models
+RUN mkdir -p /app/models && chown -R 1001:1001 /app/models
 
-USER mluser
+USER 1001
 
 # Copy code
-COPY --chown=mluser:mluser cmd /app/cmd
+COPY --chown=1001:1001 cmd /app/cmd
 
 # Copy models if they exist (optional — модель обучается отдельно)
-COPY --chown=mluser:mluser models/generator.onnx /app/models/generator.onnx
+COPY --chown=1001:1001 models/generator.onnx /app/models/generator.onnx
 
 EXPOSE 8002
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
+   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
 
 WORKDIR /app/cmd/ml_generator
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--loop", "uvloop"]
