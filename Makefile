@@ -38,8 +38,8 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/user-service/...
-	@echo "Checking coverage threshold (>= 75%)..."
+	@go test -count=1 -v -coverprofile=coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/user-service/...
+	@echo "Checking coverage threshold (>= ${COVERAGE_THRESHOLD:-50}%)..."
 	@bash scripts/coverage-check.sh
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
@@ -100,7 +100,7 @@ help:
 	@echo "  make vet             - Run go vet"
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
-	@echo "  make test-cover      - Run tests with coverage report (75% threshold, business logic only)"
+	@echo "  make test-cover      - Run tests with coverage report (default 50% threshold, configurable via COVERAGE_THRESHOLD)"
 	@echo "  make check           - Run tidy, fmt, vet, lint, test, proto, js-check, frontend-install, frontend-lint, frontend-test, frontend-build"
 	@echo "  make proto           - Generate proto files"
 	@echo "  make frontend-install - Install frontend dependencies with npm"

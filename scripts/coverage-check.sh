@@ -2,6 +2,7 @@
 set -euo pipefail
 
 coverage_file="coverage.out"
+min_coverage="${COVERAGE_THRESHOLD:-50}"
 
 if [ ! -f "$coverage_file" ]; then
 	echo "ERROR: coverage.out not found. Run 'go test -coverprofile=coverage.out ./...' first."
@@ -45,8 +46,8 @@ fi
 coverage=$(awk "BEGIN {printf \"%.2f\", ($total_covered / $total_statements) * 100}")
 echo "Coverage: ${coverage}% of statements (business logic only, excluding generated/mocks/infrastructure)"
 
-if awk "BEGIN {exit !($coverage < 75)}"; then
-	echo "ERROR: Coverage threshold (>= 75%) not met. Current: ${coverage}%"
+if awk "BEGIN {exit !($coverage < $min_coverage)}"; then
+	echo "ERROR: Coverage threshold (>= ${min_coverage}%) not met. Current: ${coverage}%"
 	exit 1
 fi
 

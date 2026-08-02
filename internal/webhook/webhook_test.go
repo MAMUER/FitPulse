@@ -246,6 +246,48 @@ func (m *mockDBWithNonce) DeleteBySource(ctx context.Context, userID, source str
 	return 1, nil
 }
 
+type mockDBWithGetSourcesError struct{}
+
+func (m *mockDBWithGetSourcesError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+	return &mockTx{}, nil
+}
+
+func (m *mockDBWithGetSourcesError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return nil, errors.New("database error")
+}
+
+func (m *mockDBWithGetSourcesError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 1, nil
+}
+
+type mockDBWithDeleteBySourceError struct{}
+
+func (m *mockDBWithDeleteBySourceError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+	return &mockTx{}, nil
+}
+
+func (m *mockDBWithDeleteBySourceError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return nil, nil
+}
+
+func (m *mockDBWithDeleteBySourceError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 0, errors.New("database error")
+}
+
+type mockDBWithSaveMetricsError struct{}
+
+func (m *mockDBWithSaveMetricsError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+	return nil, errors.New("database error")
+}
+
+func (m *mockDBWithSaveMetricsError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return nil, nil
+}
+
+func (m *mockDBWithSaveMetricsError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 0, nil
+}
+
 type mockDBForNewNonce struct{}
 
 func (m *mockDBForNewNonce) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
@@ -415,4 +457,62 @@ func TestHandleDisconnect(t *testing.T) {
 		server.handleDisconnect(w, r)
 		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 	})
+}
+
+func TestServerHandleWebhookInvalidSignature(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	server.secret = []byte("test-secret")
+	w := httptest.NewRecorder()
+	now := time.Now().UTC().Format(time.RFC3339)
+	body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, now)
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+	r.Header.Set("X-Webhook-Signature", "invalid")
+	server.handleWebhook(w, r)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestServerHandleWebhookPayloadValidationFailed(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	w := httptest.NewRecorder()
+	now := time.Now().UTC().Format(time.RFC3339)
+	body := fmt.Appendf([]byte{}, `{"user_id":"","source":"open_wearables","timestamp":"%s","metrics":[]}`, now)
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+	server.handleWebhook(w, r)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestServerHandleWebhookSaveMetricsFailed(t *testing.T) {
+	mockDB := &mockDBWithSaveMetricsError{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	w := httptest.NewRecorder()
+	now := time.Now().UTC().Format(time.RFC3339)
+	body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, now)
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+	server.handleWebhook(w, r)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestHandleListProvidersError(t *testing.T) {
+	mockDB := &mockDBWithGetSourcesError{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/providers?user_id=user-1", nil)
+	server.handleListProviders(w, r)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestHandleDisconnectError(t *testing.T) {
+	mockDB := &mockDBWithDeleteBySourceError{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/disconnect?user_id=user-1&source=open_wearables", nil)
+	server.handleDisconnect(w, r)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
