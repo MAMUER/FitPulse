@@ -125,12 +125,6 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
 | GET | `/api/v1/devices` | Список устройств |
 | GET | `/api/v1/devices/providers` | Список провайдеров устройств |
-| GET | `/api/v1/devices/fitbit/auth` | Fitbit OAuth |
-| GET | `/api/v1/devices/fitbit/callback` | Fitbit callback |
-| POST | `/api/v1/devices/fitbit/disconnect` | Отключение Fitbit |
-| GET | `/api/v1/devices/withings/auth` | Withings OAuth |
-| GET | `/api/v1/devices/withings/callback` | Withings callback |
-| POST | `/api/v1/devices/withings/disconnect` | Отключение Withings |
 | GET | `/metrics` | Prometheus метрики |
 
 ### Админ (JWT + role=admin)
