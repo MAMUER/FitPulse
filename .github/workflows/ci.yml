@@ -1199,7 +1199,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           services="user-service biometric-service training-service gateway device-connector"
-          
+
           if [ -z "$COSIGN_PRIVATE_KEY" ]; then
             echo "❌ COSIGN_PRIVATE_KEY is empty" >&2
             exit 1
@@ -1225,7 +1225,7 @@ jobs:
             cosign sign --yes --key /tmp/cosign.key \
               "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
           done
-          
+
           rm -f /tmp/cosign.key
 
   # ============================================================================
@@ -2713,5 +2713,3 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          
