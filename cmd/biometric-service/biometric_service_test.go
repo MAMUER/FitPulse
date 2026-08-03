@@ -135,7 +135,10 @@ func TestBiometricServer_AddRecord_Success(t *testing.T) {
 	defer cleanup()
 
 	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	mock.ExpectExec(`INSERT INTO biometric_data`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(`INSERT INTO biometric_data`).WithArgs(
+		sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+		sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+	).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("generated-record-id"))
 
 	log, _ := zap.NewDevelopment()
 	s := newTestServer(db, log)

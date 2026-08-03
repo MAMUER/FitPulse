@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"net/http"
 	"os/signal"
@@ -217,26 +218,28 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 
 	baseQuery := `SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = $1 AND metric_type = $2`
 
+	limitOffsetClause := fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+
 	switch {
 	case from.IsZero() && to.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` ORDER BY timestamp DESC LIMIT $3 OFFSET $4`,
-			args:  []interface{}{req.UserId, req.MetricType, limit, offset},
+			query: baseQuery + ` ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType},
 		}
 	case from.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC LIMIT $4 OFFSET $5`,
-			args:  []interface{}{req.UserId, req.MetricType, to, limit, offset},
+			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, to},
 		}
 	case to.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4 OFFSET $5`,
-			args:  []interface{}{req.UserId, req.MetricType, from, limit, offset},
+			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, from},
 		}
 	default:
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC LIMIT $5 OFFSET $6`,
-			args:  []interface{}{req.UserId, req.MetricType, from, to, limit, offset},
+			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, from, to},
 		}
 	}
 }
