@@ -221,17 +221,17 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 	limitOffsetClause := fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 
 	switch {
-	case from.IsZero() && to.IsZero():
+	case req.From == nil && req.To == nil:
 		return recordsQuery{
 			query: baseQuery + ` ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType},
 		}
-	case from.IsZero():
+	case req.From == nil:
 		return recordsQuery{
 			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType, to},
 		}
-	case to.IsZero():
+	case req.To == nil:
 		return recordsQuery{
 			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType, from},
@@ -250,10 +250,7 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 		zap.String("metric_type", req.MetricType),
 	)
 
-	from := req.From.AsTime()
-	to := req.To.AsTime()
-
-	if !from.IsZero() && !to.IsZero() && from.After(to) {
+	if req.From != nil && req.To != nil && req.From.AsTime().After(req.To.AsTime()) {
 		return nil, status.Error(codes.InvalidArgument, "from cannot be after to")
 	}
 
