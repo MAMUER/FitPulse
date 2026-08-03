@@ -79,18 +79,24 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 		return nil, status.Error(codes.NotFound, "user not found")
 	}
 
-	id := uuid.New().String()
+	// Use INSERT ... RETURNING id so we always get the actual id stored in DB.
+	// If a conflict occurs, perform a no-op UPDATE to be able to RETURNING the existing id.
+	newID := uuid.New().String()
 	timestamp := req.Timestamp.AsTime()
 
-	_, err = s.db.ExecContext(ctx, `
+	var storedID string
+	err = s.db.QueryRowContext(ctx, `
 		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING
-	`, id, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType, "unknown")
+		ON CONFLICT (user_id, metric_type, timestamp, source) DO UPDATE SET id = biometric_data.id
+		RETURNING id
+	`, newID, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType, "unknown").Scan(&storedID)
 	if err != nil {
-		s.log.Error("Failed to insert record", zap.Error(err))
+		s.log.Error("Failed to insert or fetch record id", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to insert record")
 	}
+
+	id := storedID
 
 	lag := time.Since(start).Seconds()
 	metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(lag)
@@ -148,8 +154,8 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	}()
 
 	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
 
 	inserted := 0
 	for _, rec := range req.Records {
@@ -278,6 +284,9 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 		s.log.Error("Row iteration error", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading records")
 	}
+
+	// add debug log with count to help troubleshooting
+	s.log.Debug("GetRecords fetched", zap.Int("count", len(records)))
 
 	return &pb.GetRecordsResponse{Records: records}, nil
 }
