@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"net/http"
 	"os/signal"
@@ -84,9 +85,9 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source)
-		VALUES ($1, $2, $3, $4, $5, $6, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING
-	`, id, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType)
+	`, id, req.UserId, req.MetricType, req.Value, timestamp, req.DeviceType, "unknown")
 	if err != nil {
 		s.log.Error("Failed to insert record", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to insert record")
@@ -148,7 +149,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	}()
 
 	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $6, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
 
 	inserted := 0
@@ -165,7 +166,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		}
 
 		result, err := tx.ExecContext(ctx, query,
-			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType,
+			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, "unknown",
 		)
 		if err != nil {
 			_ = tx.Rollback()
@@ -215,38 +216,28 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 		WHERE user_id = $1 AND metric_type = $2
 	`
 
+	limitOffsetClause := fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+
 	switch {
 	case from.IsZero() && to.IsZero():
 		return recordsQuery{
-			query: baseQuery + `
-			ORDER BY timestamp DESC
-			LIMIT $3 OFFSET $4
-		`,
-			args: []interface{}{req.UserId, req.MetricType, limit, offset},
+			query: baseQuery + ` ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType},
 		}
 	case from.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp <= $3
-			ORDER BY timestamp DESC
-			LIMIT $4 OFFSET $5
-		`,
-			args: []interface{}{req.UserId, req.MetricType, to, limit, offset},
+			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, to},
 		}
 	case to.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3
-			ORDER BY timestamp DESC
-			LIMIT $4 OFFSET $5
-		`,
-			args: []interface{}{req.UserId, req.MetricType, from, limit, offset},
+			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, from},
 		}
 	default:
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4
-			ORDER BY timestamp DESC
-			LIMIT $5 OFFSET $6
-		`,
-			args: []interface{}{req.UserId, req.MetricType, from, to, limit, offset},
+			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC` + limitOffsetClause,
+			args:  []interface{}{req.UserId, req.MetricType, from, to},
 		}
 	}
 }
