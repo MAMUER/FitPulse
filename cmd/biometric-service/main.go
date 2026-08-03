@@ -148,7 +148,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	}()
 
 	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $6, NOW())
 		ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
 
 	inserted := 0
@@ -165,7 +165,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 		}
 
 		result, err := tx.ExecContext(ctx, query,
-			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, rec.DeviceType, time.Now(),
+			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType,
 		)
 		if err != nil {
 			_ = tx.Rollback()
