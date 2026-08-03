@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net"
 	"net/http"
 	"os/signal"
@@ -210,34 +209,28 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 		offset = 0
 	}
 
-	baseQuery := `
-		SELECT id, user_id, metric_type, value, timestamp, device_type, created_at
-		FROM biometric_data
-		WHERE user_id = $1 AND metric_type = $2
-	`
-
-	limitOffsetClause := fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	baseQuery := `SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = $1 AND metric_type = $2`
 
 	switch {
 	case from.IsZero() && to.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` ORDER BY timestamp DESC` + limitOffsetClause,
-			args:  []interface{}{req.UserId, req.MetricType},
+			query: baseQuery + ` ORDER BY timestamp DESC LIMIT $3 OFFSET $4`,
+			args:  []interface{}{req.UserId, req.MetricType, limit, offset},
 		}
 	case from.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC` + limitOffsetClause,
-			args:  []interface{}{req.UserId, req.MetricType, to},
+			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC LIMIT $4 OFFSET $5`,
+			args:  []interface{}{req.UserId, req.MetricType, to, limit, offset},
 		}
 	case to.IsZero():
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC` + limitOffsetClause,
-			args:  []interface{}{req.UserId, req.MetricType, from},
+			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4 OFFSET $5`,
+			args:  []interface{}{req.UserId, req.MetricType, from, limit, offset},
 		}
 	default:
 		return recordsQuery{
-			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC` + limitOffsetClause,
-			args:  []interface{}{req.UserId, req.MetricType, from, to},
+			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC LIMIT $5 OFFSET $6`,
+			args:  []interface{}{req.UserId, req.MetricType, from, to, limit, offset},
 		}
 	}
 }
@@ -258,7 +251,7 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	q := s.buildGetRecordsQuery(req)
 	rows, err := s.db.QueryContext(ctx, q.query, q.args...)
 	if err != nil {
-		s.log.Error("Failed to query records", zap.Error(err))
+		s.log.Error("Failed to query records", zap.Error(err), zap.String("query", q.query))
 		return nil, status.Error(codes.Internal, "failed to query records")
 	}
 	defer func() {
@@ -267,7 +260,7 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 		}
 	}()
 
-	var records []*pb.BiometricRecord
+	records := make([]*pb.BiometricRecord, 0)
 	for rows.Next() {
 		var record pb.BiometricRecord
 		var timestamp, createdAt time.Time
