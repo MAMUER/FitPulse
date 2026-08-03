@@ -161,11 +161,13 @@ func TestBiometricServiceIntegration(t *testing.T) {
 	})
 
 	t.Run("BatchAddRecords_Success", func(t *testing.T) {
+		ts1 := time.Now()
+		ts2 := ts1.Add(time.Millisecond)
 		resp, err := server.BatchAddRecords(ctx, &pb.BatchAddRecordsRequest{
 			UserId: userID,
 			Records: []*pb.AddRecordRequest{
-				{MetricType: "spo2", Value: 98.0, Timestamp: timestamppb.New(time.Now()), DeviceType: "test-device"},
-				{MetricType: "spo2", Value: 97.5, Timestamp: timestamppb.New(time.Now()), DeviceType: "test-device"},
+				{MetricType: "spo2", Value: 98.0, Timestamp: timestamppb.New(ts1), DeviceType: "test-device"},
+				{MetricType: "spo2", Value: 97.5, Timestamp: timestamppb.New(ts2), DeviceType: "test-device"},
 			},
 		})
 		require.NoError(t, err)
