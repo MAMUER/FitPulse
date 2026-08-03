@@ -197,14 +197,14 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 	from := req.From.AsTime()
 	to := req.To.AsTime()
 
-	limit := req.Limit
+	limit := int(req.Limit)
 	if limit <= 0 {
 		limit = 100
 	}
 	if limit > 10000 {
 		limit = 10000
 	}
-	offset := req.Offset
+	offset := int(req.Offset)
 	if offset < 0 {
 		offset = 0
 	}

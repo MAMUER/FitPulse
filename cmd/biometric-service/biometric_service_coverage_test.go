@@ -15,7 +15,7 @@ import (
 )
 
 func TestBiometricServer_BatchAddRecords_Empty(t *testing.T) {
-	db, cleanup := setupTestDB(t, true, true)
+	db, _, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	log, _ := zap.NewDevelopment()
@@ -32,7 +32,7 @@ func TestBiometricServer_BatchAddRecords_Empty(t *testing.T) {
 
 func TestBiometricServer_UpdateRecord_Validation(t *testing.T) {
 	t.Run("empty id", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, true, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -49,7 +49,7 @@ func TestBiometricServer_UpdateRecord_Validation(t *testing.T) {
 	})
 
 	t.Run("negative value", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, true, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -67,7 +67,7 @@ func TestBiometricServer_UpdateRecord_Validation(t *testing.T) {
 }
 
 func TestBiometricServer_DeleteRecord_EmptyID(t *testing.T) {
-	db, cleanup := setupTestDB(t, true, false)
+	db, _, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	log, _ := zap.NewDevelopment()

@@ -17,19 +17,10 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 )
 
-func setupTestDB(t *testing.T, userExists bool, insertOK bool) (*sql.DB, func()) {
+func setupTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock, func()) {
 	t.Helper()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-
-	if userExists {
-		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-		if insertOK {
-			mock.ExpectExec(`INSERT INTO biometric_data`).WillReturnResult(sqlmock.NewResult(1, 1))
-		}
-	} else {
-		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-	}
 
 	cleanup := func() {
 		_ = db.Close()
@@ -38,7 +29,7 @@ func setupTestDB(t *testing.T, userExists bool, insertOK bool) (*sql.DB, func())
 		}
 	}
 
-	return db, cleanup
+	return db, mock, cleanup
 }
 
 func newTestServer(db *sql.DB, log *zap.Logger) *biometricServer {
@@ -47,7 +38,7 @@ func newTestServer(db *sql.DB, log *zap.Logger) *biometricServer {
 
 func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 	t.Run("empty user_id", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, false, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -65,7 +56,7 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 	})
 
 	t.Run("negative value", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, false, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -83,8 +74,10 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 	})
 
 	t.Run("user not found", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, false, false)
+		db, mock, cleanup := setupTestDB(t)
 		defer cleanup()
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		log, _ := zap.NewDevelopment()
 		s := newTestServer(db, log)
@@ -101,7 +94,7 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 	})
 
 	t.Run("heart_rate out of range", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, false, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -119,7 +112,7 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 	})
 
 	t.Run("spo2 out of range", func(t *testing.T) {
-		db, cleanup := setupTestDB(t, false, false)
+		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
 		log, _ := zap.NewDevelopment()
@@ -138,8 +131,11 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 }
 
 func TestBiometricServer_AddRecord_Success(t *testing.T) {
-	db, cleanup := setupTestDB(t, true, true)
+	db, mock, cleanup := setupTestDB(t)
 	defer cleanup()
+
+	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec(`INSERT INTO biometric_data`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	log, _ := zap.NewDevelopment()
 	s := newTestServer(db, log)
