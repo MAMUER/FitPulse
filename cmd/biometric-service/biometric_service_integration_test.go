@@ -175,6 +175,12 @@ func TestBiometricServiceIntegration(t *testing.T) {
 	})
 
 	t.Run("GetRecords_Success", func(t *testing.T) {
+		var count int
+		if err := database.QueryRowContext(ctx, "SELECT COUNT(*) FROM biometric_data WHERE user_id = $1 AND metric_type = $2", userID, "heart_rate").Scan(&count); err != nil {
+			t.Logf("GetRecords precheck count error: %v", err)
+		} else {
+			t.Logf("GetRecords precheck: heart_rate rows=%d", count)
+		}
 		resp, err := server.GetRecords(ctx, &pb.GetRecordsRequest{
 			UserId:     userID,
 			MetricType: "heart_rate",
