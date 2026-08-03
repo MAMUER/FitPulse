@@ -127,6 +127,7 @@ FitPulse реализует комплексные меры безопаснос
 | GET | `/api/v1/devices/providers` | Список провайдеров устройств |
 | GET | `/metrics` | Prometheus метрики |
 
+
 ### Админ (JWT + role=admin)
 
 | Метод | Путь | Описание |
