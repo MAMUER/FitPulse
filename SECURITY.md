@@ -283,6 +283,7 @@ Mutable tags позволяют владельцу action'а перенапра�
   - Telegram Bot API — уведомления в чат при деплое/инцидентах
   - Let's Encrypt / cert-manager — TLS-сертификаты для внешнего домена
   - GitHub Actions / GHCR — CI/CD и registry образов
+  - [SonarCloud — fitness-platform](https://sonarcloud.io/project/settings?category=integration&id=fitness-platform) — SAST, quality gate и покрытие кода. Токен хранится в GitHub Secrets как `SONAR_TOKEN`. При проблемах с доступом проверьте права токена и существование проекта `fitness-platform` в организации `mamuer`.
   - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Google OAuth 2.0 вход (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` в GitHub Secrets).
   - Privacy Policy: `https://fittpulse.duckdns.org/privacy`. Terms of Service: `https://fittpulse.duckdns.org/terms`.
   - Authorized domain: `fittpulse.duckdns.org`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
