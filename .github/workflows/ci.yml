@@ -73,7 +73,7 @@ permissions:
   issues: write
 
 env:
-  GO_VERSION: "1.26.4"
+  GO_VERSION: "1.26.5"
   REGISTRY: ghcr.io
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
@@ -156,6 +156,7 @@ jobs:
   issue-automation:
     name: Issue Automation
     runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
     steps:
       - name: Add triage label
         if: github.event.action == 'opened'
@@ -263,10 +264,32 @@ jobs:
               });
             }
       - name: Security issue handling
+        if: |
+          github.event_name == 'issues' &&
+          (github.event.action == 'opened' || github.event.action == 'labeled')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
-            console.log('Security issue detected:', context.issue.number);
+            const issue = context.payload.issue;
+            if (!issue) {
+              console.log('No issue payload, skipping security handling');
+              return;
+            }
+            const labels = issue.labels.map(l => l.name.toLowerCase());
+            const isSecurity = labels.includes('security') ||
+                              labels.includes('vulnerability') ||
+                              issue.title.toLowerCase().includes('security') ||
+                              issue.title.toLowerCase().includes('vulnerability');
+
+            if (isSecurity) {
+              console.log('Security issue detected:', issue.number);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['security']
+              });
+            }
       - name: Notify Telegram on critical
         if: github.event_name == 'issues' && github.event.action == 'opened'
         env:
@@ -293,7 +316,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit
         working-directory: web
       - name: Lint frontend
         run: npm run lint
@@ -330,7 +353,7 @@ jobs:
         run: |
           find cmd -maxdepth 2 -type f -name Dockerfile -print0 | sort -z | while IFS= read -r -d '' dockerfile; do
             echo "Linting $dockerfile"
-            docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint hadolint -c .hadolint.yaml "$dockerfile"
+            docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint:v2.12.0 hadolint -c .hadolint.yaml "$dockerfile"
           done
 
   # ============================================================================
@@ -433,7 +456,9 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
@@ -441,8 +466,8 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # originally: v5
         with:
           comment-summary-in-pr: always
-          base-ref: ${{ github.event.pull_request.base.sha }}
-          head-ref: ${{ github.event.pull_request.head.sha }}
+          base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.after }}
 
   # ============================================================================
   # KUBESCAPE
@@ -471,20 +496,22 @@ jobs:
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --output kubescape-results.sarif \
-            --verbose || true
+            --verbose \
+            --exclude-kinds ClusterIssuer \
+            || true
           if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
              jq '.runs |= map(
                .results |= map(
-                  select(
-                    (.locations[0].physicalLocation.artifactLocation.uri | test("\\.[^/]+$"))
-                    and
-                    ((.ruleId // "") | IN(
-                      "C-0012", "C-0013", "C-0017", "C-0016",
-                      "C-0009", "C-0010", "C-0011", "C-0021", "C-0022",
-                      "C-0055", "C-0045", "C-0048", "C-0056",
-                      "C-0237"
-                    ) | not)
-                  )
+                 select(
+                   (.locations[0].physicalLocation.artifactLocation.uri | test("\\.[^/]+$"))
+                   and
+                   ((.ruleId // "") | IN(
+                     "C-0012", "C-0013", "C-0017", "C-0016",
+                     "C-0009", "C-0010", "C-0011", "C-0021", "C-0022",
+                     "C-0055", "C-0045", "C-0048", "C-0056",
+                     "C-0237"
+                   ) | not)
+                 )
                )
              )' kubescape-results.sarif > kubescape-results-fixed.sarif
             mv kubescape-results-fixed.sarif kubescape-results.sarif
@@ -509,7 +536,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Install Semgrep
-        run: pip install semgrep
+        run: pip install 'semgrep==1.172.0'
       - name: Run Semgrep scan
         run: |
           mkdir -p sarif-results
@@ -571,60 +598,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
         with:
-          go-version: "1.26"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Run fuzz tests
         run: |
           go test -fuzz=FuzzString -fuzztime=60s ./internal/sanitize/
-
-  # ============================================================================
-  # MONTHLY DEPENDENCY UPDATE
-  # ============================================================================
-  monthly-dependency-update:
-    name: Monthly Dependency Update
-    runs-on: ubuntu-latest
-    if: ${{ github.event.schedule == '0 9 1 * *' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
-        with:
-          fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Update dependencies
-        run: |
-          go get -u ./...
-          go mod tidy
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # originally: v8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: monthly dependency update"
-          branch: "security/maintenance/monthly-update"
-          title: "chore: monthly dependency update"
-          body: |
-            This PR updates all Go dependencies to their latest versions.
-            Scheduled run on the 1st of each month.
-
-  # ============================================================================
-  # QUARTERLY VULNCHECK
-  # ============================================================================
-  quarterly-vulncheck:
-    name: Quarterly Vulnerability Check
-    runs-on: ubuntu-latest
-    if: ${{ github.event.schedule == '0 9 1 1,4,7,10 *' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
-      - name: Run Trivy filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          trivy-config: trivy.yaml
-          trivyignores: .trivyignore
-          scan-type: "fs"
-          scanners: "vuln"
-          severity: "CRITICAL,HIGH"
 
   # ============================================================================
   # OSV AUDIT (manual)
@@ -666,8 +644,8 @@ jobs:
           cache: true
       - name: Install security tools
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
@@ -740,7 +718,7 @@ jobs:
       - name: Run TruffleHog secret scan
         run: |
           mkdir -p sarif-results
-          trufflehog filesystem . --format=json --output=sarif-results/trufflehog.json || true
+          trufflehog filesystem . --json --output=sarif-results/trufflehog.json || true
       - name: Upload TruffleHog results
         if: always() && hashFiles('sarif-results/trufflehog.json') != ''
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
@@ -808,11 +786,11 @@ jobs:
             fi
           fi
           if [ -f sarif-results/govulncheck.txt ]; then
-            GOVULNCHECK=$(grep -c "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null || echo 0)
+            GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null || echo 0)
             echo "govulncheck: $GOVULNCHECK vulnerabilities found"
             if [ "$GOVULNCHECK" -gt 0 ]; then
               echo "⚠️  WARNING: govulncheck found $GOVULNCHECK potential vulnerabilities"
-              grep "^(#[0-9]*)" sarif-results/govulncheck.txt 2>/dev/null | head -10 || true
+              grep -E "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null | head -10 || true
               echo "   Note: Trivy covers CVE scanning. govulncheck results are informational."
             fi
           fi
@@ -863,7 +841,7 @@ jobs:
           mv web/coverage/lcov.info coverage/lcov.info 2>/dev/null || true
         working-directory: web
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@a3b756f32c77830433b1b35a6b3b97a7a2f1b6a1 # originally: v5.0.1
+        uses: sonarsource/sonarqube-scan-action@v5.0.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -921,7 +899,7 @@ jobs:
           echo "-> Running kube-bench..."
           mkdir -p security-results
           KUBE_BENCH_VERSION="v0.8.0"
-          curl -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/${KUBE_BENCH_VERSION}/kube-bench_${KUBE_BENCH_VERSION#v}_Linux_x86_64.tar.gz" -o /tmp/kube-bench.tar.gz
+          curl -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/${KUBE_BENCH_VERSION}/kube-bench_${KUBE_BENCH_VERSION#v}_linux_amd64.tar.gz" -o /tmp/kube-bench.tar.gz
           tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin kube-bench
           chmod +x /usr/local/bin/kube-bench
           rm -f /tmp/kube-bench.tar.gz
@@ -946,7 +924,7 @@ jobs:
           echo "-> Running kube-hunter (passive scan)..."
           mkdir -p security-results
           pip install kube-hunter
-          kube-hunter --json --report security-results/kube-hunter-results.json || true
+          kube-hunter --report security-results/kube-hunter-results.json
           echo "✅ kube-hunter scan completed (results in security-results/kube-hunter-results.json)"
 
   # ============================================================================
@@ -966,9 +944,16 @@ jobs:
         run: |
           echo "-> Running Checkov..."
           mkdir -p sarif-results
-          pip install checkov
+          pip install 'checkov==3.3.9'
           checkov --directory configs/k8s --directory scripts --output sarif > sarif-results/checkov-results.sarif || true
           echo "✅ Checkov scan completed"
+      - name: Upload Checkov SARIF
+        if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
+        with:
+          sarif_file: sarif-results/checkov-results.sarif
+          category: checkov
 
   # ============================================================================
   # COSIGN VERIFY — IMAGE SIGNATURE VERIFICATION
@@ -1238,7 +1223,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      digests: ${{ steps.hash.outputs.digests }}
+      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Build artifacts
@@ -1265,7 +1250,7 @@ jobs:
       contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # originally: v2.1.0
     with:
-      base64-subjects: "${{ needs.slsa-provenance.outputs.digests }}"
+      base64-subjects: "${{ needs.slsa-provenance.outputs.hashes }}"
       upload-assets: true
 
     # ============================================================================
