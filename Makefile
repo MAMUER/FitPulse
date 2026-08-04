@@ -44,7 +44,7 @@ test-cover:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-check: tidy fmt vet imports lint test-cover frontend-install frontend-lint frontend-test frontend-build
+check: tidy fmt vet imports lint test-cover frontend-lint frontend-test frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
