@@ -19,7 +19,8 @@
     {
       "matchPackageNames": ["golang"],
       "groupName": "Go toolchain",
-      "automerge": false
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
     }
   ]
 }
