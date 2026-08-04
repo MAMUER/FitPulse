@@ -668,6 +668,10 @@ jobs:
       - name: Run Trivy config scan (misconfigurations)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
+          version: v0.73.0
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
+        with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
           scan-type: "config"
@@ -678,6 +682,10 @@ jobs:
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.73.0
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
         with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
@@ -837,7 +845,7 @@ jobs:
         run: |
           mkdir -p coverage
           go test -coverprofile=coverage/coverage.out ./...
-          cd web && npm run test -- --coverage --watchAll=false
+          cd web && npm run test -- --coverage
           mv web/coverage/lcov.info coverage/lcov.info 2>/dev/null || true
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f
@@ -1159,6 +1167,10 @@ jobs:
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
+          version: v0.73.0
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
+        with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
           image-ref: "${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}"
@@ -1206,8 +1218,11 @@ jobs:
 
           for svc in $services; do
             echo "Signing $svc..."
+            digest=$(docker buildx imagetools inspect \
+              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}" \
+              --format '{{.Digest}}')
             cosign sign --yes --key /tmp/cosign.key \
-              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
+              "${{ env.REGISTRY }}/mamuer/project/$svc@$digest"
           done
 
           rm -f /tmp/cosign.key

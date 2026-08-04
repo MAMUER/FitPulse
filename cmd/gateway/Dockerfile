@@ -2,8 +2,9 @@
 # ========== Web builder stage ==========
 FROM node:26-alpine AS web-builder
 WORKDIR /app/web
+RUN npm install -g npm@12.0.2 && npm --version
 COPY web/package.json web/package-lock.json* ./
-RUN npm ci || npm install
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 COPY web/ .
 RUN npm run build
 

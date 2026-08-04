@@ -108,6 +108,5 @@ help:
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"
-	@echo "  make frontend-build  - Build frontend with Vite"
+  	@echo "  make frontend-build  - Build frontend with Vite"
 
-tidy:
