@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -183,10 +183,9 @@ func TestDeleteEntityHandler(t *testing.T) {
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 		g.deleteEntityHandler(w, req, "condition_id", func(id string) error {
-			return fmt.Errorf("db error")
+			return errors.New("db error")
 		})
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
 }
-
