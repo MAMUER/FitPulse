@@ -690,13 +690,17 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: "0"
           skip-dirs: "configs/k8s/overlays/production"
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
-          scanners: "vuln,secret,misconfig"
-          severity: "CRITICAL,HIGH"
+          scan-ref: "."
+          ignore-unfixed: false
+          vuln-type: "os,library"
           format: "sarif"
           output: "sarif-results/trivy-fs.sarif"
-          exit-code: "0"
+          cache-dir: "/home/runner/work/FitPulse/FitPulse/.cache/trivy"
+          list-all-pkgs: false
+          cache: true
+          skip-setup-trivy: false
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
@@ -1219,11 +1223,8 @@ jobs:
 
           for svc in $services; do
             echo "Signing $svc..."
-            digest=$(docker buildx imagetools inspect \
-              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}" \
-              --format '{{.Digest}}')
             cosign sign --yes --key /tmp/cosign.key \
-              "${{ env.REGISTRY }}/mamuer/project/$svc@$digest"
+              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
           done
 
           rm -f /tmp/cosign.key
