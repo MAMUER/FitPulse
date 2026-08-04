@@ -841,7 +841,7 @@ jobs:
           mv web/coverage/lcov.info coverage/lcov.info 2>/dev/null || true
         working-directory: web
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@v5.0.1
+        uses: sonarsource/sonarqube-scan-action@v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
