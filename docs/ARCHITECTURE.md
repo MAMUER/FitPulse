@@ -406,6 +406,7 @@ verification:
 ### 4.8.1 Назначение
 
 gRPC-сервис для управления пользователями, аутентификацией и профилями. Отвечает за:
+
 - Регистрацию и подтверждение email
 - Логин по паролю (Argon2id) и Google OAuth
 - Выдачу JWT access/refresh токенов
@@ -528,6 +529,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 ### 4.9.3 Health Check
 
 Динамический health check раз в 10 секунд:
+
 - Пингует PostgreSQL (`db.PingContext`)
 - Пингует RabbitMQ (`queue.Publisher.Ping()`)
 - gRPC health protocol возвращает `SERVING` / `NOT_SERVING`
@@ -579,6 +581,7 @@ Interceptor: `middleware.GRPCAuthInterceptor` (`internal/middleware/grpc_auth.go
 ### 4.10.1 Назначение
 
 gRPC-сервис для управления тренировочными планами. Отвечает за:
+
 - Генерацию персонализированных планов тренировок на основе классификации состояния пользователя
 - Хранение планов в PostgreSQL (`training_plans`, `training_plan_weeks`, `training_plan_days`, `training_exercises`)
 - Отслеживание выполнения тренировок (`workout_completions`)
@@ -608,6 +611,7 @@ gRPC-сервис для управления тренировочными пл�
 ### 4.10.4 Генерация плана
 
 `GeneratePlan` выполняет:
+
 1. Валидацию запроса
 2. Удаление существующего активного плана пользователя
 3. Подготовку данных плана из запроса
@@ -618,6 +622,7 @@ gRPC-сервис для управления тренировочными пл�
 ### 4.10.5 Достижения
 
 Автоматическое начисление достижений при выполнении тренировок:
+
 - `first_workout` — после 1 выполненной тренировки
 - `ten_workouts` — после 10 выполненных тренировок
 - `fifty_workouts` — после 50 выполненных тренировок
@@ -754,6 +759,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.11.10 Валидация
 
 Валидация входных данных с диапазонами:
+
 - `heart_rate`: 20–250
 - `heart_rate_variability`: 0–300
 - `spo2`: 70–100
@@ -767,6 +773,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.11.11 Интеграционные тесты
 
 Реальные e2e-тесты с поднятым HTTP-сервером:
+
 - Health check
 - Классификация с валидными данными
 - Обработка невалидного JSON
@@ -887,7 +894,7 @@ HTTP-сервис для классификации физиологическо
 
 - `http_request_duration_seconds{method, path}`
 - `http_requests_total{method, path, status}`
-- `error_total{service="device-connector", error_type}`
+- `error_total{service="device-aggregator", error_type}`
 - gRPC client metrics через `metrics.UnaryClientInterceptor`
 
 ### 4.13.13 Middleware
@@ -900,11 +907,11 @@ HTTP-сервис для классификации физиологическо
 ### 4.13.14 Тесты
 
 - Unit-тесты: `isValidDeviceType`, `metricSyncRules`, `healthHandler`, `registerDeviceHandler`, `ingestInputs`, `validateIngestRecord`, `authenticateDevice`
-- Запуск: `go test ./cmd/device-connector/...`
+- Запуск: `go test ./cmd/device-aggregator/...`
 
 ### 4.13.15 Особенности
 
-- Логгер: `internal/logger` с полем `service: "device-connector"`
+- Логгер: `internal/logger` с полем `service: "device-aggregator"`
 - Источники данных поступают через Open Wearables webhook
 
 ---
@@ -914,6 +921,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.14.1 Назначение
 
 Фоновый сервис для потребления биометрических событий из RabbitMQ (`biometric_events`) и сохранения их в PostgreSQL. Обеспечивает:
+
 - Асинхронную запись биометрических данных с валидацией диапазонов
 - Prometheus-метрики обработки сообщений
 - Graceful shutdown с ожиданием завершения in-flight сообщений
@@ -944,6 +952,7 @@ HTTP-сервис для классификации физиологическо
 ### 4.14.5 Валидация событий
 
 Перед записью в БД проверяются:
+
 - `user_id` и `metric_type` не пустые
 - `value >= 0`
 - `value` в допустимых диапазонах для каждого типа метрики (heart_rate: 30–220, spo2: 70–100 и т.д.)
@@ -1108,6 +1117,7 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 **Требование**: Ежедневное резервное копирование с возможностью восстановления за < 1 час
 
 **Текущее состояние**:
+
 - Ежедневный `pg_dump` через cron job (`backup-postgres.sh`)
 
 ### 6.7 Документация (Documentation)
@@ -1172,10 +1182,12 @@ Monitoring: Prometheus uptime probe + synthetic transactions
 
 - **`protoc`** — компилятор Protocol Buffers.
 - **Плагины генерации Go** (должны быть в `PATH`):
+
   ```bash
   go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
   ```
+
   Убедитесь, что `$GOPATH/bin` (по умолчанию `~/go/bin`) добавлен в `PATH`,
   иначе `protoc` завершится с ошибкой «protoc-gen-go: plugin not found».
 
@@ -1226,6 +1238,7 @@ internal/auth/
 ### 9.3 Правила использования
 
 1. **Каждый сервис определяет свой порт** в `cmd/<service>/ports/auth.go`:
+
    ```go
    type TokenProvider interface {
        GenerateAccessToken(userID, email, role string, ttl time.Duration) (string, error)
@@ -1250,6 +1263,7 @@ internal/auth/
 
 Полная гексагональная архитектура требовала бы вынесения JWT-логики в отдельный
 auth-сервис. Однако для текущего масштаба проекта это избыточно. Компромисс:
+
 - **`internal/auth`** = shared library с четко очерченной ответственностью.
 - **Порты/адаптеры** в каждом сервисе сохраняют возможность тестирования
   (mock-реализации `TokenProvider`) и возможность смены алгоритма/библиотеки
@@ -1277,6 +1291,7 @@ token, err := s.tokenProvider.GenerateAccessToken(...)
 
 `internal/config` — это **общая библиотека конфигурации**, которая используется
 всем сервисами (`gateway`, `user-service`, `biometric-service` и др.). Она предоставляет:
+
 - helpers для чтения env vars с поддержкой `_FILE` суффикса (Docker/Kubernetes secrets)
 - typed accessors (`GetEnvInt`, `GetEnvBool`, `GetEnvDuration`, `GetEnvFloat64`, `GetEnvInt64`)
 - обязательные env vars с паникой при отсутствии (`GetEnvRequired`)
@@ -1394,6 +1409,7 @@ config.LogConfig(log, cfg)
 ### 11.1 Роль
 
 `internal/domain` — это **ядро доменной модели** платформы. Он содержит:
+
 - Типизированные entity для биометрических измерений (`BiometricData`)
 - Enum `MetricType` для всех поддерживаемых метрик
 - Валидацию инвариантов на уровне домена
@@ -1450,6 +1466,7 @@ func (b *BiometricData) Validate() error
 ```
 
 Правила:
+
 - `UserID` не может быть пустым
 - `MetricType` не может быть пустым
 - `Timestamp` не может быть нулевым
@@ -1470,6 +1487,7 @@ func (b *BiometricData) Validate() error
 
 `internal/crypto` — это **общая библиотека симметричного шифрования**, которая используется
 всем сервисами для защиты чувствительных данных:
+
 - `device-aggregator`: шифрование токенов устройств перед сохранением в БД
 - `user-service`: шифрование TOTP-секретов перед сохранением в БД
 
@@ -1518,6 +1536,7 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error)
 
 `internal/db` — это **общая библиотека работы с PostgreSQL**, которая используется
 всем сервисами для:
+
 - Создания подключений к PostgreSQL с connection pooling и метриками.
 - Шифрования PII-данных через pgsodium (rand AES-GCM + blind index).
 - Генерации nonce для шифрования полей.
@@ -1582,6 +1601,7 @@ type Config struct {
 
 `internal/email` — это **общая библиотека отправки email**, которая используется
 сервисами для:
+
 - Отправки писем подтверждения email при регистрации (`user-service`).
 - Поддержки TLS для production SMTP серверов (Yandex, Mail.ru, Gmail).
 - Контроля дневного лимита и пропуска тестовых доменов.
@@ -1642,6 +1662,7 @@ type Config struct {
 ### 15.1 Роль
 
 `internal/logger` — это **общая библиотека логирования**, которая обеспечивает:
+
 - Единый структурированный JSON-формат логов для всех сервисов.
 - Автоматическое добавление поля `service` в каждый лог для агрегации в ELK/Loki.
 - Контекстная пропагация: `correlationId`, `userId` из `context.Context`.
@@ -1695,6 +1716,7 @@ log.Info("request completed")
 ```
 
 Доступные методы:
+
 - `WithRequestID(correlationID string) *Logger`
 - `WithUserID(userID string) *Logger`
 - `WithAction(action string) *Logger`
@@ -1725,6 +1747,7 @@ log.Errorw("operation failed", err, zap.String("operation", "create"))
 
 `internal/grpc` — это **общая библиотека для работы с gRPC**, которая используется
 всем сервисами для:
+
 - Создания gRPC серверов с опциональным mutual TLS.
 - Создания gRPC клиентов с опциональным TLS.
 - Регистрации health check сервиса.
@@ -1792,6 +1815,7 @@ func NewClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 ### 17.1 Роль
 
 `internal/metrics` — это **общая библиотека метрик Prometheus**, которая обеспечивает:
+
 - Единые именования и labels для HTTP и gRPC метрик во всех сервисах.
 - Стандартные метрики: `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, `error_total`.
 - Бизнес-метрики: `classification_confidence`, `db_connection_pool_usage`, `notification_queue_depth`, `biometric_sync_lag_seconds`, `backup_success`.
@@ -1831,7 +1855,7 @@ grpc.NewServer(
 // Клиентская сторона
 conn, err := grpc.Dial(
     target,
-    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-connector")),
+    grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("device-aggregator")),
 )
 ```
 
@@ -1878,6 +1902,7 @@ for _, name := range metrics.AllClassNames {
 ### 18.1 Роль
 
 `internal/queue` — это **адаптер обмена сообщениями на RabbitMQ**, который обеспечивает:
+
 - Публикацию событий в durable очереди с подтверждением доставки.
 - Потребление сообщений с ручным подтверждением (`Ack`/`Nack`).
 - Автоматическую настройку Dead Letter Queue (DLQ) для обработки неудачных сообщений.
@@ -1935,6 +1960,7 @@ consumer, err := queue.NewConsumer(
 ### 18.6 Dead Letter Queue
 
 `DeclareQueueWithDLQ` автоматически создает DLQ и настраивает основную очередь:
+
 - DLQ: `<queue-name>.dlq`
 - TTL сообщений: 24 часа
 - Максимальная длина очереди: 10 000 сообщений
@@ -1973,6 +1999,7 @@ defer stop()
 ### 19.1 Роль
 
 `internal/repository` — это **слой доступа к данным (repository layer)** для персистентности биометрических данных. Он:
+
 - Абстрагирует SQL-операции от доменного и application слоя (ports and adapters).
 - Предоставляет интерфейс `BiometricRepository` для инъекции зависимостей.
 - Гарантирует контекстную пропагацию (`context.Context`) для отмены и таймаутов.
@@ -2036,6 +2063,7 @@ if errors.Is(err, sql.ErrNoRows) {
 ### 20.1 Роль
 
 `internal/sanitize` — это **библиотека санитизации входных данных**, которая обеспечивает:
+
 - Базовая защиту от XSS через экранирование HTML-символов.
 - Защиту от log injection через удаление управляющих символов.
 - Очистка строк перед записью в базу данных, логирование или отображение.
@@ -2098,6 +2126,7 @@ log.Info("device event", zap.String("device_id", deviceID))
 ### 21.1 Роль
 
 `internal/telemetry` — это **общая библиотека распределенного трейсинга OpenTelemetry**, которая обеспечивает:
+
 - Автоматическую инструментацию gRPC и HTTP сервисов.
 - Экспорт трейсов в OTLP-совместимый бэкенд (Jaeger, Grafana Tempo, Datadog).
 - Единый service name через environment variables.
@@ -2133,6 +2162,7 @@ func main() {
 ### 21.4 Service name resolution
 
 Priority:
+
 1. `OTEL_SERVICE_NAME`
 2. `SERVICE_NAME`
 3. `"unknown-service"` (fallback)
@@ -2165,6 +2195,7 @@ mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
 ```
 
 Middleware автоматически:
+
 - Создает span для каждого входящего запроса.
 - Добавляет `X-Trace-ID` заголовок в ответ.
 - Логирует trace_id, method и path.
@@ -2202,6 +2233,7 @@ telemetry.LogTraceFromContext(ctx, log)
 ### 22.1 Роль
 
 `internal/testcontainers` — это **общая библиотека для управления ephemeral инфраструктурой** в интеграционных и smoke-тестах. Она:
+
 - Запускает PostgreSQL, Valkey и RabbitMQ контейнеры для тестов.
 - Предоставляет единый API `StartInfrastructure(t)` для получения connection details.
 - Автоматически terminates контейнеры после завершения теста через `t.Cleanup`.
@@ -2294,6 +2326,7 @@ go test -tags=smoke ./internal/testcontainers/...
 ### 23.1 Роль
 
 `internal/totp` — это **библиотека для двухфакторной аутентификации (2FA) на основе TOTP**, которая обеспечивает:
+
 - Генерацию TOTP секретов и QR-кодов для enrollment.
 - Валидацию 6-значных кодов с учетом clock drift.
 - Управление резервными кодами (backup codes) с хешированием перед сохранением.
@@ -2370,6 +2403,7 @@ const (
 ### 24.1 Роль
 
 `internal/validator` — это **shared библиотека для валидации gRPC запросов**, которая обеспечивает:
+
 - Централизованную валидацию входных данных для всех сервисов (user, training, biometric).
 - Единообразную обработку ошибок через gRPC status codes (`codes.InvalidArgument`).
 - Избегание дублирования валидационной логики между сервисами.
@@ -2439,6 +2473,7 @@ const (
 ### 25.1 Роль
 
 `internal/middleware` — это **shared библиотека middleware** для HTTP и gRPC, которая обеспечивает:
+
 - Корреляция запросов через `X-Correlation-ID` (HTTP + gRPC)
 - Единую обработку ошибок и JSON-ответы
 - Аутентификацию через JWT ES256 токены
@@ -2532,6 +2567,7 @@ const (
 ### 26.1 Роль
 
 `configs/k8s` — это **Kubernetes манифесты для production deployment** всей платформы на k3s. Обеспечивает:
+
 - Изоляцию namespace: `fitness-platform-production` (приложения), `ingress-nginx` (ингресс), `cert-manager` (TLS), `monitoring` (Prometheus/Grafana/Fluent Bit)
 - Zero-trust NetworkPolicy: DMZ → App → Data → Monitoring зоны
 - Security: Pod Security Standards `restricted`, `readOnlyRootFilesystem`, `drop ALL`, seccomp `RuntimeDefault`

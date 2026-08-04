@@ -31,7 +31,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: device-connector-role
+  name: device-aggregator-role
   namespace: fitness-platform-production
 rules:
   - apiGroups: [""]
@@ -141,14 +141,14 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: device-connector-rolebinding
+  name: device-aggregator-rolebinding
   namespace: fitness-platform-production
-subjects:
-  - kind: ServiceAccount
-    name: device-connector-sa
-roleRef:
-  kind: Role
-  name: device-connector-role
+  subjects:
+    - kind: ServiceAccount
+      name: device-aggregator-sa
+  roleRef:
+    kind: Role
+    name: device-aggregator-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1

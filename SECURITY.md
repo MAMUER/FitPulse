@@ -182,6 +182,7 @@ Kubescape scan запускается в CI на директорию `configs/k
 Semgrep OSS находит в них использование пакета `unsafe` (стандартная практика `google.golang.org/protobuf` для эффективной работы с дескрипторами), и поднимает алерт `go.lang.security.audit.unsafe.use-of-unsafe-block`.
 
 Это **ложноположительное**, потому что:
+
 1. Это не кастомный код, а auto-generated protobuf stubs
 2. Использование `unsafe` внутри `google.golang.org/protobuf/internal/protoimpl` — это штатная и auditors-reviewed реализация официальной библиотеки
 3. Любые изменения в этих файлах будут перезаписаны при следующем запуске `make proto`
@@ -189,6 +190,7 @@ Semgrep OSS находит в них использование пакета `un
 Вместо подавления каждого алерта комментарием, весь каталог `api/gen/` исключён из сканирования Semgrep через `.semgrepignore`.
 
 Также исключены:
+
 - `vendor/`, `go.sum`, `package-lock.json` — dependency lock files
 - `scripts/` — bash/powershell скрипты, lintятся отдельно super-linter'ом (`VALIDATE_BASH: true`, `VALIDATE_SHELL_SHFMT: true`)
 
@@ -222,6 +224,7 @@ Mutable tags позволяют владельцу action'а перенапра�
 Обновление SHA при выходе новой версии action'а выполняется вручную в рамках quarterly maintenance (через `.github/workflows/ci.yml`). Dependabot отслеживает появление новых тегов и поднимает PR с обновлением версии — после слияния PR SHA обновляется вручную.
 
 Обработаны workflow-файлы:
+
 - `.github/workflows/ci.yml` — 43 записи `uses:` зафиксированы на SHA
 - `.github/workflows/docs-check.yml` — 1 запись `uses:` зафиксирована на SHA
 
@@ -252,6 +255,7 @@ Mutable tags позволяют владельцу action'а перенапра�
 | `dorny/paths-filter` | v4 | `7b450fff...` |
 
 **Верификация в CI**: шаг `Check GitHub Actions are SHA-pinned and not stale` в `.github/workflows/docs-check.yml` автоматически проверяет:
+
 1. Отсутствие mutable tags (`@v1`, `@latest`, `@master` и т.д.) — pipeline **FAIL** при обнаружении
 2. Каждый зафиксированный SHA сравнивается с HEAD соответствующего тега (версия хранится в комментарии `# originally: vX.Y.Z` рядом с `uses:`). Если тег был перемещён — pipeline выводит **WARNING** с предложением обновить SHA
 
@@ -260,7 +264,7 @@ Mutable tags позволяют владельцу action'а перенапра�
 - **Сетевая сегментация**: Kubernetes Network Policies (dmz/app/data/monitoring)
 - **RBAC**: минимальные права, отдельные ServiceAccount на сервис
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
-  - device-connector-sa, classifier-sa, ml-generator-sa
+  - device-aggregator-sa, classifier-sa, ml-generator-sa
   - app-service-account (для Jobs: migrate-db, seed-admin)
   - Каждая Role ограничена `resourceNames` на конкретные secrets и configmaps (например, `app-secrets`, `app-config`, `db-migrations`, `fittpulse-duckdns-org-tls`).
 - **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.

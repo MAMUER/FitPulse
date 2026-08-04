@@ -294,6 +294,6 @@ user_id (PK, FK), achievement_id (PK, FK), earned_at
 
 ## Согласованность с кодом
 
-- `cmd/device-connector/main.go` содержит `initDatabase()` с inline DDL для `devices` и `device_ingest_log`. Эти таблицы должны совпадать с миграциями V4 и V5: `user_id` типа `UUID`, `device_ingest_log.quality` имеет `DEFAULT 'good'`.
+- `cmd/device-aggregator/main.go` содержит `initDatabase()` с inline DDL для `devices` и `device_ingest_log`. Эти таблицы должны совпадать с миграциями V4 и V5: `user_id` типа `UUID`, `device_ingest_log.quality` имеет `DEFAULT 'good''`.
 - `cmd/user-service/main.go` использует `ON CONFLICT (user_id, condition_type, condition_name)` в `UpsertHealthCondition`. Миграция V15 содержит `UNIQUE (user_id, condition_type, condition_name)` для поддержки этого upsert.
 - `training_plans.training_goal` CHECK включает значения `endurance_e1e2`, `threshold_e3`, `strength_hiit` для совместимости с ML-классификатором.

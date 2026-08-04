@@ -1,6 +1,7 @@
 * @MAMUER
 
 # Security-sensitive paths require approval from @MAMUER
+
 /.github/ @MAMUER
 /configs/k8s/ @MAMUER
 /configs/monitoring/ @MAMUER
@@ -9,6 +10,7 @@
 /Makefile @MAMUER
 
 # Backend services
+
 /cmd/gateway/ @MAMUER
 /internal/gateway/ @MAMUER
 /cmd/user-service/ @MAMUER
@@ -17,15 +19,20 @@
 /internal/biometric/ @MAMUER
 /cmd/training-service/ @MAMUER
 /internal/training/ @MAMUER
-/cmd/device-connector/ @MAMUER
+/cmd/device-aggregator/ @MAMUER
+/cmd/data-processor/ @MAMUER
+/cmd/ml_generator/ @MAMUER
+/cmd/tools/ @MAMUER
 /internal/device/ @MAMUER
 /cmd/classifier/ @MAMUER
 /models/ @MAMUER
 /datasets/ @MAMUER
 
 # Database
+
 /db/migrations/ @MAMUER
 
 # Security documentation
+
 /SECURITY.md @MAMUER
 /BUG_BOUNTY_SCOPE.md @MAMUER

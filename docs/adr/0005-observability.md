@@ -38,7 +38,7 @@
 
 ## Реализация
 
-- **Структурированное JSON-логирование**: Go-сервисы (user-service, biometric-service, training-service, gateway, device-connector, data-processor) используют `internal/logger/logger.go` на базе zap с JSON-кодированием, ISO8601-таймстемпами и полем `service`.
+- **Структурированное JSON-логирование**: Go-сервисы (user-service, biometric-service, training-service, gateway, device-aggregator, data-processor) используют `internal/logger/logger.go` на базе zap с JSON-кодированием, ISO8601-таймстемпами и полем `service`.
   Gateway-middleware добавляет `correlationId`, `userId`, `action`.
   Пробелы: `cmd/classifier/main.go` использует сырой `zap.NewProduction()` без поля `service` и middleware; Python-сервис (`cmd/ml_generator/main.py`) использует `structlog` с `ConsoleRenderer` (человекочитаемый текст, не JSON) и не гарантирует все обязательные поля.
 - Настройка Prometheus-экспортёров и Grafana-дашбордов: реализованы core и доменные метрики (`internal/metrics/metrics.go`, `internal/metrics/extended.go`).

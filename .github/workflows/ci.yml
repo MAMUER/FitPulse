@@ -121,7 +121,7 @@ jobs:
               - 'cmd/training-service/**'
               - 'internal/training/**'
             device:
-              - 'cmd/device-connector/**'
+              - 'cmd/device-aggregator/**'
               - 'internal/device/**'
             classifier:
               - 'cmd/classifier/**'
@@ -837,9 +837,8 @@ jobs:
         run: |
           mkdir -p coverage
           go test -coverprofile=coverage/coverage.out ./...
-          npm run test -- --coverage --watchAll=false
+          cd web && npm run test -- --coverage --watchAll=false
           mv web/coverage/lcov.info coverage/lcov.info 2>/dev/null || true
-        working-directory: web
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f
         env:
@@ -988,7 +987,7 @@ jobs:
             echo "⚠️ No public key available, skipping verification"
             exit 0
           fi
-          SERVICES="user-service biometric-service training-service gateway device-connector"
+          SERVICES="user-service biometric-service training-service gateway device-aggregator"
           for svc in $SERVICES; do
             echo "Verifying $svc..."
             if cosign verify --key /tmp/cosign-keys/cosign.pub \
@@ -1084,7 +1083,7 @@ jobs:
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
           pids=()
-          for svc in user-service biometric-service training-service gateway device-connector; do
+          for svc in user-service biometric-service training-service gateway device-aggregator; do
             echo "  Building $svc..."
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
             pids+=($!)
@@ -1126,7 +1125,7 @@ jobs:
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # originally: v4
       - name: Build and push Go services
         run: |
-          services="user-service biometric-service training-service gateway device-connector"
+          services="user-service biometric-service training-service gateway device-aggregator"
           for svc in $services; do
             echo "Building $svc..."
             docker buildx build \
@@ -1183,7 +1182,7 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          services="user-service biometric-service training-service gateway device-connector"
+          services="user-service biometric-service training-service gateway device-aggregator"
 
           if [ -z "$COSIGN_PRIVATE_KEY" ]; then
             echo "❌ COSIGN_PRIVATE_KEY is empty" >&2
@@ -1231,7 +1230,7 @@ jobs:
           mkdir -p bin
           GOMAXPROCS=$(nproc)
           export GOMAXPROCS
-          for svc in user-service biometric-service training-service gateway device-connector; do
+          for svc in user-service biometric-service training-service gateway device-aggregator; do
             go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
           done
           wait
@@ -1489,7 +1488,7 @@ jobs:
           k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
           echo ''
           echo '-> Removing old application images (keep only last 3 versions)...'
-          for svc in user-service biometric-service training-service gateway device-connector classifier; do
+          for svc in user-service biometric-service training-service gateway device-aggregator classifier; do
             echo \"Cleaning \$svc...\"
             docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
               sort -k2 -r | \
@@ -2045,7 +2044,7 @@ jobs:
           docker builder prune -f --filter 'until=24h' || true
           echo ''
           echo '-> Removing old application images (keep only last 3 versions)...'
-          for svc in user-service biometric-service training-service gateway device-connector classifier; do
+          for svc in user-service biometric-service training-service gateway device-aggregator classifier; do
             echo \"Cleaning \$svc...\"
             docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
               sort -k2 -r | \
@@ -2076,7 +2075,7 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
           echo 'Logging in to GHCR on VPS...'
           echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin || true
-          for svc in user-service biometric-service training-service gateway device-connector classifier; do
+          for svc in user-service biometric-service training-service gateway device-aggregator classifier; do
             echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
             docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
           done
@@ -2463,7 +2462,7 @@ jobs:
               ERROR_FOUND=1
             fi
           done
-          for app in user-service training-service biometric-service gateway device-connector classifier valkey; do
+          for app in user-service training-service biometric-service gateway device-aggregator classifier valkey; do
             if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
               echo "❌ Pod(s) for $app are not Running"
               ERROR_FOUND=1
