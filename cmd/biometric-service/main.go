@@ -201,9 +201,6 @@ type recordsQuery struct {
 }
 
 func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) recordsQuery {
-	from := req.From.AsTime()
-	to := req.To.AsTime()
-
 	limit := int(req.Limit)
 	if limit <= 0 {
 		limit = 100
@@ -227,16 +224,20 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 			args:  []interface{}{req.UserId, req.MetricType},
 		}
 	case req.From == nil:
+		to := req.To.AsTime()
 		return recordsQuery{
 			query: baseQuery + ` AND timestamp <= $3 ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType, to},
 		}
 	case req.To == nil:
+		from := req.From.AsTime()
 		return recordsQuery{
 			query: baseQuery + ` AND timestamp >= $3 ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType, from},
 		}
 	default:
+		from := req.From.AsTime()
+		to := req.To.AsTime()
 		return recordsQuery{
 			query: baseQuery + ` AND timestamp >= $3 AND timestamp <= $4 ORDER BY timestamp DESC` + limitOffsetClause,
 			args:  []interface{}{req.UserId, req.MetricType, from, to},
