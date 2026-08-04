@@ -2629,13 +2629,32 @@ jobs:
     if: always()
     needs:
       [
+        validate-workflow,
+        dockerfile-lint,
+        super-linter,
+        frontend,
+        check,
         binary_build,
         docker,
         codeql,
         kubescape,
+        security-scan,
+        sonarcloud,
+        conventional-commits,
+        kube-bench,
+        kube-hunter,
+        checkov,
+        cosign-verify,
         deploy-production,
         test-production,
         smoke-test,
+        health-check,
+        csp-headers-check,
+        semgrep,
+        osv-scanner,
+        fuzz-tests,
+        osv-audit,
+        dependency-review,
       ]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
@@ -2643,19 +2662,54 @@ jobs:
         id: statuses
         run: |
           get_emoji() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "❓";; esac; }
+          VALIDATE="$(get_emoji '${{ needs.validate-workflow.result }}')"
+          DOCKERFILE_LINT="$(get_emoji '${{ needs.dockerfile-lint.result }}')"
+          SUPER_LINTER="$(get_emoji '${{ needs.super-linter.result }}')"
+          FRONTEND="$(get_emoji '${{ needs.frontend.result }}')"
+          CHECK="$(get_emoji '${{ needs.check.result }}')"
           BUILD="$(get_emoji '${{ needs.binary_build.result }}')"
           DOCKER="$(get_emoji '${{ needs.docker.result }}')"
           CODEQL="$(get_emoji '${{ needs.codeql.result }}')"
           KUBESCAPE="$(get_emoji '${{ needs.kubescape.result }}')"
+          SECURITY_SCAN="$(get_emoji '${{ needs.security-scan.result }}')"
+          SONARCLOUD="$(get_emoji '${{ needs.sonarcloud.result }}')"
+          CONVENTIONAL="$(get_emoji '${{ needs.conventional-commits.result }}')"
+          KUBE_BENCH="$(get_emoji '${{ needs.kube-bench.result }}')"
+          KUBE_HUNTER="$(get_emoji '${{ needs.kube-hunter.result }}')"
+          CHECKOV="$(get_emoji '${{ needs.checkov.result }}')"
+          COSIGN_VERIFY="$(get_emoji '${{ needs.cosign-verify.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
           SMOKE_TEST="$(get_emoji '${{ needs['smoke-test'].result }}')"
+          HEALTH_CHECK="$(get_emoji '${{ needs.health-check.result }}')"
+          CSP_CHECK="$(get_emoji '${{ needs.csp-headers-check.result }}')"
           FAILED_JOBS=""
+          if [[ "${{ needs.validate-workflow.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Validate "; fi
+          if [[ "${{ needs.dockerfile-lint.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}DockerfileLint "; fi
+          if [[ "${{ needs.super-linter.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Lint "; fi
+          if [[ "${{ needs.frontend.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Frontend "; fi
+          if [[ "${{ needs.check.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Check "; fi
           if [[ "${{ needs.binary_build.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
           if [[ "${{ needs.docker.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
+          if [[ "${{ needs.codeql.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CodeQL "; fi
+          if [[ "${{ needs.kubescape.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Kubescape "; fi
+          if [[ "${{ needs.security-scan.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}SecurityScan "; fi
+          if [[ "${{ needs.sonarcloud.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}SonarCloud "; fi
+          if [[ "${{ needs.conventional-commits.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}ConventionalCommits "; fi
+          if [[ "${{ needs.kube-bench.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeBench "; fi
+          if [[ "${{ needs.kube-hunter.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeHunter "; fi
+          if [[ "${{ needs.checkov.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Checkov "; fi
+          if [[ "${{ needs.cosign-verify.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CosignVerify "; fi
+          if [[ "${{ needs.semgrep.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Semgrep "; fi
+          if [[ "${{ needs.osv-scanner.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVScanner "; fi
+          if [[ "${{ needs.fuzz-tests.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}FuzzTests "; fi
+          if [[ "${{ needs.osv-audit.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVAudit "; fi
+          if [[ "${{ needs['dependency-review'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}DependencyReview "; fi
           if [[ "${{ needs['deploy-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
           if [[ "${{ needs['test-production'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
           if [[ "${{ needs['smoke-test'].result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Smoke "; fi
+          if [[ "${{ needs.health-check.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}HealthCheck "; fi
+          if [[ "${{ needs.csp-headers-check.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CSPCheck "; fi
           if [[ -n "$FAILED_JOBS" ]]; then
             OVERALL="ОШИБКА"; STATUS="failure"
           else
@@ -2664,13 +2718,27 @@ jobs:
           {
             echo "overall=$OVERALL"
             echo "status=$STATUS"
+            echo "validate=$VALIDATE"
+            echo "dockerfile_lint=$DOCKERFILE_LINT"
+            echo "super_linter=$SUPER_LINTER"
+            echo "frontend=$FRONTEND"
+            echo "check=$CHECK"
             echo "build=$BUILD"
             echo "docker=$DOCKER"
             echo "codeql=$CODEQL"
             echo "kubescape=$KUBESCAPE"
+            echo "security_scan=$SECURITY_SCAN"
+            echo "sonarcloud=$SONARCLOUD"
+            echo "conventional=$CONVENTIONAL"
+            echo "kube_bench=$KUBE_BENCH"
+            echo "kube_hunter=$KUBE_HUNTER"
+            echo "checkov=$CHECKOV"
+            echo "cosign_verify=$COSIGN_VERIFY"
             echo "deploy_prod=$DEPLOY_PROD"
             echo "test_prod=$TEST_PROD"
             echo "smoke_test=$SMOKE_TEST"
+            echo "health_check=$HEALTH_CHECK"
+            echo "csp_check=$CSP_CHECK"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         uses: appleboy/telegram-action@221e6b684967abe813051ee4a37dd61770a83ad3 # originally: v1.0.1
@@ -2683,15 +2751,30 @@ jobs:
             <b>CI/CD — ${{ steps.statuses.outputs.overall }}</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
-            <b>Основные этапы:</b>
-            ${{ steps.statuses.outputs.build }} Build
-            ${{ steps.statuses.outputs.docker }} Docker
-            ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
-            ${{ steps.statuses.outputs.test_prod }} Test Production
-            ${{ steps.statuses.outputs.smoke_test }} Smoke Test
+            <b>Проверки:</b>
+            ${{ steps.statuses.outputs.validate }} Validate Workflow
+            ${{ steps.statuses.outputs.dockerfile_lint }} Dockerfile Lint
+            ${{ steps.statuses.outputs.super_linter }} Super Linter
+            ${{ steps.statuses.outputs.frontend }} Frontend
+            ${{ steps.statuses.outputs.check }} Make Check
+            ${{ steps.statuses.outputs.conventional }} Conventional Commits
             <b>Безопасность:</b>
             ${{ steps.statuses.outputs.codeql }} CodeQL
             ${{ steps.statuses.outputs.kubescape }} Kubescape
+            ${{ steps.statuses.outputs.security_scan }} Security Scan
+            ${{ steps.statuses.outputs.sonarcloud }} SonarCloud
+            ${{ steps.statuses.outputs.kube_bench }} Kube-Bench
+            ${{ steps.statuses.outputs.kube_hunter }} Kube-Hunter
+            ${{ steps.statuses.outputs.checkov }} Checkov
+            ${{ steps.statuses.outputs.cosign_verify }} Cosign Verify
+            <b>Деплой:</b>
+            ${{ steps.statuses.outputs.build }} Build Binaries
+            ${{ steps.statuses.outputs.docker }} Docker Build & Push
+            ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
+            ${{ steps.statuses.outputs.test_prod }} Test Production
+            ${{ steps.statuses.outputs.smoke_test }} Smoke Test
+            ${{ steps.statuses.outputs.health_check }} Health Check
+            ${{ steps.statuses.outputs.csp_check }} CSP Headers Check
             🌐 <b>Сайт:</b> https://${{ env.FITPULSE_DOMAIN }}
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
