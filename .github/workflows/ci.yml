@@ -669,9 +669,6 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           version: v0.73.0
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
-        with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
           scan-type: "config"
@@ -679,17 +676,22 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: "0"
           skip-dirs: "configs/k8s/overlays/production"
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           version: v0.73.0
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
-        with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
           scan-type: "fs"
+          scanners: "vuln,secret,misconfig"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          skip-dirs: "configs/k8s/overlays/production"
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
           scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
           format: "sarif"
@@ -1168,9 +1170,6 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           version: v0.73.0
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
-        with:
           trivy-config: trivy.yaml
           trivyignores: .trivyignore
           image-ref: "${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}"
@@ -1179,6 +1178,8 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "0"
           scanners: "vuln,secret"
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
         continue-on-error: true
