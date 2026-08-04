@@ -24,14 +24,29 @@ type Logger struct {
 
 // New создает новый логгер с именем сервиса
 func New(service string) *Logger {
-	cfg := zap.NewProductionConfig()
-	cfg.Encoding = "json"
-	cfg.EncoderConfig.TimeKey = "timestamp"
-	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	cfg.EncoderConfig.LevelKey = "level"
-	cfg.EncoderConfig.MessageKey = "message"
-	cfg.EncoderConfig.CallerKey = "caller"
-	cfg.EncoderConfig.StacktraceKey = "stacktrace"
+	return newLogger(service, false)
+}
+
+// Development создает логгер для локальной разработки с цветным выводом в консоль
+func Development(service string) *Logger {
+	return newLogger(service, true)
+}
+
+func newLogger(service string, development bool) *Logger {
+	var cfg zap.Config
+	if development {
+		cfg = zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else {
+		cfg = zap.NewProductionConfig()
+		cfg.Encoding = "json"
+		cfg.EncoderConfig.TimeKey = "timestamp"
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		cfg.EncoderConfig.LevelKey = "level"
+		cfg.EncoderConfig.MessageKey = "message"
+		cfg.EncoderConfig.CallerKey = "caller"
+		cfg.EncoderConfig.StacktraceKey = "stacktrace"
+	}
 	cfg.OutputPaths = []string{"stdout"}
 	cfg.ErrorOutputPaths = []string{"stderr"}
 
@@ -53,67 +68,36 @@ func New(service string) *Logger {
 	}
 }
 
-// Development создает логгер для локальной разработки с цветным выводом в консоль
-func Development(service string) *Logger {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	cfg.OutputPaths = []string{"stdout"}
-	cfg.ErrorOutputPaths = []string{"stderr"}
-
-	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
-		var level zapcore.Level
-		if err := level.UnmarshalText([]byte(lvl)); err == nil {
-			cfg.Level = zap.NewAtomicLevelAt(level)
-		}
-	}
-
-	logger, err := cfg.Build(zap.AddCaller(), zap.AddCallerSkip(1))
-	if err != nil {
-		log.Fatal("failed to initialize development logger", zap.Error(err))
-	}
-
-	return &Logger{
-		Logger:  logger.With(zap.String("service", service)),
-		service: service,
-	}
-}
-
 // Service возвращает имя сервиса для логирования
 func (l *Logger) Service() string {
 	return l.service
 }
 
-// WithRequestID добавляет correlationId к контексту логгера
-func (l *Logger) WithRequestID(correlationID string) *Logger {
+func (l *Logger) withFields(fields ...zap.Field) *Logger {
 	return &Logger{
-		Logger:  l.With(zap.String("correlationId", correlationID)),
+		Logger:  l.With(fields...),
 		service: l.service,
 	}
+}
+
+// WithRequestID добавляет correlationId к контексту логгера
+func (l *Logger) WithRequestID(correlationID string) *Logger {
+	return l.withFields(zap.String("correlationId", correlationID))
 }
 
 // WithUserID добавляет userId к контексту логгера
 func (l *Logger) WithUserID(userID string) *Logger {
-	return &Logger{
-		Logger:  l.With(zap.String("userId", userID)),
-		service: l.service,
-	}
+	return l.withFields(zap.String("userId", userID))
 }
 
 // WithAction добавляет action к контексту логгера
 func (l *Logger) WithAction(action string) *Logger {
-	return &Logger{
-		Logger:  l.With(zap.String("action", action)),
-		service: l.service,
-	}
+	return l.withFields(zap.String("action", action))
 }
 
 // WithDuration добавляет durationMs к контексту логгера
 func (l *Logger) WithDuration(duration time.Duration) *Logger {
-	return &Logger{
-		Logger:  l.With(zap.Int64("durationMs", duration.Milliseconds())),
-		service: l.service,
-	}
+	return l.withFields(zap.Int64("durationMs", duration.Milliseconds()))
 }
 
 // WithMetadata добавляет метаданные к контексту логгера
@@ -135,18 +119,12 @@ func (l *Logger) WithMetadata(metadata map[string]interface{}) *Logger {
 			fields = append(fields, zap.Any(k, val))
 		}
 	}
-	return &Logger{
-		Logger:  l.With(fields...),
-		service: l.service,
-	}
+	return l.withFields(fields...)
 }
 
 // WithFields добавляет произвольные поля к контексту логгера
 func (l *Logger) WithFields(fields ...zap.Field) *Logger {
-	return &Logger{
-		Logger:  l.With(fields...),
-		service: l.service,
-	}
+	return l.withFields(fields...)
 }
 
 // WithCallerSkip возвращает логгер с измененным уровнем пропуска caller'ов

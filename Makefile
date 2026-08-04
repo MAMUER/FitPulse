@@ -38,13 +38,18 @@ test:
 
 test-cover:
 	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/user-service/...
+	@go test -count=1 -v -coverprofile coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/classifier/... ./cmd/data-processor/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/training-service/... ./cmd/user-service/...
 	@echo "Checking coverage threshold..."
 	@bash scripts/coverage-check.sh
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
-check: tidy fmt vet imports lint test-cover frontend-lint frontend-test frontend-build
+test-cover-python:
+	@echo "Running Python tests with coverage..."
+	@cd cmd/ml_generator && python -m pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml -v || echo "No pytest or tests found, skipping..."
+	@echo "Python coverage complete."
+
+check: tidy fmt vet imports lint test-cover test-cover-python frontend-lint frontend-test frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

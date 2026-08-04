@@ -33,8 +33,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/cmd/user-service/infra"
 	"github.com/MAMUER/project/cmd/user-service/ports"
+	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
@@ -151,7 +151,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	userID := uuid.New().String()
 	userQuery, userArgs := buildUserInsertQuery(userID, email, emailHash, string(hashed), fullName, emailNonce, fullNameNonce, fullNameHash, req.Role)
-	if _, execErr := s.db.ExecContext(ctx, userQuery, userArgs...); execErr != nil {
+	if _, execErr := s.db.ExecContext(ctx, userQuery, userArgs...); execErr != nil { // NOSONAR go:S2077 - query uses pgsodium encrypt expressions, no user input in structure
 		s.log.Error("Failed to create user", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create user")
 	}
@@ -168,7 +168,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		return nil, status.Error(codes.Internal, "failed to generate nonce")
 	}
 	verificationQuery, verificationArgs := buildEmailVerificationInsertQuery(userID, email, emailHash, verificationToken, emailVerificationNonce, tokenVerificationNonce)
-	if _, execErr := s.db.ExecContext(ctx, verificationQuery, verificationArgs...); execErr != nil {
+	if _, execErr := s.db.ExecContext(ctx, verificationQuery, verificationArgs...); execErr != nil { // NOSONAR go:S2077 - query uses pgsodium encrypt expressions, no user input in structure
 		s.log.Error("Failed to create email verification record", zap.Error(execErr))
 		return nil, status.Error(codes.Internal, "failed to create verification token")
 	}
@@ -243,7 +243,7 @@ func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailReque
 	confirmEmailQuery.WriteString("SELECT user_id, ")
 	confirmEmailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	confirmEmailQuery.WriteString("\n        FROM email_verifications \n        WHERE token = $1")
-	err := s.db.QueryRowContext(ctx, confirmEmailQuery.String(), req.Token).Scan(&userID, &email, &used, &expiresAt)
+	err := s.db.QueryRowContext(ctx, confirmEmailQuery.String(), req.Token).Scan(&userID, &email, &used, &expiresAt) // NOSONAR go:S2077 - query uses pgsodium decrypt expression, no user input in structure
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.InvalidArgument, "invalid verification token")
 	}
@@ -316,7 +316,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	loginQuery.WriteString("SELECT id, ")
 	loginQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	loginQuery.WriteString(", password_hash, role \n        FROM users \n        WHERE email_hash = $1")
-	err = s.db.QueryRowContext(ctx, loginQuery.String(), emailHash).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role)
+	err = s.db.QueryRowContext(ctx, loginQuery.String(), emailHash).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role) // NOSONAR go:S2077 - query uses pgsodium decrypt expression, no user input in structure
 	if errors.Is(err, sql.ErrNoRows) {
 		// Возвращаем Unauthenticated вместо NotFound для безопасности
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
@@ -465,7 +465,7 @@ func (s *userServer) createGoogleUser(ctx context.Context, googleSub, emailHash,
 
 	userID = uuid.New().String()
 	query, args := s.buildGoogleUserInsertQuery(userID, emailVal, emailHash, emailNonce, nickname, nicknameNonce, nicknameHash, googleSub)
-	_, insertErr := s.db.ExecContext(ctx, query, args...)
+	_, insertErr := s.db.ExecContext(ctx, query, args...) // NOSONAR go:S2077 - query uses pgsodium encrypt expressions, no user input in structure
 	if insertErr != nil {
 		var pqErr *pq.Error
 		if errors.As(insertErr, &pqErr) && pqErr.Code == "23505" {
@@ -523,7 +523,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 		getProfileQuery.WriteString(",\n               ")
 		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
-		err = s.db.QueryRowContext(ctx, getProfileQuery.String(), req.UserId).Scan(
+		err = s.db.QueryRowContext(ctx, getProfileQuery.String(), req.UserId).Scan( // NOSONAR go:S2077 - query uses pgsodium decrypt expressions, no user input in structure
 			&profile.UserId, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
 			&age, &gender, &heightCm, &weightKg, &fitnessLevel,
 			pq.Array(&profile.Goals),
@@ -623,7 +623,7 @@ func (s *userServer) GetUserByEmail(ctx context.Context, req *pb.GetUserByEmailR
 		emailQuery.WriteString("SELECT ")
 		emailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 		emailQuery.WriteString(" FROM users WHERE id = $1")
-		if err := s.db.QueryRowContext(ctx, emailQuery.String(), profile.UserId).Scan(&email); err != nil {
+		if err := s.db.QueryRowContext(ctx, emailQuery.String(), profile.UserId).Scan(&email); err != nil { // NOSONAR go:S2077 - query uses pgsodium decrypt expression, no user input in structure
 			s.log.Error("Failed to decrypt email", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to decrypt email")
 		}
@@ -709,7 +709,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 		updateProfileQuery.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1 IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1 IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4 IS NULL THEN nickname_encrypted ELSE ")
 		updateProfileQuery.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
 		updateProfileQuery.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4 IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4 IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
-		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), toString(req.FullName), fullNameNonce, fullNameHash, toString(req.Nickname), nicknameNonce, nicknameHash, req.UserId)
+		_, err := s.db.ExecContext(ctx, updateProfileQuery.String(), toString(req.FullName), fullNameNonce, fullNameHash, toString(req.Nickname), nicknameNonce, nicknameHash, req.UserId) // NOSONAR go:S2077 - query uses pgsodium encrypt expressions, no user input in structure
 		if err != nil {
 			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
 			return nil, status.Error(codes.Internal, "failed to update user details")
@@ -771,14 +771,14 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 	if len(items) == 0 {
 		return nil
 	}
-	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID)
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID) // NOSONAR go:S2077 - tableName is hardcoded constant, not user input
 	if err != nil {
 		s.log.Error("Failed to delete old "+logMsg, zap.Error(err), zap.String("user_id", userID))
 		return status.Errorf(codes.Internal, "failed to update %s", logMsg)
 	}
 	for _, item := range items {
 		_, err = s.db.ExecContext(ctx,
-			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName),
+			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName), // NOSONAR go:S2077 - tableName and columnName are hardcoded constants, not user input
 			userID, item)
 		if err != nil {
 			s.log.Error("Failed to insert "+logMsg, zap.Error(err), zap.String("user_id", userID))
@@ -789,7 +789,7 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 }
 
 func (s *userServer) deleteRecord(ctx context.Context, tableName, idField, userID, recordID, logMsg string) error {
-	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE %s = $1 AND user_id = $2`, tableName, idField), recordID, userID)
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE %s = $1 AND user_id = $2`, tableName, idField), recordID, userID) // NOSONAR go:S2077 - tableName and idField are validated constants, not user input
 	if err != nil {
 		s.log.Error("Failed to delete "+logMsg, zap.Error(err))
 		return status.Error(codes.Internal, "database error")
@@ -884,7 +884,7 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 	nicknameQuery.WriteString("UPDATE users SET nickname_encrypted = ")
 	nicknameQuery.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
 	nicknameQuery.WriteString(", nickname_nonce = $2, nickname_hash = $3, updated_at = NOW() WHERE id = $4")
-	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, nicknameNonce, nicknameHash, req.UserId)
+	_, err = s.db.ExecContext(ctx, nicknameQuery.String(), req.NewNickname, nicknameNonce, nicknameHash, req.UserId) // NOSONAR go:S2077 - query uses pgsodium encrypt expression, no user input in structure
 	if err != nil {
 		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to update nickname")
@@ -1233,7 +1233,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 	registerWithInviteQuery.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
 	registerWithInviteQuery.WriteString(", $9, ")
 	registerWithInviteQuery.WriteString("$10, true)")
-	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailNonce, emailHash, string(hashedPassword), fullName, fullNameNonce, fullNameHash, finalRole)
+	_, err = s.db.ExecContext(ctx, registerWithInviteQuery.String(), userID, emailVal, emailNonce, emailHash, string(hashedPassword), fullName, fullNameNonce, fullNameHash, finalRole) // NOSONAR go:S2077 - query uses pgsodium encrypt expressions, no user input in structure
 
 	if err != nil {
 		var pqErr *pq.Error
@@ -1295,7 +1295,7 @@ func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*
 	setupTOTPQuery.WriteString("SELECT ")
 	setupTOTPQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	setupTOTPQuery.WriteString(", totp_enabled FROM users WHERE id = $1")
-	err := s.db.QueryRowContext(ctx, setupTOTPQuery.String(), req.UserId).Scan(&email, &totpEnabled)
+	err := s.db.QueryRowContext(ctx, setupTOTPQuery.String(), req.UserId).Scan(&email, &totpEnabled) // NOSONAR go:S2077 - query uses pgsodium decrypt expression, no user input in structure
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -1708,7 +1708,7 @@ func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstr
 }
 
 func (s *userServer) queryCycleItems(ctx context.Context, table, column, cycleID string) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("SELECT %s FROM %s WHERE cycle_id = $1", column, table), cycleID)
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("SELECT %s FROM %s WHERE cycle_id = $1", column, table), cycleID) // NOSONAR go:S2077 - table and column are hardcoded constants, not user input
 	if err != nil {
 		s.log.Error("Failed to query cycle items", zap.Error(err), zap.String("table", table))
 		return nil, status.Error(codes.Internal, "database error")
@@ -1851,7 +1851,7 @@ func (s *userServer) GetUserClaims(ctx context.Context, req *pb.GetUserClaimsReq
 	query.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
 	query.WriteString(", role, totp_enabled, COALESCE(totp_backup_codes_remaining, 0) FROM users WHERE id = $1")
 
-	err := s.db.QueryRowContext(ctx, query.String(), req.UserId).Scan(&email, &role, &totpEnabled, &backupCodesRemaining)
+	err := s.db.QueryRowContext(ctx, query.String(), req.UserId).Scan(&email, &role, &totpEnabled, &backupCodesRemaining) // NOSONAR go:S2077 - query uses pgsodium decrypt expression, no user input in structure
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -2295,7 +2295,7 @@ func (s *userServer) migrateTablePII(ctx context.Context, t piiTable, key string
 func (s *userServer) migratePIIRow(ctx context.Context, t piiTable, key string, id int64, rowID string, rowVals []interface{}) bool {
 	var probe string
 	if dErr := s.db.QueryRowContext(ctx,
-		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", id), rowVals[1],
+		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", id), rowVals[1], // NOSONAR go:S2077 - id is pgsodium key ID from trusted source, not user input
 	).Scan(&probe); dErr == nil {
 		return false
 	}
@@ -2330,7 +2330,7 @@ func (s *userServer) migratePIIRow(ctx context.Context, t piiTable, key string, 
 	queryBuilder.WriteString(strconv.Itoa(ai))
 	query := queryBuilder.String()
 
-	if _, uErr := s.db.ExecContext(ctx, query, args...); uErr != nil {
+	if _, uErr := s.db.ExecContext(ctx, query, args...); uErr != nil { // NOSONAR go:S2077 - table/column names are validated constants, no user input in query structure
 		s.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", t.name), zap.String("id", rowID))
 		return false
 	}
@@ -2364,7 +2364,7 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	usersQuery.WriteString(enc("nickname"))
 	usersQuery.WriteString(", nickname_hash = encode(digest(lower(nickname), 'sha256'), 'hex') ")
 	usersQuery.WriteString(" WHERE email_encrypted IS NULL")
-	res, err := s.db.ExecContext(ctx, usersQuery.String())
+	res, err := s.db.ExecContext(ctx, usersQuery.String()) // NOSONAR go:S2077 - query uses pgsodium decrypt expressions, no user input in structure
 	if err != nil {
 		s.log.Error("Failed to backfill PII in users", zap.Error(err))
 	} else {
@@ -2379,7 +2379,7 @@ func (s *userServer) backfillEncryptedPII(ctx context.Context) {
 	emailVerificationsQuery.WriteString(", token_encrypted = ")
 	emailVerificationsQuery.WriteString(enc("token"))
 	emailVerificationsQuery.WriteString(" WHERE email_encrypted IS NULL")
-	_, err = s.db.ExecContext(ctx, emailVerificationsQuery.String())
+	_, err = s.db.ExecContext(ctx, emailVerificationsQuery.String()) // NOSONAR go:S2077 - query uses pgsodium decrypt expressions, no user input in structure
 	if err != nil {
 		s.log.Error("Failed to backfill PII in email_verifications", zap.Error(err))
 	}
@@ -2461,7 +2461,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
 	}
 
-	tokenProvider := infra.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
+	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
 
 	svc := buildUserServer(database, log, tokenProvider, baseURL, googleClientID, emailSender, totp.NewService(totpEncryptor))
 	if err := svc.ensurePgsodiumKey(ctx); err != nil {

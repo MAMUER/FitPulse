@@ -44,6 +44,7 @@ classification_confidence = Gauge(
 generator_session: Optional[ort.InferenceSession] = None
 valkey_client: Optional[Valkey] = None
 rabbitmq_connection = None
+rabbitmq_consumer_task: Optional[asyncio.Task] = None
 ml_async_enabled = False
 
 TRAINING_CLASSES = {
@@ -393,7 +394,7 @@ def apply_post_processing_rules(
 
 async def init_async():
     """Initialize async RabbitMQ consumer and Valkey client."""
-    global valkey_client, rabbitmq_connection, ml_async_enabled
+    global valkey_client, rabbitmq_connection, ml_async_enabled, rabbitmq_consumer_task
 
     ml_async_enabled = os.environ.get("ML_ASYNC", "").lower() == "true"
     if not ml_async_enabled:
@@ -419,7 +420,7 @@ async def init_async():
 
     try:
         rabbitmq_connection = await connect_robust(rabbitmq_url)
-        asyncio.create_task(_consume_rabbitmq())
+        rabbitmq_consumer_task = asyncio.create_task(_consume_rabbitmq())
         logger.info("RabbitMQ consumer started")
     except Exception as e:
         logger.error("RabbitMQ connection failed", error=str(e))
@@ -530,6 +531,12 @@ async def lifespan(app: FastAPI):
         await valkey_client.close()
     if rabbitmq_connection:
         await rabbitmq_connection.close()
+    if rabbitmq_consumer_task:
+        rabbitmq_consumer_task.cancel()
+        try:
+            await rabbitmq_consumer_task
+        except asyncio.CancelledError:
+            pass
     logger.info("ML Generator Service stopped")
 
 

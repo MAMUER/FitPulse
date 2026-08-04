@@ -35,9 +35,13 @@ export default function ChangePasswordModal({ onClose }) {
     }
   };
 
+  const handleOverlayKeyDown = (e) => {
+    if (e.key === 'Escape') onClose();
+  };
+
   return (
     <div className='modal'>
-      <div className='modal-overlay' onClick={onClose} />
+      <div className='modal-overlay' onClick={onClose} onKeyDown={handleOverlayKeyDown} />
       <div className='modal-content'>
         <h3>Сменить пароль</h3>
         <form onSubmit={handleSubmit}>

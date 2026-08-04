@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/cmd/user-service/infra"
+	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/logger"
 )
 
@@ -30,7 +30,7 @@ func setupUserService(db *sql.DB) *userServer {
 	return &userServer{
 		db:            db,
 		log:           &logger.Logger{Logger: zapLog},
-		tokenProvider: infra.NewJWTAdapter(privateKeyPEM, ""),
+		tokenProvider: jwt.NewJWTAdapter(privateKeyPEM, ""),
 	}
 }
 

@@ -39,7 +39,7 @@ func getMetricRules(metricType string) (MetricRules, bool) {
 // ValidateBiometricRequest validates an AddRecordRequest for biometric data.
 func ValidateBiometricRequest(req *pb.AddRecordRequest) error {
 	if req == nil {
-		return status.Error(codes.InvalidArgument, "request is nil")
+		return NilRequestError()
 	}
 
 	if req.UserId == "" {
@@ -52,7 +52,7 @@ func ValidateBiometricRequest(req *pb.AddRecordRequest) error {
 // ValidateBiometricRecord validates the biometric record fields.
 func ValidateBiometricRecord(req *pb.AddRecordRequest) error {
 	if req == nil {
-		return status.Error(codes.InvalidArgument, "request is nil")
+		return NilRequestError()
 	}
 
 	if req.MetricType == "" {

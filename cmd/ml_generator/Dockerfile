@@ -17,11 +17,11 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Обновляем pip до актуальной версии (>= 26.1 на July 2026)
-RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=83.0" "wheel>=0.47"
+RUN pip install --no-cache-dir --only-binary :all: --upgrade "pip>=26.1" "setuptools>=83.0" "wheel>=0.47"
 
-# Install dependencies (cached layer) — использует ranges из requirements.txt
-COPY cmd/ml_generator/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --retries 5 --timeout 120 -r /tmp/requirements.txt
+# Install dependencies (cached layer) — использует lock файл для reproducibility
+COPY cmd/ml_generator/requirements.lock.txt /tmp/requirements.lock.txt
+RUN pip install --no-cache-dir --only-binary :all: --retries 5 --timeout 120 -r /tmp/requirements.lock.txt
 
 # Runtime stage
 FROM python:3.14-slim AS runtime

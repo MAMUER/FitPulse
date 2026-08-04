@@ -348,6 +348,20 @@ Mutable tags позволяют владельцу action'а перенапра�
 | **Cosign** | Image signing для production-образов |
 | **SBOM** | Syft генерирует SPDX + CycloneDX SBOM при каждом сборке |
 
+## Заглушки и dev-only поведение в production коде
+
+| Компонент | Заглушка / dev-only поведение | Security implications | План устранения |
+| --- | --- | --- | --- |
+| **user-service** `cmd/user-service/main.go:186` | При регистрации в ответе возвращается verification token с префиксом `(dev only)` | Токен верификации email выводится в API-ответ; в production это позволяет подтвердить email без доступа к почте | Заменить на отправку токена только через email/SMS; в production ответ должен возвращать только `user_id` и `message` без токена |
+| **user-service** `cmd/user-service/main.go:1036-1054` | `SyncDeviceData` — stub, симулирует sync через `UPDATE devices SET last_sync = NOW()` | Нет реальной синхронизации с устройством; данные не обновляются | Реализовать интеграцию с Open Wearables API / Withings / Google Fit |
+| **user-service** `cmd/user-service/main.go:1057-1069` | `GetTrainingStats` — stub, возвращает фиксированные `mock data` (TotalWorkouts=25, AverageDurationMinutes=45.5 и т.д.) | Пользователь видит нереальные данные; статистика не отражает реальную активность | Подключить к training-service / device-aggregator для реальных метрик |
+| **load-test.k6** `load-test.k6:54` | Парсит `token (dev only)` из ответа регистрации для подтверждения email в нагрузочных тестах | Тест зависит от dev-only поведения; при его удалении тесты сломаются | После удаления dev-only токена из production API обновить тесты на использование реального email-потока или мока |
+| **scripts/api-test.py** `scripts/api-test.py:159` | То же самое: парсит dev-only verification token для API-тестов | Аналогично load-test.k6 | Аналогично |
+
+**Важно:** Все dev-only заглушки должны быть удалены или отключены через feature flag перед релизом в production. В текущем коде они присутствуют для ускорения разработки и тестирования, но не являются частью production-ready функционала.
+
+---
+
 ## Процесс исправления
 
 FitPulse — бесплатный open-source проект без бюджета на вознаграждения.
@@ -364,4 +378,4 @@ FitPulse — бесплатный open-source проект без бюджета
 
 ---
 
-### Последнее обновление: 2026-07-29
+### Последнее обновление: 2026-08-04

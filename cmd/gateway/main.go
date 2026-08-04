@@ -29,8 +29,8 @@ import (
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	userpb "github.com/MAMUER/project/api/gen/user"
-	"github.com/MAMUER/project/cmd/gateway/infra"
 	"github.com/MAMUER/project/cmd/gateway/ports"
+	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
 	grpctls "github.com/MAMUER/project/internal/grpc"
@@ -135,7 +135,7 @@ func main() {
 		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
 	}
 
-	tokenProvider := infra.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
+	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
 
 	g := buildGateway(log, cfg, metrics, sessionStore, valkeyDB, rmqCh, userClient, mlAsync, tokenProvider)
 	mainRouter := g.registerRoutes()
