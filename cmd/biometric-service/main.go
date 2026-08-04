@@ -258,6 +258,10 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 	}
 
 	q := s.buildGetRecordsQuery(req)
+	s.log.Debug("GetRecords query",
+		zap.String("query", q.query),
+		zap.Any("args", q.args),
+	)
 	rows, err := s.db.QueryContext(ctx, q.query, q.args...)
 	if err != nil {
 		s.log.Error("Failed to query records", zap.Error(err), zap.String("query", q.query))
