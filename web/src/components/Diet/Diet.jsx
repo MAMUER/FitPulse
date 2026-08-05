@@ -363,7 +363,8 @@ export default function Diet() {
 
     const generated = selectedMealKeys.map((key, idx) => {
       const options = filterMeals(selectedTemplate[key]);
-      const meal = options[Math.floor(Math.random() * options.length)] || { // NOSONAR javascript:S2245 - UI-only meal selection, not security context
+      const meal = options[Math.floor(Math.random() * options.length)] || {
+        // NOSONAR javascript:S2245 - UI-only meal selection, not security context
         name: '—',
         kcal: 0,
         protein: 0,

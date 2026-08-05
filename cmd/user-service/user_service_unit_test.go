@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/MAMUER/project/internal/config"
 )
@@ -117,4 +118,30 @@ func TestGetEnvOrDefault(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestHashPasswordArgon2id(t *testing.T) {
+	hash, err := hashPasswordArgon2id("password123")
+	assert.NoError(t, err)
+	assert.Contains(t, hash, "$argon2id$")
+	assert.Contains(t, hash, "m=65536,t=3,p=1")
+}
+
+func TestVerifyPasswordArgon2id(t *testing.T) {
+	hash, err := hashPasswordArgon2id("password123")
+	require.NoError(t, err)
+
+	assert.True(t, verifyPasswordArgon2id(hash, "password123"))
+	assert.False(t, verifyPasswordArgon2id(hash, "wrongpassword"))
+	assert.False(t, verifyPasswordArgon2id("invalid", "password123"))
+	assert.False(t, verifyPasswordArgon2id("$argon2id$v=19$m=65536,t=3,p=1$salt", "password123"))
+}
+
+func TestToString(t *testing.T) {
+	assert.Equal(t, "", toString(nil))
+	assert.Equal(t, "hello", toString(strPtr("hello")))
+}
+
+func strPtr(s string) *string {
+	return &s
 }

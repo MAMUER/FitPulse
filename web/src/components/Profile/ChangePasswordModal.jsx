@@ -41,7 +41,11 @@ export default function ChangePasswordModal({ onClose }) {
 
   return (
     <div className='modal'>
-      <div className='modal-overlay' onClick={onClose} onKeyDown={handleOverlayKeyDown} />
+      <div
+        className='modal-overlay'
+        onClick={onClose}
+        onKeyDown={handleOverlayKeyDown}
+      />
       <div className='modal-content'>
         <h3>Сменить пароль</h3>
         <form onSubmit={handleSubmit}>

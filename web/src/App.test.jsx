@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 
 vi.mock('./utils/api', () => ({
   fetchUserProfile: vi.fn(),
@@ -30,23 +30,10 @@ describe('App Router', () => {
     renderApp();
     expect(screen.getAllByText(/fitpulse/i).length).toBeGreaterThan(0);
   });
-});
 
-describe('useAuth hook', () => {
-  it('returns initial state', () => {
-    let result;
-    const TestComponent = () => {
-      result = useAuth();
-      return null;
-    };
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-    expect(result.token).toBeNull();
-    expect(result.user).toBeNull();
-    expect(result.isAdmin).toBe(false);
-    expect(result.loading).toBe(false);
+  it('shows auth screen when not authenticated', async () => {
+    renderApp();
+    const loginText = await screen.findByText(/Войти/i, {}, { timeout: 3000 });
+    expect(loginText).toBeInTheDocument();
   });
 });

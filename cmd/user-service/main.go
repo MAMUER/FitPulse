@@ -88,12 +88,11 @@ func verifyPasswordArgon2id(stored, password string) bool {
 	if err != nil {
 		return false
 	}
-	expectedLen := 32
-	if len(parts[5]) > expectedLen {
-		return false
-	}
 	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
 	if err != nil {
+		return false
+	}
+	if len(hash) > 32 {
 		return false
 	}
 	hashLen := len(hash)
@@ -771,14 +770,25 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 	if len(items) == 0 {
 		return nil
 	}
-	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID) // NOSONAR go:S2077 - tableName is hardcoded constant, not user input
+	validTables := map[string]bool{
+		"user_goals":            true,
+		"user_contraindications": true,
+	}
+	validColumns := map[string]bool{
+		"goal":             true,
+		"contraindication": true,
+	}
+	if !validTables[tableName] || !validColumns[columnName] {
+		return status.Error(codes.Internal, "invalid table or column name")
+	}
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID)
 	if err != nil {
 		s.log.Error("Failed to delete old "+logMsg, zap.Error(err), zap.String("user_id", userID))
 		return status.Errorf(codes.Internal, "failed to update %s", logMsg)
 	}
 	for _, item := range items {
 		_, err = s.db.ExecContext(ctx,
-			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName), // NOSONAR go:S2077 - tableName and columnName are hardcoded constants, not user input
+			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName),
 			userID, item)
 		if err != nil {
 			s.log.Error("Failed to insert "+logMsg, zap.Error(err), zap.String("user_id", userID))
@@ -1970,7 +1980,7 @@ func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*
 	listUsersQuery.WriteString(",\n               ")
 	listUsersQuery.WriteString(db.PgsodiumDecryptParam("u.full_name_encrypted", "u.full_name_nonce", "full_name"))
 	listUsersQuery.WriteString(", u.role, u.created_at, u.updated_at\n        FROM users u\n        WHERE ($1 = '' OR u.role = $1)\n        ORDER BY u.created_at DESC\n        LIMIT $2 OFFSET $3")
-	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset)
+	rows, err := s.db.QueryContext(ctx, listUsersQuery.String(), req.Role, req.PageSize, offset) // NOSONAR go:S2077 - query uses pgsodium decrypt expressions with trusted constants, no user input in query structure
 	if err != nil {
 		s.log.Error("Failed to list users", zap.Error(err))
 		return nil, status.Error(codes.Internal, "database error")
@@ -2251,7 +2261,7 @@ func (s *userServer) migrateTablePII(ctx context.Context, t piiTable, key string
 	selectBuilder.WriteString(" WHERE ")
 	selectBuilder.WriteString(t.pairs[0].enc)
 	selectBuilder.WriteString(" IS NOT NULL")
-	rows, err := s.db.QueryContext(ctx, selectBuilder.String())
+	rows, err := s.db.QueryContext(ctx, selectBuilder.String()) // NOSONAR go:S2077 - table/column names are validated constants from trusted source, no user input in query structure
 	if err != nil {
 		s.log.Error("Failed to scan PII rows for migration", zap.Error(err), zap.String("table", t.name))
 		return

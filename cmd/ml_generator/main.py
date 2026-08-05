@@ -536,7 +536,7 @@ async def lifespan(app: FastAPI):
         try:
             await rabbitmq_consumer_task
         except asyncio.CancelledError:
-            pass
+            raise
     logger.info("ML Generator Service stopped")
 
 

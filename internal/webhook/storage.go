@@ -200,7 +200,7 @@ func (a *SQLDBAdapter) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, er
 	if err != nil {
 		return nil, err
 	}
-	return &SQLTxAdapter{tx: tx}, nil
+	return &SQLTxAdapter{tx: tx}, nil // NOSONAR godre:S8168 - transaction lifecycle is managed by the caller, which uses defer tx.Rollback()
 }
 
 func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
