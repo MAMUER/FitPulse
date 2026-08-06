@@ -58,7 +58,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	transformed := transformClassifierResponse(result)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(transformed); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
@@ -75,7 +75,7 @@ func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[strin
 		g.log.Error("Failed to create classifier request", zap.Error(err))
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, contentTypeJSON)
 	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
 
 	client := &http.Client{}
@@ -205,7 +205,7 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, contentTypeJSON)
 	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -228,7 +228,7 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(resp.StatusCode)
 	_, err = bytes.NewBuffer(respBody).WriteTo(w)
 	if err != nil {

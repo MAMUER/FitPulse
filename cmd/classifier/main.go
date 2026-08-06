@@ -27,7 +27,11 @@ type server struct {
 	log *logger.Logger
 }
 
-const trainingClassCount = 6
+const (
+	trainingClassCount = 6
+	contentTypeJSON    = "application/json"
+	headerContentType  = "Content-Type"
+)
 
 var trainingClasses = map[int]struct {
 	Name            string   `json:"name"`
@@ -173,7 +177,7 @@ type healthResponse struct {
 }
 
 func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(healthResponse{
 		Status:       "healthy",
 		ModelLoaded:  true,
@@ -183,17 +187,17 @@ func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) classesHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(trainingClasses)
 }
 
 func (s *server) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	w.Header().Set(headerContentType, "text/plain; version=0.0.4")
 	_, _ = w.Write([]byte("# Classifier metrics\n"))
 }
 
 func (s *server) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"model_name":       "rule-based-classifier",
 		"input_shape":      []int{1, 7},
@@ -262,7 +266,7 @@ func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	metrics.ClassificationConfidence.WithLabelValues("rule-based", classInfo.Name).Set(confidence)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(resp)
 }
 

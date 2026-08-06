@@ -363,8 +363,8 @@ export default function Diet() {
 
     const generated = selectedMealKeys.map((key, idx) => {
       const options = filterMeals(selectedTemplate[key]);
+      // NOSONAR javascript:S2245 - UI-only meal selection, not security context
       const meal = options[Math.floor(Math.random() * options.length)] || {
-        // NOSONAR javascript:S2245 - UI-only meal selection, not security context
         name: '—',
         kcal: 0,
         protein: 0,
@@ -398,17 +398,19 @@ export default function Diet() {
   if (!nutrition)
     return <div className='view active'>Ошибка загрузки профиля</div>;
 
+  const fitnessLabel =
+    nutrition.fitness === 'beginner'
+      ? 'Начинающий'
+      : nutrition.fitness === 'intermediate'
+        ? 'Средний'
+        : 'Продвинутый';
+
   return (
     <div className='view active'>
       <div className='diet-summary'>
         <div className='diet-calories'>{nutrition.calories}</div>
         <div className='diet-label'>
-          ккал в день · BMR {nutrition.bmr} ·{' '}
-          {nutrition.fitness === 'beginner'
-            ? 'Начинающий'
-            : nutrition.fitness === 'intermediate'
-              ? 'Средний'
-              : 'Продвинутый'}
+          ккал в день · BMR {nutrition.bmr} · {fitnessLabel}
         </div>
         <div className='diet-macros'>
           <div className='macro-item'>
@@ -429,8 +431,8 @@ export default function Diet() {
       <div className='diet-controls'>
         <h3>Предпочтения питания</h3>
         <div className='form-group'>
-          <label>Шаблон рациона</label>
-          <div className='meal-template-selector'>
+          <label htmlFor='meal-template'>Шаблон рациона</label>
+          <div className='meal-template-selector' id='meal-template'>
             {Object.entries(MEAL_TEMPLATES).map(([key, tpl]) => (
               <button
                 key={key}
@@ -444,8 +446,9 @@ export default function Diet() {
           </div>
         </div>
         <div className='form-group'>
-          <label>Количество приёмов пищи</label>
+          <label htmlFor='meal-count'>Количество приёмов пищи</label>
           <select
+            id='meal-count'
             value={mealCount}
             onChange={(e) => setMealCount(Number(e.target.value))}
           >
@@ -457,16 +460,18 @@ export default function Diet() {
           </select>
         </div>
         <div className='form-group'>
-          <label>Время первого приёма</label>
+          <label htmlFor='first-meal-time'>Время первого приёма</label>
           <input
+            id='first-meal-time'
             type='time'
             value={firstMealTime}
             onChange={(e) => setFirstMealTime(e.target.value)}
           />
         </div>
         <div className='form-group'>
-          <label>Аллергии (через запятую)</label>
+          <label htmlFor='allergies'>Аллергии (через запятую)</label>
           <input
+            id='allergies'
             type='text'
             value={allergies}
             onChange={(e) => setAllergies(e.target.value)}
@@ -474,8 +479,9 @@ export default function Diet() {
           />
         </div>
         <div className='form-group'>
-          <label>Нелюбимые продукты (через запятую)</label>
+          <label htmlFor='dislikes'>Нелюбимые продукты (через запятую)</label>
           <input
+            id='dislikes'
             type='text'
             value={dislikes}
             onChange={(e) => setDislikes(e.target.value)}
@@ -494,8 +500,8 @@ export default function Diet() {
               <p>Измените настройки аллергий и предпочтений</p>
             </div>
           ) : (
-            meals.map((meal, idx) => (
-              <div key={idx} className='meal-card'>
+            meals.map((meal) => (
+              <div key={meal.time} className='meal-card'>
                 <div className='meal-time'>{meal.time}</div>
                 <div className='meal-name'>{meal.name}</div>
                 <div className='meal-details'>

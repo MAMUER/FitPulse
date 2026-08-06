@@ -71,7 +71,7 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "condition": condition}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
@@ -94,7 +94,7 @@ func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, pa
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 	}
@@ -147,7 +147,7 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "record": record}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
@@ -235,7 +235,7 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, errMsg, httpCode)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycle": cycle}); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))

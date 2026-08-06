@@ -34,6 +34,8 @@ const (
 	totpRateLimitAttempts = 5
 
 	googleOAuthStateCookie = "google_oauth_state"
+	headerContentType      = "Content-Type"
+	contentTypeJSON        = "application/json"
 )
 
 type totpRateLimiter struct {
@@ -252,7 +254,7 @@ func (g *gateway) criticalSessionHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"critical_session_token": token,
 	}); err != nil {
@@ -310,7 +312,7 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
@@ -355,7 +357,7 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
@@ -424,7 +426,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 		tempToken := uuid.New().String()
 		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, resp.GetUserId(), 5*time.Minute).Err()
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(headerContentType, contentTypeJSON)
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"requires_2fa": true,
 			"temp_token":   tempToken,
@@ -449,7 +451,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		g.log.Warn("Failed to issue refresh token", zap.Error(rtErr))
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
 		g.log.Error("Failed to encode response", zap.Error(err))
 		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
@@ -472,7 +474,7 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"}); err != nil {
@@ -504,7 +506,7 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Email confirmed. You can now log in.",
 		"user_id": resp.GetUserId(),
@@ -526,7 +528,7 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set(headerContentType, "text/html; charset=utf-8")
 	if _, err := w.Write(indexBytes); err != nil {
 		g.log.Error("Failed to write index.html", zap.Error(err))
 		http.Error(w, "Сервис временно недоступен", http.StatusInternalServerError)
@@ -619,7 +621,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
 		tempToken := uuid.New().String()
 		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(headerContentType, contentTypeJSON)
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"requires_2fa": true,
 			"temp_token":   tempToken,
@@ -631,7 +633,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "ok",
 		"access_token": grpcResp.GetAccessToken(),
@@ -678,7 +680,7 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Warn("Failed to encode TOTP QR code", zap.Error(err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"qr_code_url":    resp.QrCodeUrl,
 		"qr_code_base64": qrCodeBase64,
@@ -730,7 +732,7 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": resp.Success,
 		"message": resp.Message,
@@ -798,7 +800,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Warn("Failed to issue refresh token after 2FA", zap.Error(rtErr))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"access_token":           token,
 		"token_type":             "Bearer",
@@ -847,7 +849,7 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": resp.Success,
 		"message": resp.Message,
@@ -872,7 +874,7 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"enabled":                resp.GetTotpEnabled(),
 		"backup_codes_remaining": resp.GetTotpBackupCodesRemaining(),
@@ -903,7 +905,7 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"access_token":  accessToken,
 		"refresh_token": newRefresh,
@@ -927,13 +929,13 @@ func (g *gateway) checkVerificationStatusHandler(w http.ResponseWriter, r *http.
 	resp, err := g.userClient.GetUserByEmail(r.Context(), &userpb.GetUserByEmailRequest{Email: email})
 	if err != nil {
 		g.log.Error("Failed to get user by email", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(headerContentType, contentTypeJSON)
 		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"email_confirmed": false, "email": email})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"email_confirmed": resp.EmailConfirmed,
 		"email":           email,

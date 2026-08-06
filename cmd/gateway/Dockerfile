@@ -13,7 +13,7 @@ FROM golang:1.26-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
-RUN apk add --no-cache git=2.54.0-r0 ca-certificates=20260611-r0
+RUN apk add --no-cache ca-certificates=20260611-r0 git=2.54.0-r0
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -31,9 +31,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM alpine:3.24
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates tzdata curl
-RUN addgroup -g 1001 -S appgroup && \
-adduser -u 1001 -S appuser -G appgroup
+    apk add --no-cache ca-certificates curl tzdata && \
+    addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/bin/gateway .
 COPY --from=web-builder --chown=appuser:appgroup /app/web/dist ./web/dist

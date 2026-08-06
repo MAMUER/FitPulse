@@ -29,88 +29,30 @@ func TestDataProcessorIntegration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-
-	pgContainer, err := postgres.Run(ctx, "postgres:18-alpine",
-		testcontainers.WithEnv(map[string]string{
-			"POSTGRES_USER":     "testuser",
-			"POSTGRES_PASSWORD": "testpass",
-			"POSTGRES_DB":       "testdb",
-		}),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("failed to start postgres container: %v", err)
-	}
-	_ = pgContainer.Terminate(ctx)
-
-	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
-		testcontainers.WithEnv(map[string]string{
-			"RABBITMQ_DEFAULT_USER": "testuser",
-			"RABBITMQ_DEFAULT_PASS": "testpass",
-		}),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("Server startup complete").WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("failed to start rabbitmq container: %v", err)
-	}
-	_ = rabbitContainer.Terminate(ctx)
-
-	pgHost, err := pgContainer.Host(ctx)
-	if err != nil {
-		t.Fatalf("failed to get postgres host: %v", err)
-	}
-	pgPort, err := pgContainer.MappedPort(ctx, "5432")
-	if err != nil {
-		t.Fatalf("failed to get postgres port: %v", err)
-	}
-
-	rabbitHost, err := rabbitContainer.Host(ctx)
-	if err != nil {
-		t.Fatalf("failed to get rabbitmq host: %v", err)
-	}
-	rabbitPort, err := rabbitContainer.MappedPort(ctx, "5672")
-	if err != nil {
-		t.Fatalf("failed to get rabbitmq port: %v", err)
-	}
-
-	rabbitURL := fmt.Sprintf("amqp://testuser:testpass@%s:%d/", rabbitHost, rabbitPort)
+	pgHost, pgPort := setupPostgres(ctx, t)
+	_, _, rabbitURL := setupRabbitMQ(ctx, t)
 
 	t.Setenv("DB_HOST", pgHost)
-	t.Setenv("DB_PORT", pgPort.Port())
+	t.Setenv("DB_PORT", pgPort)
 	t.Setenv("POSTGRES_USER", "testuser")
 	t.Setenv("POSTGRES_PASSWORD", "testpass")
 	t.Setenv("POSTGRES_DB", "testdb")
 	t.Setenv("DB_SSLMODE", "disable")
 	t.Setenv("RABBITMQ_URL", rabbitURL)
 
-	db, err := sql.Open("postgres", fmt.Sprintf("postgres://testuser:testpass@%s:%d/testdb?sslmode=disable", pgHost, pgPort))
+	db, err := sql.Open("postgres", fmt.Sprintf("postgres://testuser:testpass@%s:%s/testdb?sslmode=disable", pgHost, pgPort))
 	if err != nil {
 		t.Fatalf("failed to open db: %v", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	_, err = db.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS biometric_data (
-			id VARCHAR(36) PRIMARY KEY,
-			user_id VARCHAR(255) NOT NULL,
-			metric_type VARCHAR(100) NOT NULL,
-			value DOUBLE PRECISION NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			device_type VARCHAR(100),
-			created_at TIMESTAMP NOT NULL
-		)
-	`)
-	if err != nil {
+	if err := createTestTable(ctx, db); err != nil {
 		t.Fatalf("failed to create test table: %v", err)
 	}
 	defer func() { _, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS biometric_data") }()
 
 	processCtx, processCancel := context.WithCancel(ctx)
 	log := logger.New("data-processor-test")
-
 	go func() {
 		_ = run(processCtx, log)
 	}()
@@ -127,8 +69,7 @@ func TestDataProcessorIntegration(t *testing.T) {
 	}
 	defer func() { _ = amqpCh.Close() }()
 
-	_, err = amqpCh.QueueDeclare("biometric_events", true, false, false, false, nil)
-	if err != nil {
+	if _, err := amqpCh.QueueDeclare("biometric_events", true, false, false, false, nil); err != nil {
 		t.Fatalf("failed to declare queue: %v", err)
 	}
 
@@ -142,12 +83,11 @@ func TestDataProcessorIntegration(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	err = amqpCh.Publish("", "biometric_events", false, false, amqp.Publishing{
+	if err := amqpCh.Publish("", "biometric_events", false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		Body:         body,
 		DeliveryMode: amqp.Persistent,
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("failed to publish event: %v", err)
 	}
 
@@ -163,6 +103,76 @@ func TestDataProcessorIntegration(t *testing.T) {
 
 	processCancel()
 	time.Sleep(500 * time.Millisecond)
+}
+
+func setupPostgres(ctx context.Context, t *testing.T) (string, string) {
+	t.Helper()
+	pgContainer, err := postgres.Run(ctx, "postgres:18-alpine",
+		testcontainers.WithEnv(map[string]string{
+			"POSTGRES_USER":     "testuser",
+			"POSTGRES_PASSWORD": "testpass",
+			"POSTGRES_DB":       "testdb",
+		}),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
+	)
+	if err != nil {
+		t.Fatalf("failed to start postgres container: %v", err)
+	}
+	_ = pgContainer.Terminate(ctx)
+
+	pgHost, err := pgContainer.Host(ctx)
+	if err != nil {
+		t.Fatalf("failed to get postgres host: %v", err)
+	}
+	pgPort, err := pgContainer.MappedPort(ctx, "5432")
+	if err != nil {
+		t.Fatalf("failed to get postgres port: %v", err)
+	}
+	return pgHost, pgPort.Port()
+}
+
+func setupRabbitMQ(ctx context.Context, t *testing.T) (string, string, string) {
+	t.Helper()
+	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
+		testcontainers.WithEnv(map[string]string{
+			"RABBITMQ_DEFAULT_USER": "testuser",
+			"RABBITMQ_DEFAULT_PASS": "testpass",
+		}),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("Server startup complete").WithStartupTimeout(60*time.Second)),
+	)
+	if err != nil {
+		t.Fatalf("failed to start rabbitmq container: %v", err)
+	}
+	_ = rabbitContainer.Terminate(ctx)
+
+	rabbitHost, err := rabbitContainer.Host(ctx)
+	if err != nil {
+		t.Fatalf("failed to get rabbitmq host: %v", err)
+	}
+	rabbitPort, err := rabbitContainer.MappedPort(ctx, "5672")
+	if err != nil {
+		t.Fatalf("failed to get rabbitmq port: %v", err)
+	}
+	rabbitURL := fmt.Sprintf("amqp://testuser:testpass@%s:%s/", rabbitHost, rabbitPort.Port())
+	return rabbitHost, rabbitPort.Port(), rabbitURL
+}
+
+func createTestTable(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS biometric_data (
+			id VARCHAR(36) PRIMARY KEY,
+			user_id VARCHAR(255) NOT NULL,
+			metric_type VARCHAR(100) NOT NULL,
+			value DOUBLE PRECISION NOT NULL,
+			timestamp TIMESTAMP NOT NULL,
+			device_type VARCHAR(100),
+			created_at TIMESTAMP NOT NULL
+		)
+	`)
+	return err
 }
 
 func ptrString(s string) *string {
