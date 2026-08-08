@@ -118,11 +118,15 @@ class UserProfile(BaseModel):
     )
     weight: Optional[float] = Field(70.0, description="Weight (kg)", ge=30, le=200)
     height: Optional[float] = Field(170.0, description="Height (cm)", ge=100, le=250)
-    health_conditions: Optional[List[str]] = Field(None, description="Health conditions")
+    health_conditions: Optional[List[str]] = Field(
+        None, description="Health conditions"
+    )
     goals: Optional[List[str]] = Field(None, description="Training goals")
     lifestyle: Optional[Dict] = Field(None, description="Lifestyle factors")
     allergies: Optional[List[str]] = Field(None, description="Allergies")
-    contraindications: Optional[List[str]] = Field(None, description="Medical contraindications")
+    contraindications: Optional[List[str]] = Field(
+        None, description="Medical contraindications"
+    )
 
 
 class HealthStatus(BaseModel):
@@ -133,18 +137,24 @@ class HealthStatus(BaseModel):
     predicted_class: Optional[str] = Field(
         "endurance_basic", description="Classifier predicted class"
     )
-    confidence: Optional[float] = Field(0.5, description="Classifier confidence", ge=0.0, le=1.0)
+    confidence: Optional[float] = Field(
+        0.5, description="Classifier confidence", ge=0.0, le=1.0
+    )
     hrv: Optional[float] = Field(65.0, description="Heart rate variability (ms)")
     sleep_hours: Optional[float] = Field(7.0, description="Sleep hours")
     active_conditions_count: Optional[int] = Field(
         0, description="Active health conditions count", ge=0
     )
     menstrual_phase: Optional[str] = Field("unknown", description="Menstrual phase")
-    day_of_cycle: Optional[int] = Field(1, description="Day of menstrual cycle", ge=1, le=35)
+    day_of_cycle: Optional[int] = Field(
+        1, description="Day of menstrual cycle", ge=1, le=35
+    )
     cycle_length: Optional[int] = Field(
         28, description="Menstrual cycle length (days)", ge=20, le=40
     )
-    body_composition: Optional[Dict] = Field(None, description="BMI, body fat %, muscle mass")
+    body_composition: Optional[Dict] = Field(
+        None, description="BMI, body fat %, muscle mass"
+    )
 
 
 class TrainingHistory(BaseModel):
@@ -158,7 +168,9 @@ class TrainingHistory(BaseModel):
     avg_intensity: Optional[float] = Field(
         0.5, description="Average workout intensity", ge=0.0, le=1.0
     )
-    last_workout_date: Optional[str] = Field(None, description="ISO date of last workout")
+    last_workout_date: Optional[str] = Field(
+        None, description="ISO date of last workout"
+    )
 
 
 class PlanGenerationRequest(BaseModel):
@@ -211,7 +223,9 @@ def load_generator():
 
     if os.path.exists(model_path):
         sess_options = ort.SessionOptions()
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.graph_optimization_level = (
+            ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
         sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
 
         generator_session = ort.InferenceSession(
@@ -242,7 +256,9 @@ def generate_from_noise(
         }
 
         input_names = [inp.name for inp in generator_session.get_inputs()]
-        ordered_inputs = {name: input_dict[name] for name in input_names if name in input_dict}
+        ordered_inputs = {
+            name: input_dict[name] for name in input_names if name in input_dict
+        }
         result = generator_session.run(None, ordered_inputs)
         noise_pred = result[0]
 
@@ -284,7 +300,9 @@ betas_np = get_betas()
 
 def build_rule_based_plan(training_class: str, user_profile: UserProfile) -> np.ndarray:
     """Rule-based 19-dim plan vector fallback"""
-    template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES["endurance_basic"])
+    template = TRAINING_TEMPLATES.get(
+        training_class, TRAINING_TEMPLATES["endurance_basic"]
+    )
     duration_min = int(np.mean(template["duration_range"]))
     intensity = float(np.mean(template["intensity_range"]))
     rest_ratio = template["rest_ratio"]
@@ -302,7 +320,11 @@ def build_rule_based_plan(training_class: str, user_profile: UserProfile) -> np.
     health_factor = 0.5 if user_profile.health_conditions else 1.0
     goals = [g.lower() for g in (user_profile.goals or [])]
     goal_strength = 0.8 if any("набор" in g or "muscle" in g for g in goals) else 0.2
-    goal_endurance = 0.8 if any(GOAL_KEYWORD_ENDURANCE in g or "endurance" in g for g in goals) else 0.2
+    goal_endurance = (
+        0.8
+        if any(GOAL_KEYWORD_ENDURANCE in g or "endurance" in g for g in goals)
+        else 0.2
+    )
 
     return np.array(
         [
@@ -409,7 +431,9 @@ async def init_async():
     valkey_port = int(os.environ.get("VALKEY_PORT", 6379))
 
     try:
-        valkey_client = Valkey(host=valkey_host, port=valkey_port, decode_responses=True)
+        valkey_client = Valkey(
+            host=valkey_host, port=valkey_port, decode_responses=True
+        )
         await valkey_client.ping()
         logger.info("Valkey connected", host=valkey_host, port=valkey_port)
     except Exception as e:
@@ -485,10 +509,16 @@ async def _on_generate_message(body: bytes):
 
 
 def _do_generate_plan(
-    training_class, user_profile, preferences=None, health_status=None, training_history=None
+    training_class,
+    user_profile,
+    preferences=None,
+    health_status=None,
+    training_history=None,
 ):
     """Core plan generation logic with 3-tier fallback."""
-    condition = encode_user_profile(user_profile, health_status, training_history, preferences)
+    condition = encode_user_profile(
+        user_profile, health_status, training_history, preferences
+    )
 
     # Tier 1: Diffusion model
     if generator_session is not None:
@@ -507,14 +537,18 @@ def _do_generate_plan(
             )
             return plan_vector.tolist()
         except Exception as e:
-            logger.warning("Diffusion generation failed, falling back to rule-based", error=str(e))
+            logger.warning(
+                "Diffusion generation failed, falling back to rule-based", error=str(e)
+            )
 
     # Tier 2: Rule-based
     try:
         plan_vector = build_rule_based_plan(training_class, user_profile)
         return plan_vector.tolist()
     except Exception as e:
-        logger.warning("Rule-based generation failed, falling back to static", error=str(e))
+        logger.warning(
+            "Rule-based generation failed, falling back to static", error=str(e)
+        )
 
     # Tier 3: Static beginner plan
     plan_vector = build_static_beginner_plan()
@@ -576,11 +610,38 @@ def _encode_demographics(profile: UserProfile) -> np.ndarray:
 
 def _encode_goals(profile: UserProfile) -> np.ndarray:
     goals_lower = [g.lower() for g in (profile.goals or [])]
-    goal_strength = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_MUSCLE_GAIN, "muscle_gain", "силовые"]) else 0.0
-    goal_endurance = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_ENDURANCE, "endurance", "марафон"]) else 0.0
-    goal_weight_loss = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_WEIGHT_LOSS, "weight_loss", "fat_loss"]) else 0.0
-    goal_flexibility = 1.0 if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"]) else 0.0
-    return np.array([goal_strength, goal_endurance, goal_weight_loss, goal_flexibility], dtype=np.float32)
+    goal_strength = (
+        1.0
+        if any(
+            g in goals_lower
+            for g in [GOAL_KEYWORD_MUSCLE_GAIN, "muscle_gain", "силовые"]
+        )
+        else 0.0
+    )
+    goal_endurance = (
+        1.0
+        if any(
+            g in goals_lower for g in [GOAL_KEYWORD_ENDURANCE, "endurance", "марафон"]
+        )
+        else 0.0
+    )
+    goal_weight_loss = (
+        1.0
+        if any(
+            g in goals_lower
+            for g in [GOAL_KEYWORD_WEIGHT_LOSS, "weight_loss", "fat_loss"]
+        )
+        else 0.0
+    )
+    goal_flexibility = (
+        1.0
+        if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"])
+        else 0.0
+    )
+    return np.array(
+        [goal_strength, goal_endurance, goal_weight_loss, goal_flexibility],
+        dtype=np.float32,
+    )
 
 
 def _encode_health(health: HealthStatus, profile: UserProfile) -> np.ndarray:
@@ -590,13 +651,28 @@ def _encode_health(health: HealthStatus, profile: UserProfile) -> np.ndarray:
     menstrual_menstruation = 1.0 if phase == "menstruation" else 0.0
     menstrual_ovulation = 1.0 if phase == "ovulation" else 0.0
     conditions_norm = np.clip((health.active_conditions_count or 0) / 5.0, 0.0, 1.0)
-    has_contraindications = 1.0 if (profile.contraindications and len(profile.contraindications) > 0) else 0.0
+    has_contraindications = (
+        1.0
+        if (profile.contraindications and len(profile.contraindications) > 0)
+        else 0.0
+    )
     has_allergies = 1.0 if (profile.allergies and len(profile.allergies) > 0) else 0.0
-    recovery_needed = 1.0 if (health.predicted_class in ("recovery", "overtraining")) else 0.0
-    return np.array([
-        health_factor, menstrual_luteal, menstrual_menstruation, menstrual_ovulation,
-        conditions_norm, has_contraindications, has_allergies, recovery_needed,
-    ], dtype=np.float32)
+    recovery_needed = (
+        1.0 if (health.predicted_class in ("recovery", "overtraining")) else 0.0
+    )
+    return np.array(
+        [
+            health_factor,
+            menstrual_luteal,
+            menstrual_menstruation,
+            menstrual_ovulation,
+            conditions_norm,
+            has_contraindications,
+            has_allergies,
+            recovery_needed,
+        ],
+        dtype=np.float32,
+    )
 
 
 def _encode_activity(history: TrainingHistory) -> np.ndarray:
@@ -604,8 +680,13 @@ def _encode_activity(history: TrainingHistory) -> np.ndarray:
     if history.last_workout_date:
         try:
             from datetime import datetime
-            last = datetime.fromisoformat(history.last_workout_date.replace("Z", "+00:00"))
-            days_since = max(0.0, (datetime.now(last.tzinfo) - last).total_seconds() / 86400.0)
+
+            last = datetime.fromisoformat(
+                history.last_workout_date.replace("Z", "+00:00")
+            )
+            days_since = max(
+                0.0, (datetime.now(last.tzinfo) - last).total_seconds() / 86400.0
+            )
         except Exception:
             pass
     days_since_norm = np.clip(days_since / 7.0, 0.0, 1.0)
@@ -620,9 +701,13 @@ def _encode_vitals(health: HealthStatus) -> np.ndarray:
     if health.body_composition and "temperature" in health.body_composition:
         temp = health.body_composition["temperature"]
     temp_norm = np.clip((temp - 35.5) / (38.5 - 35.5), 0.0, 1.0)
-    spo2 = health.body_composition.get("spo2", 98.0) if health.body_composition else 98.0
+    spo2 = (
+        health.body_composition.get("spo2", 98.0) if health.body_composition else 98.0
+    )
     spo2_factor = np.clip(spo2 / 100.0, 0.0, 1.0)
-    return np.array([sleep_quality, hrv_factor, temp_norm, spo2_factor], dtype=np.float32)
+    return np.array(
+        [sleep_quality, hrv_factor, temp_norm, spo2_factor], dtype=np.float32
+    )
 
 
 def _encode_preferences(prefs: Dict) -> np.ndarray:
@@ -633,13 +718,23 @@ def _encode_preferences(prefs: Dict) -> np.ndarray:
     preferred_evening = 1.0 if preferred_time == "evening" else 0.0
     equipment = [e.lower() for e in prefs.get("equipment", [])]
     equipment_dumbbell = 1.0 if any("dumbbell" in e for e in equipment) else 0.0
-    equipment_resistance_band = 1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
+    equipment_resistance_band = (
+        1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
+    )
     equipment_barbell = 1.0 if any("barbell" in e for e in equipment) else 0.0
     equipment_none = 1.0 if len(equipment) == 0 else 0.0
-    return np.array([
-        available_days_count, preferred_morning, preferred_evening,
-        equipment_dumbbell, equipment_resistance_band, equipment_barbell, equipment_none,
-    ], dtype=np.float32)
+    return np.array(
+        [
+            available_days_count,
+            preferred_morning,
+            preferred_evening,
+            equipment_dumbbell,
+            equipment_resistance_band,
+            equipment_barbell,
+            equipment_none,
+        ],
+        dtype=np.float32,
+    )
 
 
 def encode_user_profile(
@@ -660,13 +755,27 @@ def encode_user_profile(
     vitals = _encode_vitals(health)
     preferences = _encode_preferences(prefs)
 
-    encoded = np.concatenate([demographics, goals, health_features, activity, vitals, preferences, np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)])
+    encoded = np.concatenate(
+        [
+            demographics,
+            goals,
+            health_features,
+            activity,
+            vitals,
+            preferences,
+            np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+        ]
+    )
     return encoded.reshape(1, -1).astype(np.float32)
 
 
-def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: UserProfile) -> dict:
+def decode_plan(
+    plan_vector: np.ndarray, training_class: str, user_profile: UserProfile
+) -> dict:
     """Decode model output (19 dimensions) to training plan"""
-    template = TRAINING_TEMPLATES.get(training_class, TRAINING_TEMPLATES["endurance_basic"])
+    template = TRAINING_TEMPLATES.get(
+        training_class, TRAINING_TEMPLATES["endurance_basic"]
+    )
 
     duration = int(plan_vector[0] * 100)
     intensity = float(plan_vector[1])
@@ -674,19 +783,25 @@ def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: User
 
     equipment_dist = plan_vector[4:12]
     primary_exercise_idx = int(np.argmax(equipment_dist))
-    primary_exercise = template["exercises"][primary_exercise_idx % len(template["exercises"])]
+    primary_exercise = template["exercises"][
+        primary_exercise_idx % len(template["exercises"])
+    ]
 
     warmup = int(plan_vector[12] * 100)
     cooldown = int(plan_vector[13] * 100)
 
     session_structure = [
-        Exercise(name="Разминка", duration_minutes=max(5, min(20, warmup)), intensity=0.3),
+        Exercise(
+            name="Разминка", duration_minutes=max(5, min(20, warmup)), intensity=0.3
+        ),
         Exercise(
             name=primary_exercise,
             duration_minutes=int(duration * 0.6),
             intensity=intensity,
         ),
-        Exercise(name="Заминка", duration_minutes=max(5, min(20, cooldown)), intensity=0.3),
+        Exercise(
+            name="Заминка", duration_minutes=max(5, min(20, cooldown)), intensity=0.3
+        ),
     ]
 
     notes = []
@@ -855,7 +970,13 @@ DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 },
             ],
             "snack2": [
-                {"name": "Творог 5% + орехи", "kcal": 250, "protein": 22, "carbs": 10, "fat": 14},
+                {
+                    "name": "Творог 5% + орехи",
+                    "kcal": 250,
+                    "protein": 22,
+                    "carbs": 10,
+                    "fat": 14,
+                },
             ],
             "dinner": [
                 {
@@ -884,7 +1005,13 @@ DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 },
             ],
             "snack1": [
-                {"name": "Огурец + хумус", "kcal": 100, "protein": 4, "carbs": 12, "fat": 4},
+                {
+                    "name": "Огурец + хумус",
+                    "kcal": 100,
+                    "protein": 4,
+                    "carbs": 12,
+                    "fat": 4,
+                },
             ],
             "lunch": [
                 {
@@ -896,7 +1023,13 @@ DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 },
             ],
             "snack2": [
-                {"name": "Зелёное яблоко", "kcal": 70, "protein": 0, "carbs": 18, "fat": 0},
+                {
+                    "name": "Зелёное яблоко",
+                    "kcal": 70,
+                    "protein": 0,
+                    "carbs": 18,
+                    "fat": 0,
+                },
             ],
             "dinner": [
                 {
@@ -925,7 +1058,13 @@ DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 },
             ],
             "snack1": [
-                {"name": "Орехи макадамия (30г)", "kcal": 210, "protein": 2, "carbs": 4, "fat": 21},
+                {
+                    "name": "Орехи макадамия (30г)",
+                    "kcal": 210,
+                    "protein": 2,
+                    "carbs": 4,
+                    "fat": 21,
+                },
             ],
             "lunch": [
                 {
@@ -937,7 +1076,13 @@ DIET_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 },
             ],
             "snack2": [
-                {"name": "Сырная тарелка", "kcal": 280, "protein": 18, "carbs": 2, "fat": 22},
+                {
+                    "name": "Сырная тарелка",
+                    "kcal": 280,
+                    "protein": 18,
+                    "carbs": 2,
+                    "fat": 22,
+                },
             ],
             "dinner": [
                 {
