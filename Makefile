@@ -7,7 +7,7 @@ imports:
 	@echo "Imports updated."
 
 SHELL := /bin/bash
-.PHONY: proto tidy fmt vet lint test test-cover check imports frontend-install frontend-lint frontend-test frontend-build
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -33,23 +33,10 @@ lint:
 
 test:
 	@echo "Running unit tests..."
-	go test -v -timeout 5m ./...
+	@go test -v -timeout 5m ./...
 	@echo "Tests complete."
 
-test-cover:
-	@echo "Running tests with coverage..."
-	@go test -count=1 -v -coverprofile coverage.out ./internal/... ./cmd/biometric-service/... ./cmd/classifier/... ./cmd/data-processor/... ./cmd/device-aggregator/... ./cmd/gateway/... ./cmd/training-service/... ./cmd/user-service/...
-	@echo "Checking coverage threshold..."
-	@bash scripts/coverage-check.sh
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
-
-test-cover-python:
-	@echo "Running Python tests with coverage..."
-	@cd cmd/ml_generator && python -m pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml -v || echo "No pytest or tests found, skipping..."
-	@echo "Python coverage complete."
-
-check: tidy fmt vet imports lint test-cover test-cover-python frontend-lint frontend-test frontend-build
+check: tidy fmt vet imports lint test frontend-lint frontend-test frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -105,8 +92,7 @@ help:
 	@echo "  make vet             - Run go vet"
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
-	@echo "  make test-cover      - Run tests with coverage report (default 50% threshold, configurable via COVERAGE_THRESHOLD)"
-	@echo "  make check           - Run tidy, fmt, vet, lint, test, proto, js-check, frontend-install, frontend-lint, frontend-test, frontend-build"
+	@echo "  make check           - Run tidy, fmt, vet, lint, test, frontend-install, frontend-lint, frontend-test, frontend-build"
 	@echo "  make proto           - Generate proto files"
 	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"

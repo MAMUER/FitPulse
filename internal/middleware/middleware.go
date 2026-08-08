@@ -21,6 +21,8 @@ import (
 	"github.com/MAMUER/project/internal/auth/jwt"
 )
 
+const msgNotFound = "Не найдено"
+
 // RequestID добавляет уникальный идентификатор запроса
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,20 +43,20 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				log.Debug("Missing authorization header", zap.String("path", sanitizeLogValue(r.URL.Path)))
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 				log.Debug("Invalid authorization format")
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			token := parts[1]
 			claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
@@ -71,7 +73,7 @@ func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := r.Context().Value(UserIDKey).(string)
 			if !ok || userID == "" {
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			if db == nil {
@@ -82,7 +84,7 @@ func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.
 			var actualRole string
 			err := db.QueryRowContext(r.Context(), "SELECT role FROM users WHERE id = $1", userID).Scan(&actualRole)
 			if err == sql.ErrNoRows {
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			if err != nil {
@@ -96,7 +98,7 @@ func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.
 					return
 				}
 			}
-			http.Error(w, "Не найдено", http.StatusNotFound)
+			http.Error(w, msgNotFound, http.StatusNotFound)
 		})
 	}
 }

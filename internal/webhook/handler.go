@@ -18,6 +18,8 @@ import (
 	"github.com/MAMUER/project/internal/sanitize"
 )
 
+const msgMethodNotAllowed = "method not allowed"
+
 // Server represents the Open Wearables webhook server
 type Server struct {
 	port     string
@@ -92,7 +94,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -126,7 +128,7 @@ func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -163,7 +165,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		WriteResponse(w, http.StatusMethodNotAllowed, WebhookResponse{
 			Status:  "error",
-			Message: "method not allowed",
+			Message: msgMethodNotAllowed,
 		})
 		return
 	}

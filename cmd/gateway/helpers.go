@@ -8,6 +8,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	msgUnauthorized            = "Необходима авторизация"
+	logFailedToEncodeResponse  = "Failed to encode response"
+	errBadRequest              = "Некорректный запрос"
+	msgMethodNotAllowed        = "method not allowed"
+	serviceTrainingUnavailable = "Сервис тренировок временно недоступен"
+	encodeResponseError        = "Ошибка формирования ответа"
+	mlServiceUnavailable       = "ML-сервис временно недоступен"
+)
+
 // ========== Helper Functions ==========
 
 func ptrInt32(v int32) *int32       { return &v }

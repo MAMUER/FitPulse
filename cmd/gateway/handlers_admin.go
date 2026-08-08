@@ -50,8 +50,8 @@ func (g *gateway) adminListUsersHandler(w http.ResponseWriter, r *http.Request) 
 		"users":  users,
 		"total":  resp.GetTotal(),
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -118,7 +118,7 @@ func (g *gateway) adminCreateInviteHandler(w http.ResponseWriter, r *http.Reques
 		MaxUses   int    `json:"max_uses"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -143,7 +143,7 @@ func (g *gateway) adminCreateInviteHandler(w http.ResponseWriter, r *http.Reques
 		"specialty":  resp.GetSpecialty(),
 		"invite_url": resp.GetInviteUrl(),
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
@@ -168,6 +168,6 @@ func (g *gateway) adminRevokeInviteHandler(w http.ResponseWriter, r *http.Reques
 		"status":  resp.GetSuccess(),
 		"message": resp.GetMessage(),
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }

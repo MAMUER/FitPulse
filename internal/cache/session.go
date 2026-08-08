@@ -13,6 +13,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const userSessionsPrefix = "user_sessions:"
+
 // SessionStore manages sessions and one-time authorization codes in Valkey.
 type SessionStore struct {
 	client *Client
@@ -122,19 +124,19 @@ func (s *SessionStore) ValidateCriticalSession(ctx context.Context, token, expec
 
 // InvalidateUserSession invalidates all sessions for a user.
 func (s *SessionStore) InvalidateUserSession(ctx context.Context, userID string) error {
-	key := "user_sessions:" + userID
+	key := userSessionsPrefix + userID
 	return s.client.Del(ctx, key)
 }
 
 // AddUserSession adds a session token for a user.
 func (s *SessionStore) AddUserSession(ctx context.Context, userID, sessionToken string, ttl time.Duration) error {
-	key := "user_sessions:" + userID
+	key := userSessionsPrefix + userID
 	return s.client.Set(ctx, key, sessionToken, ttl)
 }
 
 // GetUserSession retrieves the session token for a user.
 func (s *SessionStore) GetUserSession(ctx context.Context, userID string) (string, error) {
-	key := "user_sessions:" + userID
+	key := userSessionsPrefix + userID
 	val, err := s.client.Get(ctx, key)
 	if err != nil {
 		return "", err

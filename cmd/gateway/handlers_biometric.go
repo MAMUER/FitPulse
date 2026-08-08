@@ -18,7 +18,7 @@ import (
 func (g *gateway) proxyToBiometricWithUser(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -32,7 +32,7 @@ func (g *gateway) proxyToBiometricWithUser(w http.ResponseWriter, r *http.Reques
 func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -75,8 +75,8 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "created"}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -84,7 +84,7 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -148,8 +148,8 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }

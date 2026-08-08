@@ -17,7 +17,7 @@ import (
 func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -37,8 +37,8 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(profileResp); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -46,7 +46,7 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode update profile request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -93,8 +93,8 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -105,7 +105,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 

@@ -11,7 +11,7 @@
     "lint:fix": "biome check --write src",
     "format": "biome format src",
     "format:write": "biome format --write src",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {

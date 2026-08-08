@@ -14,6 +14,8 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 )
 
+const dateFormat = "dateFormat"
+
 type completeWorkoutRequest struct {
 	PlanID    string `json:"plan_id"`
 	WorkoutID string `json:"workout_id"`
@@ -24,7 +26,7 @@ type completeWorkoutRequest struct {
 func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -36,7 +38,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode generate plan request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -52,7 +54,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -89,14 +91,14 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	planDataJSON, err := json.Marshal(resp.PlanData)
 	if err != nil {
 		g.log.Error("Failed to marshal plan data", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 	planData := make(map[string]interface{})
 	if len(planDataJSON) > 0 && string(planDataJSON) != "null" {
 		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
 			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -113,8 +115,8 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -122,7 +124,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -141,7 +143,7 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -162,13 +164,13 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		planDataJSON, err := json.Marshal(plan.PlanData)
 		if err != nil {
 			g.log.Error("Failed to marshal plan data", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 			return
 		}
 		var planData map[string]interface{}
 		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
 			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 			return
 		}
 
@@ -182,8 +184,8 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			"status":         plan.Status,
 			"duration_weeks": durationWeeks,
 			"training_goal":  trainingGoal,
-			"start_date":     plan.StartDate.AsTime().Format("2006-01-02"),
-			"end_date":       plan.EndDate.AsTime().Format("2006-01-02"),
+			"start_date":     plan.StartDate.AsTime().Format(dateFormat),
+			"end_date":       plan.EndDate.AsTime().Format(dateFormat),
 		}
 	}
 
@@ -195,27 +197,27 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	var req completeWorkoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode complete workout request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -235,8 +237,8 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -244,13 +246,13 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -266,8 +268,8 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -281,7 +283,7 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
-		http.Error(w, "Сервис тренировок временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -303,10 +305,10 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	planDataMap["user_id"] = resp.GetUserId()
 	planDataMap["status"] = resp.GetStatus()
 	if resp.GetStartDate() != nil {
-		planDataMap["start_date"] = resp.GetStartDate().AsTime().Format("2006-01-02")
+		planDataMap["start_date"] = resp.GetStartDate().AsTime().Format(dateFormat)
 	}
 	if resp.GetEndDate() != nil {
-		planDataMap["end_date"] = resp.GetEndDate().AsTime().Format("2006-01-02")
+		planDataMap["end_date"] = resp.GetEndDate().AsTime().Format(dateFormat)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -315,14 +317,14 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 		"plan_id":   resp.GetId(),
 		"plan_data": planDataMap,
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -338,6 +340,6 @@ func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }

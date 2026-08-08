@@ -13,7 +13,7 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,jsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       exclude: ['node_modules/', 'dist/', 'src/test/', 'src/main.jsx', 'src/App.jsx']
     }
   }

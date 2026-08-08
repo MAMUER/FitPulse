@@ -9,7 +9,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const correlationIDUnknown = "unknown"
+const (
+	correlationIDUnknown = "unknown"
+	correlationIDHeader  = "x-correlation-id"
+)
 
 // CorrelationIDHTTP добавляет/проксирует X-Correlation-ID в HTTP-запросах
 func CorrelationIDHTTP(next http.Handler) http.Handler {
@@ -29,7 +32,7 @@ func CorrelationIDGRPC() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		cid := ""
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
-			if vals := md.Get("x-correlation-id"); len(vals) > 0 {
+			if vals := md.Get(correlationIDHeader); len(vals) > 0 {
 				cid = vals[0]
 			}
 		}
@@ -40,7 +43,7 @@ func CorrelationIDGRPC() grpc.UnaryServerInterceptor {
 		// Сохраняем в контекст для логов
 		ctx = context.WithValue(ctx, CorrelationIDKey, cid)
 		// Передаём дальше по цепочке вызовов
-		ctx = metadata.AppendToOutgoingContext(ctx, "x-correlation-id", cid)
+		ctx = metadata.AppendToOutgoingContext(ctx, correlationIDHeader, cid)
 
 		return handler(ctx, req)
 	}
@@ -51,7 +54,7 @@ func CorrelationIDGRPCClient() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		cid := GetCorrelationID(ctx)
 		if cid != "" && cid != correlationIDUnknown {
-			ctx = metadata.AppendToOutgoingContext(ctx, "x-correlation-id", cid)
+			ctx = metadata.AppendToOutgoingContext(ctx, correlationIDHeader, cid)
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}

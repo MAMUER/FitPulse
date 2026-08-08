@@ -36,6 +36,7 @@ type biometricEvent struct {
 const (
 	serviceName     = "data-processor"
 	contentTypeJSON = "application/json"
+	logFailedToNack = "Failed to nack message"
 )
 
 func main() {
@@ -163,7 +164,7 @@ func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue
 		log.Error("Failed to parse biometric event", zap.Error(err), zap.String("body", string(msg.Body)))
 		metrics.ErrorTotal.WithLabelValues(serviceName, "parse_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
-			log.Error("Failed to nack message", zap.Error(nackErr))
+			log.Error(logFailedToNack, zap.Error(nackErr))
 		}
 		return
 	}
@@ -172,7 +173,7 @@ func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue
 		log.Error("Invalid biometric event", zap.Error(err), zap.String("user_id", event.UserID))
 		metrics.ErrorTotal.WithLabelValues(serviceName, "validation_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
-			log.Error("Failed to nack message", zap.Error(nackErr))
+			log.Error(logFailedToNack, zap.Error(nackErr))
 		}
 		return
 	}
@@ -185,7 +186,7 @@ func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue
 		)
 		metrics.ErrorTotal.WithLabelValues(serviceName, "insert_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, true); nackErr != nil {
-			log.Error("Failed to nack message", zap.Error(nackErr))
+			log.Error(logFailedToNack, zap.Error(nackErr))
 		}
 		return
 	}

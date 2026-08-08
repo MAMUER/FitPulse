@@ -9,6 +9,8 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 )
 
+const redacted = "[REDACTED]"
+
 type CacheConfig struct {
 	Addr     string
 	Password string
@@ -82,7 +84,7 @@ func redactSecrets(cfg interface{}) interface{} {
 			DB       int
 		}{
 			Addr:     c.Addr,
-			Password: "[REDACTED]",
+			Password: redacted,
 			DB:       c.DB,
 		}
 	case JWTConfig:
@@ -90,8 +92,8 @@ func redactSecrets(cfg interface{}) interface{} {
 			PrivateKeyPEM string
 			PublicKeyPEM  string
 		}{
-			PrivateKeyPEM: "[REDACTED]",
-			PublicKeyPEM:  "[REDACTED]",
+			PrivateKeyPEM: redacted,
+			PublicKeyPEM:  redacted,
 		}
 	default:
 		return cfg

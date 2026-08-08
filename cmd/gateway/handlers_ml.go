@@ -19,7 +19,7 @@ import (
 func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(transformed); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
@@ -183,7 +183,7 @@ func mapClassToScores(predictedClass string) (float64, float64, float64) {
 func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, path string) {
 	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") {
 		g.log.Error("Invalid ML generator URL", zap.String("url", g.mlGeneratorURL))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, "mlServiceUnavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 		bytes.NewReader(body))
 	if err != nil {
 		g.log.Error("Failed to create ML generator request", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, "mlServiceUnavailable", http.StatusServiceUnavailable)
 		return
 	}
 	req.Header.Set(headerContentType, contentTypeJSON)
@@ -212,7 +212,7 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 	resp, err := client.Do(req)
 	if err != nil {
 		g.log.Error("ML generator request failed", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, "mlServiceUnavailable", http.StatusServiceUnavailable)
 		return
 	}
 	defer func() {
@@ -224,7 +224,7 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		g.log.Error("Failed to read generator response", zap.Error(err))
-		http.Error(w, "ML-сервис временно недоступен", http.StatusServiceUnavailable)
+		http.Error(w, "mlServiceUnavailable", http.StatusServiceUnavailable)
 		return
 	}
 

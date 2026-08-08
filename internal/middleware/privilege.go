@@ -18,7 +18,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := r.Context().Value(UserIDKey).(string)
 			if !ok {
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 
@@ -30,7 +30,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 
 			if err == sql.ErrNoRows {
 				log.Warn("User not found during privilege check", zap.String("user_id", userID))
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			if err != nil {
@@ -45,7 +45,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 					zap.String("required_role", requiredRole),
 					zap.String("actual_role", actualRole),
 				)
-				http.Error(w, "Не найдено", http.StatusNotFound)
+				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 

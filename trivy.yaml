@@ -7,3 +7,7 @@ misconfiguration:
     - ghcr.io
     - public.ecr.aws
     - mcr.microsoft.com
+
+vulnerability:
+  severity-source:
+    - github

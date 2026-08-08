@@ -33,9 +33,14 @@ import (
 const (
 	totpRateLimitAttempts = 5
 
-	googleOAuthStateCookie = "google_oauth_state"
-	headerContentType      = "Content-Type"
-	contentTypeJSON        = "application/json"
+	googleOAuthStateCookie   = "google_oauth_state"
+	headerContentType        = "Content-Type"
+	contentTypeJSON          = "application/json"
+	refreshTokenPrefix       = "refresh:"
+	refreshFingerprintPrefix = "refresh:fp:"
+	refreshIssuedPrefix      = "refresh:issued:"
+	refreshRevokedPrefix     = "refresh:revoked:"
+	twoFATempPrefix          = "2fa_temp:"
 )
 
 type totpRateLimiter struct {
@@ -86,9 +91,9 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 	}
 	token := g.tokenProvider.GenerateRefreshToken()
 	fingerprint := g.tokenProvider.ComputeTokenFingerprint(token)
-	key := "refresh:" + token
-	fpKey := "refresh:fp:" + fingerprint
-	issuedKey := "refresh:issued:" + userID
+	key := refreshTokenPrefix + token
+	fpKey := refreshFingerprintPrefix + fingerprint
+	issuedKey := refreshIssuedPrefix + userID
 
 	pipe := g.valkeyDB.Pipeline()
 	pipe.Set(ctx, key, userID, 7*24*time.Hour)
@@ -103,12 +108,12 @@ func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string,
 }
 
 func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (string, string, error) {
-	userID, err := g.valkeyDB.Get(ctx, "refresh:"+oldToken).Result()
+	userID, err := g.valkeyDB.Get(ctx, refreshTokenPrefix+oldToken).Result()
 	if err != nil {
 		fingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
-		fpUserID, fpErr := g.valkeyDB.Get(ctx, "refresh:fp:"+fingerprint).Result()
+		fpUserID, fpErr := g.valkeyDB.Get(ctx, refreshFingerprintPrefix+fingerprint).Result()
 		if fpErr == nil && fpUserID != "" {
-			revokedKey := "refresh:revoked:" + fpUserID
+			revokedKey := refreshRevokedPrefix + fpUserID
 			isRevoked, memberErr := g.valkeyDB.SIsMember(ctx, revokedKey, fingerprint).Result()
 			if memberErr == nil && isRevoked {
 				g.invalidateAllUserSessions(ctx, fpUserID)
@@ -120,17 +125,17 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	_ = g.valkeyDB.Del(ctx, "refresh:"+oldToken).Err()
+	_ = g.valkeyDB.Del(ctx, refreshTokenPrefix+oldToken).Err()
 
 	oldFingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
-	revokedKey := "refresh:revoked:" + userID
-	issuedKey := "refresh:issued:" + userID
+	revokedKey := refreshRevokedPrefix + userID
+	issuedKey := refreshIssuedPrefix + userID
 
 	pipe := g.valkeyDB.Pipeline()
 	pipe.SAdd(ctx, revokedKey, oldFingerprint)
 	pipe.Expire(ctx, revokedKey, 7*24*time.Hour)
 	pipe.SRem(ctx, issuedKey, oldToken)
-	pipe.Del(ctx, "refresh:fp:"+oldFingerprint)
+	pipe.Del(ctx, refreshFingerprintPrefix+oldFingerprint)
 	_, _ = pipe.Exec(ctx)
 
 	newRefresh, err := g.issueRefreshToken(ctx, userID)
@@ -150,8 +155,8 @@ func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) 
 	}
 
 	keys := []string{
-		"refresh:issued:" + userID,
-		"refresh:revoked:" + userID,
+		refreshIssuedPrefix + userID,
+		refreshRevokedPrefix + userID,
 	}
 	pattern := "refresh:*" + userID + "*"
 	var cursor uint64
@@ -290,7 +295,7 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode register request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -314,8 +319,8 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -333,7 +338,7 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode register with invite request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -359,8 +364,8 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -371,7 +376,7 @@ func (g *gateway) validateInviteCodeHandler(w http.ResponseWriter, r *http.Reque
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode validate invite request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -390,8 +395,8 @@ func (g *gateway) validateInviteCodeHandler(w http.ResponseWriter, r *http.Reque
 		"specialty": resp.GetSpecialty(),
 		"error":     resp.GetErrorMessage(),
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -403,7 +408,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode login request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -424,7 +429,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if g.userTOTPEnabled(r.Context(), resp.GetUserId()) {
 		tempToken := uuid.New().String()
-		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, resp.GetUserId(), 5*time.Minute).Err()
+		_ = g.valkeyDB.Set(r.Context(), twoFATempPrefix+tempToken, resp.GetUserId(), 5*time.Minute).Err()
 
 		w.Header().Set(headerContentType, contentTypeJSON)
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -433,7 +438,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 			"message":      "Please provide your 2FA code",
 		}); err != nil {
 			g.log.Error("Failed to encode 2FA response", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 			return
 		}
 		return
@@ -453,8 +458,8 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -489,7 +494,7 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.log.Error("Failed to decode confirm email request", zap.Error(err))
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -511,8 +516,8 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "Email confirmed. You can now log in.",
 		"user_id": resp.GetUserId(),
 	}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -620,7 +625,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
 		tempToken := uuid.New().String()
-		_ = g.valkeyDB.Set(r.Context(), "2fa_temp:"+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
+		_ = g.valkeyDB.Set(r.Context(), twoFATempPrefix+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
 		w.Header().Set(headerContentType, contentTypeJSON)
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"requires_2fa": true,
@@ -628,7 +633,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 			"message":      "Please provide your 2FA code",
 		}); err != nil {
 			g.log.Error("Failed to encode Google 2FA response", zap.Error(err))
-			http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -643,7 +648,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		"role":         grpcResp.GetRole(),
 	}); err != nil {
 		g.log.Error("Failed to encode Google auth response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -688,7 +693,7 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		"backup_codes":   resp.BackupCodes,
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP setup response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -716,7 +721,7 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		BackupCodes []string `json:"backup_codes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -738,7 +743,7 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		"message": resp.Message,
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP confirm response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -750,7 +755,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		IsBackupCode bool   `json:"is_backup_code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	if req.TempToken == "" || req.Passcode == "" {
@@ -758,7 +763,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := g.valkeyDB.Get(r.Context(), "2fa_temp:"+req.TempToken).Result()
+	userID, err := g.valkeyDB.Get(r.Context(), twoFATempPrefix+req.TempToken).Result()
 	if err != nil {
 		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
 		return
@@ -786,7 +791,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = g.valkeyDB.Del(r.Context(), "2fa_temp:"+req.TempToken)
+	_ = g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken)
 
 	token, err := g.issueJWT(r.Context(), userID)
 	if err != nil {
@@ -809,7 +814,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		"backup_codes_remaining": resp.BackupCodesRemaining,
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP verify response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -835,7 +840,7 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		Passcode string `json:"passcode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -855,7 +860,7 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		"message": resp.Message,
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP disable response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -880,7 +885,7 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"backup_codes_remaining": resp.GetTotpBackupCodesRemaining(),
 	}); err != nil {
 		g.log.Error("Failed to encode TOTP status response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }
@@ -890,7 +895,7 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	if req.RefreshToken == "" {
@@ -913,7 +918,7 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		"expires_in":    900,
 	}); err != nil {
 		g.log.Error("Failed to encode refresh response", zap.Error(err))
-		http.Error(w, "Ошибка формирования ответа", http.StatusInternalServerError)
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 		return
 	}
 }

@@ -16,7 +16,7 @@ import (
 func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	conditionType := r.URL.Query().Get("condition_type")
@@ -39,14 +39,14 @@ func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "conditions": conditions, "total": resp.Total}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	var req struct {
@@ -58,7 +58,7 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 		Notes         string `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	condition, err := g.userClient.UpsertHealthCondition(r.Context(), &userpb.UpsertHealthConditionRequest{
@@ -74,13 +74,13 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "condition": condition}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, paramName string, deleteFn func(string) error) {
 	if _, ok := r.Context().Value(middleware.UserIDKey).(string); !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	entityID := chi.URLParam(r, paramName)
@@ -96,7 +96,7 @@ func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, pa
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
@@ -115,7 +115,7 @@ func (g *gateway) deleteHealthConditionHandler(w http.ResponseWriter, r *http.Re
 func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	var req struct {
@@ -132,7 +132,7 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 		Source               string  `json:"source"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	record, err := g.userClient.CreateBodyComposition(r.Context(), &userpb.CreateBodyCompositionRequest{
@@ -150,14 +150,14 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "record": record}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) listBodyCompositionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	limit := 100
@@ -185,14 +185,14 @@ func (g *gateway) listBodyCompositionHandler(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "records": records, "total": resp.Total}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) listMenstrualCyclesHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	resp, err := g.userClient.ListMenstrualCycles(r.Context(), &userpb.ListMenstrualCyclesRequest{UserId: userID})
@@ -203,14 +203,14 @@ func (g *gateway) listMenstrualCyclesHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycles": resp.Cycles, "total": resp.Total}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	var req struct {
@@ -222,7 +222,7 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		Notes          string   `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	cycle, err := g.userClient.CreateMenstrualCycle(r.Context(), &userpb.CreateMenstrualCycleRequest{
@@ -238,14 +238,14 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycle": cycle}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 
 func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "Необходима авторизация", http.StatusUnauthorized)
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	cycleID := chi.URLParam(r, "cycle_id")
@@ -262,7 +262,7 @@ func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		Notes          string   `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	cycle, err := g.userClient.UpdateMenstrualCycle(r.Context(), &userpb.UpdateMenstrualCycleRequest{
@@ -277,7 +277,7 @@ func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "cycle": cycle}); err != nil {
-		g.log.Error("Failed to encode response", zap.Error(err))
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
 

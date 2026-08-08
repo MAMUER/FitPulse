@@ -59,7 +59,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 func JSONError(w http.ResponseWriter, r *http.Request, code int, message string) {
 	if code == http.StatusForbidden {
 		code = http.StatusNotFound
-		message = "Не найдено"
+		message = msgNotFound
 	}
 
 	w.Header().Set("Content-Type", "application/json")
