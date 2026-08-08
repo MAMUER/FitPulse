@@ -19,6 +19,7 @@ on:
       - "db/migrations/**"
       - "datasets/**"
       - "*.py"
+      - "web/**"
   pull_request:
     branches: [main]
     paths:
@@ -38,6 +39,7 @@ on:
       - "db/migrations/**"
       - "datasets/**"
       - "*.py"
+      - "web/**"
   schedule:
     - cron: "0 0 * * 1" # Weekly Monday midnight
     - cron: "0 9 1 * *" # Monthly dependency update
