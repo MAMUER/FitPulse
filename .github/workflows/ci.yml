@@ -406,10 +406,6 @@ jobs:
           JUPYTER_NBQA_MYPY: "false"
           JUPYTER_NBQA_PYLINT: "false"
           JUPYTER_NBQA_RUFF: "false"
-          PYTHON_FLAKE8_CONFIG_FILE: .github/linters/.flake8
-          PYTHON_BLACK_CONFIG_FILE: .github/linters/pyproject.toml
-          PYTHON_ISORT_CONFIG_FILE: .github/linters/pyproject.toml
-          PYTHON_MYPY_CONFIG_FILE: .github/linters/pyproject.toml
           PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/"
 
   # ============================================================================
