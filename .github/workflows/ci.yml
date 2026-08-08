@@ -399,7 +399,13 @@ jobs:
           VALIDATE_DOCKERFILE_HADOLINT: true
           VALIDATE_JSON: true
           VALIDATE_MARKDOWN: true
-          VALIDATE_JUPYTER: false
+          VALIDATE_JUPYTER: "false"
+          JUPYTER_NBQA_BLACK: "false"
+          JUPYTER_NBQA_FLAKE8: "false"
+          JUPYTER_NBQA_ISORT: "false"
+          JUPYTER_NBQA_MYPY: "false"
+          JUPYTER_NBQA_PYLINT: "false"
+          JUPYTER_NBQA_RUFF: "false"
           PYTHON_FLAKE8_CONFIG_FILE: .github/linters/.flake8
           PYTHON_BLACK_CONFIG_FILE: .github/linters/pyproject.toml
           PYTHON_ISORT_CONFIG_FILE: .github/linters/pyproject.toml
