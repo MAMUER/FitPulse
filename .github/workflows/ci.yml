@@ -376,8 +376,12 @@ jobs:
       - name: Lint Code Base
         uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918
         env:
+          GO_VERSION: 1.26.5
+          REGISTRY: ghcr.io
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+          FITPULSE_DOMAIN: fittpulse.duckdns.org
           PYTHON_BLACK_VERSION: "26.5.1"
-          DEFAULT_BRANCH: "main"
+          DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_COMMIT_STATUS_ENABLED: false
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
@@ -400,7 +404,6 @@ jobs:
           PYTHON_ISORT_CONFIG_FILE: .github/linters/pyproject.toml
           PYTHON_MYPY_CONFIG_FILE: .github/linters/pyproject.toml
           PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/"
-          ENV_FILE: .github/super-linter.env
 
   # ============================================================================
   # CODEQL ANALYSIS
