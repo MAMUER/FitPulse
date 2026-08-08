@@ -10,4 +10,4 @@ misconfiguration:
 
 vulnerability:
   severity-source:
-    - github
+    - ghsa
