@@ -81,10 +81,12 @@ body {
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
@@ -438,12 +440,15 @@ body {
 .heart-rate .card-value {
   color: var(--accent);
 }
+
 .spo2 .card-value {
   color: var(--blue);
 }
+
 .sleep .card-value {
   color: var(--purple);
 }
+
 .bp .card-value {
   color: var(--orange);
 }
@@ -953,6 +958,7 @@ body {
     transform: translateY(-20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
