@@ -146,17 +146,17 @@ export default function ML() {
       );
     }
 
-    return weeks.map((week, wi) => (
-      <div key={wi} className='plan-card'>
-        <h4>Неделя {wi + 1}</h4>
+    return weeks.map((week) => (
+      <div key={week.week_number} className='plan-card'>
+        <h4>Неделя {week.week_number}</h4>
         <div className='plan-meta' style={{ marginBottom: 10 }}>
           <span>
             Цель: {pd.goal || planData.training_goal || 'Общая тренировка'}
           </span>
         </div>
-        {(week.days || []).map((day, di) => (
+        {(week.days || []).map((day) => (
           <div
-            key={di}
+            key={day.day_id}
             style={{
               marginBottom: 12,
               paddingBottom: 12,
@@ -165,13 +165,13 @@ export default function ML() {
           >
             <div className='plan-day-header'>
               <div className='plan-day-name'>
-                {DAY_NAMES[day.day_of_week] || `День ${di + 1}`}
+                {DAY_NAMES[day.day_of_week] || `День ${day.day_of_week + 1}`}
               </div>
               <div className='plan-day-type'>{day.training_type || '—'}</div>
             </div>
-            {(day.exercises || []).map((ex, ei) => (
-              <div key={ei} className='exercise-item'>
-                <div className='exercise-number'>{ei + 1}</div>
+            {(day.exercises || []).map((ex) => (
+              <div key={ex.sort_order} className='exercise-item'>
+                <div className='exercise-number'>{ex.sort_order + 1}</div>
                 <div className='exercise-details'>
                   <div className='exercise-name'>
                     {ex.exercise_name || 'Упражнение'}
@@ -206,6 +206,7 @@ export default function ML() {
       <section className='ml-section'>
         <h3>Классификация состояния</h3>
         <button
+          type='button'
           className='btn-primary'
           onClick={handleClassify}
           disabled={classifying}
@@ -248,8 +249,9 @@ export default function ML() {
         <h3>Генерация плана</h3>
         <form className='ml-form' onSubmit={handleGeneratePlan}>
           <div className='form-group'>
-            <label>Тип тренировки</label>
+            <label htmlFor='training-class'>Тип тренировки</label>
             <select
+              id='training-class'
               value={form.trainingClass}
               onChange={(e) =>
                 setForm((f) => ({ ...f, trainingClass: e.target.value }))
@@ -263,8 +265,9 @@ export default function ML() {
             </select>
           </div>
           <div className='form-group'>
-            <label>Длительность (недель)</label>
+            <label htmlFor='duration-weeks'>Длительность (недель)</label>
             <input
+              id='duration-weeks'
               type='number'
               min='1'
               max='12'
@@ -278,8 +281,8 @@ export default function ML() {
             />
           </div>
           <div className='form-group'>
-            <label>Дни тренировок</label>
-            <div className='days-grid'>
+            <label htmlFor='training-days'>Дни тренировок</label>
+            <div id='training-days' className='days-grid'>
               {DAY_NAMES.map((d, idx) => (
                 <label
                   key={idx}
