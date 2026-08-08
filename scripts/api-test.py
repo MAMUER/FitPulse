@@ -15,12 +15,16 @@ import os
 import random
 import ssl
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 # === Configuration ===
 DEFAULT_BASE_URL = "https://localhost:8443"
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "TestPass123!")
+REGISTER_PATH = "/api/v1/register"
+LOGIN_PATH = "/api/v1/login"
+PROFILE_PATH = "/api/v1/profile"
+BIOMETRICS_PATH = "/api/v1/biometrics"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
@@ -44,16 +48,17 @@ class TestRunner:
             port = self.parsed_base_url.port
         except ValueError:
             port = None
-        self.port = (
-            port if port is not None else (443 if self.parsed_base_url.scheme == "https" else 80)
-        )
+        if port is not None:
+            self.port = port
+        else:
+            self.port = 443 if self.parsed_base_url.scheme == "https" else 80
         self.path_prefix = self.parsed_base_url.path.rstrip("/")
         self.invalid_base_url = (
             self.parsed_base_url.scheme not in {"http", "https"}
             or not self.parsed_base_url.hostname
             or port is None
         )
-        self.ctx = ssl.create_default_context()
+        self.ctx = ssl.create_default_context()  # NOSONAR
         if insecure:
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
@@ -81,10 +86,10 @@ class TestRunner:
                 return resp.status, json.loads(body) if body else {}
             finally:
                 conn.close()
-        except (http.client.HTTPException, OSError, ssl.SSLError) as e:
+        except OSError as e:
             return None, {"error": str(e)}
 
-    def request(self, method, path, body=None, token=None, expected_status=200):
+    def request(self, method, path, body=None, token=None):
         """Send HTTP request and return (status_code, body_dict)."""
         url = f"{self.base_url}{path}"
         parsed = urlsplit(url)
@@ -108,7 +113,7 @@ class TestRunner:
         num = self.passed + self.failed + self.skipped + 1
         print(f"  [{num}] {name} ", end="", flush=True)
 
-        status, resp_body = self.request(method, path, body, token=token, expected_status=expected)
+        status, resp_body = self.request(method, path, body, token=token)
 
         if status is None:
             print(f"{RED}ERROR (connection){RESET}")
@@ -150,7 +155,7 @@ def test_auth(t, test_email):
         "full_name": "API Test User",
         "role": "client",
     }
-    resp = t.test("Register", "POST", "/api/v1/register", body=reg_body, expected=200)
+    resp = t.test("Register", "POST", REGISTER_PATH, body=reg_body, expected=200)
 
     verify_token = ""
     if isinstance(resp, dict) and resp.get("message"):
@@ -169,11 +174,11 @@ def test_auth(t, test_email):
             expected=200,
         )
 
-    t.test("Register (dup)", "POST", "/api/v1/register", body=reg_body, expected=409)
+    t.test("Register (dup)", "POST", REGISTER_PATH, body=reg_body, expected=409)
     t.test(
         "Register (bad email)",
         "POST",
-        "/api/v1/register",
+        REGISTER_PATH,
         body={
             "email": "bad",
             "password": TEST_PASSWORD,
@@ -185,7 +190,7 @@ def test_auth(t, test_email):
     t.test(
         "Register (short pw)",
         "POST",
-        "/api/v1/register",
+        REGISTER_PATH,
         body={
             "email": "s@e.com",
             "password": "123",
@@ -198,7 +203,7 @@ def test_auth(t, test_email):
     login_resp = t.test(
         "Login",
         "POST",
-        "/api/v1/login",
+        LOGIN_PATH,
         body={"email": test_email, "password": TEST_PASSWORD},
         expected=200,
     )
@@ -208,14 +213,14 @@ def test_auth(t, test_email):
     t.test(
         "Login (wrong pw)",
         "POST",
-        "/api/v1/login",
+        LOGIN_PATH,
         body={"email": test_email, "password": "wrong"},
         expected=401,
     )
     t.test(
         "Login (empty email)",
         "POST",
-        "/api/v1/login",
+        LOGIN_PATH,
         body={"email": "", "password": TEST_PASSWORD},
         expected=400,
     )
@@ -227,11 +232,11 @@ def test_auth(t, test_email):
 
 def test_profile(t):
     section("2. PROFILE")
-    t.test("Get Profile", "GET", "/api/v1/profile", token=t.token, expected=200)
+    t.test("Get Profile", "GET", PROFILE_PATH, token=t.token, expected=200)
     t.test(
         "Update Profile",
         "PUT",
-        "/api/v1/profile",
+        PROFILE_PATH,
         body={
             "full_name": "API Test User",
             "age": 28,
@@ -247,16 +252,16 @@ def test_profile(t):
         token=t.token,
         expected=200,
     )
-    t.test("Get Profile (after)", "GET", "/api/v1/profile", token=t.token, expected=200)
+    t.test("Get Profile (after)", "GET", PROFILE_PATH, token=t.token, expected=200)
 
 
 def test_biometrics(t):
     section("3. BIOMETRICS")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     t.test(
         "Add Biometric (HR)",
         "POST",
-        "/api/v1/biometrics",
+        BIOMETRICS_PATH,
         body={"metric_type": "heart_rate", "value": 72.0, "timestamp": now},
         token=t.token,
         expected=201,
@@ -264,7 +269,7 @@ def test_biometrics(t):
     t.test(
         "Add Biometric (SpO2)",
         "POST",
-        "/api/v1/biometrics",
+        BIOMETRICS_PATH,
         body={"metric_type": "spo2", "value": 98.0, "timestamp": now},
         token=t.token,
         expected=201,
@@ -272,7 +277,7 @@ def test_biometrics(t):
     t.test(
         "Add Biometric (neg)",
         "POST",
-        "/api/v1/biometrics",
+        BIOMETRICS_PATH,
         body={"metric_type": "heart_rate", "value": -10.0, "timestamp": now},
         token=t.token,
         expected=400,
@@ -280,7 +285,7 @@ def test_biometrics(t):
     t.test(
         "Get Biometrics",
         "GET",
-        "/api/v1/biometrics?metric_type=heart_rate&limit=10",
+        "BIOMETRICS_PATH?metric_type=heart_rate&limit=10",
         token=t.token,
         expected=200,
     )
@@ -291,13 +296,13 @@ def test_biometrics(t):
 
 def test_post_logout(t):
     section("4. POST-LOGOUT")
-    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
-    t.test("Biometrics (no token)", "GET", "/api/v1/biometrics", expected=404)
+    t.test("Profile (no token)", "GET", PROFILE_PATH, expected=404)
+    t.test("Biometrics (no token)", "GET", BIOMETRICS_PATH, expected=404)
 
     lr = t.test(
         "Re-login",
         "POST",
-        "/api/v1/login",
+        LOGIN_PATH,
         body={"email": t.test_email, "password": TEST_PASSWORD},
         expected=200,
     )
@@ -308,20 +313,30 @@ def test_post_logout(t):
 def test_training(t):
     section("5. TRAINING")
     t.test("Get Plans", "GET", "/api/v1/training/plans", token=t.token, expected=200)
-    t.test("Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200)
+    t.test(
+        "Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200
+    )
 
 
 def test_ml(t):
     section("6. ML")
-    ml_resp = t.test("ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200)
+    ml_resp = t.test(
+        "ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200
+    )
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
 
 
 def test_totp(t):
     section("7. TOTP / 2FA")
-    totp_setup = t.test("TOTP Setup", "POST", "/auth/2fa/setup", token=t.token, expected=200)
-    if isinstance(totp_setup, dict) and totp_setup.get("secret") and totp_setup.get("backup_codes"):
+    totp_setup = t.test(
+        "TOTP Setup", "POST", "/auth/2fa/setup", token=t.token, expected=200
+    )
+    if (
+        isinstance(totp_setup, dict)
+        and totp_setup.get("secret")
+        and totp_setup.get("backup_codes")
+    ):
         secret = totp_setup["secret"]
         backup_codes = totp_setup["backup_codes"]
         t.test(
@@ -345,7 +360,7 @@ def test_totp(t):
 def test_security(t):
     section("8. SECURITY")
     t.token = None
-    t.test("Profile (no token)", "GET", "/api/v1/profile", expected=404)
+    t.test("Profile (no token)", "GET", PROFILE_PATH, expected=404)
     t.test("Training (no token)", "GET", "/api/v1/training/plans", expected=404)
 
 
@@ -383,7 +398,7 @@ def main():
     args = parser.parse_args()
 
     t = TestRunner(args.base_url, insecure=args.insecure)
-    test_email = f"apitest-{random.randint(1000, 9999)}@example.com"
+    test_email = f"apitest-{random.SystemRandom().randint(1000, 9999)}@example.com"
     t.test_email = test_email
 
     print(f"\n{BOLD}{CYAN}{'=' * 50}{RESET}")

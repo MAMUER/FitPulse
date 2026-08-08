@@ -95,7 +95,9 @@ def run_load_test(cmd):
             print(f"\n{GREEN}{BOLD} LOAD TEST COMPLETED SUCCESSFULLY!{RESET}\n")
             return 0
         else:
-            print(f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n")
+            print(
+                f"\n{RED}{BOLD} LOAD TEST FAILED (exit code {result.returncode}){RESET}\n"
+            )
             return result.returncode
 
     except subprocess.TimeoutExpired:
@@ -122,17 +124,27 @@ Examples:
   python scripts/load-test.py --base-url http://localhost:8080 --insecure
         """,
     )
-    parser.add_argument("--base-url", default="https://localhost:8443", help="API base URL")
-    parser.add_argument("--duration", default="8m", help="Test duration (e.g. 1m, 5m, 30s)")
-    parser.add_argument("--vus", type=int, default=50, help="Max number of virtual users")
+    parser.add_argument(
+        "--base-url", default="https://localhost:8443", help="API base URL"
+    )
+    parser.add_argument(
+        "--duration", default="8m", help="Test duration (e.g. 1m, 5m, 30s)"
+    )
+    parser.add_argument(
+        "--vus", type=int, default=50, help="Max number of virtual users"
+    )
     parser.add_argument("--insecure", action="store_true", help="Skip TLS verification")
-    parser.add_argument("--output", default="results.json", help="Output file for results")
+    parser.add_argument(
+        "--output", default="results.json", help="Output file for results"
+    )
     args = parser.parse_args()
 
     k6_path = find_k6()
     if not k6_path:
         print(f"{RED}k6 not found in PATH or common locations!{RESET}")
-        print(f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}")
+        print(
+            f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}"
+        )
         print(
             f"Or download and place in one of: /usr/local/bin/k6, "
             f"/usr/bin/k6, /opt/homebrew/bin/k6{RESET}\n"

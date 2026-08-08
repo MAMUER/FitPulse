@@ -57,8 +57,12 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["LIGHTNING_VERBOSITY"] = "low"
 
 SCRIPT_DIR = Path(__file__).parent.parent.parent
-TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_data_with_conditions.csv"
-FALLBACK_TRAINING_DATA_PATH = SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
+TRAINING_DATA_PATH = (
+    SCRIPT_DIR / "datasets" / "processed" / "training_data_with_conditions.csv"
+)
+FALLBACK_TRAINING_DATA_PATH = (
+    SCRIPT_DIR / "datasets" / "processed" / "training_plans_exercises.csv"
+)
 PLAN_DIM = 19
 CONDITION_DIM = 32
 LATENT_DIM = 64
@@ -67,7 +71,9 @@ LATENT_DIM = 64
 class ConditionalDiffusionModel(L.LightningModule):
     """Conditional Diffusion Model with proper DDPM sampling"""
 
-    def __init__(self, latent_dim=LATENT_DIM, plan_dim=PLAN_DIM, condition_dim=CONDITION_DIM):
+    def __init__(
+        self, latent_dim=LATENT_DIM, plan_dim=PLAN_DIM, condition_dim=CONDITION_DIM
+    ):
         super().__init__()
         self.latent_dim = latent_dim
         self.plan_dim = plan_dim
@@ -154,7 +160,9 @@ class ConditionalDiffusionModel(L.LightningModule):
             # DDPM reverse step (CORRECT FORMULA)
             alpha_bar_t = self.alpha_bar[i]
             alpha_bar_prev = (
-                self.alpha_bar[i - 1] if i > 0 else torch.tensor(1.0, device=self.device)
+                self.alpha_bar[i - 1]
+                if i > 0
+                else torch.tensor(1.0, device=self.device)
             )
             alpha_t = alpha_bar_t / alpha_bar_prev
             beta_t = 1 - alpha_t
@@ -194,12 +202,16 @@ def load_real_data():
             df = pd.read_csv(FALLBACK_TRAINING_DATA_PATH)
             import ast
 
-            plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
+            plans = np.array(
+                [ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32
+            )
             plans = (plans - 0.5) * 2.0
             split_idx = int(len(plans) * 0.8)
             train_plans = plans[:split_idx]
             val_plans = plans[split_idx:]
-            train_conditions = np.zeros((len(train_plans), CONDITION_DIM), dtype=np.float32)
+            train_conditions = np.zeros(
+                (len(train_plans), CONDITION_DIM), dtype=np.float32
+            )
             val_conditions = np.zeros((len(val_plans), CONDITION_DIM), dtype=np.float32)
             return train_plans, train_conditions, val_plans, val_conditions
         raise FileNotFoundError(f"Training data not found: {TRAINING_DATA_PATH}")
@@ -209,7 +221,9 @@ def load_real_data():
     if "plan_vector" in df.columns:
         import ast
 
-        plans = np.array([ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32)
+        plans = np.array(
+            [ast.literal_eval(x) for x in df["plan_vector"]], dtype=np.float32
+        )
     else:
         plans = df.iloc[:, :PLAN_DIM].values.astype(np.float32)
 
@@ -257,10 +271,16 @@ def train_and_save():
             }
         )
 
-    train_dataset = TensorDataset(torch.from_numpy(train_plans), torch.from_numpy(train_conditions))
-    val_dataset = TensorDataset(torch.from_numpy(val_plans), torch.from_numpy(val_conditions))
+    train_dataset = TensorDataset(
+        torch.from_numpy(train_plans), torch.from_numpy(train_conditions)
+    )
+    val_dataset = TensorDataset(
+        torch.from_numpy(val_plans), torch.from_numpy(val_conditions)
+    )
 
-    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=0)
+    train_loader = DataLoader(
+        train_dataset, batch_size=256, shuffle=True, num_workers=0
+    )
     val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=0)
 
     print("\n[2/5] Training Diffusion Model...")
