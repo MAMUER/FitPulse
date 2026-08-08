@@ -8,6 +8,16 @@ export default function ChangeEmailModal({ onClose }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const isValidEmail = (value) => {
+    const at = value.indexOf('@');
+    if (at < 0) return false;
+    const domain = value.slice(at + 1);
+    if (!domain?.includes('.')) return false;
+    const [local] = value.split('@');
+    if (!local) return false;
+    return !value.includes(' ');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -15,7 +25,7 @@ export default function ChangeEmailModal({ onClose }) {
       setError('Заполните все поля');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    if (!isValidEmail(newEmail)) {
       setError('Некорректный email');
       return;
     }
@@ -36,17 +46,20 @@ export default function ChangeEmailModal({ onClose }) {
 
   return (
     <div className='modal'>
-      <div
+      <button
+        type='button'
         className='modal-overlay'
         onClick={onClose}
         onKeyDown={handleOverlayKeyDown}
+        aria-label='Закрыть'
       />
       <div className='modal-content'>
         <h3>Сменить почту</h3>
         <form onSubmit={handleSubmit}>
           <div className='form-group'>
-            <label>Новый email</label>
+            <label htmlFor='newEmail'>Новый email</label>
             <input
+              id='newEmail'
               type='email'
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
@@ -55,8 +68,9 @@ export default function ChangeEmailModal({ onClose }) {
             <div className='field-error'>{error}</div>
           </div>
           <div className='form-group'>
-            <label>Текущий пароль</label>
+            <label htmlFor='currentPassword'>Текущий пароль</label>
             <input
+              id='currentPassword'
               type='password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}

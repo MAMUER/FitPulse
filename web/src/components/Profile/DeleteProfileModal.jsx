@@ -33,10 +33,12 @@ export default function DeleteProfileModal({ onClose }) {
 
   return (
     <div className='modal'>
-      <div
+      <button
+        type='button'
         className='modal-overlay'
         onClick={onClose}
         onKeyDown={handleOverlayKeyDown}
+        aria-label='Закрыть'
       />
       <div className='modal-content'>
         <h3 style={{ color: 'var(--accent)' }}>Удаление аккаунта</h3>
@@ -45,8 +47,11 @@ export default function DeleteProfileModal({ onClose }) {
           будут удалены.
         </p>
         <div className='form-group'>
-          <label>Введите пароль для подтверждения</label>
+          <label htmlFor='deletePassword'>
+            Введите пароль для подтверждения
+          </label>
           <input
+            id='deletePassword'
             type='password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}

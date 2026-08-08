@@ -41,17 +41,20 @@ export default function ChangePasswordModal({ onClose }) {
 
   return (
     <div className='modal'>
-      <div
+      <button
+        type='button'
         className='modal-overlay'
         onClick={onClose}
         onKeyDown={handleOverlayKeyDown}
+        aria-label='Закрыть'
       />
       <div className='modal-content'>
         <h3>Сменить пароль</h3>
         <form onSubmit={handleSubmit}>
           <div className='form-group'>
-            <label>Текущий пароль</label>
+            <label htmlFor='currentPassword'>Текущий пароль</label>
             <input
+              id='currentPassword'
               type='password'
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
@@ -62,8 +65,9 @@ export default function ChangePasswordModal({ onClose }) {
             </div>
           </div>
           <div className='form-group'>
-            <label>Новый пароль</label>
+            <label htmlFor='newPassword'>Новый пароль</label>
             <input
+              id='newPassword'
               type='password'
               value={newPass}
               onChange={(e) => setNewPass(e.target.value)}
@@ -75,8 +79,9 @@ export default function ChangePasswordModal({ onClose }) {
             </div>
           </div>
           <div className='form-group'>
-            <label>Подтверждение пароля</label>
+            <label htmlFor='confirmPassword'>Подтверждение пароля</label>
             <input
+              id='confirmPassword'
               type='password'
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
