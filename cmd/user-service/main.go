@@ -771,7 +771,7 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 		return nil
 	}
 	validTables := map[string]bool{
-		"user_goals":            true,
+		"user_goals":             true,
 		"user_contraindications": true,
 	}
 	validColumns := map[string]bool{

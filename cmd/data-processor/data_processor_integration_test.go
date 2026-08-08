@@ -46,7 +46,8 @@ func TestDataProcessorIntegration(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	if err := createTestTable(ctx, db); err != nil {
+	err = createTestTable(ctx, db)
+	if err != nil {
 		t.Fatalf("failed to create test table: %v", err)
 	}
 	defer func() { _, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS biometric_data") }()

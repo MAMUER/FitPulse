@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -95,39 +95,39 @@ func TestUserServer_ChangePassword_Validation(t *testing.T) {
 	s := setupUserService(db)
 
 	tests := []struct {
-		name    string
-		req     *pb.ChangePasswordRequest
-		wantMsg string
+		name     string
+		req      *pb.ChangePasswordRequest
+		wantMsg  string
 		wantCode codes.Code
 	}{
 		{
-			name:    "empty user_id",
-			req:     &pb.ChangePasswordRequest{UserId: "", CurrentPassword: "old", NewPassword: "NewPass1"},
-			wantMsg: "user_id is required",
+			name:     "empty user_id",
+			req:      &pb.ChangePasswordRequest{UserId: "", CurrentPassword: "old", NewPassword: "NewPass1"},
+			wantMsg:  "user_id is required",
 			wantCode: codes.InvalidArgument,
 		},
 		{
-			name:    "empty current_password",
-			req:     &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "", NewPassword: "NewPass1"},
-			wantMsg: "current_password is required",
+			name:     "empty current_password",
+			req:      &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "", NewPassword: "NewPass1"},
+			wantMsg:  "current_password is required",
 			wantCode: codes.InvalidArgument,
 		},
 		{
-			name:    "empty new_password",
-			req:     &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: ""},
-			wantMsg: "new_password is required",
+			name:     "empty new_password",
+			req:      &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: ""},
+			wantMsg:  "new_password is required",
 			wantCode: codes.InvalidArgument,
 		},
 		{
-			name:    "short new_password",
-			req:     &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: "short"},
-			wantMsg: "new password must be at least 8 characters",
+			name:     "short new_password",
+			req:      &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: "short"},
+			wantMsg:  "new password must be at least 8 characters",
 			wantCode: codes.InvalidArgument,
 		},
 		{
-			name:    "weak new_password",
-			req:     &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: "nouppercase1"},
-			wantMsg: "new password must contain uppercase, lowercase, and digit",
+			name:     "weak new_password",
+			req:      &pb.ChangePasswordRequest{UserId: "user-1", CurrentPassword: "old", NewPassword: "nouppercase1"},
+			wantMsg:  "new password must contain uppercase, lowercase, and digit",
 			wantCode: codes.InvalidArgument,
 		},
 	}
@@ -203,7 +203,7 @@ func TestUserServer_ConfirmEmail_DatabaseError(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	mock.ExpectQuery(`SELECT user_id, .* FROM email_verifications WHERE token = \$1`).WithArgs(sqlmock.AnyArg()).WillReturnError(fmt.Errorf("database error"))
+	mock.ExpectQuery(`SELECT user_id, .* FROM email_verifications WHERE token = \$1`).WithArgs(sqlmock.AnyArg()).WillReturnError(errors.New("database error"))
 
 	s := setupUserService(db)
 

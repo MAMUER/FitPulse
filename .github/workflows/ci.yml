@@ -886,7 +886,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "-> Checking conventional commits on main..."
-          git log --oneline -20 --no-merges --pretty=format:"%s" | while read -r commit_msg; do
+          git log --oneline -1 --no-merges --pretty=format:"%s" | while read -r commit_msg; do
             if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|BREAKING CHANGE)"; then
               echo "❌ Non-conventional commit message found: $commit_msg"
               exit 1

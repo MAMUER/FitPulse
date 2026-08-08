@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -185,7 +185,7 @@ func TestBiometricServer_GetRecords_QueryError(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, user_id, metric_type, value, timestamp, device_type, created_at FROM biometric_data WHERE user_id = \$1 AND metric_type = \$2`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnError(fmt.Errorf("query failed"))
+		WillReturnError(errors.New("query failed"))
 
 	log, _ := zap.NewDevelopment()
 	s := newTestServer(db, log)
