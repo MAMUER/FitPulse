@@ -11,6 +11,11 @@ import {
 import './Auth.css';
 
 export default function AuthScreen() {
+  const getFieldClass = (fieldName) => {
+    if (errors[fieldName]) return 'invalid';
+    return formData[fieldName] ? 'valid' : '';
+  };
+
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [mode, setMode] = useState('login');
@@ -227,9 +232,7 @@ export default function AuthScreen() {
                 required
                 maxLength={254}
                 inputMode='email'
-                className={
-                  errors.email ? 'invalid' : formData.email ? 'valid' : ''
-                }
+                className={getFieldClass('email')}
               />
               <div className='field-error'>{errors.email || ''}</div>
             </div>
@@ -252,15 +255,13 @@ export default function AuthScreen() {
             </button>
             <p className='auth-switch'>
               Нет аккаунта?{' '}
-              <a
-                href='#'
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMode('register');
-                }}
+              <button
+                type='button'
+                className='link-button'
+                onClick={() => setMode('register')}
               >
                 Создать
-              </a>
+              </button>
             </p>
           </form>
         )}
@@ -277,9 +278,7 @@ export default function AuthScreen() {
                 required
                 maxLength={100}
                 minLength={2}
-                className={
-                  errors.name ? 'invalid' : formData.name ? 'valid' : ''
-                }
+                className={getFieldClass('name')}
               />
               <div className='field-error'>{errors.name || ''}</div>
             </div>
@@ -293,9 +292,7 @@ export default function AuthScreen() {
                 required
                 maxLength={254}
                 inputMode='email'
-                className={
-                  errors.email ? 'invalid' : formData.email ? 'valid' : ''
-                }
+                className={getFieldClass('email')}
               />
               <div className='field-error'>{errors.email || ''}</div>
             </div>
@@ -345,22 +342,20 @@ export default function AuthScreen() {
               type='submit'
               className='btn-primary'
               disabled={
-                submitting || !!Object.values(passwordChecks).find((v) => !v)
+                submitting || Object.values(passwordChecks).some((v) => !v)
               }
             >
               {submitting ? 'Создание...' : 'Создать аккаунт'}
             </button>
             <p className='auth-switch'>
               Уже есть?{' '}
-              <a
-                href='#'
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMode('login');
-                }}
+              <button
+                type='button'
+                className='link-button'
+                onClick={() => setMode('login')}
               >
                 Войти
-              </a>
+              </button>
             </p>
           </form>
         )}
@@ -405,16 +400,16 @@ export default function AuthScreen() {
               Использовать резервный код
             </button>
             <p className='auth-switch'>
-              <a
-                href='#'
-                onClick={(e) => {
-                  e.preventDefault();
+              <button
+                type='button'
+                className='link-button'
+                onClick={() => {
                   setMode('login');
                   setTwoFATempToken(null);
                 }}
               >
                 ← Вернуться ко входу
-              </a>
+              </button>
             </p>
           </form>
         )}
@@ -435,15 +430,13 @@ export default function AuthScreen() {
             )}
             {generalError && <div className='auth-error'>{generalError}</div>}
             <p className='auth-switch'>
-              <a
-                href='#'
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMode('login');
-                }}
+              <button
+                type='button'
+                className='link-button'
+                onClick={() => setMode('login')}
               >
                 ← Вернуться ко входу
-              </a>
+              </button>
             </p>
           </div>
         )}

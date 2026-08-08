@@ -85,7 +85,11 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		}
 	}()
 
-	if err := s.savePlanToDatabase(ctx, tx, planID, req.UserId, classificationClass, startDate, endDate, req.DurationWeeks); err != nil {
+	if err := s.savePlanToDatabase(savePlanOptions{
+		ctx: ctx, tx: tx, planID: planID, userID: req.UserId,
+		classificationClass: classificationClass, startDate: startDate,
+		endDate: endDate, durationWeeks: req.DurationWeeks,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -143,14 +147,31 @@ func (s *trainingServer) calculatePlanDates(durationWeeks int32) (time.Time, tim
 	return startDate, endDate
 }
 
-func (s *trainingServer) savePlanToDatabase(ctx context.Context, tx *sql.Tx, planID, userID, classificationClass string, startDate, endDate time.Time, durationWeeks int32) error {
-	s.log.Info("Inserting into training_plans", zap.String("planID", planID), zap.String("userID", userID), zap.String("classificationClass", classificationClass))
-	_, err := tx.ExecContext(ctx, `
+const errDatabaseError = "database error"
+
+type savePlanOptions struct {
+	ctx                 context.Context
+	tx                  *sql.Tx
+	planID              string
+	userID              string
+	classificationClass string
+	startDate           time.Time
+	endDate             time.Time
+	durationWeeks       int32
+}
+
+func (s *trainingServer) savePlanToDatabase(opts savePlanOptions) error {
+	s.log.Info("Inserting into training_plans",
+		zap.String("planID", opts.planID),
+		zap.String("userID", opts.userID),
+		zap.String("classificationClass", opts.classificationClass),
+	)
+	_, err := opts.tx.ExecContext(opts.ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`, planID, userID, "Персонализированная программа", classificationClass, classificationClass, durationWeeks, time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
+	`, opts.planID, opts.userID, "Персонализированная программа", opts.classificationClass, opts.classificationClass, opts.durationWeeks, time.Now(), opts.startDate.Truncate(24*time.Hour), opts.endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
-		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", planID))
+		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", opts.planID))
 		return status.Error(codes.Internal, "failed to save plan")
 	}
 	return nil
@@ -276,7 +297,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 	}
 	if err != nil {
 		s.log.Error("Failed to query plan", zap.Error(err), zap.String("plan_id", req.PlanId))
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
 	weeks, err := populatePlanWeeks(ctx, s.db, planID, s.log)
@@ -324,7 +345,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 		LIMIT $2 OFFSET $3
 	`, req.UserId, req.PageSize, (req.Page-1)*req.PageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
@@ -403,7 +424,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 	`, req.UserId, req.PlanId, req.WorkoutId).Scan(&exists)
 	if err != nil {
 		s.log.Error("Failed to check existing completion", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
 	if exists {
@@ -468,7 +489,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 	`, req.UserId).Scan(&totalWorkouts, &completedWorkouts)
 	if err != nil {
 		s.log.Error("Failed to get progress data", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
 	completionRate := 0.0
@@ -484,7 +505,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		LIMIT 20
 	`, req.UserId)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
@@ -533,7 +554,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 	`, planID)
 	if err != nil {
 		log.Error("Failed to query days", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := dayRows.Close(); closeErr != nil {
@@ -548,7 +569,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 		scanErr := dayRows.Scan(&dayID, &weekNum)
 		if scanErr != nil {
 			log.Error("Failed to scan day", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "database error")
+			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
 		dayData, dayErr := loadDayWithExercises(ctx, db, planID, dayID)
@@ -582,7 +603,7 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 	`, planID)
 	if err != nil {
 		log.Error("Failed to query weeks", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := weekRows.Close(); closeErr != nil {
@@ -595,7 +616,7 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 		scanErr := weekRows.Scan(&weekNum, &totalDays, &duration)
 		if scanErr != nil {
 			log.Error("Failed to scan week", zap.Error(scanErr))
-			return nil, status.Error(codes.Internal, "database error")
+			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 		weeksMap[weekNum] = map[string]interface{}{
 			"week_number":            weekNum,
@@ -641,7 +662,7 @@ func loadDayWithExercises(ctx context.Context, db *sql.DB, planID string, dayID 
 		WHERE d.id = $1 AND w.training_plan_id = $2
 	`, dayID, planID).Scan(&dayOfWeek, &trainingDate, &trainingType, &isRestDay, &duration, &notes)
 	if dayErr != nil {
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
 	trainingDateStr := ""
@@ -667,7 +688,7 @@ func loadDayWithExercises(ctx context.Context, db *sql.DB, planID string, dayID 
 		ORDER BY sort_order
 	`, dayID)
 	if exQueryErr != nil {
-		return nil, status.Error(codes.Internal, "database error")
+		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := exRows.Close(); closeErr != nil {

@@ -11,13 +11,13 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import onnxruntime as ort
-import structlog
-from aio_pika import connect_robust
-from fastapi import FastAPI
-from prometheus_client import Gauge
-from pydantic import BaseModel, ConfigDict, Field
-from valkey.asyncio import Valkey
+import onnxruntime as ort  # type: ignore
+import structlog  # type: ignore
+from aio_pika import connect_robust  # type: ignore
+from fastapi import FastAPI  # type: ignore
+from prometheus_client import Gauge  # type: ignore
+from pydantic import BaseModel, ConfigDict, Field  # type: ignore
+from valkey.asyncio import Valkey  # type: ignore
 
 # Configure structured logging
 structlog.configure(
@@ -46,6 +46,10 @@ valkey_client: Optional[Valkey] = None
 rabbitmq_connection = None
 rabbitmq_consumer_task: Optional[asyncio.Task] = None
 ml_async_enabled = False
+
+GOAL_KEYWORD_ENDURANCE = "выносливость"
+GOAL_KEYWORD_MUSCLE_GAIN = "набор массы"
+GOAL_KEYWORD_WEIGHT_LOSS = "похудение"
 
 TRAINING_CLASSES = {
     0: "recovery",
@@ -199,14 +203,13 @@ class TrainingPlan(BaseModel):
     weekly_schedule: Optional[Dict] = None
 
 
-async def load_generator():
+def load_generator():
     """Load ONNX-optimized generator model"""
     global generator_session
 
     model_path = "/app/models/generator.onnx"
 
     if os.path.exists(model_path):
-        # ONNX Runtime с оптимизациями
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
@@ -259,7 +262,7 @@ def generate_from_noise(
         )
         if i > 0:
             sigma_t = np.sqrt(beta_t)
-            x_t = mean + sigma_t * np.random.randn(*mean.shape)
+            x_t = mean + sigma_t * np.random.default_rng(42).standard_normal(mean.shape)
         else:
             x_t = mean
 
@@ -299,7 +302,7 @@ def build_rule_based_plan(training_class: str, user_profile: UserProfile) -> np.
     health_factor = 0.5 if user_profile.health_conditions else 1.0
     goals = [g.lower() for g in (user_profile.goals or [])]
     goal_strength = 0.8 if any("набор" in g or "muscle" in g for g in goals) else 0.2
-    goal_endurance = 0.8 if any("выносливость" in g or "endurance" in g for g in goals) else 0.2
+    goal_endurance = 0.8 if any(GOAL_KEYWORD_ENDURANCE in g or "endurance" in g for g in goals) else 0.2
 
     return np.array(
         [
@@ -463,7 +466,7 @@ async def _on_generate_message(body: bytes):
         hs = HealthStatus(**health_status_dict) if health_status_dict else None
         th = TrainingHistory(**training_history_dict) if training_history_dict else None
 
-        plan = await _do_generate_plan(training_class, up, preferences, hs, th)
+        plan = _do_generate_plan(training_class, up, preferences, hs, th)
 
         result = {
             "job_id": job_id,
@@ -481,7 +484,7 @@ async def _on_generate_message(body: bytes):
         raise
 
 
-async def _do_generate_plan(
+def _do_generate_plan(
     training_class, user_profile, preferences=None, health_status=None, training_history=None
 ):
     """Core plan generation logic with 3-tier fallback."""
@@ -490,7 +493,7 @@ async def _do_generate_plan(
     # Tier 1: Diffusion model
     if generator_session is not None:
         try:
-            noise = np.random.normal(0, 1, (1, 19)).astype(np.float32)
+            noise = np.random.default_rng(42).normal(0, 1, (1, 19)).astype(np.float32)
             plan_vector = generate_from_noise(noise, condition, num_steps=50)
             plan_vector = apply_post_processing_rules(
                 plan_vector,
@@ -522,7 +525,7 @@ async def _do_generate_plan(
 async def lifespan(app: FastAPI):
     """Modern startup/shutdown pattern"""
     # Startup
-    await load_generator()
+    load_generator()
     await init_async()
     logger.info("ML Generator Service started")
     yield
@@ -533,10 +536,7 @@ async def lifespan(app: FastAPI):
         await rabbitmq_connection.close()
     if rabbitmq_consumer_task:
         rabbitmq_consumer_task.cancel()
-        try:
-            await rabbitmq_consumer_task
-        except asyncio.CancelledError:
-            raise
+        await rabbitmq_consumer_task
     logger.info("ML Generator Service stopped")
 
 
@@ -565,6 +565,83 @@ async def get_templates():
     return TRAINING_TEMPLATES
 
 
+def _encode_demographics(profile: UserProfile) -> np.ndarray:
+    age_norm = np.clip(((profile.age or 30) - 18) / (100 - 18), 0.0, 1.0)
+    bmi = (profile.weight or 70) / ((profile.height or 170) / 100) ** 2
+    bmi_norm = np.clip((bmi - 15) / (40 - 15), 0.0, 1.0)
+    fitness_map = {"beginner": 0.0, "intermediate": 0.5, "advanced": 1.0}
+    fitness_norm = fitness_map.get(profile.fitness_level or "intermediate", 0.5)
+    return np.array([age_norm, bmi_norm, fitness_norm], dtype=np.float32)
+
+
+def _encode_goals(profile: UserProfile) -> np.ndarray:
+    goals_lower = [g.lower() for g in (profile.goals or [])]
+    goal_strength = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_MUSCLE_GAIN, "muscle_gain", "силовые"]) else 0.0
+    goal_endurance = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_ENDURANCE, "endurance", "марафон"]) else 0.0
+    goal_weight_loss = 1.0 if any(g in goals_lower for g in [GOAL_KEYWORD_WEIGHT_LOSS, "weight_loss", "fat_loss"]) else 0.0
+    goal_flexibility = 1.0 if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"]) else 0.0
+    return np.array([goal_strength, goal_endurance, goal_weight_loss, goal_flexibility], dtype=np.float32)
+
+
+def _encode_health(health: HealthStatus, profile: UserProfile) -> np.ndarray:
+    health_factor = 1.0 - np.clip(health.confidence, 0.0, 1.0)
+    phase = (health.menstrual_phase or "unknown").lower()
+    menstrual_luteal = 1.0 if phase == "luteal" else 0.0
+    menstrual_menstruation = 1.0 if phase == "menstruation" else 0.0
+    menstrual_ovulation = 1.0 if phase == "ovulation" else 0.0
+    conditions_norm = np.clip((health.active_conditions_count or 0) / 5.0, 0.0, 1.0)
+    has_contraindications = 1.0 if (profile.contraindications and len(profile.contraindications) > 0) else 0.0
+    has_allergies = 1.0 if (profile.allergies and len(profile.allergies) > 0) else 0.0
+    recovery_needed = 1.0 if (health.predicted_class in ("recovery", "overtraining")) else 0.0
+    return np.array([
+        health_factor, menstrual_luteal, menstrual_menstruation, menstrual_ovulation,
+        conditions_norm, has_contraindications, has_allergies, recovery_needed,
+    ], dtype=np.float32)
+
+
+def _encode_activity(history: TrainingHistory) -> np.ndarray:
+    days_since = 7.0
+    if history.last_workout_date:
+        try:
+            from datetime import datetime
+            last = datetime.fromisoformat(history.last_workout_date.replace("Z", "+00:00"))
+            days_since = max(0.0, (datetime.now(last.tzinfo) - last).total_seconds() / 86400.0)
+        except Exception:
+            pass
+    days_since_norm = np.clip(days_since / 7.0, 0.0, 1.0)
+    workout_freq = np.clip((history.completed_workouts_count or 0) / 30.0, 0.0, 1.0)
+    return np.array([days_since_norm, workout_freq], dtype=np.float32)
+
+
+def _encode_vitals(health: HealthStatus) -> np.ndarray:
+    sleep_quality = np.clip((health.sleep_hours or 7.0) / 9.0, 0.0, 1.0)
+    hrv_factor = np.clip((health.hrv or 65.0) / 100.0, 0.0, 1.0)
+    temp = 36.6
+    if health.body_composition and "temperature" in health.body_composition:
+        temp = health.body_composition["temperature"]
+    temp_norm = np.clip((temp - 35.5) / (38.5 - 35.5), 0.0, 1.0)
+    spo2 = health.body_composition.get("spo2", 98.0) if health.body_composition else 98.0
+    spo2_factor = np.clip(spo2 / 100.0, 0.0, 1.0)
+    return np.array([sleep_quality, hrv_factor, temp_norm, spo2_factor], dtype=np.float32)
+
+
+def _encode_preferences(prefs: Dict) -> np.ndarray:
+    available_days = prefs.get("available_days", ["mon", "wed", "fri"])
+    available_days_count = np.clip(len(available_days) / 7.0, 0.0, 1.0)
+    preferred_time = (prefs.get("time") or "morning").lower()
+    preferred_morning = 1.0 if preferred_time == "morning" else 0.0
+    preferred_evening = 1.0 if preferred_time == "evening" else 0.0
+    equipment = [e.lower() for e in prefs.get("equipment", [])]
+    equipment_dumbbell = 1.0 if any("dumbbell" in e for e in equipment) else 0.0
+    equipment_resistance_band = 1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
+    equipment_barbell = 1.0 if any("barbell" in e for e in equipment) else 0.0
+    equipment_none = 1.0 if len(equipment) == 0 else 0.0
+    return np.array([
+        available_days_count, preferred_morning, preferred_evening,
+        equipment_dumbbell, equipment_resistance_band, equipment_barbell, equipment_none,
+    ], dtype=np.float32)
+
+
 def encode_user_profile(
     profile: UserProfile,
     health_status: Optional[HealthStatus] = None,
@@ -576,144 +653,14 @@ def encode_user_profile(
     history = training_history or TrainingHistory()
     prefs = preferences or {}
 
-    # 0: age_normalized (0-1)
-    age_norm = np.clip(((profile.age or 30) - 18) / (100 - 18), 0.0, 1.0)
+    demographics = _encode_demographics(profile)
+    goals = _encode_goals(profile)
+    health_features = _encode_health(health, profile)
+    activity = _encode_activity(history)
+    vitals = _encode_vitals(health)
+    preferences = _encode_preferences(prefs)
 
-    # 1: bmi_normalized (0-1)
-    bmi = (profile.weight or 70) / ((profile.height or 170) / 100) ** 2
-    bmi_norm = np.clip((bmi - 15) / (40 - 15), 0.0, 1.0)
-
-    # 2: fitness_level (0-1)
-    fitness_map = {"beginner": 0.0, "intermediate": 0.5, "advanced": 1.0}
-    fitness_norm = fitness_map.get(profile.fitness_level or "intermediate", 0.5)
-
-    # 3-6: goal one-hot
-    goals_lower = [g.lower() for g in (profile.goals or [])]
-    goal_strength = (
-        1.0 if any(g in goals_lower for g in ["набор массы", "muscle_gain", "силовые"]) else 0.0
-    )
-    goal_endurance = (
-        1.0 if any(g in goals_lower for g in ["выносливость", "endurance", "марафон"]) else 0.0
-    )
-    goal_weight_loss = (
-        1.0 if any(g in goals_lower for g in ["похудение", "weight_loss", "fat_loss"]) else 0.0
-    )
-    goal_flexibility = (
-        1.0 if any(g in goals_lower for g in ["гибкость", "flexibility", "растяжка"]) else 0.0
-    )
-
-    # 7: health_factor (inverse of classifier confidence)
-    health_factor = 1.0 - np.clip(health.confidence, 0.0, 1.0)
-
-    # 8-10: menstrual phase one-hot
-    phase = (health.menstrual_phase or "unknown").lower()
-    menstrual_luteal = 1.0 if phase == "luteal" else 0.0
-    menstrual_menstruation = 1.0 if phase == "menstruation" else 0.0
-    menstrual_ovulation = 1.0 if phase == "ovulation" else 0.0
-
-    # 11: active_conditions_count_normalized
-    conditions_norm = np.clip((health.active_conditions_count or 0) / 5.0, 0.0, 1.0)
-
-    # 12: has_contraindications
-    has_contraindications = (
-        1.0 if (profile.contraindications and len(profile.contraindications) > 0) else 0.0
-    )
-
-    # 13: has_allergies
-    has_allergies = 1.0 if (profile.allergies and len(profile.allergies) > 0) else 0.0
-
-    # 14: recovery_needed
-    recovery_needed = 1.0 if (health.predicted_class in ("recovery", "overtraining")) else 0.0
-
-    # 15: days_since_last_workout (0-1)
-    days_since = 7.0  # default to 7 days if unknown
-    if history.last_workout_date:
-        try:
-            from datetime import datetime
-
-            last = datetime.fromisoformat(history.last_workout_date.replace("Z", "+00:00"))
-            days_since = max(0.0, (datetime.now(last.tzinfo) - last).total_seconds() / 86400.0)
-        except Exception:
-            pass
-    days_since_norm = np.clip(days_since / 7.0, 0.0, 1.0)
-
-    # 16: workout_frequency (0-1)
-    workout_freq = np.clip((history.completed_workouts_count or 0) / 30.0, 0.0, 1.0)
-
-    # 17: sleep_quality (0-1)
-    sleep_quality = np.clip((health.sleep_hours or 7.0) / 9.0, 0.0, 1.0)
-
-    # 18: hrv_factor (0-1)
-    hrv_factor = np.clip((health.hrv or 65.0) / 100.0, 0.0, 1.0)
-
-    # 19: temperature_normalized (0-1)
-    temp = 36.6  # default normal temperature
-    if health.body_composition and "temperature" in health.body_composition:
-        temp = health.body_composition["temperature"]
-    temp_norm = np.clip((temp - 35.5) / (38.5 - 35.5), 0.0, 1.0)
-
-    # 20: spo2_factor (0-1)
-    spo2 = health.body_composition.get("spo2", 98.0) if health.body_composition else 98.0
-    spo2_factor = np.clip(spo2 / 100.0, 0.0, 1.0)
-
-    # 21: available_days_count (0-1)
-    available_days = prefs.get("available_days", ["mon", "wed", "fri"])
-    available_days_count = np.clip(len(available_days) / 7.0, 0.0, 1.0)
-
-    # 22: preferred_morning
-    preferred_time = (prefs.get("time") or "morning").lower()
-    preferred_morning = 1.0 if preferred_time == "morning" else 0.0
-
-    # 23: preferred_evening
-    preferred_evening = 1.0 if preferred_time == "evening" else 0.0
-
-    # 24-27: equipment one-hot
-    equipment = [e.lower() for e in prefs.get("equipment", [])]
-    equipment_dumbbell = 1.0 if any("dumbbell" in e for e in equipment) else 0.0
-    equipment_resistance_band = (
-        1.0 if any("band" in e or "resistance" in e for e in equipment) else 0.0
-    )
-    equipment_barbell = 1.0 if any("barbell" in e for e in equipment) else 0.0
-    equipment_none = 1.0 if len(equipment) == 0 else 0.0
-
-    # 28-31: reserved for future features
-    reserved = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-
-    encoded = np.array(
-        [
-            age_norm,
-            bmi_norm,
-            fitness_norm,
-            goal_strength,
-            goal_endurance,
-            goal_weight_loss,
-            goal_flexibility,
-            health_factor,
-            menstrual_luteal,
-            menstrual_menstruation,
-            menstrual_ovulation,
-            conditions_norm,
-            has_contraindications,
-            has_allergies,
-            recovery_needed,
-            days_since_norm,
-            workout_freq,
-            sleep_quality,
-            hrv_factor,
-            temp_norm,
-            spo2_factor,
-            available_days_count,
-            preferred_morning,
-            preferred_evening,
-            equipment_dumbbell,
-            equipment_resistance_band,
-            equipment_barbell,
-            equipment_none,
-        ],
-        dtype=np.float32,
-    )
-
-    encoded = np.concatenate([encoded, reserved])
+    encoded = np.concatenate([demographics, goals, health_features, activity, vitals, preferences, np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)])
     return encoded.reshape(1, -1).astype(np.float32)
 
 
@@ -755,9 +702,9 @@ def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: User
 
     if user_profile.goals:
         goals_lower = [g.lower() for g in user_profile.goals]
-        if "похудение" in goals_lower:
+        if GOAL_KEYWORD_WEIGHT_LOSS in goals_lower:
             notes.append("Добавьте 10-15 минут кардио после основной тренировки")
-        if "набор массы" in goals_lower:
+        if GOAL_KEYWORD_MUSCLE_GAIN in goals_lower:
             notes.append("Сфокусируйтесь на силовых упражнениях")
         if "реабилитация" in goals_lower:
             notes.append("Следите за техникой выполнения упражнений")
@@ -789,7 +736,7 @@ def decode_plan(plan_vector: np.ndarray, training_class: str, user_profile: User
 @app.post("/generate-plan")
 async def generate_plan(request: PlanGenerationRequest):
     """Generate personalized training plan (synchronous endpoint)"""
-    plan_vector = await _do_generate_plan(
+    plan_vector = _do_generate_plan(
         request.training_class,
         request.user_profile,
         request.preferences,
@@ -1115,11 +1062,11 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
     # Goal adjustment
     goal_adjust = 0
     goals_lower = [g.lower() for g in request.goals]
-    if "weight_loss" in goals_lower or "похудение" in goals_lower:
+    if "weight_loss" in goals_lower or GOAL_KEYWORD_WEIGHT_LOSS in goals_lower:
         goal_adjust = -400
-    elif "muscle_gain" in goals_lower or "набор массы" in goals_lower:
+    elif "muscle_gain" in goals_lower or GOAL_KEYWORD_MUSCLE_GAIN in goals_lower:
         goal_adjust = 300
-    elif "endurance" in goals_lower or "выносливость" in goals_lower:
+    elif "endurance" in goals_lower or GOAL_KEYWORD_ENDURANCE in goals_lower:
         goal_adjust = 100
 
     tdee = max(1200, int(bmr * activity_multiplier + goal_adjust))
@@ -1133,7 +1080,6 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
     # Select meals
     meal_keys = ["breakfast", "snack1", "lunch", "snack2", "dinner"]
     selected_meals = []
-    total_kcal = 0
     total_protein = 0
     total_carbs = 0
     total_fat = 0
@@ -1151,10 +1097,9 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
                 "protein": meal["protein"],
                 "carbs": meal["carbs"],
                 "fat": meal["fat"],
-                "time": _get_meal_time(i, request.meals_count),
+                "time": _get_meal_time(i),
             }
         )
-        total_kcal += meal["kcal"]
         total_protein += meal["protein"]
         total_carbs += meal["carbs"]
         total_fat += meal["fat"]
@@ -1181,7 +1126,7 @@ def calculate_diet_plan(request: DietGenerationRequest) -> DietPlanResponse:
     )
 
 
-def _get_meal_time(index: int, total_meals: int) -> str:
+def _get_meal_time(index: int) -> str:
     """Generate meal time based on index"""
     times = ["08:00", "10:30", "13:00", "16:00", "18:30", "21:00"]
     return times[index] if index < len(times) else f"{8 + index * 2:02d}:00"

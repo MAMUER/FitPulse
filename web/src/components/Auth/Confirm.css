@@ -55,15 +55,15 @@
 }
 
 .result.success {
-  background: rgba(35, 134, 54, 0.15);
-  color: #3fb950;
-  border: 1px solid #238636;
+  background: #238636;
+  color: #ffffff;
+  border: 1px solid #2ea043;
 }
 
 .result.error {
-  background: rgba(248, 81, 73, 0.15);
-  color: #f85149;
-  border: 1px solid #da3633;
+  background: #da3633;
+  color: #ffffff;
+  border: 1px solid #f85149;
 }
 
 .back-link {

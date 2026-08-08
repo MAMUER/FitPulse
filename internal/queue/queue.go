@@ -297,7 +297,10 @@ func isClosedError(err error) bool {
 // It returns a stop function for graceful shutdown.
 func StartDepthReporter(ctx context.Context, ch *amqp.Channel, queueName string, opts ...ConsumerOption) func() {
 	if ch == nil || queueName == "" {
-		return func() {}
+		return func() {
+			// No-op stop function: channel or queue name is invalid,
+			// no background goroutine was started.
+		}
 	}
 
 	o := &consumerOptions{priority: "default"}

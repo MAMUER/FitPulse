@@ -4,6 +4,7 @@ package middleware
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net"
 	"net/http"
 	"runtime/debug"
@@ -66,40 +67,68 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 	}
 }
 
-// RequireRole проверяет роль пользователя через базу данных для предотвращения
-// использования отозванных/устаревших claims.
+type requireRoleHandler struct {
+	next    http.Handler
+	db      *sql.DB
+	log     *zap.Logger
+	allowed []string
+}
+
+func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok || userID == "" {
+		http.Error(w, msgNotFound, http.StatusNotFound)
+		return
+	}
+	if h.db == nil {
+		h.log.Error("Database not available for role verification")
+		http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	actualRole, err := fetchUserRole(r.Context(), h.db, userID)
+	if err != nil {
+		writeRoleVerificationError(w, err, userID, h.log)
+		return
+	}
+	if !isRoleAllowed(actualRole, h.allowed) {
+		http.Error(w, msgNotFound, http.StatusNotFound)
+		return
+	}
+	h.next.ServeHTTP(w, r)
+}
+
+func writeRoleVerificationError(w http.ResponseWriter, err error, userID string, log *zap.Logger) {
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, msgNotFound, http.StatusNotFound)
+		return
+	}
+	log.Error("Role verification DB error", zap.Error(err), zap.String("user_id", userID))
+	http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
+}
+
+func fetchUserRole(ctx context.Context, db *sql.DB, userID string) (string, error) {
+	var actualRole string
+	err := db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = $1", userID).Scan(&actualRole)
+	return actualRole, err
+}
+
+func isRoleAllowed(actualRole string, allowedRoles []string) bool {
+	for _, allowed := range allowedRoles {
+		if actualRole == allowed {
+			return true
+		}
+	}
+	return false
+}
+
 func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value(UserIDKey).(string)
-			if !ok || userID == "" {
-				http.Error(w, msgNotFound, http.StatusNotFound)
-				return
-			}
-			if db == nil {
-				log.Error("Database not available for role verification")
-				http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
-				return
-			}
-			var actualRole string
-			err := db.QueryRowContext(r.Context(), "SELECT role FROM users WHERE id = $1", userID).Scan(&actualRole)
-			if err == sql.ErrNoRows {
-				http.Error(w, msgNotFound, http.StatusNotFound)
-				return
-			}
-			if err != nil {
-				log.Error("Role verification DB error", zap.Error(err), zap.String("user_id", userID))
-				http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
-				return
-			}
-			for _, allowed := range allowedRoles {
-				if actualRole == allowed {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-			http.Error(w, msgNotFound, http.StatusNotFound)
-		})
+		return &requireRoleHandler{
+			next:    next,
+			db:      db,
+			log:     log,
+			allowed: allowedRoles,
+		}
 	}
 }
 

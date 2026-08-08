@@ -66,13 +66,7 @@ export default function Admin() {
       await navigator.clipboard.writeText(url);
       alert('Ссылка скопирована');
     } catch {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      alert('Ссылка скопирована');
+      alert('Не удалось скопировать ссылку');
     }
   };
 
@@ -95,8 +89,9 @@ export default function Admin() {
         <h3>Создать приглашение</h3>
         <form onSubmit={handleCreateInvite}>
           <div className='form-group'>
-            <label>Роль</label>
+            <label htmlFor='role'>Роль</label>
             <select
+              id='role'
               value={inviteForm.role}
               onChange={(e) =>
                 setInviteForm((f) => ({ ...f, role: e.target.value }))
@@ -107,8 +102,9 @@ export default function Admin() {
             </select>
           </div>
           <div className='form-group'>
-            <label>Максимум использований</label>
+            <label htmlFor='maxUses'>Максимум использований</label>
             <input
+              id='maxUses'
               type='number'
               min='1'
               value={inviteForm.maxUses}
@@ -148,6 +144,7 @@ export default function Admin() {
                 </div>
                 <div className='invite-actions'>
                   <button
+                    type='button'
                     className='btn-secondary'
                     onClick={() => copyToClipboard(inv.code)}
                     style={{ padding: '8px 12px', fontSize: 13 }}
@@ -156,6 +153,7 @@ export default function Admin() {
                   </button>
                   {inv.is_active !== false && (
                     <button
+                      type='button'
                       className='btn-danger-ghost'
                       onClick={() => handleRevoke(inv.code)}
                     >

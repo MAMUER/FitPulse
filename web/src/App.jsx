@@ -10,7 +10,7 @@ import Health from './components/Health/Health';
 import Layout from './components/Layout/Layout';
 import Privacy from './components/Legal/Privacy';
 import Terms from './components/Legal/Terms';
-import ML from './components/ML/ML';
+import MLComponent from './components/ML/ML';
 import Profile from './components/Profile/Profile';
 import Training from './components/Training/Training';
 import { useAuth } from './contexts/AuthContext';
@@ -57,7 +57,7 @@ export default function App() {
         <Route path='/achievements' element={<Achievements />} />
         <Route path='/diet' element={<Diet />} />
         <Route path='/health' element={<Health />} />
-        <Route path='/ml' element={<ML />} />
+        <Route path='/ml' element={<MLComponent />} />
         <Route path='/admin' element={<Admin />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>

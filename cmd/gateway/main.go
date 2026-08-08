@@ -86,6 +86,17 @@ func main() {
 	metrics := newGatewayMetrics()
 	cfg := loadGatewayConfig(log)
 
+	g, err := initGateway(ctx, log, cfg, metrics)
+	if err != nil {
+		log.Fatal("Failed to initialize gateway", zap.Error(err))
+	}
+
+	mainRouter := g.registerRoutes()
+	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
+	startGatewayServers(log, cfg, mainRouterHandler)
+}
+
+func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics) (*gateway, error) {
 	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
 	const valkeyMaxRetries = 10
 	const valkeyRetryDelay = 3 * time.Second
@@ -128,19 +139,27 @@ func main() {
 
 	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
 	if jwtPrivateKeyPEM == "" {
-		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
+		return nil, errors.New("JWT_PRIVATE_KEY_PEM environment variable is required")
 	}
 	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
 	if jwtPublicKeyPEM == "" {
-		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
+		return nil, errors.New("JWT_PUBLIC_KEY_PEM environment variable is required")
 	}
 
 	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
 
-	g := buildGateway(log, cfg, metrics, sessionStore, valkeyDB, rmqCh, userClient, mlAsync, tokenProvider)
-	mainRouter := g.registerRoutes()
-	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
-	startGatewayServers(log, cfg, mainRouterHandler)
+	g := buildGateway(gatewayBuildOptions{
+		log:           log,
+		cfg:           cfg,
+		metrics:       metrics,
+		sessionStore:  sessionStore,
+		valkeyDB:      valkeyDB,
+		rmqCh:         rmqCh,
+		userClient:    userClient,
+		mlAsync:       mlAsync,
+		tokenProvider: tokenProvider,
+	})
+	return g, nil
 }
 
 func loadGatewayConfig(log *logger.Logger) gatewayConfig {
@@ -371,23 +390,35 @@ func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr s
 	return userConn, userpb.NewUserServiceClient(userConn)
 }
 
-func buildGateway(log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics, sessionStore *cache.SessionStore, valkeyDB *redis.Client, rmqCh *amqp.Channel, userClient userpb.UserServiceClient, mlAsync bool, tokenProvider ports.TokenProvider) *gateway {
+type gatewayBuildOptions struct {
+	log           *logger.Logger
+	cfg           gatewayConfig
+	metrics       gatewayMetrics
+	sessionStore  *cache.SessionStore
+	valkeyDB      *redis.Client
+	rmqCh         *amqp.Channel
+	userClient    userpb.UserServiceClient
+	mlAsync       bool
+	tokenProvider ports.TokenProvider
+}
+
+func buildGateway(opts gatewayBuildOptions) *gateway {
 	g := &gateway{
-		userClient:        userClient,
-		biometricAddr:     cfg.biometricServiceAddr,
-		trainingAddr:      cfg.trainingServiceAddr,
-		classifierURL:     cfg.classifierURL,
-		mlGeneratorURL:    cfg.mlGeneratorURL,
-		log:               log,
-		tokenProvider:     tokenProvider,
-		sessionStore:      sessionStore,
-		valkeyDB:          valkeyDB,
-		rmqCh:             rmqCh,
-		mlAsync:           mlAsync,
-		requestDuration:   metrics.requestDuration,
-		requestTotal:      metrics.requestTotal,
-		errorTotal:        metrics.errorTotal,
-		googleOAuthConfig: cfg.googleOAuthConfig,
+		userClient:        opts.userClient,
+		biometricAddr:     opts.cfg.biometricServiceAddr,
+		trainingAddr:      opts.cfg.trainingServiceAddr,
+		classifierURL:     opts.cfg.classifierURL,
+		mlGeneratorURL:    opts.cfg.mlGeneratorURL,
+		log:               opts.log,
+		tokenProvider:     opts.tokenProvider,
+		sessionStore:      opts.sessionStore,
+		valkeyDB:          opts.valkeyDB,
+		rmqCh:             opts.rmqCh,
+		mlAsync:           opts.mlAsync,
+		requestDuration:   opts.metrics.requestDuration,
+		requestTotal:      opts.metrics.requestTotal,
+		errorTotal:        opts.metrics.errorTotal,
+		googleOAuthConfig: opts.cfg.googleOAuthConfig,
 	}
 
 	biometricWebhookTarget, _ := url.Parse("http://biometric-service:8085")
@@ -497,39 +528,69 @@ func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
 			return
 		}
 
-		host := publicHost
-		if host == "" {
-			host = r.Host
-			if h, _, err := net.SplitHostPort(host); err == nil {
-				host = h
-			}
-			if host == "" || net.ParseIP(host) != nil {
-				http.Error(w, "Invalid Host", http.StatusBadRequest)
-				return
-			}
-		}
-
-		requestURI := r.URL.RequestURI()
-		if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
-			http.Error(w, "Invalid request URI", http.StatusBadRequest)
+		host, err := resolveRedirectHost(publicHost, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
-		if port != "" && port != "80" && port != "443" {
-			redirectURL.Host = host + ":8443"
+		if err := validateRequestURI(r); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		redirectURL := buildRedirectURL(host, port, r)
+		if err := validateRedirectTarget(redirectURL, host); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		target := redirectURL.String()
-		parsed, err := url.Parse(target)
-		if err != nil || parsed.Scheme != "https" || parsed.Hostname() != host {
-			http.Error(w, "Invalid redirect target", http.StatusBadRequest)
-			return
-		}
-
 		w.Header().Set("Location", target)
 		w.WriteHeader(http.StatusMovedPermanently)
 	})
+}
+
+func resolveRedirectHost(publicHost string, r *http.Request) (string, error) {
+	host := publicHost
+	if host == "" {
+		host = r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if host == "" || net.ParseIP(host) != nil {
+			return "", errors.New("invalid host")
+		}
+	}
+	return host, nil
+}
+
+func validateRequestURI(r *http.Request) error {
+	requestURI := r.URL.RequestURI()
+	if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
+		return errors.New("invalid request URI")
+	}
+	return nil
+}
+
+func buildRedirectURL(host, port string, r *http.Request) *url.URL {
+	redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
+	if port != "" && port != "80" && port != "443" {
+		redirectURL.Host = host + ":8443"
+	}
+	return redirectURL
+}
+
+func validateRedirectTarget(redirectURL *url.URL, host string) error {
+	target := redirectURL.String()
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return errors.New("invalid redirect target")
+	}
+	if parsed.Scheme != "https" || parsed.Hostname() != host {
+		return errors.New("invalid redirect target")
+	}
+	return nil
 }
 
 // registerRoutes registers all HTTP routes on the router
@@ -597,15 +658,17 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 }
 
 // registerProtectedRoutes registers routes under /api/v1 that require authentication.
+const profilePath = "/profile"
+
 func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(middleware.UserRateLimit)
 
 		// Profile
-		r.Get("/profile", g.getProfileHandler)
-		r.Put("/profile", g.updateProfileHandler)
-		r.Delete("/profile", g.deleteProfileHandler)
+		r.Get(profilePath, g.getProfileHandler)
+		r.Put(profilePath, g.updateProfileHandler)
+		r.Delete(profilePath, g.deleteProfileHandler)
 
 		// Health features
 		r.Get("/health/conditions", g.listHealthConditionsHandler)

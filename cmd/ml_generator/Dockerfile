@@ -21,7 +21,8 @@ RUN pip install --no-cache-dir --only-binary :all: --upgrade "pip>=26.1" "setupt
 
 # Install dependencies (cached layer) — использует lock файл для reproducibility
 COPY cmd/ml_generator/requirements.lock.txt /tmp/requirements.lock.txt
-RUN pip install --no-cache-dir --only-binary :all: --retries 5 --timeout 120 --require-hashes -r /tmp/requirements.lock.txt
+RUN pip install --no-cache-dir --only-binary :all: --retries 5 \
+    --timeout 120 --require-hashes -r /tmp/requirements.lock.txt
 
 # Runtime stage
 FROM python:3.14-slim AS runtime

@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	userpb "github.com/MAMUER/project/api/gen/user"
@@ -128,18 +128,7 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := 1
-	if p := r.URL.Query().Get("page"); p != "" {
-		if val, err := strconv.Atoi(p); err == nil && val > 0 {
-			page = val
-		}
-	}
-	pageSize := 10
-	if ps := r.URL.Query().Get("page_size"); ps != "" {
-		if val, err := strconv.Atoi(ps); err == nil && val > 0 {
-			pageSize = val
-		}
-	}
+	page, pageSize := parsePagination(r)
 
 	client, err := g.getTrainingClient()
 	if err != nil {
@@ -161,16 +150,10 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 
 	plans := make([]map[string]interface{}, len(resp.Plans))
 	for i, plan := range resp.Plans {
-		planDataJSON, err := json.Marshal(plan.PlanData)
+		planData, err := unmarshalPlanData(plan.PlanData)
 		if err != nil {
-			g.log.Error("Failed to marshal plan data", zap.Error(err))
-			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-			return
-		}
-		var planData map[string]interface{}
-		if err := json.Unmarshal(planDataJSON, &planData); err != nil {
 			g.log.Error("Failed to unmarshal plan data", zap.Error(err))
-			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
+			http.Error(w, encodeResponseError, http.StatusInternalServerError)
 			return
 		}
 
@@ -199,6 +182,21 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
+}
+
+func unmarshalPlanData(planDataProto *structpb.Struct) (map[string]interface{}, error) {
+	if planDataProto == nil {
+		return map[string]interface{}{}, nil
+	}
+	planDataJSON, err := json.Marshal(planDataProto)
+	if err != nil {
+		return nil, err
+	}
+	var planData map[string]interface{}
+	if err := json.Unmarshal(planDataJSON, &planData); err != nil {
+		return nil, err
+	}
+	return planData, nil
 }
 
 func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request) {

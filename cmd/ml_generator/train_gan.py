@@ -9,12 +9,12 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
-import lightning as L
+import lightning as L  # type: ignore
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
+import torch  # type: ignore
+import torch.nn as nn  # type: ignore
+from torch.utils.data import DataLoader, TensorDataset  # type: ignore
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 WANDB_ENABLED = os.environ.get("WANDB_ENABLED", "false").lower() == "true"
 if WANDB_ENABLED:
-    import wandb
+    import wandb  # type: ignore
 
     wandb.init(
         project="fitpulse-generator",
@@ -32,18 +32,23 @@ if WANDB_ENABLED:
 else:
 
     class MockWandb:
+        """Fallback when WANDB is disabled."""
 
         def log(self, *args, **kwargs):
+            # No-op: wandb logging is disabled
             pass
 
         class config:
+            """Fallback config when WANDB is disabled."""
 
             @staticmethod
             def update(*args, **kwargs):
+                # No-op: wandb config is disabled
                 pass
 
         @staticmethod
         def finish():
+            # No-op: wandb shutdown is disabled
             pass
 
     wandb = MockWandb()
@@ -130,7 +135,7 @@ class ConditionalDiffusionModel(L.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=3e-4)
+        return torch.optim.Adam(self.parameters(), lr=3e-4, weight_decay=1e-4)
 
     @torch.no_grad()
     def sample(self, condition=None, num_steps=1000):

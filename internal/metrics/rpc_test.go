@@ -67,19 +67,7 @@ func assertMetricMatches(t *testing.T, metrics []*dto.MetricFamily, expectedName
 	for _, m := range metrics {
 		if m.GetName() == expectedName {
 			for _, metric := range m.GetMetric() {
-				labels := metric.GetLabel()
-				labelMap := make(map[string]string)
-				for _, l := range labels {
-					labelMap[l.GetName()] = l.GetValue()
-				}
-				match := true
-				for k, v := range expectedLabels {
-					if labelMap[k] != v {
-						match = false
-						break
-					}
-				}
-				if match {
+				if labelsMatch(metric, expectedLabels) {
 					return metric
 				}
 			}
@@ -87,6 +75,20 @@ func assertMetricMatches(t *testing.T, metrics []*dto.MetricFamily, expectedName
 	}
 	require.Fail(t, "metric not found", "expected metric %q with labels %v", expectedName, expectedLabels)
 	return nil
+}
+
+func labelsMatch(metric *dto.Metric, expectedLabels map[string]string) bool {
+	labels := metric.GetLabel()
+	labelMap := make(map[string]string)
+	for _, l := range labels {
+		labelMap[l.GetName()] = l.GetValue()
+	}
+	for k, v := range expectedLabels {
+		if labelMap[k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 // ---------------------------------------------------------------------------

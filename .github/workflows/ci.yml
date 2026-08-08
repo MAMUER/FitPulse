@@ -1293,6 +1293,9 @@ jobs:
         super-linter,
         kubescape,
         fuzz-tests,
+        docker,
+        smoke-test,
+        sonarcloud,
       ]
     timeout-minutes: 120
     if: >-
