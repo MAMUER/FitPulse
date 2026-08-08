@@ -80,11 +80,6 @@ deploy/tls/certs/
 .minikube/
 kubeconfig
 
-# Environment secrets & local overrides
-.env
-.env.local
-.env.*.local
-
 # Compressed files
 *.zip
 *.gz
