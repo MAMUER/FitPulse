@@ -3,6 +3,18 @@ import { getProfile } from '../../utils/api';
 import { calculateBMI } from '../../utils/validators';
 import './Diet.css';
 
+const secureRandomIndex = (length) => {
+  if (length <= 0) return 0;
+  const max = 256 - (256 % length);
+  let rand;
+  do {
+    const bytes = new Uint32Array(1);
+    window.crypto.getRandomValues(bytes);
+    rand = bytes[0] >>> 0;
+  } while (rand >= max);
+  return rand % length;
+};
+
 const MEAL_TEMPLATES = {
   balanced: {
     name: 'Сбалансированное',
@@ -363,8 +375,7 @@ export default function Diet() {
 
     const generated = selectedMealKeys.map((key, idx) => {
       const options = filterMeals(selectedTemplate[key]);
-      // NOSONAR javascript:S2245 - UI-only meal selection, not security context
-      const meal = options[Math.floor(Math.random() * options.length)] || {
+      const meal = options[secureRandomIndex(options.length)] || {
         name: '—',
         kcal: 0,
         protein: 0,
@@ -398,12 +409,12 @@ export default function Diet() {
   if (!nutrition)
     return <div className='view active'>Ошибка загрузки профиля</div>;
 
-  const fitnessLabel =
-    nutrition.fitness === 'beginner'
-      ? 'Начинающий'
-      : nutrition.fitness === 'intermediate'
-        ? 'Средний'
-        : 'Продвинутый';
+  let fitnessLabel = 'Продвинутый';
+  if (nutrition.fitness === 'beginner') {
+    fitnessLabel = 'Начинающий';
+  } else if (nutrition.fitness === 'intermediate') {
+    fitnessLabel = 'Средний';
+  }
 
   return (
     <div className='view active'>

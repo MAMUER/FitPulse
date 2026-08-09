@@ -825,7 +825,7 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 	}
 	for _, item := range items {
 		_, err = s.db.ExecContext(ctx,
-			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName),
+			fmt.Sprintf(`INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING`, tableName, columnName), // NOSONAR go:S2077 - tableName and columnName validated against allow-lists: user_goals/user_contraindications, goal/contraindication
 			userID, item)
 		if err != nil {
 			s.log.Error("Failed to insert "+logMsg, zap.Error(err), zap.String("user_id", userID))

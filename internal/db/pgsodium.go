@@ -62,6 +62,6 @@ func PgsodiumRandomEncryptParam(plaintextParam, nonceParam int) string {
 
 // PgsodiumDecryptParam возвращает выражение для расшифровки колонки,
 // зашифрованной с nonce (aegis256 AEAD).
-func PgsodiumDecryptParam(ciphertextColumn string, nonceColumn string, alias string) string {
+func PgsodiumDecryptParam(ciphertextColumn, nonceColumn, alias string) string {
 	return fmt.Sprintf("convert_from(pgsodium.crypto_aead_aegis256_decrypt(%s, '', %d, %s), 'UTF8') AS %s", ciphertextColumn, pgsodiumKeyID, nonceColumn, alias)
 }
