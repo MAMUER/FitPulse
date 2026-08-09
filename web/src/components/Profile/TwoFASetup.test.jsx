@@ -41,7 +41,9 @@ describe('TwoFASetup', () => {
       expect(screen.getByText(/Включена/)).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('Отключить 2FA').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Отключить 2FA').length).toBeGreaterThanOrEqual(
+      1
+    );
     expect(screen.queryByText('Включить 2FA')).not.toBeInTheDocument();
   });
 
@@ -61,7 +63,9 @@ describe('TwoFASetup', () => {
     screen.getByText('Включить 2FA').click();
 
     await waitFor(() => {
-      expect(screen.getByText('Подтвердить и включить 2FA')).toBeInTheDocument();
+      expect(
+        screen.getByText('Подтвердить и включить 2FA')
+      ).toBeInTheDocument();
     });
   });
 
@@ -142,7 +146,9 @@ describe('TwoFASetup', () => {
     await waitFor(() => {
       expect(screen.getByText(/Включена/)).toBeInTheDocument();
     });
-    expect(screen.getAllByText('Отключить 2FA').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Отключить 2FA').length).toBeGreaterThanOrEqual(
+      1
+    );
   });
 
   it('shows disable error for empty code', async () => {
@@ -168,7 +174,8 @@ describe('TwoFASetup', () => {
     let get2FACallCount = 0;
     api.get2FAStatus.mockImplementation(() => {
       get2FACallCount++;
-      if (get2FACallCount === 1) return Promise.resolve({ enabled: true, backup_codes_remaining: 5 });
+      if (get2FACallCount === 1)
+        return Promise.resolve({ enabled: true, backup_codes_remaining: 5 });
       return Promise.resolve({ enabled: false });
     });
     api.disable2FA.mockResolvedValueOnce(undefined);

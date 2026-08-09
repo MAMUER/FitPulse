@@ -47,6 +47,8 @@ describe('App', () => {
 
   it('renders layout and dashboard when authenticated', () => {
     renderApp({ token: 'test-token', loading: false });
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Обзор');
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+      'Обзор'
+    );
   });
 });

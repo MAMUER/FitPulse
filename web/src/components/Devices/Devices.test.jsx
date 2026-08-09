@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react';
-import { act, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import Devices from './Devices';
@@ -41,7 +40,9 @@ describe('Devices', () => {
 
   it('shows connect button', () => {
     renderDevices();
-    expect(screen.getByText('Подключить источники здоровья')).toBeInTheDocument();
+    expect(
+      screen.getByText('Подключить источники здоровья')
+    ).toBeInTheDocument();
   });
 
   it('loads external script on mount when token exists', () => {
@@ -80,7 +81,10 @@ describe('Devices', () => {
 
     await act(async () => {
       const event = new MessageEvent('message', {
-        data: { type: 'OPEN_WEARABLES_ERROR', data: { message: 'Connection failed' } },
+        data: {
+          type: 'OPEN_WEARABLES_ERROR',
+          data: { message: 'Connection failed' },
+        },
         origin: 'https://openwearables.com',
       });
       window.dispatchEvent(event);
@@ -115,7 +119,9 @@ describe('Devices', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText(/Не удалось загрузить виджет Open Wearables/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Не удалось загрузить виджет Open Wearables/)
+      ).toBeInTheDocument();
     });
   });
 
@@ -134,7 +140,9 @@ describe('Devices', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Нет подключённых источников')).toBeInTheDocument();
+      expect(
+        screen.getByText('Нет подключённых источников')
+      ).toBeInTheDocument();
     });
   });
 
@@ -143,7 +151,11 @@ describe('Devices', () => {
       json: () =>
         Promise.resolve({
           providers: [
-            { source: 'google', source_name: 'Google Fit', connected_at: '2024-01-01' },
+            {
+              source: 'google',
+              source_name: 'Google Fit',
+              connected_at: '2024-01-01',
+            },
           ],
         }),
     });

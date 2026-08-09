@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Profile from './Profile';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import { getProfile, updateProfile } from '../../utils/api';
 import { calculateBMI } from '../../utils/validators';
+import Profile from './Profile';
 
 vi.mock('../../contexts/AuthContext', async () => {
   const actual = await vi.importActual('../../contexts/AuthContext');
@@ -20,17 +20,29 @@ vi.mock('../../utils/api', () => ({
 
 vi.mock('./ChangePasswordModal', () => ({
   __esModule: true,
-  default: ({ onClose }) => <div data-testid='password-modal'>Password Modal<button onClick={onClose}>Close</button></div>,
+  default: ({ onClose }) => (
+    <div data-testid='password-modal'>
+      Password Modal<button onClick={onClose}>Close</button>
+    </div>
+  ),
 }));
 
 vi.mock('./ChangeEmailModal', () => ({
   __esModule: true,
-  default: ({ onClose }) => <div data-testid='email-modal'>Email Modal<button onClick={onClose}>Close</button></div>,
+  default: ({ onClose }) => (
+    <div data-testid='email-modal'>
+      Email Modal<button onClick={onClose}>Close</button>
+    </div>
+  ),
 }));
 
 vi.mock('./DeleteProfileModal', () => ({
   __esModule: true,
-  default: ({ onClose }) => <div data-testid='delete-modal'>Delete Modal<button onClick={onClose}>Close</button></div>,
+  default: ({ onClose }) => (
+    <div data-testid='delete-modal'>
+      Delete Modal<button onClick={onClose}>Close</button>
+    </div>
+  ),
 }));
 
 vi.mock('./TwoFASetup', () => ({

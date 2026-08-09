@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../utils/api';
 import Confirm from './Confirm';
 
@@ -23,7 +23,9 @@ describe('Confirm', () => {
 
   it('shows error when no token is provided', () => {
     renderConfirm(null);
-    expect(screen.getByText(/Токен подтверждения не найден/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Токен подтверждения не найден/)
+    ).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {

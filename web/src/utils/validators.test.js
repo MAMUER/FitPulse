@@ -24,12 +24,18 @@ describe('validators', () => {
     });
 
     it('returns error for email too long', () => {
-      expect(validateEmail('a'.repeat(255) + '@example.com')).toBe('Email слишком длинный');
+      expect(validateEmail(`${'a'.repeat(255)}@example.com`)).toBe(
+        'Email слишком длинный'
+      );
     });
 
     it('returns error for email with whitespace', () => {
-      expect(validateEmail('test @example.com')).toBe('Некорректный формат email');
-      expect(validateEmail('test@ example.com')).toBe('Некорректный формат email');
+      expect(validateEmail('test @example.com')).toBe(
+        'Некорректный формат email'
+      );
+      expect(validateEmail('test@ example.com')).toBe(
+        'Некорректный формат email'
+      );
     });
 
     it('returns error for domain without dot', () => {
@@ -37,7 +43,9 @@ describe('validators', () => {
     });
 
     it('returns error for domain with empty part', () => {
-      expect(validateEmail('test@domain..com')).toBe('Некорректный формат email');
+      expect(validateEmail('test@domain..com')).toBe(
+        'Некорректный формат email'
+      );
     });
 
     it('returns empty string for valid email', () => {
@@ -228,11 +236,14 @@ describe('validators', () => {
       [175, 50, 'Недостаточный вес', 'muscle_gain'],
       [175, 90, 'Избыточный вес', 'weight_loss'],
       [175, 110, 'Ожирение', 'weight_loss'],
-    ])('calculates BMI correctly for height %i and weight %i', (height, weight, category, goal) => {
-      const result = calculateBMI(height, weight);
-      expect(result).not.toBeNull();
-      expect(result.category).toBe(category);
-      expect(result.recommendedGoal).toBe(goal);
-    });
+    ])(
+      'calculates BMI correctly for height %i and weight %i',
+      (height, weight, category, goal) => {
+        const result = calculateBMI(height, weight);
+        expect(result).not.toBeNull();
+        expect(result.category).toBe(category);
+        expect(result.recommendedGoal).toBe(goal);
+      }
+    );
   });
 });

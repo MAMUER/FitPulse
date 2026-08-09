@@ -1,7 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { act, fireEvent } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import AuthScreen from './AuthScreen';
 
@@ -22,7 +21,10 @@ const renderAuth = (searchParams = new URLSearchParams()) => {
     <MemoryRouter initialEntries={['/']}>
       <AuthProvider>
         <Routes>
-          <Route path='/' element={<AuthScreen searchParams={searchParams} />} />
+          <Route
+            path='/'
+            element={<AuthScreen searchParams={searchParams} />}
+          />
         </Routes>
       </AuthProvider>
     </MemoryRouter>
@@ -41,20 +43,16 @@ describe('AuthScreen', () => {
     expect(screen.getByText('Войти')).toBeInTheDocument();
   });
 
-  it('switches to register mode', async () => {
+  it('switches to register mode', () => {
     renderAuth();
-    await act(async () => {
-      fireEvent.click(screen.getByText('Создать'));
-    });
+    fireEvent.click(screen.getByText('Создать'));
     expect(screen.getByPlaceholderText('Имя')).toBeInTheDocument();
     expect(screen.getByText('Создать аккаунт')).toBeInTheDocument();
   });
 
-  it('shows validation error for empty login', async () => {
+  it('shows validation error for empty login', () => {
     renderAuth();
-    await act(async () => {
-      fireEvent.click(screen.getByText('Войти'));
-    });
+    fireEvent.click(screen.getByText('Войти'));
     expect(screen.getByText('Проверьте введённые данные')).toBeInTheDocument();
   });
 

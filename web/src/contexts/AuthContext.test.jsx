@@ -138,7 +138,11 @@ describe('AuthContext', () => {
     screen.getByRole('button').click();
 
     await waitFor(() => {
-      expect(api.register).toHaveBeenCalledWith('new@test.com', 'pass123', 'New User');
+      expect(api.register).toHaveBeenCalledWith(
+        'new@test.com',
+        'pass123',
+        'New User'
+      );
     });
   });
 

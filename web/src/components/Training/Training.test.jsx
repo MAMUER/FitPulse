@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { act, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import * as api from '../../utils/api';
@@ -49,7 +48,12 @@ describe('Training', () => {
   it('displays training plans', async () => {
     api.getTrainingPlans.mockResolvedValueOnce({
       plans: [
-        { plan_id: 1, plan_data: { name: 'Test Plan' }, training_goal: 'Strength', duration_weeks: 4 },
+        {
+          plan_id: 1,
+          plan_data: { name: 'Test Plan' },
+          training_goal: 'Strength',
+          duration_weeks: 4,
+        },
       ],
     });
     renderTraining();
@@ -61,11 +65,19 @@ describe('Training', () => {
 
   it('generates a new plan', async () => {
     api.getTrainingPlans.mockResolvedValueOnce({ plans: [] });
-    api.classifyState.mockResolvedValueOnce({ predicted_class: 'strength', confidence: 0.9 });
+    api.classifyState.mockResolvedValueOnce({
+      predicted_class: 'strength',
+      confidence: 0.9,
+    });
     api.generateTrainingPlan.mockResolvedValueOnce({});
     api.getTrainingPlans.mockResolvedValueOnce({
       plans: [
-        { plan_id: 2, plan_data: { name: 'Generated Plan' }, training_goal: 'Strength', duration_weeks: 4 },
+        {
+          plan_id: 2,
+          plan_data: { name: 'Generated Plan' },
+          training_goal: 'Strength',
+          duration_weeks: 4,
+        },
       ],
     });
     renderTraining();
@@ -74,9 +86,7 @@ describe('Training', () => {
       expect(screen.getByText('Нет активных программ')).toBeInTheDocument();
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText('Сгенерировать план'));
-    });
+    fireEvent.click(screen.getByLabelText('Сгенерировать план'));
 
     await waitFor(() => {
       expect(screen.getByText('Generated Plan')).toBeInTheDocument();
