@@ -75,7 +75,7 @@ func LoadConfig() Config {
 		User:            config.GetEnv("SMTP_USER"),
 		Password:        config.GetEnv("SMTP_PASSWORD"),
 		From:            config.GetEnv("SMTP_FROM", "noreply@fitpulse.app"),
-		UseTLS:          config.GetEnv("SMTP_TLS", "false") == "true",
+		UseTLS:          config.GetEnv("SMTP_TLS", "true") == "true",
 		DailyLimit:      dailyLimit,
 		SkipSendDomains: skipDomains,
 	}
@@ -138,13 +138,13 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 
 	var err error
 	if s.cfg.UseTLS {
-		err = s.sendWithTLS(ctx, addr, toEmail, msg)
+		err = sendWithTLSImpl(ctx, s.cfg, addr, toEmail, msg)
 	} else {
 		var auth smtp.Auth
 		if s.cfg.User != "" && s.cfg.Password != "" {
 			auth = smtp.PlainAuth("", s.cfg.User, s.cfg.Password, s.cfg.Host)
 		}
-		err = smtp.SendMail(addr, auth, s.cfg.From, []string{toEmail}, []byte(msg))
+		err = smtpSendMailFn(addr, auth, s.cfg.From, []string{toEmail}, []byte(msg))
 	}
 
 	s.mu.Lock()
@@ -159,10 +159,17 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 	return nil
 }
 
-// sendWithTLS sends email using TLS connection (for Yandex, Mail.ru, Gmail).
-func (s *SMTPClient) sendWithTLS(ctx context.Context, addr string, toEmail string, msg string) error {
+// smtpSendMailFn is the actual implementation of smtp.SendMail.
+// Tests can override this to avoid real network connections.
+var smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	return smtp.SendMail(addr, auth, from, to, msg)
+}
+
+// sendWithTLSImpl is the actual implementation of sendWithTLS.
+// Tests can override this to avoid real network connections.
+var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg string) error {
 	tlsConfig := &tls.Config{
-		ServerName: s.cfg.Host,
+		ServerName: cfg.Host,
 		MinVersion: tls.VersionTLS12,
 	}
 
@@ -181,20 +188,20 @@ func (s *SMTPClient) sendWithTLS(ctx context.Context, addr string, toEmail strin
 	}
 	defer func() { _ = conn.Close() }()
 
-	client, err := smtp.NewClient(conn, s.cfg.Host)
+	client, err := smtp.NewClient(conn, cfg.Host)
 	if err != nil {
 		return fmt.Errorf("create SMTP client failed: %w", err)
 	}
 	defer func() { _ = client.Quit() }()
 
-	if s.cfg.User != "" && s.cfg.Password != "" {
-		auth := smtp.PlainAuth("", s.cfg.User, s.cfg.Password, s.cfg.Host)
+	if cfg.User != "" && cfg.Password != "" {
+		auth := smtp.PlainAuth("", cfg.User, cfg.Password, cfg.Host)
 		if authErr := client.Auth(auth); authErr != nil {
 			return fmt.Errorf("SMTP authentication failed: %w", authErr)
 		}
 	}
 
-	if mailErr := client.Mail(s.cfg.From); mailErr != nil {
+	if mailErr := client.Mail(cfg.From); mailErr != nil {
 		return fmt.Errorf("set sender failed: %w", mailErr)
 	}
 

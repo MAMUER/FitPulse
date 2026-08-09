@@ -133,7 +133,7 @@ func TestPublishAndConsume(t *testing.T) {
 	go func() {
 		for msg := range consumer.Messages() {
 			var data map[string]interface{}
-			if umErr := json.Unmarshal(msg.Body, &data); umErr == nil {
+			if json.Unmarshal(msg.Body, &data) == nil {
 				received <- data
 				_ = msg.Ack(false)
 			}

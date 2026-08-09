@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	assert.Equal(t, "localhost", cfg.Host)
 	assert.Equal(t, 1025, cfg.Port)
 	assert.Equal(t, "noreply@fitpulse.app", cfg.From)
-	assert.False(t, cfg.UseTLS)
+	assert.True(t, cfg.UseTLS)
 	assert.Equal(t, 0, cfg.DailyLimit)
 	assert.Empty(t, cfg.SkipSendDomains)
 	assert.Empty(t, cfg.User)
@@ -231,9 +232,16 @@ func TestSendVerificationEmailDailyLimitIncrement(t *testing.T) {
 		Host:       "localhost",
 		Port:       1025,
 		From:       "test@test.com",
+		UseTLS:     true,
 		DailyLimit: 5,
 	}
 	client := NewSMTPClient(cfg)
+
+	origTLS := sendWithTLSImpl
+	sendWithTLSImpl = func(ctx context.Context, c Config, addr, toEmail, msg string) error {
+		return nil
+	}
+	t.Cleanup(func() { sendWithTLSImpl = origTLS })
 
 	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	if err != nil {
@@ -302,6 +310,12 @@ func TestSendWithTLSConnectionError(t *testing.T) {
 	}
 	client := NewSMTPClient(cfg)
 
+	origTLS := sendWithTLSImpl
+	sendWithTLSImpl = func(ctx context.Context, c Config, addr, toEmail, msg string) error {
+		return fmt.Errorf("TLS connect to SMTP server (%s) failed: connection refused", addr)
+	}
+	t.Cleanup(func() { sendWithTLSImpl = origTLS })
+
 	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TLS connect to SMTP server")
@@ -319,8 +333,15 @@ func TestSendWithTLSAuthErrorFormat(t *testing.T) {
 	}
 	client := NewSMTPClient(cfg)
 
+	origTLS := sendWithTLSImpl
+	sendWithTLSImpl = func(ctx context.Context, c Config, addr, toEmail, msg string) error {
+		return fmt.Errorf("SMTP authentication failed: invalid credentials")
+	}
+	t.Cleanup(func() { sendWithTLSImpl = origTLS })
+
 	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token123", "http://localhost:8080")
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SMTP authentication failed")
 }
 
 func TestSendWithTLSDailyLimitCheck(t *testing.T) {
@@ -329,13 +350,15 @@ func TestSendWithTLSDailyLimitCheck(t *testing.T) {
 		Port:       1025,
 		From:       "test@test.com",
 		UseTLS:     true,
-		DailyLimit: 0,
+		DailyLimit: 1,
 	}
 	client := NewSMTPClient(cfg)
 	client.dailySent = 1
 
 	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost")
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "daily email limit exceeded")
+	assert.Contains(t, err.Error(), "1/1")
 }
 
 func TestSendWithTLSSkipDomainBeforeLimit(t *testing.T) {
@@ -442,7 +465,7 @@ func TestLoadConfigTLSEnvVariations(t *testing.T) {
 		{"false", false},
 		{"TRUE", false},
 		{"1", false},
-		{"", false},
+		{"", true},
 	}
 
 	for _, tt := range tests {
@@ -453,22 +476,6 @@ func TestLoadConfigTLSEnvVariations(t *testing.T) {
 			require.NoError(t, os.Unsetenv("SMTP_TLS"))
 		})
 	}
-}
-
-func TestSendVerificationEmailDailyLimitReached(t *testing.T) {
-	cfg := Config{
-		Host:       "localhost",
-		Port:       1025,
-		From:       "test@test.com",
-		DailyLimit: 2,
-	}
-	client := NewSMTPClient(cfg)
-	client.dailySent = 2
-
-	err := client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "daily email limit exceeded")
-	assert.Contains(t, err.Error(), "2/2")
 }
 
 func TestNewSMTPClientWithFullConfig(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	// Register PostgreSQL driver for database/sql.
 	_ "github.com/lib/pq"
 
 	"github.com/MAMUER/project/internal/config"
