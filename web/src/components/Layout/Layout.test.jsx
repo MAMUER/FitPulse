@@ -85,4 +85,18 @@ describe('Layout', () => {
     renderLayout('/', { isAdmin: false });
     expect(screen.queryByText('Админка')).not.toBeInTheDocument();
   });
+
+  it('calls logout when logout button is clicked', () => {
+    const mockLogout = vi.fn();
+    renderLayout('/', { logout: mockLogout });
+    screen.getByLabelText('Выйти').click();
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders AI Анализ title on ml route', () => {
+    renderLayout('/ml');
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+      'AI Анализ'
+    );
+  });
 });

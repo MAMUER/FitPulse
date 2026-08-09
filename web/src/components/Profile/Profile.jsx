@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfile, updateProfile } from '../../utils/api';
 import {
@@ -37,11 +37,7 @@ export default function Profile() {
     goal: '',
   });
 
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const data = await getProfile();
       const p = data.profile || data;
@@ -62,7 +58,11 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const setField = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }));

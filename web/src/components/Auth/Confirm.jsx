@@ -1,15 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { confirmEmail as apiConfirmEmail } from '../../utils/api';
 import './Confirm.css';
 
-export default function Confirm() {
-  const [status, setStatus] = useState('loading'); // loading, success, error
+export default function Confirm({ token: tokenProp }) {
+  const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
+  const readToken = useCallback(() => {
+    if (tokenProp) return tokenProp;
+    try {
+      return new URLSearchParams(window.location.search).get('token');
+    } catch {
+      return null;
+    }
+  }, [tokenProp]);
+
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('token');
+    const token = readToken();
     if (!token) {
       setStatus('error');
       setMessage(
@@ -29,7 +38,7 @@ export default function Confirm() {
         setStatus('error');
         setMessage(err.message || 'Ошибка подтверждения');
       });
-  }, []);
+  }, [readToken]);
 
   return (
     <div className='confirm-page'>

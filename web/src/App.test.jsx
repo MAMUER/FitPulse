@@ -2,16 +2,25 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-vi.mock('./utils/api', () => ({
-  fetchUserProfile: vi.fn(),
-  fetchTodayWorkout: vi.fn(),
-  fetchAIRecommendations: vi.fn(),
-  fetchStats: vi.fn(),
-}));
+vi.mock('./contexts/AuthContext', async () => {
+  const actual = await vi.importActual('./contexts/AuthContext');
+  return {
+    ...actual,
+    useAuth: vi.fn(),
+  };
+});
 
-const renderApp = () => {
+const renderApp = (authOverrides = {}) => {
+  useAuth.mockReturnValue({
+    token: null,
+    loading: false,
+    user: null,
+    isAdmin: false,
+    ...authOverrides,
+  });
+
   return render(
     <BrowserRouter>
       <AuthProvider>
@@ -21,19 +30,23 @@ const renderApp = () => {
   );
 };
 
-describe('App Router', () => {
+describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders without crashing', () => {
-    renderApp();
-    expect(screen.getAllByText(/fitpulse/i).length).toBeGreaterThan(0);
+  it('renders loading state', () => {
+    renderApp({ loading: true });
+    expect(screen.getByText('Загрузка...')).toBeInTheDocument();
   });
 
-  it('shows auth screen when not authenticated', async () => {
+  it('renders auth screen when not authenticated', () => {
     renderApp();
-    const loginText = await screen.findByText(/Войти/i, {}, { timeout: 3000 });
-    expect(loginText).toBeInTheDocument();
+    expect(screen.getByText(/Войти/i)).toBeInTheDocument();
+  });
+
+  it('renders layout and dashboard when authenticated', () => {
+    renderApp({ token: 'test-token', loading: false });
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Обзор');
   });
 });

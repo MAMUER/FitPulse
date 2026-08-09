@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   confirm2FA,
   disable2FA,
@@ -20,11 +20,7 @@ export default function TwoFASetup() {
   const [disableError, setDisableError] = useState('');
   const [panelVisible, setPanelVisible] = useState(false);
 
-  useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
-
-  const loadStatus = async () => {
+  const loadStatus = useCallback(async () => {
     try {
       const data = await get2FAStatus();
       setStatus(data);
@@ -33,7 +29,11 @@ export default function TwoFASetup() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   const handleEnable = async () => {
     setPanelVisible(true);

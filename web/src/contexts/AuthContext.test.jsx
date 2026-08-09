@@ -112,4 +112,80 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('isAdmin')).toHaveTextContent('false');
     });
   });
+
+  it('register calls api and returns data', async () => {
+    api.register.mockResolvedValueOnce({
+      access_token: 'register-token',
+      role: 'user',
+    });
+
+    const TestComponent = () => {
+      const auth = useAuth();
+      return (
+        <div>
+          <span data-testid='token'>{auth.token ?? 'null'}</span>
+          <button
+            type='button'
+            onClick={() => auth.register('new@test.com', 'pass123', 'New User')}
+          >
+            Register
+          </button>
+        </div>
+      );
+    };
+
+    renderAuth(<TestComponent />);
+    screen.getByRole('button').click();
+
+    await waitFor(() => {
+      expect(api.register).toHaveBeenCalledWith('new@test.com', 'pass123', 'New User');
+    });
+  });
+
+  it('loads profile on mount when token exists', async () => {
+    api.getProfile.mockResolvedValueOnce({
+      id: 'user-1',
+      email: 'test@test.com',
+      full_name: 'Test User',
+      role: 'user',
+    });
+    localStorage.setItem('authToken', 'existing-token');
+
+    const TestComponent = () => {
+      const auth = useAuth();
+      return (
+        <div>
+          <span data-testid='loading'>{String(auth.loading)}</span>
+          <span data-testid='user'>{auth.user?.full_name ?? 'null'}</span>
+        </div>
+      );
+    };
+
+    renderAuth(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+  });
+
+  it('sets token via setToken', async () => {
+    const TestComponent = () => {
+      const auth = useAuth();
+      return (
+        <div>
+          <span data-testid='token'>{auth.token ?? 'null'}</span>
+          <button type='button' onClick={() => auth.setToken('manual-token')}>
+            Set Token
+          </button>
+        </div>
+      );
+    };
+
+    renderAuth(<TestComponent />);
+    screen.getByRole('button').click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('token')).toHaveTextContent('manual-token');
+    });
+  });
 });

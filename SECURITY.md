@@ -364,6 +364,7 @@ Mutable tags позволяют владельцу action'а перенапра�
 | **load-test.k6** `load-test.k6:54` | Парсит `token (dev only)` из ответа регистрации для подтверждения email в нагрузочных тестах | Тест зависит от dev-only поведения; при его удалении тесты сломаются | После удаления dev-only токена из production API обновить тесты на использование реального email-потока или мока |
 | **scripts** `scripts/api-test.py:159` | То же самое: парсит dev-only verification token для API-тестов | Аналогично load-test.k6 | Аналогично |
 | **user-service** `internal/email/email.go:140-148` | S5332: clear-text SMTP в ветке `else` (когда `SMTP_TLS=false`) | Принятый риск: по умолчанию `SMTP_TLS=true`; non-TLS (`smtp.SendMail`) только при явном `SMTP_TLS=false` для локальной разработки с MailHog. В production TLS обязателен. Тесты на моках | В production `SMTP_TLS=true`; для локальной разработки с MailHog `SMTP_TLS=false` |
+| **user-service** `internal/email/email.go:191` | S5332: `smtp.NewClient` поверх `tls.Dialer` | SonarQube false positive: `smtp.NewClient` вызывается уже поверх TLS-соединения, созданного через `tls.Dialer` с `MinVersion: TLS 1.2`; шифрование включено с самого начала, clear-text трафика нет | Убрать suppression после обновления SonarQube Go plugin; или отметить как False Positive в интерфейсе SonarQube |
 
 **Важно:** Все dev-only заглушки должны быть удалены или отключены через feature flag перед релизом в production. В текущем коде они присутствуют для ускорения разработки и тестирования, но не являются частью production-ready функционала.
 

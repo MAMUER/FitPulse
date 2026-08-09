@@ -120,35 +120,61 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 }
 
 func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddRecordsRequest) (*pb.BatchAddRecordsResponse, error) {
+	if err := validateBatchRequest(req); err != nil {
+		return nil, err
+	}
+	if err := s.checkUserExists(ctx, req.UserId); err != nil {
+		return nil, err
+	}
+	if err := validateRecords(ctx, req.Records); err != nil {
+		return nil, err
+	}
+	inserted, err := s.insertRecords(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BatchAddRecordsResponse{Count: safeIntToInt32(inserted)}, nil
+}
+
+func validateBatchRequest(req *pb.BatchAddRecordsRequest) error {
 	if req.UserId == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		return status.Error(codes.InvalidArgument, "user_id is required")
 	}
 	if len(req.Records) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "records cannot be empty")
+		return status.Error(codes.InvalidArgument, "records cannot be empty")
 	}
+	return nil
+}
 
+func (s *biometricServer) checkUserExists(ctx context.Context, userID string) error {
 	var userExists bool
-	if err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", req.UserId).Scan(&userExists); err != nil {
-		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
-		return nil, status.Error(codes.Internal, "failed to verify user")
+	if err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&userExists); err != nil {
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", userID))
+		return status.Error(codes.Internal, "failed to verify user")
 	}
 	if !userExists {
-		return nil, status.Error(codes.NotFound, "user not found")
+		return status.Error(codes.NotFound, "user not found")
 	}
+	return nil
+}
 
-	for i, rec := range req.Records {
+func validateRecords(ctx context.Context, records []*pb.AddRecordRequest) error {
+	for i, rec := range records {
 		if err := ctx.Err(); err != nil {
-			return nil, status.Error(codes.Canceled, "request canceled")
+			return status.Error(codes.Canceled, "request canceled")
 		}
 		if err := validator.ValidateBiometricRecord(rec); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "record[%d]: %v", i, err)
+			return status.Errorf(codes.InvalidArgument, "record[%d]: %v", i, err)
 		}
 	}
+	return nil
+}
 
+func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRecordsRequest) (int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		s.log.Error("Failed to begin transaction", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database error")
+		return 0, status.Error(codes.Internal, "database error")
 	}
 	defer func() {
 		_ = tx.Rollback()
@@ -162,7 +188,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
 			_ = tx.Rollback()
-			return nil, status.Error(codes.Canceled, "request canceled")
+			return 0, status.Error(codes.Canceled, "request canceled")
 		}
 
 		id := uuid.New().String()
@@ -180,7 +206,7 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 				zap.Error(err),
 				zap.String("metric_type", rec.MetricType),
 			)
-			return nil, status.Error(codes.Internal, "failed to save records")
+			return 0, status.Error(codes.Internal, "failed to save records")
 		}
 		if n, _ := result.RowsAffected(); n > 0 {
 			inserted++
@@ -189,10 +215,9 @@ func (s *biometricServer) BatchAddRecords(ctx context.Context, req *pb.BatchAddR
 
 	if err := tx.Commit(); err != nil {
 		s.log.Error("Failed to commit transaction", zap.Error(err))
-		return nil, status.Error(codes.Internal, "database commit error")
+		return 0, status.Error(codes.Internal, "database commit error")
 	}
-
-	return &pb.BatchAddRecordsResponse{Count: safeIntToInt32(inserted)}, nil
+	return inserted, nil
 }
 
 type recordsQuery struct {

@@ -188,7 +188,7 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 	}
 	defer func() { _ = conn.Close() }()
 
-	client, err := smtp.NewClient(conn, cfg.Host)
+	client, err := smtp.NewClient(conn, cfg.Host) // NOSONAR go:S5332 - conn is already a TLS connection created by tls.Dialer with MinVersion TLS 1.2; clear-text traffic is not used here
 	if err != nil {
 		return fmt.Errorf("create SMTP client failed: %w", err)
 	}

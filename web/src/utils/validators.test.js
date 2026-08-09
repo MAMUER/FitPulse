@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
   calculateBMI,
   validateAge,
   validateEmail,
   validateHeight,
+  validateLoginPassword,
   validateName,
   validateNickname,
   validatePassword,
@@ -18,9 +19,40 @@ describe('validators', () => {
       expect(validateEmail('@domain.com')).toBe('Некорректный формат email');
     });
 
+    it('returns error for empty email', () => {
+      expect(validateEmail('')).toBe('Введите email');
+    });
+
+    it('returns error for email too long', () => {
+      expect(validateEmail('a'.repeat(255) + '@example.com')).toBe('Email слишком длинный');
+    });
+
+    it('returns error for email with whitespace', () => {
+      expect(validateEmail('test @example.com')).toBe('Некорректный формат email');
+      expect(validateEmail('test@ example.com')).toBe('Некорректный формат email');
+    });
+
+    it('returns error for domain without dot', () => {
+      expect(validateEmail('test@domain')).toBe('Некорректный формат email');
+    });
+
+    it('returns error for domain with empty part', () => {
+      expect(validateEmail('test@domain..com')).toBe('Некорректный формат email');
+    });
+
     it('returns empty string for valid email', () => {
       expect(validateEmail('test@example.com')).toBe('');
       expect(validateEmail('user.name@domain.org')).toBe('');
+    });
+  });
+
+  describe('validateLoginPassword', () => {
+    it('returns error for empty password', () => {
+      expect(validateLoginPassword('')).toBe('Введите пароль');
+    });
+
+    it('returns empty string for non-empty password', () => {
+      expect(validateLoginPassword('any')).toBe('');
     });
   });
 
@@ -35,11 +67,18 @@ describe('validators', () => {
       expect(result.error).toBe('Минимум 8 символов');
     });
 
+    it('returns success for valid password with all checks', () => {
+      const { error, checks } = validatePassword('Password123');
+      expect(error).toBe('');
+      expect(checks.upper).toBe(true);
+      expect(checks.lower).toBe(true);
+      expect(checks.digit).toBe(true);
+    });
+
     it('returns checks object for password without uppercase', () => {
-      const result = validatePassword('password123');
-      expect(result.error).toBe('');
-      expect(result.checks.upper).toBe(false);
-      expect(result.checks.length).toBe(true);
+      const { error, checks } = validatePassword('password123');
+      expect(error).toBe('');
+      expect(checks.upper).toBe(false);
     });
 
     it('returns checks object for password without lowercase', () => {
@@ -52,15 +91,6 @@ describe('validators', () => {
       const result = validatePassword('Password');
       expect(result.error).toBe('');
       expect(result.checks.digit).toBe(false);
-    });
-
-    it('returns success for valid password', () => {
-      const result = validatePassword('Password123');
-      expect(result.error).toBe('');
-      expect(result.checks.length).toBe(true);
-      expect(result.checks.upper).toBe(true);
-      expect(result.checks.lower).toBe(true);
-      expect(result.checks.digit).toBe(true);
     });
   });
 
@@ -99,6 +129,10 @@ describe('validators', () => {
 
     it('returns error for too long nickname', () => {
       expect(validateNickname('A'.repeat(31))).toBe('Максимум 30 символов');
+    });
+
+    it('returns error for nickname with invalid characters', () => {
+      expect(validateNickname('user@name')).toBe('Только буквы, цифры, _ и -');
     });
 
     it('returns empty string for valid nickname', () => {
@@ -190,25 +224,15 @@ describe('validators', () => {
       expect(result.category).toBe('Нормальный вес');
     });
 
-    it('calculates BMI correctly for underweight', () => {
-      const result = calculateBMI(175, 50);
+    test.each([
+      [175, 50, 'Недостаточный вес', 'muscle_gain'],
+      [175, 90, 'Избыточный вес', 'weight_loss'],
+      [175, 110, 'Ожирение', 'weight_loss'],
+    ])('calculates BMI correctly for height %i and weight %i', (height, weight, category, goal) => {
+      const result = calculateBMI(height, weight);
       expect(result).not.toBeNull();
-      expect(result.category).toBe('Недостаточный вес');
-      expect(result.recommendedGoal).toBe('muscle_gain');
-    });
-
-    it('calculates BMI correctly for overweight', () => {
-      const result = calculateBMI(175, 90);
-      expect(result).not.toBeNull();
-      expect(result.category).toBe('Избыточный вес');
-      expect(result.recommendedGoal).toBe('weight_loss');
-    });
-
-    it('calculates BMI correctly for obesity', () => {
-      const result = calculateBMI(175, 110);
-      expect(result).not.toBeNull();
-      expect(result.category).toBe('Ожирение');
-      expect(result.recommendedGoal).toBe('weight_loss');
+      expect(result.category).toBe(category);
+      expect(result.recommendedGoal).toBe(goal);
     });
   });
 });

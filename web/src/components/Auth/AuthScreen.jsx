@@ -10,14 +10,15 @@ import {
 } from '../../utils/validators';
 import './Auth.css';
 
-export default function AuthScreen() {
+export default function AuthScreen({ searchParams: searchParamsProp }) {
   const getFieldClass = (fieldName) => {
     if (errors[fieldName]) return 'invalid';
     return formData[fieldName] ? 'valid' : '';
   };
 
-  const [searchParams] = useSearchParams();
+  const [routerSearchParams] = useSearchParams();
   const { login } = useAuth();
+  const searchParams = searchParamsProp || routerSearchParams;
   const [mode, setMode] = useState('login');
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({

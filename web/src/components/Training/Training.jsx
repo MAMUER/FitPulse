@@ -11,10 +11,6 @@ export default function Training() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
-    loadPlans();
-  }, [loadPlans]);
-
   const loadPlans = async () => {
     try {
       const data = await getTrainingPlans();
@@ -25,6 +21,10 @@ export default function Training() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
 
   const handleGenerate = async () => {
     setGenerating(true);
