@@ -1,7 +1,15 @@
 export function validateEmail(v) {
   if (!v) return 'Введите email';
   if (v.length > 254) return 'Email слишком длинный';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Некорректный формат email';
+  if (!v.includes('@')) return 'Некорректный формат email';
+  if (/\s/.test(v)) return 'Некорректный формат email';
+  const [localPart, domain] = v.split('@');
+  if (!localPart || !domain) return 'Некорректный формат email';
+  if (!domain.includes('.')) return 'Некорректный формат email';
+  const domainParts = domain.split('.');
+  if (!domainParts.every((part) => part.length > 0)) {
+    return 'Некорректный формат email';
+  }
   return '';
 }
 
@@ -42,7 +50,7 @@ export function validateNickname(v) {
 export function validateAge(v) {
   if (!v) return '';
   if (!/^\d+$/.test(v)) return 'Только целые цифры';
-  const n = parseInt(v, 10);
+  const n = Number.parseInt(v, 10);
   if (n < 18 || n > 100) return 'От 18 до 100';
   return '';
 }
@@ -50,7 +58,7 @@ export function validateAge(v) {
 export function validateHeight(v) {
   if (!v) return '';
   if (!/^\d+$/.test(v)) return 'Только целые цифры';
-  const n = parseInt(v, 10);
+  const n = Number.parseInt(v, 10);
   if (n < 50 || n > 300) return 'От 50 до 300 см';
   return '';
 }
@@ -58,7 +66,7 @@ export function validateHeight(v) {
 export function validateWeight(v) {
   if (!v) return '';
   if (!/^\d+(\.\d{1,2})?$/.test(v)) return 'Число (например, 70.5)';
-  const n = parseFloat(v);
+  const n = Number.parseFloat(v);
   if (n < 20 || n > 500) return 'От 20 до 500 кг';
   return '';
 }
@@ -78,7 +86,6 @@ export function calculateBMI(heightCm, weightKg) {
     } else if (bmi < 25) {
       category = 'Нормальный вес';
       recommendation = 'Ваш вес в норме. Можно выбрать любую цель.';
-      recommendedGoal = '';
     } else if (bmi < 30) {
       category = 'Избыточный вес';
       recommendation = 'Рекомендуется снижение веса.';

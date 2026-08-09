@@ -47,15 +47,14 @@ export default function Confirm() {
         {status === 'error' && <div className='result error'>{message}</div>}
         {status !== 'loading' && (
           <div className='back-link'>
-            <a
-              href='#'
-              onClick={(e) => {
-                e.preventDefault();
+            <button
+              type='button'
+              onClick={() => {
                 navigate('/');
               }}
             >
               ← Вернуться ко входу
-            </a>
+            </button>
           </div>
         )}
       </div>

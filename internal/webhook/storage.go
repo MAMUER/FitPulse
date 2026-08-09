@@ -61,21 +61,21 @@ type DB interface {
 	DeleteBySource(ctx context.Context, userID, source string) (int64, error)
 }
 
-// RowScanner abstracts sql.Row Scan
-type RowScanner interface {
+// Scanner abstracts sql.Row Scan
+type Scanner interface {
 	Scan(dest ...interface{}) error
 }
 
 // Tx is an interface for database transactions
 type Tx interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) RowScanner
+	ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) Scanner
 	Commit() error
 	Rollback() error
 }
 
-// Result represents the result of a database operation
-type Result interface {
+// Rower represents the result of a database operation
+type Rower interface {
 	RowsAffected() (int64, error)
 }
 
@@ -248,11 +248,11 @@ type SQLTxAdapter struct {
 	tx *sql.Tx
 }
 
-func (a *SQLTxAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (a *SQLTxAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
 	return a.tx.ExecContext(ctx, query, args...)
 }
 
-func (a *SQLTxAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) RowScanner {
+func (a *SQLTxAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) Scanner {
 	return a.tx.QueryRowContext(ctx, query, args...)
 }
 
@@ -264,7 +264,7 @@ func (a *SQLTxAdapter) Rollback() error {
 	return a.tx.Rollback()
 }
 
-// SQLResultAdapter adapts sql.Result to webhook.Result
+// SQLResultAdapter adapts sql.Result to webhook.Rower
 type SQLResultAdapter struct {
 	result sql.Result
 }

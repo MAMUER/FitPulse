@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -551,16 +550,10 @@ func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
 	})
 }
 
-func resolveRedirectHost(publicHost string, r *http.Request) (string, error) {
+func resolveRedirectHost(publicHost string, _ *http.Request) (string, error) {
 	host := publicHost
 	if host == "" {
-		host = r.Host
-		if h, _, err := net.SplitHostPort(host); err == nil {
-			host = h
-		}
-		if host == "" || net.ParseIP(host) != nil {
-			return "", errors.New("invalid host")
-		}
+		return "", errors.New("invalid host")
 	}
 	return host, nil
 }

@@ -85,8 +85,8 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		}
 	}()
 
-	if err := s.savePlanToDatabase(savePlanOptions{
-		ctx: ctx, tx: tx, planID: planID, userID: req.UserId,
+	if err := s.savePlanToDatabase(ctx, savePlanOptions{
+		tx: tx, planID: planID, userID: req.UserId,
 		classificationClass: classificationClass, startDate: startDate,
 		endDate: endDate, durationWeeks: req.DurationWeeks,
 	}); err != nil {
@@ -150,7 +150,6 @@ func (s *trainingServer) calculatePlanDates(durationWeeks int32) (time.Time, tim
 const errDatabaseError = "database error"
 
 type savePlanOptions struct {
-	ctx                 context.Context
 	tx                  *sql.Tx
 	planID              string
 	userID              string
@@ -160,13 +159,13 @@ type savePlanOptions struct {
 	durationWeeks       int32
 }
 
-func (s *trainingServer) savePlanToDatabase(opts savePlanOptions) error {
+func (s *trainingServer) savePlanToDatabase(ctx context.Context, opts savePlanOptions) error {
 	s.log.Info("Inserting into training_plans",
 		zap.String("planID", opts.planID),
 		zap.String("userID", opts.userID),
 		zap.String("classificationClass", opts.classificationClass),
 	)
-	_, err := opts.tx.ExecContext(opts.ctx, `
+	_, err := opts.tx.ExecContext(ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, opts.planID, opts.userID, "Персонализированная программа", opts.classificationClass, opts.classificationClass, opts.durationWeeks, time.Now(), opts.startDate.Truncate(24*time.Hour), opts.endDate.Truncate(24*time.Hour), "active", time.Now())
@@ -626,8 +625,8 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 		}
 	}
 
-	if iterationErr := weekRows.Err(); iterationErr != nil {
-		log.Error("Week rows iteration error", zap.Error(err))
+	if weekRows.Err() != nil {
+		log.Error("Week rows iteration error", zap.Error(weekRows.Err()))
 		return nil, status.Error(codes.Internal, "error reading weeks")
 	}
 

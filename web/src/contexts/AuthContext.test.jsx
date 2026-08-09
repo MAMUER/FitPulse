@@ -66,7 +66,10 @@ describe('AuthContext', () => {
         <div>
           <span data-testid='token'>{auth.token ?? 'null'}</span>
           <span data-testid='isAdmin'>{String(auth.isAdmin)}</span>
-          <button onClick={() => auth.login('admin@test.com', 'pass')}>
+          <button
+            type='button'
+            onClick={() => auth.login('admin@test.com', 'pass')}
+          >
             Login
           </button>
         </div>
@@ -93,7 +96,9 @@ describe('AuthContext', () => {
           <span data-testid='token'>{auth.token ?? 'null'}</span>
           <span data-testid='user'>{auth.user ?? 'null'}</span>
           <span data-testid='isAdmin'>{String(auth.isAdmin)}</span>
-          <button onClick={() => auth.logout()}>Logout</button>
+          <button type='button' onClick={() => auth.logout()}>
+            Logout
+          </button>
         </div>
       );
     };

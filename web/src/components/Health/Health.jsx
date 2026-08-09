@@ -80,13 +80,13 @@ export default function Health() {
     const muscle_mass_percentage = prompt('Процент мышц:');
     try {
       await createBodyComposition({
-        weight_kg: parseFloat(weight_kg),
-        height_cm: height_cm ? parseFloat(height_cm) : null,
+        weight_kg: Number.parseFloat(weight_kg),
+        height_cm: height_cm ? Number.parseFloat(height_cm) : null,
         body_fat_percentage: body_fat_percentage
-          ? parseFloat(body_fat_percentage)
+          ? Number.parseFloat(body_fat_percentage)
           : null,
         muscle_mass_percentage: muscle_mass_percentage
-          ? parseFloat(muscle_mass_percentage)
+          ? Number.parseFloat(muscle_mass_percentage)
           : null,
       });
       showToast('Запись добавлена');
@@ -160,7 +160,11 @@ export default function Health() {
       <section className='health-section'>
         <h3>Заболевания и состояния</h3>
         <div className='health-actions'>
-          <button className='btn-secondary' onClick={handleAddCondition}>
+          <button
+            type='button'
+            className='btn-secondary'
+            onClick={handleAddCondition}
+          >
             Добавить
           </button>
         </div>
@@ -191,6 +195,7 @@ export default function Health() {
                 {c.notes && <div className='health-card-notes'>{c.notes}</div>}
                 <div className='health-card-actions'>
                   <button
+                    type='button'
                     className='btn-danger-ghost'
                     onClick={() => handleDeleteCondition(c.condition_id)}
                   >
@@ -206,7 +211,11 @@ export default function Health() {
       <section className='health-section'>
         <h3>Состав тела</h3>
         <div className='health-actions'>
-          <button className='btn-secondary' onClick={handleAddBodyComposition}>
+          <button
+            type='button'
+            className='btn-secondary'
+            onClick={handleAddBodyComposition}
+          >
             Добавить
           </button>
         </div>
@@ -250,7 +259,11 @@ export default function Health() {
       <section className='health-section'>
         <h3>Менструальный цикл</h3>
         <div className='health-actions'>
-          <button className='btn-secondary' onClick={handleAddMenstrualCycle}>
+          <button
+            type='button'
+            className='btn-secondary'
+            onClick={handleAddMenstrualCycle}
+          >
             Добавить
           </button>
         </div>
@@ -292,6 +305,7 @@ export default function Health() {
                 {c.notes && <div className='health-card-notes'>{c.notes}</div>}
                 <div className='health-card-actions'>
                   <button
+                    type='button'
                     className='btn-danger-ghost'
                     onClick={() =>
                       handleDeleteCycle(c.menstrual_cycle_id || c.id)

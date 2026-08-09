@@ -818,7 +818,7 @@ func (s *userServer) updateUserList(ctx context.Context, userID, tableName, colu
 	if !validTables[tableName] || !validColumns[columnName] {
 		return status.Error(codes.Internal, "invalid table or column name")
 	}
-	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID)
+	_, err := s.db.ExecContext(ctx, fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1`, tableName), userID) // NOSONAR go:S2077 - tableName validated against allow-list: user_goals, user_contraindications
 	if err != nil {
 		s.log.Error("Failed to delete old "+logMsg, zap.Error(err), zap.String("user_id", userID))
 		return status.Errorf(codes.Internal, "failed to update %s", logMsg)
@@ -2349,9 +2349,9 @@ func (s *userServer) migrateTablePII(ctx context.Context, t piiTable, key string
 
 func (s *userServer) migratePIIRow(ctx context.Context, t piiTable, key string, id int64, rowID string, rowVals []interface{}) bool {
 	var probe string
-	if dErr := s.db.QueryRowContext(ctx,
+	if s.db.QueryRowContext(ctx,
 		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", id), rowVals[1], // NOSONAR go:S2077 - id is pgsodium key ID from trusted source, not user input
-	).Scan(&probe); dErr == nil {
+	).Scan(&probe) == nil {
 		return false
 	}
 

@@ -172,9 +172,10 @@ export default function TwoFASetup() {
             ))}
           </ul>
           <div className='field'>
-            <label>Код из приложения</label>
+            <label htmlFor='setupCode'>Код из приложения</label>
             <input
               type='text'
+              id='setupCode'
               placeholder='6-значный код'
               maxLength={6}
               inputMode='numeric'

@@ -138,6 +138,7 @@ export default function Devices() {
       </div>
 
       <button
+        type='button'
         className='action-btn'
         onClick={handleConnect}
         disabled={status === 'loading'}
@@ -164,6 +165,7 @@ export default function Devices() {
                 </p>
               </div>
               <button
+                type='button'
                 onClick={() => handleDisconnect(p.source)}
                 className='btn-secondary'
                 style={{ padding: '8px 12px', fontSize: 13 }}

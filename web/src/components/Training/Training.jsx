@@ -72,6 +72,7 @@ export default function Training() {
         )}
       </div>
       <button
+        type='button'
         id='generatePlanBtn'
         className='btn-floating'
         onClick={handleGenerate}

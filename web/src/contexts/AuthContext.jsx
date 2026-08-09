@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -40,42 +41,41 @@ export function AuthProvider({ children }) {
     }
   }, [token, refreshProfile]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const data = await apiLogin(email, password);
     setToken(data.access_token);
     if (data.role === 'admin') setIsAdmin(true);
     return data;
-  };
+  }, []);
 
-  const register = async (email, password, fullName) => {
+  const register = useCallback(async (email, password, fullName) => {
     const data = await apiRegister(email, password, fullName);
     return data;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await apiLogout();
     setToken(null);
     setUser(null);
     setIsAdmin(false);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        token,
-        user,
-        loading,
-        isAdmin,
-        login,
-        register,
-        logout,
-        refreshProfile,
-        setToken: (t) => setToken(t),
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      token,
+      user,
+      loading,
+      isAdmin,
+      login,
+      register,
+      logout,
+      refreshProfile,
+      setToken: (t) => setToken(t),
+    }),
+    [token, user, loading, isAdmin, login, register, logout, refreshProfile]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

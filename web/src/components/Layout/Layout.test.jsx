@@ -4,10 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from './Layout';
 
-vi.mock('../../contexts/AuthContext', () => ({
-  ...vi.importActual('../../contexts/AuthContext'),
-  useAuth: vi.fn(),
-}));
+vi.mock('../../contexts/AuthContext', async () => {
+  const actual = await vi.importActual('../../contexts/AuthContext');
+  return {
+    ...actual,
+    useAuth: vi.fn(),
+  };
+});
 
 const renderLayout = (initialRoute = '/', authOverrides = {}) => {
   const mockUseAuth = useAuth;

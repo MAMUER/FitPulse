@@ -39,6 +39,7 @@ export default function Layout() {
       <header className='top-bar'>
         <h2>{getPageTitle()}</h2>
         <button
+          type='button'
           id='logoutBtn'
           className='btn-icon'
           onClick={logout}

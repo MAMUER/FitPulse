@@ -16,9 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Обновляем pip до актуальной версии (>= 26.1 на July 2026)
-RUN pip install --no-cache-dir --only-binary :all: --upgrade "pip>=26.1" "setuptools>=83.0" "wheel>=0.47"
-
 # Install dependencies (cached layer) — использует lock файл для reproducibility
 COPY cmd/ml_generator/requirements.lock.txt /tmp/requirements.lock.txt
 RUN pip install --no-cache-dir --only-binary :all: --retries 5 \

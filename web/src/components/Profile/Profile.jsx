@@ -16,7 +16,6 @@ import './Profile.css';
 
 export default function Profile() {
   const { refreshProfile } = useAuth();
-  const [, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -45,7 +44,6 @@ export default function Profile() {
   const loadProfile = async () => {
     try {
       const data = await getProfile();
-      setProfile(data);
       const p = data.profile || data;
       setForm({
         nickname: p.full_name || p.nickname || '',
@@ -93,10 +91,10 @@ export default function Profile() {
     try {
       const data = {
         full_name: form.nickname.trim(),
-        age: form.age ? parseInt(form.age, 10) : null,
+        age: form.age ? Number.parseInt(form.age, 10) : null,
         gender: form.gender || null,
-        height_cm: form.height ? parseInt(form.height, 10) : null,
-        weight_kg: form.weight ? parseFloat(form.weight) : null,
+        height_cm: form.height ? Number.parseInt(form.height, 10) : null,
+        weight_kg: form.weight ? Number.parseFloat(form.weight) : null,
         fitness_level: form.fitness || null,
         nutrition: form.nutrition || null,
         goals: form.goal ? [form.goal] : [],
@@ -128,9 +126,10 @@ export default function Profile() {
         <div className='form-section'>
           <h3>Основное</h3>
           <div className='form-group'>
-            <label>Никнейм *</label>
+            <label htmlFor='nickname'>Никнейм *</label>
             <input
               type='text'
+              id='nickname'
               value={form.nickname}
               onChange={(e) => setField('nickname', e.target.value)}
               placeholder='Ваш никнейм'
@@ -141,9 +140,10 @@ export default function Profile() {
           </div>
           <div className='form-row'>
             <div className='form-group'>
-              <label>Возраст</label>
+              <label htmlFor='age'>Возраст</label>
               <input
                 type='number'
+                id='age'
                 value={form.age}
                 onChange={(e) => setField('age', e.target.value)}
                 placeholder='30'
@@ -155,8 +155,9 @@ export default function Profile() {
               <div className='field-error'>{errors.age || ''}</div>
             </div>
             <div className='form-group'>
-              <label>Пол</label>
+              <label htmlFor='gender'>Пол</label>
               <select
+                id='gender'
                 value={form.gender}
                 onChange={(e) => setField('gender', e.target.value)}
               >
@@ -172,9 +173,10 @@ export default function Profile() {
           <h3>Параметры тела</h3>
           <div className='form-row'>
             <div className='form-group'>
-              <label>Рост, см</label>
+              <label htmlFor='height'>Рост, см</label>
               <input
                 type='number'
+                id='height'
                 value={form.height}
                 onChange={(e) => setField('height', e.target.value)}
                 placeholder='175'
@@ -186,9 +188,10 @@ export default function Profile() {
               <div className='field-error'>{errors.height || ''}</div>
             </div>
             <div className='form-group'>
-              <label>Вес, кг</label>
+              <label htmlFor='weight'>Вес, кг</label>
               <input
                 type='number'
+                id='weight'
                 value={form.weight}
                 onChange={(e) => setField('weight', e.target.value)}
                 placeholder='70'
@@ -205,8 +208,8 @@ export default function Profile() {
             form.weight &&
             (() => {
               const bmi = calculateBMI(
-                parseFloat(form.height),
-                parseFloat(form.weight)
+                Number.parseFloat(form.height),
+                Number.parseFloat(form.weight)
               );
               if (bmi) {
                 return (
@@ -225,8 +228,9 @@ export default function Profile() {
         <div className='form-section'>
           <h3>Образ жизни</h3>
           <div className='form-group'>
-            <label>Уровень подготовки</label>
+            <label htmlFor='fitness'>Уровень подготовки</label>
             <select
+              id='fitness'
               value={form.fitness}
               onChange={(e) => setField('fitness', e.target.value)}
             >
@@ -243,8 +247,9 @@ export default function Profile() {
             </select>
           </div>
           <div className='form-group'>
-            <label>Тип питания</label>
+            <label htmlFor='nutrition'>Тип питания</label>
             <select
+              id='nutrition'
               value={form.nutrition}
               onChange={(e) => setField('nutrition', e.target.value)}
             >
@@ -262,20 +267,24 @@ export default function Profile() {
         <div className='form-section'>
           <h3>Здоровье и предпочтения</h3>
           <div className='form-group'>
-            <label>
+            <label htmlFor='allergies'>
               Аллергии или непереносимость продуктов (через запятую)
             </label>
             <input
               type='text'
+              id='allergies'
               value={form.allergies}
               onChange={(e) => setField('allergies', e.target.value)}
               placeholder='Например: орехи, лактоза, глютен'
             />
           </div>
           <div className='form-group'>
-            <label>Медицинские противопоказания (для тренировок)</label>
+            <label htmlFor='contraindications'>
+              Медицинские противопоказания (для тренировок)
+            </label>
             <input
               type='text'
+              id='contraindications'
               value={form.contraindications}
               onChange={(e) => setField('contraindications', e.target.value)}
               placeholder='Например: проблемы с коленями, астма'

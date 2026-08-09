@@ -304,11 +304,11 @@ func (m *mockDBForNewNonce) DeleteBySource(ctx context.Context, userID, source s
 
 type mockTx struct{}
 
-func (m *mockTx) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (m *mockTx) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
 	return &mockResult{}, nil
 }
 
-func (m *mockTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) RowScanner {
+func (m *mockTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) Scanner {
 	return nil
 }
 
@@ -322,11 +322,11 @@ func (m *mockTx) Rollback() error {
 
 type mockTxWithNonce struct{}
 
-func (m *mockTxWithNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (m *mockTxWithNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
 	return &mockResult{}, nil
 }
 
-func (m *mockTxWithNonce) QueryRowContext(ctx context.Context, query string, args ...interface{}) RowScanner {
+func (m *mockTxWithNonce) QueryRowContext(ctx context.Context, query string, args ...interface{}) Scanner {
 	return sqlRowWithTime{time: time.Now()}
 }
 
@@ -346,11 +346,11 @@ func (r sqlRowNoRows) Scan(dest ...interface{}) error {
 
 type mockTxForNewNonce struct{}
 
-func (m *mockTxForNewNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (m *mockTxForNewNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
 	return &mockResult{}, nil
 }
 
-func (m *mockTxForNewNonce) QueryRowContext(ctx context.Context, query string, args ...interface{}) RowScanner {
+func (m *mockTxForNewNonce) QueryRowContext(ctx context.Context, query string, args ...interface{}) Scanner {
 	return sqlRowNoRows{}
 }
 

@@ -27,6 +27,181 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+  const setSettledMetric = (settled, setter, formatFn) => {
+    if (settled.status === 'fulfilled' && settled.value?.records?.length > 0) {
+      setter(formatFn(settled.value.records[0].value));
+    }
+  };
+
+  const setBpMetric = (sysSettled, diaSettled, setter) => {
+    if (
+      sysSettled.status === 'fulfilled' &&
+      sysSettled.value?.records?.length > 0 &&
+      diaSettled.status === 'fulfilled' &&
+      diaSettled.value?.records?.length > 0
+    ) {
+      const sys = Math.round(sysSettled.value.records[0].value);
+      const dia = Math.round(diaSettled.value.records[0].value);
+      setter(`${sys}/${dia}`);
+    }
+  };
+
+  const renderHeartRateChart = (hrData) => {
+    if (hrData.status !== 'fulfilled' || hrData.value?.records?.length <= 1)
+      return;
+
+    const records = hrData.value.records.slice(0, 20).reverse();
+    const labels = records.map((r) =>
+      new Date(r.timestamp).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    );
+    const values = records.map((r) => r.value);
+
+    if (chartInstance.current) chartInstance.current.destroy();
+    const ctx = chartRef.current?.getContext('2d');
+    if (!ctx) return;
+
+    chartInstance.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            data: values,
+            borderColor: '#ff375f',
+            backgroundColor: 'rgba(255,55,95,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            borderWidth: 2.5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            display: true,
+            grid: { display: false },
+            ticks: {
+              color: '#636366',
+              maxTicksLimit: 6,
+              font: { size: 11 },
+            },
+          },
+          y: {
+            display: true,
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#636366', font: { size: 11 } },
+          },
+        },
+      },
+    });
+  };
+
+  const loadAiRecommendation = async () => {
+    try {
+      const classifyRes = await classifyState({});
+      if (classifyRes?.predicted_class_ru) {
+        setAiRecommendation(classifyRes.predicted_class_ru);
+        setAiDescription(classifyRes.description || '');
+      } else if (classifyRes?.predicted_class) {
+        setAiRecommendation(classifyRes.predicted_class);
+        setAiDescription('AI анализ требует больше данных');
+      }
+    } catch {
+      setAiRecommendation('Ошибка анализа');
+      setAiDescription('Сервис AI временно недоступен');
+    }
+  };
+
+  const getRestWorkoutHtml = () => `
+    <div className="workout-content">
+      <h4>😴 Отдых</h4>
+      <p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
+    </div>
+  `;
+
+  const buildExercisesHtml = (exercises) => {
+    if (exercises.length === 0) return '';
+    const items = exercises.map((ex) => {
+      const details = [];
+      if (ex.sets) details.push(`${ex.sets}x${ex.reps}`);
+      if (ex.duration) details.push(`${ex.duration}мин`);
+      const detailText = details.length > 0 ? `(${details.join(', ')})` : '';
+      return `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${detailText}</li>`;
+    });
+    return `<ul style="margin: 10px 0; padding-left: 20px;">${items.join('')}</ul>`;
+  };
+
+  const trainingTypes = {
+    cardio: '🏃 Кардио',
+    strength: '💪 Силовая',
+    recovery: '🧘 Восстановление',
+    endurance: '🏃 Выносливость',
+    hiit: 'HIIT',
+  };
+
+  const buildWorkoutHtml = (day) => {
+    const exercises = day.exercises || [];
+    const typeLabel = trainingTypes[day.training_type] || '';
+    const exercisesHtml = buildExercisesHtml(exercises);
+    return `
+      <div className="workout-content">
+        <h4>${typeLabel}</h4>
+        ${exercisesHtml}
+        ${day.duration ? `<p> Длительность: ${day.duration} мин</p>` : ''}
+        ${day.notes ? `<p>${day.notes}</p>` : ''}
+      </div>
+    `;
+  };
+
+  const findTodayWorkout = (weeks) => {
+    const today = new Date().getDay();
+    for (const week of weeks) {
+      for (const day of week.days || []) {
+        if (day.day_of_week === today) {
+          return day;
+        }
+      }
+    }
+    return null;
+  };
+
+  const loadTodayWorkout = async () => {
+    try {
+      const plansData = await getTrainingPlans(1, 1);
+      const plans = plansData?.plans || [];
+      if (plans.length === 0) {
+        setTodayWorkout(getRestWorkoutHtml());
+        return;
+      }
+
+      let todayWorkoutHtml = '';
+      try {
+        const fullPlan = await getPlan(plans[0].plan_id);
+        const planData = fullPlan?.plan?.plan_data || fullPlan?.plan_data || {};
+        const weeks = planData.weeks || [];
+        const todayWorkoutData = findTodayWorkout(weeks);
+        if (todayWorkoutData) {
+          todayWorkoutHtml = buildWorkoutHtml(todayWorkoutData);
+        }
+      } catch (e) {
+        console.warn('Could not load full plan details:', e);
+      }
+
+      if (!todayWorkoutHtml) {
+        todayWorkoutHtml = getRestWorkoutHtml();
+      }
+      setTodayWorkout(todayWorkoutHtml);
+    } catch (err) {
+      console.error('Failed to load today workout:', err);
+    }
+  };
 
   const loadDashboard = async () => {
     try {
@@ -39,180 +214,15 @@ export default function Dashboard() {
           getBiometricRecords('diastolic_pressure', null, null, 5),
         ]);
 
-      if (hrData.status === 'fulfilled' && hrData.value.records?.length > 0) {
-        setHrValue(Math.round(hrData.value.records[0].value));
-      }
-      if (
-        spo2Data.status === 'fulfilled' &&
-        spo2Data.value.records?.length > 0
-      ) {
-        setSpo2Value(Math.round(spo2Data.value.records[0].value));
-      }
-      if (
-        sleepData.status === 'fulfilled' &&
-        sleepData.value.records?.length > 0
-      ) {
-        const sleepVal = sleepData.value.records[0].value;
-        setSleepValue(
-          Number.isInteger(sleepVal) ? sleepVal : sleepVal.toFixed(1)
-        );
-      }
-      if (
-        systolicData.status === 'fulfilled' &&
-        systolicData.value.records?.length > 0 &&
-        diastolicData.status === 'fulfilled' &&
-        diastolicData.value.records?.length > 0
-      ) {
-        const sys = Math.round(systolicData.value.records[0].value);
-        const dia = Math.round(diastolicData.value.records[0].value);
-        setBpValue(`${sys}/${dia}`);
-      }
-
-      // Chart
-      if (hrData.status === 'fulfilled' && hrData.value.records?.length > 1) {
-        const records = hrData.value.records.slice(0, 20).reverse();
-        const labels = records.map((r) =>
-          new Date(r.timestamp).toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        );
-        const values = records.map((r) => r.value);
-
-        if (chartInstance.current) chartInstance.current.destroy();
-        const ctx = chartRef.current?.getContext('2d');
-        if (ctx) {
-          chartInstance.current = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [
-                {
-                  data: values,
-                  borderColor: '#ff375f',
-                  backgroundColor: 'rgba(255,55,95,0.1)',
-                  fill: true,
-                  tension: 0.4,
-                  pointRadius: 0,
-                  borderWidth: 2.5,
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: {
-                  display: true,
-                  grid: { display: false },
-                  ticks: {
-                    color: '#636366',
-                    maxTicksLimit: 6,
-                    font: { size: 11 },
-                  },
-                },
-                y: {
-                  display: true,
-                  grid: { color: 'rgba(255,255,255,0.05)' },
-                  ticks: { color: '#636366', font: { size: 11 } },
-                },
-              },
-            },
-          });
-        }
-      }
-
-      // AI recommendation
-      try {
-        const classifyRes = await classifyState({});
-        if (classifyRes?.predicted_class_ru) {
-          setAiRecommendation(classifyRes.predicted_class_ru);
-          setAiDescription(classifyRes.description || '');
-        } else if (classifyRes?.predicted_class) {
-          setAiRecommendation(classifyRes.predicted_class);
-          setAiDescription('AI анализ требует больше данных');
-        }
-      } catch {
-        setAiRecommendation('Ошибка анализа');
-        setAiDescription('Сервис AI временно недоступен');
-      }
-
-      // Today's workout
-      try {
-        const plansData = await getTrainingPlans(1, 1);
-        const plans = plansData?.plans || [];
-        if (plans.length > 0) {
-          const plan = plans[0];
-          let todayWorkoutHtml = '';
-          try {
-            const fullPlan = await getPlan(plan.plan_id);
-            const planData =
-              fullPlan?.plan?.plan_data || fullPlan?.plan_data || {};
-            const weeks = planData.weeks || [];
-            if (weeks.length > 0) {
-              const today = new Date().getDay();
-              let todayWorkoutData = null;
-              for (const week of weeks) {
-                for (const day of week.days || []) {
-                  if (day.day_of_week === today) {
-                    todayWorkoutData = day;
-                    break;
-                  }
-                }
-                if (todayWorkoutData) break;
-              }
-              if (todayWorkoutData) {
-                const trainingTypes = {
-                  cardio: '🏃 Кардио',
-                  strength: '💪 Силовая',
-                  recovery: '🧘 Восстановление',
-                  endurance: '🏃 Выносливость',
-                  hiit: 'HIIT',
-                };
-                const exercises = todayWorkoutData.exercises || [];
-                const typeLabel =
-                  trainingTypes[todayWorkoutData.training_type] || '';
-                let exercisesHtml = '';
-                if (exercises.length > 0) {
-                  exercisesHtml =
-                    '<ul style="margin: 10px 0; padding-left: 20px;">' +
-                    exercises
-                      .map((ex) => {
-                        const details = [];
-                        if (ex.sets) details.push(`${ex.sets}x${ex.reps}`);
-                        if (ex.duration) details.push(`${ex.duration}мин`);
-                        return `<li>${EXERCISE_NAME_MAP[ex.exercise_name] || ex.exercise_name || ''} ${details.length > 0 ? `(${details.join(', ')})` : ''}</li>`;
-                      })
-                      .join('') +
-                    '</ul>';
-                }
-                todayWorkoutHtml = `
-                  <div className="workout-content">
-                    <h4>${typeLabel}</h4>
-                    ${exercisesHtml}
-                    ${todayWorkoutData.duration ? `<p> Длительность: ${todayWorkoutData.duration} мин</p>` : ''}
-                    ${todayWorkoutData.notes ? `<p>${todayWorkoutData.notes}</p>` : ''}
-                  </div>
-                `;
-              }
-            }
-          } catch (e) {
-            console.warn('Could not load full plan details:', e);
-          }
-          if (!todayWorkoutHtml) {
-            todayWorkoutHtml = `
-              <div className="workout-content">
-                <h4>😴 Отдых</h4>
-                <p>Сегодня нет тренировки. Вашему организму нужен отдых для восстановления.</p>
-              </div>
-            `;
-          }
-          setTodayWorkout(todayWorkoutHtml);
-        }
-      } catch (err) {
-        console.error('Failed to load today workout:', err);
-      }
+      setSettledMetric(hrData, setHrValue, Math.round);
+      setSettledMetric(spo2Data, setSpo2Value, Math.round);
+      setSettledMetric(sleepData, setSleepValue, (sleepVal) =>
+        Number.isInteger(sleepVal) ? sleepVal : sleepVal.toFixed(1)
+      );
+      setBpMetric(systolicData, diastolicData, setBpValue);
+      renderHeartRateChart(hrData);
+      await loadAiRecommendation();
+      await loadTodayWorkout();
     } catch (err) {
       console.error('Dashboard load failed:', err);
     }
