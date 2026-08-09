@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -335,7 +336,7 @@ func TestSendWithTLSAuthErrorFormat(t *testing.T) {
 
 	origTLS := sendWithTLSImpl
 	sendWithTLSImpl = func(ctx context.Context, c Config, addr, toEmail, msg string) error {
-		return fmt.Errorf("SMTP authentication failed: invalid credentials")
+		return errors.New("SMTP authentication failed: invalid credentials")
 	}
 	t.Cleanup(func() { sendWithTLSImpl = origTLS })
 
