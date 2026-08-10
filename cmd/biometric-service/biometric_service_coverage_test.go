@@ -133,4 +133,3 @@ func TestSafeIntToInt32_AllCases(t *testing.T) {
 		})
 	}
 }
-

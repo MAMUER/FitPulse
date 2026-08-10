@@ -127,6 +127,11 @@ describe('Devices', () => {
 
   it('shows empty providers message when none connected', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      headers: {
+        get: () => 'application/json',
+      },
       json: () => Promise.resolve({ providers: [] }),
     });
     renderDevices();
@@ -148,6 +153,11 @@ describe('Devices', () => {
 
   it('displays providers after loading', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      headers: {
+        get: () => 'application/json',
+      },
       json: () =>
         Promise.resolve({
           providers: [

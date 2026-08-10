@@ -6,7 +6,7 @@ import {
   getPlan,
   getTrainingPlans,
 } from '../../utils/api';
-import { EXERCISE_NAME_MAP } from '../../utils/exerciseNames';
+import { EXERCISE_NAME_MAP } from '../../utils/constants';
 import './Dashboard.css';
 
 export default function Dashboard() {
