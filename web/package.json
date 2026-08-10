@@ -27,7 +27,7 @@
     "@biomejs/biome": "^2.5.5",
     "@vitest/coverage-v8": "^4.1.10",
     "@vitejs/plugin-react": "^6.0.4",
-    "jsdom": "^30.0.0",
+    "jsdom": "^30.0.1",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"
   }
