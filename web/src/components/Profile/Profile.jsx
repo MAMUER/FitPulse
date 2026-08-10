@@ -1,25 +1,14 @@
 import { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useProfile } from './useProfile';
 import ChangeEmailModal from './ChangeEmailModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import DeleteProfileModal from './DeleteProfileModal';
 import TwoFASetup from './TwoFASetup';
+import { useProfile } from './useProfile';
 import './Profile.css';
 
 export default function Profile() {
-  const { refreshProfile } = useAuth();
-  const {
-    loading,
-    saving,
-    errors,
-    toast,
-    form,
-    bmi,
-    setField,
-    handleSubmit,
-    setToast,
-  } = useProfile();
+  const { loading, saving, errors, toast, form, bmi, setField, handleSubmit } =
+    useProfile();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -128,9 +117,15 @@ export default function Profile() {
               onChange={(e) => setField('fitness', e.target.value)}
             >
               <option value=''>—</option>
-              <option value='beginner'>Начинающий (менее 1 тренировки в неделю)</option>
-              <option value='intermediate'>Средний (1-3 тренировки в неделю)</option>
-              <option value='advanced'>Продвинутый (более 3 тренировок в неделю)</option>
+              <option value='beginner'>
+                Начинающий (менее 1 тренировки в неделю)
+              </option>
+              <option value='intermediate'>
+                Средний (1-3 тренировки в неделю)
+              </option>
+              <option value='advanced'>
+                Продвинутый (более 3 тренировок в неделю)
+              </option>
             </select>
           </div>
           <div className='form-group'>

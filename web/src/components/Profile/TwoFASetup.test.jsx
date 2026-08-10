@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../utils/api';
 import TwoFASetup from './TwoFASetup';
@@ -14,6 +15,8 @@ describe('TwoFASetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  const user = userEvent.setup();
 
   it('shows loading state initially', () => {
     api.get2FAStatus.mockImplementation(() => new Promise(() => {}));
@@ -60,7 +63,7 @@ describe('TwoFASetup', () => {
       expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
     });
 
-    screen.getByText('Включить 2FA').click();
+    await user.click(screen.getByText('Включить 2FA'));
 
     await waitFor(() => {
       expect(
@@ -78,7 +81,7 @@ describe('TwoFASetup', () => {
       expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
     });
 
-    screen.getByText('Включить 2FA').click();
+    await user.click(screen.getByText('Включить 2FA'));
 
     await waitFor(() => {
       expect(screen.getByText('setup failed')).toBeInTheDocument();
@@ -98,16 +101,16 @@ describe('TwoFASetup', () => {
       expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
     });
 
-    screen.getByText('Включить 2FA').click();
+    await user.click(screen.getByText('Включить 2FA'));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
     });
 
     const input = screen.getByPlaceholderText('6-значный код');
-    fireEvent.change(input, { target: { value: '123' } });
+    await user.type(input, '123');
 
-    screen.getByText('Подтвердить и включить 2FA').click();
+    await user.click(screen.getByText('Подтвердить и включить 2FA'));
 
     await waitFor(() => {
       expect(screen.getByText('Введите 6-значный код')).toBeInTheDocument();
@@ -132,16 +135,16 @@ describe('TwoFASetup', () => {
       expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
     });
 
-    screen.getByText('Включить 2FA').click();
+    await user.click(screen.getByText('Включить 2FA'));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
     });
 
     const input = screen.getByPlaceholderText('6-значный код');
-    fireEvent.change(input, { target: { value: '123456' } });
+    await user.type(input, '123456');
 
-    screen.getByText('Подтвердить и включить 2FA').click();
+    await user.click(screen.getByText('Подтвердить и включить 2FA'));
 
     await waitFor(() => {
       expect(screen.getByText(/Включена/)).toBeInTheDocument();
@@ -163,7 +166,7 @@ describe('TwoFASetup', () => {
     });
 
     const disablePanel = document.getElementById('disable2FAPanel');
-    disablePanel.querySelector('button').click();
+    await user.click(disablePanel.querySelector('button'));
 
     await waitFor(() => {
       expect(screen.getByText('Введите код 2FA')).toBeInTheDocument();
@@ -187,9 +190,71 @@ describe('TwoFASetup', () => {
 
     const disablePanel = document.getElementById('disable2FAPanel');
     const disableInput = disablePanel.querySelector('input');
-    fireEvent.change(disableInput, { target: { value: '123456' } });
+    await user.type(disableInput, '123456');
 
-    disablePanel.querySelector('button').click();
+    await user.click(disablePanel.querySelector('button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Не включена')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when confirm 2FA fails', async () => {
+    api.get2FAStatus.mockResolvedValue({ enabled: false });
+    api.setup2FA.mockResolvedValueOnce({
+      qr_code_base64: 'data:image/png;base64,abc',
+      secret: 'JBSWY3DPEHPK3PXP',
+      backup_codes: ['123456', '789012'],
+    });
+    api.confirm2FA.mockRejectedValueOnce(new Error('invalid code'));
+    render(<TwoFASetup />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Включить 2FA'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText('6-значный код');
+    await user.type(input, '123456');
+
+    await user.click(screen.getByText('Подтвердить и включить 2FA'));
+
+    await waitFor(() => {
+      expect(screen.getByText('invalid code')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when disable 2FA fails', async () => {
+    api.get2FAStatus.mockResolvedValue({
+      enabled: true,
+      backup_codes_remaining: 5,
+    });
+    api.disable2FA.mockRejectedValueOnce(new Error('disable failed'));
+    render(<TwoFASetup />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Включена/)).toBeInTheDocument();
+    });
+
+    const disablePanel = document.getElementById('disable2FAPanel');
+    const disableInput = disablePanel.querySelector('input');
+    await user.type(disableInput, '123456');
+
+    await user.click(disablePanel.querySelector('button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('disable failed')).toBeInTheDocument();
+    });
+  });
+
+  it('handles load status error gracefully', async () => {
+    api.get2FAStatus.mockRejectedValueOnce(new Error('load failed'));
+    render(<TwoFASetup />);
 
     await waitFor(() => {
       expect(screen.getByText('Не включена')).toBeInTheDocument();

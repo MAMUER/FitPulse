@@ -1,10 +1,11 @@
-import { use2FA } from './use2FA';
+import { useTwoFA } from './useTwoFA';
 import './Profile.css';
 
 export default function TwoFASetup() {
   const {
     loading,
     enabled,
+    status,
     qrCode,
     secret,
     backupCodes,
@@ -20,7 +21,7 @@ export default function TwoFASetup() {
     handleEnable,
     handleConfirmSetup,
     handleDisable,
-  } = use2FA();
+  } = useTwoFA();
 
   if (loading) return <div>Загрузка статуса 2FA...</div>;
 

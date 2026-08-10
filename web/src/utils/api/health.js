@@ -75,5 +75,7 @@ export async function updateMenstrualCycle(cycleId, data) {
 }
 
 export async function deleteMenstrualCycle(cycleId) {
-  return apiRequest(`/health/menstrual-cycles/${cycleId}`, { method: 'DELETE' });
+  return apiRequest(`/health/menstrual-cycles/${cycleId}`, {
+    method: 'DELETE',
+  });
 }

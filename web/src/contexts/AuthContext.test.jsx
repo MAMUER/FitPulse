@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../utils/api';
 import { AuthProvider, useAuth } from './AuthContext';
@@ -19,6 +20,8 @@ describe('AuthContext', () => {
     vi.clearAllMocks();
     localStorage.clear();
   });
+
+  const user = userEvent.setup();
 
   it('provides initial state when no token', () => {
     const TestComponent = () => {
@@ -59,6 +62,12 @@ describe('AuthContext', () => {
       access_token: 'new-token',
       role: 'admin',
     });
+    api.getProfile.mockResolvedValue({
+      id: 'user-1',
+      email: 'admin@test.com',
+      full_name: 'Admin User',
+      role: 'admin',
+    });
 
     const TestComponent = () => {
       const auth = useAuth();
@@ -77,7 +86,7 @@ describe('AuthContext', () => {
     };
 
     renderAuth(<TestComponent />);
-    screen.getByRole('button').click();
+    await user.click(screen.getByRole('button'));
 
     await waitFor(() => {
       expect(screen.getByTestId('token')).toHaveTextContent('new-token');
@@ -104,7 +113,7 @@ describe('AuthContext', () => {
     };
 
     renderAuth(<TestComponent />);
-    screen.getByRole('button').click();
+    await user.click(screen.getByRole('button'));
 
     await waitFor(() => {
       expect(screen.getByTestId('token')).toHaveTextContent('null');
@@ -135,7 +144,7 @@ describe('AuthContext', () => {
     };
 
     renderAuth(<TestComponent />);
-    screen.getByRole('button').click();
+    await user.click(screen.getByRole('button'));
 
     await waitFor(() => {
       expect(api.register).toHaveBeenCalledWith(
@@ -186,7 +195,7 @@ describe('AuthContext', () => {
     };
 
     renderAuth(<TestComponent />);
-    screen.getByRole('button').click();
+    await user.click(screen.getByRole('button'));
 
     await waitFor(() => {
       expect(screen.getByTestId('token')).toHaveTextContent('manual-token');

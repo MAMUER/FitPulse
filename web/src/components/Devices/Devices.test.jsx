@@ -1,6 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
+import * as api from '../../utils/api';
 import Devices from './Devices';
 
 vi.mock('../../contexts/AuthContext', async () => {
@@ -33,6 +35,8 @@ describe('Devices', () => {
     document.body.innerHTML = '';
   });
 
+  const user = userEvent.setup();
+
   it('renders devices page', () => {
     renderDevices();
     expect(screen.getByText('Источники здоровья')).toBeInTheDocument();
@@ -58,6 +62,7 @@ describe('Devices', () => {
   });
 
   it('handles widget connected message', async () => {
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({ providers: [] });
     renderDevices();
     window.OpenWearablesWidget = {
       init: vi.fn(),
@@ -126,14 +131,7 @@ describe('Devices', () => {
   });
 
   it('shows empty providers message when none connected', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      status: 200,
-      ok: true,
-      headers: {
-        get: () => 'application/json',
-      },
-      json: () => Promise.resolve({ providers: [] }),
-    });
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({ providers: [] });
     renderDevices();
 
     await act(async () => {
@@ -152,22 +150,14 @@ describe('Devices', () => {
   });
 
   it('displays providers after loading', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      status: 200,
-      ok: true,
-      headers: {
-        get: () => 'application/json',
-      },
-      json: () =>
-        Promise.resolve({
-          providers: [
-            {
-              source: 'google',
-              source_name: 'Google Fit',
-              connected_at: '2024-01-01',
-            },
-          ],
-        }),
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
+      providers: [
+        {
+          source: 'google',
+          source_name: 'Google Fit',
+          connected_at: '2024-01-01',
+        },
+      ],
     });
     renderDevices();
 
@@ -182,5 +172,90 @@ describe('Devices', () => {
     await waitFor(() => {
       expect(screen.getByText('Google Fit')).toBeInTheDocument();
     });
+  });
+
+  it('disconnects provider on click', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    const _getProvidersSpy = vi
+      .spyOn(api, 'getProviders')
+      .mockResolvedValueOnce({
+        providers: [
+          {
+            source: 'google',
+            source_name: 'Google Fit',
+            connected_at: '2024-01-01',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ providers: [] });
+    vi.spyOn(api, 'disconnectIntegration').mockResolvedValueOnce(undefined);
+    renderDevices();
+
+    await act(async () => {
+      const event = new MessageEvent('message', {
+        data: { type: 'OPEN_WEARABLES_CONNECTED' },
+        origin: 'https://openwearables.com',
+      });
+      window.dispatchEvent(event);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Google Fit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Отключить'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Google Fit')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows error when disconnect fails', async () => {
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
+      providers: [
+        {
+          source: 'google',
+          source_name: 'Google Fit',
+          connected_at: '2024-01-01',
+        },
+      ],
+    });
+    vi.spyOn(api, 'disconnectIntegration').mockRejectedValueOnce(
+      new Error('Network error')
+    );
+    renderDevices();
+
+    await act(async () => {
+      const event = new MessageEvent('message', {
+        data: { type: 'OPEN_WEARABLES_CONNECTED' },
+        origin: 'https://openwearables.com',
+      });
+      window.dispatchEvent(event);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Google Fit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Отключить'));
+
+    expect(alertMock).toHaveBeenCalledWith('Ошибка отключения: Network error');
+  });
+
+  it('initializes widget when connect button is clicked', async () => {
+    const initMock = vi.fn();
+    window.OpenWearablesWidget = {
+      init: initMock,
+    };
+    renderDevices();
+
+    await user.click(screen.getByText('Подключить источники здоровья'));
+
+    expect(initMock).toHaveBeenCalledTimes(1);
+    const initCall = initMock.mock.calls[0][0];
+    expect(initCall.appId).toBeDefined();
+    expect(initCall.userId).toBe('anonymous');
   });
 });

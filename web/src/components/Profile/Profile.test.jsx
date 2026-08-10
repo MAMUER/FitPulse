@@ -1,4 +1,5 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import { getProfile, updateProfile } from '../../utils/api';
@@ -76,6 +77,8 @@ describe('Profile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  const user = userEvent.setup();
 
   it('shows loading state initially', () => {
     getProfile.mockImplementation(() => new Promise(() => {}));
@@ -155,7 +158,7 @@ describe('Profile', () => {
       expect(screen.getByText('Сохранить')).toBeInTheDocument();
     });
 
-    screen.getByText('Сохранить').click();
+    await user.click(screen.getByText('Сохранить'));
 
     await waitFor(() => {
       expect(screen.getByText('Никнейм обязателен')).toBeInTheDocument();
@@ -184,7 +187,7 @@ describe('Profile', () => {
       expect(screen.getByDisplayValue('Test User')).toBeInTheDocument();
     });
 
-    screen.getByText('Сохранить').click();
+    await user.click(screen.getByText('Сохранить'));
 
     await waitFor(() => {
       expect(screen.getByText('Профиль сохранён')).toBeInTheDocument();
@@ -216,9 +219,7 @@ describe('Profile', () => {
       expect(screen.getByText(button)).toBeInTheDocument();
     });
 
-    await act(async () => {
-      screen.getByText(button).click();
-    });
+    await user.click(screen.getByText(button));
 
     expect(screen.getByTestId(modal)).toBeInTheDocument();
   });
@@ -242,6 +243,357 @@ describe('Profile', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('twofa-setup')).toBeInTheDocument();
+    });
+  });
+
+  it('allows typing in form fields', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Test')).toBeInTheDocument();
+    });
+
+    const nicknameInput = screen.getByLabelText('Никнейм *');
+    await user.clear(nicknameInput);
+    await user.type(nicknameInput, 'NewName');
+    expect(nicknameInput).toHaveValue('NewName');
+  });
+
+  it('allows typing in age field', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('25')).toBeInTheDocument();
+    });
+
+    const ageInput = screen.getByLabelText('Возраст');
+    await user.clear(ageInput);
+    await user.type(ageInput, '30');
+    expect(ageInput).toHaveValue(30);
+  });
+
+  it('allows typing in height field', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const heightInput = screen.getByLabelText('Рост, см');
+    await user.clear(heightInput);
+    await user.type(heightInput, '180');
+    expect(heightInput).toHaveValue(180);
+  });
+
+  it('allows typing in weight field', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('70')).toBeInTheDocument();
+    });
+
+    const weightInput = screen.getByLabelText('Вес, кг');
+    await user.clear(weightInput);
+    await user.type(weightInput, '75');
+    expect(weightInput).toHaveValue(75);
+  });
+
+  it('allows changing goal selection', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const muscleGainLabel = screen.getByText('Набор мышц');
+    await user.click(muscleGainLabel);
+    expect(muscleGainLabel.closest('label')).toHaveClass('selected');
+  });
+
+  it('opens and closes password modal', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сменить пароль')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Сменить пароль'));
+    expect(screen.getByTestId('password-modal')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Close'));
+    expect(screen.queryByTestId('password-modal')).not.toBeInTheDocument();
+  });
+
+  it('opens and closes email modal', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сменить почту')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Сменить почту'));
+    expect(screen.getByTestId('email-modal')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Close'));
+    expect(screen.queryByTestId('email-modal')).not.toBeInTheDocument();
+  });
+
+  it('opens and closes delete modal', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Удалить аккаунт')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Удалить аккаунт'));
+    expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Close'));
+    expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument();
+  });
+
+  it('allows typing in allergies field', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const allergiesInput = screen.getByPlaceholderText('Например: орехи, лактоза, глютен');
+    await user.type(allergiesInput, 'орехи, лактоза');
+    expect(allergiesInput).toHaveValue('орехи, лактоза');
+  });
+
+  it('allows typing in contraindications field', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const contraindicationsInput = screen.getByPlaceholderText('Например: проблемы с коленями, астма');
+    await user.type(contraindicationsInput, 'проблемы с коленями');
+    expect(contraindicationsInput).toHaveValue('проблемы с коленями');
+  });
+
+  it('allows changing fitness level', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const fitnessSelect = screen.getByLabelText('Уровень подготовки');
+    await user.selectOptions(fitnessSelect, 'beginner');
+    expect(fitnessSelect).toHaveValue('beginner');
+  });
+
+  it('allows changing nutrition type', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const nutritionSelect = screen.getByLabelText('Тип питания');
+    await user.selectOptions(nutritionSelect, 'high_protein');
+    expect(nutritionSelect).toHaveValue('high_protein');
+  });
+
+  it('displays toast message on save error', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: 'male',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    updateProfile.mockRejectedValueOnce(new Error('save failed'));
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Сохранить'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ошибка: save failed/)).toBeInTheDocument();
     });
   });
 });

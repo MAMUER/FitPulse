@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { confirm2FA, disable2FA, get2FAStatus, setup2FA } from '../../utils/api';
+import {
+  confirm2FA,
+  disable2FA,
+  get2FAStatus,
+  setup2FA,
+} from '../../utils/api';
 
-export function use2FA() {
+export function useTwoFA() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [qrCode, setQrCode] = useState('');
@@ -98,6 +103,5 @@ export function use2FA() {
     handleEnable,
     handleConfirmSetup,
     handleDisable,
-    status,
   };
 }

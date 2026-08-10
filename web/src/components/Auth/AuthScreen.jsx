@@ -1,156 +1,42 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { register, verify2FA } from '../../utils/api';
-import {
-  validateEmail,
-  validateLoginPassword,
-  validateName,
-  validatePassword,
-} from '../../utils/validators';
+import { useAuthForm } from './useAuthForm';
 import './Auth.css';
 
 export default function AuthScreen({ searchParams: searchParamsProp }) {
-  const getFieldClass = (fieldName) => {
-    if (errors[fieldName]) return 'invalid';
-    return formData[fieldName] ? 'valid' : '';
-  };
-
   const [routerSearchParams] = useSearchParams();
-  const { login } = useAuth();
   const searchParams = searchParamsProp || routerSearchParams;
   const [mode, setMode] = useState('login');
-  const [errors, setErrors] = useState({});
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    totpCode: '',
-    backupCode: '',
-  });
-  const [twoFATempToken, setTwoFATempToken] = useState(null);
-  const [generalError, setGeneralError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [passwordChecks, setPasswordChecks] = useState({
-    length: false,
-    upper: false,
-    lower: false,
-    digit: false,
+  const [twoFATempToken, setTwoFATempToken] = useState(null);
+
+  const {
+    formData,
+    errors,
+    generalError,
+    passwordChecks,
+    submitting,
+    setField,
+    getFieldClass,
+    handleLogin,
+    handleRegister,
+    handleLogin2FA,
+    updatePasswordChecks,
+  } = useAuthForm({
+    searchParams,
+    onModeChange: setMode,
+    onSuccessMessage: setSuccessMessage,
   });
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const confirmToken = searchParams.get('token');
-    if (confirmToken) {
-      setMode('verify');
-      setFormData((f) => ({ ...f, verifyToken: confirmToken }));
-    }
-  }, [searchParams]);
-
-  const setField = (field, value) => {
-    setFormData((f) => ({ ...f, [field]: value }));
-    setErrors((e) => ({ ...e, [field]: '' }));
-    setGeneralError('');
-  };
-
-  const validateLogin = () => {
-    const errs = {};
-    const emailErr = validateEmail(formData.email);
-    if (emailErr) errs.email = emailErr;
-    const passErr = validateLoginPassword(formData.password);
-    if (passErr) errs.password = passErr;
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const validateRegister = () => {
-    const errs = {};
-    const nameErr = validateName(formData.name);
-    if (nameErr) errs.name = nameErr;
-    const emailErr = validateEmail(formData.email);
-    if (emailErr) errs.email = emailErr;
-    const passResult = validatePassword(formData.password);
-    if (passResult.error) errs.password = passResult.error;
-    setPasswordChecks(passResult.checks || {});
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setGeneralError('');
-    if (!validateLogin()) {
-      setGeneralError('Проверьте введённые данные');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const data = await login(formData.email, formData.password);
-      if (data.requires_2fa && data.temp_token) {
-        setTwoFATempToken(data.temp_token);
-        setMode('login2fa');
-      }
-    } catch (err) {
-      setGeneralError(err.message);
-    } finally {
-      setSubmitting(false);
+  const handleLoginSubmit = async (e) => {
+    const result = await handleLogin(e);
+    if (result?.requires2FA) {
+      setTwoFATempToken(result.tempToken);
     }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setGeneralError('');
-    if (!validateRegister()) {
-      setGeneralError('Проверьте введённые данные');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const data = await register(
-        formData.email,
-        formData.password,
-        formData.name
-      );
-      setSuccessMessage(
-        data.message || 'Регистрация успешна. Подтвердите email.'
-      );
-      setMode('verify');
-    } catch (err) {
-      setGeneralError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleLogin2FA = async (e) => {
-    e.preventDefault();
-    setGeneralError('');
-    const code = formData.totpCode || formData.backupCode;
-    if (!code) {
-      setGeneralError('Введите код');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const isBackup = !!formData.backupCode;
-      const data = await verify2FA(twoFATempToken, code, isBackup);
-      login(data.access_token);
-    } catch (err) {
-      setGeneralError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const updatePasswordChecks = (value) => {
-    const checks = {
-      length: value.length >= 8,
-      upper: /[A-ZА-ЯЁ]/.test(value),
-      lower: /[a-zа-яё]/.test(value),
-      digit: /\d/.test(value),
-    };
-    setPasswordChecks(checks);
-    return checks;
+  const handleLogin2FASubmit = (e) => {
+    handleLogin2FA(e, twoFATempToken);
   };
 
   return (
@@ -222,7 +108,7 @@ export default function AuthScreen({ searchParams: searchParamsProp }) {
         </div>
 
         {mode === 'login' && (
-          <form className='auth-form' onSubmit={handleLogin} noValidate>
+          <form className='auth-form' onSubmit={handleLoginSubmit} noValidate>
             <div className='field'>
               <input
                 type='email'
@@ -362,7 +248,11 @@ export default function AuthScreen({ searchParams: searchParamsProp }) {
         )}
 
         {mode === 'login2fa' && (
-          <form className='auth-form' onSubmit={handleLogin2FA} noValidate>
+          <form
+            className='auth-form'
+            onSubmit={handleLogin2FASubmit}
+            noValidate
+          >
             <h2>Двухфакторная аутентификация</h2>
             <p className='verify-text'>
               Введите код из приложения-аутентификатора.
