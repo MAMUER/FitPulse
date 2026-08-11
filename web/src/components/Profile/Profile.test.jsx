@@ -485,7 +485,9 @@ describe('Profile', () => {
       expect(screen.getByDisplayValue('175')).toBeInTheDocument();
     });
 
-    const allergiesInput = screen.getByPlaceholderText('Например: орехи, лактоза, глютен');
+    const allergiesInput = screen.getByPlaceholderText(
+      'Например: орехи, лактоза, глютен'
+    );
     await user.type(allergiesInput, 'орехи, лактоза');
     expect(allergiesInput).toHaveValue('орехи, лактоза');
   });
@@ -511,7 +513,9 @@ describe('Profile', () => {
       expect(screen.getByDisplayValue('175')).toBeInTheDocument();
     });
 
-    const contraindicationsInput = screen.getByPlaceholderText('Например: проблемы с коленями, астма');
+    const contraindicationsInput = screen.getByPlaceholderText(
+      'Например: проблемы с коленями, астма'
+    );
     await user.type(contraindicationsInput, 'проблемы с коленями');
     expect(contraindicationsInput).toHaveValue('проблемы с коленями');
   });

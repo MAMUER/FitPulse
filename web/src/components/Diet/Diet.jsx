@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getProfile } from '../../utils/api';
 import { calculateBMI } from '../../utils/validators';
 import './Diet.css';
@@ -250,11 +250,7 @@ export default function Diet() {
   const [template, setTemplate] = useState('balanced');
   const [meals, setMeals] = useState([]);
 
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const data = await getProfile();
       setProfile(data);
@@ -271,7 +267,11 @@ export default function Diet() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const nutrition = useMemo(() => {
     if (!profile) return null;

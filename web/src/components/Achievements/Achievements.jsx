@@ -1,5 +1,5 @@
 import { Chart } from 'chart.js/auto';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAchievements, getProgress } from '../../utils/api';
 import './Achievements.css';
 
@@ -8,6 +8,17 @@ export default function Achievements() {
   const [progressData, setProgressData] = useState([]);
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+
+  const loadAchievements = useCallback(async () => {
+    try {
+      const data = await getAchievements();
+      setAchievements(data?.achievements || []);
+      const progress = await getProgress();
+      setProgressData(progress?.progress_data || progress?.data || []);
+    } catch (e) {
+      console.error('Failed to load achievements:', e);
+    }
+  }, []);
 
   useEffect(() => {
     loadAchievements();
@@ -47,17 +58,6 @@ export default function Achievements() {
       });
     }
   }, [progressData]);
-
-  const loadAchievements = async () => {
-    try {
-      const data = await getAchievements();
-      setAchievements(data?.achievements || []);
-      const progress = await getProgress();
-      setProgressData(progress?.progress_data || progress?.data || []);
-    } catch (e) {
-      console.error('Failed to load achievements:', e);
-    }
-  };
 
   const iconMap = {
     first_workout: '🏃',

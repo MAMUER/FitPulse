@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   createInvite,
@@ -15,13 +15,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [inviteForm, setInviteForm] = useState({ role: 'client', maxUses: 1 });
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadAdminData();
-    }
-  }, [isAdmin, loadAdminData]);
-
-  const loadAdminData = async () => {
+  const loadAdminData = useCallback(async () => {
     try {
       const [invitesData, usersData] = await Promise.allSettled([
         listInvites(),
@@ -35,7 +29,13 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadAdminData();
+    }
+  }, [isAdmin, loadAdminData]);
 
   const handleCreateInvite = async (e) => {
     e.preventDefault();

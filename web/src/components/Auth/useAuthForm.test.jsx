@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthForm } from './useAuthForm';
 
@@ -34,12 +34,18 @@ describe('useAuthForm', () => {
     validateEmail.mockReturnValue('');
     validateLoginPassword.mockReturnValue('');
     validateName.mockReturnValue('');
-    validatePassword.mockReturnValue({ error: '', checks: { length: true, upper: true, lower: true, digit: true } });
+    validatePassword.mockReturnValue({
+      error: '',
+      checks: { length: true, upper: true, lower: true, digit: true },
+    });
   });
 
   it('sets field and clears errors', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -50,13 +56,18 @@ describe('useAuthForm', () => {
   });
 
   it('handles login2FA successfully', async () => {
-    const verify2FAMock = vi.fn().mockResolvedValue({ access_token: 'new-token' });
+    const verify2FAMock = vi
+      .fn()
+      .mockResolvedValue({ access_token: 'new-token' });
     verify2FA.mockImplementation(verify2FAMock);
     const loginMock = vi.fn();
     useAuth.mockReturnValue({ login: loginMock });
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -64,7 +75,10 @@ describe('useAuthForm', () => {
     });
 
     await act(async () => {
-      await result.current.handleLogin2FA({ preventDefault: vi.fn() }, 'temp-token');
+      await result.current.handleLogin2FA(
+        { preventDefault: vi.fn() },
+        'temp-token'
+      );
     });
 
     expect(verify2FAMock).toHaveBeenCalledWith('temp-token', '123456', false);
@@ -72,13 +86,18 @@ describe('useAuthForm', () => {
   });
 
   it('handles login2FA with backup code', async () => {
-    const verify2FAMock = vi.fn().mockResolvedValue({ access_token: 'new-token' });
+    const verify2FAMock = vi
+      .fn()
+      .mockResolvedValue({ access_token: 'new-token' });
     verify2FA.mockImplementation(verify2FAMock);
     const loginMock = vi.fn();
     useAuth.mockReturnValue({ login: loginMock });
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -86,7 +105,10 @@ describe('useAuthForm', () => {
     });
 
     await act(async () => {
-      await result.current.handleLogin2FA({ preventDefault: vi.fn() }, 'temp-token');
+      await result.current.handleLogin2FA(
+        { preventDefault: vi.fn() },
+        'temp-token'
+      );
     });
 
     expect(verify2FAMock).toHaveBeenCalledWith('temp-token', 'backup123', true);
@@ -97,7 +119,10 @@ describe('useAuthForm', () => {
     verify2FA.mockImplementation(verify2FAMock);
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -105,7 +130,10 @@ describe('useAuthForm', () => {
     });
 
     await act(async () => {
-      await result.current.handleLogin2FA({ preventDefault: vi.fn() }, 'temp-token');
+      await result.current.handleLogin2FA(
+        { preventDefault: vi.fn() },
+        'temp-token'
+      );
     });
 
     expect(result.current.generalError).toBe('invalid code');
@@ -116,7 +144,10 @@ describe('useAuthForm', () => {
     useAuth.mockReturnValue({ login: loginMock });
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -140,7 +171,10 @@ describe('useAuthForm', () => {
     const onModeChange = vi.fn();
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange,
+      })
     );
 
     act(() => {
@@ -160,7 +194,10 @@ describe('useAuthForm', () => {
     useAuth.mockReturnValue({ login: loginMock });
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -181,7 +218,10 @@ describe('useAuthForm', () => {
     useAuth.mockReturnValue({ login: vi.fn() });
 
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -197,13 +237,76 @@ describe('useAuthForm', () => {
     expect(result.current.generalError).toBe('email exists');
   });
 
+  it('handles register validation failure', async () => {
+    const registerMock = vi.fn();
+    register.mockImplementation(registerMock);
+    useAuth.mockReturnValue({ login: vi.fn() });
+    validateName.mockReturnValueOnce('Имя обязательно');
+
+    const { result } = renderHook(() =>
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.setField('email', 'test@test.com');
+      result.current.setField('password', 'Test1234');
+    });
+
+    await act(async () => {
+      await result.current.handleRegister({ preventDefault: vi.fn() });
+    });
+
+    expect(result.current.generalError).toBe('Проверьте введённые данные');
+    expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  it('handles register success with message', async () => {
+    const registerMock = vi.fn().mockResolvedValue({
+      message: 'Confirm your email',
+    });
+    register.mockImplementation(registerMock);
+    useAuth.mockReturnValue({ login: vi.fn() });
+    const onModeChange = vi.fn();
+    const onSuccessMessage = vi.fn();
+
+    const { result } = renderHook(() =>
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange,
+        onSuccessMessage,
+      })
+    );
+
+    act(() => {
+      result.current.setField('name', 'Test User');
+      result.current.setField('email', 'test@test.com');
+      result.current.setField('password', 'Test1234');
+    });
+
+    await act(async () => {
+      await result.current.handleRegister({ preventDefault: vi.fn() });
+    });
+
+    expect(onSuccessMessage).toHaveBeenCalledWith('Confirm your email');
+    expect(onModeChange).toHaveBeenCalledWith('verify');
+  });
+
   it('handles login2FA with empty code', async () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     await act(async () => {
-      await result.current.handleLogin2FA({ preventDefault: vi.fn() }, 'temp-token');
+      await result.current.handleLogin2FA(
+        { preventDefault: vi.fn() },
+        'temp-token'
+      );
     });
 
     expect(result.current.generalError).toBe('Введите код');
@@ -211,7 +314,10 @@ describe('useAuthForm', () => {
 
   it('updates password checks', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     act(() => {
@@ -228,7 +334,10 @@ describe('useAuthForm', () => {
 
   it('returns initial form data', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     expect(result.current.formData).toEqual({
@@ -242,7 +351,10 @@ describe('useAuthForm', () => {
 
   it('returns initial errors as empty object', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     expect(result.current.errors).toEqual({});
@@ -250,7 +362,10 @@ describe('useAuthForm', () => {
 
   it('returns initial generalError as empty string', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     expect(result.current.generalError).toBe('');
@@ -258,7 +373,10 @@ describe('useAuthForm', () => {
 
   it('returns initial submitting as false', () => {
     const { result } = renderHook(() =>
-      useAuthForm({ searchParams: new URLSearchParams(), onModeChange: vi.fn() })
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
     );
 
     expect(result.current.submitting).toBe(false);

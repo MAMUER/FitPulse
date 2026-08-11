@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   createBodyComposition,
   createMenstrualCycle,
@@ -25,11 +25,7 @@ export default function Health() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       const [c, b, m] = await Promise.allSettled([
         listHealthConditions(),
@@ -44,7 +40,11 @@ export default function Health() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const showToast = (msg) => {
     setToast(msg);

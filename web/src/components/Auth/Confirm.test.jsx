@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../utils/api';
@@ -59,5 +60,16 @@ describe('Confirm', () => {
     await waitFor(() => {
       expect(screen.getByText('← Вернуться ко входу')).toBeInTheDocument();
     });
+  });
+
+  it('navigates back to login when back button is clicked', async () => {
+    api.confirmEmail.mockResolvedValueOnce({});
+    renderConfirm('valid-token');
+
+    await waitFor(() => {
+      expect(screen.getByText('← Вернуться ко входу')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('← Вернуться ко входу'));
   });
 });

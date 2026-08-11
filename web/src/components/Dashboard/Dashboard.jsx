@@ -1,5 +1,5 @@
 import { Chart } from 'chart.js/auto';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   classifyState,
   getBiometricRecords,
@@ -23,6 +23,31 @@ export default function Dashboard() {
   const [todayWorkout, setTodayWorkout] = useState('');
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      const [hrData, spo2Data, sleepData, systolicData, diastolicData] =
+        await Promise.allSettled([
+          getBiometricRecords('heart_rate', null, null, 10),
+          getBiometricRecords('spo2', null, null, 5),
+          getBiometricRecords('sleep_hours', null, null, 5),
+          getBiometricRecords('systolic_pressure', null, null, 5),
+          getBiometricRecords('diastolic_pressure', null, null, 5),
+        ]);
+
+      setSettledMetric(hrData, setHrValue, Math.round);
+      setSettledMetric(spo2Data, setSpo2Value, Math.round);
+      setSettledMetric(sleepData, setSleepValue, (sleepVal) =>
+        Number.isInteger(sleepVal) ? sleepVal : sleepVal.toFixed(1)
+      );
+      setBpMetric(systolicData, diastolicData, setBpValue);
+      renderHeartRateChart(hrData);
+      await loadAiRecommendation();
+      await loadTodayWorkout();
+    } catch (err) {
+      console.error('Dashboard load failed:', err);
+    }
+  }, []);
 
   useEffect(() => {
     loadDashboard();
@@ -200,31 +225,6 @@ export default function Dashboard() {
       setTodayWorkout(todayWorkoutHtml);
     } catch (err) {
       console.error('Failed to load today workout:', err);
-    }
-  };
-
-  const loadDashboard = async () => {
-    try {
-      const [hrData, spo2Data, sleepData, systolicData, diastolicData] =
-        await Promise.allSettled([
-          getBiometricRecords('heart_rate', null, null, 10),
-          getBiometricRecords('spo2', null, null, 5),
-          getBiometricRecords('sleep_hours', null, null, 5),
-          getBiometricRecords('systolic_pressure', null, null, 5),
-          getBiometricRecords('diastolic_pressure', null, null, 5),
-        ]);
-
-      setSettledMetric(hrData, setHrValue, Math.round);
-      setSettledMetric(spo2Data, setSpo2Value, Math.round);
-      setSettledMetric(sleepData, setSleepValue, (sleepVal) =>
-        Number.isInteger(sleepVal) ? sleepVal : sleepVal.toFixed(1)
-      );
-      setBpMetric(systolicData, diastolicData, setBpValue);
-      renderHeartRateChart(hrData);
-      await loadAiRecommendation();
-      await loadTodayWorkout();
-    } catch (err) {
-      console.error('Dashboard load failed:', err);
     }
   };
 
