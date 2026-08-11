@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
+import * as api from '../../utils/api';
 import AuthScreen from './AuthScreen';
 
 vi.mock('../../contexts/AuthContext', async () => {
@@ -263,5 +264,56 @@ describe('AuthScreen', () => {
     await user.click(screen.getByText('← Вернуться ко входу'));
 
     expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
+  });
+
+  it('submits 2FA code successfully', async () => {
+    const loginMock = vi.fn().mockResolvedValue({
+      requires_2fa: true,
+      temp_token: 'temp-token',
+    });
+    const verify2FAMock = vi.fn().mockResolvedValue({
+      access_token: 'real-token',
+    });
+    vi.spyOn(api, 'verify2FA').mockImplementation(verify2FAMock);
+    renderAuth(new URLSearchParams(), { login: loginMock });
+
+    await user.type(screen.getByPlaceholderText('Email'), 'test@test.com');
+    await user.type(screen.getByPlaceholderText('Пароль'), 'password123');
+    await user.click(screen.getByText('Войти'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('6-значный код')
+      ).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByPlaceholderText('6-значный код'), '123456');
+    await user.click(screen.getByText('Войти'));
+
+    expect(verify2FAMock).toHaveBeenCalledWith('temp-token', '123456', false);
+  });
+
+  it('copies totp code to backup code field', async () => {
+    const loginMock = vi.fn().mockResolvedValue({
+      requires_2fa: true,
+      temp_token: 'temp-token',
+    });
+    renderAuth(new URLSearchParams(), { login: loginMock });
+
+    await user.type(screen.getByPlaceholderText('Email'), 'test@test.com');
+    await user.type(screen.getByPlaceholderText('Пароль'), 'password123');
+    await user.click(screen.getByText('Войти'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('6-значный код')
+      ).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByPlaceholderText('6-значный код'), '123456');
+    await user.click(screen.getByText('Использовать резервный код'));
+
+    const backupInput = screen.getByPlaceholderText('Резервный код xxxx-xxxx');
+    expect(backupInput).toHaveValue('123456');
   });
 });

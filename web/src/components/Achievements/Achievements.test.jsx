@@ -12,6 +12,13 @@ vi.mock('../../contexts/AuthContext', async () => {
   };
 });
 
+vi.mock('chart.js/auto', () => {
+  const MockChart = vi.fn(function Chart() {
+    this.destroy = vi.fn();
+  });
+  return { Chart: MockChart };
+});
+
 const renderAchievements = () => {
   useAuth.mockReturnValue({
     token: 'test-token',
@@ -26,7 +33,7 @@ const renderAchievements = () => {
 
 describe('Achievements', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('shows empty state when no achievements', async () => {
@@ -162,6 +169,57 @@ describe('Achievements', () => {
 
     await waitFor(() => {
       expect(screen.getByText('🏆 Достижения')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart when data is available', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [
+        { date: '2024-01-01', completed_workouts: 3 },
+        { date: '2024-01-02', completed_workouts: 5 },
+      ],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart with week field', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [
+        { week: 'Week 1', count: 3 },
+        { week: 'Week 2', count: 5 },
+      ],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart with value field', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [
+        { date: '2024-01-01', value: 3 },
+        { date: '2024-01-02', value: 5 },
+      ],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
     });
   });
 });

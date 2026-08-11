@@ -27,7 +27,7 @@ const renderHealth = () => {
 
 describe('Health', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('shows loading state initially', () => {
@@ -195,5 +195,293 @@ describe('Health', () => {
     await userEvent.click(screen.getByText('Удалить'));
 
     expect(api.deleteHealthCondition).not.toHaveBeenCalled();
+  });
+
+  it('adds condition successfully', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'upsertHealthCondition').mockResolvedValueOnce({});
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('Новая аллергия')
+      .mockReturnValueOnce('allergy')
+      .mockReturnValueOnce('mild')
+      .mockReturnValueOnce('Заметки');
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет добавленных состояний')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[0]);
+
+    expect(api.upsertHealthCondition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition_name: 'Новая аллергия',
+        condition_type: 'allergy',
+      })
+    );
+  });
+
+  it('cancels add condition when name is empty', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет добавленных состояний')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[0]);
+
+    expect(api.upsertHealthCondition).not.toHaveBeenCalled();
+  });
+
+  it('adds body composition successfully', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createBodyComposition').mockResolvedValueOnce({});
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('70')
+      .mockReturnValueOnce('175')
+      .mockReturnValueOnce('15')
+      .mockReturnValueOnce('45');
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[1]);
+
+    expect(api.createBodyComposition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        weight_kg: 70,
+        height_cm: 175,
+      })
+    );
+  });
+
+  it('cancels add body composition when weight is empty', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[1]);
+
+    expect(api.createBodyComposition).not.toHaveBeenCalled();
+  });
+
+  it('adds menstrual cycle successfully', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createMenstrualCycle').mockResolvedValueOnce({});
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('2024-01-01')
+      .mockReturnValueOnce('2024-01-28')
+      .mockReturnValueOnce('medium')
+      .mockReturnValueOnce('headache')
+      .mockReturnValueOnce('happy');
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[2]);
+
+    expect(api.createMenstrualCycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cycle_start_date: '2024-01-01',
+      })
+    );
+  });
+
+  it('cancels add menstrual cycle when date is empty', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[2]);
+
+    expect(api.createMenstrualCycle).not.toHaveBeenCalled();
+  });
+
+  it('deletes condition with error', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([
+      {
+        condition_id: '1',
+        condition_name: 'Аллергия на пыльцу',
+        condition_type: 'allergy',
+        severity: 'mild',
+        notes: 'Летний период',
+        is_active: true,
+      },
+    ]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'deleteHealthCondition').mockRejectedValueOnce(
+      new Error('delete failed')
+    );
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Аллергия на пыльцу')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Удалить'));
+
+    expect(api.deleteHealthCondition).toHaveBeenCalledWith('1');
+  });
+
+  it('deletes menstrual cycle successfully', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([
+      {
+        menstrual_cycle_id: '1',
+        cycle_start_date: '2024-01-01',
+        cycle_end_date: '2024-01-28',
+        flow_intensity: 'medium',
+      },
+    ]);
+    vi.spyOn(api, 'deleteMenstrualCycle').mockResolvedValueOnce({});
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Начало: 2024-01-01/)).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Удалить'));
+
+    expect(api.deleteMenstrualCycle).toHaveBeenCalledWith('1');
+  });
+
+  it('deletes menstrual cycle with error', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([
+      {
+        menstrual_cycle_id: '1',
+        cycle_start_date: '2024-01-01',
+        cycle_end_date: '2024-01-28',
+        flow_intensity: 'medium',
+      },
+    ]);
+    vi.spyOn(api, 'deleteMenstrualCycle').mockRejectedValueOnce(
+      new Error('delete failed')
+    );
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Начало: 2024-01-01/)).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Удалить'));
+
+    expect(api.deleteMenstrualCycle).toHaveBeenCalledWith('1');
+  });
+
+  it('handles add condition error', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'upsertHealthCondition').mockRejectedValueOnce(
+      new Error('add failed')
+    );
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('Новая аллергия')
+      .mockReturnValueOnce('allergy')
+      .mockReturnValueOnce('mild')
+      .mockReturnValueOnce('Заметки');
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет добавленных состояний')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[0]);
+
+    expect(screen.getByText('Ошибка: add failed')).toBeInTheDocument();
+  });
+
+  it('handles add body composition error', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createBodyComposition').mockRejectedValueOnce(
+      new Error('add failed')
+    );
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('70')
+      .mockReturnValueOnce('175')
+      .mockReturnValueOnce('15')
+      .mockReturnValueOnce('45');
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[1]);
+
+    expect(screen.getByText('Ошибка: add failed')).toBeInTheDocument();
+  });
+
+  it('handles add menstrual cycle error', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createMenstrualCycle').mockRejectedValueOnce(
+      new Error('add failed')
+    );
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('2024-01-01')
+      .mockReturnValueOnce('2024-01-28')
+      .mockReturnValueOnce('medium')
+      .mockReturnValueOnce('headache')
+      .mockReturnValueOnce('happy');
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[2]);
+
+    expect(screen.getByText('Ошибка: add failed')).toBeInTheDocument();
   });
 });

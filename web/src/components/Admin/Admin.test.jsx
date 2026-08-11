@@ -236,4 +236,107 @@ describe('Admin', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalled();
     expect(window.alert).toHaveBeenCalledWith('Ссылка скопирована');
   });
+
+  it('handles create invite error', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createInvite').mockRejectedValueOnce(
+      new Error('create failed')
+    );
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Создать'));
+
+    expect(window.alert).toHaveBeenCalledWith('Ошибка: create failed');
+  });
+
+  it('handles load admin data error', async () => {
+    vi.spyOn(api, 'listInvites').mockRejectedValueOnce(
+      new Error('load failed')
+    );
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('Загрузка...')).toBeInTheDocument();
+    });
+  });
+
+  it('handles revoke invite error', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
+      {
+        invite_id: '1',
+        code: 'ABC123',
+        role: 'client',
+        max_uses: 1,
+        used_count: 0,
+        is_active: true,
+      },
+    ]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'revokeInvite').mockRejectedValueOnce(
+      new Error('revoke failed')
+    );
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('ABC123')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Отозвать'));
+
+    expect(window.alert).toHaveBeenCalledWith('Ошибка: revoke failed');
+  });
+
+  it('handles clipboard copy failure', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
+      {
+        invite_id: '1',
+        code: 'ABC123',
+        role: 'client',
+        max_uses: 1,
+        used_count: 0,
+        is_active: true,
+      },
+    ]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockRejectedValueOnce(new Error('clipboard failed')),
+      },
+    });
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('ABC123')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Скопировать ссылку'));
+
+    expect(window.alert).toHaveBeenCalledWith('Не удалось скопировать ссылку');
+  });
+
+  it('changes max uses input', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
+    });
+
+    const maxUsesInput = screen.getByLabelText('Максимум использований');
+    await userEvent.clear(maxUsesInput);
+    await userEvent.type(maxUsesInput, '5');
+
+    expect(maxUsesInput).toHaveValue(5);
+  });
 });
