@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
@@ -75,6 +75,31 @@ describe('Diet', () => {
         screen.getByText('Ошибка загрузки профиля')
       ).toBeInTheDocument();
     });
+  });
+
+  it('loads profile from flat response without profile wrapper', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce({
+      height_cm: 175,
+      weight_kg: 70,
+      age: 25,
+      gender: 'male',
+      fitness_level: 'beginner',
+      goals: ['general_health'],
+      allergies: ['nuts'],
+      contraindications: ['broccoli'],
+    });
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText(/ккал в день/)).toBeInTheDocument();
+    });
+
+    const allergiesInput = screen.getByLabelText('Аллергии (через запятую)');
+    const dislikesInput = screen.getByLabelText(
+      'Нелюбимые продукты (через запятую)'
+    );
+    expect(allergiesInput).toHaveValue('nuts');
+    expect(dislikesInput).toHaveValue('broccoli');
   });
 
   it('loads profile and displays nutrition summary', async () => {
@@ -303,5 +328,58 @@ describe('Diet', () => {
     await waitFor(() => {
       expect(screen.getByText(/Продвинутый/)).toBeInTheDocument();
     });
+  });
+
+  it('defaults to balanced template when no goals', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
+      profile({ goals: [] })
+    );
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сбалансированное')).toBeInTheDocument();
+    });
+  });
+
+  it('uses default multiplier for unknown fitness level', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
+      profile({ fitness_level: 'unknown' })
+    );
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText(/ккал в день/)).toBeInTheDocument();
+    });
+  });
+
+  it('changes meal count to 3', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    fireEvent.change(mealCountSelect, { target: { value: '3' } });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('.meal-card').length).toBe(3);
+    });
+  });
+
+  it('updates first meal time', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const timeInput = screen.getByLabelText('Время первого приёма');
+    await userEvent.clear(timeInput);
+    await userEvent.type(timeInput, '09:00');
+
+    expect(timeInput).toHaveValue('09:00');
   });
 });

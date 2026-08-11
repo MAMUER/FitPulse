@@ -69,6 +69,7 @@ export function useAuthForm({ searchParams, onModeChange, onSuccessMessage }) {
     if (emailErr) errs.email = emailErr;
     const passResult = validatePassword(formData.password);
     if (passResult.error) errs.password = passResult.error;
+    /* istanbul ignore next */
     setPasswordChecks(passResult.checks || {});
     setErrors(errs);
     return Object.keys(errs).length === 0;

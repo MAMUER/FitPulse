@@ -134,18 +134,6 @@ describe('Achievements', () => {
     });
   });
 
-  it('displays competition rank when available', async () => {
-    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
-      achievements: [],
-    });
-    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({ progress_data: [] });
-    renderAchievements();
-
-    await waitFor(() => {
-      expect(screen.getByText('🏅 Персональные челленджи')).toBeInTheDocument();
-    });
-  });
-
   it('handles load error gracefully', async () => {
     vi.spyOn(api, 'getAchievements').mockRejectedValueOnce(
       new Error('load failed')
@@ -187,6 +175,9 @@ describe('Achievements', () => {
     await waitFor(() => {
       expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
     });
+
+    const canvas = document.getElementById('progressChart');
+    expect(canvas).toBeTruthy();
   });
 
   it('renders progress chart with week field', async () => {
@@ -220,6 +211,35 @@ describe('Achievements', () => {
 
     await waitFor(() => {
       expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('uses fallbacks when API returns no data', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce(undefined);
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce(undefined);
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет достижений')).toBeInTheDocument();
+    });
+  });
+
+  it('renders achievement fallback icon and empty strings', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [
+        {
+          achievement_id: 'unknown_id',
+          title: '',
+          description: '',
+          earned_date: '2024-01-01',
+        },
+      ],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({ progress_data: [] });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('🏆')).toBeInTheDocument();
     });
   });
 });

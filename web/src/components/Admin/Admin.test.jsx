@@ -339,4 +339,24 @@ describe('Admin', () => {
 
     expect(maxUsesInput).toHaveValue(5);
   });
+
+  it('logs error when load admin data fails', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const originalAllSettled = Promise.allSettled;
+    Promise.allSettled = vi.fn(() => {
+      throw new Error('settled failed');
+    });
+
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to load admin data:',
+        expect.any(Error)
+      );
+    });
+
+    Promise.allSettled = originalAllSettled;
+    consoleErrorSpy.mockRestore();
+  });
 });

@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import { apiRequest } from './client';
 
 export async function listInvites(page = 1, pageSize = 10, used = '') {

@@ -500,4 +500,35 @@ describe('Dashboard', () => {
 
     expect(screen.getByText('Сервис AI временно недоступен')).toBeInTheDocument();
   });
+
+  it('handles dashboard load error gracefully', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockRejectedValueOnce(
+      new Error('load failed')
+    );
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('logs error when loadDashboard throws', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const originalAllSettled = Promise.allSettled;
+    Promise.allSettled = vi.fn(() => {
+      throw new Error('settled failed');
+    });
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Dashboard load failed:',
+        expect.any(Error)
+      );
+    });
+
+    Promise.allSettled = originalAllSettled;
+    consoleErrorSpy.mockRestore();
+  });
 });

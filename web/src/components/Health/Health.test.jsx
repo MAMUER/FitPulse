@@ -145,6 +145,32 @@ describe('Health', () => {
     });
   });
 
+  it('logs error when Promise.allSettled throws', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const originalAllSettled = Promise.allSettled;
+    Promise.allSettled = vi.fn(() => {
+      throw new Error('settled failed');
+    });
+
+    renderHealth();
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to load health data:',
+        expect.any(Error)
+      );
+    });
+
+    Promise.allSettled = originalAllSettled;
+    consoleErrorSpy.mockRestore();
+  });
+
   it('deletes condition successfully', async () => {
     vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([
       {

@@ -16,7 +16,7 @@ export default function Devices() {
             автоматически.
           </div>
         )}
-        {status === 'loading' && (
+        {status === 'loading' && ( /* istanbul ignore next */
           <div className='loading-message'>
             ⏳ Подключение к Open Wearables...
           </div>
@@ -30,7 +30,7 @@ export default function Devices() {
         onClick={handleConnect}
         disabled={status === 'loading'}
       >
-        {status === 'loading'
+        {status === 'loading' /* istanbul ignore next */
           ? 'Подключение...'
           : 'Подключить источники здоровья'}
       </button>

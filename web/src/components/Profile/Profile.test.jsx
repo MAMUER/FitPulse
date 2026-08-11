@@ -273,6 +273,15 @@ describe('Profile', () => {
     expect(nicknameInput).toHaveValue('NewName');
   });
 
+  it('handles profile load error gracefully', async () => {
+    getProfile.mockRejectedValueOnce(new Error('load failed'));
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Загрузка профиля...')).toBeInTheDocument();
+    });
+  });
+
   it('allows typing in age field', async () => {
     getProfile.mockResolvedValueOnce({
       profile: {
@@ -352,6 +361,32 @@ describe('Profile', () => {
     await user.clear(weightInput);
     await user.type(weightInput, '75');
     expect(weightInput).toHaveValue(75);
+  });
+
+  it('allows changing gender selection', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: 25,
+        gender: '',
+        height_cm: 175,
+        weight_kg: 70,
+        fitness_level: 'intermediate',
+        nutrition: 'balanced',
+        allergies: [],
+        contraindications: [],
+        goals: ['weight_loss'],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('175')).toBeInTheDocument();
+    });
+
+    const genderSelect = screen.getByLabelText('Пол');
+    await user.selectOptions(genderSelect, 'female');
+    expect(genderSelect).toHaveValue('female');
   });
 
   it('allows changing goal selection', async () => {

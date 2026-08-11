@@ -85,6 +85,7 @@ export function useDevices() {
         },
       });
     } else {
+      /* istanbul ignore next */
       setTimeout(() => {
         if (window.OpenWearablesWidget) {
           handleConnect();

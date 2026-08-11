@@ -22,11 +22,53 @@ describe('Confirm', () => {
     vi.clearAllMocks();
   });
 
+  it('shows error when URL search throws', () => {
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      value: null,
+      writable: true,
+      configurable: true,
+    });
+
+    renderConfirm(undefined);
+
+    expect(
+      screen.getByText(/Токен подтверждения не найден/)
+    ).toBeInTheDocument();
+
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
+  });
+
   it('shows error when no token is provided', () => {
     renderConfirm(null);
     expect(
       screen.getByText(/Токен подтверждения не найден/)
     ).toBeInTheDocument();
+  });
+
+  it('returns null fallback when token prop is missing and location search throws', () => {
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      value: null,
+      writable: true,
+      configurable: true,
+    });
+
+    renderConfirm(undefined);
+
+    expect(
+      screen.getByText(/Токен подтверждения не найден/)
+    ).toBeInTheDocument();
+
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
   });
 
   it('shows loading state initially', () => {
@@ -50,6 +92,15 @@ describe('Confirm', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Invalid token')).toBeInTheDocument();
+    });
+  });
+
+  it('shows default error message when error has no message', async () => {
+    api.confirmEmail.mockRejectedValueOnce('');
+    renderConfirm('invalid-token');
+
+    await waitFor(() => {
+      expect(screen.getByText('Ошибка подтверждения')).toBeInTheDocument();
     });
   });
 

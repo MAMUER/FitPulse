@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import * as api from '../../utils/api';
 import AuthScreen from './AuthScreen';
 
+vi.mock('../../utils/api');
 vi.mock('../../contexts/AuthContext', async () => {
   const actual = await vi.importActual('../../contexts/AuthContext');
   return {
@@ -315,5 +316,25 @@ describe('AuthScreen', () => {
 
     const backupInput = screen.getByPlaceholderText('Резервный код xxxx-xxxx');
     expect(backupInput).toHaveValue('123456');
+  });
+
+  it('shows submitting text when register is in progress', async () => {
+    api.register.mockImplementation(() => new Promise(() => {}));
+    renderAuth(new URLSearchParams());
+
+    await user.click(screen.getByText('Создать'));
+
+    const nameInput = screen.getByPlaceholderText('Имя');
+    const emailInput = screen.getByPlaceholderText('Email');
+    const passwordInput = screen.getByPlaceholderText(
+      'Пароль (мин. 8 символов)'
+    );
+
+    await user.type(nameInput, 'Test');
+    await user.type(emailInput, 'test@test.com');
+    await user.type(passwordInput, 'Password123');
+    await user.click(screen.getByText('Создать аккаунт'));
+
+    expect(screen.getByText('Создание...')).toBeInTheDocument();
   });
 });

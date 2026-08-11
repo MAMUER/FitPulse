@@ -202,16 +202,118 @@ describe('ML', () => {
     });
   });
 
-  it('displays dash when confidence is missing', async () => {
-    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
-      predicted_class_ru: 'Норма',
+  it('generates plan with plan_id and fetches full plan', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        plan_data: {
+          weeks: [
+            {
+              week_number: 1,
+              days: [
+                {
+                  day_of_week: 1,
+                  training_type: 'cardio',
+                  exercises: [
+                    {
+                      sort_order: 0,
+                      exercise_name: 'running',
+                      sets: 3,
+                      reps: 10,
+                      duration: 30,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
     });
     renderML();
 
-    await userEvent.click(screen.getByText('Анализировать'));
+    await userEvent.click(screen.getByText('Сгенерировать план'));
 
     await waitFor(() => {
-      expect(screen.getByText((content) => content.includes('—'))).toBeInTheDocument();
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
     });
+
+    expect(api.getPlan).toHaveBeenCalledWith('plan-1');
+  });
+
+  it('falls back to plan_data when plan wrapper is missing', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                training_type: 'cardio',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'running',
+                    sets: 3,
+                    reps: 10,
+                    duration: 30,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+  });
+
+  it('renders plan detail chart when weeks are available', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                duration: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    const canvas = document.getElementById('mlProgressChart');
+    expect(canvas).toBeTruthy();
+  });
+
+  it('toggles training day selection', async () => {
+    renderML();
+
+    const daysGrid = document.getElementById('training-days');
+    const wednesdayLabel = daysGrid.querySelectorAll('label')[2];
+    await userEvent.click(wednesdayLabel);
+
+    expect(wednesdayLabel.classList.contains('selected')).toBe(true);
   });
 });

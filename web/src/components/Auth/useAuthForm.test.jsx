@@ -263,10 +263,75 @@ describe('useAuthForm', () => {
     expect(registerMock).not.toHaveBeenCalled();
   });
 
-  it('handles register success with message', async () => {
-    const registerMock = vi.fn().mockResolvedValue({
-      message: 'Confirm your email',
+  it('handles register validation with password error', async () => {
+    const registerMock = vi.fn();
+    register.mockImplementation(registerMock);
+    useAuth.mockReturnValue({ login: vi.fn() });
+    validateName.mockReturnValueOnce('');
+    validateEmail.mockReturnValueOnce('');
+    validatePassword.mockReturnValueOnce({
+      error: 'Пароль слишком слабый',
+      checks: { length: false, upper: false, lower: false, digit: false },
     });
+
+    const { result } = renderHook(() =>
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.setField('name', 'Test');
+      result.current.setField('email', 'test@test.com');
+      result.current.setField('password', 'weak');
+    });
+
+    await act(async () => {
+      await result.current.handleRegister({ preventDefault: vi.fn() });
+    });
+
+    expect(result.current.generalError).toBe('Проверьте введённые данные');
+    expect(result.current.errors.password).toBe('Пароль слишком слабый');
+    expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  it('handles register validation with email and password errors', async () => {
+    const registerMock = vi.fn();
+    register.mockImplementation(registerMock);
+    useAuth.mockReturnValue({ login: vi.fn() });
+    validateName.mockReturnValueOnce('');
+    validateEmail.mockReturnValueOnce('Некорректный email');
+    validatePassword.mockReturnValueOnce({
+      error: 'Пароль слишком слабый',
+      checks: { length: false, upper: false, lower: false, digit: false },
+    });
+
+    const { result } = renderHook(() =>
+      useAuthForm({
+        searchParams: new URLSearchParams(),
+        onModeChange: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.setField('name', 'Test');
+      result.current.setField('email', 'test@test.com');
+      result.current.setField('password', 'Test1234');
+    });
+
+    await act(async () => {
+      await result.current.handleRegister({ preventDefault: vi.fn() });
+    });
+
+    expect(result.current.generalError).toBe('Проверьте введённые данные');
+    expect(result.current.errors.email).toBe('Некорректный email');
+    expect(result.current.errors.password).toBe('Пароль слишком слабый');
+    expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  it('handles register success with default message', async () => {
+    const registerMock = vi.fn().mockResolvedValue({});
     register.mockImplementation(registerMock);
     useAuth.mockReturnValue({ login: vi.fn() });
     const onModeChange = vi.fn();
@@ -290,7 +355,9 @@ describe('useAuthForm', () => {
       await result.current.handleRegister({ preventDefault: vi.fn() });
     });
 
-    expect(onSuccessMessage).toHaveBeenCalledWith('Confirm your email');
+    expect(onSuccessMessage).toHaveBeenCalledWith(
+      'Регистрация успешна. Подтвердите email.'
+    );
     expect(onModeChange).toHaveBeenCalledWith('verify');
   });
 

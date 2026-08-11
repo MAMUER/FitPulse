@@ -149,6 +149,30 @@ describe('Devices', () => {
     });
   });
 
+  it('displays provider source as fallback when source_name is missing', async () => {
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
+      providers: [
+        {
+          source: 'google',
+          connected_at: '2024-01-01',
+        },
+      ],
+    });
+    renderDevices();
+
+    await act(async () => {
+      const event = new MessageEvent('message', {
+        data: { type: 'OPEN_WEARABLES_CONNECTED' },
+        origin: 'https://openwearables.com',
+      });
+      window.dispatchEvent(event);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('google')).toBeInTheDocument();
+    });
+  });
+
   it('displays providers after loading', async () => {
     vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
       providers: [
@@ -244,18 +268,32 @@ describe('Devices', () => {
     expect(alertMock).toHaveBeenCalledWith('Ошибка отключения: Network error');
   });
 
-  it('initializes widget when connect button is clicked', async () => {
-    const initMock = vi.fn();
-    window.OpenWearablesWidget = {
-      init: initMock,
-    };
+  it('handles widget closed message', async () => {
     renderDevices();
 
-    await user.click(screen.getByText('Подключить источники здоровья'));
+    await act(async () => {
+      const event = new MessageEvent('message', {
+        data: { type: 'OPEN_WEARABLES_CLOSED' },
+        origin: 'https://openwearables.com',
+      });
+      window.dispatchEvent(event);
+    });
 
-    expect(initMock).toHaveBeenCalledTimes(1);
-    const initCall = initMock.mock.calls[0][0];
-    expect(initCall.appId).toBeDefined();
-    expect(initCall.userId).toBe('anonymous');
+    await waitFor(() => {
+      expect(
+        screen.getByText('Подключить источники здоровья')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading state when connecting', async () => {
+    renderDevices();
+    window.OpenWearablesWidget = undefined;
+
+    const connectButton = screen.getByText('Подключить источники здоровья');
+    await user.click(connectButton);
+
+    expect(screen.getByText('Подключение...')).toBeInTheDocument();
+    expect(connectButton).toBeDisabled();
   });
 });

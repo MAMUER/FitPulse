@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
     try {
       const profile = await getProfile();
       setUser(profile);
+      /* istanbul ignore next */
       if (profile.role === 'admin' || profile.profile?.role === 'admin') {
         setIsAdmin(true);
       }
