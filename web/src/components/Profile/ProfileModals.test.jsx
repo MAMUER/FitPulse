@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
@@ -61,7 +61,10 @@ describe('ChangeEmailModal', () => {
     renderModal(ChangeEmailModal);
 
     await userEvent.type(screen.getByLabelText('Новый email'), 'invalid');
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
     const form = screen.getByLabelText('Новый email').closest('form');
     fireEvent.submit(form);
 
@@ -74,7 +77,10 @@ describe('ChangeEmailModal', () => {
     renderModal(ChangeEmailModal, { onClose });
 
     await userEvent.type(screen.getByLabelText('Новый email'), 'new@test.com');
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
     const form = screen.getByLabelText('Новый email').closest('form');
     fireEvent.submit(form);
 
@@ -85,11 +91,16 @@ describe('ChangeEmailModal', () => {
   });
 
   it('handles submission error', async () => {
-    vi.spyOn(api, 'changeEmail').mockRejectedValueOnce(new Error('change failed'));
+    vi.spyOn(api, 'changeEmail').mockRejectedValueOnce(
+      new Error('change failed')
+    );
     renderModal(ChangeEmailModal);
 
     await userEvent.type(screen.getByLabelText('Новый email'), 'new@test.com');
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
     const form = screen.getByLabelText('Новый email').closest('form');
     fireEvent.submit(form);
 
@@ -139,7 +150,10 @@ describe('ChangePasswordModal', () => {
   it('shows error for short password', async () => {
     renderModal(ChangePasswordModal);
 
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
     await userEvent.type(screen.getByLabelText('Новый пароль'), 'short');
     const form = screen.getByLabelText('Текущий пароль').closest('form');
     fireEvent.submit(form);
@@ -150,9 +164,18 @@ describe('ChangePasswordModal', () => {
   it('shows error when passwords do not match', async () => {
     renderModal(ChangePasswordModal);
 
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
-    await userEvent.type(screen.getByLabelText('Новый пароль'), 'newpassword123');
-    await userEvent.type(screen.getByLabelText('Подтверждение пароля'), 'different123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Новый пароль'),
+      'newpassword123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Подтверждение пароля'),
+      'different123'
+    );
     const form = screen.getByLabelText('Текущий пароль').closest('form');
     fireEvent.submit(form);
 
@@ -164,29 +187,55 @@ describe('ChangePasswordModal', () => {
     const onClose = vi.fn();
     renderModal(ChangePasswordModal, { onClose });
 
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
-    await userEvent.type(screen.getByLabelText('Новый пароль'), 'newpassword123');
-    await userEvent.type(screen.getByLabelText('Подтверждение пароля'), 'newpassword123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Новый пароль'),
+      'newpassword123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Подтверждение пароля'),
+      'newpassword123'
+    );
     const form = screen.getByLabelText('Текущий пароль').closest('form');
     fireEvent.submit(form);
 
-    expect(api.changePassword).toHaveBeenCalledWith('password123', 'newpassword123');
+    expect(api.changePassword).toHaveBeenCalledWith(
+      'password123',
+      'newpassword123'
+    );
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
   });
 
   it('handles submission error', async () => {
-    vi.spyOn(api, 'changePassword').mockRejectedValueOnce(new Error('change failed'));
+    vi.spyOn(api, 'changePassword').mockRejectedValueOnce(
+      new Error('change failed')
+    );
     renderModal(ChangePasswordModal);
 
-    await userEvent.type(screen.getByLabelText('Текущий пароль'), 'password123');
-    await userEvent.type(screen.getByLabelText('Новый пароль'), 'newpassword123');
-    await userEvent.type(screen.getByLabelText('Подтверждение пароля'), 'newpassword123');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Новый пароль'),
+      'newpassword123'
+    );
+    await userEvent.type(
+      screen.getByLabelText('Подтверждение пароля'),
+      'newpassword123'
+    );
     const form = screen.getByLabelText('Текущий пароль').closest('form');
     fireEvent.submit(form);
 
-    expect(api.changePassword).toHaveBeenCalledWith('password123', 'newpassword123');
+    expect(api.changePassword).toHaveBeenCalledWith(
+      'password123',
+      'newpassword123'
+    );
   });
 });
 
@@ -200,7 +249,9 @@ describe('DeleteProfileModal', () => {
 
     expect(screen.getByText('Удаление аккаунта')).toBeInTheDocument();
     expect(screen.getByText(/Это действие необратимо/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Введите пароль для подтверждения')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Введите пароль для подтверждения')
+    ).toBeInTheDocument();
     expect(screen.getByText('Удалить аккаунт')).toBeInTheDocument();
   });
 
@@ -227,7 +278,10 @@ describe('DeleteProfileModal', () => {
     const logout = vi.fn();
     renderModal(DeleteProfileModal, {}, { logout });
 
-    await userEvent.type(screen.getByLabelText('Введите пароль для подтверждения'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Введите пароль для подтверждения'),
+      'password123'
+    );
     await userEvent.click(screen.getByText('Удалить аккаунт'));
 
     expect(api.deleteProfile).toHaveBeenCalledWith('password123');
@@ -239,31 +293,32 @@ describe('DeleteProfileModal', () => {
     vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
     renderModal(DeleteProfileModal);
 
-    await userEvent.type(screen.getByLabelText('Введите пароль для подтверждения'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Введите пароль для подтверждения'),
+      'password123'
+    );
     await userEvent.click(screen.getByText('Удалить аккаунт'));
 
     expect(api.deleteProfile).not.toHaveBeenCalled();
   });
 
   it('handles deletion error', async () => {
-    vi.spyOn(api, 'deleteProfile').mockRejectedValueOnce(new Error('delete failed'));
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
+    vi.resetAllMocks();
+    vi.spyOn(api, 'deleteProfile').mockRejectedValueOnce(
+      new Error('delete failed')
+    );
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderModal(DeleteProfileModal);
 
-    await userEvent.type(screen.getByLabelText('Введите пароль для подтверждения'), 'password123');
+    await userEvent.type(
+      screen.getByLabelText('Введите пароль для подтверждения'),
+      'password123'
+    );
     await userEvent.click(screen.getByText('Удалить аккаунт'));
 
-    const fieldError = document.querySelector('.field-error');
-    expect(fieldError).toBeTruthy();
-    expect(fieldError.textContent).toBe('delete failed');
+    await waitFor(() => {
+      expect(screen.getByText('delete failed')).toBeInTheDocument();
+    });
     expect(api.deleteProfile).toHaveBeenCalledWith('password123');
   });
 });
-
-
-
-
-
-
-
-

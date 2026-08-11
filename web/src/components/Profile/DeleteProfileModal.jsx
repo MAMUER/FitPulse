@@ -14,7 +14,7 @@ export default function DeleteProfileModal({ onClose }) {
       setError('Введите пароль');
       return;
     }
-    if (!confirm('Вы уверены? Это действие нельзя отменить.')) return;
+    if (!window.confirm('Вы уверены? Это действие нельзя отменить.')) return;
     setSubmitting(true);
     try {
       await deleteProfile(password);
