@@ -306,9 +306,9 @@ export default function AuthScreen({ searchParams: searchParamsProp }) {
           </form>
         )}
 
-            {/* istanbul ignore next */}
-            {mode === 'verify' && (
-              <div className='auth-form verify-form'>
+        {/* istanbul ignore next */}
+        {mode === 'verify' && (
+          <div className='auth-form verify-form'>
             <div className='verify-icon'>📧</div>
             <h2>Проверьте почту</h2>
             <p className='verify-text'>

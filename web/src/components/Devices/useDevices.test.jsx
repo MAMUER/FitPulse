@@ -1,8 +1,8 @@
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useDevices } from './useDevices';
-import * as api from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import * as api from '../../utils/api';
+import { useDevices } from './useDevices';
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -18,13 +18,15 @@ describe('useDevices', () => {
   });
 
   it('logs error when getProviders fails', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     mockUseAuth.mockReturnValue({ token: 'test-token' });
     vi.spyOn(api, 'getProviders').mockRejectedValueOnce(
       new Error('providers failed')
     );
 
-    const { result } = renderHook(() => useDevices());
+    renderHook(() => useDevices());
 
     await act(async () => {
       window.dispatchEvent(

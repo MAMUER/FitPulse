@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
@@ -56,24 +56,18 @@ describe('Diet', () => {
   });
 
   it('shows loading state initially', () => {
-    vi.spyOn(api, 'getProfile').mockImplementation(
-      () => new Promise(() => {})
-    );
+    vi.spyOn(api, 'getProfile').mockImplementation(() => new Promise(() => {}));
     renderDiet();
 
     expect(screen.getByText('Загрузка...')).toBeInTheDocument();
   });
 
   it('displays profile error state', async () => {
-    vi.spyOn(api, 'getProfile').mockRejectedValueOnce(
-      new Error('load failed')
-    );
+    vi.spyOn(api, 'getProfile').mockRejectedValueOnce(new Error('load failed'));
     renderDiet();
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Ошибка загрузки профиля')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Ошибка загрузки профиля')).toBeInTheDocument();
     });
   });
 
@@ -255,7 +249,9 @@ describe('Diet', () => {
       expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
     });
 
-    const dislikesInput = screen.getByLabelText('Нелюбимые продукты (через запятую)');
+    const dislikesInput = screen.getByLabelText(
+      'Нелюбимые продукты (через запятую)'
+    );
     await userEvent.type(dislikesInput, 'брокколи');
 
     expect(dislikesInput).toHaveValue('брокколи');
@@ -331,9 +327,7 @@ describe('Diet', () => {
   });
 
   it('defaults to balanced template when no goals', async () => {
-    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
-      profile({ goals: [] })
-    );
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile({ goals: [] }));
     renderDiet();
 
     await waitFor(() => {

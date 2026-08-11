@@ -159,9 +159,9 @@ export default function ML() {
             Цель: {pd.goal || planData.training_goal || 'Общая тренировка'}
           </span>
         </div>
-        {(week.days || []).map((day) => (
+        {(week.days || []).map((day, idx) => (
           <div
-            key={day.day_id}
+            key={day.day_id || day.day_of_week || idx}
             style={{
               marginBottom: 12,
               paddingBottom: 12,

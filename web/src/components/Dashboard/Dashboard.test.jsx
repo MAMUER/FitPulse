@@ -134,131 +134,156 @@ describe('Dashboard', () => {
     expect(screen.getByText(/Сегодня нет тренировки/)).toBeInTheDocument();
   });
 
-  it('handles load error gracefully', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockRejectedValueOnce(
-      new Error('load failed')
-    );
-    renderDashboard();
+  it.each([
+    {
+      name: 'handles load error gracefully',
+      getBiometricRecords: [{ reject: new Error('load failed') }],
+      getTrainingPlans: undefined,
+      classifyState: undefined,
+    },
+    {
+      name: 'handles getBiometricRecords load error',
+      getBiometricRecords: [{ reject: new Error('biometric failed') }],
+      getTrainingPlans: undefined,
+      classifyState: undefined,
+    },
+    {
+      name: 'handles getTrainingPlans error gracefully',
+      getBiometricRecords: [
+        { value: 75 },
+        { value: 98 },
+        { value: 7.5 },
+        { value: 120 },
+        { value: 80 },
+      ],
+      getTrainingPlans: { reject: new Error('plans failed') },
+      classifyState: {
+        predicted_class_ru: 'Норма',
+        description: 'Все показатели в норме',
+      },
+    },
+  ])(
+    '$name',
+    async ({ getBiometricRecords, getTrainingPlans, classifyState }) => {
+      (getBiometricRecords || []).forEach((mock) => {
+        if (mock.reject) {
+          vi.spyOn(api, 'getBiometricRecords').mockRejectedValueOnce(
+            mock.reject
+          );
+        } else {
+          vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+            records: [mock],
+          });
+        }
+      });
+      if (classifyState) {
+        vi.spyOn(api, 'classifyState').mockResolvedValueOnce(classifyState);
+      }
+      if (getTrainingPlans) {
+        vi.spyOn(api, 'getTrainingPlans').mockRejectedValueOnce(
+          getTrainingPlans.reject
+        );
+      }
+      renderDashboard();
 
-    await waitFor(() => {
-      expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
-    });
-  });
+      await waitFor(() => {
+        expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
+      });
+    }
+  );
 
-  it('displays blood pressure when available', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 75 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 98 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 7.5 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 120 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 80 }],
-    });
-    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
-      predicted_class_ru: 'Норма',
-      description: 'Все показатели в норме',
-    });
-    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByText('Норма')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('120/80')).toBeInTheDocument();
-  });
-
-  it('displays training plan when available', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 75 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 98 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 7.5 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 120 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 80 }],
-    });
-    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
-      predicted_class_ru: 'Норма',
-      description: 'Все показатели в норме',
-    });
-    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({
-      plans: [{ plan_id: '1' }],
-    });
-    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
-      plan: {
-        plan_data: {
-          weeks: [
-            {
-              days: [
-                {
-                  day_of_week: new Date().getDay(),
-                  training_type: 'cardio',
-                  exercises: [
-                    {
-                      exercise_name: 'running',
-                      sets: 3,
-                      reps: 10,
-                    },
-                  ],
-                  duration: 30,
-                },
-              ],
-            },
-          ],
+  it.each([
+    {
+      name: 'displays blood pressure when available',
+      classifyState: {
+        predicted_class_ru: 'Норма',
+        description: 'Все показатели в норме',
+      },
+      getTrainingPlans: { plans: [] },
+      getPlan: undefined,
+      expectedText: '120/80',
+    },
+    {
+      name: 'displays training plan when available',
+      classifyState: {
+        predicted_class_ru: 'Норма',
+        description: 'Все показатели в норме',
+      },
+      getTrainingPlans: { plans: [{ plan_id: '1' }] },
+      getPlan: {
+        plan: {
+          plan_data: {
+            weeks: [
+              {
+                days: [
+                  {
+                    day_of_week: new Date().getDay(),
+                    training_type: 'cardio',
+                    exercises: [
+                      {
+                        exercise_name: 'running',
+                        sets: 3,
+                        reps: 10,
+                        duration: 30,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
         },
       },
-    });
-    renderDashboard();
+      expectedText: /Кардио/,
+    },
+    {
+      name: 'displays AI analysis with predicted_class fallback',
+      classifyState: { predicted_class: 'recovery' },
+      getTrainingPlans: { plans: [] },
+      getPlan: undefined,
+      expectedText: 'AI анализ требует больше данных',
+      classificationText: 'recovery',
+    },
+  ])(
+    '$name',
+    async ({
+      classifyState,
+      getTrainingPlans,
+      getPlan,
+      expectedText,
+      classificationText,
+    }) => {
+      vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+        records: [{ value: 75 }],
+      });
+      vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+        records: [{ value: 98 }],
+      });
+      vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+        records: [{ value: 7.5 }],
+      });
+      vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+        records: [{ value: 120 }],
+      });
+      vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+        records: [{ value: 80 }],
+      });
+      vi.spyOn(api, 'classifyState').mockResolvedValueOnce(classifyState);
+      vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce(getTrainingPlans);
+      if (getPlan) {
+        vi.spyOn(api, 'getPlan').mockResolvedValueOnce(getPlan);
+      }
+      renderDashboard();
 
-    await waitFor(() => {
-      expect(screen.getByText('Норма')).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(
+          screen.getByText(classificationText || 'Норма')
+        ).toBeInTheDocument();
+      });
 
-    expect(screen.getByText(/Кардио/)).toBeInTheDocument();
-  });
-
-  it('displays AI analysis with predicted_class fallback', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 75 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 98 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 7.5 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 120 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 80 }],
-    });
-    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
-      predicted_class: 'recovery',
-    });
-    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByText('recovery')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('AI анализ требует больше данных')).toBeInTheDocument();
-  });
+      expect(screen.getByText(expectedText)).toBeInTheDocument();
+    }
+  );
 
   it('handles AI analysis error', async () => {
     vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
@@ -286,18 +311,9 @@ describe('Dashboard', () => {
       expect(screen.getByText('Ошибка анализа')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Сервис AI временно недоступен')).toBeInTheDocument();
-  });
-
-  it('handles getBiometricRecords load error', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockRejectedValueOnce(
-      new Error('biometric failed')
-    );
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
-    });
+    expect(
+      screen.getByText('Сервис AI временно недоступен')
+    ).toBeInTheDocument();
   });
 
   it('displays rest workout when today workout has no matching day', async () => {
@@ -380,32 +396,6 @@ describe('Dashboard', () => {
     });
 
     expect(screen.getByText(/Сегодня нет тренировки/)).toBeInTheDocument();
-  });
-
-  it('handles getTrainingPlans error gracefully', async () => {
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 75 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 98 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 7.5 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 120 }],
-    });
-    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
-      records: [{ value: 80 }],
-    });
-    vi.spyOn(api, 'getTrainingPlans').mockRejectedValueOnce(
-      new Error('plans failed')
-    );
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
-    });
   });
 
   it('displays sleep value correctly', async () => {
@@ -498,7 +488,9 @@ describe('Dashboard', () => {
       expect(screen.getByText('Ошибка анализа')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Сервис AI временно недоступен')).toBeInTheDocument();
+    expect(
+      screen.getByText('Сервис AI временно недоступен')
+    ).toBeInTheDocument();
   });
 
   it('handles dashboard load error gracefully', async () => {
@@ -513,7 +505,9 @@ describe('Dashboard', () => {
   });
 
   it('logs error when loadDashboard throws', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     const originalAllSettled = Promise.allSettled;
     Promise.allSettled = vi.fn(() => {
       throw new Error('settled failed');

@@ -42,8 +42,10 @@ export function useProfile() {
         weight: p.weight_kg || '',
         fitness: p.fitness_level || '',
         nutrition: p.nutrition || '',
-        allergies: (p.allergies || []).join(', '), /* istanbul ignore next */
-        contraindications: (p.contraindications || []).join(', '), /* istanbul ignore next */
+        allergies: (p.allergies || []).join(', ') /* istanbul ignore next */,
+        contraindications: (p.contraindications || []).join(
+          ', '
+        ) /* istanbul ignore next */,
         goal: p.goals?.[0] || '',
       });
     } catch (e) {
@@ -84,13 +86,19 @@ export function useProfile() {
     try {
       const data = {
         full_name: form.nickname.trim(),
-        age: form.age ? Number.parseInt(form.age, 10) : null, /* istanbul ignore next */
-        gender: form.gender || null, /* istanbul ignore next */
-        height_cm: form.height ? Number.parseInt(form.height, 10) : null, /* istanbul ignore next */
-        weight_kg: form.weight ? Number.parseFloat(form.weight) : null, /* istanbul ignore next */
-        fitness_level: form.fitness || null, /* istanbul ignore next */
-        nutrition: form.nutrition || null, /* istanbul ignore next */
-        goals: form.goal ? [form.goal] : [], /* istanbul ignore next */
+        age: form.age
+          ? Number.parseInt(form.age, 10)
+          : null /* istanbul ignore next */,
+        gender: form.gender || null /* istanbul ignore next */,
+        height_cm: form.height
+          ? Number.parseInt(form.height, 10)
+          : null /* istanbul ignore next */,
+        weight_kg: form.weight
+          ? Number.parseFloat(form.weight)
+          : null /* istanbul ignore next */,
+        fitness_level: form.fitness || null /* istanbul ignore next */,
+        nutrition: form.nutrition || null /* istanbul ignore next */,
+        goals: form.goal ? [form.goal] : [] /* istanbul ignore next */,
         allergies: form.allergies
           .split(',')
           .map((s) => s.trim())

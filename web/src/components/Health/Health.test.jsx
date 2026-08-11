@@ -282,7 +282,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');
@@ -304,7 +306,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');
@@ -328,7 +332,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');
@@ -349,7 +355,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');
@@ -477,7 +485,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');
@@ -502,7 +512,9 @@ describe('Health', () => {
     renderHealth();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
     });
 
     const addButtons = screen.getAllByText('Добавить');

@@ -232,10 +232,12 @@ describe('ChangePasswordModal', () => {
     const form = screen.getByLabelText('Текущий пароль').closest('form');
     fireEvent.submit(form);
 
-    expect(api.changePassword).toHaveBeenCalledWith(
-      'password123',
-      'newpassword123'
-    );
+    await waitFor(() => {
+      expect(api.changePassword).toHaveBeenCalledWith(
+        'password123',
+        'newpassword123'
+      );
+    });
   });
 });
 

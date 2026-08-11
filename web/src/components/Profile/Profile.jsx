@@ -45,7 +45,9 @@ export default function Profile() {
                 min='18'
                 max='100'
                 inputMode='numeric'
-                className={errors.age ? 'invalid' : ''} /* istanbul ignore next */
+                className={
+                  errors.age ? 'invalid' : ''
+                } /* istanbul ignore next */
               />
               <div className='field-error'>{errors.age || ''}</div>
             </div>
@@ -78,7 +80,9 @@ export default function Profile() {
                 min='50'
                 max='300'
                 inputMode='numeric'
-                className={errors.height ? 'invalid' : ''} /* istanbul ignore next */
+                className={
+                  errors.height ? 'invalid' : ''
+                } /* istanbul ignore next */
               />
               <div className='field-error'>{errors.height || ''}</div>
             </div>
@@ -94,7 +98,9 @@ export default function Profile() {
                 max='500'
                 step='0.1'
                 inputMode='decimal'
-                className={errors.weight ? 'invalid' : ''} /* istanbul ignore next */
+                className={
+                  errors.weight ? 'invalid' : ''
+                } /* istanbul ignore next */
               />
               <div className='field-error'>{errors.weight || ''}</div>
             </div>

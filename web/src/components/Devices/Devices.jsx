@@ -16,7 +16,7 @@ export default function Devices() {
             автоматически.
           </div>
         )}
-        {status === 'loading' && ( /* istanbul ignore next */
+        {status === 'loading' /* istanbul ignore next */ && (
           <div className='loading-message'>
             ⏳ Подключение к Open Wearables...
           </div>

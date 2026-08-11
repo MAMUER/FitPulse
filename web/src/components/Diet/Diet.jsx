@@ -368,8 +368,11 @@ export default function Diet() {
     const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner']; // istanbul ignore next
     const selectedMealKeys = mealKeys.slice(0, mealCount); // istanbul ignore next
 
-    const [hours, minutes] = firstMealTime.split(':').map(Number); // istanbul ignore next
-    const startMinutes = hours * 60 + minutes; // istanbul ignore next
+    const [hours, minutes] = firstMealTime.split(':').map(Number);
+    const startMinutes =
+      Number.isFinite(hours) && Number.isFinite(minutes)
+        ? hours * 60 + minutes
+        : 8 * 60;
     const windowMinutes = 14 * 60; // istanbul ignore next
     const step = mealCount > 1 ? windowMinutes / (mealCount - 1) : 0; // istanbul ignore next
 

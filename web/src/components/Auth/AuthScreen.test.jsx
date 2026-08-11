@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -283,9 +283,7 @@ describe('AuthScreen', () => {
     await user.click(screen.getByText('Войти'));
 
     await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText('6-значный код')
-      ).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
     });
 
     await user.type(screen.getByPlaceholderText('6-значный код'), '123456');
@@ -306,9 +304,7 @@ describe('AuthScreen', () => {
     await user.click(screen.getByText('Войти'));
 
     await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText('6-значный код')
-      ).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
     });
 
     await user.type(screen.getByPlaceholderText('6-значный код'), '123456');

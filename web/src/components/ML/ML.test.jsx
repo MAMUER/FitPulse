@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
@@ -67,7 +67,9 @@ describe('ML', () => {
       expect(screen.getByText('Норма')).toBeInTheDocument();
     });
 
-    expect(screen.getByText((content) => content.includes('95%'))).toBeInTheDocument();
+    expect(
+      screen.getByText((content) => content.includes('95%'))
+    ).toBeInTheDocument();
     expect(screen.getByText('Все показатели в норме')).toBeInTheDocument();
   });
 
@@ -198,7 +200,9 @@ describe('ML', () => {
     await userEvent.click(screen.getByText('Анализировать'));
 
     await waitFor(() => {
-      expect(screen.getByText((content) => content.includes('87%'))).toBeInTheDocument();
+      expect(
+        screen.getByText((content) => content.includes('87%'))
+      ).toBeInTheDocument();
     });
   });
 
