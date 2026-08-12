@@ -8,19 +8,6 @@
 *.test
 *.out
 *.prof
-coverage/
-htmlcov/
-coverage.html
-coverage
-coverage_*
-coverage_a*
-coverage-w*
-build/
-test-output*.txt
-dist/
-target/
-bin/
-dev/
 scripts/cleanup-vps.sh
 
 # Dependencies
@@ -58,6 +45,12 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Vitest coverage reports
+web/coverage/
+
+# Vite build output
+web/dist/
 
 # Java specific
 *.class

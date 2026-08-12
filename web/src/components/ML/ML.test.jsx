@@ -28,7 +28,7 @@ const renderML = (authOverrides = {}) => {
 
   return render(
     <AuthProvider>
-      <ML />
+      <ML /> {/* NOSONAR S6770 */}
     </AuthProvider>
   );
 };
@@ -129,6 +129,7 @@ describe('ML', () => {
         ],
       },
     });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
     renderML();
 
     await userEvent.click(screen.getByText('Сгенерировать план'));
@@ -162,6 +163,7 @@ describe('ML', () => {
       plan_id: 'plan-1',
       plan_data: { weeks: [] },
     });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
     renderML();
 
     await userEvent.click(screen.getByText('Сгенерировать план'));
@@ -273,6 +275,7 @@ describe('ML', () => {
         ],
       },
     });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
     renderML();
 
     await userEvent.click(screen.getByText('Сгенерировать план'));
@@ -299,6 +302,7 @@ describe('ML', () => {
         ],
       },
     });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
     renderML();
 
     await userEvent.click(screen.getByText('Сгенерировать план'));

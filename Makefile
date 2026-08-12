@@ -1,13 +1,9 @@
 imports:
 	@echo "Updating Go imports with gci..."
-	@go run github.com/daixiang0/gci@v0.14.0 write \
-		-s standard -s default -s "prefix(github.com/MAMUER/project)" \
-		--skip-generated --skip-vendor \
-		cmd internal
+	@go run github.com/daixiang0/gci@v0.14.0 write -s standard -s default -s "prefix(github.com/MAMUER/project)" --skip-generated --skip-vendor cmd internal
 	@echo "Imports updated."
 
-SHELL := /bin/bash
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage
 BIN_DIR := bin
 GO_VERSION := 1.26.4
 
@@ -36,54 +32,42 @@ test:
 	@go test -v -timeout 5m ./...
 	@echo "Tests complete."
 
-check: tidy fmt vet imports lint test frontend-lint frontend-test frontend-build
+coverage:
+	@echo "Generating Go coverage..."
+	@powershell -Command "New-Item -ItemType Directory -Force -Path coverage | Out-Null"
+	@go test -coverprofile=coverage/coverage.out ./...
+	@echo "Generating frontend coverage..."
+	@cd web && npm run test
+	@echo "Frontend coverage complete."
+
+check: tidy fmt vet imports lint coverage frontend-install frontend-lint frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
 
 proto:
-	@if command -v protoc >/dev/null 2>&1; then \
-		echo "Generating proto files..."; \
-		bash scripts/proto.sh; \
-	else \
-		echo "WARNING: protoc not found, skipping proto generation. Install protoc to regenerate api/gen/."; \
-	fi
+	@echo "Generating proto files..."
+	@bash scripts/proto.sh
 
 frontend-install:
-	@if [ -d "web" ] && command -v npm >/dev/null 2>&1; then \
-		echo "Installing frontend dependencies..."; \
-		cd web && npm install; \
-		echo "Frontend dependencies installed."; \
-	else \
-		echo "WARNING: web/ directory or npm not found, skipping frontend install."; \
-	fi
+	@echo "Installing frontend dependencies..."
+	@cd web && npm install
+	@echo "Frontend dependencies installed."
 
 frontend-lint:
-	@if [ -d "web" ] && command -v npm >/dev/null 2>&1; then \
-		echo "Running frontend lint..."; \
-		cd web && npm run lint; \
-		echo "Frontend lint complete."; \
-	else \
-		echo "WARNING: web/ directory or npm not found, skipping frontend lint."; \
-	fi
+	@echo "Running frontend lint..."
+	@cd web && npm run lint
+	@echo "Frontend lint complete."
 
 frontend-test:
-	@if [ -d "web" ] && command -v npm >/dev/null 2>&1; then \
-		echo "Running frontend tests..."; \
-		cd web && npm run test; \
-		echo "Frontend tests complete."; \
-	else \
-		echo "WARNING: web/ directory or npm not found, skipping frontend tests."; \
-	fi
+	@echo "Running frontend tests..."
+	@cd web && npm run test
+	@echo "Frontend tests complete."
 
 frontend-build:
-	@if [ -d "web" ] && command -v npm >/dev/null 2>&1; then \
-		echo "Building frontend..."; \
-		cd web && npm run build; \
-		echo "Frontend build complete."; \
-	else \
-		echo "WARNING: web/ directory or npm not found, skipping frontend build."; \
-	fi
+	@echo "Building frontend..."
+	@cd web && npm run build
+	@echo "Frontend build complete."
 
 help:
 	@echo "Available commands:"
@@ -92,10 +76,11 @@ help:
 	@echo "  make vet             - Run go vet"
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
-	@echo "  make check           - Run tidy, fmt, vet, lint, test, frontend-install, frontend-lint, frontend-test, frontend-build"
+	@echo "  make check           - Run tidy, fmt, vet, lint, coverage, frontend-install, frontend-lint, frontend-build"
 	@echo "  make proto           - Generate proto files"
 	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"
+	@echo "  make coverage         - Generate Go and frontend coverage reports for SonarCloud"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"

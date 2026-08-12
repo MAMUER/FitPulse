@@ -200,8 +200,7 @@ describe('Devices', () => {
 
   it('disconnects provider on click', async () => {
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
-    const _getProvidersSpy = vi
-      .spyOn(api, 'getProviders')
+    vi.spyOn(api, 'getProviders')
       .mockResolvedValueOnce({
         providers: [
           {
@@ -235,7 +234,7 @@ describe('Devices', () => {
   });
 
   it('shows error when disconnect fails', async () => {
-    const _confirmMock = vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {});
     vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
       providers: [

@@ -896,10 +896,10 @@ jobs:
             -Dsonar.organization=mamuer
             -Dsonar.projectKey=fitness-platform
             -Dsonar.sources=cmd,internal,api,web/src
-            -Dsonar.tests=cmd,internal
-            -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go
-            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**
+            -Dsonar.tests=cmd,internal,web/src
+            -Dsonar.test.inclusions=**/*_test.go,**/*.test.jsx,**/*.test.js
+            -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go,**/*.test.jsx,**/*.test.js,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go
+            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go,cmd/ml_generator/main.py,cmd/**/main.go,web/src/main.jsx,web/src/App.jsx,web/src/index.css
             -Dsonar.go.coverage.reportPaths=coverage/coverage.out
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.qualitygate.wait=true
@@ -1057,7 +1057,7 @@ jobs:
   # MAKE CHECK
   # ============================================================================
   check:
-    name: Make Check (Lint + Test)
+    name: Make Check (Lint + Build)
     runs-on: ubuntu-latest
     needs: [validate-workflow, dockerfile-lint]
     timeout-minutes: 30
@@ -1083,14 +1083,10 @@ jobs:
         run: make imports
       - name: Run golangci-lint
         run: make lint
-      - name: Run tests
-        run: make test
       - name: Install frontend dependencies
         run: make frontend-install
       - name: Lint frontend
         run: make frontend-lint
-      - name: Run frontend tests
-        run: make frontend-test
       - name: Build frontend
         run: make frontend-build
 

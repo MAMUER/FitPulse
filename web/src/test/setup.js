@@ -14,6 +14,11 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
+Object.defineProperty(window, 'prompt', {
+  value: vi.fn(),
+  writable: true,
+});
+
 vi.mock('react-chartjs-2', () => ({
   Chart: () => null,
   Doughnut: () => null,

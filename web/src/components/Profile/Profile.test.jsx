@@ -23,7 +23,7 @@ vi.mock('./ChangePasswordModal', () => ({
   __esModule: true,
   default: ({ onClose }) => (
     <div data-testid='password-modal'>
-      Password Modal
+      Password Modal{' '}
       <button type='button' onClick={onClose}>
         Close
       </button>
@@ -35,7 +35,7 @@ vi.mock('./ChangeEmailModal', () => ({
   __esModule: true,
   default: ({ onClose }) => (
     <div data-testid='email-modal'>
-      Email Modal
+      Email Modal{' '}
       <button type='button' onClick={onClose}>
         Close
       </button>
@@ -47,7 +47,7 @@ vi.mock('./DeleteProfileModal', () => ({
   __esModule: true,
   default: ({ onClose }) => (
     <div data-testid='delete-modal'>
-      Delete Modal
+      Delete Modal{' '}
       <button type='button' onClick={onClose}>
         Close
       </button>

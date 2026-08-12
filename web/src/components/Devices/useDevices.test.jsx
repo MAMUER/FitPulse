@@ -55,6 +55,7 @@ describe('useDevices', () => {
         opts.onSuccess?.();
       }),
     };
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({ providers: [] });
 
     const { result } = renderHook(() => useDevices());
 

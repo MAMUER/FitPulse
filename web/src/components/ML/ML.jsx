@@ -297,8 +297,8 @@ export default function ML() {
                     type='checkbox'
                     checked={form.days.includes(idx)}
                     onChange={() => {
-                      /* istanbul ignore next */
                       setForm((f) => ({
+                        ...f,
                         days: f.days.includes(idx)
                           ? f.days.filter((d) => d !== idx)
                           : [...f.days, idx],
