@@ -7,7 +7,11 @@ import (
 )
 
 // DeclareQueueWithDLQ создаёт очередь с настройкой Dead Letter Exchange
-func DeclareQueueWithDLQ(ch *amqp.Channel, queueName string) error {
+type queueDeclarer interface {
+	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
+}
+
+func DeclareQueueWithDLQ(ch queueDeclarer, queueName string) error {
 	dlqName := queueName + ".dlq"
 
 	// 1. Создаём DLQ

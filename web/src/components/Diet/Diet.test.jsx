@@ -358,7 +358,7 @@ describe('Diet', () => {
     fireEvent.change(mealCountSelect, { target: { value: '3' } });
 
     await waitFor(() => {
-      expect(document.querySelectorAll('.meal-card').length).toBe(3);
+      expect(document.querySelectorAll('.meal-card')).toHaveLength(3);
     });
   });
 
