@@ -57,3 +57,4 @@ func TestPgsodiumRandomEncryptParam_CustomKeyID(t *testing.T) {
 	assert.Contains(t, sql, ", 42, $4)")
 	SetPgsodiumKeyID(1)
 }
+
