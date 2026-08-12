@@ -877,6 +877,8 @@ jobs:
           node-version: "26"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
+      - name: Install system dependencies for canvas
+        run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies
         run: npm ci --no-audit || npm install --no-audit --no-fund
         working-directory: web
@@ -1089,6 +1091,8 @@ jobs:
         run: make imports
       - name: Run golangci-lint
         run: make lint
+      - name: Install system dependencies for canvas
+        run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies
         run: make frontend-install
       - name: Lint frontend
