@@ -522,7 +522,7 @@ func TestFromContext(t *testing.T) {
 		core, _ := observer.New(zap.InfoLevel)
 		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-		logger := FromContext(context.TODO(), baseLogger)
+		logger := FromContext(context.Background(), baseLogger)
 		assert.NotNil(t, logger)
 		assert.Equal(t, "test-svc", logger.service)
 	})

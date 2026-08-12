@@ -888,7 +888,7 @@ jobs:
           ls -la web/coverage || true
           if [ -f web/coverage/lcov.info ]; then
             head -20 web/coverage/lcov.info || true
-            sed 's|^SF:src/|SF:web/src/|' web/coverage/lcov.info > coverage/lcov.info
+            sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' web/coverage/lcov.info > coverage/lcov.info
             echo "--- coverage/lcov.info head ---"
             head -20 coverage/lcov.info || true
           fi

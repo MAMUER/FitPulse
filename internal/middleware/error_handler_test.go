@@ -250,7 +250,7 @@ func TestGetCorrelationID(t *testing.T) {
 	})
 
 	t.Run("returns unknown when context is nil", func(t *testing.T) {
-		result := GetCorrelationID(context.TODO())
+		result := GetCorrelationID(context.Background())
 		assert.Equal(t, "unknown", result)
 	})
 }

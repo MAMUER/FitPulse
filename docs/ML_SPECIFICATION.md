@@ -8,6 +8,7 @@ FitPulse использует два компонента:
 2. **Generator (Conditional Diffusion Model)** — генерация индивидуальных тренировочных планов с учётом полного профиля пользователя. Реализован на Python (PyTorch + Lightning, inference через ONNX Runtime).
 
 Генерация плана использует 3-tier fallback:
+
 1. **Primary**: Conditional Diffusion Model (DDPM) с 32-dim условным вектором
 2. **Fallback 1**: Rule-based генерация на основе шаблонов по классу состояния
 3. **Fallback 2**: Статический beginner-план
@@ -33,12 +34,14 @@ FitPulse использует два компонента:
 | 7 | `sleep_hours` | float64 | часы | 0–24 |
 
 **Дополнительный контекст (не используется в классификации, передаётся в Generator):**
+
 - Менструальные данные (`GET /health/menstrual-cycles`)
 - Заболевания (`GET /health/conditions`)
 - История тренировок (`GET /training/plans`, `POST /training/complete`)
 - Состав тела (`GET /health/body-composition`)
 
 **Источники данных:**
+
 - `GET /api/v1/biometrics?metric_type=heart_rate,hrv,spo2,temperature,blood_pressure,sleep_hours`
 - `GET /api/v1/health/menstrual-cycles`
 - `GET /api/v1/health/conditions`
@@ -125,6 +128,7 @@ DDPM получает 32-dim conditional vector, построенный из п�
 | 28–31 | reserved | 0–1 | Зарезервировано |
 
 **Architecture:**
+
 - **Framework:** PyTorch 2.5+ + Lightning
 - **Model type:** Conditional Diffusion Model (DDPM)
 - **Noise predictor:** `plan_dim + condition_dim + 1 (time) → 512 → 512 → plan_dim`
@@ -301,6 +305,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 **Endpoint:** `POST /classify` (service на порту 8001, gateway: `POST /api/v1/ml/classify`)
 
 - **Вход:** физиологические данные
+
   ```json
   {
     "physiological_data": {
@@ -321,6 +326,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
     }
   }
   ```
+
 - **Выход:** класс, уверенность, вероятности, рекомендации, персонализированные заметки
 
 ### Generator
@@ -349,3 +355,5 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 - [ ] Добавить A/B тестирование планов (качество планов vs фидбек пользователей)
 - [ ] Реализовать incremental training с DVC pipeline (см. `docs/phase2-roadmap.md` раздел 16)
 - [ ] Добавить валидацию plan_vector (диапазоны, суммы) перед возвратом клиенту
+
+> **Примечание:** Эти задачи отслеживаются в `docs/phase2-roadmap.md` (раздел 16) и требуют отдельного планирования sprint'а.

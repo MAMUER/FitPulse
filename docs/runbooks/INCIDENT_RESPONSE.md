@@ -204,9 +204,9 @@ Root Cause: Memory leak в логике connection pooling
 
 Action Items:
 1. [DONE] Деплой фикса memory leak v2.1.1
-2. [TODO] Добавить memory profiling в CI/CD
-3. [TODO] Добавить алерт на память (> 80% utilisation)
-4. [TODO] Пересмотреть конфигурацию connection pooling
+2. [DONE] Добавить memory profiling в CI/CD
+3. [DONE] Добавить алерт на память (> 80% utilisation)
+4. [DONE] Пересмотреть конфигурацию connection pooling
 
 Участники: Platform Team
 Дата: 2026-05-08 10:00 UTC
@@ -222,7 +222,6 @@ Action Items:
 |Grafana|`https://fittpulse.duckdns.org`|Дашборды и метрики|
 |Kubernetes|`kubectl`|Оркестрация контейнеров|
 |CI/CD|GitHub Actions|Сканирование, сборка, деплой|
-
 
 ---
 
