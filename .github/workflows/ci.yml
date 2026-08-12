@@ -701,6 +701,8 @@ jobs:
           skip-dirs: "configs/k8s/overlays/production"
         env:
           TRIVY_SKIP_VERSION_CHECK: true
+      - name: Install system dependencies for canvas
+        run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies for Trivy
         run: npm ci --no-audit || npm install --no-audit --no-fund
         working-directory: web
@@ -742,9 +744,15 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Gitleaks
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          for attempt in 1 2 3 4 5; do
+            if curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz; then
+              break
+            fi
+            echo "Gitleaks download failed (attempt $attempt), retrying..."
+            sleep $((attempt * 5))
+          done
           tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
-          chmod +x /usr/local/bin/gitleaks
+          chmod +x /usr/local/bin gitleaks
       - name: Run Gitleaks secret scan
         run: |
           mkdir -p sarif-results
