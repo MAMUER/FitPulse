@@ -748,7 +748,7 @@ jobs:
       - name: Run Gitleaks secret scan
         run: |
           mkdir -p sarif-results
-          gitleaks detect --source=. --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
+          gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
         uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43

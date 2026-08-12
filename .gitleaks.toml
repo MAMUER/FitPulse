@@ -1,0 +1,7 @@
+title = "FitPulse Gitleaks Configuration"
+
+[allowlist]
+paths = [
+  '''\.test\.(js|jsx)$''',
+  '''_test\.go$''',
+]
