@@ -751,8 +751,8 @@ jobs:
             echo "Gitleaks download failed (attempt $attempt), retrying..."
             sleep $((attempt * 5))
           done
-          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
-          chmod +x /usr/local/bin gitleaks
+          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          sudo chmod +x /usr/local/bin/gitleaks
       - name: Run Gitleaks secret scan
         run: |
           mkdir -p sarif-results
