@@ -885,14 +885,12 @@ jobs:
           mkdir -p coverage
           go test -coverprofile=coverage/coverage.out ./...
           cd web && npm run test
+          ls -la web/coverage || true
           if [ -f web/coverage/lcov.info ]; then
-            awk -F'SF:' '/^SF:/{
-              path=$2;
-              gsub(/^src[\\/]/, "web/src/", path);
-              print "SF:" path;
-              next
-            }
-            {print}' web/coverage/lcov.info > coverage/lcov.info
+            head -20 web/coverage/lcov.info || true
+            sed 's|^SF:src/|SF:web/src/|' web/coverage/lcov.info > coverage/lcov.info
+            echo "--- coverage/lcov.info head ---"
+            head -20 coverage/lcov.info || true
           fi
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f
