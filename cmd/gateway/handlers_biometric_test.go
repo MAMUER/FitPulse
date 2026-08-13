@@ -12,9 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/MAMUER/project/internal/middleware"
-
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func TestBiometric_ProxyToBiometricWithUser_Unauthorized(t *testing.T) {
@@ -136,10 +135,10 @@ func TestBiometric_GetBiometricRecordsHandler_Success(t *testing.T) {
 	withBiometricClient(g)
 	bioClient := g.biometricClient.(*mockBiometricClient)
 	bioClient.records["heart_rate"] = &biometricpb.BiometricRecord{
-		Id:        "rec-1",
-		UserId:    "user-123",
+		Id:         "rec-1",
+		UserId:     "user-123",
 		MetricType: "heart_rate",
-		Value:     70,
+		Value:      70,
 		DeviceType: "watch",
 		Timestamp:  timestamppb.New(time.Now()),
 		CreatedAt:  timestamppb.New(time.Now()),

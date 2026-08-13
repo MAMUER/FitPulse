@@ -87,7 +87,6 @@ describe('client', () => {
       headers: new Headers(),
     };
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse);
-    vi.spyOn(globalThis, 'location', 'set').mockImplementation(() => {});
 
     await expect(apiRequest('/test')).rejects.toThrow(
       'Сессия истекла. Войдите заново'

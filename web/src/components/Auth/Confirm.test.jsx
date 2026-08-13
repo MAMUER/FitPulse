@@ -6,12 +6,20 @@ import * as api from '../../utils/api';
 import Confirm from './Confirm';
 
 vi.mock('../../utils/api');
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  };
+});
 
 const renderConfirm = (token) => {
   return render(
     <MemoryRouter initialEntries={['/confirm']}>
       <Routes>
         <Route path='/confirm' element={<Confirm token={token} />} />
+        <Route path='/' element={<div>Login page</div>} />
       </Routes>
     </MemoryRouter>
   );

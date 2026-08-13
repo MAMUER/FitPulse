@@ -19,6 +19,18 @@ Object.defineProperty(window, 'prompt', {
   writable: true,
 });
 
+const originalLocation = window.location;
+
+Object.defineProperty(window, 'location', {
+  value: {
+    ...originalLocation,
+    assign: vi.fn(),
+    replace: vi.fn(),
+    reload: vi.fn(),
+  },
+  writable: true,
+});
+
 vi.mock('react-chartjs-2', () => ({
   Chart: () => null,
   Doughnut: () => null,

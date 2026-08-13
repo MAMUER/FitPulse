@@ -56,7 +56,9 @@ describe('useTwoFA', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    result.current.handleEnable();
+    await act(async () => {
+      result.current.handleEnable();
+    });
 
     await waitFor(() => {
       expect(result.current.qrCode).toBe('base64qr');
@@ -79,7 +81,9 @@ describe('useTwoFA', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    result.current.handleEnable();
+    await act(async () => {
+      result.current.handleEnable();
+    });
 
     await waitFor(() => {
       expect(result.current.setupError).toBe('Setup failed');
@@ -127,7 +131,9 @@ describe('useTwoFA', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    result.current.handleEnable();
+    await act(async () => {
+      result.current.handleEnable();
+    });
 
     await waitFor(() => {
       expect(result.current.qrCode).toBe('base64qr');
@@ -171,7 +177,9 @@ describe('useTwoFA', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    result.current.handleEnable();
+    await act(async () => {
+      result.current.handleEnable();
+    });
 
     await waitFor(() => {
       expect(result.current.qrCode).toBe('base64qr');

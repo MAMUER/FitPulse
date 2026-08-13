@@ -12,9 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/MAMUER/project/internal/middleware"
-
 	trainingpb "github.com/MAMUER/project/api/gen/training"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func TestTraining_GeneratePlanHandler_Unauthorized(t *testing.T) {

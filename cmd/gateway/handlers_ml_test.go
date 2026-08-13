@@ -13,9 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/MAMUER/project/internal/middleware"
-
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func TestML_ClassifyHandler_Unauthorized(t *testing.T) {
@@ -69,14 +68,24 @@ func TestML_ClassifyHandler_Success(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
 			"predicted_class": "endurance_basic",
 			"confidence":      0.95,
 			"recommendations": []string{"increase cardio", "rest more"},
-		})
+		}); encodeErr != nil {
+			t.Logf("encode error: %v", encodeErr)
+		}
 	})}
-	go server.Serve(listener)
-	defer server.Close()
+	go func() {
+		if serveErr := server.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
+			t.Logf("server error: %v", serveErr)
+		}
+	}()
+	defer func() {
+		if closeErr := server.Close(); closeErr != nil {
+			t.Logf("close error: %v", closeErr)
+		}
+	}()
 
 	withClassifierURL(g, "http://localhost:"+strconv.Itoa(port))
 
@@ -93,8 +102,8 @@ func TestML_ClassifyHandler_Success(t *testing.T) {
 
 func TestML_AggregateMLPayload(t *testing.T) {
 	tests := []struct {
-		name string
-		metrics map[string]*biometricpb.BiometricRecord
+		name                  string
+		metrics               map[string]*biometricpb.BiometricRecord
 		wantPhysiologicalData map[string]interface{}
 	}{
 		{
@@ -104,7 +113,7 @@ func TestML_AggregateMLPayload(t *testing.T) {
 				"hrv":        {MetricType: "hrv", Value: 50},
 			},
 			wantPhysiologicalData: map[string]interface{}{
-				"heart_rate": float64(70),
+				"heart_rate":             float64(70),
 				"heart_rate_variability": float64(50),
 			},
 		},
@@ -118,8 +127,8 @@ func TestML_AggregateMLPayload(t *testing.T) {
 			},
 		},
 		{
-			name:     "empty metrics",
-			metrics:  map[string]*biometricpb.BiometricRecord{},
+			name:                  "empty metrics",
+			metrics:               map[string]*biometricpb.BiometricRecord{},
 			wantPhysiologicalData: map[string]interface{}{},
 		},
 	}
@@ -308,9 +317,9 @@ func TestML_MLDietHandler_InvalidURL(t *testing.T) {
 
 func TestML_IsValidServiceURL(t *testing.T) {
 	tests := []struct {
-		url     string
+		url      string
 		prefixes []string
-		want    bool
+		want     bool
 	}{
 		{"http://localhost:8001", []string{"http://localhost:"}, true},
 		{"https://localhost:8001", []string{"http://localhost:"}, false},

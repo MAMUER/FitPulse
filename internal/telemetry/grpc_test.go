@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/MAMUER/project/internal/logger"
-
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestGRPC_ServerHandlerOption_ReturnsOption(t *testing.T) {
@@ -36,7 +35,9 @@ func TestGRPC_LogTraceFromContext_WithValidSpan(t *testing.T) {
 	log := logger.New("test")
 
 	tp := sdktrace.NewTracerProvider()
-	defer tp.Shutdown(context.Background())
+	defer func() {
+		_ = tp.Shutdown(context.Background())
+	}()
 
 	tracer := tp.Tracer("test")
 	ctx, span := tracer.Start(context.Background(), "test-span")

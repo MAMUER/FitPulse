@@ -1020,7 +1020,7 @@ jobs:
           echo "-> Running Checkov..."
           mkdir -p sarif-results
           pip install 'checkov==3.3.9'
-          checkov --directory configs/k8s --directory scripts --output sarif > sarif-results/checkov-results.sarif || true
+          checkov --directory configs/k8s --directory scripts --output sarif --output-file sarif-results/checkov-results.sarif || true
           echo "✅ Checkov scan completed"
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''

@@ -8,14 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	"github.com/MAMUER/project/internal/middleware"
-
 	"github.com/MAMUER/project/api/gen/user"
-	"github.com/redis/go-redis/v9"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func TestAuth_RegisterHandler_InvalidJSON(t *testing.T) {
@@ -1016,14 +1015,6 @@ func (m *totpEnabledUserClient) AdminCreateInvite(ctx context.Context, req *user
 }
 func (m *totpEnabledUserClient) AdminRevokeInvite(ctx context.Context, req *user.AdminRevokeInviteRequest, opts ...grpc.CallOption) (*user.AdminRevokeInviteResponse, error) {
 	return &user.AdminRevokeInviteResponse{Success: true}, nil
-}
-
-type invalidTOTPUserClient struct {
-	totpEnabledUserClient
-}
-
-func (m *invalidTOTPUserClient) VerifyTOTP(ctx context.Context, req *user.VerifyTOTPRequest, opts ...grpc.CallOption) (*user.VerifyTOTPResponse, error) {
-	return &user.VerifyTOTPResponse{Valid: false}, nil
 }
 
 func TestAuth_VerifyTOTPHandler_InvalidJSON(t *testing.T) {

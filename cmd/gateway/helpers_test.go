@@ -107,9 +107,9 @@ func TestHelpers_TranslateError(t *testing.T) {
 
 func TestHelpers_ContainsIgnoreCase(t *testing.T) {
 	tests := []struct {
-		s       string
-		substr  string
-		want    bool
+		s      string
+		substr string
+		want   bool
 	}{
 		{"Hello World", "hello", true},
 		{"Hello World", "WORLD", true},
@@ -128,9 +128,9 @@ func TestHelpers_ContainsIgnoreCase(t *testing.T) {
 
 func TestHelpers_ContainsSubstringIgnoreCase(t *testing.T) {
 	tests := []struct {
-		s       string
-		substr  string
-		want    bool
+		s      string
+		substr string
+		want   bool
 	}{
 		{"Hello World", "hello", true},
 		{"Hello World", "WORLD", true},

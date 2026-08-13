@@ -7,12 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
-	"fmt"
-	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -21,282 +17,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/MAMUER/project/internal/auth/claims"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/logger"
-
-	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	trainingpb "github.com/MAMUER/project/api/gen/training"
 )
-
-// ========== Mock Redis Command ==========
-
-type mockRedisCmd struct {
-	resultVal interface{}
-	errVal    error
-}
-
-func (m *mockRedisCmd) Result() (interface{}, error) {
-	return m.resultVal, m.errVal
-}
-
-func (m *mockRedisCmd) Err() error {
-	return m.errVal
-}
-
-func (m *mockRedisCmd) String() string {
-	return fmt.Sprintf("%v", m.resultVal)
-}
-
-func (m *mockRedisCmd) Val() string {
-	if s, ok := m.resultVal.(string); ok {
-		return s
-	}
-	return ""
-}
-
-// ========== Mock Redis Pipeline ==========
-
-type mockRedisPipeline struct {
-	cmds []func() *mockRedisCmd
-}
-
-func (p *mockRedisPipeline) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: "OK"}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) Get(ctx context.Context, key string) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: "", errVal: fmt.Errorf("redis: nil")}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) Del(ctx context.Context, keys ...string) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: int64(0)}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) Expire(ctx context.Context, key string, expiration time.Duration) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: true}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) SAdd(ctx context.Context, key string, members ...interface{}) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: int64(0)}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) SIsMember(ctx context.Context, key string, member interface{}) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: false}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) SRem(ctx context.Context, key string, members ...interface{}) *mockRedisCmd {
-	cmd := &mockRedisCmd{resultVal: int64(1)}
-	p.cmds = append(p.cmds, func() *mockRedisCmd { return cmd })
-	return cmd
-}
-
-func (p *mockRedisPipeline) Exec(ctx context.Context) ([]interface{}, error) {
-	results := make([]interface{}, len(p.cmds))
-	for i, cmdFn := range p.cmds {
-		results[i] = cmdFn()
-	}
-	return results, nil
-}
-
-// ========== Mock Redis Client ==========
-
-type mockRedisClient struct {
-	data   map[string]string
-	sets   map[string]map[string]bool
-	incr   map[string]int64
-	err    error
-}
-
-func (m *mockRedisClient) Pipeline() *mockRedisPipeline {
-	return &mockRedisPipeline{}
-}
-
-func (m *mockRedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	m.data[key] = fmt.Sprintf("%v", value)
-	return &mockRedisCmd{resultVal: "OK"}
-}
-
-func (m *mockRedisClient) Get(ctx context.Context, key string) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	val, ok := m.data[key]
-	if !ok {
-		return &mockRedisCmd{errVal: fmt.Errorf("redis: nil")}
-	}
-	return &mockRedisCmd{resultVal: val}
-}
-
-func (m *mockRedisClient) Del(ctx context.Context, keys ...string) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	count := int64(0)
-	for _, key := range keys {
-		if _, ok := m.data[key]; ok {
-			delete(m.data, key)
-			count++
-		}
-	}
-	return &mockRedisCmd{resultVal: count}
-}
-
-func (m *mockRedisClient) Expire(ctx context.Context, key string, expiration time.Duration) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	return &mockRedisCmd{resultVal: true}
-}
-
-func (m *mockRedisClient) SAdd(ctx context.Context, key string, members ...interface{}) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	if _, ok := m.sets[key]; !ok {
-		m.sets[key] = make(map[string]bool)
-	}
-	count := int64(0)
-	for _, member := range members {
-		s := fmt.Sprintf("%v", member)
-		if !m.sets[key][s] {
-			m.sets[key][s] = true
-			count++
-		}
-	}
-	return &mockRedisCmd{resultVal: count}
-}
-
-func (m *mockRedisClient) SIsMember(ctx context.Context, key string, member interface{}) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	s := fmt.Sprintf("%v", member)
-	if set, ok := m.sets[key]; ok {
-		return &mockRedisCmd{resultVal: set[s]}
-	}
-	return &mockRedisCmd{resultVal: false}
-}
-
-func (m *mockRedisClient) SRem(ctx context.Context, key string, members ...interface{}) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	count := int64(0)
-	for _, member := range members {
-		s := fmt.Sprintf("%v", member)
-		if set, ok := m.sets[key]; ok && set[s] {
-			delete(set, s)
-			count++
-		}
-	}
-	return &mockRedisCmd{resultVal: count}
-}
-
-func (m *mockRedisClient) Scan(ctx context.Context, cursor uint64, match string, count int64) ([]string, uint64, error) {
-	if m.err != nil {
-		return nil, 0, m.err
-	}
-	var keys []string
-	for key := range m.data {
-		keys = append(keys, key)
-	}
-	return keys, 0, nil
-}
-
-func (m *mockRedisClient) Incr(ctx context.Context, key string) *mockRedisCmd {
-	if m.err != nil {
-		return &mockRedisCmd{errVal: m.err}
-	}
-	m.incr[key]++
-	return &mockRedisCmd{resultVal: m.incr[key]}
-}
-
-// ========== Mock Session Store ==========
-
-type mockSessionStore struct {
-	sessions        map[string]string
-	criticalSessions map[string]string
-	validateErr     error
-	createErr       error
-	invalidateErr   error
-}
-
-func (m *mockSessionStore) InvalidateUserSession(ctx context.Context, userID string) error {
-	if m.invalidateErr != nil {
-		return m.invalidateErr
-	}
-	delete(m.sessions, userID)
-	return nil
-}
-
-func (m *mockSessionStore) ValidateCriticalSession(ctx context.Context, token, expectedUserID string) error {
-	if m.validateErr != nil {
-		return m.validateErr
-	}
-	userID, ok := m.criticalSessions[token]
-	if !ok {
-		return errors.New("session expired")
-	}
-	if userID != expectedUserID {
-		return errors.New("invalid session")
-	}
-	delete(m.criticalSessions, token)
-	return nil
-}
-
-func (m *mockSessionStore) CreateCriticalSession(ctx context.Context, userID string) (string, error) {
-	if m.createErr != nil {
-		return "", m.createErr
-	}
-	token := "critical-token-" + userID
-	m.criticalSessions[token] = userID
-	return token, nil
-}
-
-// ========== Mock Token Provider ==========
-
-type mockTokenProvider struct{}
-
-func (m *mockTokenProvider) GenerateAccessToken(userID, email, role string, ttl time.Duration) (string, error) {
-	return "mock-access-token-" + userID, nil
-}
-
-func (m *mockTokenProvider) GenerateRefreshToken() string {
-	return "mock-refresh-token"
-}
-
-func (m *mockTokenProvider) ValidateAccessToken(token string) (*claims.Claims, error) {
-	return nil, nil
-}
-
-func (m *mockTokenProvider) ComputeTokenFingerprint(token string) string {
-	return "mock-fingerprint-" + token
-}
-
-func (m *mockTokenProvider) PublicKeyPEMToJWKS(publicKeyPEM string) ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockTokenProvider) PublicKeyPEM() string {
-	return "mock-public-key"
-}
 
 // ========== Mock Biometric Client ==========
 
@@ -318,10 +44,10 @@ func (m *mockBiometricClient) AddRecord(ctx context.Context, req *biometricpb.Ad
 		return nil, m.addErr
 	}
 	record := &biometricpb.BiometricRecord{
-		Id:        "rec-" + req.UserId,
-		UserId:    req.UserId,
+		Id:         "rec-" + req.UserId,
+		UserId:     req.UserId,
 		MetricType: req.MetricType,
-		Value:     req.Value,
+		Value:      req.Value,
 		DeviceType: req.DeviceType,
 	}
 	m.records[req.MetricType] = record
@@ -359,8 +85,8 @@ func (m *mockBiometricClient) UpdateRecord(ctx context.Context, req *biometricpb
 		return nil, m.addErr
 	}
 	return &biometricpb.BiometricRecord{
-		Id: req.Id,
-		Value: req.Value,
+		Id:         req.Id,
+		Value:      req.Value,
 		DeviceType: req.DeviceType,
 	}, nil
 }
@@ -376,13 +102,13 @@ func (m *mockBiometricClient) DeleteRecord(ctx context.Context, req *biometricpb
 // ========== Mock Training Client ==========
 
 type mockTrainingClient struct {
-	plans     map[string]*trainingpb.TrainingPlan
-	planData  *trainingpb.GeneratePlanResponse
-	listResp  *trainingpb.ListPlansResponse
-	progress  *trainingpb.GetProgressResponse
+	plans       map[string]*trainingpb.TrainingPlan
+	planData    *trainingpb.GeneratePlanResponse
+	listResp    *trainingpb.ListPlansResponse
+	progress    *trainingpb.GetProgressResponse
 	completeErr error
-	getErr   error
-	listErr  error
+	getErr      error
+	listErr     error
 	generateErr error
 }
 
@@ -438,25 +164,9 @@ func (m *mockTrainingClient) GetProgress(ctx context.Context, req *trainingpb.Ge
 	return &trainingpb.GetProgressResponse{}, nil
 }
 
-// ========== Mock Reverse Proxy ==========
-
-type mockReverseProxy struct {
-	handler http.Handler
-}
-
-func (m *mockReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.handler != nil {
-		m.handler.ServeHTTP(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
-}
-
 // ========== Test Gateway Setup ==========
 
-func newTestGateway(opts ...func(*gateway)) *gateway {
+func newTestGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
@@ -464,15 +174,11 @@ func newTestGateway(opts ...func(*gateway)) *gateway {
 	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 
-	g := &gateway{
+	return &gateway{
 		log:           log,
 		userClient:    &mockUserServiceClient{},
 		tokenProvider: jwt.NewJWTAdapter(privateKeyPEM, publicKeyPEM),
 	}
-	for _, opt := range opts {
-		opt(g)
-	}
-	return g
 }
 
 func withRealRedis(g *gateway) {
