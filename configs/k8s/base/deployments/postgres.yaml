@@ -76,6 +76,7 @@ spec:
               chmod 2775 /var/run/postgresql || true
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: false
             runAsUser: 0
             capabilities:
@@ -91,9 +92,11 @@ spec:
             requests:
               cpu: "10m"
               memory: "16Mi"
+              ephemeral-storage: "64Mi"
             limits:
               cpu: "20m"
               memory: "24Mi"
+              ephemeral-storage: "128Mi"
       containers:
         - name: postgres
           # Образ с предустановленным pgsodium (libsodium) для шифрования PII.
@@ -141,9 +144,11 @@ spec:
             requests:
               cpu: "20m"
               memory: "64Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "100m"
               memory: "256Mi" # Жесткий лимит для БД
+              ephemeral-storage: "512Mi"
           livenessProbe:
             exec:
               command:

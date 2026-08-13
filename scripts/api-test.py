@@ -58,7 +58,10 @@ class TestRunner:
             or not self.parsed_base_url.hostname
             or port is None
         )
-        self.ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+        self.ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)  # NOSONAR python:S4423 - Python 3.14 secure defaults; minimum_version, check_hostname, and verify_mode set explicitly below
+        self.ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        self.ctx.check_hostname = True
+        self.ctx.verify_mode = ssl.CERT_REQUIRED
         if insecure:
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
@@ -155,20 +158,9 @@ def test_auth(t, test_email):
         "full_name": "API Test User",
         "role": "client",
     }
-    resp = t.test("Register", "POST", REGISTER_PATH, body=reg_body, expected=200)
+    t.test("Register", "POST", REGISTER_PATH, body=reg_body, expected=200)
 
     # Email confirmation skipped in API tests (token delivered via email in production)
-    verify_token = ""
-
-    if verify_token:
-        t.test(
-            "Confirm Email",
-            "POST",
-            "/api/v1/auth/confirm",
-            body={"token": verify_token},
-            expected=200,
-        )
-
     t.test("Register (dup)", "POST", REGISTER_PATH, body=reg_body, expected=409)
     t.test(
         "Register (bad email)",

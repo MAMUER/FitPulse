@@ -40,7 +40,9 @@ describe('Devices', () => {
   it('renders devices page with default state', () => {
     renderDevices();
     expect(screen.getByText('Источники здоровья')).toBeInTheDocument();
-    expect(screen.getByText('Подключить источники здоровья')).toBeInTheDocument();
+    expect(
+      screen.getByText('Подключить источники здоровья')
+    ).toBeInTheDocument();
     expect(screen.getByText('Нет подключённых источников')).toBeInTheDocument();
   });
 
