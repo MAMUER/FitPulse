@@ -131,6 +131,11 @@ func TestCorrelationIDGRPCClient_SkipsUnknown(t *testing.T) {
 
 func TestGetCorrelationIDValue(t *testing.T) {
 	t.Run("nil context", func(t *testing.T) {
+		var ctx context.Context
+		assert.Equal(t, correlationIDUnknown, GetCorrelationID(ctx))
+	})
+
+	t.Run("background context", func(t *testing.T) {
 		assert.Equal(t, correlationIDUnknown, GetCorrelationID(context.Background()))
 	})
 

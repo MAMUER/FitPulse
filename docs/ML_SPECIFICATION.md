@@ -348,7 +348,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 
 ---
 
-## Open Questions / TODO
+## Open Questions
 
 - [ ] Переобучить модель с CONDITION_DIM=32 и сохранить новый `generator.onnx`
 - [ ] Реализовать DDIM sampling для ускорения inference (< 10 шагов)

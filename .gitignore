@@ -10,6 +10,9 @@
 *.prof
 scripts/cleanup-vps.sh
 
+# Build output
+bin/
+
 # Dependencies
 vendor/
 go.work
@@ -26,7 +29,6 @@ env/
 # Logs and temp files
 *.log
 *.tmp
-
 
 # IDE and editor settings
 .vscode/
@@ -48,6 +50,8 @@ yarn-error.log*
 
 # Vitest coverage reports
 web/coverage/
+coverage/
+internal/webhook/coverage
 
 # Vite build output
 web/dist/
@@ -105,4 +109,3 @@ results.json
 
 # Raw datasets (too large for git)
 datasets/raw/
-

@@ -89,6 +89,15 @@ func TestValidatePayload(t *testing.T) {
 		assert.ErrorIs(t, payload.Validate(), ErrInvalidMetricType)
 	})
 
+	t.Run("missing timestamp", func(t *testing.T) {
+		payload := &OpenWearablesWebhookPayload{
+			UserID:  "user-1",
+			Source:  SourceTypeOpenWearables,
+			Metrics: []OpenWearablesMetric{{Type: MetricTypeHeartRate, Value: 72.0}},
+		}
+		assert.ErrorIs(t, payload.Validate(), ErrMissingTimestamp)
+	})
+
 	t.Run("metric timestamp defaults to payload timestamp", func(t *testing.T) {
 		ts := parseTime(t, "2024-01-01T00:00:00Z")
 		payload := &OpenWearablesWebhookPayload{

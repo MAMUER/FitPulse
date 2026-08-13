@@ -302,6 +302,21 @@ func TestMapStringInterface(t *testing.T) {
 				"string": "&lt;xss&gt;",
 			},
 		},
+		{
+			name: "map[string]string values are sanitized",
+			input: map[string]interface{}{
+				"meta": map[string]string{
+					"a": "<b>",
+					"b": "safe",
+				},
+			},
+			expected: map[string]interface{}{
+				"meta": map[string]string{
+					"a": "&lt;b&gt;",
+					"b": "safe",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
