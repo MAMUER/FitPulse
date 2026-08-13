@@ -359,6 +359,7 @@ Mutable tags позволяют владельцу action'а перенапра�
 | **webhook** `internal/webhook/storage.go:203` | `// NOSONAR godre:S8168` — transaction lifecycle managed by caller | SonarQube false positive: управление транзакцией вынесено в caller; suppression предотвращает ложное срабатывание |
 | **user-service** `internal/email/email.go:140-148` | S5332: clear-text SMTP в ветке `else` (когда `SMTP_TLS=false`) | Принятый риск: по умолчанию `SMTP_TLS=true`; non-TLS только при явном `SMTP_TLS=false` для локальной разработки с MailHog |
 | **user-service** `internal/email/email.go:191` | S5332: `smtp.NewClient` поверх `tls.Dialer` | SonarQube false positive: `smtp.NewClient` вызывается уже поверх TLS-соединения, через `tls.Dialer` с `MinVersion: TLS 1.2` |
+| **scripts** `scripts/api-test.py:61` | S4423: `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` | Accepted false positive: проект использует Python 3.14; `PROTOCOL_TLS_CLIENT` + `TLSv1_2` + `check_hostname=True` + `verify_mode=CERT_REQUIRED` являются secure defaults. SonarLint Python не распознаёт этот код как безопасный; suppression в коде не работает, поэтому accepted на уровне SonarCloud/SonarQube |
 
 ## Frontend coverage — принятые исключения Istanbul/NYC
 

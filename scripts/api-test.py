@@ -58,7 +58,7 @@ class TestRunner:
             or not self.parsed_base_url.hostname
             or port is None
         )
-        self.ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)  # NOSONAR python:S4423 - Python 3.14 secure defaults; minimum_version, check_hostname, and verify_mode set explicitly below
+        self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self.ctx.check_hostname = True
         self.ctx.verify_mode = ssl.CERT_REQUIRED
