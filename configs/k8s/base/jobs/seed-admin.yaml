@@ -33,6 +33,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: app-service-account
@@ -43,8 +48,9 @@ spec:
             secretName: app-secrets
       containers:
         - name: seed-admin
-          image: postgres:18-alpine
-          imagePullPolicy: IfNotPresent
+          # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
+          image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

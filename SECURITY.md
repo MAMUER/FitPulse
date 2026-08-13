@@ -350,27 +350,19 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 ## Заглушки и dev-only поведение в production коде
 
-| Компонент | Заглушка / dev-only поведение / suppression | Security implications | План устранения |
+| Компонент | Заглушка / dev-only поведение / suppression | Security implications |
 | --- | --- | --- | --- |
-| **user-service** `cmd/user-service/main.go:186` | При регистрации в ответе возвращается verification token с префиксом `(dev only)` | Токен верификации email выводится в API-ответ; в production это позволяет подтвердить email без доступа к почте | Заменить на отправку токена только через email/SMS; в production ответ должен возвращать только `user_id` и `message` без токена |
-| **user-service** `cmd/user-service/main.go:1036-1054` | `SyncDeviceData` — stub, симулирует sync через `UPDATE devices SET last_sync = NOW()` | Нет реальной синхронизации с устройством; данные не обновляются | Реализовать интеграцию с Open Wearables API / Withings / Google Fit |
-| **user-service** `cmd/user-service/main.go:1057-1069` | `GetTrainingStats` — stub, возвращает фиксированные `mock data` (TotalWorkouts=25, AverageDurationMinutes=45.5 и т.д.) | Пользователь видит нереальные данные; статистика не отражает реальную активность | Подключить к training-service / device-aggregator для реальных метрик |
-| **user-service** `cmd/user-service/main.go:175,...` | `// NOSONAR go:S2077` — SQL с pgsodium encrypt/decrypt | SonarQube FP: pgsodium expressions не содержат user input; suppression предотвращает ложные SQL injection | Убрать suppression после обновления SonarQube Go plugin; или документировать trusted constants |
-| **user-service** `cmd/user-service/main.go:839,1766,2388,821,827` | `// NOSONAR go:S2077` — SQL queries с валидированными константами `tableName`/`idField`/`column` | SonarQube false positive: имена таблиц/колонок — валидированные константы, не пользовательский ввод | Убрать suppression после обновления SonarQube Go plugin |
-| **user-service** `cmd/user-service/main.go:2028,2309` | `// NOSONAR go:S2077` — SQL queries с validated constants из trusted source | SonarQube false positive: table/column names из валидированных констант | Убрать suppression после обновления SonarQube Go plugin |
-| **user-service** `cmd/user-service/main.go:2353` | `// NOSONAR go:S2077` — `id` is pgsodium key ID from trusted source | SonarQube false positive: pgsodium key ID не является пользовательским вводом | Убрать suppression после обновления SonarQube Go plugin |
-| **webhook** `internal/webhook/storage.go:203` | `// NOSONAR godre:S8168` — transaction lifecycle managed by caller with `defer tx.Rollback()` | SonarQube false positive: управление транзакцией вынесено в caller; suppression предотвращает ложное срабатывание | Убрать suppression после обновления SonarQube Go plugin |
-| **scripts** `scripts/api-test.py:61` | `# NOSONAR` suppression for `ssl.create_default_context()` (Sonar rule S4423) | SonarLint требует явного TLS version/purpose; в Python 3.14 `create_default_context()` использует secure defaults (SERVER_AUTH, TLS 1.2+) | Убрать suppression после обновления SonarLint/SonarQube plugin; или указать `purpose=ssl.Purpose.SERVER_AUTH` если анализатор требует |
-| **load-test.k6** `load-test.k6:54` | Парсит `token (dev only)` из ответа регистрации для подтверждения email в нагрузочных тестах | Тест зависит от dev-only поведения; при его удалении тесты сломаются | После удаления dev-only токена из production API обновить тесты на использование реального email-потока или мока |
-| **scripts** `scripts/api-test.py:159` | То же самое: парсит dev-only verification token для API-тестов | Аналогично load-test.k6 | Аналогично |
-| **user-service** `internal/email/email.go:140-148` | S5332: clear-text SMTP в ветке `else` (когда `SMTP_TLS=false`) | Принятый риск: по умолчанию `SMTP_TLS=true`; non-TLS (`smtp.SendMail`) только при явном `SMTP_TLS=false` для локальной разработки с MailHog. В production TLS обязателен. Тесты на моках | В production `SMTP_TLS=true`; для локальной разработки с MailHog `SMTP_TLS=false` |
-| **user-service** `internal/email/email.go:191` | S5332: `smtp.NewClient` поверх `tls.Dialer` | SonarQube false positive: `smtp.NewClient` вызывается уже поверх TLS-соединения, через `tls.Dialer` с `MinVersion: TLS 1.2`; шифрование включено с самого начала, clear-text трафика нет | Убрать suppression после обновления SonarQube Go plugin; или отметить как False Positive в интерфейсе SonarQube |
-
-**Важно:** Все dev-only заглушки должны быть удалены или отключены через feature flag перед релизом в production. В текущем коде они присутствуют для ускорения разработки и тестирования, но не являются частью production-ready функционала.
+| **user-service** `cmd/user-service/main.go:175,...` | `// NOSONAR go:S2077` — SQL с pgsodium encrypt/decrypt | SonarQube FP: pgsodium expressions не содержат user input; suppression предотвращает ложные SQL injection |
+| **user-service** `cmd/user-service/main.go:839,1766,2388,821,827` | `// NOSONAR go:S2077` — SQL queries с валидированными константами `tableName`/`idField`/`column` | SonarQube false positive: имена таблиц/колонок — валидированные константы, не пользовательский ввод |
+| **user-service** `cmd/user-service/main.go:2028,2309` | `// NOSONAR go:S2077` — SQL queries с validated constants из trusted source | SonarQube false positive: table/column names из валидированных констант |
+| **user-service** `cmd/user-service/main.go:2353` | `// NOSONAR go:S2077` — `id` is pgsodium key ID from trusted source | SonarQube false positive: pgsodium key ID не является пользовательским вводом |
+| **webhook** `internal/webhook/storage.go:203` | `// NOSONAR godre:S8168` — transaction lifecycle managed by caller | SonarQube false positive: управление транзакцией вынесено в caller; suppression предотвращает ложное срабатывание |
+| **user-service** `internal/email/email.go:140-148` | S5332: clear-text SMTP в ветке `else` (когда `SMTP_TLS=false`) | Принятый риск: по умолчанию `SMTP_TLS=true`; non-TLS только при явном `SMTP_TLS=false` для локальной разработки с MailHog |
+| **user-service** `internal/email/email.go:191` | S5332: `smtp.NewClient` поверх `tls.Dialer` | SonarQube false positive: `smtp.NewClient` вызывается уже поверх TLS-соединения, через `tls.Dialer` с `MinVersion: TLS 1.2` |
 
 ## Frontend coverage — принятые исключения Istanbul/NYC
 
-В веб-интерфейсе (`web/src`) оставшиеся ~3% непокрытых строк относятся к两类:
+В веб-интерфейсе (`web/src`) оставшиеся ~3% непокрытых строк относятся:
 
 1. **JSX-conditional rendering ветки**, которые требуют либо глубокой перестройки тестовой инфраструктуры (моки `window.prompt/confirm`, `Chart.js` canvas context, `OpenWearablesWidget`), либо принятия риска. Для этих веток использованы `/* istanbul ignore next */` там, где это не ломает парсинг JSX.
 2. **API proxy-модули** (`web/src/utils/api/*.js`), которые не содержат бизнес-логики, только проксируют HTTP-запросы. Для них добавлен `/* istanbul ignore file */`, так как их логика покрывается косвенно через тесты компонентов.

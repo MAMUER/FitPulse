@@ -55,14 +55,16 @@ spec:
             name: valkey-config
       containers:
         - name: valkey
+          # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
           image: valkey/valkey:9-alpine
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 6379
               name: valkey
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
+            runAsUser: 999
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]

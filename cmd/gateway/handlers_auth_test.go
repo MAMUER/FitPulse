@@ -306,7 +306,7 @@ func TestAuth_GoogleCallbackHandler_ExchangeError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
 	g.googleCallbackHandler(w, req)
 
@@ -319,7 +319,7 @@ func TestAuth_GoogleCallbackHandler_InvalidStateCookie(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "wrong-state"})
+	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "wrong-state", Secure: true, HttpOnly: true})
 
 	g.googleCallbackHandler(w, req)
 
@@ -333,7 +333,7 @@ func TestAuth_GoogleCallbackHandler_TOTPEnabled(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
 	g.googleCallbackHandler(w, req)
 

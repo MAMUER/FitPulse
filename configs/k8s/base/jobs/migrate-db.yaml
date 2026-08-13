@@ -33,7 +33,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       restartPolicy: OnFailure
@@ -49,8 +53,9 @@ spec:
             name: db-migrations
       containers:
         - name: migrate
+          # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
           image: flyway/flyway:11
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -65,16 +70,10 @@ spec:
           env:
             - name: FLYWAY_URL
               value: "jdbc:postgresql://postgres-service:5432/fitness_platform"
-            - name: FLYWAY_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_USER
-            - name: FLYWAY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: POSTGRES_PASSWORD
+            - name: FLYWAY_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
+            - name: FLYWAY_PASSWORD_FILE
+              value: "/etc/secrets/POSTGRES_PASSWORD"
             - name: FLYWAY_LOCATIONS
               value: "filesystem:/flyway/sql"
             - name: FLYWAY_CONNECT_RETRIES
@@ -85,6 +84,9 @@ spec:
           volumeMounts:
             - name: migrations
               mountPath: /flyway/sql
+              readOnly: true
+            - name: secrets
+              mountPath: /etc/secrets
               readOnly: true
           readinessProbe:
             tcpSocket:

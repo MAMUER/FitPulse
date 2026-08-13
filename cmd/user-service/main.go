@@ -204,7 +204,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	return &pb.RegisterResponse{
 		UserId:  userID,
-		Message: "user created successfully. Verification token (dev only): " + verificationToken,
+		Message: "user created successfully. Please check your email to verify your account.",
 	}, nil
 }
 
@@ -1080,44 +1080,24 @@ func (s *userServer) RemoveDevice(ctx context.Context, req *pb.RemoveDeviceReque
 	return &pb.RemoveDeviceResponse{Message: "Device removed successfully"}, nil
 }
 
-// SyncDeviceData syncs data from the device (stub implementation).
+// SyncDeviceData syncs data from the device.
+// TODO: Implement real integration with Open Wearables API / Withings / Google Fit.
 func (s *userServer) SyncDeviceData(ctx context.Context, req *pb.SyncDeviceDataRequest) (*pb.SyncDeviceDataResponse, error) {
 	if req.UserId == "" || req.DeviceId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and device_id are required")
 	}
 
-	// In real implementation, trigger sync with real API
-	// For now, simulate sync by updating last_sync
-	_, err := s.db.ExecContext(ctx, "UPDATE devices SET last_sync = NOW() WHERE user_id = $1 AND id = $2", req.UserId, req.DeviceId)
-	if err != nil {
-		s.log.Error("Failed to sync device data", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to sync device data")
-	}
-
-	// Simulate synced samples
-	syncedSamples := 100 // Placeholder
-
-	s.log.Info("Device data synced", zap.String("user_id", req.UserId), zap.String("device_id", req.DeviceId), zap.Int("samples", syncedSamples))
-	return &pb.SyncDeviceDataResponse{Message: "Device data synced successfully", SyncedSamples: int32(syncedSamples)}, nil
+	return nil, status.Error(codes.Unimplemented, "SyncDeviceData is not yet implemented")
 }
 
-// GetTrainingStats retrieves training statistics for the user (stub implementation).
+// GetTrainingStats retrieves training statistics for the user.
+// TODO: Implement real integration with training-service / device-aggregator.
 func (s *userServer) GetTrainingStats(ctx context.Context, req *pb.GetTrainingStatsRequest) (*pb.GetTrainingStatsResponse, error) {
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
 	}
 
-	// In real implementation, query training service or database for stats
-	// For now, return mock data
-	stats := &pb.TrainingStats{
-		TotalWorkouts:          25,
-		CompletedWorkouts:      20,
-		AverageDurationMinutes: 45.5,
-		TotalCaloriesBurned:    1500.0,
-		MostFrequentExercise:   "Push-ups",
-	}
-
-	return &pb.GetTrainingStatsResponse{Stats: stats}, nil
+	return nil, status.Error(codes.Unimplemented, "GetTrainingStats is not yet implemented")
 }
 
 // GetAchievements retrieves all achievements with user's earned status from database.

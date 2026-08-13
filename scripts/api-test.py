@@ -58,7 +58,7 @@ class TestRunner:
             or not self.parsed_base_url.hostname
             or port is None
         )
-        self.ctx = ssl.create_default_context()  # NOSONAR
+        self.ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
         if insecure:
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
@@ -157,13 +157,8 @@ def test_auth(t, test_email):
     }
     resp = t.test("Register", "POST", REGISTER_PATH, body=reg_body, expected=200)
 
+    # Email confirmation skipped in API tests (token delivered via email in production)
     verify_token = ""
-    if isinstance(resp, dict) and resp.get("message"):
-        import re
-
-        match = re.search(r"token \(dev only\):\s*([a-f0-9]+)", resp["message"])
-        if match:
-            verify_token = match.group(1)
 
     if verify_token:
         t.test(

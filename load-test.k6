@@ -47,13 +47,8 @@ export function setup() {
     });
     check(registerRes, { 'register success': (r) => r.status === 200 });
 
-    // Извлекаем токен подтверждения
+    // Email confirmation skipped in load tests (token delivered via email in production)
     let verifyToken = null;
-    const regData = registerRes.json();
-    if (regData && regData.message) {
-        const match = regData.message.match(/token \(dev only\):\s*([a-f0-9]+)/);
-        if (match) verifyToken = match[1];
-    }
 
     // Подтверждаем email
     if (verifyToken) {

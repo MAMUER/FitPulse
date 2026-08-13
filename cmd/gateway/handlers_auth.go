@@ -312,7 +312,7 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return registration result including verification token (dev mode)
+	// Return registration result
 	response := map[string]interface{}{"status": "ok"}
 	if resp.GetMessage() != "" {
 		response["message"] = resp.GetMessage()

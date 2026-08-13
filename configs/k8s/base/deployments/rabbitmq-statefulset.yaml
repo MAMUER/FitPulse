@@ -50,8 +50,9 @@ spec:
       serviceAccountName: app-service-account
       containers:
         - name: rabbitmq
-          image: rabbitmq:4.3-management-alpine
-          imagePullPolicy: IfNotPresent
+          # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
+          image: rabbitmq:4.3-management-alpine@sha256:44bf7eb50fe1765885659e49ccfdc775f8e531964d979321aee380a071f49f94
+          imagePullPolicy: Always
           ports:
             - containerPort: 5672
               name: amqp
@@ -60,22 +61,17 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
+            runAsUser: 1000
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
           env:
-            - name: RABBITMQ_DEFAULT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_USER
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_PASS
+            - name: RABBITMQ_DEFAULT_USER_FILE
+              value: "/etc/secrets/RABBITMQ_USER"
+            - name: RABBITMQ_DEFAULT_PASS_FILE
+              value: "/etc/secrets/RABBITMQ_PASS"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
           volumeMounts:

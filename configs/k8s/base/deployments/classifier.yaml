@@ -36,6 +36,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
@@ -51,6 +52,7 @@ spec:
           emptyDir: {}
       containers:
         - name: classifier
+          # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
           image: ghcr.io/mamuer/project/classifier:${{ steps.sha.outputs.short_sha }}
           imagePullPolicy: Always
           securityContext:

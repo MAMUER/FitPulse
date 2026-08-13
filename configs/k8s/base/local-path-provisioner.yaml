@@ -118,8 +118,9 @@ data:
       restartPolicy: Never
       containers:
         - name: helper-pod
-          image: busybox:1.37.0
-          imagePullPolicy: IfNotPresent
+          # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
+          image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+          imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args: ["echo 'Helper pod started'; sleep 3600"]
 ---
@@ -159,8 +160,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: local-path-provisioner
+          # checkov:skip=CKV_K8S_43: System component; image resolved in deployment pipeline
           image: rancher/local-path-provisioner:v0.0.26
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - local-path-provisioner
             - start
