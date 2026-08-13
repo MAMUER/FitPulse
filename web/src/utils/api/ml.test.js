@@ -28,6 +28,15 @@ describe('ml api', () => {
     });
   });
 
+  it('classifies state returns apiRequest result', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ state: 'stress' })
+    );
+
+    const result = await api.classifyState({ heart_rate: 120 });
+    expect(result.state).toBe('stress');
+  });
+
   it('generates ml plan', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ plan: {} }));
 
@@ -50,6 +59,15 @@ describe('ml api', () => {
         constraints: { time: '30min' },
       }),
     });
+  });
+
+  it('generates ml plan returns apiRequest result', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ plan: { type: 'cardio' } })
+    );
+
+    const result = await api.generateMLPlan('cardio', {}, 'weight_loss', {});
+    expect(result.plan.type).toBe('cardio');
   });
 
   it('handles api error', async () => {

@@ -25,6 +25,15 @@ describe('integrations api', () => {
     });
   });
 
+  it('gets providers returns apiRequest result', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ providers: [{ source: 'google' }] })
+    );
+
+    const result = await api.getProviders();
+    expect(result.providers[0].source).toBe('google');
+  });
+
   it('disconnects integration', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockResponse({ success: true })
@@ -39,6 +48,15 @@ describe('integrations api', () => {
         headers: { 'Content-Type': 'application/json' },
       }
     );
+  });
+
+  it('disconnects integration returns apiRequest result', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ success: true })
+    );
+
+    const result = await api.disconnectIntegration('fitbit');
+    expect(result.success).toBe(true);
   });
 
   it('handles api error', async () => {

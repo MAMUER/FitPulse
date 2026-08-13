@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,6 +32,18 @@ func TestCSPReportHandler_BadRequest(t *testing.T) {
 	g.cspReportHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestCSPReportHandler_ReadBodyError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", &errorReader{err: io.ErrUnexpectedEOF})
+	req.Header.Set("Content-Type", "application/json")
+
+	g.cspReportHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestCSPReportHandler_InvalidJSON(t *testing.T) {

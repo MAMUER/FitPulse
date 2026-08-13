@@ -6,6 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+	"github.com/MAMUER/project/internal/logger"
 )
 
 func TestCacheConfig_Validate(t *testing.T) {
@@ -207,4 +211,26 @@ func TestRedactSecrets(t *testing.T) {
 		assert.Equal(t, "[REDACTED]", jwtCfg.PrivateKeyPEM)
 		assert.Equal(t, "[REDACTED]", jwtCfg.PublicKeyPEM)
 	})
+
+	t.Run("returns config as-is for unknown type", func(t *testing.T) {
+		type CustomConfig struct {
+			Value string
+		}
+		cfg := CustomConfig{Value: "test"}
+		redacted := redactSecrets(cfg)
+		assert.Equal(t, cfg, redacted)
+	})
+}
+
+func TestLogConfig(t *testing.T) {
+	core, observed := observer.New(zapcore.InfoLevel)
+	zapLogger := zap.New(core)
+	log := &logger.Logger{Logger: zapLogger}
+
+	cfg := CacheConfig{Addr: "localhost:6379", Password: "secret", DB: 0}
+	LogConfig(log, cfg)
+
+	logs := observed.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "configuration loaded", logs[0].Message)
 }

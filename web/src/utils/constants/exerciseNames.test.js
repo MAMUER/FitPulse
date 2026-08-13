@@ -7,6 +7,10 @@ describe('EXERCISE_NAME_MAP', () => {
     expect(typeof EXERCISE_NAME_MAP).toBe('object');
   });
 
+  it('module exports a non-empty object', () => {
+    expect(Object.keys(EXERCISE_NAME_MAP).length).toBeGreaterThan(0);
+  });
+
   it('contains expected exercise keys', () => {
     expect(EXERCISE_NAME_MAP.jumping_jacks).toBe('Прыжки на месте');
     expect(EXERCISE_NAME_MAP.pushups).toBe('Отжимания');

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -322,6 +323,25 @@ func TestResponseWriter_Write_WithoutWriteHeader(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rw.statusCode)
 	assert.Equal(t, "body", rr.Body.String())
 }
+
+func TestResponseWriter_Write_Error(t *testing.T) {
+	failingWriter := &failingResponseWriter{err: errors.New("write failed")}
+	rw := &responseWriter{ResponseWriter: failingWriter, statusCode: http.StatusOK}
+
+	n, err := rw.Write([]byte("data"))
+
+	assert.Equal(t, 0, n)
+	assert.Error(t, err)
+	assert.Equal(t, "write response: write failed", err.Error())
+}
+
+type failingResponseWriter struct {
+	err error
+}
+
+func (f *failingResponseWriter) Header() http.Header         { return http.Header{} }
+func (f *failingResponseWriter) WriteHeader(_ int)          {}
+func (f *failingResponseWriter) Write(_ []byte) (int, error) { return 0, f.err }
 
 func TestErrorHandler_CapturesStatusCodeFromResponseWriter(t *testing.T) {
 	core, observed := observer.New(zapcore.WarnLevel)
