@@ -335,7 +335,7 @@ type failingResponseWriter struct {
 }
 
 func (f *failingResponseWriter) Header() http.Header         { return http.Header{} }
-func (f *failingResponseWriter) WriteHeader(_ int)          {}
+func (f *failingResponseWriter) WriteHeader(_ int)           {}
 func (f *failingResponseWriter) Write(_ []byte) (int, error) { return 0, f.err }
 
 func TestErrorHandler_CapturesStatusCodeFromResponseWriter(t *testing.T) {

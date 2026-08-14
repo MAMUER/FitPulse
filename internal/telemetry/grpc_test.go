@@ -34,12 +34,12 @@ func TestGRPC_LogTraceFromContext_WithValidLogger(t *testing.T) {
 func TestGRPC_LogTraceFromContext_WithValidSpan(t *testing.T) {
 	log := logger.New("test")
 
-	tp := sdktrace.NewTracerProvider()
+	tracerProvider := sdktrace.NewTracerProvider()
 	defer func() {
-		_ = tp.Shutdown(context.Background())
+		_ = tracerProvider.Shutdown(context.Background())
 	}()
 
-	tracer := tp.Tracer("test")
+	tracer := tracerProvider.Tracer("test")
 	ctx, span := tracer.Start(context.Background(), "test-span")
 	defer span.End()
 

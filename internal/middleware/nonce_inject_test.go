@@ -91,7 +91,7 @@ func TestInjectNonce(t *testing.T) {
 			name:     "adds nonce to script tag",
 			body:     `<script src="/app.js"></script>`,
 			nonce:    "abc123",
-			expected: `<script nonce="abc123">src="/app.js"></script>`,
+			expected: `<script nonce="abc123" src="/app.js"></script>`,
 		},
 		{
 			name:     "no script tags",
@@ -103,7 +103,7 @@ func TestInjectNonce(t *testing.T) {
 			name:     "multiple script tags",
 			body:     `<script src="/a.js"></script><script src="/b.js"></script>`,
 			nonce:    "abc123",
-			expected: `<script nonce="abc123">src="/a.js"></script><script nonce="abc123">src="/b.js"></script>`,
+			expected: `<script nonce="abc123" src="/a.js"></script><script nonce="abc123" src="/b.js"></script>`,
 		},
 		{
 			name:     "preserves existing nonce",
@@ -147,6 +147,19 @@ func TestNonceInjectWriterWrite(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `nonce="test-nonce"`)
 }
 
+func TestNonceInjectWriterWriteHeaderAfterCommitted(t *testing.T) {
+	rec := httptest.NewRecorder()
+	w := &nonceInjectWriter{
+		ResponseWriter: rec,
+		nonce:          "test-nonce",
+		committed:      true,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Empty(t, rec.Body.String())
+}
+
 func TestNonceInjectWriterWriteAfterCommitted(t *testing.T) {
 	rec := httptest.NewRecorder()
 	w := &nonceInjectWriter{
@@ -174,5 +187,3 @@ func TestNonceInjectWriterWriteErrorAfterCommitted(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "write response: write failed", err.Error())
 }
-
-

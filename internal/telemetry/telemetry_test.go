@@ -53,10 +53,10 @@ func TestInitTracer_EmptyEndpoint(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdown := InitTracer()
-	require.NotNil(t, shutdown)
+	shutdownFn := InitTracer()
+	require.NotNil(t, shutdownFn)
 
-	err := shutdown(context.Background())
+	err := shutdownFn(context.Background())
 	assert.NoError(t, err)
 }
 
@@ -65,10 +65,10 @@ func TestInitTracer_InvalidEndpoint(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdown := InitTracer()
-	require.NotNil(t, shutdown)
+	shutdownFn := InitTracer()
+	require.NotNil(t, shutdownFn)
 
-	err := shutdown(context.Background())
+	err := shutdownFn(context.Background())
 	assert.NoError(t, err)
 }
 
@@ -82,11 +82,11 @@ func TestShutdown_MultipleCalls(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdown := InitTracer()
-	require.NotNil(t, shutdown)
+	shutdownFn := InitTracer()
+	require.NotNil(t, shutdownFn)
 
-	err1 := shutdown(context.Background())
-	err2 := shutdown(context.Background())
+	err1 := shutdownFn(context.Background())
+	err2 := shutdownFn(context.Background())
 
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
@@ -116,9 +116,9 @@ func TestInitTracer_ReturnsNoopOnError(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "bad-endpoint")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdown := InitTracer()
-	require.NotNil(t, shutdown)
+	shutdownFn := InitTracer()
+	require.NotNil(t, shutdownFn)
 
-	err := shutdown(context.Background())
+	err := shutdownFn(context.Background())
 	assert.NoError(t, err)
 }

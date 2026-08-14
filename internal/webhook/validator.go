@@ -30,9 +30,7 @@ func ValidateSignature(secret []byte, r *http.Request) error {
 	}
 
 	mac := hmac.New(sha256.New, secret)
-	if _, err := mac.Write(body); err != nil {
-		return fmt.Errorf("failed to compute HMAC: %w", err)
-	}
+	_, _ = mac.Write(body)
 	expectedSignature := hex.EncodeToString(mac.Sum(nil))
 
 	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {

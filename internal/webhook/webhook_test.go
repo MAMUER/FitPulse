@@ -156,6 +156,7 @@ func TestValidateSignature(t *testing.T) {
 
 	t.Run("read body error", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(nil))
+		r.Header.Set("X-Open-Wearables-Signature", "dGVzdA==")
 		r.Body = &errorReader{err: errors.New("read failed")}
 		err := ValidateSignature(secret, r)
 		assert.Error(t, err)
@@ -167,14 +168,6 @@ func TestValidateSignature(t *testing.T) {
 		r.Header.Set("X-Open-Wearables-Signature", "bad")
 		err := ValidateSignature(secret, r)
 		assert.Equal(t, errors.New("empty request body"), err)
-	})
-
-	t.Run("hmac write error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-		r.Header.Set("X-Open-Wearables-Signature", "bad")
-		err := ValidateSignature(secret, r)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to compute HMAC")
 	})
 }
 

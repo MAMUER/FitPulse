@@ -23,12 +23,14 @@ var (
 // It returns a shutdown function that should be deferred in main().
 // If OTLP endpoint is not configured or initialization fails, it returns a no-op shutdown function.
 func InitTracer() func(context.Context) error {
+	return InitTracerWithContext(context.Background())
+}
+
+func InitTracerWithContext(ctx context.Context) func(context.Context) error {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		return noopShutdown
 	}
-
-	ctx := context.Background()
 
 	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
