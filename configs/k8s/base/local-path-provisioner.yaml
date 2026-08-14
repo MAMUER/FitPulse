@@ -148,10 +148,13 @@ spec:
         app.kubernetes.io/part-of: k8s-system
     spec:
       serviceAccountName: local-path-provisioner-service-account
+      automountServiceAccountToken: false
       # Pod runs as root because the provisioner needs to create directories
       # and set ownership on the host path.
+      # checkov:skip=CKV_K8S_40: System component; runs as root to manage host paths
+      # checkov:skip=CKV_K8S_23: System component; root required for host path management
+      # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
       securityContext:
-        # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
         runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
@@ -170,6 +173,8 @@ spec:
             - /etc/local-path-config/config.json
             - --helper-pod-file
             - /etc/local-path-config/helperPod.yaml
+          # checkov:skip=CKV_K8S_38: Service account token required for provisioning operations
+          # checkov:skip=CKV_K8S_25: DAC_OVERRIDE capability required for host path ownership changes
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

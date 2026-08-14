@@ -238,20 +238,15 @@ func TestJSONError_EmptyCorrelationId(t *testing.T) {
 	assert.Equal(t, "unknown", body["correlationId"])
 }
 
-func TestGetCorrelationID(t *testing.T) {
+func TestGetRequestID(t *testing.T) {
 	t.Run("returns value when CorrelationIDKey is set", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
-		result := GetCorrelationID(ctx)
+		result := GetRequestID(ctx)
 		assert.Equal(t, "corr-123", result)
 	})
 
 	t.Run("returns unknown when CorrelationIDKey is missing", func(t *testing.T) {
-		result := GetCorrelationID(context.Background())
-		assert.Equal(t, "unknown", result)
-	})
-
-	t.Run("returns unknown when context is nil", func(t *testing.T) {
-		result := GetCorrelationID(context.Background())
+		result := GetRequestID(context.Background())
 		assert.Equal(t, "unknown", result)
 	})
 }

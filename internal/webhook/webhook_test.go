@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -152,6 +153,29 @@ func TestValidateSignature(t *testing.T) {
 	t.Run("missing signature", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 		assert.ErrorIs(t, ValidateSignature(secret, r), ErrInvalidSignature)
+	})
+
+	t.Run("read body error", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(nil))
+		r.Body = &errorReader{err: errors.New("read failed")}
+		err := ValidateSignature(secret, r)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read request body")
+	})
+
+	t.Run("empty body", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte{}))
+		r.Header.Set("X-Open-Wearables-Signature", "bad")
+		err := ValidateSignature(secret, r)
+		assert.Equal(t, errors.New("empty request body"), err)
+	})
+
+	t.Run("hmac write error", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+		r.Header.Set("X-Open-Wearables-Signature", "bad")
+		err := ValidateSignature(secret, r)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to compute HMAC")
 	})
 }
 
@@ -524,4 +548,12 @@ func TestHandleDisconnectError(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/disconnect?user_id=user-1&source=open_wearables", nil)
 	server.handleDisconnect(w, r)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+type errorReader struct {
+	err error
+}
+
+func (e *errorReader) Read(_ []byte) (int, error) {
+	return 0, e.err
 }

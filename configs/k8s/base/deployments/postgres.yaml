@@ -103,6 +103,7 @@ spec:
           # Заменяет стандартный postgres: образ = postgres + pgsodium extension.
           # checkov:skip=CKV_K8S_43: Custom pgsodium image; digest resolved in deployment pipeline
           image: pgsodium/pgsodium:pg18
+          imagePullPolicy: Always
           ports:
             - containerPort: 5432
               name: postgres

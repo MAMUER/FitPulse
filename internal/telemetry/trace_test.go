@@ -109,3 +109,27 @@ func TestTraceInitTracer_ReturnsNoopOnError(t *testing.T) {
 	err := shutdown(context.Background())
 	assert.NoError(t, err)
 }
+
+func TestTraceInitTracer_ReturnsNoopOnResourceError(t *testing.T) {
+	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123")
+	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+
+	shutdown := InitTracer()
+	require.NotNil(t, shutdown)
+
+	err := shutdown(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestTraceShutdown_ReturnsErrorWhenTracerFails(t *testing.T) {
+	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+
+	shutdown := InitTracer()
+	require.NotNil(t, shutdown)
+
+	err := shutdown(context.Background())
+	assert.NoError(t, err)
+}

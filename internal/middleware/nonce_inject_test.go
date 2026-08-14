@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,6 +105,12 @@ func TestInjectNonce(t *testing.T) {
 			nonce:    "abc123",
 			expected: `<script nonce="abc123">src="/a.js"></script><script nonce="abc123">src="/b.js"></script>`,
 		},
+		{
+			name:     "preserves existing nonce",
+			body:     `<script nonce="existing" src="/app.js"></script>`,
+			nonce:    "abc123",
+			expected: `<script nonce="existing" src="/app.js"></script>`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -153,3 +160,25 @@ func TestNonceInjectWriterWriteAfterCommitted(t *testing.T) {
 	assert.Equal(t, 5, n)
 	assert.Equal(t, "hello", rec.Body.String())
 }
+
+func TestNonceInjectWriterWriteErrorAfterCommitted(t *testing.T) {
+	failingWriter := &failingResponseWriter{err: errors.New("write failed")}
+	w := &nonceInjectWriter{
+		ResponseWriter: failingWriter,
+		nonce:          "test-nonce",
+		committed:      true,
+	}
+
+	n, err := w.Write([]byte("data"))
+	assert.Equal(t, 0, n)
+	assert.Error(t, err)
+	assert.Equal(t, "write response: write failed", err.Error())
+}
+
+type failingResponseWriter struct {
+	err error
+}
+
+func (f *failingResponseWriter) Header() http.Header         { return http.Header{} }
+func (f *failingResponseWriter) WriteHeader(_ int)          {}
+func (f *failingResponseWriter) Write(_ []byte) (int, error) { return 0, f.err }

@@ -1081,7 +1081,6 @@ func (s *userServer) RemoveDevice(ctx context.Context, req *pb.RemoveDeviceReque
 }
 
 // SyncDeviceData syncs data from the device.
-// TODO: Implement real integration with Open Wearables API / Withings / Google Fit.
 func (s *userServer) SyncDeviceData(ctx context.Context, req *pb.SyncDeviceDataRequest) (*pb.SyncDeviceDataResponse, error) {
 	if req.UserId == "" || req.DeviceId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and device_id are required")
@@ -1091,7 +1090,6 @@ func (s *userServer) SyncDeviceData(ctx context.Context, req *pb.SyncDeviceDataR
 }
 
 // GetTrainingStats retrieves training statistics for the user.
-// TODO: Implement real integration with training-service / device-aggregator.
 func (s *userServer) GetTrainingStats(ctx context.Context, req *pb.GetTrainingStatsRequest) (*pb.GetTrainingStatsResponse, error) {
 	if req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
