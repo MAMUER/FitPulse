@@ -175,10 +175,4 @@ func TestNonceInjectWriterWriteErrorAfterCommitted(t *testing.T) {
 	assert.Equal(t, "write response: write failed", err.Error())
 }
 
-type failingResponseWriter struct {
-	err error
-}
 
-func (f *failingResponseWriter) Header() http.Header         { return http.Header{} }
-func (f *failingResponseWriter) WriteHeader(_ int)          {}
-func (f *failingResponseWriter) Write(_ []byte) (int, error) { return 0, f.err }

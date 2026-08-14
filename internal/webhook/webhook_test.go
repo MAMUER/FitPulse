@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -556,4 +555,8 @@ type errorReader struct {
 
 func (e *errorReader) Read(_ []byte) (int, error) {
 	return 0, e.err
+}
+
+func (e *errorReader) Close() error {
+	return nil
 }
