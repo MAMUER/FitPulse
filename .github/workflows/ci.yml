@@ -509,7 +509,7 @@ jobs:
             > sarif-results/kubescape-results.sarif 2>&1 \
             || true
           if [ ! -s sarif-results/kubescape-results.sarif ]; then
-            echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"kubescape"}},"results":[]}]}' > sarif-results/kubescape-results.sarif
+            echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"kubescape\"}},\"results\":[]}]}" > sarif-results/kubescape-results.sarif
           fi
           if command -v jq &> /dev/null; then
             jq '.runs |= map(
