@@ -776,14 +776,8 @@ jobs:
           mkdir -p sarif-results
           trufflehog filesystem . --json --only-verified > sarif-results/trufflehog.jsonl 2>&1 || true
           if [ -s sarif-results/trufflehog.jsonl ]; then
-            TRUFFLEHOG=$(jq -s 'length' sarif-results/trufflehog.jsonl 2>/dev/null || echo 0)
-          else
-            TRUFFLEHOG=0
-          fi
-          echo "trufflehog: $TRUFFLEHOG secrets found"
-          if [ "$TRUFFLEHOG" -gt 0 ]; then
-            echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
-            jq -r 'select(.Verified == true) | "  - \(.DetectorName // "unknown"): \(.Description // .Raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -10 || true
+            echo "TruffleHog raw findings:"
+            jq -r '"\(.DetectorName // "unknown") at \(.File // "unknown"):\(.Line // 0) | \(.Description // .Raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -20 || true
           fi
       - name: Install syft
         run: |
@@ -837,8 +831,8 @@ jobs:
             fi
           fi
           if [ -f sarif-results/trufflehog.jsonl ]; then
-            TRUFFLEHOG=$(jq -s 'length' sarif-results/trufflehog.jsonl 2>/dev/null || echo 0)
-            TRUFFLEHOG=$(printf '%s' "$TRUFFLEHOG")
+            TRUFFLEHOG=$(jq -r 'select(.Verified == true) | 1' sarif-results/trufflehog.jsonl 2>/dev/null | wc -l)
+            TRUFFLEHOG=$(printf '%s' "$TRUFFLEHOG" | tr -d '[:space:]')
             echo "trufflehog: $TRUFFLEHOG secrets found"
             if [ "$TRUFFLEHOG" -gt 0 ]; then
               echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
