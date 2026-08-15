@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -525,6 +526,40 @@ func TestValidateProfileUpdate(t *testing.T) {
 			name: "only user_id - all optional fields nil",
 			req: &userpb.UpdateProfileRequest{
 				UserId: "user-123",
+			},
+			wantCode: codes.OK,
+		},
+		{
+			name: "full name too short",
+			req: &userpb.UpdateProfileRequest{
+				UserId:   "user-123",
+				FullName: ptrString("A"),
+			},
+			wantCode: codes.InvalidArgument,
+			errMsg:   "nick must be 2-100 chars",
+		},
+		{
+			name: "full name too long",
+			req: &userpb.UpdateProfileRequest{
+				UserId:   "user-123",
+				FullName: ptrString(strings.Repeat("a", 101)),
+			},
+			wantCode: codes.InvalidArgument,
+			errMsg:   "nick must be 2-100 chars",
+		},
+		{
+			name: "full name exactly 2 chars",
+			req: &userpb.UpdateProfileRequest{
+				UserId:   "user-123",
+				FullName: ptrString("Ab"),
+			},
+			wantCode: codes.OK,
+		},
+		{
+			name: "full name exactly 100 chars",
+			req: &userpb.UpdateProfileRequest{
+				UserId:   "user-123",
+				FullName: ptrString(strings.Repeat("a", 100)),
 			},
 			wantCode: codes.OK,
 		},

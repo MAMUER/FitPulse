@@ -59,7 +59,7 @@ clean:
 	@powershell -Command "Get-ChildItem -Path . -Filter *.test -File | Remove-Item -Force"
 	@echo "Clean complete."
 
-check: tidy fmt vet imports lint coverage frontend-install frontend-lint frontend-build
+check: tidy fmt vet imports lint frontend-install coverage frontend-lint frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

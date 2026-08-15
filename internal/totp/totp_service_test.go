@@ -209,3 +209,11 @@ func TestSecretFormat(t *testing.T) {
 	assert.Len(t, setup.Secret, 32) // Base32 encoded 20-byte secret
 	assert.Regexp(t, `^[A-Z2-7]+$`, setup.Secret)
 }
+
+func TestValidateTOTPCode_InvalidSecret(t *testing.T) {
+	svc := NewService(nil)
+
+	valid, err := svc.ValidateTOTPCode("123456", "invalid-secret-format")
+	assert.Error(t, err)
+	assert.False(t, valid)
+}

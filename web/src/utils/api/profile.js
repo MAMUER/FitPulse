@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 import { apiRequest } from './client';
 
 export async function getProfile() {

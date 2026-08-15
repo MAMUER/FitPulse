@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -568,4 +569,65 @@ func TestDevelopment_EnvLevel(t *testing.T) {
 	defer func() { _ = log.Sync() }()
 
 	assert.Equal(t, "test-service", log.Service())
+}
+
+func TestWithAction(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	child := l.WithAction("create_user")
+	child.Info("action test")
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+
+	assert.Equal(t, "create_user", fieldMap["action"].String)
+}
+
+func TestWithDuration(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	child := l.WithDuration(1500 * time.Millisecond)
+	child.Info("duration test")
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+
+	assert.Equal(t, int64(1500), fieldMap["durationMs"].Integer)
+}
+
+func TestWithMetadata_Int64AndDefault(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	l := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	metadata := map[string]interface{}{
+		"int64_key": int64(9223372036854775807),
+		"slice_key": []string{"a", "b"},
+	}
+
+	childLogger := l.WithMetadata(metadata)
+	childLogger.Info("metadata int64 test")
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+
+	assert.Contains(t, fieldMap, "int64_key")
+	assert.Equal(t, int64(9223372036854775807), fieldMap["int64_key"].Integer)
+	assert.Contains(t, fieldMap, "slice_key")
 }

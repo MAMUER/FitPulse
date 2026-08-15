@@ -232,3 +232,35 @@ func TestErrorValues(t *testing.T) {
 	assert.Contains(t, ErrSessionExpired.Error(), "critical session expired")
 	assert.Contains(t, ErrSessionInvalid.Error(), "invalid critical session")
 }
+
+func TestExchangeAuthCodeInvalidFormat(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	client := store.client
+	require.NoError(t, client.Set(ctx, "auth_code:invalid-no-pipes", "bad-format", 5*time.Minute))
+
+	_, err := store.ExchangeAuthCode(ctx, "invalid-no-pipes", "client-1", "http://localhost/callback")
+	assert.ErrorIs(t, err, ErrCodeInvalid)
+}
+
+func TestNewSessionStoreFromRedis(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	store := NewSessionStoreFromRedis(rdb)
+	assert.NotNil(t, store)
+}
+
+func TestNewSessionStoreFromValkey(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	store := NewSessionStoreFromValkey(rdb)
+	assert.NotNil(t, store)
+}

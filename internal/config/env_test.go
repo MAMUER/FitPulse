@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,6 +84,25 @@ func TestGetEnvWithFile(t *testing.T) {
 
 	result := GetEnv(key, "default_value")
 	assert.Equal(t, "secret_from_file", result)
+}
+
+func TestGetEnvWithFile_PathTraversal(t *testing.T) {
+	key := "TEST_KEY_PATH_TRAVERSAL"
+	require.NoError(t, os.Setenv(key+"_FILE", "/nonexistent/../etc/passwd"))
+	t.Cleanup(func() { require.NoError(t, os.Unsetenv(key+"_FILE")) })
+
+	result := GetEnv(key, "default_value")
+	assert.Equal(t, "default_value", result)
+}
+
+func TestGetEnvWithFile_AbsError(t *testing.T) {
+	key := "TEST_KEY_ABS_ERROR"
+	longPath := strings.Repeat("a", 300)
+	require.NoError(t, os.Setenv(key+"_FILE", longPath))
+	t.Cleanup(func() { require.NoError(t, os.Unsetenv(key+"_FILE")) })
+
+	result := GetEnv(key, "default_value")
+	assert.Equal(t, "default_value", result)
 }
 
 func TestGetEnvRequired(t *testing.T) {

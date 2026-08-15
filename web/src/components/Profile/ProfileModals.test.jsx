@@ -57,38 +57,14 @@ describe('ChangeEmailModal', () => {
     expect(screen.getByText('Заполните все поля')).toBeInTheDocument();
   });
 
-  it('shows error for invalid email', async () => {
+  it.each([
+    ['invalid', 'shows error for invalid email'],
+    ['test@domain', 'shows error for email without domain dot'],
+    ['@test.com', 'shows error for email with empty local part'],
+  ])('shows error for invalid email: %s', async (email) => {
     renderModal(ChangeEmailModal);
 
-    await userEvent.type(screen.getByLabelText('Новый email'), 'invalid');
-    await userEvent.type(
-      screen.getByLabelText('Текущий пароль'),
-      'password123'
-    );
-    const form = screen.getByLabelText('Новый email').closest('form');
-    fireEvent.submit(form);
-
-    expect(screen.getByText('Некорректный email')).toBeInTheDocument();
-  });
-
-  it('shows error for email without domain dot', async () => {
-    renderModal(ChangeEmailModal);
-
-    await userEvent.type(screen.getByLabelText('Новый email'), 'test@domain');
-    await userEvent.type(
-      screen.getByLabelText('Текущий пароль'),
-      'password123'
-    );
-    const form = screen.getByLabelText('Новый email').closest('form');
-    fireEvent.submit(form);
-
-    expect(screen.getByText('Некорректный email')).toBeInTheDocument();
-  });
-
-  it('shows error for email with empty local part', async () => {
-    renderModal(ChangeEmailModal);
-
-    await userEvent.type(screen.getByLabelText('Новый email'), '@test.com');
+    await userEvent.type(screen.getByLabelText('Новый email'), email);
     await userEvent.type(
       screen.getByLabelText('Текущий пароль'),
       'password123'

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -65,4 +66,25 @@ func TestReadBody(t *testing.T) {
 	body, err := readBody(r)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("hello"), body)
+}
+
+type failingResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (f *failingResponseWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestHandleAggregatorWebhook_EncodeResponseFailure(_ *testing.T) {
+	w := &failingResponseWriter{ResponseWriter: httptest.NewRecorder()}
+	payload := map[string]interface{}{
+		"user_id": "user-1",
+		"source":  "open_wearables",
+	}
+	body, _ := json.Marshal(payload)
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	handleAggregatorWebhook(w, r, "open_wearables", func(n map[string]interface{}) map[string]string {
+		return map[string]string{"user_id": "user-1", "source": "open_wearables"}
+	})
 }
