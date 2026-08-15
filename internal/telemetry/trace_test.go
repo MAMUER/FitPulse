@@ -9,6 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	otlptrace "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -133,7 +136,11 @@ func TestTraceInitTracerWithContext_ReturnsNoopOnExporterError(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdownFn := InitTracerWithContext(ctx)
+	shutdownFn := initTracerWithFactories(ctx, func(ctx context.Context, opts ...otlptracegrpc.Option) (*otlptrace.Exporter, error) {
+		return nil, errors.New("exporter error")
+	}, func(ctx context.Context, opts ...resource.Option) (*resource.Resource, error) {
+		return resource.New(ctx, opts...)
+	})
 	require.NotNil(t, shutdownFn)
 
 	err := shutdownFn(context.Background())
@@ -148,10 +155,16 @@ func TestTraceInitTracerWithContext_ReturnsNoopOnResourceError(t *testing.T) {
 	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
 	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
 
-	shutdownFn := InitTracerWithContext(ctx)
+	shutdownFn := initTracerWithFactories(ctx, func(ctx context.Context, opts ...otlptracegrpc.Option) (*otlptrace.Exporter, error) {
+		return otlptracegrpc.New(ctx, opts...)
+	}, func(ctx context.Context, opts ...resource.Option) (*resource.Resource, error) {
+		return nil, errors.New("resource error")
+	})
 	require.NotNil(t, shutdownFn)
 
 	err := shutdownFn(context.Background())
+	assert.NoError(t, err)
+	err = shutdownFn(context.Background())
 	assert.NoError(t, err)
 }
 

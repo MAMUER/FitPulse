@@ -46,6 +46,13 @@ describe('Devices', () => {
     expect(screen.getByText('Нет подключённых источников')).toBeInTheDocument();
   });
 
+  it('renders component with useDevices hook', () => {
+    renderDevices();
+    const connectButton = screen.getByText('Подключить источники здоровья');
+    expect(connectButton).toBeInTheDocument();
+    expect(connectButton.tagName).toBe('BUTTON');
+  });
+
   it('shows connect button', () => {
     renderDevices();
     expect(

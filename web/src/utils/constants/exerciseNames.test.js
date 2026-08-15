@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXERCISE_NAME_MAP } from './exerciseNames';
 
 describe('EXERCISE_NAME_MAP', () => {
-  it('exports exercise name mappings', () => {
+  it('exports exercise name map constant', () => {
     expect(EXERCISE_NAME_MAP).toBeDefined();
     expect(typeof EXERCISE_NAME_MAP).toBe('object');
   });

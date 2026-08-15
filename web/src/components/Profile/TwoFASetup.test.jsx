@@ -24,6 +24,15 @@ describe('TwoFASetup', () => {
     expect(screen.getByText('Загрузка статуса 2FA...')).toBeInTheDocument();
   });
 
+  it('renders component with useTwoFA hook', async () => {
+    api.get2FAStatus.mockResolvedValue({ enabled: false });
+    render(<TwoFASetup />);
+    await waitFor(() => {
+      expect(screen.getByText('Не включена')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
+  });
+
   it('shows disabled state when 2FA is not enabled', async () => {
     api.get2FAStatus.mockResolvedValue({ enabled: false });
     render(<TwoFASetup />);

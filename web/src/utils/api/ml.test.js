@@ -28,6 +28,14 @@ describe('ml api', () => {
     });
   });
 
+  it('calls apiRequest for classify endpoint', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ state: 'normal' })
+    );
+    await api.classifyState({ heart_rate: 75 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('classifies state returns apiRequest result', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockResponse({ state: 'stress' })
@@ -59,6 +67,12 @@ describe('ml api', () => {
         constraints: { time: '30min' },
       }),
     });
+  });
+
+  it('calls apiRequest for generate-plan endpoint', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ plan: {} }));
+    await api.generateMLPlan('strength', {}, 'muscle_gain', {});
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('generates ml plan returns apiRequest result', async () => {

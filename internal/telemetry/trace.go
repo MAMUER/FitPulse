@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"go.opentelemetry.io/otel"
+	otlptrace "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -26,18 +27,29 @@ func InitTracer() func(context.Context) error {
 	return InitTracerWithContext(context.Background())
 }
 
+// InitTracerWithContext initializes OpenTelemetry tracing with OTLP export using the provided context.
+// It returns a shutdown function that should be deferred in main().
+// If OTLP endpoint is not configured or initialization fails, it returns a no-op shutdown function.
 func InitTracerWithContext(ctx context.Context) func(context.Context) error {
+	return initTracerWithFactories(ctx, otlptracegrpc.New, resource.New)
+}
+
+func initTracerWithFactories(
+	ctx context.Context,
+	newExporter func(context.Context, ...otlptracegrpc.Option) (*otlptrace.Exporter, error),
+	newResource func(context.Context, ...resource.Option) (*resource.Resource, error),
+) func(context.Context) error {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		return noopShutdown
 	}
 
-	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint))
+	exp, err := newExporter(ctx, otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
 		return noopShutdown
 	}
 
-	res, err := resource.New(ctx, resource.WithAttributes(
+	res, err := newResource(ctx, resource.WithAttributes(
 		semconv.ServiceNameKey.String(serviceName()),
 	))
 	if err != nil {
