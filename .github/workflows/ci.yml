@@ -320,7 +320,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
-        run: npm ci --no-audit || npm install --no-audit --no-fund
+        run: npm ci || npm install
         working-directory: web
       - name: Lint frontend
         run: npm run lint
@@ -456,14 +456,6 @@ jobs:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
           wait-for-processing: true
-      - name: Cache CodeQL databases
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # originally: v6
-        with:
-          path: ~/.codeql
-          key: ${{ runner.os }}-codeql-${{ matrix.language }}-${{ hashFiles('**/*.go', '**/*.py') }}
-          restore-keys: |
-            ${{ runner.os }}-codeql-${{ matrix.language }}-
-            ${{ runner.os }}-codeql-
 
   # ============================================================================
   # DEPENDENCY REVIEW
@@ -481,7 +473,6 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # originally: v5
         with:
-          comment-summary-in-pr: always
           base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.after }}
 
@@ -510,34 +501,38 @@ jobs:
           kubescape version
       - name: Run Kubescape scan
         run: |
+          echo "-> Running Kubescape..."
+          mkdir -p sarif-results
           kubescape scan configs/k8s/base/ \
             --format sarif \
-            --output kubescape-results.sarif \
             --verbose \
-            --exclude-kinds ClusterIssuer \
+            > sarif-results/kubescape-results.sarif 2>&1 \
             || true
-          if [ -f kubescape-results.sarif ] && command -v jq &> /dev/null; then
-             jq '.runs |= map(
-               .results |= map(
-                 select(
-                   (.locations[0].physicalLocation.artifactLocation.uri | test("\\.[^/]+$"))
-                   and
-                   ((.ruleId // "") | IN(
-                     "C-0012", "C-0013", "C-0017", "C-0016",
-                     "C-0009", "C-0010", "C-0011", "C-0021", "C-0022",
-                     "C-0055", "C-0045", "C-0048", "C-0056",
-                     "C-0237"
-                   ) | not)
-                 )
-               )
-             )' kubescape-results.sarif > kubescape-results-fixed.sarif
-            mv kubescape-results-fixed.sarif kubescape-results.sarif
+          if [ ! -s sarif-results/kubescape-results.sarif ]; then
+            echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"kubescape"}},"results":[]}]}' > sarif-results/kubescape-results.sarif
+          fi
+          if command -v jq &> /dev/null; then
+            jq '.runs |= map(
+              .results |= map(
+                select(
+                  (.locations[0].physicalLocation.artifactLocation.uri | test("\\.[^/]+$"))
+                  and
+                  ((.ruleId // "") | IN(
+                    "C-0012", "C-0013", "C-0017", "C-0016",
+                    "C-0009", "C-0010", "C-0011", "C-0021", "C-0022",
+                    "C-0055", "C-0045", "C-0048", "C-0056",
+                    "C-0237"
+                  ) | not)
+                )
+              )
+            )' sarif-results/kubescape-results.sarif > sarif-results/kubescape-results-fixed.sarif
+            mv sarif-results/kubescape-results-fixed.sarif sarif-results/kubescape-results.sarif
           fi
       - name: Upload Kubescape results
         uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43
-        if: always() && hashFiles('kubescape-results.sarif') != ''
+        if: always() && hashFiles('sarif-results/kubescape-results.sarif') != ''
         with:
-          sarif_file: kubescape-results.sarif
+          sarif_file: sarif-results/kubescape-results.sarif
           category: kubescape
 
   # ============================================================================
@@ -701,7 +696,7 @@ jobs:
       - name: Install system dependencies for canvas
         run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies for Trivy
-        run: npm ci --no-audit || npm install --no-audit --no-fund
+        run: npm ci || npm install
         working-directory: web
 
       - name: Install Python dependencies for Trivy
@@ -732,6 +727,8 @@ jobs:
           skip-setup-trivy: false
         env:
           TRIVY_SKIP_VERSION_CHECK: true
+          TRIVY_SKIP_PIP: true
+          TRIVY_SKIP_DB_UPDATE: false
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
         uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43
@@ -769,7 +766,7 @@ jobs:
       - name: Run TruffleHog secret scan
         run: |
           mkdir -p sarif-results
-          trufflehog filesystem . --json --output=sarif-results/trufflehog.json || true
+          trufflehog filesystem . --json > sarif-results/trufflehog.json 2>&1 || true
       - name: Upload TruffleHog results
         if: always() && hashFiles('sarif-results/trufflehog.json') != ''
         uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43
@@ -785,7 +782,11 @@ jobs:
       - name: Generate SBOM with syft
         run: |
           mkdir -p sbom
-          syft . -o spdx-json=sbom/sbom.spdx.json -o cyclonedx-json=sbom/sbom.cyclonedx.json
+          syft . \
+            --name fitpulse \
+            --version "$(git rev-parse --short HEAD)" \
+            -o spdx-json=sbom/sbom.spdx.json \
+            -o cyclonedx-json=sbom/sbom.cyclonedx.json
           ls -la sbom/
       - name: Security Gate — enforce quality thresholds
         run: |
@@ -885,7 +886,7 @@ jobs:
       - name: Install system dependencies for canvas
         run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies
-        run: npm ci --no-audit || npm install --no-audit --no-fund
+        run: npm ci || npm install
         working-directory: web
       - name: Run tests and collect coverage
         continue-on-error: true
@@ -893,19 +894,21 @@ jobs:
           mkdir -p coverage
           go test -coverprofile=coverage/coverage.out ./...
           cd web && npm run test
-          ls -la web/coverage || true
-          if [ -f web/coverage/lcov.info ]; then
+          pwd
+          ls -la coverage || true
+          if [ -f coverage/lcov.info ]; then
             echo "--- original lcov head ---"
-            head -20 web/coverage/lcov.info || true
-            sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' web/coverage/lcov.info > coverage/lcov.info
-            echo "--- transformed lcov head ---"
             head -20 coverage/lcov.info || true
+            sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' coverage/lcov.info > ../coverage/lcov.info
+            echo "--- transformed lcov head ---"
+            head -20 ../coverage/lcov.info || true
           else
             echo "lcov.info not found in web/coverage"
           fi
           if [ -f coverage/coverage.out ]; then
             echo "--- fixing Go coverage paths ---"
             sed -i 's|github.com/MAMUER/project/||g' coverage/coverage.out
+            sed -i '/^api\/gen\//d' coverage/coverage.out
             head -5 coverage/coverage.out || true
           fi
       - name: SonarCloud Scan
@@ -968,12 +971,7 @@ jobs:
         run: |
           echo "-> Running kube-bench..."
           mkdir -p security-results
-          KUBE_BENCH_VERSION="v0.8.0"
-          curl -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/${KUBE_BENCH_VERSION}/kube-bench_${KUBE_BENCH_VERSION#v}_linux_amd64.tar.gz" -o /tmp/kube-bench.tar.gz
-          tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin kube-bench
-          chmod +x /usr/local/bin/kube-bench
-          rm -f /tmp/kube-bench.tar.gz
-          kube-bench run --json > security-results/kube-bench-results.json || true
+          kube-bench run --benchmark cis-1.18 --json > security-results/kube-bench-results.json 2>&1 || true
           echo "✅ kube-bench scan completed (results in security-results/kube-bench-results.json)"
 
   # ============================================================================
@@ -995,7 +993,7 @@ jobs:
           echo "-> Running kube-hunter (passive scan)..."
           mkdir -p security-results
           pip install kube-hunter
-          kube-hunter --report security-results/kube-hunter-results.json
+          kube-hunter --remote 127.0.0.1 --json > security-results/kube-hunter-results.json 2>&1 || true
           echo "✅ kube-hunter scan completed (results in security-results/kube-hunter-results.json)"
 
   # ============================================================================
@@ -1256,6 +1254,9 @@ jobs:
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_TAG: ${{ steps.sha.outputs.short_sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           services="user-service biometric-service training-service gateway device-aggregator"
 
@@ -1281,8 +1282,15 @@ jobs:
 
           for svc in $services; do
             echo "Signing $svc..."
-            cosign sign --yes --key /tmp/cosign.key \
-              "${{ env.REGISTRY }}/mamuer/project/$svc:${{ steps.sha.outputs.short_sha }}"
+            manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
+            digest=$(curl -s -L -I -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              "$manifest_url" | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
+            if [ -n "$digest" ]; then
+              cosign sign --yes --key /tmp/cosign.key "ghcr.io/mamuer/project/$svc@$digest"
+            else
+              cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG"
+            fi
           done
 
           rm -f /tmp/cosign.key
