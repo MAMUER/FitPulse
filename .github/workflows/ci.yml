@@ -790,8 +790,6 @@ jobs:
         run: |
           mkdir -p sbom
           syft . \
-            --name fitpulse \
-            --version "$(git rev-parse --short HEAD)" \
             -o spdx-json=sbom/sbom.spdx.json \
             -o cyclonedx-json=sbom/sbom.cyclonedx.json
           ls -la sbom/
