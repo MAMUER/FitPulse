@@ -320,7 +320,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
         working-directory: web
       - name: Lint frontend
         run: npm run lint
@@ -503,13 +503,17 @@ jobs:
         run: |
           echo "-> Running Kubescape..."
           mkdir -p sarif-results
+          tmpfile=$(mktemp)
           kubescape scan configs/k8s/base/ \
             --format sarif \
             --verbose \
-            > sarif-results/kubescape-results.sarif 2>&1 \
+            > "$tmpfile" 2>&1 \
             || true
-          if [ ! -s sarif-results/kubescape-results.sarif ]; then
-            echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"kubescape\"}},\"results\":[]}]}" > sarif-results/kubescape-results.sarif
+          if jq -e '.runs' "$tmpfile" >/dev/null 2>&1; then
+            mv "$tmpfile" sarif-results/kubescape-results.sarif
+          else
+            rm -f "$tmpfile"
+            jq -n '{ "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "version": "2.1.0", "runs": [ { "tool": { "driver": { "name": "kubescape" } }, "results": [] } ] }' > sarif-results/kubescape-results.sarif
           fi
           if command -v jq &> /dev/null; then
             jq '.runs |= map(
@@ -696,7 +700,7 @@ jobs:
       - name: Install system dependencies for canvas
         run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies for Trivy
-        run: npm ci || npm install
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
         working-directory: web
 
       - name: Install Python dependencies for Trivy
@@ -886,7 +890,7 @@ jobs:
       - name: Install system dependencies for canvas
         run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies
-        run: npm ci || npm install
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
         working-directory: web
       - name: Run tests and collect coverage
         continue-on-error: true

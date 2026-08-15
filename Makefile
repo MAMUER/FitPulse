@@ -70,7 +70,7 @@ proto:
 
 frontend-install:
 	@echo "Installing frontend dependencies..."
-	@cd web && npm install
+	@cd web && npm install --legacy-peer-deps
 	@echo "Frontend dependencies installed."
 
 frontend-lint:
