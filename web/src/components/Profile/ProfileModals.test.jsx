@@ -71,6 +71,34 @@ describe('ChangeEmailModal', () => {
     expect(screen.getByText('Некорректный email')).toBeInTheDocument();
   });
 
+  it('shows error for email without domain dot', async () => {
+    renderModal(ChangeEmailModal);
+
+    await userEvent.type(screen.getByLabelText('Новый email'), 'test@domain');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
+    const form = screen.getByLabelText('Новый email').closest('form');
+    fireEvent.submit(form);
+
+    expect(screen.getByText('Некорректный email')).toBeInTheDocument();
+  });
+
+  it('shows error for email with empty local part', async () => {
+    renderModal(ChangeEmailModal);
+
+    await userEvent.type(screen.getByLabelText('Новый email'), '@test.com');
+    await userEvent.type(
+      screen.getByLabelText('Текущий пароль'),
+      'password123'
+    );
+    const form = screen.getByLabelText('Новый email').closest('form');
+    fireEvent.submit(form);
+
+    expect(screen.getByText('Некорректный email')).toBeInTheDocument();
+  });
+
   it('submits email change successfully', async () => {
     vi.spyOn(api, 'changeEmail').mockResolvedValueOnce({});
     const onClose = vi.fn();
@@ -116,6 +144,40 @@ describe('ChangeEmailModal', () => {
     await userEvent.click(screen.getByText('Отмена'));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('closes on Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(ChangeEmailModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close on non-Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(ChangeEmailModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 
@@ -239,6 +301,40 @@ describe('ChangePasswordModal', () => {
       );
     });
   });
+
+  it('closes on Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(ChangePasswordModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close on non-Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(ChangePasswordModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('DeleteProfileModal', () => {
@@ -322,5 +418,39 @@ describe('DeleteProfileModal', () => {
       expect(screen.getByText('delete failed')).toBeInTheDocument();
     });
     expect(api.deleteProfile).toHaveBeenCalledWith('password123');
+  });
+
+  it('closes on Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(DeleteProfileModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close on non-Escape key // NOSONAR', async () => {
+    const onClose = vi.fn();
+    renderModal(DeleteProfileModal, { onClose });
+
+    const overlay = document.querySelector('.modal-overlay');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+    });
+    overlay.dispatchEvent(event);
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

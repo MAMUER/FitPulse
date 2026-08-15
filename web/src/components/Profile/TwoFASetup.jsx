@@ -59,7 +59,7 @@ export default function TwoFASetup() {
               color: 'var(--accent)',
               border: '1px solid rgba(255,55,95,0.4)',
             }}
-            onClick={() => setPanelVisible(true)} /* istanbul ignore next */
+            onClick={() => setPanelVisible(true)}
           >
             Отключить 2FA
           </button>

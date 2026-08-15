@@ -158,10 +158,25 @@ describe('ML', () => {
     });
   });
 
-  it('displays empty state when plan has no weeks', async () => {
+  it('renders empty state when plan has no weeks', async () => {
     vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
       plan_id: 'plan-1',
       plan_data: { weeks: [] },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('План пуст')).toBeInTheDocument();
+    });
+  });
+
+  it('renders empty state when plan data has no weeks key', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {},
     });
     vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
     renderML();
@@ -208,6 +223,19 @@ describe('ML', () => {
     });
   });
 
+  it('displays dash when no prediction or confidence is available', async () => {
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      confidence: 0,
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Анализировать'));
+
+    await waitFor(() => {
+      expect(screen.getByText('—')).toBeInTheDocument();
+    });
+  });
+
   it('generates plan with plan_id and fetches full plan', async () => {
     vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
       plan_id: 'plan-1',
@@ -247,6 +275,40 @@ describe('ML', () => {
     });
 
     expect(api.getPlan).toHaveBeenCalledWith('plan-1');
+  });
+
+  it('renders fallback exercise name when missing', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                training_type: 'cardio',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    sets: 3,
+                    reps: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Упражнение')).toBeInTheDocument();
+    });
   });
 
   it('falls back to plan_data when plan wrapper is missing', async () => {
@@ -315,13 +377,56 @@ describe('ML', () => {
     expect(canvas).toBeTruthy();
   });
 
+  it('handles getPlan error in plan detail useEffect', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                duration: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockRejectedValueOnce(
+      new Error('plan detail failed')
+    );
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+  });
+
   it('toggles training day selection', async () => {
     renderML();
 
     const daysGrid = document.getElementById('training-days');
     const wednesdayLabel = daysGrid.querySelectorAll('label')[2];
-    await userEvent.click(wednesdayLabel);
+    const wednesdayCheckbox = wednesdayLabel.querySelector(
+      'input[type="checkbox"]'
+    );
+    await userEvent.click(wednesdayCheckbox);
 
     expect(wednesdayLabel.classList.contains('selected')).toBe(true);
+  });
+
+  it('deselects training day when already selected', async () => {
+    renderML();
+
+    const daysGrid = document.getElementById('training-days');
+    const mondayLabel = daysGrid.querySelectorAll('label')[1];
+    const mondayCheckbox = mondayLabel.querySelector('input[type="checkbox"]');
+    await userEvent.click(mondayCheckbox);
+
+    expect(mondayLabel.classList.contains('selected')).toBe(false);
   });
 });

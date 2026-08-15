@@ -733,6 +733,7 @@ jobs:
           list-all-pkgs: false
           cache: true
           skip-setup-trivy: false
+          hide-progress: true
         env:
           TRIVY_SKIP_VERSION_CHECK: true
           TRIVY_SKIP_PIP: true
@@ -788,6 +789,8 @@ jobs:
         run: |
           mkdir -p sbom
           syft . \
+            --source-name fitpulse \
+            --source-version "$(git rev-parse --short HEAD)" \
             -o spdx-json=sbom/sbom.spdx.json \
             -o cyclonedx-json=sbom/sbom.cyclonedx.json
           ls -la sbom/
@@ -1287,12 +1290,17 @@ jobs:
 
           for svc in $services; do
             echo "Signing $svc..."
-            manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
-            digest=$(curl -s -L -I -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              "$manifest_url" | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
+            if command -v docker >/dev/null 2>&1 && docker buildx imagetools inspect --help >/dev/null 2>&1; then
+              digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || echo "")
+            fi
+            if [ -z "$digest" ]; then
+              manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
+              digest=$(curl -s -L -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                "$manifest_url" -I | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
+            fi
             if [ -n "$digest" ]; then
-              cosign sign --yes --key /tmp/cosign.key "ghcr.io/mamuer/project/$svc@$digest"
+              cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest"
             else
               cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG"
             fi

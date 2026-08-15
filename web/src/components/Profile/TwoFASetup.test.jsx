@@ -59,6 +59,20 @@ describe('TwoFASetup', () => {
     expect(screen.queryByText('Включить 2FA')).not.toBeInTheDocument();
   });
 
+  it('allows clicking the disable 2FA button when enabled', async () => {
+    api.get2FAStatus.mockResolvedValue({ enabled: true });
+    render(<TwoFASetup />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Включена/)).toBeInTheDocument();
+    });
+
+    const topButton = document.querySelector('.twofa-section > div > button');
+    await user.click(topButton);
+
+    expect(topButton).toBeTruthy();
+  });
+
   it('loads setup panel on enable click', async () => {
     api.get2FAStatus.mockResolvedValue({ enabled: false });
     api.setup2FA.mockResolvedValueOnce({

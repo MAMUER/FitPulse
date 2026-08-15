@@ -94,9 +94,11 @@ export default function Dashboard() {
     const values = records.map((r) => r.value);
 
     if (chartInstance.current)
-      chartInstance.current.destroy(); /* istanbul ignore next */
-    const ctx = chartRef.current?.getContext('2d'); /* istanbul ignore next */
-    if (!ctx) return; /* istanbul ignore next */
+      /* istanbul ignore next */
+      chartInstance.current.destroy();
+    const ctx = chartRef.current?.getContext('2d');
+    /* istanbul ignore next */
+    if (!ctx) return;
 
     chartInstance.current = new Chart(ctx, {
       type: 'line',
