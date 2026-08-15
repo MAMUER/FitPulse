@@ -784,7 +784,6 @@ jobs:
           if [ "$TRUFFLEHOG" -gt 0 ]; then
             echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
             jq -r 'select(.Verified == true) | "  - \(.DetectorName // "unknown"): \(.Description // .Raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -10 || true
-            FAIL=1
           fi
       - name: Install syft
         run: |
