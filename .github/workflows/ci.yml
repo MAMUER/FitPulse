@@ -776,17 +776,11 @@ jobs:
           mkdir -p sarif-results
           trufflehog filesystem . --json > sarif-results/trufflehog.jsonl 2>&1 || true
           if [ -s sarif-results/trufflehog.jsonl ]; then
-            jq -s '.' sarif-results/trufflehog.jsonl > sarif-results/trufflehog.json
+            TRUFFLEHOG=$(jq -s 'length' sarif-results/trufflehog.jsonl 2>/dev/null || echo 0)
           else
-            echo '[]' > sarif-results/trufflehog.json
+            TRUFFLEHOG=0
           fi
-      - name: Upload TruffleHog results
-        if: always() && hashFiles('sarif-results/trufflehog.json') != ''
-        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43
-        with:
-          sarif_file: sarif-results/trufflehog.json
-          category: trufflehog
-          token: ${{ secrets.GITHUB_TOKEN }}
+          echo "trufflehog_secret_count=$TRUFFLEHOG" >> "$GITHUB_OUTPUT" 2>/dev/null || echo "trufflehog: $TRUFFLEHOG secrets found"
       - name: Install syft
         run: |
           curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
@@ -840,13 +834,13 @@ jobs:
               FAIL=1
             fi
           fi
-          if [ -f sarif-results/trufflehog.json ]; then
-            TRUFFLEHOG=$(jq 'length' sarif-results/trufflehog.json 2>/dev/null | head -1 || echo 0)
+          if [ -f sarif-results/trufflehog.jsonl ]; then
+            TRUFFLEHOG=$(jq -s 'length' sarif-results/trufflehog.jsonl 2>/dev/null || echo 0)
             TRUFFLEHOG=$(printf '%s' "$TRUFFLEHOG")
             echo "trufflehog: $TRUFFLEHOG secrets found"
             if [ "$TRUFFLEHOG" -gt 0 ]; then
               echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
-              jq -r '.[] | "  - \(.rule_id // .detector_name // "unknown"): \(.description // .raw // "")"' sarif-results/trufflehog.json 2>/dev/null | head -10 || true
+              jq -r '.[] | "  - \(.detector_name // "unknown"): \(.description // .raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -10 || true
               FAIL=1
             fi
           fi
