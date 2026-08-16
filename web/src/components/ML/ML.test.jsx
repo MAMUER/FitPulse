@@ -277,6 +277,20 @@ describe('ML', () => {
     expect(api.getPlan).toHaveBeenCalledWith('plan-1');
   });
 
+  it('renders empty plan state', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: { weeks: [] },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('План пуст')).toBeInTheDocument();
+    });
+  });
+
   it('renders fallback exercise name when missing', async () => {
     vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
       plan_id: 'plan-1',
@@ -428,5 +442,102 @@ describe('ML', () => {
     await userEvent.click(mondayCheckbox);
 
     expect(mondayLabel.classList.contains('selected')).toBe(false);
+  });
+
+  it('renders day labels for all days of week', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              { day_of_week: 0, training_type: 'rest', exercises: [] },
+              { day_of_week: 2, training_type: 'cardio', exercises: [] },
+              { day_of_week: 4, training_type: 'strength', exercises: [] },
+              { day_of_week: 6, training_type: 'yoga', exercises: [] },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    const planSection = document.getElementById('generatedPlanDetail');
+    expect(planSection.querySelectorAll('.plan-day-name')).toHaveLength(4);
+    expect(planSection.textContent).toContain('Вс');
+    expect(planSection.textContent).toContain('Вт');
+    expect(planSection.textContent).toContain('Чт');
+    expect(planSection.textContent).toContain('Сб');
+  });
+
+  it('renders plan content from original plan when getPlan returns different data', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                training_type: 'original_type',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'original_exercise',
+                    sets: 3,
+                    reps: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        plan_data: {
+          weeks: [
+            {
+              week_number: 1,
+              days: [
+                {
+                  day_of_week: 1,
+                  training_type: 'fetched_type',
+                  exercises: [
+                    {
+                      sort_order: 0,
+                      exercise_name: 'fetched_exercise',
+                      sets: 5,
+                      reps: 15,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('original_type')).toBeInTheDocument();
+    expect(screen.getByText('original_exercise')).toBeInTheDocument();
+    expect(screen.queryByText('fetched_type')).not.toBeInTheDocument();
   });
 });

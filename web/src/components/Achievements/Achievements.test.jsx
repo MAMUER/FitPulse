@@ -180,6 +180,26 @@ describe('Achievements', () => {
     expect(canvas).toBeTruthy();
   });
 
+  it('renders progress chart with progressData', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [
+        { date: '2024-01-01', completed_workouts: 3 },
+        { date: '2024-01-02', completed_workouts: 5 },
+      ],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+
+    const canvas = document.getElementById('progressChart');
+    expect(canvas).toBeTruthy();
+  });
+
   it('renders progress chart with week field', async () => {
     vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
       achievements: [],

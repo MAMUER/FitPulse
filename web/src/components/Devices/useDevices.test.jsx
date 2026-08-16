@@ -69,6 +69,50 @@ describe('useDevices', () => {
     expect(initCall.userId).toBe('anonymous');
   });
 
+  it('sets connected status and loads providers on widget onSuccess', async () => {
+    mockUseAuth.mockReturnValue({ token: 'test-token' });
+    window.OpenWearablesWidget = {
+      init: vi.fn((opts) => {
+        opts.onSuccess?.();
+      }),
+    };
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({
+      providers: [{ source: 'google', connected_at: '2024-01-01' }],
+    });
+
+    const { result } = renderHook(() => useDevices());
+
+    await act(async () => {
+      result.current.handleConnect();
+    });
+
+    expect(result.current.status).toBe('connected');
+    expect(api.getProviders).toHaveBeenCalled();
+  });
+
+  it('returns userId from valid JWT token', async () => {
+    const payload = { sub: 'user-123' };
+    const encodedPayload = btoa(JSON.stringify(payload));
+    const validToken = `header.${encodedPayload}.signature`;
+
+    mockUseAuth.mockReturnValue({ token: validToken });
+    window.OpenWearablesWidget = {
+      init: vi.fn((opts) => {
+        opts.onSuccess?.();
+      }),
+    };
+    vi.spyOn(api, 'getProviders').mockResolvedValueOnce({ providers: [] });
+
+    const { result } = renderHook(() => useDevices());
+
+    await act(async () => {
+      result.current.handleConnect();
+    });
+
+    const initCall = window.OpenWearablesWidget.init.mock.calls[0][0];
+    expect(initCall.userId).toBe('user-123');
+  });
+
   it('sets error state when widget reports error', async () => {
     mockUseAuth.mockReturnValue({ token: 'test-token' });
     window.OpenWearablesWidget = {

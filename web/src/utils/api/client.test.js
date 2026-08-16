@@ -168,4 +168,17 @@ describe('client', () => {
     const result = await apiRequest('/test');
     expect(result).toBe('plain text');
   });
+
+  it('handles response with missing content-type', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: () => Promise.resolve('plain text'),
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse);
+
+    const result = await apiRequest('/test');
+    expect(result).toBe('plain text');
+  });
 });

@@ -31,6 +31,7 @@ const renderLayout = (initialRoute = '/', authOverrides = {}) => {
           <Route index element={<div>Dashboard</div>} />
           <Route path='profile' element={<div>Profile</div>} />
           <Route path='admin' element={<div>Admin</div>} />
+          <Route path='ml' element={<div>ML</div>} />
           <Route path='*' element={<div>Not Found</div>} />
         </Route>
       </Routes>
@@ -98,5 +99,11 @@ describe('Layout', () => {
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
       'AI Анализ'
     );
+  });
+
+  it('applies active class to admin nav link when on admin route', async () => {
+    renderLayout('/admin', { isAdmin: true });
+    const adminLink = document.querySelector('nav a[href="/admin"]');
+    expect(adminLink).toHaveClass('active');
   });
 });

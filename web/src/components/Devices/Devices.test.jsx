@@ -296,6 +296,50 @@ describe('Devices', () => {
     });
   });
 
+  it('calls widget init with correct userId when connecting', async () => {
+    renderDevices();
+    const mockInit = vi.fn();
+    window.OpenWearablesWidget = {
+      init: mockInit,
+    };
+
+    const connectButton = screen.getByText('Подключить источники здоровья');
+    await user.click(connectButton);
+
+    expect(mockInit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appId: 'fitpulse-app',
+        userId: 'anonymous',
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+        onClose: expect.any(Function),
+      })
+    );
+  });
+
+  it('calls widget init with userId from valid JWT token', async () => {
+    const payload = btoa(JSON.stringify({ sub: 'user-123' }));
+    const validToken = `header.${payload}.signature`;
+    renderDevices({ token: validToken });
+    const mockInit = vi.fn();
+    window.OpenWearablesWidget = {
+      init: mockInit,
+    };
+
+    const connectButton = screen.getByText('Подключить источники здоровья');
+    await user.click(connectButton);
+
+    expect(mockInit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appId: 'fitpulse-app',
+        userId: 'user-123',
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+        onClose: expect.any(Function),
+      })
+    );
+  });
+
   it('shows loading state when connecting', async () => {
     renderDevices();
     window.OpenWearablesWidget = undefined;

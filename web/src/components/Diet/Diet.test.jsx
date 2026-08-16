@@ -114,25 +114,18 @@ describe('Diet', () => {
     });
   });
 
-  it('applies weight_loss template based on goal', async () => {
+  it.each([
+    ['weight_loss', 'Похудение'],
+    ['muscle_gain', 'Высокобелковое'],
+    ['general_health', 'Сбалансированное'],
+  ])('applies %s template based on goal', async (goal, expectedTemplate) => {
     vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
-      profile({ goals: ['weight_loss'] })
+      profile({ goals: [goal] })
     );
     renderDiet();
 
     await waitFor(() => {
-      expect(screen.getByText('Похудение')).toBeInTheDocument();
-    });
-  });
-
-  it('applies muscle_gain template based on goal', async () => {
-    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
-      profile({ goals: ['muscle_gain'] })
-    );
-    renderDiet();
-
-    await waitFor(() => {
-      expect(screen.getByText('Высокобелковое')).toBeInTheDocument();
+      expect(screen.getByText(expectedTemplate)).toBeInTheDocument();
     });
   });
 
@@ -197,6 +190,40 @@ describe('Diet', () => {
 
     expect(allergiesInput).toHaveValue('nuts, dairy');
     expect(dislikesInput).toHaveValue('broccoli, fish');
+  });
+
+  it('uses default values for BMI calculation when profile fields are missing', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
+      profile({
+        height_cm: undefined,
+        weight_kg: undefined,
+        age: undefined,
+        gender: undefined,
+        fitness_level: undefined,
+        goals: [],
+      })
+    );
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText(/ккал в день/)).toBeInTheDocument();
+    });
+  });
+
+  it('changes meal count to 3', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    fireEvent.change(mealCountSelect, { target: { value: '3' } });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('.meal-card')).toHaveLength(3);
+    });
   });
 
   it('updates allergies input', async () => {
@@ -346,7 +373,7 @@ describe('Diet', () => {
     });
   });
 
-  it('changes meal count to 3', async () => {
+  it('changes meal count to 3 using fireEvent', async () => {
     vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
     renderDiet();
 
@@ -375,5 +402,42 @@ describe('Diet', () => {
     await userEvent.type(timeInput, '09:00');
 
     expect(timeInput).toHaveValue('09:00');
+  });
+
+  it('falls back to balanced template for unknown template key', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
+      profile({ goals: ['unknown_goal'] })
+    );
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сбалансированное')).toBeInTheDocument();
+    });
+  });
+
+  it('calculates meal times with spacing when mealCount > 1', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    await userEvent.selectOptions(mealCountSelect, '3');
+
+    const timeInput = screen.getByLabelText('Время первого приёма');
+    await userEvent.clear(timeInput);
+    await userEvent.type(timeInput, '08:00');
+
+    await waitFor(() => {
+      const mealCards = document.querySelectorAll('.meal-card');
+      expect(mealCards).toHaveLength(3);
+    });
+
+    const times = Array.from(document.querySelectorAll('.meal-time')).map(
+      (el) => el.textContent
+    );
+    expect(times).toEqual(['08:00', '15:00', '22:00']);
   });
 });

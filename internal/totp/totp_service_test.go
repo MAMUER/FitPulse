@@ -1,6 +1,8 @@
 package totp
 
 import (
+	"crypto/rand"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -216,4 +218,21 @@ func TestValidateTOTPCode_InvalidSecret(t *testing.T) {
 	valid, err := svc.ValidateTOTPCode("123456", "invalid-secret-format")
 	assert.Error(t, err)
 	assert.False(t, valid)
+}
+
+func TestGenerateTOTPSecret_BackupCodeGenerationFailure(t *testing.T) {
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = &errorReader{}
+
+	svc := NewService(nil)
+	setup, err := svc.GenerateTOTPSecret("user@example.com")
+	assert.Error(t, err)
+	assert.Nil(t, setup)
+}
+
+type errorReader struct{}
+
+func (e *errorReader) Read([]byte) (int, error) {
+	return 0, errors.New("read failed")
 }

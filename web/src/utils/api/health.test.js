@@ -53,6 +53,36 @@ describe('health api', () => {
     );
   });
 
+  it('gets biometric records with only from', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ records: [] })
+    );
+
+    const result = await api.getBiometricRecords('heart_rate', '2024-01-01');
+    expect(result).toEqual({ records: [] });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/biometrics?metric_type=heart_rate&limit=100&from=2024-01-01',
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  });
+
+  it('gets biometric records with only to', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ records: [] })
+    );
+
+    const result = await api.getBiometricRecords(
+      'heart_rate',
+      null,
+      '2024-01-02'
+    );
+    expect(result).toEqual({ records: [] });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/biometrics?metric_type=heart_rate&limit=100&to=2024-01-02',
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  });
+
   it('lists health conditions', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockResponse({ conditions: [] })

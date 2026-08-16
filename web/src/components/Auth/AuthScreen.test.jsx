@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -314,6 +314,31 @@ describe('AuthScreen', () => {
     expect(backupInput).toHaveValue('123456');
   });
 
+  it('shows verify mode with success message after register', async () => {
+    api.register.mockResolvedValueOnce({
+      message: 'Регистрация успешна. Подтвердите email.',
+    });
+    renderAuth(new URLSearchParams());
+
+    await user.click(screen.getByText('Создать'));
+
+    await user.type(screen.getByPlaceholderText('Имя'), 'Test');
+    await user.type(screen.getByPlaceholderText('Email'), 'test@test.com');
+    await user.type(
+      screen.getByPlaceholderText('Пароль (мин. 8 символов)'),
+      'Password123'
+    );
+    await user.click(screen.getByText('Создать аккаунт'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Проверьте почту')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText('Регистрация успешна. Подтвердите email.')
+    ).toBeInTheDocument();
+  });
+
   it('shows submitting text when register is in progress', async () => {
     api.register.mockImplementation(() => new Promise(() => {}));
     renderAuth(new URLSearchParams());
@@ -332,5 +357,27 @@ describe('AuthScreen', () => {
     await user.click(screen.getByText('Создать аккаунт'));
 
     expect(screen.getByText('Создание...')).toBeInTheDocument();
+  });
+
+  it('applies invalid class to register password input on submit error', async () => {
+    renderAuth(new URLSearchParams());
+    await user.click(screen.getByText('Создать'));
+
+    const nameInput = screen.getByPlaceholderText('Имя');
+    const emailInput = screen.getByPlaceholderText('Email');
+    const passwordInput = screen.getByPlaceholderText(
+      'Пароль (мин. 8 символов)'
+    );
+
+    await user.type(nameInput, 'Test');
+    await user.type(emailInput, 'test@test.com');
+    await user.type(passwordInput, 'short');
+
+    const form = screen.getByPlaceholderText('Имя').closest('form');
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(passwordInput).toHaveClass('invalid');
+    });
   });
 });

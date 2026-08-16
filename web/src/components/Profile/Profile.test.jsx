@@ -1,10 +1,18 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import { getProfile, updateProfile } from '../../utils/api';
-import { calculateBMI } from '../../utils/validators';
+import {
+  calculateBMI,
+  validateAge,
+  validateHeight,
+  validateNickname,
+  validateWeight,
+} from '../../utils/validators';
 import Profile from './Profile';
+
+vi.mock('../../utils/validators');
 
 vi.mock('../../contexts/AuthContext', async () => {
   const actual = await vi.importActual('../../contexts/AuthContext');
@@ -76,6 +84,15 @@ const renderProfile = (authOverrides = {}) => {
 describe('Profile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    validateAge.mockReturnValue('');
+    validateHeight.mockReturnValue('');
+    validateNickname.mockReturnValue('');
+    validateWeight.mockReturnValue('');
+    calculateBMI.mockReturnValue({
+      bmi: '22.9',
+      category: 'Нормальный вес',
+      recommendation: 'Ваш вес в норме.',
+    });
   });
 
   const user = userEvent.setup();
@@ -133,11 +150,12 @@ describe('Profile', () => {
       expect(screen.getByDisplayValue('175')).toBeInTheDocument();
     });
 
-    const bmi = calculateBMI(175, 70);
-    expect(screen.getByText(new RegExp(bmi.bmi))).toBeInTheDocument();
+    expect(screen.getByText(/22\.9/)).toBeInTheDocument();
   });
 
   it('shows validation errors on submit', async () => {
+    validateNickname.mockReturnValue('Никнейм обязателен');
+
     getProfile.mockResolvedValueOnce({
       profile: {
         full_name: '',
@@ -634,5 +652,151 @@ describe('Profile', () => {
     await waitFor(() => {
       expect(screen.getByText(/Ошибка: save failed/)).toBeInTheDocument();
     });
+  });
+
+  it('applies invalid class to age input when validation fails', async () => {
+    validateAge.mockReturnValue('Некорректный возраст');
+
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: '',
+        gender: '',
+        height_cm: '',
+        weight_kg: '',
+        fitness_level: '',
+        nutrition: '',
+        allergies: [],
+        contraindications: [],
+        goals: [],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сохранить')).toBeInTheDocument();
+    });
+
+    const ageInput = screen.getByLabelText('Возраст');
+    await user.type(ageInput, '15');
+    fireEvent.submit(screen.getByLabelText('Возраст').closest('form'));
+
+    await waitFor(() => {
+      expect(ageInput).toHaveClass('invalid');
+    });
+  });
+
+  it('applies invalid class to height input when validation fails', async () => {
+    validateHeight.mockReturnValue('Некорректный рост');
+
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: '',
+        gender: '',
+        height_cm: '',
+        weight_kg: '',
+        fitness_level: '',
+        nutrition: '',
+        allergies: [],
+        contraindications: [],
+        goals: [],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сохранить')).toBeInTheDocument();
+    });
+
+    const heightInput = screen.getByLabelText('Рост, см');
+    await user.type(heightInput, '15');
+    fireEvent.submit(screen.getByLabelText('Рост, см').closest('form'));
+
+    await waitFor(() => {
+      expect(heightInput).toHaveClass('invalid');
+    });
+  });
+
+  it('applies invalid class to weight input when validation fails', async () => {
+    validateWeight.mockReturnValue('Некорректный вес');
+
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: '',
+        gender: '',
+        height_cm: '',
+        weight_kg: '',
+        fitness_level: '',
+        nutrition: '',
+        allergies: [],
+        contraindications: [],
+        goals: [],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сохранить')).toBeInTheDocument();
+    });
+
+    const weightInput = screen.getByLabelText('Вес, кг');
+    await user.type(weightInput, '300');
+    fireEvent.submit(screen.getByLabelText('Вес, кг').closest('form'));
+
+    await waitFor(() => {
+      expect(weightInput).toHaveClass('invalid');
+    });
+  });
+
+  it('opens password modal when change password button is clicked', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: '',
+        gender: '',
+        height_cm: '',
+        weight_kg: '',
+        fitness_level: '',
+        nutrition: '',
+        allergies: [],
+        contraindications: [],
+        goals: [],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Сменить пароль')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Сменить пароль'));
+    expect(screen.getByTestId('password-modal')).toBeInTheDocument();
+  });
+
+  it('opens delete modal when delete account button is clicked', async () => {
+    getProfile.mockResolvedValueOnce({
+      profile: {
+        full_name: 'Test',
+        age: '',
+        gender: '',
+        height_cm: '',
+        weight_kg: '',
+        fitness_level: '',
+        nutrition: '',
+        allergies: [],
+        contraindications: [],
+        goals: [],
+      },
+    });
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByText('Удалить аккаунт')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Удалить аккаунт'));
+    expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 });

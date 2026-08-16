@@ -181,14 +181,14 @@ describe('AuthContext', () => {
     });
   });
 
-  it('sets token via setToken', async () => {
+  it('setToken updates token value', async () => {
     const TestComponent = () => {
       const auth = useAuth();
       return (
         <div>
           <span data-testid='token'>{auth.token ?? 'null'}</span>
-          <button type='button' onClick={() => auth.setToken('manual-token')}>
-            Set Token
+          <button type='button' onClick={() => auth.setToken('direct-token')}>
+            SetToken
           </button>
         </div>
       );
@@ -198,7 +198,18 @@ describe('AuthContext', () => {
     await user.click(screen.getByRole('button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('token')).toHaveTextContent('manual-token');
+      expect(screen.getByTestId('token')).toHaveTextContent('direct-token');
     });
+  });
+
+  it('throws when useAuth is used outside AuthProvider', () => {
+    const TestComponent = () => {
+      useAuth();
+      return null;
+    };
+
+    expect(() => render(<TestComponent />)).toThrow(
+      'useAuth must be used within AuthProvider'
+    );
   });
 });

@@ -93,6 +93,7 @@ describe('TwoFASetup', () => {
         screen.getByText('Подтвердить и включить 2FA')
       ).toBeInTheDocument();
     });
+    expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
   });
 
   it('shows setup error on failure', async () => {

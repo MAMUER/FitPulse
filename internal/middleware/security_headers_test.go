@@ -121,6 +121,60 @@ func TestCSPPolicyIncludesNonceAndReportURI(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersWithAuthorization(t *testing.T) {
+	handler := SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer token123")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	headers := rec.Header()
+	if headers.Get("Cache-Control") != "no-store, no-cache, must-revalidate, proxy-revalidate" {
+		t.Error("Missing Cache-Control header for authorized request")
+	}
+	if headers.Get("Pragma") != "no-cache" {
+		t.Error("Missing Pragma header for authorized request")
+	}
+	if headers.Get("Expires") != "0" {
+		t.Error("Missing Expires header for authorized request")
+	}
+}
+
+func TestLogoutHeaders(t *testing.T) {
+	headers := LogoutHeaders()
+
+	cookies := headers["Set-Cookie"]
+	if len(cookies) != 2 {
+		t.Fatalf("expected 2 Set-Cookie headers, got %d", len(cookies))
+	}
+
+	sessionCleared := false
+	refreshCleared := false
+	for _, cookie := range cookies {
+		if strings.Contains(cookie, "session=") && strings.Contains(cookie, "Max-Age=0") {
+			sessionCleared = true
+		}
+		if strings.Contains(cookie, "refresh_token=") && strings.Contains(cookie, "Max-Age=0") {
+			refreshCleared = true
+		}
+	}
+	if !sessionCleared {
+		t.Error("session cookie not cleared")
+	}
+	if !refreshCleared {
+		t.Error("refresh_token cookie not cleared")
+	}
+
+	if headers.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		t.Error("Missing Cache-Control header in logout headers")
+	}
+	if headers.Get("Pragma") != "no-cache" {
+		t.Error("Missing Pragma header in logout headers")
+	}
+}
+
 func TestNonceInjectAddsNonceToAllScriptTags(t *testing.T) {
 	html := `<!DOCTYPE html><html><head></head><body>` +
 		`<script src="/static/js/a.js"></script>` +

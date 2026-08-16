@@ -1,10 +1,10 @@
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    extensions: ['.js', '.jsx', '.json']
+    extensions: ['.js', '.jsx', '.json'],
   },
   test: {
     environment: 'jsdom',
@@ -15,7 +15,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
-      exclude: ['node_modules/', 'dist/', 'src/test/', 'src/main.jsx', 'src/App.jsx']
-    }
-  }
-})
+      exclude: [
+        'node_modules/',
+        'dist/',
+        'src/test/',
+        'src/main.jsx',
+        'src/App.jsx',
+      ],
+    },
+  },
+});
