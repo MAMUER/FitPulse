@@ -13,7 +13,7 @@ vi.mock('../../utils/api', () => ({
 
 describe('TwoFASetup', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   const user = userEvent.setup();
@@ -282,6 +282,57 @@ describe('TwoFASetup', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Не включена')).toBeInTheDocument();
+    });
+  });
+
+  it('applies hidden class to success message when setupSuccess is empty', async () => {
+    api.get2FAStatus.mockResolvedValue({ enabled: false });
+    render(<TwoFASetup />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Включить 2FA'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
+    });
+
+    const successDiv = document.querySelector('.auth-success');
+    expect(successDiv).toHaveClass('hidden');
+  });
+
+  it('removes hidden class from success message when setupSuccess is set', async () => {
+    api.get2FAStatus.mockResolvedValueOnce({ enabled: false });
+    api.setup2FA.mockResolvedValueOnce({
+      qr_code_base64: 'data:image/png;base64,abc',
+      secret: 'JBSWY3DPEHPK3PXP',
+      backup_codes: ['123456'],
+    });
+    api.confirm2FA.mockResolvedValueOnce(undefined);
+    api.get2FAStatus.mockResolvedValueOnce({
+      enabled: true,
+      backup_codes_remaining: 5,
+    });
+    render(<TwoFASetup />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Включить 2FA')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Включить 2FA'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('6-значный код')).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText('6-значный код');
+    await user.type(input, '123456');
+    await user.click(screen.getByText('Подтвердить и включить 2FA'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Включена/)).toBeInTheDocument();
     });
   });
 });

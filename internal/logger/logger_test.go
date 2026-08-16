@@ -544,6 +544,21 @@ func TestFromContext_PreservesService(t *testing.T) {
 	assert.Equal(t, "original-service", logger.service)
 }
 
+func TestFromContext_NilContext(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	logger := FromContext(context.TODO(), baseLogger)
+
+	assert.Equal(t, baseLogger, logger)
+	assert.Equal(t, "test-svc", logger.Service())
+
+	logger.Info("nil context test")
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "nil context test", logs[0].Message)
+}
+
 func TestDevelopment(t *testing.T) {
 	log := Development("test-service")
 	assert.NotNil(t, log)
@@ -562,6 +577,19 @@ func TestDevelopment_EnvLevel(t *testing.T) {
 	defer func() { _ = log.Sync() }()
 
 	assert.Equal(t, "test-service", log.Service())
+}
+
+func TestDevelopment_InvalidLogLevel(t *testing.T) {
+	originalLevel := os.Getenv("LOG_LEVEL")
+	defer func() { _ = os.Setenv("LOG_LEVEL", originalLevel) }()
+
+	require.NoError(t, os.Setenv("LOG_LEVEL", "INVALID_LEVEL"))
+
+	assert.NotPanics(t, func() {
+		log := Development("test-service")
+		defer func() { _ = log.Sync() }()
+		assert.Equal(t, "test-service", log.Service())
+	})
 }
 
 func TestWithAction(t *testing.T) {

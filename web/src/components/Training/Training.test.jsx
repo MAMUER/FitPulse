@@ -36,6 +36,46 @@ describe('Training', () => {
     expect(screen.getByText('Загрузка программ...')).toBeInTheDocument();
   });
 
+  it('displays training_goal and duration_weeks on plan card', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 1,
+          plan_data: { name: 'Strength Plan' },
+          training_goal: 'Сила',
+          duration_weeks: 8,
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Strength Plan')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Цель: Сила')).toBeInTheDocument();
+    expect(screen.getByText('8 недель')).toBeInTheDocument();
+  });
+
+  it('falls back to default goal and duration when fields are missing', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 1,
+          plan_data: { name: 'Default Plan' },
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Plan')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Цель: Общая тренировка')).toBeInTheDocument();
+    expect(screen.getByText('4 недель')).toBeInTheDocument();
+  });
+
   it('shows empty state when no plans', async () => {
     api.getTrainingPlans.mockResolvedValueOnce({ plans: [] });
     renderTraining();
@@ -151,6 +191,31 @@ describe('Training', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Default Plan')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to empty plans array when API returns undefined', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce(undefined);
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет активных программ')).toBeInTheDocument();
+    });
+  });
+
+  it('renders plan with default training goal and duration when missing', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 1,
+          plan_data: { name: 'Minimal Plan' },
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Minimal Plan')).toBeInTheDocument();
     });
   });
 });

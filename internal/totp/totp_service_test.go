@@ -2,6 +2,7 @@ package totp
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -127,6 +128,39 @@ func TestEncryptDecryptSecret(t *testing.T) {
 	decrypted, err := svc.DecryptSecret(ciphertext)
 	require.NoError(t, err)
 	assert.Equal(t, originalSecret, decrypted)
+}
+
+func TestEncryptSecret_EncryptorError(t *testing.T) {
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = &errorReader{}
+
+	encryptor, err := crypto.NewAESGCMEncryptor("1234567890123456789012345678901@")
+	require.NoError(t, err)
+
+	svc := NewService(encryptor)
+	_, err = svc.EncryptSecret("secret")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "encrypt TOTP secret")
+}
+
+func TestDecryptSecret_DecryptorError(t *testing.T) {
+	key1 := base64.StdEncoding.EncodeToString([]byte(strings.Repeat("a", 32)))
+	key2 := base64.StdEncoding.EncodeToString([]byte(strings.Repeat("b", 32)))
+
+	encryptor, err := crypto.NewAESGCMEncryptor(key1)
+	require.NoError(t, err)
+
+	otherEncryptor, err := crypto.NewAESGCMEncryptor(key2)
+	require.NoError(t, err)
+
+	ciphertext, err := otherEncryptor.Encrypt([]byte("secret"))
+	require.NoError(t, err)
+
+	svc := NewService(encryptor)
+	_, err = svc.DecryptSecret(ciphertext)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "decrypt TOTP secret")
 }
 
 func TestEncryptSecret_NilService(t *testing.T) {

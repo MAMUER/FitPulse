@@ -12,14 +12,15 @@ import (
 )
 
 func openWearablesWebhookHandler(w http.ResponseWriter, r *http.Request) {
-	handleAggregatorWebhook(w, r, "open_wearables", func(notification map[string]interface{}) map[string]string {
+	handleAggregatorWebhook(w, r, func(notification map[string]interface{}) map[string]string {
 		userID, _ := notification["user_id"].(string)
 		source, _ := notification["source"].(string)
 		return map[string]string{"user_id": userID, "source": source}
 	})
 }
 
-func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, source string, extractFields func(map[string]interface{}) map[string]string) {
+func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFields func(map[string]interface{}) map[string]string) {
+	const source = "open_wearables"
 	log := logger.New("device-aggregator-webhook")
 
 	if r.Method != http.MethodPost {

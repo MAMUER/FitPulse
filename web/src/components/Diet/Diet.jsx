@@ -255,8 +255,8 @@ export default function Diet() {
       const data = await getProfile();
       setProfile(data);
       const p = data.profile || data;
-      setAllergies((p.allergies || []).join(', ')); // istanbul ignore next
-      setDislikes((p.contraindications || []).join(', ')); // istanbul ignore next
+      setAllergies((p.allergies || []).join(', '));
+      setDislikes((p.contraindications || []).join(', '));
       const goal = p.goals?.[0] || '';
       calculateBMI(p.height_cm, p.weight_kg);
       if (goal === 'weight_loss') setTemplate('weight_loss');

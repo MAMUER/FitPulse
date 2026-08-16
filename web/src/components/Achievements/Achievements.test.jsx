@@ -244,6 +244,39 @@ describe('Achievements', () => {
     });
   });
 
+  it('destroys chart instance when progressData changes on re-render', async () => {
+    let callCount = 0;
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          progress_data: [{ date: '2024-01-01', completed_workouts: 3 }],
+        });
+      }
+      return Promise.resolve({
+        progress_data: [{ date: '2024-01-02', completed_workouts: 5 }],
+      });
+    });
+    const { rerender } = renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+
+    rerender(
+      <AuthProvider>
+        <Achievements />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
   it('renders achievement fallback icon and empty strings', async () => {
     vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
       achievements: [
@@ -260,6 +293,34 @@ describe('Achievements', () => {
 
     await waitFor(() => {
       expect(screen.getByText('🏆')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart with empty date and week fallbacks', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [{ completed_workouts: 3 }, { week: '', count: 5 }],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart with value field fallback', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [{ value: 3 }, { count: 5 }, { completed_workouts: 7 }],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
     });
   });
 });

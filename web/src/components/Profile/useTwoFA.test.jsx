@@ -126,6 +126,49 @@ describe('useTwoFA', () => {
     expect(result.current.backupCodes).toEqual([]);
   });
 
+  it('sets empty backupCodes when setup2FA returns backup_codes undefined', async () => {
+    const { get2FAStatus, setup2FA } = await import('../../utils/api');
+    get2FAStatus.mockResolvedValue({ enabled: false });
+    setup2FA.mockResolvedValue({
+      qr_code_base64: 'qrdata',
+      secret: '1234567890',
+    });
+
+    const { result } = renderHook(() => useTwoFA());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await act(async () => {
+      result.current.handleEnable();
+    });
+
+    expect(result.current.backupCodes).toEqual([]);
+  });
+
+  it('sets empty backupCodes when setup2FA returns backup_codes null', async () => {
+    const { get2FAStatus, setup2FA } = await import('../../utils/api');
+    get2FAStatus.mockResolvedValue({ enabled: false });
+    setup2FA.mockResolvedValue({
+      qr_code_base64: 'qrdata',
+      secret: '1234567890',
+      backup_codes: null,
+    });
+
+    const { result } = renderHook(() => useTwoFA());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await act(async () => {
+      result.current.handleEnable();
+    });
+
+    expect(result.current.backupCodes).toEqual([]);
+  });
+
   it('handles enable 2fa error', async () => {
     const { get2FAStatus, setup2FA } = await import('../../utils/api');
     get2FAStatus.mockResolvedValue({ enabled: false });

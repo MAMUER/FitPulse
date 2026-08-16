@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -137,4 +139,42 @@ func TestEncryptDecryptWithBase64Key(t *testing.T) {
 	pt, err := enc.Decrypt(ct)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, pt)
+}
+
+func TestEncrypt_InvalidKeyLength(t *testing.T) {
+	enc := &AESGCMEncryptor{key: make([]byte, 15)}
+	_, err := enc.Encrypt([]byte("test"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create AES cipher")
+}
+
+func TestDecrypt_InvalidKeyLength(t *testing.T) {
+	enc := &AESGCMEncryptor{key: make([]byte, 15)}
+	_, err := enc.Decrypt([]byte("test"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create AES cipher")
+}
+
+type cryptoErrorReader struct{}
+
+func (e *cryptoErrorReader) Read([]byte) (int, error) {
+	return 0, errors.New("rand failed")
+}
+
+func TestEncrypt_RandReaderFailure(t *testing.T) {
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = &cryptoErrorReader{}
+
+	enc := &AESGCMEncryptor{key: make([]byte, 32)}
+	_, err := enc.Encrypt([]byte("test"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "read nonce")
+}
+
+func TestDecrypt_CorruptedCiphertext(t *testing.T) {
+	enc := &AESGCMEncryptor{key: make([]byte, 32)}
+	_, err := enc.Decrypt([]byte("short"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ciphertext too short")
 }

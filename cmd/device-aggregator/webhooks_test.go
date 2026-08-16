@@ -54,7 +54,7 @@ func TestHandleAggregatorWebhookSignature(t *testing.T) {
 	t.Run("valid payload is accepted", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-		handleAggregatorWebhook(w, r, "open_wearables", func(n map[string]interface{}) map[string]string {
+		handleAggregatorWebhook(w, r, func(n map[string]interface{}) map[string]string {
 			return map[string]string{"user_id": "user-1", "source": "open_wearables"}
 		})
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -74,8 +74,33 @@ func (f *failingBody) Close() error {
 func TestHandleAggregatorWebhook_ReadBodyFailure(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/", &failingBody{})
-	handleAggregatorWebhook(w, r, "open_wearables", func(n map[string]interface{}) map[string]string {
+	handleAggregatorWebhook(w, r, func(n map[string]interface{}) map[string]string {
 		return map[string]string{"user_id": "user-1", "source": "open_wearables"}
 	})
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+type failingWriter struct {
+	http.ResponseWriter
+}
+
+func (f *failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestHandleAggregatorWebhook_WriteResponseError(t *testing.T) {
+	payload := map[string]interface{}{
+		"user_id": "user-1",
+		"source":  "open_wearables",
+	}
+	body, _ := json.Marshal(payload)
+
+	w := &failingWriter{ResponseWriter: httptest.NewRecorder()}
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	handleAggregatorWebhook(w, r, func(n map[string]interface{}) map[string]string {
+		return map[string]string{"user_id": "user-1", "source": "open_wearables"}
+	})
+
+	rec := w.ResponseWriter.(*httptest.ResponseRecorder)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

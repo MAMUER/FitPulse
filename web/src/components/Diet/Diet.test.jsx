@@ -404,6 +404,81 @@ describe('Diet', () => {
     expect(timeInput).toHaveValue('09:00');
   });
 
+  it('calculates meal times with spacing when mealCount > 1', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    await userEvent.selectOptions(mealCountSelect, '3');
+
+    const timeInput = screen.getByLabelText('Время первого приёма');
+    await userEvent.clear(timeInput);
+    await userEvent.type(timeInput, '08:00');
+
+    await waitFor(() => {
+      const mealCards = document.querySelectorAll('.meal-card');
+      expect(mealCards).toHaveLength(3);
+    });
+
+    const times = Array.from(document.querySelectorAll('.meal-time')).map(
+      (el) => el.textContent
+    );
+    expect(times).toEqual(['08:00', '15:00', '22:00']);
+  });
+
+  it('sets all meals to start time when mealCount is 3', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    await userEvent.selectOptions(mealCountSelect, '3');
+
+    const timeInput = screen.getByLabelText('Время первого приёма');
+    await userEvent.clear(timeInput);
+    await userEvent.type(timeInput, '07:30');
+
+    await waitFor(() => {
+      const mealCards = document.querySelectorAll('.meal-card');
+      expect(mealCards).toHaveLength(3);
+    });
+
+    expect(screen.getByText('07:30')).toBeInTheDocument();
+  });
+
+  it('calculates correct meal time spacing for mealCount of 5', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    await userEvent.selectOptions(mealCountSelect, '5');
+
+    const timeInput = screen.getByLabelText('Время первого приёма');
+    await userEvent.clear(timeInput);
+    await userEvent.type(timeInput, '08:00');
+
+    await waitFor(() => {
+      const mealCards = document.querySelectorAll('.meal-card');
+      expect(mealCards).toHaveLength(5);
+    });
+
+    const times = Array.from(document.querySelectorAll('.meal-time')).map(
+      (el) => el.textContent
+    );
+    expect(times).toEqual(['08:00', '11:30', '15:00', '18:30', '22:00']);
+  });
+
   it('falls back to balanced template for unknown template key', async () => {
     vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
       profile({ goals: ['unknown_goal'] })

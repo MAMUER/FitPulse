@@ -8,12 +8,14 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -721,6 +723,58 @@ func TestRequireRoleReturnsNotFound(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Не найдено")
 }
 
+func TestRequireRole_NilDB(t *testing.T) {
+	called := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	core, _ := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	handler := RequireRole(nil, log, "admin")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), UserIDKey, testUserID)
+	req := httptest.NewRequestWithContext(ctx, "GET", "/admin", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.False(t, called)
+}
+
+func TestRequireRole_DBQueryError(t *testing.T) {
+	called := false
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mock.ExpectClose()
+
+	mock.ExpectQuery("SELECT role FROM users WHERE id =").
+		WithArgs(testUserID).
+		WillReturnError(errors.New("connection refused"))
+
+	core, _ := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	handler := RequireRole(db, log, "admin")(nextHandler)
+
+	ctx := context.WithValue(context.Background(), UserIDKey, testUserID)
+	req := httptest.NewRequestWithContext(ctx, "GET", "/admin", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.False(t, called)
+}
+
 func TestRequireRoleCombinedWithAuthMiddleware(t *testing.T) {
 	log := zap.NewNop()
 
@@ -865,4 +919,148 @@ func TestRecoveryGRPC_PanicWithIntValue(t *testing.T) {
 
 	assert.Nil(t, resp)
 	assert.Error(t, err)
+}
+
+// ==========================================
+// getClientIP Tests
+// ==========================================
+
+func TestGetClientIP_XForwardedFor(t *testing.T) {
+	tests := []struct {
+		name     string
+		xff      string
+		expected string
+	}{
+		{
+			name:     "single IP",
+			xff:      "192.168.1.1",
+			expected: "192.168.1.1",
+		},
+		{
+			name:     "multiple IPs returns first",
+			xff:      "203.0.113.1, 198.51.100.1, 192.168.1.1",
+			expected: "203.0.113.1",
+		},
+		{
+			name:     "first IP with spaces",
+			xff:      "  203.0.113.1  ,  198.51.100.1  ",
+			expected: "203.0.113.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+			req.Header.Set("X-Forwarded-For", tt.xff)
+			req.RemoteAddr = "10.0.0.1:1234"
+
+			ip := getClientIP(req)
+			assert.Equal(t, tt.expected, ip)
+		})
+	}
+}
+
+func TestGetClientIP_XRealIP(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	req.Header.Set("X-Real-IP", "203.0.113.5")
+	req.RemoteAddr = "10.0.0.1:1234"
+
+	ip := getClientIP(req)
+	assert.Equal(t, "203.0.113.5", ip)
+}
+
+func TestGetClientIP_FallbackToRemoteAddr(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	req.RemoteAddr = "192.168.1.100:54321"
+
+	ip := getClientIP(req)
+	assert.Equal(t, "192.168.1.100", ip)
+}
+
+func TestGetClientIP_XRealIPTakesPrecedenceOverRemoteAddr(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	req.Header.Set("X-Real-IP", "203.0.113.5")
+	req.RemoteAddr = "10.0.0.1:1234"
+
+	ip := getClientIP(req)
+	assert.Equal(t, "203.0.113.5", ip)
+}
+
+// ==========================================
+// LoggingMiddleware with Prometheus Tests
+// ==========================================
+
+func TestLoggingMiddleware_WithPrometheusMetrics(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	requestDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "http_request_duration_seconds_test",
+		Help: "Test histogram",
+	}, []string{"service", "path", "method", "status"})
+
+	requestTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total_test",
+		Help: "Test counter",
+	}, []string{"service", "path", "method"})
+
+	errorTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_errors_total_test",
+		Help: "Test error counter",
+	}, []string{"service", "status", "path"})
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := LoggingMiddleware(log, requestDuration, requestTotal, errorTotal)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test-path", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "HTTP_REQUEST", logs[0].Message)
+}
+
+func TestLoggingMiddleware_ErrorStatusIncrementsErrorTotal(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	log := zap.New(core)
+
+	requestDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "http_request_duration_seconds_err_test",
+		Help: "Test histogram",
+	}, []string{"service", "path", "method", "status"})
+
+	requestTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total_err_test",
+		Help: "Test counter",
+	}, []string{"service", "path", "method"})
+
+	errorTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_errors_total_err_test",
+		Help: "Test error counter",
+	}, []string{"service", "status", "path"})
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	handler := LoggingMiddleware(log, requestDuration, requestTotal, errorTotal)(nextHandler)
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/error-path", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "HTTP_REQUEST", logs[0].Message)
+	assert.Equal(t, int64(500), logs[0].ContextMap()["statusCode"])
 }

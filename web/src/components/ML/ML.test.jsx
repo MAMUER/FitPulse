@@ -188,6 +188,154 @@ describe('ML', () => {
     });
   });
 
+  it('skips chart rendering when canvas getContext returns null', async () => {
+    const mockCtx = { fillRect: vi.fn() };
+    HTMLCanvasElement.prototype.getContext = vi
+      .fn()
+      .mockReturnValueOnce(null)
+      .mockReturnValue(mockCtx);
+
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [{ day_of_week: 1, duration: 30 }],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    const chartCtor = vi.mocked(await import('chart.js/auto')).Chart;
+    expect(chartCtor).not.toHaveBeenCalled();
+  });
+
+  it('renders day label fallback when day_of_week is out of range', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 10,
+                training_type: 'strength',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'squats',
+                    sets: 3,
+                    reps: 12,
+                    duration: 15,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('День 11')).toBeInTheDocument();
+    });
+  });
+
+  it('renders exercise details with sets reps and duration', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                training_type: 'strength',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'Приседания',
+                    sets: 4,
+                    reps: 12,
+                    duration: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Приседания')).toBeInTheDocument();
+    expect(screen.getByText('4 подходов')).toBeInTheDocument();
+    expect(screen.getByText(/12 повторений/)).toBeInTheDocument();
+    expect(screen.getByText(/10 мин/)).toBeInTheDocument();
+  });
+
+  it('renders plan content from plan_data when getPlan returns object without plan_data', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                training_type: 'cardio',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'running',
+                    sets: 3,
+                    reps: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: { no_plan_data_here: true },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('cardio')).toBeInTheDocument();
+    expect(screen.getByText('running')).toBeInTheDocument();
+  });
+
   it('updates training class form field', async () => {
     renderML();
 
@@ -539,5 +687,56 @@ describe('ML', () => {
     expect(screen.getByText('original_type')).toBeInTheDocument();
     expect(screen.getByText('original_exercise')).toBeInTheDocument();
     expect(screen.queryByText('fetched_type')).not.toBeInTheDocument();
+  });
+
+  it('renders empty plan state when weeks array is empty', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: { weeks: [] },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('План пуст')).toBeInTheDocument();
+    });
+  });
+
+  it('renders day with fallback name when day_of_week is out of range', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 99,
+                training_type: 'cardio',
+                exercises: [
+                  {
+                    sort_order: 0,
+                    exercise_name: 'Бег',
+                    sets: 3,
+                    reps: 10,
+                    duration: 30,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('День 100')).toBeInTheDocument();
+      expect(screen.getByText('Бег')).toBeInTheDocument();
+      expect(screen.getByText('3 подходов')).toBeInTheDocument();
+    });
   });
 });
