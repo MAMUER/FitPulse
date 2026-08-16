@@ -423,9 +423,10 @@ func TestWithMetadata(t *testing.T) {
 	l := &Logger{Logger: zap.New(core), service: "test-svc"}
 
 	metadata := map[string]interface{}{
-		"str_key":  "hello",
-		"int_key":  42,
-		"bool_key": true,
+		"str_key":   "hello",
+		"int_key":   42,
+		"float_key": 3.14,
+		"bool_key":  true,
 	}
 
 	childLogger := l.WithMetadata(metadata)
@@ -441,6 +442,7 @@ func TestWithMetadata(t *testing.T) {
 
 	assert.Contains(t, fieldMap, "str_key")
 	assert.Contains(t, fieldMap, "int_key")
+	assert.Contains(t, fieldMap, "float_key")
 	assert.Contains(t, fieldMap, "bool_key")
 }
 
@@ -517,15 +519,6 @@ func TestFromContext(t *testing.T) {
 
 		assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
 		assert.Equal(t, "user-456", fieldMap["userId"].String)
-	})
-
-	t.Run("with nil context", func(t *testing.T) {
-		core, _ := observer.New(zap.InfoLevel)
-		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
-
-		logger := FromContext(context.Background(), baseLogger)
-		assert.NotNil(t, logger)
-		assert.Equal(t, "test-svc", logger.service)
 	})
 
 	t.Run("with empty context", func(t *testing.T) {

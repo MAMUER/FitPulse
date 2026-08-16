@@ -245,6 +245,35 @@ func TestExchangeAuthCodeInvalidFormat(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCodeInvalid)
 }
 
+func TestCreateAuthCode_StoreFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	mr.Close()
+
+	_, err := store.CreateAuthCode(context.Background(), "user-1", "client-1", "http://localhost/callback")
+	assert.Error(t, err)
+}
+
+func TestCreateCriticalSession_StoreFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	mr.Close()
+
+	_, err := store.CreateCriticalSession(context.Background(), "user-1")
+	assert.Error(t, err)
+}
+
+func TestExchangeAuthCode_DeleteFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	defer mr.Close()
+
+	code, err := store.CreateAuthCode(context.Background(), "user-1", "client-1", "http://localhost/callback")
+	require.NoError(t, err)
+
+	mr.Close()
+
+	_, err = store.ExchangeAuthCode(context.Background(), code, "client-1", "http://localhost/callback")
+	assert.Error(t, err)
+}
+
 func TestNewSessionStoreFromRedis(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)

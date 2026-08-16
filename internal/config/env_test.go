@@ -105,6 +105,30 @@ func TestGetEnvWithFile_AbsError(t *testing.T) {
 	assert.Equal(t, "default_value", result)
 }
 
+func TestGetEnvWithFile_AbsErrorInvalidPath(t *testing.T) {
+	key := "TEST_KEY_ABS_INVALID"
+	require.NoError(t, os.Setenv(key+"_FILE", "C:/foo<bar"))
+	t.Cleanup(func() { require.NoError(t, os.Unsetenv(key+"_FILE")) })
+
+	result := GetEnv(key, "default_value")
+	assert.Equal(t, "default_value", result)
+}
+
+func TestGetEnv_NoDefaultValue(t *testing.T) {
+	key := "TEST_KEY_NO_DEFAULT"
+	require.NoError(t, os.Unsetenv(key))
+	require.NoError(t, os.Unsetenv(key+"_FILE"))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv(key))
+		require.NoError(t, os.Unsetenv(key+"_FILE"))
+	})
+
+	require.NoError(t, os.Setenv(key+"_FILE", "C:/foo<bar"))
+
+	result := GetEnv(key)
+	assert.Equal(t, "", result)
+}
+
 func TestGetEnvRequired(t *testing.T) {
 	t.Run("returns value when set", func(t *testing.T) {
 		require.NoError(t, os.Setenv("TEST_REQUIRED_KEY", "value"))

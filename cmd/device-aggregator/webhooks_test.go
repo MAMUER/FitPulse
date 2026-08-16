@@ -61,30 +61,21 @@ func TestHandleAggregatorWebhookSignature(t *testing.T) {
 	})
 }
 
-func TestReadBody(t *testing.T) {
-	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("hello")))
-	body, err := readBody(r)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("hello"), body)
+type failingBody struct{}
+
+func (f *failingBody) Read([]byte) (int, error) {
+	return 0, errors.New("read failed")
 }
 
-type failingResponseWriter struct {
-	http.ResponseWriter
+func (f *failingBody) Close() error {
+	return nil
 }
 
-func (f *failingResponseWriter) Write([]byte) (int, error) {
-	return 0, errors.New("write failed")
-}
-
-func TestHandleAggregatorWebhook_EncodeResponseFailure(_ *testing.T) {
-	w := &failingResponseWriter{ResponseWriter: httptest.NewRecorder()}
-	payload := map[string]interface{}{
-		"user_id": "user-1",
-		"source":  "open_wearables",
-	}
-	body, _ := json.Marshal(payload)
-	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+func TestHandleAggregatorWebhook_ReadBodyFailure(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/", &failingBody{})
 	handleAggregatorWebhook(w, r, "open_wearables", func(n map[string]interface{}) map[string]string {
 		return map[string]string{"user_id": "user-1", "source": "open_wearables"}
 	})
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }

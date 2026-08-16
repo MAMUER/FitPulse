@@ -346,7 +346,7 @@ describe('Dashboard', () => {
             {
               days: [
                 {
-                  day_of_week: 0,
+                  day_of_week: 99,
                   training_type: 'cardio',
                   exercises: [],
                 },
