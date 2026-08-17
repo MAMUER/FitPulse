@@ -20,6 +20,7 @@ export default defineConfig({
         'dist/',
         'src/main.jsx',
         'src/App.jsx',
+        'src/test/setup.js',
       ],
     },
   },

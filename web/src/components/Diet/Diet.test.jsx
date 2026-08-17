@@ -557,4 +557,17 @@ describe('Diet', () => {
       expect(document.querySelectorAll('.meal-card')).toHaveLength(1);
     });
   });
+
+  it('falls back to balanced template for unknown initialTemplate prop', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    render(
+      <AuthProvider>
+        <Diet initialTemplate='invalid' />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Сбалансированное')).toBeInTheDocument();
+    });
+  });
 });

@@ -240,14 +240,14 @@ const MEAL_TEMPLATES = {
   },
 };
 
-export default function Diet() {
+export default function Diet({ initialTemplate } = {}) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allergies, setAllergies] = useState('');
   const [dislikes, setDislikes] = useState('');
   const [mealCount, setMealCount] = useState(5);
   const [firstMealTime, setFirstMealTime] = useState('08:00');
-  const [template, setTemplate] = useState('balanced');
+  const [template, setTemplate] = useState(() => initialTemplate || 'balanced');
   const [meals, setMeals] = useState([]);
 
   const loadProfile = useCallback(async () => {
@@ -259,9 +259,11 @@ export default function Diet() {
       setDislikes((p.contraindications || []).join(', '));
       const goal = p.goals?.[0] || '';
       calculateBMI(p.height_cm, p.weight_kg);
-      if (goal === 'weight_loss') setTemplate('weight_loss');
-      else if (goal === 'muscle_gain') setTemplate('high_protein');
-      else setTemplate('balanced');
+      if (!initialTemplate) {
+        if (goal === 'weight_loss') setTemplate('weight_loss');
+        else if (goal === 'muscle_gain') setTemplate('high_protein');
+        else setTemplate('balanced');
+      }
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {

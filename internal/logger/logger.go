@@ -24,17 +24,21 @@ type Logger struct {
 
 // New создает новый логгер с именем сервиса
 func New(service string) *Logger {
-	return newLogger(service, false)
+	return newLogger(service, false, nil)
 }
 
 // Development создает логгер для локальной разработки с цветным выводом в консоль
 func Development(service string) *Logger {
-	return newLogger(service, true)
+	return newLogger(service, true, nil)
 }
 
-func newLogger(service string, development bool) *Logger {
+var fatal = log.Fatal
+
+func newLogger(service string, development bool, configOverride *zap.Config) *Logger {
 	var cfg zap.Config
-	if development {
+	if configOverride != nil {
+		cfg = *configOverride
+	} else if development {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
@@ -59,7 +63,8 @@ func newLogger(service string, development bool) *Logger {
 
 	logger, err := cfg.Build(zap.AddCaller(), zap.AddCallerSkip(1))
 	if err != nil {
-		log.Fatal("failed to initialize logger", zap.Error(err))
+		fatal("failed to initialize logger", zap.Error(err))
+		return nil
 	}
 
 	return &Logger{

@@ -548,7 +548,7 @@ func TestFromContext_NilContext(t *testing.T) {
 	core, recorded := observer.New(zap.InfoLevel)
 	baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-	logger := FromContext(context.TODO(), baseLogger)
+	logger := FromContext(nil, baseLogger) // nolint:SA1012
 
 	assert.Equal(t, baseLogger, logger)
 	assert.Equal(t, "test-svc", logger.Service())
@@ -557,6 +557,23 @@ func TestFromContext_NilContext(t *testing.T) {
 	logs := recorded.All()
 	require.Len(t, logs, 1)
 	assert.Equal(t, "nil context test", logs[0].Message)
+}
+
+func TestNew_BuildFails(t *testing.T) {
+	var fatalCalled bool
+	oldFatal := fatal
+	fatal = func(v ...interface{}) {
+		fatalCalled = true
+	}
+	defer func() { fatal = oldFatal }()
+
+	cfg := zap.NewProductionConfig()
+	cfg.Encoding = "invalid"
+	cfg.OutputPaths = []string{"stdout"}
+	cfg.ErrorOutputPaths = []string{"stderr"}
+
+	newLogger("test", false, &cfg)
+	assert.True(t, fatalCalled, "fatal should have been called when build fails")
 }
 
 func TestDevelopment(t *testing.T) {
