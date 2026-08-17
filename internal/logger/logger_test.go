@@ -669,3 +669,4 @@ func TestWithMetadata_Int64AndDefault(t *testing.T) {
 	assert.Equal(t, int64(9223372036854775807), fieldMap["int64_key"].Integer)
 	assert.Contains(t, fieldMap, "slice_key")
 }
+
