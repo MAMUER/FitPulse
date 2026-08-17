@@ -242,7 +242,7 @@ pillow==12.3.0
     #   tensorboard
 platformdirs==4.11.2
     # via wandb
-plotly==5.24.1
+plotly==6.9.0
     # via evidently
 polyfactory==3.3.0
     # via litestar
