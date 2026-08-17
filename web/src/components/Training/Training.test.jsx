@@ -203,19 +203,110 @@ describe('Training', () => {
     });
   });
 
-  it('renders plan with default training goal and duration when missing', async () => {
+  it('renders default plan name when plan_data name is missing', async () => {
     api.getTrainingPlans.mockResolvedValueOnce({
       plans: [
         {
           plan_id: 1,
-          plan_data: { name: 'Minimal Plan' },
+          plan_data: {},
+          training_goal: 'Сила',
+          duration_weeks: 4,
         },
       ],
     });
     renderTraining();
 
     await waitFor(() => {
-      expect(screen.getByText('Minimal Plan')).toBeInTheDocument();
+      expect(screen.getByText('Персонализированная программа')).toBeInTheDocument();
+    });
+  });
+
+  it('uses predicted_class and confidence from classifyState', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({ plans: [] });
+    api.classifyState.mockResolvedValueOnce({
+      predicted_class: 'endurance',
+      confidence: 0.85,
+    });
+    api.generateTrainingPlan.mockResolvedValueOnce({});
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 2,
+          plan_data: { name: 'Endurance Plan' },
+          training_goal: 'Endurance',
+          duration_weeks: 6,
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет активных программ')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Endurance Plan')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to default training class when classifyState returns no predicted_class', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({ plans: [] });
+    api.classifyState.mockResolvedValueOnce({
+      confidence: 0.7,
+    });
+    api.generateTrainingPlan.mockResolvedValueOnce({});
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 2,
+          plan_data: { name: 'Default Class Plan' },
+          training_goal: 'Recovery',
+          duration_weeks: 4,
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет активных программ')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Class Plan')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to default confidence when classifyState returns falsy confidence', async () => {
+    api.getTrainingPlans.mockResolvedValueOnce({ plans: [] });
+    api.classifyState.mockResolvedValueOnce({
+      predicted_class: 'strength',
+      confidence: 0,
+    });
+    api.generateTrainingPlan.mockResolvedValueOnce({});
+    api.getTrainingPlans.mockResolvedValueOnce({
+      plans: [
+        {
+          plan_id: 2,
+          plan_data: { name: 'Default Confidence Plan' },
+          training_goal: 'Strength',
+          duration_weeks: 4,
+        },
+      ],
+    });
+    renderTraining();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет активных программ')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Confidence Plan')).toBeInTheDocument();
     });
   });
 });

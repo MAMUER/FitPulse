@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"testing"
 	"time"
 
@@ -292,4 +294,80 @@ func TestNewSessionStoreFromValkey(t *testing.T) {
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	store := NewSessionStoreFromValkey(rdb)
 	assert.NotNil(t, store)
+}
+
+type sessionErrorReader struct{}
+
+func (sessionErrorReader) Read([]byte) (int, error) {
+	return 0, errors.New("rand failed")
+}
+
+func TestGenerateCode_RandFailure(t *testing.T) {
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = sessionErrorReader{}
+
+	_, err := generateCode()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "generate code")
+}
+
+func TestCreateAuthCode_GenerateCodeFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	defer mr.Close()
+
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = sessionErrorReader{}
+
+	_, err := store.CreateAuthCode(context.Background(), "user-1", "client-1", "http://localhost/callback")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "generate code")
+}
+
+func TestCreateCriticalSession_GenerateCodeFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	defer mr.Close()
+
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = sessionErrorReader{}
+
+	_, err := store.CreateCriticalSession(context.Background(), "user-1")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "generate code")
+}
+
+func TestExchangeAuthCode_DelFailure(t *testing.T) {
+	store, mr := setupSessionTest(t)
+	defer mr.Close()
+
+	code, err := store.CreateAuthCode(context.Background(), "user-1", "client-1", "http://localhost/callback")
+	require.NoError(t, err)
+
+	failingStore := &SessionStore{
+		client: &delFailingClient{
+			inner: store.client,
+		},
+	}
+
+	userID, err := failingStore.ExchangeAuthCode(context.Background(), code, "client-1", "http://localhost/callback")
+	assert.Error(t, err)
+	assert.Empty(t, userID)
+}
+
+type delFailingClient struct {
+	inner CacheClient
+}
+
+func (m *delFailingClient) Get(ctx context.Context, key string) (string, error) {
+	return m.inner.Get(ctx, key)
+}
+
+func (m *delFailingClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return m.inner.Set(ctx, key, value, expiration)
+}
+
+func (m *delFailingClient) Del(ctx context.Context, keys ...string) error {
+	return errors.New("del failed")
 }

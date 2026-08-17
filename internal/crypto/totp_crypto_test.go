@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -153,6 +154,38 @@ func TestDecrypt_InvalidKeyLength(t *testing.T) {
 	_, err := enc.Decrypt([]byte("test"))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "create AES cipher")
+}
+
+type invalidBlockSize struct{}
+
+func (invalidBlockSize) BlockSize() int          { return 8 }
+func (invalidBlockSize) Encrypt(dst, src []byte) { copy(dst, src) }
+func (invalidBlockSize) Decrypt(dst, src []byte) { copy(dst, src) }
+
+func TestEncrypt_InvalidGCMBlock(t *testing.T) {
+	oldNewCipherBlock := newCipherBlock
+	defer func() { newCipherBlock = oldNewCipherBlock }()
+	newCipherBlock = func(key []byte) (cipher.Block, error) {
+		return &invalidBlockSize{}, nil
+	}
+
+	enc := &AESGCMEncryptor{key: make([]byte, 32)}
+	_, err := enc.Encrypt([]byte("test"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create AES-GCM")
+}
+
+func TestDecrypt_InvalidGCMBlock(t *testing.T) {
+	oldNewCipherBlock := newCipherBlock
+	defer func() { newCipherBlock = oldNewCipherBlock }()
+	newCipherBlock = func(key []byte) (cipher.Block, error) {
+		return &invalidBlockSize{}, nil
+	}
+
+	enc := &AESGCMEncryptor{key: make([]byte, 32)}
+	_, err := enc.Decrypt([]byte("short"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create AES-GCM")
 }
 
 type cryptoErrorReader struct{}

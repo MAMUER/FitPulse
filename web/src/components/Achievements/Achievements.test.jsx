@@ -245,13 +245,15 @@ describe('Achievements', () => {
   });
 
   it('destroys chart instance when progressData changes on re-render', async () => {
-    let callCount = 0;
-    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
-      achievements: [],
+    let progressCallCount = 0;
+    let achievementsCallCount = 0;
+    vi.spyOn(api, 'getAchievements').mockImplementation(() => {
+      achievementsCallCount++;
+      return Promise.resolve({ achievements: [] });
     });
     vi.spyOn(api, 'getProgress').mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) {
+      progressCallCount++;
+      if (progressCallCount === 1) {
         return Promise.resolve({
           progress_data: [{ date: '2024-01-01', completed_workouts: 3 }],
         });
@@ -268,7 +270,7 @@ describe('Achievements', () => {
 
     rerender(
       <AuthProvider>
-        <Achievements />
+        <Achievements refreshKey={2} />
       </AuthProvider>
     );
 
@@ -321,6 +323,32 @@ describe('Achievements', () => {
 
     await waitFor(() => {
       expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('renders progress chart with fallback to 0 when no value fields present', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({
+      progress_data: [{ date: '2024-01-01' }, { week: 'Week 1' }],
+    });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('📈 Прогресс')).toBeInTheDocument();
+    });
+  });
+
+  it('displays competition rank when available', async () => {
+    vi.spyOn(api, 'getAchievements').mockResolvedValueOnce({
+      achievements: [],
+    });
+    vi.spyOn(api, 'getProgress').mockResolvedValueOnce({ progress_data: [] });
+    renderAchievements();
+
+    await waitFor(() => {
+      expect(screen.getByText('🏅 Место: 1')).toBeInTheDocument();
     });
   });
 });

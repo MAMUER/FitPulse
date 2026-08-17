@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -15,9 +16,16 @@ import (
 
 const userSessionsPrefix = "user_sessions:"
 
+// CacheClient abstracts cache operations for testability.
+type CacheClient interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Del(ctx context.Context, keys ...string) error
+}
+
 // SessionStore manages sessions and one-time authorization codes in Valkey.
 type SessionStore struct {
-	client *Client
+	client CacheClient
 }
 
 // NewSessionStore creates a session store with the given cache client.
@@ -40,7 +48,7 @@ func NewSessionStoreFromValkey(rdb *redis.Client) *SessionStore {
 // generateCode generates a cryptographically secure authorization code.
 func generateCode() (string, error) {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", fmt.Errorf("generate code: %w", err)
 	}
 	return base64.URLEncoding.EncodeToString(b)[:43], nil

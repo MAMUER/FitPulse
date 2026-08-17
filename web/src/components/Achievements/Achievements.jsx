@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAchievements, getProgress } from '../../utils/api';
 import './Achievements.css';
 
-export default function Achievements() {
+export default function Achievements({ refreshKey }) {
   const [achievements, setAchievements] = useState([]);
   const [progressData, setProgressData] = useState([]);
   const chartRef = useRef(null);
@@ -22,7 +22,7 @@ export default function Achievements() {
 
   useEffect(() => {
     loadAchievements();
-  }, [loadAchievements]);
+  }, [loadAchievements, refreshKey]);
 
   useEffect(() => {
     if (progressData.length > 0 && chartRef.current) {
@@ -74,7 +74,7 @@ export default function Achievements() {
       desc: 'Пройдите 10000 шагов за день',
       status: 'active',
       participants: 1,
-      rank: null,
+      rank: 1,
     },
     {
       name: 'Серия тренировок',

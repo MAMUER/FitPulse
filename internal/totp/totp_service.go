@@ -134,11 +134,13 @@ func (s *Service) DecryptSecret(ciphertext []byte) (string, error) {
 	return string(plaintext), nil
 }
 
+var backupCodeRandomReader = rand.Reader
+
 func generateBackupCodes() ([]string, error) {
 	codes := make([]string, BackupCodesCount)
 	for i := 0; i < BackupCodesCount; i++ {
 		bytes := make([]byte, BackupCodeLength/2)
-		if _, err := rand.Read(bytes); err != nil {
+		if _, err := backupCodeRandomReader.Read(bytes); err != nil {
 			return nil, fmt.Errorf("generate backup codes: %w", err)
 		}
 		raw := hex.EncodeToString(bytes)

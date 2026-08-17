@@ -932,7 +932,7 @@ jobs:
             -Dsonar.tests=cmd,internal,web/src
             -Dsonar.test.inclusions=**/*_test.go,**/*.test.jsx,**/*.test.js
             -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go,**/*.test.jsx,**/*.test.js,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go
-            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go,cmd/ml_generator/main.py,cmd/**/main.go,web/src/main.jsx,web/src/App.jsx,web/src/index.css
+            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go,cmd/ml_generator/main.py,cmd/**/main.go,web/src/main.jsx,web/src/App.jsx,web/src/index.css,web/src/test/setup.js
             -Dsonar.go.coverage.reportPaths=coverage/coverage.out
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.qualitygate.wait=true

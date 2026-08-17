@@ -255,14 +255,25 @@ func TestValidateTOTPCode_InvalidSecret(t *testing.T) {
 }
 
 func TestGenerateTOTPSecret_BackupCodeGenerationFailure(t *testing.T) {
-	oldReader := rand.Reader
-	defer func() { rand.Reader = oldReader }()
-	rand.Reader = &errorReader{}
+	oldReader := backupCodeRandomReader
+	defer func() { backupCodeRandomReader = oldReader }()
+	backupCodeRandomReader = &errorReader{}
 
 	svc := NewService(nil)
 	setup, err := svc.GenerateTOTPSecret("user@example.com")
 	assert.Error(t, err)
 	assert.Nil(t, setup)
+	assert.Contains(t, err.Error(), "generate backup codes")
+}
+
+func TestGenerateBackupCodes_Failure(t *testing.T) {
+	oldReader := backupCodeRandomReader
+	defer func() { backupCodeRandomReader = oldReader }()
+	backupCodeRandomReader = &errorReader{}
+
+	codes, err := generateBackupCodes()
+	assert.Error(t, err)
+	assert.Nil(t, codes)
 }
 
 type errorReader struct{}

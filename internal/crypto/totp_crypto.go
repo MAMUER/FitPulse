@@ -34,12 +34,16 @@ func NewAESGCMEncryptor(keyMaterial string) (*AESGCMEncryptor, error) {
 	return &AESGCMEncryptor{key: key}, nil
 }
 
+var newCipherBlock = func(key []byte) (cipher.Block, error) {
+	return aes.NewCipher(key)
+}
+
 func (e *AESGCMEncryptor) Encrypt(plaintext []byte) ([]byte, error) {
 	if e == nil || e.key == nil {
 		return nil, errors.New("encryption not initialized")
 	}
 
-	block, err := aes.NewCipher(e.key)
+	block, err := newCipherBlock(e.key)
 	if err != nil {
 		return nil, fmt.Errorf("create AES cipher: %w", err)
 	}
@@ -62,7 +66,7 @@ func (e *AESGCMEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("encryption not initialized")
 	}
 
-	block, err := aes.NewCipher(e.key)
+	block, err := newCipherBlock(e.key)
 	if err != nil {
 		return nil, fmt.Errorf("create AES cipher: %w", err)
 	}
