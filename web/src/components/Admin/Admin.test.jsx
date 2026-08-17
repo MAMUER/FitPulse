@@ -361,4 +361,85 @@ describe('Admin', () => {
     Promise.allSettled = originalAllSettled;
     consoleErrorSpy.mockRestore();
   });
+
+  it('handles rejected listInvites in loadAdminData', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    vi.spyOn(api, 'listInvites').mockRejectedValueOnce(
+      new Error('invites failed')
+    );
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет пользователей')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Нет приглашений')).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('handles rejected listUsers in loadAdminData', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listUsers').mockRejectedValueOnce(new Error('users failed'));
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('Нет приглашений')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Нет пользователей')).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('displays invite with fallback values', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
+      {
+        invite_id: '1',
+        code: 'ABC123',
+        role: '',
+        max_uses: 0,
+        used_count: 0,
+        is_active: true,
+      },
+    ]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('ABC123')).toBeInTheDocument();
+    });
+
+    const inviteMeta = document.querySelector('.invite-meta');
+    expect(inviteMeta).toBeTruthy();
+    expect(inviteMeta.textContent).toContain('client');
+    expect(inviteMeta.textContent).toContain('0/1');
+  });
+
+  it('displays user with fallback values', async () => {
+    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([
+      {
+        user_id: '1',
+        full_name: '',
+        nickname: '',
+        email: 'test@test.com',
+        role: '',
+        created_at: '',
+        updated_at: '',
+      },
+    ]);
+    renderAdmin();
+
+    await waitFor(() => {
+      expect(screen.getByText('test@test.com')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('client')).toBeInTheDocument();
+  });
 });

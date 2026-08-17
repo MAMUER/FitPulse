@@ -2,12 +2,16 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRemoveServerHeader(t *testing.T) {
@@ -200,4 +204,20 @@ func TestNonceInjectAddsNonceToAllScriptTags(t *testing.T) {
 			t.Errorf("script tag missing nonce: %q", s)
 		}
 	}
+}
+
+type errorReader struct{}
+
+func (errorReader) Read([]byte) (int, error) {
+	return 0, errors.New("rand failed")
+}
+
+func TestGenerateNonce_PanicsOnReadFailure(t *testing.T) {
+	oldReader := rand.Reader
+	defer func() { rand.Reader = oldReader }()
+	rand.Reader = errorReader{}
+
+	assert.Panics(t, func() {
+		generateNonce()
+	})
 }

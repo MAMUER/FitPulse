@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -305,4 +306,22 @@ func TestGetEnvFloat64(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestGetEnv_AbsPathFailure(t *testing.T) {
+	key := "TEST_KEY_ABS_FAILURE"
+	require.NoError(t, os.Setenv(key+"_FILE", "some/path"))
+	t.Cleanup(func() { require.NoError(t, os.Unsetenv(key+"_FILE")) })
+
+	oldAbsPath := absPath
+	absPath = func(string) (string, error) { return "", errors.New("abs failed") }
+	t.Cleanup(func() { absPath = oldAbsPath })
+
+	result := GetEnv(key)
+	assert.Equal(t, "", result)
+}
+
+func TestDefaultValueOrDefault_Empty(t *testing.T) {
+	result := defaultValueOrDefault(nil)
+	assert.Equal(t, "", result)
 }

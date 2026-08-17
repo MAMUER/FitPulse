@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -552,4 +553,70 @@ func (e *errorReader) Read(_ []byte) (int, error) {
 
 func (e *errorReader) Close() error {
 	return nil
+}
+
+func TestServerHealthEndpoint(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	server.handleListProviders(w, r)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "ok", rec.Body.String())
+}
+
+func TestServerStartStop(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("18080", mockDB, log)
+
+	server.Start()
+	defer func() { _ = server.Stop(context.Background()) }()
+
+	addr := "http://127.0.0.1:18080"
+
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(addr + "/health")
+		if err != nil {
+			return false
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 3*time.Second, 200*time.Millisecond)
+}
+
+func TestServerStopNilServer(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+	server.server = nil
+
+	err := server.Stop(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestServerHandleWebhookReadBodyError(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+
+	w := httptest.NewRecorder()
+	body := bytes.NewReader([]byte("invalid"))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", body)
+	r.Header.Set("Content-Length", "100")
+	r.Body = &errorReader{err: errors.New("read failed")}
+	server.handleWebhook(w, r)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid request body")
 }

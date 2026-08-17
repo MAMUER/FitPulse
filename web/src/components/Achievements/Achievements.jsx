@@ -141,7 +141,7 @@ export default function Achievements({ refreshKey }) {
             <div className='competition-desc'>{c.desc}</div>
             <div className='competition-meta'>
               <span>Персональный челлендж</span>
-              {c.rank && (
+              {!!c.rank && (
                 <span className='competition-rank'>🏅 Место: {c.rank}</span>
               )}
             </div>

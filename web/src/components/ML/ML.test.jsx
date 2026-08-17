@@ -873,4 +873,139 @@ describe('ML', () => {
 
     expect(screen.getByText('Неделя 1')).toBeInTheDocument();
   });
+
+  it('renders chart from getPlan response when plan has plan_id', async () => {
+    const mockCtx = { fillRect: vi.fn() };
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx);
+
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                duration: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 2,
+                duration: 45,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    const canvas = document.getElementById('mlProgressChart');
+    expect(canvas).toBeTruthy();
+  });
+
+  it('renders chart with fallback empty days array', async () => {
+    const mockCtx = { fillRect: vi.fn() };
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx);
+
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      plan_data: {
+        weeks: [
+          {
+            week_number: 1,
+            days: [
+              {
+                day_of_week: 1,
+                duration: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        weeks: [
+          {
+            week_number: 1,
+            days: undefined,
+          },
+          {
+            week_number: 2,
+            days: [
+              {
+                day_of_week: 3,
+                duration: 20,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    const canvas = document.getElementById('mlProgressChart');
+    expect(canvas).toBeTruthy();
+  });
+
+  it('renders plan content from plan object when plan_data is missing', async () => {
+    vi.spyOn(api, 'generateMLPlan').mockResolvedValueOnce({
+      plan_id: 'plan-1',
+      weeks: [
+        {
+          week_number: 1,
+          days: [
+            {
+              day_of_week: 1,
+              training_type: 'cardio',
+              exercises: [
+                {
+                  sort_order: 0,
+                  exercise_name: 'running',
+                  sets: 3,
+                  reps: 10,
+                  duration: 30,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderML();
+
+    await userEvent.click(screen.getByText('Сгенерировать план'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Сгенерированный план')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('cardio')).toBeInTheDocument();
+    expect(screen.getByText('running')).toBeInTheDocument();
+  });
 });

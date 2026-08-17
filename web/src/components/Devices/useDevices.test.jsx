@@ -185,4 +185,40 @@ describe('useDevices', () => {
     );
     vi.useRealTimers();
   });
+
+  it('sets error from OPEN_WEARABLES_ERROR message with data.message', async () => {
+    mockUseAuth.mockReturnValue({ token: 'test-token' });
+    const { result } = renderHook(() => useDevices());
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'OPEN_WEARABLES_ERROR',
+            data: { message: 'widget error' },
+          },
+          origin: 'https://openwearables.com',
+        })
+      );
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.error).toBe('widget error');
+  });
+
+  it('sets idle from OPEN_WEARABLES_CLOSED message', async () => {
+    mockUseAuth.mockReturnValue({ token: 'test-token' });
+    const { result } = renderHook(() => useDevices());
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'OPEN_WEARABLES_CLOSED' },
+          origin: 'https://openwearables.com',
+        })
+      );
+    });
+
+    expect(result.current.status).toBe('idle');
+  });
 });

@@ -525,4 +525,255 @@ describe('Dashboard', () => {
     Promise.allSettled = originalAllSettled;
     consoleErrorSpy.mockRestore();
   });
+
+  it('displays integer sleep value without toFixed', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 8 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('8')).toBeInTheDocument();
+  });
+
+  it('handles empty biometric records gracefully', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders exercises with missing fields', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 7.5 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({
+      plans: [{ plan_id: '1' }],
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        plan_data: {
+          weeks: [
+            {
+              days: [
+                {
+                  day_of_week: new Date().getDay(),
+                  training_type: 'cardio',
+                  exercises: [
+                    {
+                      exercise_name: '',
+                      sets: 0,
+                      duration: 0,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+  });
+
+  it('renders unknown training type and missing workout details', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 7.5 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({
+      plans: [{ plan_id: '1' }],
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({
+      plan: {
+        plan_data: {
+          weeks: [
+            {
+              days: [
+                {
+                  day_of_week: new Date().getDay(),
+                  training_type: 'unknown',
+                  exercises: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+  });
+
+  it('handles training plan with no plans and no weeks', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 7.5 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Сегодня нет тренировки/)).toBeInTheDocument();
+  });
+
+  it('displays AI recommendation with empty description', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 7.5 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: '',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({ plans: [] });
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+  });
+
+  it('renders plan with no weeks from getPlan', async () => {
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 75 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 98 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 7.5 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 120 }],
+    });
+    vi.spyOn(api, 'getBiometricRecords').mockResolvedValueOnce({
+      records: [{ value: 80 }],
+    });
+    vi.spyOn(api, 'classifyState').mockResolvedValueOnce({
+      predicted_class_ru: 'Норма',
+      description: 'Все показатели в норме',
+    });
+    vi.spyOn(api, 'getTrainingPlans').mockResolvedValueOnce({
+      plans: [{ plan_id: '1' }],
+    });
+    vi.spyOn(api, 'getPlan').mockResolvedValueOnce({});
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('Норма')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Сегодня нет тренировки/)).toBeInTheDocument();
+  });
 });

@@ -69,7 +69,8 @@ export default function ML() {
           const full = await getPlan(plan.plan_id);
           planData = full?.plan || full;
         }
-        const pd = planData?.plan_data || planData || {};
+        let pd = planData?.plan_data;
+        if (!pd) pd = planData;
         const weeks = pd.weeks || [];
         if (weeks.length === 0) return;
 
@@ -138,7 +139,8 @@ export default function ML() {
     if (plan?.plan_id && planData) {
       planData = plan;
     }
-    const pd = planData?.plan_data || planData || {};
+    let pd = planData?.plan_data;
+    if (!pd) pd = planData;
     const weeks = pd.weeks || [];
 
     if (weeks.length === 0) {

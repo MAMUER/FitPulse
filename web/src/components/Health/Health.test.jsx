@@ -522,4 +522,203 @@ describe('Health', () => {
 
     expect(screen.getByText('Ошибка: add failed')).toBeInTheDocument();
   });
+
+  it('displays condition with missing fields', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([
+      {
+        condition_id: '1',
+        condition_name: '',
+        condition_type: '',
+        severity: '',
+        notes: '',
+        is_active: false,
+      },
+    ]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Без названия')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Другое')).toBeInTheDocument();
+  });
+
+  it('displays body composition with missing date', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([
+      {
+        composition_id: '1',
+        weight_kg: 70,
+        height_cm: 175,
+        recorded_at: '',
+      },
+    ]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Вес: 70 кг')).toBeInTheDocument();
+    });
+  });
+
+  it('displays menstrual cycle with missing fields', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([
+      {
+        menstrual_cycle_id: '1',
+        cycle_start_date: '',
+        cycle_end_date: '',
+        flow_intensity: '',
+        symptoms: [],
+        moods: [],
+        notes: '',
+      },
+    ]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Цикл')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('adds body composition with empty optional fields', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createBodyComposition').mockResolvedValueOnce({});
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('70')
+      .mockReturnValueOnce('175')
+      .mockReturnValueOnce('')
+      .mockReturnValueOnce('');
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[1]);
+
+    expect(api.createBodyComposition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        weight_kg: 70,
+        height_cm: 175,
+        body_fat_percentage: null,
+        muscle_mass_percentage: null,
+      })
+    );
+  });
+
+  it('adds menstrual cycle with empty optional fields', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'createMenstrualCycle').mockResolvedValueOnce({});
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('2024-01-01')
+      .mockReturnValueOnce('')
+      .mockReturnValueOnce('medium')
+      .mockReturnValueOnce('')
+      .mockReturnValueOnce('');
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Нет записей').length).toBeGreaterThanOrEqual(
+        1
+      );
+    });
+
+    const addButtons = screen.getAllByText('Добавить');
+    await userEvent.click(addButtons[2]);
+
+    expect(api.createMenstrualCycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cycle_start_date: '2024-01-01',
+        cycle_end_date: null,
+        symptoms: [],
+        moods: [],
+      })
+    );
+  });
+
+  it('renders condition with notes and inactive status', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([
+      {
+        condition_id: '1',
+        condition_name: 'Тест',
+        condition_type: 'disease',
+        severity: 'high',
+        notes: 'Заметки',
+        is_active: false,
+      },
+    ]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Тест')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Заметки')).toBeInTheDocument();
+    expect(screen.getByText('Неактивно')).toBeInTheDocument();
+  });
+
+  it('renders body composition with all fields', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([
+      {
+        composition_id: '1',
+        weight_kg: 70,
+        height_cm: 175,
+        body_fat_percentage: 15,
+        muscle_mass_percentage: 45,
+        recorded_at: '2024-01-01',
+      },
+    ]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Вес: 70 кг')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Жир: 15%')).toBeInTheDocument();
+    expect(screen.getByText('Мышцы: 45%')).toBeInTheDocument();
+  });
+
+  it('renders menstrual cycle with symptoms and moods', async () => {
+    vi.spyOn(api, 'listHealthConditions').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listBodyComposition').mockResolvedValueOnce([]);
+    vi.spyOn(api, 'listMenstrualCycles').mockResolvedValueOnce([
+      {
+        menstrual_cycle_id: '1',
+        cycle_start_date: '2024-01-01',
+        cycle_end_date: '2024-01-28',
+        flow_intensity: 'medium',
+        symptoms: ['headache', 'cramps'],
+        moods: ['happy', 'sad'],
+        notes: 'Test notes',
+      },
+    ]);
+    renderHealth();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Начало: 2024-01-01/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Симптомы: headache, cramps')).toBeInTheDocument();
+    expect(screen.getByText('Настроения: happy, sad')).toBeInTheDocument();
+    expect(screen.getByText('Test notes')).toBeInTheDocument();
+  });
 });

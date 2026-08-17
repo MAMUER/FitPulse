@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"io"
 	"net/http"
 )
 
@@ -98,10 +99,8 @@ func GetNonce(r *http.Request) string {
 }
 
 func generateNonce() string {
-	// 32 байта = 256 бит криптографически стойкой энтропии (требование: минимум 128 бит)
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		// crypto/rand не должен падать; при фатальной ошибке лучше сломать запрос, чем nonce ""
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		panic("middleware: failed to generate CSP nonce: " + err.Error())
 	}
 	return base64.StdEncoding.EncodeToString(b)

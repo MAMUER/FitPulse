@@ -9,10 +9,12 @@ import (
 	"time"
 )
 
+var absPath = filepath.Abs
+
 func GetEnv(key string, defaultValue ...string) string {
 	fileKey := key + "_FILE"
 	if filePath := os.Getenv(fileKey); filePath != "" {
-		absFile, err := filepath.Abs(filePath)
+		absFile, err := absPath(filePath)
 		if err != nil {
 			return defaultValueOrDefault(defaultValue)
 		}
