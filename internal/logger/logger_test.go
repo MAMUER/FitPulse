@@ -544,19 +544,19 @@ func TestFromContext_PreservesService(t *testing.T) {
 	assert.Equal(t, "original-service", logger.service)
 }
 
-func TestFromContext_NilContext(t *testing.T) {
+func TestFromContext_EmptyContext(t *testing.T) {
 	core, recorded := observer.New(zap.InfoLevel)
 	baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-	logger := FromContext(nil, baseLogger) // nolint:SA1012
+	logger := FromContext(context.Background(), baseLogger)
 
 	assert.Equal(t, baseLogger, logger)
 	assert.Equal(t, "test-svc", logger.Service())
 
-	logger.Info("nil context test")
+	logger.Info("empty context test")
 	logs := recorded.All()
 	require.Len(t, logs, 1)
-	assert.Equal(t, "nil context test", logs[0].Message)
+	assert.Equal(t, "empty context test", logs[0].Message)
 }
 
 func TestNew_BuildFails(t *testing.T) {

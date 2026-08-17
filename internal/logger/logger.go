@@ -142,10 +142,6 @@ func (l *Logger) WithCallerSkip(skip int) *Logger {
 
 // FromContext создает логгер с полями из контекста запроса
 func FromContext(ctx context.Context, base *Logger) *Logger {
-	if ctx == nil {
-		return base
-	}
-
 	logger := base
 
 	if cid, ok := ctx.Value(correlationIDKey).(string); ok && cid != "" {
