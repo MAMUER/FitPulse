@@ -90,7 +90,6 @@ jobs:
           if [ -n "$MAKE_GO_VERSION" ]; then
             MAJOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f1)
             MINOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f2)
-            PATCH=$(echo "$MAKE_GO_VERSION" | cut -d. -f3)
             if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 26 ]; }; then
               echo "❌ Found outdated GO_VERSION in Makefile: $MAKE_GO_VERSION (current: 1.26+)"
               exit 1
