@@ -20,6 +20,7 @@ wandb>=0.28.1
 prometheus-client>=0.26.0
 evidently>=0.7.21
 tensorboard>=2.21.0
+plotly>=5.10.0,<6
 
 # Inference optimization
 onnxruntime>=1.28.0

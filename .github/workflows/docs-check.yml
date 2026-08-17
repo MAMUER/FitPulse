@@ -27,6 +27,7 @@ on:
       - "Makefile"
   schedule:
     - cron: "0 0 * * 0" # Weekly Sunday midnight
+  workflow_dispatch:
 
 jobs:
   docs-check:
@@ -83,6 +84,21 @@ jobs:
             exit 1
           fi
           echo "✅ Go version references are consistent (1.26+)"
+
+          echo "-> Checking GO_VERSION in Makefile..."
+          MAKE_GO_VERSION=$(grep -E '^GO_VERSION[[:space:]]*:=' Makefile | head -1 | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/' || true)
+          if [ -n "$MAKE_GO_VERSION" ]; then
+            MAJOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$MAKE_GO_VERSION" | cut -d. -f3)
+            if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 26 ]; }; then
+              echo "❌ Found outdated GO_VERSION in Makefile: $MAKE_GO_VERSION (current: 1.26+)"
+              exit 1
+            fi
+            echo "✅ GO_VERSION in Makefile is consistent ($MAKE_GO_VERSION)"
+          else
+            echo "⚠️  GO_VERSION not found in Makefile"
+          fi
 
           echo "-> Checking Python version references..."
           PYTHON_REFS=$(grep -rn "python:3\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "3\.1[4-9]\|3\.[2-9][0-9]" || true)

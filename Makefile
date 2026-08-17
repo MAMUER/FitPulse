@@ -3,14 +3,20 @@ imports:
 	@go run github.com/daixiang0/gci@v0.14.0 write -s standard -s default -s "prefix(github.com/MAMUER/project)" --skip-generated --skip-vendor cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile
 BIN_DIR := bin
-GO_VERSION := 1.26.4
+GO_VERSION := 1.26.5
 
 tidy:
 	@echo "Tidying Go modules..."
 	go mod tidy
 	@echo "Tidy complete."
+
+pip-compile:
+	@echo "Compiling Python requirements..."
+	@python -m pip install --quiet --upgrade pip-tools
+	@cd cmd/ml_generator && python -m piptools compile --output-file=requirements.lock.txt requirements.txt
+	@echo "Pip-compile complete."
 
 fmt:
 	@echo "Formatting Go code..."
@@ -59,7 +65,7 @@ clean:
 	@powershell -Command "Get-ChildItem -Path . -Filter *.test -File | Remove-Item -Force"
 	@echo "Clean complete."
 
-check: tidy fmt vet imports lint frontend-install coverage frontend-lint frontend-build
+check: tidy fmt vet imports lint frontend-install coverage frontend-lint frontend-build pip-compile
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -95,12 +101,13 @@ help:
 	@echo "  make vet             - Run go vet"
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
-	@echo "  make check           - Run tidy, fmt, vet, lint, coverage, frontend-install, frontend-lint, frontend-build"
+	@echo "  make check           - Run tidy, fmt, vet, lint, coverage, frontend-install, frontend-lint, frontend-build, pip-compile"
 	@echo "  make build           - Build all Go binaries into bin/"
 	@echo "  make clean           - Remove bin/ and stray .exe/.test files"
 	@echo "  make proto           - Generate proto files"
 	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"
+	@echo "  make pip-compile     - Compile Python requirements with pip-compile"
 	@echo "  make coverage         - Generate Go and frontend coverage reports for SonarCloud"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
