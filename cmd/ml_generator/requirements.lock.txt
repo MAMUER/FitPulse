@@ -209,7 +209,7 @@ onnxscript==0.7.1
     # via -r cmd/ml_generator/requirements.txt
 opentelemetry-proto==1.44.0
     # via evidently
-optimum==2.2.0
+optimum==2.3.0
     # via -r cmd/ml_generator/requirements.txt
 packaging==26.3
     # via
