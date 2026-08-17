@@ -217,7 +217,9 @@ describe('Training', () => {
     renderTraining();
 
     await waitFor(() => {
-      expect(screen.getByText('Персонализированная программа')).toBeInTheDocument();
+      expect(
+        screen.getByText('Персонализированная программа')
+      ).toBeInTheDocument();
     });
   });
 

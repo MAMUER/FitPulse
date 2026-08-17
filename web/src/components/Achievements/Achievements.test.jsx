@@ -246,9 +246,7 @@ describe('Achievements', () => {
 
   it('destroys chart instance when progressData changes on re-render', async () => {
     let progressCallCount = 0;
-    let achievementsCallCount = 0;
     vi.spyOn(api, 'getAchievements').mockImplementation(() => {
-      achievementsCallCount++;
       return Promise.resolve({ achievements: [] });
     });
     vi.spyOn(api, 'getProgress').mockImplementation(() => {
