@@ -977,10 +977,18 @@ func TestGetClientIP_FallbackToRemoteAddr(t *testing.T) {
 	assert.Equal(t, "192.168.1.100", ip)
 }
 
+func TestGetClientIP_RemoteAddrWithoutPort(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+	req.RemoteAddr = "192.168.1.100"
+
+	ip := getClientIP(req)
+	assert.Equal(t, "192.168.1.100", ip)
+}
+
 func TestGetClientIP_XRealIPTakesPrecedenceOverRemoteAddr(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	req.Header.Set("X-Real-IP", "203.0.113.5")
-	req.RemoteAddr = "10.0.0.1:1234"
+	req.RemoteAddr = "192.168.1.100:54321"
 
 	ip := getClientIP(req)
 	assert.Equal(t, "203.0.113.5", ip)

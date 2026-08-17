@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../utils/api';
 import TwoFASetup from './TwoFASetup';
+import { useTwoFA } from './useTwoFA';
 
 vi.mock('../../utils/api', () => ({
   get2FAStatus: vi.fn(),
@@ -10,6 +11,14 @@ vi.mock('../../utils/api', () => ({
   confirm2FA: vi.fn(),
   disable2FA: vi.fn(),
 }));
+
+vi.mock('./useTwoFA', async () => {
+  const actual = await vi.importActual('./useTwoFA');
+  return {
+    ...actual,
+    useTwoFA: vi.fn(actual.useTwoFA),
+  };
+});
 
 describe('TwoFASetup', () => {
   beforeEach(() => {
@@ -334,5 +343,34 @@ describe('TwoFASetup', () => {
     await waitFor(() => {
       expect(screen.getByText(/Включена/)).toBeInTheDocument();
     });
+  });
+
+  it('renders visible success message when setupSuccess is truthy', () => {
+    useTwoFA.mockReturnValue({
+      loading: false,
+      enabled: false,
+      status: null,
+      qrCode: '',
+      secret: '',
+      backupCodes: [],
+      setupCode: '',
+      setupError: '',
+      setupSuccess: '2FA включена',
+      disableCode: '',
+      disableError: '',
+      panelVisible: true,
+      setSetupCode: vi.fn(),
+      setDisableCode: vi.fn(),
+      setPanelVisible: vi.fn(),
+      handleEnable: vi.fn(),
+      handleConfirmSetup: vi.fn(),
+      handleDisable: vi.fn(),
+    });
+
+    render(<TwoFASetup />);
+
+    const successDiv = document.querySelector('.auth-success');
+    expect(successDiv).not.toHaveClass('hidden');
+    expect(successDiv).toHaveTextContent('2FA включена');
   });
 });

@@ -129,7 +129,7 @@ describe('Diet', () => {
     });
   });
 
-  it('switches template buttons', async () => {
+  it('selects weight_loss template when clicking Похудение', async () => {
     vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
     renderDiet();
 
@@ -490,7 +490,7 @@ describe('Diet', () => {
     });
   });
 
-  it('calculates meal times with spacing when mealCount > 1', async () => {
+  it('calculates meal times with spacing for mealCount of 3 using userEvent', async () => {
     vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
     renderDiet();
 
@@ -514,5 +514,47 @@ describe('Diet', () => {
       (el) => el.textContent
     );
     expect(times).toEqual(['08:00', '15:00', '22:00']);
+  });
+
+  it('loads profile without allergies and contraindications', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(
+      profile({
+        allergies: undefined,
+        contraindications: undefined,
+      })
+    );
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText(/ккал в день/)).toBeInTheDocument();
+    });
+
+    const allergiesInput = screen.getByLabelText('Аллергии (через запятую)');
+    const dislikesInput = screen.getByLabelText(
+      'Нелюбимые продукты (через запятую)'
+    );
+    expect(allergiesInput).toHaveValue('');
+    expect(dislikesInput).toHaveValue('');
+  });
+
+  it('renders single meal when mealCount is 1', async () => {
+    vi.spyOn(api, 'getProfile').mockResolvedValueOnce(profile());
+    renderDiet();
+
+    await waitFor(() => {
+      expect(screen.getByText('План питания на сегодня')).toBeInTheDocument();
+    });
+
+    const mealCountSelect = screen.getByLabelText('Количество приёмов пищи');
+    const option = document.createElement('option');
+    option.value = '1';
+    option.textContent = '1';
+    mealCountSelect.appendChild(option);
+
+    fireEvent.change(mealCountSelect, { target: { value: '1' } });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('.meal-card')).toHaveLength(1);
+    });
   });
 });

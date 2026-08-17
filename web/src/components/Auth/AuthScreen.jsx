@@ -322,7 +322,6 @@ export default function AuthScreen({ searchParams: searchParamsProp }) {
             {successMessage && (
               <div className='auth-success'>{successMessage}</div>
             )}
-            {/* istanbul ignore next */}
             {generalError && <div className='auth-error'>{generalError}</div>}
             <p className='auth-switch'>
               <button

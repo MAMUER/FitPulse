@@ -18,7 +18,6 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'dist/',
-        'src/test/',
         'src/main.jsx',
         'src/App.jsx',
       ],

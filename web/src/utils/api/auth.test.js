@@ -31,6 +31,19 @@ describe('auth api', () => {
     );
   });
 
+  it('logs in without setting token when access_token is missing', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockResponse({ user: { id: 1 } })
+    );
+
+    const result = await api.login('test@test.com', 'password123');
+    expect(result).toEqual({ user: { id: 1 } });
+    expect(window.localStorage.setItem).not.toHaveBeenCalledWith(
+      'authToken',
+      expect.any(String)
+    );
+  });
+
   it('registers user', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ id: 1 }));
 

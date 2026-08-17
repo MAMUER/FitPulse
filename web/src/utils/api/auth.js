@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 import { apiRequest, setAuthToken } from './client';
 
 export async function login(email, password) {

@@ -88,6 +88,37 @@ describe('AuthContext', () => {
     });
   });
 
+  it('login keeps isAdmin false when apiLogin returns non-admin role', async () => {
+    api.login.mockResolvedValueOnce({
+      access_token: 'user-token-123',
+      role: 'user',
+    });
+
+    const TestComponent = () => {
+      const auth = useAuth();
+      return (
+        <div>
+          <span data-testid='token'>{auth.token ?? 'null'}</span>
+          <span data-testid='isAdmin'>{String(auth.isAdmin)}</span>
+          <button
+            type='button'
+            onClick={() => auth.login('user@test.com', 'pass')}
+          >
+            Login
+          </button>
+        </div>
+      );
+    };
+
+    renderAuth(<TestComponent />);
+    await user.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('token')).toHaveTextContent('user-token-123');
+      expect(screen.getByTestId('isAdmin')).toHaveTextContent('false');
+    });
+  });
+
   it('login sets token and admin flag for admin role', async () => {
     api.login.mockResolvedValueOnce({
       access_token: 'new-token',
