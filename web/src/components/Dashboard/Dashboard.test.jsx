@@ -34,6 +34,7 @@ const renderDashboard = () => {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     HTMLCanvasElement.prototype.getContext = vi.fn(() => ({}));
   });
 

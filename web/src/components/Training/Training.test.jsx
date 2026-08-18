@@ -28,6 +28,7 @@ const renderTraining = () => {
 describe('Training', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it('shows loading state initially', () => {

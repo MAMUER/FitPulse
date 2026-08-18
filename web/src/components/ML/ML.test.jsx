@@ -36,6 +36,7 @@ const renderML = (authOverrides = {}) => {
 describe('ML', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it('renders classification section', () => {

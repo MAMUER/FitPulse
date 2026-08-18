@@ -34,6 +34,7 @@ const renderDiet = () => {
 describe('Diet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     Object.defineProperty(window, 'crypto', {
       value: { getRandomValues: mockGetRandomValues },
       writable: true,

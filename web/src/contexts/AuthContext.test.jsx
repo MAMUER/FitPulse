@@ -19,6 +19,7 @@ describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   const user = userEvent.setup();

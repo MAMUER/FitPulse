@@ -23,6 +23,7 @@ vi.mock('./useTwoFA', async () => {
 describe('TwoFASetup', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   const user = userEvent.setup();

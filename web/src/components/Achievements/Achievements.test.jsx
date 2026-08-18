@@ -34,6 +34,7 @@ const renderAchievements = () => {
 describe('Achievements', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it('shows empty state when no achievements', async () => {

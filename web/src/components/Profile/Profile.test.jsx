@@ -84,6 +84,7 @@ const renderProfile = (authOverrides = {}) => {
 describe('Profile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     validateAge.mockReturnValue('');
     validateHeight.mockReturnValue('');
     validateNickname.mockReturnValue('');

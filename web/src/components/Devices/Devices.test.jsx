@@ -31,6 +31,7 @@ const renderDevices = (authOverrides = {}) => {
 describe('Devices', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     window.OpenWearablesWidget = undefined;
     document.body.innerHTML = '';
   });

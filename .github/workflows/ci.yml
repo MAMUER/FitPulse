@@ -77,7 +77,6 @@ permissions:
 env:
   GO_VERSION: "1.26.5"
   REGISTRY: ghcr.io
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
 jobs:
@@ -385,7 +384,6 @@ jobs:
         env:
           GO_VERSION: 1.26.5
           REGISTRY: ghcr.io
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
           FITPULSE_DOMAIN: fittpulse.duckdns.org
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: main
@@ -452,6 +450,24 @@ jobs:
           category: "/language:${{matrix.language}}"
           output: sarif-results
           upload: failure-only
+      - name: Show CodeQL diagnostics
+        if: always()
+        run: |
+          echo "-> CodeQL SARIF files:"
+          ls -la sarif-results || true
+          for f in sarif-results/*.sarif; do
+            if [ -f "$f" ]; then
+              echo "=== $f ==="
+              jq -r '
+                .runs[] |
+                .tool.driver.name,
+                "results: \(([.results // [] | length]) // 0)",
+                (.results // [])[] |
+                [.ruleId, .message.text, (.locations[0].physicalLocation.artifactLocation.uri // ""), (.locations[0].physicalLocation.region.startLine // 0)] | @tsv
+              ' "$f" 2>/dev/null || true
+              echo ""
+            fi
+          done
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
         with:
@@ -1290,20 +1306,18 @@ jobs:
 
           for svc in $services; do
             echo "Signing $svc..."
-            if command -v docker >/dev/null 2>&1 && docker buildx imagetools inspect --help >/dev/null 2>&1; then
-              digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || echo "")
-            fi
+            digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || true)
             if [ -z "$digest" ]; then
               manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
               digest=$(curl -s -L -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                 -H "Authorization: Bearer $GITHUB_TOKEN" \
                 "$manifest_url" -I | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
             fi
-            if [ -n "$digest" ]; then
-              cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest"
-            else
-              cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG"
+            if [ -z "$digest" ]; then
+              echo "❌ Failed to resolve digest for $svc:$IMAGE_TAG" >&2
+              continue
             fi
+            cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest"
           done
 
           rm -f /tmp/cosign.key
