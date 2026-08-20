@@ -45,7 +45,7 @@ func TestInfrastructureSmoke(t *testing.T) {
 		connStr, err := infra.Postgres.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		db, err := sql.Open("postgres", connStr)
+		db, err := sql.Open("postgres", connStr+"?sslmode=disable")
 		require.NoError(t, err)
 		defer db.Close()
 
@@ -105,7 +105,7 @@ func TestInfrastructureSmoke(t *testing.T) {
 		require.NoError(t, err)
 		defer ch.Close()
 
-		queue, err := ch.QueueDeclare("smoke-test-queue", false, true, false, false, nil)
+		queue, err := ch.QueueDeclare("smoke-test-queue", true, false, false, false, nil)
 		require.NoError(t, err)
 
 		body := []byte("smoke-test-message")

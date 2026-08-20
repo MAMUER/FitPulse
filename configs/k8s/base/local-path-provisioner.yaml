@@ -180,8 +180,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-              # nosemgrep: kubernetes:S5849 Required for host path ownership changes
-              add: ["DAC_OVERRIDE"] # NOSONAR
+              add: ["DAC_OVERRIDE"]  # NOSONAR: S5849
             seccompProfile:
               type: RuntimeDefault
           resources:
