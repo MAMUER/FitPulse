@@ -419,7 +419,7 @@ uvicorn[standard]==0.52.2
     #   evidently
 valkey==6.1.1
     # via -r requirements.txt
-wandb==0.28.1
+wandb==0.28.2
     # via -r requirements.txt
 watchdog==6.0.0
     # via evidently
