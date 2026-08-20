@@ -50,7 +50,10 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=10&from=2024-01-01&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }
     );
   });
 
@@ -63,7 +66,10 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=100&from=2024-01-01',
-      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }
     );
   });
 
@@ -80,7 +86,10 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=100&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }
     );
   });
 
@@ -93,7 +102,10 @@ describe('health api', () => {
     expect(result).toEqual({ conditions: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/health/conditions?condition_type=allergy',
-      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }
     );
   });
 
@@ -139,7 +151,10 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/health/body-composition?limit=100&from=2024-01-01&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }
     );
   });
 
