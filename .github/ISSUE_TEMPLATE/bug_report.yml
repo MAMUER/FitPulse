@@ -3,7 +3,6 @@ name: Баг-репорт
 description: Сообщить об ошибке в работе приложения
 title: "[Bug]: "
 labels: "bug"
-assignees: []
 body:
   - type: markdown
     attributes:

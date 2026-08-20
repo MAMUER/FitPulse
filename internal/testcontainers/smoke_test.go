@@ -5,6 +5,7 @@ package testcontainers_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -42,10 +43,9 @@ func TestInfrastructureSmoke(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		connStr, err := infra.Postgres.ConnectionString(ctx)
-		require.NoError(t, err)
+		connStr := fmt.Sprintf("postgres://testuser:testpass@%s:%d/testdb?sslmode=disable", infra.PostgresHost, infra.PostgresPort)
 
-		db, err := sql.Open("postgres", connStr+"?sslmode=disable")
+		db, err := sql.Open("postgres", connStr)
 		require.NoError(t, err)
 		defer db.Close()
 

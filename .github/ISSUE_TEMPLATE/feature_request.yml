@@ -3,7 +3,6 @@ name: Новая функция (Feature Request)
 description: Предложить новую функцию или улучшение
 title: "[Feature]: "
 labels: "enhancement"
-assignees: []
 body:
   - type: markdown
     attributes:
