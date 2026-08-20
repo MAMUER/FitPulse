@@ -56,8 +56,8 @@ func serveErrorPage(w http.ResponseWriter, recorder *errorPageRecorder, status i
 	base := filepath.Clean(errorPageDir)
 	cleanFile := filepath.Clean(file)
 	allowedError403 := filepath.Join(base, "403.html")
-	allowedError404 := filepath.Join(base, "error.html")
-	allowedError500 := filepath.Join(base, "error-500.html")
+	allowedError404 := filepath.Join(base, "404.html")
+	allowedError500 := filepath.Join(base, "500.html")
 	if cleanFile != allowedError403 && cleanFile != allowedError404 && cleanFile != allowedError500 {
 		recorder.replay(status, recorder.body.Bytes())
 		return
@@ -109,7 +109,7 @@ func errorPageFileForStatus(status int) string {
 		return filepath.Clean(errorPageDir + "/403.html")
 	}
 	if status == http.StatusNotFound {
-		return filepath.Clean(errorPageDir + "/error.html")
+		return filepath.Clean(errorPageDir + "/404.html")
 	}
-	return filepath.Clean(errorPageDir + "/error-500.html")
+	return filepath.Clean(errorPageDir + "/500.html")
 }

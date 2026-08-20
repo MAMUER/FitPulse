@@ -195,11 +195,11 @@ func TestErrorPageFileForStatus(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		assert.Equal(t, filepath.Join(base, "error.html"), errorPageFileForStatus(http.StatusNotFound))
+		assert.Equal(t, filepath.Join(base, "404.html"), errorPageFileForStatus(http.StatusNotFound))
 	})
 
 	t.Run("internal server error", func(t *testing.T) {
-		assert.Equal(t, filepath.Join(base, "error-500.html"), errorPageFileForStatus(http.StatusInternalServerError))
+		assert.Equal(t, filepath.Join(base, "500.html"), errorPageFileForStatus(http.StatusInternalServerError))
 	})
 }
 

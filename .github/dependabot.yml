@@ -178,24 +178,6 @@ updates:
     registries: ["ghcr"]
 
   - package-ecosystem: "docker"
-    directory: "/cmd/device-aggregator"
-    schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 3
-    commit-message:
-      { prefix: "deps(docker/device-aggregator)", include: "scope" }
-    labels: ["dependencies", "docker", "device-aggregator"]
-    assignees: ["MAMUER"]
-    registries: ["ghcr"]
-
-  - package-ecosystem: "docker"
     directory: "/cmd/classifier"
     schedule:
       {
@@ -300,6 +282,23 @@ updates:
       - dependency-name: "rancher/mirrored-pause"
       - dependency-name: "rancher/mirrored-coredns-coredns"
       - dependency-name: "registry.k8s.io/ingress-nginx/controller"
+
+  - package-ecosystem: "docker"
+    directory: "/configs/k8s/base/jobs"
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(k8s/jobs)", include: "scope" }
+    labels: ["dependencies", "docker", "kubernetes"]
+    assignees: ["MAMUER"]
+    registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════
   # 7. KUBERNETES MANIFESTS — ingress-nginx

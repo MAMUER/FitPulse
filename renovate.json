@@ -1,21 +1,77 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base"
-  ],
-  "enabledManagers": [
-    "regex"
-  ],
-  "ignorePresets": [
-    "config:base"
-  ],
+  "extends": ["config:base"],
+  "enabledManagers": ["regex"],
+  "ignorePresets": ["config:base"],
   "regex": [
     {
-      "fileMatch": [
-        "\\.github/workflows/ci\\.yml$"
-      ],
+      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
       "matchStrings": [
-        "GO_VERSION: \"(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
+        "GO_VERSION:\\s*(?P<quote>[\"']?)(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\\g<quote>"
+      ],
+      "depName": "golang",
+      "datasource": "docker",
+      "versioning": "semver",
+      "depType": "toolchain"
+    },
+    {
+      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "matchStrings": [
+        "PYTHON_BLACK_VERSION:\\s*\"(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
+      ],
+      "depName": "black",
+      "datasource": "pypi",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "matchStrings": [
+        "node-version:\\s*\"(?P<currentValue>[0-9]+)\""
+      ],
+      "depName": "node",
+      "datasource": "docker",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "matchStrings": [
+        "version:\\s*v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "trivy",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "^GO_VERSION\\s*:=\\s*(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)$"
+      ],
+      "depName": "golang",
+      "datasource": "docker",
+      "versioning": "semver",
+      "depType": "toolchain"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "gci@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "gci",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "golangci-lint@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "golangci-lint",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": ["^go\\.mod$"],
+      "matchStrings": [
+        "^go\\s+(?P<currentValue>[0-9]+\\.[0-9]+)$"
       ],
       "depName": "golang",
       "datasource": "docker",
@@ -25,10 +81,26 @@
   ],
   "packageRules": [
     {
-      "matchPackageNames": [
-        "golang"
-      ],
+      "matchPackageNames": ["golang"],
       "groupName": "Go toolchain",
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": ["trivy"],
+      "groupName": "Trivy",
+      "automerge": false,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchPackageNames": ["gci", "golangci-lint"],
+      "groupName": "Go tools",
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": ["black"],
+      "groupName": "Python tools",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     }

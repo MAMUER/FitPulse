@@ -172,7 +172,7 @@ jobs:
            echo "✅ Chart.js version references are consistent (4+)"
 
           echo "-> Checking Biome version references..."
-          BIOME_REFS=$(grep -rn "@biomejs/biome:[12]\.[0-9]\+\|Biome\s\+[12]\.[0-9]\+\|biome\s\+[12]\.[0-9]\+" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+           BIOME_REFS=$(grep -rn "@biomejs/biome:[12]\.[0-9]\+\|Biome\s\+[12]\.[0-9]\+\|biome\s\+[12]\.[0-9]\+" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" | grep -vE "2\.[5-9](\.[0-9]+)?" || true)
           if [ -n "$BIOME_REFS" ]; then
             echo "❌ Found outdated Biome references (current: 2.5+):"
             echo "$BIOME_REFS"
