@@ -90,7 +90,7 @@
       "matchPackageNames": ["trivy"],
       "groupName": "Trivy",
       "automerge": false,
-      "minimumReleaseAge": "3 days"
+      "minimumReleaseAge": "7 days"
     },
     {
       "matchPackageNames": ["gci", "golangci-lint"],

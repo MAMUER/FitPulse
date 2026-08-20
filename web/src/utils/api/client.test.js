@@ -6,6 +6,10 @@ describe('client', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('gets token from localStorage', () => {
     const localStorageMock = window.localStorage;
     localStorageMock.getItem.mockReturnValueOnce('token123');
@@ -53,6 +57,7 @@ describe('client', () => {
         'Content-Type': 'application/json',
         Authorization: 'Bearer token123',
       },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -74,6 +79,7 @@ describe('client', () => {
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -154,6 +160,36 @@ describe('client', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse);
 
     await expect(apiRequest('/test')).rejects.toThrow('Ошибка сервера (500)');
+  });
+
+  it('handles request timeout', async () => {
+    const localStorageMock = window.localStorage;
+    localStorageMock.getItem.mockReturnValueOnce('token123');
+
+    const abortError = new Error('The user aborted a request.');
+    abortError.name = 'AbortError';
+
+    let capturedTimeoutCb;
+    vi.spyOn(window, 'setTimeout').mockImplementationOnce((cb) => {
+      capturedTimeoutCb = cb;
+      return 0;
+    });
+
+    let rejectFetch;
+    const fetchPromise = new Promise((_, reject) => {
+      rejectFetch = reject;
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockReturnValueOnce(fetchPromise);
+
+    const apiRequestPromise = apiRequest('/test');
+
+    capturedTimeoutCb();
+    rejectFetch(abortError);
+
+    await expect(apiRequestPromise).rejects.toThrow(
+      'Превышено время ожидания запроса'
+    );
   });
 
   it('handles text response', async () => {
