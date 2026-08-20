@@ -438,14 +438,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql-config.yml
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
@@ -469,7 +469,7 @@ jobs:
             fi
           done
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
@@ -551,7 +551,7 @@ jobs:
             mv sarif-results/kubescape-results-fixed.sarif sarif-results/kubescape-results.sarif
           fi
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         if: always() && hashFiles('sarif-results/kubescape-results.sarif') != ''
         with:
           sarif_file: sarif-results/kubescape-results.sarif
@@ -583,7 +583,7 @@ jobs:
             --exclude configs/k8s/base/local-path-provisioner.yaml \
             --sarif -o sarif-results/semgrep-results.sarif .
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -691,7 +691,7 @@ jobs:
             echo "{\"\\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" > sarif-results/gosec.sarif
           fi
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         if: always()
         with:
           sarif_file: sarif-results/gosec.sarif
@@ -756,7 +756,7 @@ jobs:
           TRIVY_SKIP_DB_UPDATE: false
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -778,7 +778,7 @@ jobs:
           gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -1044,7 +1044,7 @@ jobs:
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: sarif-results/checkov-results.sarif
           category: checkov
@@ -1267,7 +1267,7 @@ jobs:
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
