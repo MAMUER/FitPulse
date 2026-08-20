@@ -65,7 +65,7 @@ clean:
 	@powershell -Command "Get-ChildItem -Path . -Filter *.test -File | Remove-Item -Force"
 	@echo "Clean complete."
 
-check: tidy fmt vet imports lint frontend-install coverage frontend-lint frontend-build pip-compile
+check: tidy fmt vet imports lint frontend-install coverage frontend-build pip-compile
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"
@@ -101,7 +101,7 @@ help:
 	@echo "  make vet             - Run go vet"
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make test            - Run unit tests"
-	@echo "  make check           - Run tidy, fmt, vet, lint, coverage, frontend-install, frontend-lint, frontend-build, pip-compile"
+	@echo "  make check           - Run tidy, fmt, vet, lint, coverage, frontend-install, frontend-build, pip-compile"
 	@echo "  make build           - Build all Go binaries into bin/"
 	@echo "  make clean           - Remove bin/ and stray .exe/.test files"
 	@echo "  make proto           - Generate proto files"

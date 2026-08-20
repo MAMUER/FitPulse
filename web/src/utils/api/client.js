@@ -60,7 +60,9 @@ export async function apiRequest(endpoint, options = {}) {
       const msg =
         typeof data === 'string'
           ? data
-          : data?.message || data?.error || `Ошибка сервера (${response.status})`;
+          : data?.message ||
+            data?.error ||
+            `Ошибка сервера (${response.status})`;
       throw new Error(msg);
     }
 
