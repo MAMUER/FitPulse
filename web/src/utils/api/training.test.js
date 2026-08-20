@@ -32,6 +32,7 @@ describe('training api', () => {
         class: 'strength',
         confidence: 0.9,
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -46,6 +47,7 @@ describe('training api', () => {
       '/api/v1/training/plans?page=1&page_size=10',
       {
         headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
       }
     );
   });
@@ -57,6 +59,7 @@ describe('training api', () => {
     expect(result).toEqual({ plan: {} });
     expect(fetch).toHaveBeenCalledWith('/api/v1/training/plans/1', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -76,6 +79,7 @@ describe('training api', () => {
         rating: 5,
         feedback: 'Great workout',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -88,6 +92,7 @@ describe('training api', () => {
     expect(result).toEqual({ progress: [] });
     expect(fetch).toHaveBeenCalledWith('/api/v1/training/progress', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -100,6 +105,7 @@ describe('training api', () => {
     expect(result).toEqual({ achievements: [] });
     expect(fetch).toHaveBeenCalledWith('/api/v1/achievements', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 });

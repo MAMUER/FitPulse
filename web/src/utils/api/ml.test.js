@@ -25,6 +25,7 @@ describe('ml api', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(biometrics),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -66,6 +67,7 @@ describe('ml api', () => {
         goal: 'muscle_gain',
         constraints: { time: '30min' },
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 

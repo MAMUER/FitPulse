@@ -32,6 +32,7 @@ describe('health api', () => {
         timestamp: '2024-01-01',
         device_type: 'manual',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -49,7 +50,7 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=10&from=2024-01-01&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
     );
   });
 
@@ -62,7 +63,7 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=100&from=2024-01-01',
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
     );
   });
 
@@ -79,7 +80,7 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/biometrics?metric_type=heart_rate&limit=100&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
     );
   });
 
@@ -92,7 +93,7 @@ describe('health api', () => {
     expect(result).toEqual({ conditions: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/health/conditions?condition_type=allergy',
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
     );
   });
 
@@ -111,6 +112,7 @@ describe('health api', () => {
         condition_type: 'allergy',
         condition_name: 'Peanuts',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -124,6 +126,7 @@ describe('health api', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/health/conditions/1', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -136,7 +139,7 @@ describe('health api', () => {
     expect(result).toEqual({ records: [] });
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/health/body-composition?limit=100&from=2024-01-01&to=2024-01-02',
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, signal: expect.any(AbortSignal) }
     );
   });
 
@@ -155,6 +158,7 @@ describe('health api', () => {
         weight_kg: 70,
         height_cm: 175,
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -167,6 +171,7 @@ describe('health api', () => {
     expect(result).toEqual({ cycles: [] });
     expect(fetch).toHaveBeenCalledWith('/api/v1/health/menstrual-cycles', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -183,6 +188,7 @@ describe('health api', () => {
       body: JSON.stringify({
         cycle_start_date: '2024-01-01',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -199,6 +205,7 @@ describe('health api', () => {
       body: JSON.stringify({
         cycle_start_date: '2024-01-01',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -212,6 +219,7 @@ describe('health api', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/health/menstrual-cycles/1', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 });

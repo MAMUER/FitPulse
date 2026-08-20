@@ -22,6 +22,7 @@ describe('admin api', () => {
     expect(result).toEqual({ invites: [] });
     expect(fetch).toHaveBeenCalledWith('/api/v1/invites?page=1&page_size=10', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -36,6 +37,7 @@ describe('admin api', () => {
       '/api/v1/invites?page=1&page_size=10&used=true',
       {
         headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
       }
     );
   });
@@ -55,6 +57,7 @@ describe('admin api', () => {
         specialty: 'cardiology',
         max_uses: 5,
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -68,6 +71,7 @@ describe('admin api', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/invites/ABC123/revoke', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -82,6 +86,7 @@ describe('admin api', () => {
       '/api/v1/admin/users?page=1&page_size=10',
       {
         headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
       }
     );
   });

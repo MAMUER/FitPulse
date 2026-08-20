@@ -22,6 +22,7 @@ describe('profile api', () => {
     expect(result).toEqual({ profile: {} });
     expect(fetch).toHaveBeenCalledWith('/api/v1/profile', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -36,6 +37,7 @@ describe('profile api', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nickname: 'Test' }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -53,6 +55,7 @@ describe('profile api', () => {
         current_password: 'old123',
         new_password: 'new123',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -70,6 +73,7 @@ describe('profile api', () => {
         new_email: 'new@test.com',
         password: 'password123',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -84,6 +88,7 @@ describe('profile api', () => {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: 'password123' }),
+      signal: expect.any(AbortSignal),
     });
   });
 

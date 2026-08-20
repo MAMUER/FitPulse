@@ -22,6 +22,7 @@ describe('integrations api', () => {
     expect(result).toEqual({ providers: [] });
     expect(fetch).toHaveBeenCalledWith('/api/v1/integrations/providers', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -54,6 +55,7 @@ describe('integrations api', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
       }
     );
   });

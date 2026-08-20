@@ -24,6 +24,7 @@ describe('auth api', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test@test.com', password: 'password123' }),
+      signal: expect.any(AbortSignal),
     });
     expect(window.localStorage.setItem).toHaveBeenCalledWith(
       'authToken',
@@ -62,6 +63,7 @@ describe('auth api', () => {
         full_name: 'Test User',
         role: 'client',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -84,6 +86,7 @@ describe('auth api', () => {
         email: 'test@test.com',
         password: 'password123',
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -98,6 +101,7 @@ describe('auth api', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: 'CODE123' }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -110,6 +114,7 @@ describe('auth api', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
     expect(window.localStorage.removeItem).toHaveBeenCalledWith('authToken');
   });
@@ -138,6 +143,7 @@ describe('auth api', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: 'token123' }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -150,6 +156,7 @@ describe('auth api', () => {
     expect(result).toEqual({ enabled: true });
     expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/status', {
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -171,6 +178,7 @@ describe('auth api', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/setup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -189,6 +197,7 @@ describe('auth api', () => {
         temp_secret: 'secret123',
         backup_codes: ['code1'],
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -207,6 +216,7 @@ describe('auth api', () => {
         passcode: '123456',
         is_backup_code: false,
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -221,6 +231,7 @@ describe('auth api', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode: '123456' }),
+      signal: expect.any(AbortSignal),
     });
   });
 });
