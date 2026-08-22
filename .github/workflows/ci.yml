@@ -681,8 +681,20 @@ jobs:
           cache: true
       - name: Install security tools
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
-          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          for i in 1 2 3; do
+            if go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0; then
+              break
+            fi
+            echo "gosec install attempt $i failed; retrying..."
+            sleep 5
+          done
+          for i in 1 2 3; do
+            if go install golang.org/x/vuln/cmd/govulncheck@v1.6.0; then
+              break
+            fi
+            echo "govulncheck install attempt $i failed; retrying..."
+            sleep 5
+          done
       - name: Run gosec SAST scanner
         run: |
           mkdir -p sarif-results
@@ -1116,7 +1128,14 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+        run: |
+          for i in 1 2 3; do
+            if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4; then
+              break
+            fi
+            echo "golangci-lint install attempt $i failed; retrying..."
+            sleep 5
+          done
       - name: Tidy Go modules
         run: make tidy
       - name: Format Go code
