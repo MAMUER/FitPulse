@@ -1,0 +1,17 @@
+[Unit]
+Description=AmneziaWG VPN Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/mkdir -p /etc/amneziawg
+ExecStart=/usr/local/bin/amneziawg-go -c /etc/amneziawg/config.yaml
+Restart=always
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=amneziawg-go
+
+[Install]
+WantedBy=multi-user.target

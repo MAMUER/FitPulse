@@ -636,7 +636,8 @@ jobs:
           cache: true
       - name: Run fuzz tests
         run: |
-          go test -fuzz=FuzzString -fuzztime=60s ./internal/sanitize/
+          go test -fuzz=FuzzString -fuzztime=120s ./internal/sanitize/
+          go test -fuzz=FuzzAESGCMEncryptor -fuzztime=120s ./internal/crypto/
 
   # ============================================================================
   # OSV AUDIT (manual)
@@ -1418,9 +1419,13 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+      - name: Configure swap on VPS
+        run: |
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
       - name: Check disk space on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
           DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
           echo \"Current disk usage: \${DISK_USAGE}%\"
           if [ \"\$DISK_USAGE\" -gt 90 ]; then
@@ -1434,6 +1439,15 @@ jobs:
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
+      - name: Install AmneziaWG systemd service
+        run: |
+          ./scripts/ssh-retry.sh scp configs/k8s/scripts/amneziawg-go.service "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/amneziawg-go.service"
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            sudo mv /tmp/amneziawg-go.service /etc/systemd/system/amneziawg-go.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable --now amneziawg-go.service
+            echo '✅ amneziawg-go systemd service installed and started'
+          "
       - name: Configure CPU governor and k3s watchdog
         run: |
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
@@ -2767,6 +2781,7 @@ jobs:
         kube-hunter,
         checkov,
         cosign-verify,
+        provision-k8s-vps,
         deploy-production,
         test-production,
         smoke-test,
@@ -2801,6 +2816,7 @@ jobs:
           KUBE_HUNTER="$(get_emoji '${{ needs.kube-hunter.result }}')"
           CHECKOV="$(get_emoji '${{ needs.checkov.result }}')"
           COSIGN_VERIFY="$(get_emoji '${{ needs.cosign-verify.result }}')"
+          PROVISION_K8S="$(get_emoji '${{ needs.provision-k8s-vps.result }}')"
           DEPLOY_PROD="$(get_emoji '${{ needs['deploy-production'].result }}')"
           TEST_PROD="$(get_emoji '${{ needs['test-production'].result }}')"
           SMOKE_TEST="$(get_emoji '${{ needs['smoke-test'].result }}')"
@@ -2823,6 +2839,7 @@ jobs:
           if [[ "${{ needs.kube-hunter.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeHunter "; fi
           if [[ "${{ needs.checkov.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Checkov "; fi
           if [[ "${{ needs.cosign-verify.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CosignVerify "; fi
+          if [[ "${{ needs.provision-k8s-vps.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}ProvisionK8s "; fi
           if [[ "${{ needs.semgrep.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Semgrep "; fi
           if [[ "${{ needs.osv-scanner.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVScanner "; fi
           if [[ "${{ needs.fuzz-tests.result }}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}FuzzTests "; fi
@@ -2857,6 +2874,7 @@ jobs:
             echo "kube_hunter=$KUBE_HUNTER"
             echo "checkov=$CHECKOV"
             echo "cosign_verify=$COSIGN_VERIFY"
+            echo "provision_k8s=$PROVISION_K8S"
             echo "deploy_prod=$DEPLOY_PROD"
             echo "test_prod=$TEST_PROD"
             echo "smoke_test=$SMOKE_TEST"
@@ -2893,6 +2911,7 @@ jobs:
             <b>Деплой:</b>
             ${{ steps.statuses.outputs.build }} Build Binaries
             ${{ steps.statuses.outputs.docker }} Docker Build & Push
+            ${{ steps.statuses.outputs.provision_k8s }} Provision K8s on VPS
             ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
             ${{ steps.statuses.outputs.test_prod }} Test Production
             ${{ steps.statuses.outputs.smoke_test }} Smoke Test

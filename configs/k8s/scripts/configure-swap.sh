@@ -7,7 +7,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 SWAPFILE="/swapfile"
-SWAPSIZE="3G"
+SWAPSIZE="2G"
 SYSCTL_CONF="/etc/sysctl.d/99-swappiness.conf"
 
 echo "-> Configuring ${SWAPSIZE} swap..."
@@ -18,7 +18,7 @@ if [[ -f "$SWAPFILE" ]]; then
 	rm -f "$SWAPFILE"
 fi
 
-fallocate -l "$SWAPSIZE" "$SWAPFILE"
+fallocate -l "$SWAPSIZE" "$SWAPFILE" 2>/dev/null || dd if=/dev/zero of="$SWAPFILE" bs=1G count=3 status=progress
 chmod 600 "$SWAPFILE"
 mkswap "$SWAPFILE"
 swapon "$SWAPFILE"
