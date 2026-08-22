@@ -18,7 +18,7 @@ if [[ -f "$SWAPFILE" ]]; then
 	rm -f "$SWAPFILE"
 fi
 
-fallocate -l "$SWAPSIZE" "$SWAPFILE" 2>/dev/null || dd if=/dev/zero of="$SWAPFILE" bs=1G count=3 status=progress
+fallocate -l "$SWAPSIZE" "$SWAPFILE" 2>/dev/null || dd if=/dev/zero of="$SWAPFILE" bs=1G count=2 status=progress
 chmod 600 "$SWAPFILE"
 mkswap "$SWAPFILE"
 swapon "$SWAPFILE"

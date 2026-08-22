@@ -1425,20 +1425,16 @@ jobs:
           ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
       - name: Check disk space on VPS
         run: |
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
-          DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
-          echo \"Current disk usage: \${DISK_USAGE}%\"
-          if [ \"\$DISK_USAGE\" -gt 90 ]; then
-            echo \"⚠️ WARNING: Disk usage is over 90%!\"
-            curl -s -X POST \"https://api.telegram.org/bot\${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage\" \
-              -H \"Content-Type: application/json\" \
-              -d \"{\\\"chat_id\\\": \\\"\${{ secrets.TELEGRAM_CHAT_ID }}\\\", \\\"text\\\": \\\"⚠️ VPS Disk usage is \${DISK_USAGE}%!\\\"}\" || true
+          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
+          DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+          echo "Current disk usage: ${DISK_USAGE}%"
+          if [ "$DISK_USAGE" -gt 90 ]; then
+            echo "⚠️ WARNING: Disk usage is over 90%!"
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\", \"text\": \"⚠️ VPS Disk usage is ${DISK_USAGE}%!\"}" || true
           fi
-          "
-      - name: Configure swap on VPS
-        run: |
-          ./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/configure-swap.sh"
-          ./scripts/ssh-retry.sh ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
+          EOF
       - name: Install AmneziaWG systemd service
         run: |
           ./scripts/ssh-retry.sh scp configs/k8s/scripts/amneziawg-go.service "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/amneziawg-go.service"

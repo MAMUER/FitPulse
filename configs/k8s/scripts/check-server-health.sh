@@ -175,7 +175,7 @@ check_swap() {
     return 0
   fi
   local usage_percent
-  usage_percent=$(awk "BEGIN {printf \"%.0f\", ($used/$total)*100")
+  usage_percent=$(awk "BEGIN {printf \"%.0f\", ($used/$total)*100}")
   if [[ "$usage_percent" -gt 50 ]]; then
     log "WARNING: Swap usage ${usage_percent}% (${used}KB/${total}KB)" "$YELLOW"
     echo "WARNING_SWAP:${usage_percent}"
