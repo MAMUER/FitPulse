@@ -413,7 +413,7 @@ urllib3==2.7.0
     #   sentry-sdk
 uuid6==2025.0.1
     # via evidently
-uvicorn[standard]==0.52.2
+uvicorn[standard]==0.52.3
     # via
     #   -r requirements.txt
     #   evidently
