@@ -77,7 +77,7 @@ faker==40.36.0
     # via polyfactory
 fastapi==0.141.1
     # via -r requirements.txt
-filelock==3.32.2
+filelock==3.32.3
     # via
     #   huggingface-hub
     #   iterative-telemetry
