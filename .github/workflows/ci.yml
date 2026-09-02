@@ -1236,7 +1236,7 @@ jobs:
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # originally: v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # originally: v4
       - name: Build and push Go services
         run: |
           services="user-service biometric-service training-service gateway device-aggregator"
@@ -2878,7 +2878,7 @@ jobs:
             echo "csp_check=$CSP_CHECK"
           } >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
-        uses: appleboy/telegram-action@221e6b684967abe813051ee4a37dd61770a83ad3 # originally: v1.0.1
+        uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1 # originally: v1.1.1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
