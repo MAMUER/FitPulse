@@ -178,7 +178,7 @@ nltk==3.10.3
     # via
     #   -r requirements.txt
     #   evidently
-numpy==2.5.1
+numpy==2.5.2
     # via
     #   -r requirements.txt
     #   evidently
