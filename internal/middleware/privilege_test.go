@@ -36,7 +36,9 @@ func TestRequirePrivilege_MissingUserID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Не найдено")
 	require.NoError(t, mock.ExpectationsWereMet())
-	assert.Zero(t, observed.Len(), "no logs expected for missing userID")
+	logs := observed.All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, "Unauthorized access in RequirePrivilege", logs[0].Message)
 }
 
 func TestRequirePrivilege_UserNotFound(t *testing.T) {
@@ -132,11 +134,12 @@ func TestRequirePrivilege_RoleMismatch(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 
 	logs := observed.All()
-	require.Len(t, logs, 1)
+	require.Len(t, logs, 2)
 	assert.Equal(t, "Insufficient privileges", logs[0].Message)
 	assert.Equal(t, "user-1", logs[0].ContextMap()["user_id"])
 	assert.Equal(t, "admin", logs[0].ContextMap()["required_role"])
 	assert.Equal(t, "viewer", logs[0].ContextMap()["actual_role"])
+	assert.Equal(t, "Access denied: insufficient privileges", logs[1].Message)
 }
 
 func TestRequirePrivilege_RoleMatch(t *testing.T) {

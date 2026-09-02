@@ -13,9 +13,22 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 )
 
+// @Summary      List health conditions
+// @Description  Retrieves a list of health conditions for the authenticated user
+// @Tags         Health
+// @Produce      json
+// @Param        condition_type  query  string  false  "Filter by condition type"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/conditions [get]
+
 func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "listHealthConditions"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -43,9 +56,25 @@ func (g *gateway) listHealthConditionsHandler(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// @Summary      Create or update health condition
+// @Description  Creates or updates a health condition record for the authenticated user
+// @Tags         Health
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Health condition data"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/conditions [post]
+
 func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "upsertHealthCondition"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -58,6 +87,7 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 		Notes         string `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode upsert health condition request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -80,11 +110,13 @@ func (g *gateway) upsertHealthConditionHandler(w http.ResponseWriter, r *http.Re
 
 func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, paramName string, deleteFn func(string) error) {
 	if _, ok := r.Context().Value(middleware.UserIDKey).(string); !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "deleteEntity"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	entityID := chi.URLParam(r, paramName)
 	if entityID == "" {
+		g.log.Error("Missing entity ID in request", zap.String("param", paramName))
 		http.Error(w, paramName+" требуется", http.StatusBadRequest)
 		return
 	}
@@ -100,6 +132,18 @@ func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, pa
 	}
 }
 
+// @Summary      Delete health condition
+// @Description  Deletes a specific health condition by ID
+// @Tags         Health
+// @Param        condition_id  path  string  true  "Health condition ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/conditions/{condition_id} [delete]
+
 func (g *gateway) deleteHealthConditionHandler(w http.ResponseWriter, r *http.Request) {
 	g.deleteEntityHandler(w, r, "condition_id", func(conditionID string) error {
 		_, err := g.userClient.DeleteHealthCondition(r.Context(), &userpb.DeleteHealthConditionRequest{
@@ -112,9 +156,25 @@ func (g *gateway) deleteHealthConditionHandler(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// @Summary      Create body composition record
+// @Description  Creates a new body composition record for the authenticated user
+// @Tags         Health
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Body composition data"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/body-composition [post]
+
 func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "createBodyComposition"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -132,6 +192,7 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 		Source               string  `json:"source"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode create body composition request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -154,9 +215,24 @@ func (g *gateway) createBodyCompositionHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// @Summary      List body composition records
+// @Description  Retrieves body composition records for the authenticated user with optional date range filtering
+// @Tags         Health
+// @Produce      json
+// @Param        from   query  string  false  "Start date filter (RFC3339)"
+// @Param        to     query  string  false  "End date filter (RFC3339)"
+// @Param        limit  query  int     false  "Maximum records (default 100, max 10000)"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/body-composition [get]
+
 func (g *gateway) listBodyCompositionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "listBodyComposition"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -189,9 +265,21 @@ func (g *gateway) listBodyCompositionHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// @Summary      List menstrual cycles
+// @Description  Retrieves menstrual cycle records for the authenticated user
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/menstrual-cycles [get]
+
 func (g *gateway) listMenstrualCyclesHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "listMenstrualCycles"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -207,9 +295,25 @@ func (g *gateway) listMenstrualCyclesHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// @Summary      Create menstrual cycle record
+// @Description  Creates a new menstrual cycle record for the authenticated user
+// @Tags         Health
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Menstrual cycle data"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/menstrual-cycles [post]
+
 func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "createMenstrualCycle"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -222,6 +326,7 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		Notes          string   `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode create menstrual cycle request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -242,14 +347,32 @@ func (g *gateway) createMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// @Summary      Update menstrual cycle record
+// @Description  Updates an existing menstrual cycle record by ID
+// @Tags         Health
+// @Accept       json
+// @Produce      json
+// @Param        cycle_id  path  string  true  "Menstrual cycle ID"
+// @Param        request   body  object  required  "Updated menstrual cycle data"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/menstrual-cycles/{cycle_id} [put]
+
 func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "updateMenstrualCycle"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 	cycleID := chi.URLParam(r, "cycle_id")
 	if cycleID == "" {
+		g.log.Error("Missing cycle_id in request")
 		http.Error(w, "cycle_id требуется", http.StatusBadRequest)
 		return
 	}
@@ -262,6 +385,7 @@ func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		Notes          string   `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode update menstrual cycle request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -280,6 +404,18 @@ func (g *gateway) updateMenstrualCycleHandler(w http.ResponseWriter, r *http.Req
 		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 	}
 }
+
+// @Summary      Delete menstrual cycle record
+// @Description  Deletes a specific menstrual cycle record by ID
+// @Tags         Health
+// @Param        cycle_id  path  string  true  "Menstrual cycle ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/health/menstrual-cycles/{cycle_id} [delete]
 
 func (g *gateway) deleteMenstrualCycleHandler(w http.ResponseWriter, r *http.Request) {
 	g.deleteEntityHandler(w, r, "cycle_id", func(cycleID string) error {

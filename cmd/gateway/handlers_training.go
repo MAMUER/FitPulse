@@ -23,9 +23,25 @@ type completeWorkoutRequest struct {
 	Feedback  string `json:"feedback"`
 }
 
+// @Summary      Generate training plan
+// @Description  Generates a new personalized training plan based on user preferences and biometric classification
+// @Tags         Training
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Training plan generation parameters"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/training/generate [post]
+
 func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "generatePlan"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -54,6 +70,7 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
+		g.log.Error("Failed to get training client", zap.Error(err))
 		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
@@ -81,9 +98,11 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 			zap.String("grpc_code", sanitize(err.Error())),
 		)
 		if httpCode == http.StatusInternalServerError {
+			g.log.Error("Training service unavailable during plan generation", zap.Error(err))
 			http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 			return
 		}
+		g.log.Error("Plan generation failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -121,9 +140,23 @@ func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      List training plans
+// @Description  Retrieves a paginated list of training plans for the authenticated user
+// @Tags         Training
+// @Produce      json
+// @Param        page      query  int  false  "Page number (default 1)"
+// @Param        page_size query  int  false  "Items per page (default 20)"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/training/plans [get]
+
 func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "listPlans"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -132,6 +165,7 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := g.getTrainingClient()
 	if err != nil {
+		g.log.Error("Failed to get training client", zap.Error(err))
 		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
@@ -199,9 +233,25 @@ func unmarshalPlanData(planDataProto *structpb.Struct) (map[string]interface{}, 
 	return planData, nil
 }
 
+// @Summary      Complete workout
+// @Description  Marks a workout as completed with optional rating and feedback
+// @Tags         Training
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Workout completion data"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/training/complete [post]
+
 func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "completeWorkout"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -215,6 +265,7 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 
 	client, err := g.getTrainingClient()
 	if err != nil {
+		g.log.Error("Failed to get training client", zap.Error(err))
 		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
@@ -241,15 +292,28 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// @Summary      Get training progress
+// @Description  Retrieves training progress for the authenticated user
+// @Tags         Training
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/training/progress [get]
+
 func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "getProgress"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	client, err := g.getTrainingClient()
 	if err != nil {
+		g.log.Error("Failed to get training client", zap.Error(err))
 		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
@@ -272,15 +336,30 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Get training plan
+// @Description  Retrieves a specific training plan by ID
+// @Tags         Training
+// @Produce      json
+// @Param        plan_id  path  string  true  "Training plan ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/training/plans/{plan_id} [get]
+
 func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	planID := chi.URLParam(r, "plan_id")
 	if planID == "" {
+		g.log.Error("Missing plan_id in request")
 		http.Error(w, "plan_id required", http.StatusBadRequest)
 		return
 	}
 
 	client, err := g.getTrainingClient()
 	if err != nil {
+		g.log.Error("Failed to get training client", zap.Error(err))
 		http.Error(w, serviceTrainingUnavailable, http.StatusServiceUnavailable)
 		return
 	}
@@ -319,9 +398,21 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Get user achievements
+// @Description  Retrieves achievements for the authenticated user
+// @Tags         Training
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/achievements [get]
+
 func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "getAchievements"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}

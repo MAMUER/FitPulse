@@ -15,9 +15,19 @@ import (
 
 // ========== Biometric Handlers ==========
 
+// @Summary      Proxy biometric integration providers
+// @Description  Proxies request to biometric service with authenticated user ID injected
+// @Tags         Biometric
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/integrations/providers [get]
+
 func (g *gateway) proxyToBiometricWithUser(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
+		g.log.Error("Unauthorized access", zap.String("handler", "proxyToBiometricWithUser"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -29,9 +39,25 @@ func (g *gateway) proxyToBiometricWithUser(w http.ResponseWriter, r *http.Reques
 	g.biometricWebhookProxy.ServeHTTP(w, r)
 }
 
+// @Summary      Add biometric record
+// @Description  Adds a new biometric metric record for the authenticated user
+// @Tags         Biometric
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Biometric metric data"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/biometrics [post]
+
 func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "addBiometricRecord"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -43,17 +69,20 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 		DeviceType string    `json:"device_type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode add biometric record request", zap.Error(err))
 		http.Error(w, "Некорректное тело запроса", http.StatusBadRequest)
 		return
 	}
 	// Валидация
 	if req.MetricType == "" || req.Value < 0 {
+		g.log.Error("Invalid biometric metric data")
 		http.Error(w, "Некорректные данные метрики", http.StatusBadRequest)
 		return
 	}
 
 	client, err := g.getBiometricClient()
 	if err != nil {
+		g.log.Error("Failed to get biometric client", zap.Error(err))
 		http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
@@ -81,9 +110,25 @@ func (g *gateway) addBiometricRecordHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// @Summary      Get biometric records
+// @Description  Retrieves biometric records for the authenticated user with optional filtering
+// @Tags         Biometric
+// @Produce      json
+// @Param        metric_type  query  string  false  "Filter by metric type"
+// @Param        from         query  string  false  "Start timestamp filter (RFC3339)"
+// @Param        to           query  string  false  "End timestamp filter (RFC3339)"
+// @Param        limit        query  int     false  "Maximum records (default 100, max 10000)"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/biometrics [get]
+
 func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "getBiometricRecords"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -109,6 +154,7 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 
 	client, err := g.getBiometricClient()
 	if err != nil {
+		g.log.Error("Failed to get biometric client", zap.Error(err))
 		http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 		return
 	}

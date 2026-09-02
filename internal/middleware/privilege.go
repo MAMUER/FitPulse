@@ -18,6 +18,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := r.Context().Value(UserIDKey).(string)
 			if !ok {
+				log.Error("Unauthorized access in RequirePrivilege")
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
@@ -45,6 +46,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 					zap.String("required_role", requiredRole),
 					zap.String("actual_role", actualRole),
 				)
+				log.Error("Access denied: insufficient privileges")
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}

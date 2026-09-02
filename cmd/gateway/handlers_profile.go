@@ -14,9 +14,21 @@ import (
 
 // ========== Profile Handlers ==========
 
+// @Summary      Get user profile
+// @Description  Retrieves the authenticated user's profile information
+// @Tags         Profile
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/profile [get]
+
 func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "getProfile"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -43,9 +55,25 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Update user profile
+// @Description  Updates the authenticated user's profile with fitness and health details
+// @Tags         Profile
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Profile update data"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/profile [put]
+
 func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "updateProfile"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -85,9 +113,11 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Error("Failed to update profile", zap.Error(err))
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		if httpCode == http.StatusInternalServerError {
+			g.log.Error("User service unavailable during profile update", zap.Error(err))
 			http.Error(w, "Сервис пользователей временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 			return
 		}
+		g.log.Error("Profile update failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -102,15 +132,32 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 // ========== Security #10: Server-side Role Re-verification ==========
 // Role verification is now performed inside user-service RPCs.
 
+// @Summary      Delete user profile
+// @Description  Deletes the authenticated user's profile after password confirmation
+// @Tags         Profile
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Password confirmation for profile deletion"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/profile [delete]
+
 func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "deleteProfile"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	req, err := decodeDeleteProfileRequest(r)
 	if err != nil {
+		g.log.Error("Failed to decode delete profile request", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -121,6 +168,7 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to delete profile", zap.Error(err))
 		http.Error(w, errMsg, httpCode)
 		return
 	}

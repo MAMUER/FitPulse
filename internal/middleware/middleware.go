@@ -77,6 +77,7 @@ type requireRoleHandler struct {
 func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok || userID == "" {
+		h.log.Error("Missing user ID in context", zap.String("path", sanitizeLogValue(r.URL.Path)))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}
@@ -91,6 +92,7 @@ func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isRoleAllowed(actualRole, h.allowed) {
+		h.log.Error("Role not allowed", zap.String("user_id", userID), zap.Strings("allowed_roles", h.allowed))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}
@@ -99,6 +101,7 @@ func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func writeRoleVerificationError(w http.ResponseWriter, err error, userID string, log *zap.Logger) {
 	if errors.Is(err, sql.ErrNoRows) {
+		log.Error("Role verification error", zap.Error(err), zap.String("user_id", userID))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}

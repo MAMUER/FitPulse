@@ -164,45 +164,45 @@ check_systemd() {
 }
 # Check swap usage
 check_swap() {
-  local swap_info
-  swap_info=$(free | grep Swap)
-  local total used
-  total=$(echo "$swap_info" | awk '{print $2}')
-  used=$(echo "$swap_info" | awk '{print $3}')
-  if [[ "$total" -eq 0 ]]; then
-    log "WARNING: No swap configured" "$YELLOW"
-    echo "WARNING_SWAP:none"
-    return 0
-  fi
-  local usage_percent
-  usage_percent=$(awk "BEGIN {printf \"%.0f\", ($used/$total)*100}")
-  if [[ "$usage_percent" -gt 50 ]]; then
-    log "WARNING: Swap usage ${usage_percent}% (${used}KB/${total}KB)" "$YELLOW"
-    echo "WARNING_SWAP:${usage_percent}"
-    return 0
-  else
-    log "OK: Swap usage ${usage_percent}% (${used}KB/${total}KB)" "$GREEN"
-    echo "OK_SWAP:${usage_percent}"
-    return 0
-  fi
+	local swap_info
+	swap_info=$(free | grep Swap)
+	local total used
+	total=$(echo "$swap_info" | awk '{print $2}')
+	used=$(echo "$swap_info" | awk '{print $3}')
+	if [[ "$total" -eq 0 ]]; then
+		log "WARNING: No swap configured" "$YELLOW"
+		echo "WARNING_SWAP:none"
+		return 0
+	fi
+	local usage_percent
+	usage_percent=$(awk "BEGIN {printf \"%.0f\", ($used/$total)*100}")
+	if [[ "$usage_percent" -gt 50 ]]; then
+		log "WARNING: Swap usage ${usage_percent}% (${used}KB/${total}KB)" "$YELLOW"
+		echo "WARNING_SWAP:${usage_percent}"
+		return 0
+	else
+		log "OK: Swap usage ${usage_percent}% (${used}KB/${total}KB)" "$GREEN"
+		echo "OK_SWAP:${usage_percent}"
+		return 0
+	fi
 }
 # Check VPN (amneziawg-go) status
 check_vpn() {
-  if ! systemctl is-active --quiet amneziawg-go.service 2>/dev/null; then
-    log "WARNING: amneziawg-go service is not running" "$YELLOW"
-    echo "WARNING_VPN:stopped"
-    return 0
-  fi
-  local port
-  port=$(ss -tlnp 2>/dev/null | grep -c amneziawg-go || echo "0")
-  if [[ "$port" -eq 0 ]]; then
-    log "WARNING: amneziawg-go is running but not listening on any port" "$YELLOW"
-    echo "WARNING_VPN:not_listening"
-    return 0
-  fi
-  log "OK: amneziawg-go is active and listening on $port port(s)" "$GREEN"
-  echo "OK_VPN:${port}"
-  return 0
+	if ! systemctl is-active --quiet amneziawg-go.service 2>/dev/null; then
+		log "WARNING: amneziawg-go service is not running" "$YELLOW"
+		echo "WARNING_VPN:stopped"
+		return 0
+	fi
+	local port
+	port=$(ss -tlnp 2>/dev/null | grep -c amneziawg-go || echo "0")
+	if [[ "$port" -eq 0 ]]; then
+		log "WARNING: amneziawg-go is running but not listening on any port" "$YELLOW"
+		echo "WARNING_VPN:not_listening"
+		return 0
+	fi
+	log "OK: amneziawg-go is active and listening on $port port(s)" "$GREEN"
+	echo "OK_VPN:${port}"
+	return 0
 }
 # Main health check
 main() {

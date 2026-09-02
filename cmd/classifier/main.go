@@ -210,6 +210,7 @@ func (s *server) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		s.log.Error("Method not allowed", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}

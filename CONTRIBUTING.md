@@ -172,10 +172,12 @@ docs(readme): обновить документацию
 
 - **`protoc`** (компилятор Protocol Buffers) — версия, совместимая с `protoc-gen-go`/`protoc-gen-go-grpc`.
 - **Плагины Go**:
+
   ```bash
   go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
   ```
+
   и убедитесь, что `$GOPATH/bin` (обычно `~/go/bin`) добавлен в `PATH`, иначе `protoc` не найдёт плагины.
 
 Установка `protoc` по платформам:
@@ -296,6 +298,7 @@ func TestMedicalService_ClassifyState(t *testing.T) {
    Эта команда запускает: `go mod tidy`, `go fmt`, `go vet`, импорты, `golangci-lint` и unit-тесты с проверкой покрытия.
 
    При необходимости запустите интеграционные тесты локально (требуют Docker):
+
    ```bash
    go test -v -tags=integration ./...
    ```

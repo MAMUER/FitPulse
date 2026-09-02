@@ -94,6 +94,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		s.log.Error("Method not allowed", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
@@ -128,6 +129,7 @@ func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		s.log.Error("Method not allowed", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}

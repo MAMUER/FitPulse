@@ -240,14 +240,27 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 	return nil
 }
 
+// @Summary      Create critical session token
+// @Description  Creates a critical session token required for sensitive operations like 2FA setup or disable
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /api/v1/auth/critical-session [post]
+
 func (g *gateway) criticalSessionHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "criticalSession"))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if g.sessionStore == nil {
+		g.log.Error("Session store unavailable")
 		http.Error(w, "Session store unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -285,6 +298,19 @@ func encodeQRCodeBase64(qrCodeURL string) (string, error) {
 
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
+
+// @Summary      Register new user
+// @Description  Registers a new user account with email, password, full name and role
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Registration request body"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/register [post]
 
 func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -324,6 +350,19 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// @Summary      Register with invite code
+// @Description  Registers a new user using an invite code with additional profile details
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Registration with invite request body"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/register/invite [post]
 
 func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -370,6 +409,18 @@ func (g *gateway) registerWithInviteHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// @Summary      Validate invite code
+// @Description  Validates an invite code and returns associated role and specialty
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Invite code validation request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/invite/validate [post]
+
 func (g *gateway) validateInviteCodeHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Code string `json:"code"`
@@ -385,6 +436,7 @@ func (g *gateway) validateInviteCodeHandler(w http.ResponseWriter, r *http.Reque
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to validate invite code", zap.Error(err))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -400,6 +452,20 @@ func (g *gateway) validateInviteCodeHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 }
+
+// @Summary      User login
+// @Description  Authenticates user with email and password, returns JWT tokens or requires 2FA verification
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Login credentials"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/login [post]
 
 func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -420,9 +486,11 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		g.log.Error("Login failed", zap.Error(err), zap.String("email", html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))))
 		if httpCode == http.StatusUnauthorized && strings.Contains(errMsg, "Email not confirmed") {
+			g.log.Warn("Login attempt with unconfirmed email", zap.String("email", html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))))
 			http.Error(w, "Email не подтверждён. Проверьте вашу почту.", httpCode)
 			return
 		}
+		g.log.Error("Login request failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -464,6 +532,17 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      User logout
+// @Description  Logs out the current user and invalidates the server session
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/logout [post]
+
 func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if ok && g.sessionStore != nil {
@@ -488,6 +567,19 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Confirm email address
+// @Description  Confirms user email address using the provided confirmation token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Email confirmation token"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/auth/confirm [post]
+
 func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Token string `json:"token"`
@@ -499,6 +591,7 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Token == "" {
+		g.log.Error("Missing token in confirm email request")
 		http.Error(w, "Укажите токен подтверждения", http.StatusBadRequest)
 		return
 	}
@@ -522,6 +615,15 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Email confirmation page
+// @Description  Serves the email confirmation HTML page
+// @Tags         Auth
+// @Produce      html
+// @Success      200  {string}  string
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /confirm [get]
+
 func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request) {
 	_ = r.URL.Query().Get("token")
 
@@ -541,8 +643,18 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// @Summary      Initiate Google OAuth login
+// @Description  Redirects user to Google OAuth consent screen
+// @Tags         Auth
+// @Produce      html
+// @Success      307  {string}  string
+// @Failure      501  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /api/v1/auth/google [get]
+
 func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 	if g.googleOAuthConfig == nil {
+		g.log.Error("Google OAuth not configured")
 		http.Error(w, "Google OAuth not configured", http.StatusNotImplemented)
 		return
 	}
@@ -569,8 +681,24 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
+// @Summary      Google OAuth callback
+// @Description  Handles Google OAuth callback and exchanges authorization code for tokens
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        state  query  string  false  "OAuth state parameter"
+// @Param        code   query  string  false  "Authorization code from Google"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/auth/google/callback [get]
+
 func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if g.googleOAuthConfig == nil {
+		g.log.Error("Google OAuth not configured")
 		http.Error(w, "Google OAuth not configured", http.StatusNotImplemented)
 		return
 	}
@@ -578,6 +706,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	state := r.URL.Query().Get("state")
 	cookie, err := r.Cookie(googleOAuthStateCookie)
 	if err != nil || state == "" || cookie == nil || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
+		g.log.Error("Invalid OAuth state")
 		http.Error(w, "invalid oauth state", http.StatusBadRequest)
 		return
 	}
@@ -595,6 +724,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
+		g.log.Error("Missing authorization code")
 		http.Error(w, "missing authorization code", http.StatusBadRequest)
 		return
 	}
@@ -655,19 +785,36 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 // 2FA TOTP endpoints
 
+// @Summary      Setup TOTP two-factor authentication
+// @Description  Generates TOTP secret and QR code for two-factor authentication setup
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      412  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/auth/2fa/setup [post]
+
 func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "setupTOTP"))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if err := g.requireCriticalSession(r, userID); err != nil {
+		g.log.Error("Critical session required", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
 	if err := g.enforceTOTPRateLimit(r.Context(), "setup:"+userID); err != nil {
+		g.log.Error("TOTP rate limit exceeded", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
 	}
@@ -698,19 +845,37 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Confirm TOTP setup
+// @Description  Verifies TOTP passcode and completes two-factor authentication setup
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "TOTP confirmation request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      412  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /api/v1/auth/2fa/confirm [post]
+
 func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "confirmTOTP"))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if err := g.requireCriticalSession(r, userID); err != nil {
+		g.log.Error("Critical session required", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
 	if err := g.enforceTOTPRateLimit(r.Context(), "confirm:"+userID); err != nil {
+		g.log.Error("TOTP rate limit exceeded", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
 	}
@@ -721,6 +886,7 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		BackupCodes []string `json:"backup_codes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode confirm TOTP request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -733,6 +899,7 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to confirm TOTP", zap.Error(err))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -748,6 +915,19 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Verify TOTP code
+// @Description  Verifies TOTP passcode using temporary token and returns access tokens
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "TOTP verification request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /api/v1/auth/2fa/verify [post]
+
 func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TempToken    string `json:"temp_token"`
@@ -755,22 +935,26 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		IsBackupCode bool   `json:"is_backup_code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode verify TOTP request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	if req.TempToken == "" || req.Passcode == "" {
+		g.log.Error("Missing temp_token or passcode in verify TOTP request")
 		http.Error(w, "temp_token and passcode are required", http.StatusBadRequest)
 		return
 	}
 
 	userID, err := g.valkeyDB.Get(r.Context(), twoFATempPrefix+req.TempToken).Result()
 	if err != nil {
+		g.log.Error("Invalid or expired 2FA session", zap.Error(err))
 		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
 		return
 	}
 
 	rateLimitErr := g.enforceTOTPRateLimit(r.Context(), "verify:"+userID)
 	if rateLimitErr != nil {
+		g.log.Error("TOTP rate limit exceeded", zap.Error(rateLimitErr))
 		http.Error(w, rateLimitErr.Error(), http.StatusTooManyRequests)
 		return
 	}
@@ -782,11 +966,13 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to verify TOTP", zap.Error(err))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
 
 	if !resp.Valid {
+		g.log.Error("Invalid TOTP code")
 		http.Error(w, "Invalid TOTP code", http.StatusUnauthorized)
 		return
 	}
@@ -819,19 +1005,37 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Disable TOTP two-factor authentication
+// @Description  Disables two-factor authentication after verifying current passcode
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "TOTP disable request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      412  {object}  map[string]interface{}
+// @Failure      429  {object}  map[string]interface{}
+// @Failure      409  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /api/v1/auth/2fa/disable [post]
+
 func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "disableTOTP"))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if err := g.requireCriticalSession(r, userID); err != nil {
+		g.log.Error("Critical session required", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusPreconditionRequired)
 		return
 	}
 
 	if err := g.enforceTOTPRateLimit(r.Context(), "disable:"+userID); err != nil {
+		g.log.Error("TOTP rate limit exceeded", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
 	}
@@ -840,6 +1044,7 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		Passcode string `json:"passcode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode disable TOTP request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
@@ -850,6 +1055,7 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to disable TOTP", zap.Error(err))
 		http.Error(w, errMsg, httpCode)
 		return
 	}
@@ -865,9 +1071,20 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Get TOTP status
+// @Description  Returns whether TOTP is enabled and remaining backup codes count
+// @Tags         Auth
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/auth/2fa/status [get]
+
 func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
+		g.log.Error("Unauthorized access", zap.String("handler", "totpStatus"))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -890,15 +1107,30 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Refresh access token
+// @Description  Rotates refresh token and returns new access and refresh tokens
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Refresh token request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/auth/refresh [post]
+
 func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode refresh token request", zap.Error(err))
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return
 	}
 	if req.RefreshToken == "" {
+		g.log.Error("Missing refresh_token in request")
 		http.Error(w, "refresh_token обязателен", http.StatusBadRequest)
 		return
 	}
@@ -924,9 +1156,20 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkVerificationStatusHandler checks if a user's email is confirmed.
+// @Summary      Check email verification status
+// @Description  Checks whether a user's email address has been confirmed
+// @Tags         Auth
+// @Produce      json
+// @Param        email  query  string  true  "User email address"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /api/v1/auth/verify-status [get]
+
 func (g *gateway) checkVerificationStatusHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if email == "" {
+		g.log.Error("Missing email in request")
 		http.Error(w, "Укажите email", http.StatusBadRequest)
 		return
 	}

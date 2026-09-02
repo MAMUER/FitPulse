@@ -41,14 +41,27 @@ type CSPViolationBody struct {
 // cspReportHandler принимает отчёты о нарушениях CSP от браузеров и
 // перенаправляет их в лог-пайплайн (zap -> stdout -> ELK).
 // Endpoint публичный: браузеры отправляют report анонимно, без заголовков авторизации.
+// @Summary      CSP violation report
+// @Description  Accepts Content Security Policy violation reports from browsers
+// @Tags         Security
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "CSP violation report"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      405  {object}  map[string]interface{}
+// @Router       /api/security/csp-report [post]
+
 func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		g.log.Warn("CSP report received with non-POST method", zap.String("method", r.Method))
 		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
 	if err != nil {
+		g.log.Warn("Failed to read CSP report body", zap.Error(err))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}

@@ -57,6 +57,13 @@ func checkTCPService(addr string) string {
 	return statusUp
 }
 
+// @Summary      Gateway health check
+// @Description  Returns health status of the gateway and its downstream services
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /health [get]
+
 func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	services := map[string]string{
 		"user":      statusDown,

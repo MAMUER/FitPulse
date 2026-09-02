@@ -16,9 +16,22 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 )
 
+// @Summary      Classify user state
+// @Description  Classifies user physiological state based on latest biometric metrics
+// @Tags         ML
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/ml/classify [post]
+
 func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
+		g.log.Error("Unauthorized access", zap.String("handler", "classify"))
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
@@ -29,6 +42,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	for _, metricType := range metricTypes {
 		client, err := g.getBiometricClient()
 		if err != nil {
+			g.log.Error("Failed to get biometric client", zap.Error(err))
 			http.Error(w, "Сервис биометрии временно недоступен", http.StatusServiceUnavailable)
 			return
 		}
@@ -52,6 +66,7 @@ func (g *gateway) classifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := g.callClassifier(ctx, reqBody)
 	if err != nil {
+		g.log.Error("Failed to classify user state", zap.Error(err))
 		http.Error(w, "Сервис классификации временно недоступен", http.StatusServiceUnavailable)
 		return
 	}
@@ -236,9 +251,37 @@ func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, pat
 	}
 }
 
+// @Summary      Generate plan via ML
+// @Description  Proxies request to ML generator service to generate a training plan
+// @Tags         ML
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "ML generation request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/ml/generate-plan [post]
+
 func (g *gateway) mlGenerateHandler(w http.ResponseWriter, r *http.Request) {
 	g.proxyToMLGenerator(w, r, "/generate-plan")
 }
+
+// @Summary      Generate diet via ML
+// @Description  Proxies request to ML generator service to generate a diet plan
+// @Tags         ML
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "ML diet generation request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/ml/generate-diet [post]
 
 func (g *gateway) mlDietHandler(w http.ResponseWriter, r *http.Request) {
 	g.proxyToMLGenerator(w, r, "/generate-diet")

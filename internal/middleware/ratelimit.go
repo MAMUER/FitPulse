@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
 
@@ -91,77 +92,86 @@ func resetRateLimiters() {
 }
 
 // AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5)
-func AuthRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/login" && r.URL.Path != "/api/v1/register" {
+func AuthRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v1/login" && r.URL.Path != "/api/v1/register" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ip := getClientIP(r)
+			v, ok := authRateLimiterInstance.visitors.Load(ip)
+			if !ok {
+				limiter := rate.NewLimiter(5.0/60.0, 5)
+				authRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = authRateLimiterInstance.visitors.Load(ip)
+			}
+			av := v.(*authVisitor)
+			av.lastSeen = time.Now()
+			if !av.limiter.Allow() {
+				log.Warn("Auth rate limit exceeded", zap.String("path", r.URL.Path), zap.String("ip", ip))
+				http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
+				return
+			}
 			next.ServeHTTP(w, r)
-			return
-		}
-		ip := getClientIP(r)
-		v, ok := authRateLimiterInstance.visitors.Load(ip)
-		if !ok {
-			limiter := rate.NewLimiter(5.0/60.0, 5)
-			authRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
-			v, _ = authRateLimiterInstance.visitors.Load(ip)
-		}
-		av := v.(*authVisitor)
-		av.lastSeen = time.Now()
-		if !av.limiter.Allow() {
-			http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+		})
+	}
 }
 
 // RateLimit enforces per-IP rate limiting (10 r/s, burst 50)
-func RateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/api/v1/auth/refresh" {
+func RateLimit(log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/health" || r.URL.Path == "/api/v1/auth/refresh" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ip := getClientIP(r)
+			v, ok := rateLimiterInstance.visitors.Load(ip)
+			if !ok {
+				limiter := rate.NewLimiter(10, 50)
+				rateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = rateLimiterInstance.visitors.Load(ip)
+			}
+			vis := v.(*visitor)
+			vis.lastSeen = time.Now()
+			if !vis.limiter.Allow() {
+				log.Warn("Rate limit exceeded", zap.String("path", r.URL.Path), zap.String("ip", ip))
+				http.Error(w, "Превышен лимит запросов", http.StatusTooManyRequests)
+				return
+			}
 			next.ServeHTTP(w, r)
-			return
-		}
-		ip := getClientIP(r)
-		v, ok := rateLimiterInstance.visitors.Load(ip)
-		if !ok {
-			limiter := rate.NewLimiter(10, 50)
-			rateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
-			v, _ = rateLimiterInstance.visitors.Load(ip)
-		}
-		vis := v.(*visitor)
-		vis.lastSeen = time.Now()
-		if !vis.limiter.Allow() {
-			http.Error(w, "Превышен лимит запросов", http.StatusTooManyRequests)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+		})
+	}
 }
 
 // UserRateLimit enforces per-user rate limiting (100 r/s, burst 200)
-func UserRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID, _ := r.Context().Value(UserIDKey).(string)
-		if userID == "" {
+func UserRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID, _ := r.Context().Value(UserIDKey).(string)
+			if userID == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if r.URL.Path == "/health" || r.URL.Path == "/api/v1/auth/refresh" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			v, ok := userRateLimiterInstance.visitors.Load(userID)
+			if !ok {
+				limiter := rate.NewLimiter(100, 200)
+				userRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = userRateLimiterInstance.visitors.Load(userID)
+			}
+			vis := v.(*userVisitor)
+			vis.lastSeen = time.Now()
+			if !vis.limiter.Allow() {
+				log.Warn("User rate limit exceeded", zap.String("user_id", userID), zap.String("path", r.URL.Path))
+				http.Error(w, "Превышен лимит запросов для пользователя", http.StatusTooManyRequests)
+				return
+			}
 			next.ServeHTTP(w, r)
-			return
-		}
-		if r.URL.Path == "/health" || r.URL.Path == "/api/v1/auth/refresh" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		v, ok := userRateLimiterInstance.visitors.Load(userID)
-		if !ok {
-			limiter := rate.NewLimiter(100, 200)
-			userRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
-			v, _ = userRateLimiterInstance.visitors.Load(userID)
-		}
-		vis := v.(*userVisitor)
-		vis.lastSeen = time.Now()
-		if !vis.limiter.Allow() {
-			http.Error(w, "Превышен лимит запросов для пользователя", http.StatusTooManyRequests)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+		})
+	}
 }

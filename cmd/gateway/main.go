@@ -442,7 +442,7 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 
 	httpHandler := mainRouter
 	if tlsCfg.available {
-		httpHandler = buildHTTPRedirectHandler(cfg.publicHost, cfg.port)
+		httpHandler = buildHTTPRedirectHandler(log.Logger, cfg.publicHost, cfg.port)
 	} else {
 		log.Info("TLS is not available, serving application directly over HTTP")
 	}
@@ -518,7 +518,7 @@ func detectTLSMode(log *logger.Logger, _ gatewayConfig) gatewayTLSConfig {
 	return mode
 }
 
-func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
+func buildHTTPRedirectHandler(log *zap.Logger, publicHost, port string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.Header().Set("Content-Type", "application/json")
@@ -529,17 +529,20 @@ func buildHTTPRedirectHandler(publicHost, port string) http.Handler {
 
 		host, err := resolveRedirectHost(publicHost, r)
 		if err != nil {
+			log.Error("Failed to resolve redirect host", zap.Error(err), zap.String("path", r.URL.Path))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if err := validateRequestURI(r); err != nil {
+			log.Error("Invalid request URI", zap.Error(err), zap.String("path", r.URL.Path))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		redirectURL := buildRedirectURL(host, port, r)
 		if err := validateRedirectTarget(redirectURL, host); err != nil {
+			log.Error("Invalid redirect target", zap.Error(err), zap.String("path", r.URL.Path))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -596,7 +599,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.HTMLNonceInject)
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
-	r.Use(middleware.RateLimit)
+	r.Use(middleware.RateLimit(g.log.Logger))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
 	r.Use(middleware.CorrelationIDHTTP)
@@ -619,10 +622,10 @@ func (g *gateway) registerRoutes() *chi.Mux {
 // registerPublicRoutes registers routes that do not require authentication.
 func (g *gateway) registerPublicRoutes(r chi.Router) {
 	// ========== Public routes (без авторизации) ==========
-	r.With(middleware.AuthRateLimit).Post("/api/v1/register", g.registerHandler)
+	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/register", g.registerHandler)
 	r.Post("/api/v1/register/invite", g.registerWithInviteHandler)
 	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
-	r.With(middleware.AuthRateLimit).Post("/api/v1/login", g.loginHandler)
+	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/login", g.loginHandler)
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
 	r.Get("/api/v1/auth/verify-status", g.checkVerificationStatusHandler)
 	r.Get("/api/v1/auth/google", g.googleLoginHandler)
@@ -656,7 +659,7 @@ const profilePath = "/profile"
 func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.Use(middleware.UserRateLimit)
+		r.Use(middleware.UserRateLimit(g.log.Logger))
 
 		// Profile
 		r.Get(profilePath, g.getProfileHandler)
@@ -779,13 +782,35 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	return g.trainingClient, nil
 }
 
+// @Summary      Open Wearables webhook proxy
+// @Description  Proxies incoming Open Wearables webhook requests to the biometric service
+// @Tags         Integrations
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Failure      503  {object}  map[string]interface{}
+// @Router       /api/v1/integrations/open-wearables/webhook [post]
+
 func (g *gateway) proxyToBiometricWebhook(w http.ResponseWriter, r *http.Request) {
 	g.biometricWebhookProxy.ServeHTTP(w, r)
 }
 
+// @Summary      JWKS endpoint
+// @Description  Returns JSON Web Key Set for JWT verification
+// @Tags         Auth
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /.well-known/jwks.json [get]
+
 func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
 	publicKeyPEM := g.tokenProvider.PublicKeyPEM()
 	if publicKeyPEM == "" {
+		g.log.Error("JWT public key not configured", zap.String("path", r.URL.Path))
 		http.Error(w, "JWT public key not configured", http.StatusInternalServerError)
 		return
 	}
