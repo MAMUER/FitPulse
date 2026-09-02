@@ -43,7 +43,7 @@ certifi==2026.7.22
     #   sentry-sdk
 cffi==2.1.1
     # via cryptography
-charset-normalizer==3.5.0
+charset-normalizer==3.5.1
     # via requests
 click==8.4.2
     # via
@@ -77,7 +77,7 @@ faker==40.36.0
     # via polyfactory
 fastapi==0.141.1
     # via -r requirements.txt
-filelock==3.32.2
+filelock==3.32.3
     # via
     #   huggingface-hub
     #   iterative-telemetry
@@ -157,7 +157,7 @@ ml-dtypes==0.6.0
     #   onnx
     #   onnx-ir
     #   onnxscript
-mpmath==1.3.0
+mpmath==1.4.1
     # via sympy
 msgspec==0.21.1
     # via litestar
@@ -178,7 +178,7 @@ nltk==3.10.3
     # via
     #   -r requirements.txt
     #   evidently
-numpy==2.5.1
+numpy==2.5.2
     # via
     #   -r requirements.txt
     #   evidently
@@ -413,7 +413,7 @@ urllib3==2.7.0
     #   sentry-sdk
 uuid6==2025.0.1
     # via evidently
-uvicorn[standard]==0.52.2
+uvicorn[standard]==0.52.3
     # via
     #   -r requirements.txt
     #   evidently
