@@ -4,11 +4,11 @@
 # Core ML — PyTorch (последний стабильный на Windows/Py 3.14 — 2.12.1)
 torch>=2.13.0
 lightning==2.6.5
-numpy>=2.5.1
+numpy>=2.5.2
 pandas>=3.0.5
 
 # API — FastAPI (without uvloop for Windows)
-uvicorn>=0.52.2
+uvicorn>=0.52.3
 fastapi>=0.141.1
 pydantic>=2.13.4
 python-multipart>=0.0.32
