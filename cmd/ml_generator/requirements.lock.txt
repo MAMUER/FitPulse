@@ -73,7 +73,7 @@ dynaconf==3.3.5
     # via evidently
 evidently==0.7.21
     # via -r requirements.txt
-faker==40.36.0
+faker==40.37.0
     # via polyfactory
 fastapi==0.141.1
     # via -r requirements.txt
