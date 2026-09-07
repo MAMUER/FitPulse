@@ -367,7 +367,7 @@ tqdm==4.70.0
     #   nltk
     #   pytorch-lightning
     #   transformers
-transformers==5.15.0
+transformers==5.16.1
     # via optimum
 typer==0.27.1
     # via
