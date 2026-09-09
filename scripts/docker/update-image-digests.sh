@@ -16,30 +16,30 @@ IMAGE_DIGESTS["python:3.14-slim"]="python:3.14-slim@sha256:REPLACE_PYTHON_DIGEST
 
 # Function to get digest for an image
 get_digest() {
-  local image=$1
-  echo "Fetching digest for $image..."
-  local digest
-  digest=$(docker manifest inspect "$image" | jq -r '.manifests[].digest' | head -1)
-  if [ -z "$digest" ] || [ "$digest" == "null" ]; then
-    echo "WARNING: Could not fetch digest for $image"
-    return 1
-  fi
-  echo "$digest"
+	local image=$1
+	echo "Fetching digest for $image..."
+	local digest
+	digest=$(docker manifest inspect "$image" | jq -r '.manifests[].digest' | head -1)
+	if [ -z "$digest" ] || [ "$digest" == "null" ]; then
+		echo "WARNING: Could not fetch digest for $image"
+		return 1
+	fi
+	echo "$digest"
 }
 
 # Update Dockerfiles
 find cmd -name "Dockerfile" -type f | while read -r dockerfile; do
-  echo "Processing $dockerfile..."
-  
-  for image in "${!IMAGE_DIGESTS[@]}"; do
-    if grep -q "^FROM $image" "$dockerfile"; then
-      digest=$(get_digest "$image")
-      if [ -n "$digest" ]; then
-        sed -i "s|^FROM $image|FROM ${image%@*}@${digest#*sha256:}|" "$dockerfile"
-        echo "  Updated $image to use digest"
-      fi
-    fi
-  done
+	echo "Processing $dockerfile..."
+
+	for image in "${!IMAGE_DIGESTS[@]}"; do
+		if grep -q "^FROM $image" "$dockerfile"; then
+			digest=$(get_digest "$image")
+			if [ -n "$digest" ]; then
+				sed -i "s|^FROM $image|FROM ${image%@*}@${digest#*sha256:}|" "$dockerfile"
+				echo "  Updated $image to use digest"
+			fi
+		fi
+	done
 done
 
 echo "=== Digest update complete ==="
