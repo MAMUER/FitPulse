@@ -109,15 +109,6 @@ func (cb *CircuitBreaker) allowRequest() bool {
 	return false
 }
 
-func (cb *CircuitBreaker) isTimeoutExpired() bool {
-	cb.mu.RLock()
-	lastFailure := cb.lastFailureTime
-	timeout := cb.config.Timeout
-	cb.mu.RUnlock()
-
-	return time.Since(lastFailure) >= timeout
-}
-
 func (cb *CircuitBreaker) isTimeoutExpiredUnlocked() bool {
 	return time.Since(cb.lastFailureTime) >= cb.config.Timeout
 }
@@ -164,10 +155,11 @@ func (cb *CircuitBreaker) recordSuccess() {
 
 func (cb *CircuitBreaker) setState(state CircuitBreakerState) {
 	cb.state = state
-	if state == StateClosed {
+	switch state {
+	case StateClosed:
 		cb.failureCount = 0
 		cb.successCount = 0
-	} else if state == StateOpen {
+	case StateOpen:
 		cb.successCount = 0
 	}
 }

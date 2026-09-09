@@ -13,10 +13,7 @@ metadata:
   name: external-secrets-role
   labels:
     app: external-secrets
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch"]
@@ -26,9 +23,23 @@ rules:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: Role
 metadata:
-  name: external-secrets-binding
+  name: external-secrets-writer
+  namespace: fitness-platform-production
+  labels:
+    app: external-secrets
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: external-secrets-writer-binding
+  namespace: fitness-platform-production
   labels:
     app: external-secrets
 subjects:
@@ -36,6 +47,6 @@ subjects:
     name: external-secrets-sa
     namespace: external-secrets
 roleRef:
-  kind: ClusterRole
-  name: external-secrets-role
+  kind: Role
+  name: external-secrets-writer
   apiGroup: rbac.authorization.k8s.io
