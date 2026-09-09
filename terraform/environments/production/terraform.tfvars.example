@@ -1,0 +1,28 @@
+# FitPulse Production Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+vps_host        = "your.vps.ip.address"
+vps_user        = "root"
+ssh_private_key = "~/.ssh/id_ed25519"
+
+domain          = "fittpulse.duckdns.org"
+environment     = "production"
+
+kubernetes_version = "v1.36.0+k3s1"
+node_count        = 1
+
+enable_monitoring = true
+enable_backup     = true
+
+grafana_admin_password = "change-me-in-production"
+
+# Secrets (use environment variables or a secrets manager in production)
+jwt_private_key_pem     = file("~/.secrets/jwt_private.pem")
+jwt_public_key_pem      = file("~/.secrets/jwt_public.pem")
+rabbitmq_url            = "amqps://rabbitmq:5671"
+redis_password           = "change-me"
+postgres_password        = "change-me"
+google_client_id         = "your-google-client-id"
+google_client_secret     = "your-google-client-secret"
+smtp_password            = "your-smtp-password"
+totp_encryption_key      = "change-me-32-char-key-here"

@@ -204,23 +204,57 @@ sign_images() {
 		exit 1
 	fi
 
+	SIGN_FAILURES=0
 	for svc in $services; do
 		echo "Signing $svc..."
-		digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || true)
-		if [ -z "$digest" ]; then
+		digest=""
+		for attempt in 1 2 3 4 5; do
+			digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || true)
+			if [ -n "$digest" ]; then
+				break
+			fi
 			manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
 			digest=$(curl --proto =https -s -L -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
 				-H "Authorization: Bearer $GITHUB_TOKEN" \
 				"$manifest_url" -I | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
-		fi
+			if [ -n "$digest" ]; then
+				break
+			fi
+			echo "⚠️  Digest resolution attempt $attempt for $svc failed, retrying..."
+			sleep $((attempt * 2))
+		done
+
 		if [ -z "$digest" ]; then
-			echo "❌ Failed to resolve digest for $svc:$IMAGE_TAG" >&2
+			echo "❌ Failed to resolve digest for $svc:$IMAGE_TAG after retries" >&2
+			SIGN_FAILURES=$((SIGN_FAILURES + 1))
 			continue
 		fi
-		cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest"
+
+		sign_ok=false
+		for attempt in 1 2 3; do
+			echo "🔑 Attempt $attempt: signing $svc@$digest"
+			if cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest" 2>&1; then
+				echo "✅ $svc signed successfully"
+				sign_ok=true
+				break
+			else
+				echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..."
+				sleep $((attempt * 3))
+			fi
+		done
+
+		if [ "$sign_ok" = false ]; then
+			echo "❌ Failed to sign $svc after retries" >&2
+			SIGN_FAILURES=$((SIGN_FAILURES + 1))
+		fi
 	done
 
 	rm -f /tmp/cosign.key
+
+	if [ "$SIGN_FAILURES" -gt 0 ]; then
+		echo "❌ $SIGN_FAILURES image(s) failed to sign" >&2
+		exit 1
+	fi
 }
 
 security_gate() {

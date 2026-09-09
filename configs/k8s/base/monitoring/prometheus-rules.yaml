@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: rules
+data:
+  general.yml: |
+    groups:
+      - name: fitness-platform-general
+        rules:
+          - alert: ServiceDown
+            expr: up{job=~".+"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service {{ $labels.job }} is down"
+              description: "{{ $labels.job }} has been down for more than 1 minute."
+
+          - alert: HighErrorRate
+            expr: rate(error_total[5m]) / rate(request_total[5m]) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High error rate on {{ $labels.service }}"
+              description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}."
+
+          - alert: HighLatency
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High latency on {{ $labels.service }}"
+              description: "P95 latency is {{ $value }}s on {{ $labels.service }}."
+
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} is crash looping"
+              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in 15m."
+
+          - alert: HighCPUUsage
+            expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage on {{ $labels.pod }}"
+              description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.pod }}."
+
+          - alert: HighMemoryUsage
+            expr: container_memory_working_set_bytes / container_spec_memory_limit_bytes > 0.9
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on {{ $labels.pod }}"
+              description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.pod }}."
+
+          - alert: DatabaseConnectionPoolExhausted
+            expr: db_connection_pool_usage{pool_name="pgxpool"} > 0.9
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Database connection pool exhausted"
+              description: "Connection pool usage is {{ $value | humanizePercentage }} on {{ $labels.service }}."
+
+          - alert: RabbitMQQueueDepthHigh
+            expr: rabbitmq_queue_messages_ready > 1000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "RabbitMQ queue depth high"
+              description: "Queue {{ $labels.queue }} has {{ $value }} messages ready."
+
+          - alert: PostgreSQLDown
+            expr: pg_up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "PostgreSQL is down"
+              description: "PostgreSQL instance {{ $labels.instance }} is unreachable."
+
+          - alert: ValkeyDown
+            expr: redis_up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Valkey/Redis is down"
+              description: "Valkey instance {{ $labels.instance }} is unreachable."

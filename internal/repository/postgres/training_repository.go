@@ -93,7 +93,8 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 	offset := (page - 1) * pageSize
 
 	query := `
-		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at
+		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at,
+		       COUNT(*) OVER() AS total_count
 		FROM training_plans WHERE user_id = $1
 		ORDER BY created_at DESC LIMIT $2 OFFSET $3
 	`
@@ -104,12 +105,14 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 	defer func() { _ = rows.Close() }()
 
 	var plans []*entity.TrainingPlan
+	var totalCount int
 	for rows.Next() {
 		plan := &entity.TrainingPlan{}
 		var planDataJSON []byte
 		if err := rows.Scan(
 			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
 			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
+			&totalCount,
 		); err != nil {
 			return nil, 0, apperrors.Internal("failed to scan training plan", err)
 		}
@@ -124,12 +127,7 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 		return nil, 0, apperrors.Internal("failed to iterate training plans", err)
 	}
 
-	var total int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM training_plans WHERE user_id = $1`, userID).Scan(&total); err != nil {
-		return nil, 0, apperrors.Internal("failed to count training plans", err)
-	}
-
-	return plans, total, nil
+	return plans, totalCount, nil
 }
 
 func (r *TrainingRepository) CompleteWorkout(ctx context.Context, userID, planID string) error {

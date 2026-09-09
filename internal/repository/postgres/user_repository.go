@@ -116,7 +116,8 @@ func (r *UserRepository) List(ctx context.Context, page, pageSize int) ([]*entit
 func (r *UserRepository) ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error) {
 	offset := (page - 1) * pageSize
 	query := `
-		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at
+		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at,
+		       COUNT(*) OVER() AS total_count
 		FROM users WHERE role = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 	`
 	rows, err := r.db.QueryContext(ctx, query, role, pageSize, offset)
@@ -126,11 +127,13 @@ func (r *UserRepository) ListByRole(ctx context.Context, role string, page, page
 	defer func() { _ = rows.Close() }()
 
 	var users []*entity.User
+	var totalCount int
 	for rows.Next() {
 		user := &entity.User{}
 		if err := rows.Scan(
 			&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
 			&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+			&totalCount,
 		); err != nil {
 			return nil, 0, apperrors.Internal("failed to scan user", err)
 		}
@@ -139,12 +142,7 @@ func (r *UserRepository) ListByRole(ctx context.Context, role string, page, page
 	if err := rows.Err(); err != nil {
 		return nil, 0, apperrors.Internal("failed to iterate users", err)
 	}
-
-	var total int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = $1`, role).Scan(&total); err != nil {
-		return nil, 0, apperrors.Internal("failed to count users", err)
-	}
-	return users, total, nil
+	return users, totalCount, nil
 }
 
 func (r *UserRepository) Count(ctx context.Context) (int, error) {

@@ -184,7 +184,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
 	}
 
-	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqp://localhost:5672/")
+	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)

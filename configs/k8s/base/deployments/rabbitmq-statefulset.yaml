@@ -48,6 +48,38 @@ spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: rabbitmq-tls
+          emptyDir: {}
+      initContainers:
+        - name: generate-rabbitmq-certs
+          image: alpine:3.24
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              cd /etc/rabbitmq-tls
+              openssl genrsa -out ca.key 4096
+              openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/CN=rabbitmq-ca"
+              openssl genrsa -out server.key 4096
+              openssl req -new -key server.key -out server.csr -subj "/CN=rabbitmq"
+              openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 3650 -sha256
+              chmod 600 server.key ca.key
+              chmod 644 server.crt ca.crt
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: rabbitmq-tls
+              mountPath: /etc/rabbitmq-tls
       containers:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
@@ -56,6 +88,8 @@ spec:
           ports:
             - containerPort: 5672
               name: amqp
+            - containerPort: 5671
+              name: amqps
             - containerPort: 15672
               name: management
           securityContext:
@@ -74,11 +108,28 @@ spec:
               value: "/etc/secrets/RABBITMQ_PASS"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
+            - name: RABBITMQ_SSL_CERT_FILE
+              value: "/etc/rabbitmq-tls/server.crt"
+            - name: RABBITMQ_SSL_KEY_FILE
+              value: "/etc/rabbitmq-tls/server.key"
+            - name: RABBITMQ_SSL_CACERT_FILE
+              value: "/etc/rabbitmq-tls/ca.crt"
+            - name: RABBITMQ_SSL_VERIFY
+              value: "verify_peer"
+            - name: RABBITMQ_SSL_FAIL_IF_NO_PEER_CERT
+              value: "false"
+            - name: RABBITMQ_LISTeners_SSL_DEFAULT
+              value: "5671"
+            - name: RABBITMQ_LISTeners_TCP_DEFAULT
+              value: "127.0.0.1:5672"
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
             - name: tmp
               mountPath: /tmp
+            - name: rabbitmq-tls
+              mountPath: /etc/rabbitmq-tls
+              readOnly: true
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true

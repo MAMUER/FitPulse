@@ -32,6 +32,7 @@ import (
 	"github.com/MAMUER/project/internal/domain/service"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/pgx"
@@ -1119,6 +1120,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
 		middleware.RecoveryGRPC(log.Logger),
 		middleware.CorrelationIDGRPC(),
+		metrics.UnaryServerInterceptor("training-service"),
 	), telemetry.ServerHandlerOption()}
 	s := grpctls.NewServer(serverOpts...)
 	pb.RegisterTrainingServiceServer(s, &trainingServer{

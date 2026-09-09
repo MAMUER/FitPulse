@@ -28,7 +28,8 @@ func NewInviteCodeRepository(db *sql.DB) port.InviteCodeRepository {
 func (r *inviteCodeRepository) List(ctx context.Context, page, pageSize int) ([]*port.InviteCode, int, error) {
 	offset := page * pageSize
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT code, role, specialty, max_uses, used_count, is_active, created_by, created_at
+		SELECT code, role, specialty, max_uses, used_count, is_active, created_by, created_at,
+		       COUNT(*) OVER() AS total_count
 		FROM invite_codes
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -39,10 +40,11 @@ func (r *inviteCodeRepository) List(ctx context.Context, page, pageSize int) ([]
 	defer func() { _ = rows.Close() }()
 
 	var invites []*port.InviteCode
+	var totalCount int
 	for rows.Next() {
 		inv := &port.InviteCode{}
 		var specialty sql.NullString
-		if scanErr := rows.Scan(&inv.Code, &inv.Role, &specialty, &inv.MaxUses, &inv.UsedCount, &inv.IsActive, &inv.CreatedBy, &inv.CreatedAt); scanErr != nil {
+		if scanErr := rows.Scan(&inv.Code, &inv.Role, &specialty, &inv.MaxUses, &inv.UsedCount, &inv.IsActive, &inv.CreatedBy, &inv.CreatedAt, &totalCount); scanErr != nil {
 			return nil, 0, apperrors.Internal("failed to scan invite code", scanErr)
 		}
 		if specialty.Valid {
@@ -55,12 +57,7 @@ func (r *inviteCodeRepository) List(ctx context.Context, page, pageSize int) ([]
 		return nil, 0, apperrors.Internal("failed to iterate invite codes", err)
 	}
 
-	var total int
-	if countErr := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM invite_codes`).Scan(&total); countErr != nil {
-		return nil, 0, apperrors.Internal("failed to count invite codes", countErr)
-	}
-
-	return invites, total, nil
+	return invites, totalCount, nil
 }
 
 func (r *inviteCodeRepository) Create(ctx context.Context, invite *port.InviteCode) error {

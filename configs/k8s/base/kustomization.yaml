@@ -11,9 +11,10 @@ resources:
   - network-policies
   - deployments
   - services
+  - monitoring
+  - external-secrets
   - ingress-nginx
   - cert-manager
   - jobs
-  - ../../monitoring
   - local-path-provisioner/resource-quota.yaml
   - local-path-provisioner/limit-range.yaml
