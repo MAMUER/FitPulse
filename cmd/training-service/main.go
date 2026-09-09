@@ -36,13 +36,16 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/pgx"
-	_ "github.com/MAMUER/project/internal/repository/postgres"
+	_ "github.com/MAMUER/project/internal/repository/postgres" // registers PostgreSQL driver
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 )
 
-const personalizedPlanName = "Персонализированная программа"
+const (
+	personalizedPlanName = "Персонализированная программа"
+	serviceName          = "training-service"
+)
 
 func toInt32(v int64) int32 {
 	if v < math.MinInt32 || v > math.MaxInt32 {
@@ -1120,7 +1123,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
 		middleware.RecoveryGRPC(log.Logger),
 		middleware.CorrelationIDGRPC(),
-		metrics.UnaryServerInterceptor("training-service"),
+		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
 	s := grpctls.NewServer(serverOpts...)
 	pb.RegisterTrainingServiceServer(s, &trainingServer{
@@ -1139,7 +1142,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 }
 
 func main() {
-	log := logger.New("training-service")
+	log := logger.New(serviceName)
 	defer func() { _ = log.Sync() }()
 
 	shutdownTraces := telemetry.InitTracer()
@@ -1228,7 +1231,7 @@ func float64Value(nf sql.NullFloat64) float64 {
 }
 
 func loadTrainingConfig() (port, metricsPort string, dbCfg db.Config) {
-	config.InitViper("training-service")
+	config.InitViper(serviceName)
 	port = config.GetEnv("TRAINING_SERVICE_PORT", "50053")
 	metricsPort = config.GetEnv("TRAINING_SERVICE_METRICS_PORT", "9095")
 	dbCfg = db.Config{

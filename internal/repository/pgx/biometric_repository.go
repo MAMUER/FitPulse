@@ -64,7 +64,7 @@ func (r *BiometricRepositoryPGX) BatchCreate(ctx context.Context, records []*ent
 		if err != nil {
 			return 0, apperrors.Internal("failed to insert biometric record", err)
 		}
-		if n := result.RowsAffected(); n > 0 {
+		if result.RowsAffected() > 0 {
 			inserted++
 		}
 	}

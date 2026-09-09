@@ -11,15 +11,15 @@ export default function Devices() {
 
       <div className='integration-status' aria-live='polite' aria-atomic='true'>
         {status === 'connected' && (
-          <div className='success-message' role='status'>
+          <output className='success-message'>
             ✅ Успешно подключено! Данные будут синхронизироваться
             автоматически.
-          </div>
+          </output>
         )}
         {status === 'loading' /* istanbul ignore next */ && (
-          <div className='loading-message' role='status'>
+          <output className='loading-message'>
             ⏳ Подключение к Open Wearables...
-          </div>
+          </output>
         )}
         {status === 'error' && (
           <div className='error-message' role='alert'>

@@ -335,7 +335,6 @@ export default function Dashboard() {
             ref={chartRef}
             id='heartChart'
             aria-label='График динамики пульса за последние измерения'
-            role='img'
           />
           <div id='chart-fallback' className='sr-only'>
             График пульса за последние 20 измерений.

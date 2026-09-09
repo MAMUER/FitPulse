@@ -76,7 +76,7 @@ func GetFloat64(v *viper.Viper, key string, defaultVal float64) float64 {
 	return v.GetFloat64(key)
 }
 
-func GetEnvViper(key string, defaultVal string) string {
+func GetEnvViper(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
 	}

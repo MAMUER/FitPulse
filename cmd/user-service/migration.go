@@ -58,6 +58,31 @@ type piiTable struct {
 	pairs []pair
 }
 
+var allowedPiiTables = map[string][]string{
+	"users":               {"id", "email_encrypted", "full_name_encrypted", "nickname_encrypted"},
+	"email_verifications": {"id", "email_encrypted", "token_encrypted"},
+}
+
+func validatePiiTable(t piiTable) error {
+	allowedCols, ok := allowedPiiTables[t.name]
+	if !ok {
+		return fmt.Errorf("pii migration: table %q is not allowed", t.name)
+	}
+	allowedSet := make(map[string]bool, len(allowedCols))
+	for _, c := range allowedCols {
+		allowedSet[c] = true
+	}
+	if !allowedSet[t.idCol] {
+		return fmt.Errorf("pii migration: id column %q is not allowed for table %q", t.idCol, t.name)
+	}
+	for _, p := range t.pairs {
+		if !allowedSet[p.enc] || !allowedSet[p.plain] {
+			return fmt.Errorf("pii migration: column %q/%q is not allowed for table %q", p.enc, p.plain, t.name)
+		}
+	}
+	return nil
+}
+
 // reencryptPIIFromPgcrypto перекодирует существующие PII-поля,
 // зашифрованные ранее через pgcrypto (pgp_sym_encrypt), в pgsodium (libsodium AEAD).
 // Строки, уже зашифрованные через pgsodium, пропускаются.
@@ -89,6 +114,10 @@ func reencryptPIIFromPgcrypto(ctx context.Context, database *sql.DB, log *logger
 }
 
 func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, t piiTable, key string, id int64) {
+	if err := validatePiiTable(t); err != nil {
+		log.Error("Invalid PII migration target", zap.Error(err), zap.String("table", t.name))
+		return
+	}
 	cols := []string{t.idCol}
 	for _, p := range t.pairs {
 		cols = append(cols, p.enc)
@@ -127,7 +156,8 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 		}
 		rowID := fmt.Sprint(rowVals[0])
 
-		if migratePIIRow(ctx, database, log, t, key, id, rowID, rowVals) {
+		mc := &piiMigrationCtx{ctx: ctx, database: database, log: log, key: key, id: id}
+		if migratePIIRow(mc, t, rowID, rowVals) {
 			migrated++
 		}
 	}
@@ -143,10 +173,18 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	}
 }
 
-func migratePIIRow(ctx context.Context, database *sql.DB, log *logger.Logger, t piiTable, key string, id int64, rowID string, rowVals []interface{}) bool {
+type piiMigrationCtx struct {
+	ctx       context.Context
+	database  *sql.DB
+	log       *logger.Logger
+	key       string
+	id        int64
+}
+
+func migratePIIRow(mc *piiMigrationCtx, t piiTable, rowID string, rowVals []interface{}) bool {
 	var probe string
-	if database.QueryRowContext(ctx,
-		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", id), rowVals[1],
+	if mc.database.QueryRowContext(mc.ctx,
+		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", mc.id), rowVals[1],
 	).Scan(&probe) == nil {
 		return false
 	}
@@ -156,13 +194,13 @@ func migratePIIRow(ctx context.Context, database *sql.DB, log *logger.Logger, t 
 	ai := 1
 	for i, p := range t.pairs {
 		var plain sql.NullString
-		if dErr := database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], key).Scan(&plain); dErr != nil || !plain.Valid {
-			log.Warn("Failed to pgcrypto-decrypt during PII migration",
+		if dErr := mc.database.QueryRowContext(mc.ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], mc.key).Scan(&plain); dErr != nil || !plain.Valid {
+			mc.log.Warn("Failed to pgcrypto-decrypt during PII migration",
 				zap.Error(dErr), zap.String("table", t.name), zap.String("col", p.enc))
 			return false
 		}
 		args = append(args, plain.String)
-		setParts = append(setParts, fmt.Sprintf("%s = pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", p.enc, ai, id))
+		setParts = append(setParts, fmt.Sprintf("%s = pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", p.enc, ai, mc.id))
 		ai++
 	}
 	if len(setParts) == 0 {
@@ -181,8 +219,8 @@ func migratePIIRow(ctx context.Context, database *sql.DB, log *logger.Logger, t 
 	queryBuilder.WriteString(strconv.Itoa(ai))
 	query := queryBuilder.String()
 
-	if _, uErr := database.ExecContext(ctx, query, args...); uErr != nil {
-		log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", t.name), zap.String("id", rowID))
+	if _, uErr := mc.database.ExecContext(mc.ctx, query, args...); uErr != nil {
+		mc.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", t.name), zap.String("id", rowID))
 		return false
 	}
 	return true
@@ -201,23 +239,9 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 		log.Warn("pgsodium key not initialized; skipping PII backfill")
 		return
 	}
-	enc := func(col string) string {
-		return fmt.Sprintf("pgsodium.crypto_aead_det_encrypt(%s::text, '', %d)", col, id)
-	}
 
-	var usersQuery strings.Builder
-	usersQuery.WriteString("UPDATE users SET ")
-	usersQuery.WriteString("email_encrypted = ")
-	usersQuery.WriteString(enc("email"))
-	usersQuery.WriteString(", email_hash = encode(digest(lower(email), 'sha256'), 'hex'), ")
-	usersQuery.WriteString("full_name_encrypted = ")
-	usersQuery.WriteString(enc("full_name"))
-	usersQuery.WriteString(", full_name_hash = encode(digest(lower(full_name), 'sha256'), 'hex'), ")
-	usersQuery.WriteString("nickname_encrypted = ")
-	usersQuery.WriteString(enc("nickname"))
-	usersQuery.WriteString(", nickname_hash = encode(digest(lower(nickname), 'sha256'), 'hex') ")
-	usersQuery.WriteString(" WHERE email_encrypted IS NULL")
-	res, err := database.ExecContext(ctx, usersQuery.String())
+	usersQuery := buildUsersBackfillQuery(id)
+	res, err := database.ExecContext(ctx, usersQuery)
 	if err != nil {
 		log.Error("Failed to backfill PII in users", zap.Error(err))
 	} else {
@@ -225,15 +249,36 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 		log.Info("PII backfill complete for users", zap.Int64("updated", rows))
 	}
 
-	var emailVerificationsQuery strings.Builder
-	emailVerificationsQuery.WriteString("UPDATE email_verifications SET ")
-	emailVerificationsQuery.WriteString("email_encrypted = ")
-	emailVerificationsQuery.WriteString(enc("email"))
-	emailVerificationsQuery.WriteString(", token_encrypted = ")
-	emailVerificationsQuery.WriteString(enc("token"))
-	emailVerificationsQuery.WriteString(" WHERE email_encrypted IS NULL")
-	_, err = database.ExecContext(ctx, emailVerificationsQuery.String())
+	emailVerificationsQuery := buildEmailVerificationsBackfillQuery(id)
+	_, err = database.ExecContext(ctx, emailVerificationsQuery)
 	if err != nil {
 		log.Error("Failed to backfill PII in email_verifications", zap.Error(err))
 	}
+}
+
+func buildUsersBackfillQuery(id int64) string {
+	var q strings.Builder
+	q.WriteString("UPDATE users SET ")
+	q.WriteString("email_encrypted = pgsodium.crypto_aead_det_encrypt(email::text, '', ")
+	q.WriteString(strconv.FormatInt(id, 10))
+	q.WriteString("), email_hash = encode(digest(lower(email), 'sha256'), 'hex'), ")
+	q.WriteString("full_name_encrypted = pgsodium.crypto_aead_det_encrypt(full_name::text, '', ")
+	q.WriteString(strconv.FormatInt(id, 10))
+	q.WriteString("), full_name_hash = encode(digest(lower(full_name), 'sha256'), 'hex'), ")
+	q.WriteString("nickname_encrypted = pgsodium.crypto_aead_det_encrypt(nickname::text, '', ")
+	q.WriteString(strconv.FormatInt(id, 10))
+	q.WriteString("), nickname_hash = encode(digest(lower(nickname), 'sha256'), 'hex') ")
+	q.WriteString(" WHERE email_encrypted IS NULL")
+	return q.String()
+}
+
+func buildEmailVerificationsBackfillQuery(id int64) string {
+	var q strings.Builder
+	q.WriteString("UPDATE email_verifications SET ")
+	q.WriteString("email_encrypted = pgsodium.crypto_aead_det_encrypt(email::text, '', ")
+	q.WriteString(strconv.FormatInt(id, 10))
+	q.WriteString("), token_encrypted = pgsodium.crypto_aead_det_encrypt(token::text, '', ")
+	q.WriteString(strconv.FormatInt(id, 10))
+	q.WriteString(") WHERE email_encrypted IS NULL")
+	return q.String()
 }

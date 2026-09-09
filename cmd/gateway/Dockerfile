@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ========== Web builder stage ==========
-FROM node@sha256:ad6400dee476b06e82d0ee3a088e2d7555f6e6569c346e61d69e14d0f19e8c2b AS web-builder
+FROM node:26-alpine AS web-builder
 WORKDIR /app/web
 RUN npm install --ignore-scripts -g npm@12.0.2 && npm --version
 COPY web/package.json web/package-lock.json* ./
@@ -9,7 +9,7 @@ COPY web/ .
 RUN npm run build
 
 # ========== Go builder stage ==========
-FROM golang@sha256:1b0e4d34c19d4749a3b979149e8044917b4b0e57ee4e5c59901fd8b2356a0b7f AS builder
+FROM golang:1.26-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 RUN apk add --no-cache ca-certificates=20260611-r0 git=2.54.0-r0
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 ./cmd/gateway
 
 # ========== Runtime stage ==========
-FROM alpine@sha256:24aa3c2e3b6f4425d2b3c1e3289d2d8f3f3b2e1d5c6a7b8c9d0e1f2a3b4c5d6e
+FROM alpine:3.24
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates curl tzdata && \

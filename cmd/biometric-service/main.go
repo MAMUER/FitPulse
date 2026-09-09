@@ -34,7 +34,7 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/pgx"
-	_ "github.com/MAMUER/project/internal/repository/postgres"
+	_ "github.com/MAMUER/project/internal/repository/postgres" // registers PostgreSQL driver
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/MAMUER/project/internal/webhook"

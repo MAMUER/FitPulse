@@ -1,4 +1,4 @@
-FROM alpine@sha256:24aa3c2e3b6f4425d2b3c1e3289d2d8f3f3b2e1d5c6a7b8c9d0e1f2a3b4c5d6e
+FROM alpine:3.24
 
 ARG KUBECTL_VERSION=v1.36.0
 

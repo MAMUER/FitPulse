@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang@sha256:1b0e4d34c19d4749a3b979149e8044917b4b0e57ee4e5c59901fd8b2356a0b7f AS builder
+FROM golang:1.26-alpine AS builder
 
 ENV GOPROXY=https://proxy.golang.org,direct
 
@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 	-o /app/bin/classifier \
 	./cmd/classifier
 
-FROM alpine@sha256:24aa3c2e3b6f4425d2b3c1e3289d2d8f3f3b2e1d5c6a7b8c9d0e1f2a3b4c5d6e
+FROM alpine:3.24
 
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
