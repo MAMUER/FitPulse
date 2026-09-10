@@ -35,6 +35,7 @@ import (
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/resilience"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
 )
@@ -384,7 +385,10 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 }
 
 func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
-	opts := []grpc.DialOption{grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20))}
+	opts := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
+		grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(log)),
+	}
 	userConn, err := grpctls.NewClient(userServiceAddr, opts...)
 	if err != nil {
 		log.Fatal("Failed to connect to user service", zap.Error(err))
@@ -750,6 +754,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(g.log)))
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()))
 	conn, err := grpctls.NewClient(g.biometricAddr, dialOpts...)
 	if err != nil {
@@ -775,6 +780,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true)))
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(g.log)))
 	conn, err := grpctls.NewClient(g.trainingAddr, dialOpts...)
 	if err != nil {
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))

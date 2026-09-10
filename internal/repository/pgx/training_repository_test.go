@@ -209,7 +209,7 @@ func TestTrainingRepositoryPGX_ListPlans_Success(t *testing.T) {
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 		assert.Contains(t, query, "FROM training_plans")
 		return newMockRows([][]interface{}{
-			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planDataJSON, now, now},
+			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planDataJSON, now, now, 1},
 		}, func(dest ...interface{}) error {
 			if len(dest) >= 8 {
 				if s, ok := dest[0].(*string); ok {
@@ -236,17 +236,12 @@ func TestTrainingRepositoryPGX_ListPlans_Success(t *testing.T) {
 				if t, ok := dest[7].(*time.Time); ok {
 					*t = now
 				}
+				if t, ok := dest[8].(*int); ok {
+					*t = 1
+				}
 			}
 			return nil
 		}), nil
-	}
-
-	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int)
-			*ptr = 1
-			return nil
-		}}
 	}
 
 	result, total, err := repo.ListPlans(ctx, "user-1", 1, 10)
@@ -261,17 +256,9 @@ func TestTrainingRepositoryPGX_ListPlans_Empty(t *testing.T) {
 	ctx := context.Background()
 
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
-		return newMockRows([][]interface{}{}, func(dest ...interface{}) error {
-			return nil
-		}), nil
-	}
-
-	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int)
-			*ptr = 0
-			return nil
-		}}
+	return newMockRows([][]interface{}{}, func(dest ...interface{}) error {
+		return nil
+	}), nil
 	}
 
 	result, total, err := repo.ListPlans(ctx, "user-1", 1, 10)
@@ -381,15 +368,12 @@ func TestTrainingRepositoryPGX_ListPlans_CountError(t *testing.T) {
 				if t, ok := dest[7].(*time.Time); ok {
 					*t = time.Now()
 				}
+				if len(dest) > 8 {
+					return assert.AnError
+				}
 			}
 			return nil
 		}), nil
-	}
-
-	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			return assert.AnError
-		}}
 	}
 
 	result, total, err := repo.ListPlans(ctx, "user-1", 1, 10)

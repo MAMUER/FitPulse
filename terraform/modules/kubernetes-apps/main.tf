@@ -19,6 +19,27 @@ resource "kubernetes_namespace" "cert_manager" {
   }
 }
 
+resource "helm_release" "external_secrets" {
+  name       = "external-secrets"
+  repository = "https://charts.external-secrets.io"
+  chart      = "external-secrets"
+  version    = "0.10.5"
+  namespace  = "external-secrets"
+
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      serviceAccount = {
+        create = true
+        name   = "external-secrets-sa"
+      }
+    })
+  ]
+
+  depends_on = [helm_release.ingress_nginx]
+}
+
 resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
@@ -86,26 +107,27 @@ resource "helm_release" "ingress_nginx" {
   ]
 }
 
-resource "kubernetes_secret" "app_secrets" {
-  metadata {
-    name      = "app-secrets"
-    namespace = "fitness-platform-production"
-  }
-
-  data = {
-    JWT_PRIVATE_KEY_PEM        = var.jwt_private_key_pem
-    JWT_PUBLIC_KEY_PEM         = var.jwt_public_key_pem
-    RABBITMQ_URL               = var.rabbitmq_url
-    REDIS_PASSWORD             = var.redis_password
-    POSTGRES_PASSWORD          = var.postgres_password
-    GOOGLE_CLIENT_ID           = var.google_client_id
-    GOOGLE_CLIENT_SECRET       = var.google_client_secret
-    SMTP_PASSWORD              = var.smtp_password
-    TOTP_ENCRYPTION_KEY        = var.totp_encryption_key
-  }
-
-  type = "Opaque"
-}
+# Managed by External Secrets Operator (ESO) via configs/k8s/base/external-secrets/app-secrets.yaml
+# resource "kubernetes_secret" "app_secrets" {
+#   metadata {
+#     name      = "app-secrets"
+#     namespace = "fitness-platform-production"
+#   }
+#
+#   data = {
+#     JWT_PRIVATE_KEY_PEM        = var.jwt_private_key_pem
+#     JWT_PUBLIC_KEY_PEM         = var.jwt_public_key_pem
+#     RABBITMQ_URL               = var.rabbitmq_url
+#     REDIS_PASSWORD             = var.redis_password
+#     POSTGRES_PASSWORD          = var.postgres_password
+#     GOOGLE_CLIENT_ID           = var.google_client_id
+#     GOOGLE_CLIENT_SECRET       = var.google_client_secret
+#     SMTP_PASSWORD              = var.smtp_password
+#     TOTP_ENCRYPTION_KEY        = var.totp_encryption_key
+#   }
+#
+#   type = "Opaque"
+# }
 
 variable "grafana_admin_password" {
   description = "Grafana admin password"

@@ -20,7 +20,7 @@ EOF
 	echo "✅ gRPC mTLS certificates generated"
 
 	echo "Creating app-secrets..."
-	RABBITMQ_URL="amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/"
+	RABBITMQ_URL="amqps://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5671/"
 	kubectl create secret generic app-secrets -n fitness-platform-production \
 		--from-literal=POSTGRES_USER=postgres \
 		--from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
