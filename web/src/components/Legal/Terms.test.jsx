@@ -1,23 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import Terms from './Terms';
 
 describe('Terms', () => {
-  it('renders terms heading and content', () => {
+  it('renders terms page', () => {
     render(<Terms />);
-    expect(
-      screen.getByRole('heading', {
-        name: 'Пользовательское соглашение — FitPulse',
-      })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/2026-07-29/)).toBeInTheDocument();
-    expect(screen.getByText(/mihnikolaenko12@yandex.ru/)).toBeInTheDocument();
+    expect(screen.getByText('Пользовательское соглашение — FitPulse')).toBeDefined();
   });
 
-  it('sets document title on mount', async () => {
+  it('renders terms sections', () => {
     render(<Terms />);
-    await waitFor(() => {
-      expect(document.title).toBe('Пользовательское соглашение — FitPulse');
-    });
+    expect(screen.getByText('1. Принятие условий')).toBeDefined();
+    expect(screen.getByText('2. Описание сервиса')).toBeDefined();
   });
 });

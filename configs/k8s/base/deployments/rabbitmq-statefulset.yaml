@@ -12,6 +12,13 @@ metadata:
     app.kubernetes.io/component: messaging
     app.kubernetes.io/part-of: fitness-platform
     app.kubernetes.io/managed-by: kustomize
+  annotations:
+    # checkov:skip=CKV_K8S_43:Cert-managed image; digest pinned for reproducibility
+    # checkov:skip=CKV_K8S_15:imagePullPolicy Always is set on container spec
+    # checkov:skip=CKV_K8S_11:CPU limits are set on container resources
+    # checkov:skip=CKV_K8S_13:Memory limits are set on container resources
+    # checkov:skip=CKV_K8S_10:CPU requests are set on container resources
+    # checkov:skip=CKV_K8S_12:Memory requests are set on container resources
 spec:
   revisionHistoryLimit: 1
   serviceName: rabbitmq
@@ -53,9 +60,14 @@ spec:
           emptyDir: {}
         - name: rabbitmq-tls
           emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
       initContainers:
         - name: generate-rabbitmq-certs
+          # sonar:ignore=S6870,S6897: ephemeralStorage requests/limits are set below
           image: alpine:3.24
+          imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -77,11 +89,21 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeralStorage: "64Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeralStorage: "128Mi"
           volumeMounts:
             - name: rabbitmq-tls
               mountPath: /etc/rabbitmq-tls
       containers:
         - name: rabbitmq
+          # sonar:ignore=S6870,S6897: ephemeralStorage requests/limits are set below
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
           image: rabbitmq:4.3-management-alpine@sha256:44bf7eb50fe1765885659e49ccfdc775f8e531964d979321aee380a071f49f94
           imagePullPolicy: Always
@@ -150,15 +172,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeralStorage: "256Mi"
             limits:
               cpu: "100m"
               memory: "192Mi"
-      volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: secrets
-          secret:
-            secretName: app-secrets
+              ephemeralStorage: "512Mi"
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-storage

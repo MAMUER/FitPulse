@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
@@ -16,10 +15,10 @@ import (
 
 // BiometricRepositoryPGX implements biometric operations using pgxpool.Pool.
 type BiometricRepositoryPGX struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewBiometricRepositoryPGX(db *pgxpool.Pool) *BiometricRepositoryPGX {
+func NewBiometricRepositoryPGX(db DB) *BiometricRepositoryPGX {
 	return &BiometricRepositoryPGX{db: db}
 }
 

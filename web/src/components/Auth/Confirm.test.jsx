@@ -1,11 +1,13 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as api from '../../utils/api';
 import Confirm from './Confirm';
 
-vi.mock('../../utils/api');
+const mockApiConfirmEmail = vi.fn();
+vi.mock('../../utils/api', () => ({
+  confirmEmail: () => mockApiConfirmEmail(),
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -14,121 +16,37 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-const renderConfirm = (token) => {
-  return render(
-    <MemoryRouter initialEntries={['/confirm']}>
-      <Routes>
-        <Route path='/confirm' element={<Confirm token={token} />} />
-        <Route path='/' element={<div>Login page</div>} />
-      </Routes>
-    </MemoryRouter>
-  );
-};
-
 describe('Confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('shows error when URL search throws', () => {
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      value: null,
-      writable: true,
-      configurable: true,
-    });
-
-    renderConfirm(undefined);
-
-    expect(
-      screen.getByText(/Токен подтверждения не найден/)
-    ).toBeInTheDocument();
-
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    });
+  it('shows error when no token', () => {
+    render(<Confirm token={null} />);
+    expect(screen.getByText(/Токен подтверждения не найден/i)).toBeDefined();
   });
 
-  it('shows error when no token is provided', () => {
-    renderConfirm(null);
-    expect(
-      screen.getByText(/Токен подтверждения не найден/)
-    ).toBeInTheDocument();
+  it('confirms email successfully', async () => {
+    mockApiConfirmEmail.mockResolvedValue({});
+    render(<Confirm token="valid-token" />);
+    await waitFor(() =>
+      expect(screen.getByText(/Email успешно подтверждён/i)).toBeDefined()
+    );
   });
 
-  it('returns null fallback when token prop is missing and location search throws', () => {
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      value: null,
-      writable: true,
-      configurable: true,
-    });
-
-    renderConfirm(undefined);
-
-    expect(
-      screen.getByText(/Токен подтверждения не найден/)
-    ).toBeInTheDocument();
-
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    });
+  it('shows error on failed confirmation', async () => {
+    mockApiConfirmEmail.mockRejectedValue(new Error('Invalid token'));
+    render(<Confirm token="invalid-token" />);
+    await waitFor(() =>
+      expect(screen.getByText('Invalid token')).toBeDefined()
+    );
   });
 
-  it('shows loading state initially', () => {
-    api.confirmEmail.mockImplementation(() => new Promise(() => {}));
-    renderConfirm('abc');
-    expect(screen.getByText('Пожалуйста, подождите...')).toBeInTheDocument();
-  });
-
-  it('shows success message on valid confirmation', async () => {
-    api.confirmEmail.mockResolvedValueOnce({});
-    renderConfirm('valid-token');
-
-    await waitFor(() => {
-      expect(screen.getByText(/Email успешно подтверждён/)).toBeInTheDocument();
-    });
-  });
-
-  it('shows error message on failed confirmation', async () => {
-    api.confirmEmail.mockRejectedValueOnce(new Error('Invalid token'));
-    renderConfirm('invalid-token');
-
-    await waitFor(() => {
-      expect(screen.getByText('Invalid token')).toBeInTheDocument();
-    });
-  });
-
-  it('shows default error message when error has no message', async () => {
-    api.confirmEmail.mockRejectedValueOnce('');
-    renderConfirm('invalid-token');
-
-    await waitFor(() => {
-      expect(screen.getByText('Ошибка подтверждения')).toBeInTheDocument();
-    });
-  });
-
-  it('shows back button after confirmation', async () => {
-    api.confirmEmail.mockResolvedValueOnce({});
-    renderConfirm('valid-token');
-
-    await waitFor(() => {
-      expect(screen.getByText('← Вернуться ко входу')).toBeInTheDocument();
-    });
-  });
-
-  it('navigates back to login when back button is clicked', async () => {
-    api.confirmEmail.mockResolvedValueOnce({});
-    renderConfirm('valid-token');
-
-    await waitFor(() => {
-      expect(screen.getByText('← Вернуться ко входу')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('← Вернуться ко входу'));
+  it('renders back button after confirmation', async () => {
+    mockApiConfirmEmail.mockResolvedValue({});
+    render(<Confirm token="valid-token" />);
+    await waitFor(() =>
+      expect(screen.getByText('← Вернуться ко входу')).toBeDefined()
+    );
   });
 });

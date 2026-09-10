@@ -4,6 +4,7 @@ import { apiRequest, getAuthToken, setAuthToken } from './client';
 describe('client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -11,36 +12,27 @@ describe('client', () => {
   });
 
   it('gets token from localStorage', () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce('token123');
+    localStorage.setItem('authToken', 'token123');
     expect(getAuthToken()).toBe('token123');
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('authToken');
   });
 
   it('returns null when no token', () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce(null);
     expect(getAuthToken()).toBeNull();
   });
 
   it('sets token in localStorage', () => {
-    const localStorageMock = window.localStorage;
     setAuthToken('token123');
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      'authToken',
-      'token123'
-    );
+    expect(localStorage.getItem('authToken')).toBe('token123');
   });
 
   it('removes token when setAuthToken is called with null', () => {
-    const localStorageMock = window.localStorage;
+    localStorage.setItem('authToken', 'token123');
     setAuthToken(null);
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith('authToken');
+    expect(localStorage.getItem('authToken')).toBeNull();
   });
 
   it('makes api request with token', async () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce('token123');
+    localStorage.setItem('authToken', 'token123');
 
     const mockResponse = {
       ok: true,
@@ -62,9 +54,6 @@ describe('client', () => {
   });
 
   it('makes api request without token', async () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce(null);
-
     const mockResponse = {
       ok: true,
       status: 200,
@@ -84,8 +73,7 @@ describe('client', () => {
   });
 
   it('handles 401 response', async () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce('token123');
+    localStorage.setItem('authToken', 'token123');
 
     const mockResponse = {
       ok: false,
@@ -97,7 +85,7 @@ describe('client', () => {
     await expect(apiRequest('/test')).rejects.toThrow(
       'Сессия истекла. Войдите заново'
     );
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith('authToken');
+    expect(localStorage.getItem('authToken')).toBeNull();
   });
 
   it('handles 429 response with Retry-After', async () => {
@@ -163,8 +151,7 @@ describe('client', () => {
   });
 
   it('handles request timeout', async () => {
-    const localStorageMock = window.localStorage;
-    localStorageMock.getItem.mockReturnValueOnce('token123');
+    localStorage.setItem('authToken', 'token123');
 
     const abortError = new Error('The user aborted a request.');
     abortError.name = 'AbortError';

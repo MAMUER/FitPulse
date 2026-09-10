@@ -142,11 +142,11 @@ func (r *userMenstrualRepository) DeleteCycle(ctx context.Context, id, userID st
 }
 
 func (r *userMenstrualRepository) ListSymptoms(ctx context.Context, cycleID string) ([]string, error) {
-	return r.listStrings(ctx, `SELECT symptom FROM user_menstrual_symptoms WHERE cycle_id = $1`, cycleID, errFailedToListMenstrualSymptoms)
+	return r.listStrings(ctx, `SELECT symptom FROM user_menstrual_symptoms WHERE cycle_id = $1`, errFailedToListMenstrualSymptoms, cycleID)
 }
 
 func (r *userMenstrualRepository) ListMoods(ctx context.Context, cycleID string) ([]string, error) {
-	return r.listStrings(ctx, `SELECT mood FROM user_menstrual_moods WHERE cycle_id = $1`, cycleID, errFailedToListMenstrualMoods)
+	return r.listStrings(ctx, `SELECT mood FROM user_menstrual_moods WHERE cycle_id = $1`, errFailedToListMenstrualMoods, cycleID)
 }
 
 func (r *userMenstrualRepository) listStrings(ctx context.Context, query, errMsg string, args ...interface{}) ([]string, error) {

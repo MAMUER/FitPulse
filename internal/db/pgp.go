@@ -38,9 +38,11 @@ func isHex(s string) bool {
 // EncryptionKey returns the database PII encryption key.
 // Returns nil if DB_ENCRYPTION_KEY is not configured.
 func EncryptionKey() []byte {
+	if testEncryptionKey != nil {
+		return testEncryptionKey
+	}
 	return encryptionKey
 }
-
 // EmailHash returns a lowercase SHA256 hex representation for lookup.
 func EmailHash(email string) string {
 	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(email))))

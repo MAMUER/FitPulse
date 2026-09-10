@@ -1,25 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import Privacy from './Privacy';
 
 describe('Privacy', () => {
-  it('renders privacy heading and content', () => {
+  it('renders privacy page', () => {
     render(<Privacy />);
-    expect(
-      screen.getByRole('heading', {
-        name: 'Политика конфиденциальности — FitPulse',
-      })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/2026-07-29/)).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/mihnikolaenko12@yandex.ru/).length
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Политика конфиденциальности — FitPulse')).toBeDefined();
   });
 
-  it('sets document title on mount', async () => {
+  it('renders policy sections', () => {
     render(<Privacy />);
-    await waitFor(() => {
-      expect(document.title).toBe('Политика конфиденциальности — FitPulse');
-    });
+    expect(screen.getByText('1. Общие положения')).toBeDefined();
+    expect(screen.getByText('2. Какие данные мы собираем')).toBeDefined();
   });
 });

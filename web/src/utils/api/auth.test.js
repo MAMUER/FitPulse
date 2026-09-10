@@ -11,6 +11,11 @@ describe('auth api', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('logs in and sets token', async () => {
@@ -20,16 +25,16 @@ describe('auth api', () => {
 
     const result = await api.login('test@test.com', 'password123');
     expect(result).toEqual({ access_token: 'token123', user: { id: 1 } });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'test@test.com', password: 'password123' }),
-      signal: expect.any(AbortSignal),
-    });
-    expect(window.localStorage.setItem).toHaveBeenCalledWith(
-      'authToken',
-      'token123'
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/login',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'test@test.com', password: 'password123' }),
+      })
     );
+    expect(localStorage.getItem('authToken')).toBe('token123');
   });
 
   it('logs in without setting token when access_token is missing', async () => {
@@ -39,10 +44,8 @@ describe('auth api', () => {
 
     const result = await api.login('test@test.com', 'password123');
     expect(result).toEqual({ user: { id: 1 } });
-    expect(window.localStorage.setItem).not.toHaveBeenCalledWith(
-      'authToken',
-      expect.any(String)
-    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('authToken')).toBeNull();
   });
 
   it('registers user', async () => {
@@ -54,17 +57,20 @@ describe('auth api', () => {
       'Test User'
     );
     expect(result).toEqual({ id: 1 });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'test@test.com',
-        password: 'password123',
-        full_name: 'Test User',
-        role: 'client',
-      }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/register',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'test@test.com',
+          password: 'password123',
+          full_name: 'Test User',
+          role: 'client',
+        }),
+      })
+    );
   });
 
   it('registers with invite', async () => {
@@ -77,17 +83,20 @@ describe('auth api', () => {
       'password123'
     );
     expect(result).toEqual({ id: 1 });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/register/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        invite_code: 'CODE123',
-        full_name: 'Test User',
-        email: 'test@test.com',
-        password: 'password123',
-      }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/register/invite',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invite_code: 'CODE123',
+          full_name: 'Test User',
+          email: 'test@test.com',
+          password: 'password123',
+        }),
+      })
+    );
   });
 
   it('validates invite', async () => {
@@ -97,12 +106,15 @@ describe('auth api', () => {
 
     const result = await api.validateInvite('CODE123');
     expect(result).toEqual({ valid: true });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/invite/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: 'CODE123' }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/invite/validate',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: 'CODE123' }),
+      })
+    );
   });
 
   it('handles logout successfully', async () => {
@@ -111,12 +123,15 @@ describe('auth api', () => {
     );
 
     await api.logout();
-    expect(fetch).toHaveBeenCalledWith('/api/v1/logout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: expect.any(AbortSignal),
-    });
-    expect(window.localStorage.removeItem).toHaveBeenCalledWith('authToken');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/logout',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    expect(localStorage.getItem('authToken')).toBeNull();
   });
 
   it('clears token on logout error', async () => {
@@ -128,7 +143,7 @@ describe('auth api', () => {
       'Logout request failed, clearing token anyway:',
       expect.any(Error)
     );
-    expect(window.localStorage.removeItem).toHaveBeenCalledWith('authToken');
+    expect(localStorage.getItem('authToken')).toBeNull();
     consoleSpy.mockRestore();
   });
 
@@ -139,12 +154,15 @@ describe('auth api', () => {
 
     const result = await api.confirmEmail('token123');
     expect(result).toEqual({ success: true });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/confirm-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: 'token123' }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/confirm-email',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: 'token123' }),
+      })
+    );
   });
 
   it('gets 2fa status', async () => {
@@ -154,10 +172,13 @@ describe('auth api', () => {
 
     const result = await api.get2FAStatus();
     expect(result).toEqual({ enabled: true });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/status', {
-      headers: { 'Content-Type': 'application/json' },
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/2fa/status',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
   });
 
   it('sets up 2fa', async () => {
@@ -175,11 +196,14 @@ describe('auth api', () => {
       secret: 'secret123',
       backup_codes: [],
     });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/2fa/setup',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
   });
 
   it('confirms 2fa', async () => {
@@ -189,16 +213,19 @@ describe('auth api', () => {
 
     const result = await api.confirm2FA('123456', 'secret123', ['code1']);
     expect(result).toEqual({ success: true });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        passcode: '123456',
-        temp_secret: 'secret123',
-        backup_codes: ['code1'],
-      }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/2fa/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passcode: '123456',
+          temp_secret: 'secret123',
+          backup_codes: ['code1'],
+        }),
+      })
+    );
   });
 
   it('verifies 2fa', async () => {
@@ -208,16 +235,19 @@ describe('auth api', () => {
 
     const result = await api.verify2FA('temp123', '123456', false);
     expect(result).toEqual({ access_token: 'real' });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        temp_token: 'temp123',
-        passcode: '123456',
-        is_backup_code: false,
-      }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/2fa/verify',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temp_token: 'temp123',
+          passcode: '123456',
+          is_backup_code: false,
+        }),
+      })
+    );
   });
 
   it('disables 2fa', async () => {
@@ -227,11 +257,14 @@ describe('auth api', () => {
 
     const result = await api.disable2FA('123456');
     expect(result).toEqual({ success: true });
-    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/2fa/disable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode: '123456' }),
-      signal: expect.any(AbortSignal),
-    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/auth/2fa/disable',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: '123456' }),
+      })
+    );
   });
 });

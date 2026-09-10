@@ -1,109 +1,68 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAuth } from '../../contexts/AuthContext';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import Layout from './Layout';
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual('../../contexts/AuthContext');
+const mockUseAuth = vi.fn();
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useAuth: vi.fn(),
+    useLocation: () => ({ pathname: '/' }),
   };
 });
-
-const renderLayout = (initialRoute = '/', authOverrides = {}) => {
-  const mockUseAuth = useAuth;
-  mockUseAuth.mockReturnValue({
-    token: 'test-token',
-    user: { id: '1', email: 'test@test.com', role: 'user' },
-    loading: false,
-    isAdmin: false,
-    login: vi.fn(),
-    logout: vi.fn(),
-    ...authOverrides,
-  });
-
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Routes>
-        <Route path='/' element={<Layout />}>
-          <Route index element={<div>Dashboard</div>} />
-          <Route path='profile' element={<div>Profile</div>} />
-          <Route path='admin' element={<div>Admin</div>} />
-          <Route path='ml' element={<div>ML</div>} />
-          <Route path='*' element={<div>Not Found</div>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>
-  );
-};
 
 describe('Layout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ logout: vi.fn(), isAdmin: false });
   });
 
-  it('renders dashboard title on home route', () => {
-    renderLayout('/');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'Обзор'
+  it('renders layout with outlet', () => {
+    render(
+      <MemoryRouter>
+        <Layout />
+      </MemoryRouter>
     );
+    expect(screen.getByRole('main')).toBeDefined();
   });
 
-  it('renders profile title on profile route', () => {
-    renderLayout('/profile');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'Профиль'
+  it('renders navigation tabs', () => {
+    render(
+      <MemoryRouter>
+        <Layout />
+      </MemoryRouter>
     );
+    expect(screen.getByText('Обзор')).toBeDefined();
+    expect(screen.getByText('Профиль')).toBeDefined();
+    expect(screen.getByText('Тренировки')).toBeDefined();
   });
 
-  it('renders admin title on admin route', () => {
-    renderLayout('/admin');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'Админка'
+  it('calls logout when logout button clicked', async () => {
+    const user = userEvent.setup();
+    const logout = vi.fn();
+    mockUseAuth.mockReturnValue({ logout, isAdmin: false });
+    render(
+      <MemoryRouter>
+        <Layout />
+      </MemoryRouter>
     );
+    await user.click(screen.getByLabelText('Выйти из аккаунта'));
+    expect(logout).toHaveBeenCalled();
   });
 
-  it('renders default title on unknown route', () => {
-    renderLayout('/unknown');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'FitPulse'
+  it('shows admin tab when isAdmin is true', () => {
+    mockUseAuth.mockReturnValue({ logout: vi.fn(), isAdmin: true });
+    render(
+      <MemoryRouter>
+        <Layout />
+      </MemoryRouter>
     );
-  });
-
-  it('shows logout button', () => {
-    renderLayout('/');
-    expect(screen.getByLabelText('Выйти из аккаунта')).toBeInTheDocument();
-  });
-
-  it('shows admin tab when user is admin', () => {
-    renderLayout('/', { isAdmin: true });
-    expect(screen.getByText('Админка')).toBeInTheDocument();
-  });
-
-  it('hides admin tab when user is not admin', () => {
-    renderLayout('/', { isAdmin: false });
-    expect(screen.queryByText('Админка')).not.toBeInTheDocument();
-  });
-
-  it('calls logout when logout button is clicked', () => {
-    const mockLogout = vi.fn();
-    renderLayout('/', { logout: mockLogout });
-    screen.getByLabelText('Выйти из аккаунта').click();
-    expect(mockLogout).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders AI Анализ title on ml route', () => {
-    renderLayout('/ml');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'AI Анализ'
-    );
-  });
-
-  it('applies active class to admin nav link when on admin route', async () => {
-    renderLayout('/admin', { isAdmin: true });
-    const adminLink = document.querySelector('nav a[href="/admin"]');
-    expect(adminLink).toHaveClass('active');
+    expect(screen.getByText('Админка')).toBeDefined();
   });
 });

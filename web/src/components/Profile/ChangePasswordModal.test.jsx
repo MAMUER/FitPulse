@@ -1,0 +1,42 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import ChangePasswordModal from './ChangePasswordModal';
+
+const mockChangePassword = vi.fn();
+vi.mock('../../utils/api', () => ({
+  changePassword: () => mockChangePassword(),
+}));
+
+describe('ChangePasswordModal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders change password form', () => {
+    render(<ChangePasswordModal onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Текущий пароль')).toBeDefined();
+    expect(screen.getByLabelText('Новый пароль')).toBeDefined();
+    expect(screen.getByLabelText('Подтверждение пароля')).toBeDefined();
+  });
+
+  it('shows error when fields are empty', async () => {
+    render(<ChangePasswordModal onClose={vi.fn()} />);
+    const form = document.querySelector('form');
+    fireEvent.submit(form);
+    expect(screen.getByText(/Заполните все поля/i)).toBeDefined();
+  });
+
+  it('calls onClose on successful change', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    mockChangePassword.mockResolvedValue({});
+    render(<ChangePasswordModal onClose={onClose} />);
+    await user.type(screen.getByLabelText('Текущий пароль'), 'oldpass');
+    await user.type(screen.getByLabelText('Новый пароль'), 'newpass123');
+    await user.type(screen.getByLabelText('Подтверждение пароля'), 'newpass123');
+    const form = document.querySelector('form');
+    fireEvent.submit(form);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});

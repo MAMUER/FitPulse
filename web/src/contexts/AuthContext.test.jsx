@@ -159,6 +159,12 @@ describe('AuthContext', () => {
 
   it('logout clears state', async () => {
     api.logout.mockResolvedValueOnce(undefined);
+    api.getProfile.mockResolvedValueOnce({
+      id: 'user-1',
+      email: 'test@test.com',
+      full_name: 'Test User',
+      role: 'user',
+    });
     localStorage.setItem('authToken', 'existing-token');
 
     const TestComponent = () => {
@@ -166,7 +172,7 @@ describe('AuthContext', () => {
       return (
         <div>
           <span data-testid='token'>{auth.token ?? 'null'}</span>
-          <span data-testid='user'>{auth.user ?? 'null'}</span>
+          <span data-testid='user'>{auth.user?.full_name ?? 'null'}</span>
           <span data-testid='isAdmin'>{String(auth.isAdmin)}</span>
           <button type='button' onClick={() => auth.logout()}>
             Logout

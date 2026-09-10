@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
@@ -36,10 +35,10 @@ func scanSlice[T any](rows pgx.Rows, scanFunc func(*T) error) ([]*T, error) {
 
 // DeviceRepositoryPGX implements device operations using pgxpool.Pool.
 type DeviceRepositoryPGX struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewDeviceRepositoryPGX(db *pgxpool.Pool) *DeviceRepositoryPGX {
+func NewDeviceRepositoryPGX(db DB) *DeviceRepositoryPGX {
 	return &DeviceRepositoryPGX{db: db}
 }
 

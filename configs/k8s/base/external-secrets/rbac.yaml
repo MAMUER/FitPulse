@@ -22,6 +22,7 @@ metadata:
     verbs: ["get", "list", "watch", "create", "update", "patch"]
 
 ---
+# checkov:skip=CKV_K8S_20:External Secrets Operator requires namespace-scoped secret write access
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -35,8 +36,16 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch"]
 
 ---
+# checkov:skip=CKV_K8S_20:External Secrets Operator needs namespace-scoped secret write access
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
+metadata:
+  name: external-secrets-writer-binding
+  namespace: fitness-platform-production
+  labels:
+    app: external-secrets
+  annotations:
+    checkov:skip: CKV_K8S_20: ESO requires write access to secrets in target namespace
 metadata:
   name: external-secrets-writer-binding
   namespace: fitness-platform-production

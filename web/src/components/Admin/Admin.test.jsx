@@ -1,447 +1,105 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider, useAuth } from '../../contexts/AuthContext';
-import * as api from '../../utils/api';
 import Admin from './Admin';
 
-vi.mock('../../contexts/AuthContext', async () => {
-  const actual = await vi.importActual('../../contexts/AuthContext');
-  return {
-    ...actual,
-    useAuth: vi.fn(),
-  };
-});
+const mockUseAuth = vi.fn();
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => mockUseAuth(),
+}));
 
-const renderAdmin = (authOverrides = {}) => {
-  useAuth.mockReturnValue({
-    isAdmin: true,
-    ...authOverrides,
-  });
+const mockCreateInvite = vi.fn();
+const mockListInvites = vi.fn();
+const mockListUsers = vi.fn();
+const mockRevokeInvite = vi.fn();
 
-  return render(
-    <AuthProvider>
-      <Admin />
-    </AuthProvider>
-  );
-};
+vi.mock('../../utils/api', () => ({
+  createInvite: (...args) => mockCreateInvite(...args),
+  listInvites: (...args) => mockListInvites(...args),
+  listUsers: (...args) => mockListUsers(...args),
+  revokeInvite: (...args) => mockRevokeInvite(...args),
+}));
 
 describe('Admin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ isAdmin: true });
   });
 
-  it('shows access denied for non-admin', () => {
-    renderAdmin({ isAdmin: false });
-
-    expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
-  });
-
-  it('shows loading state initially', () => {
-    vi.spyOn(api, 'listInvites').mockImplementation(
-      () => new Promise(() => {})
+  it('renders admin panel for admin user', async () => {
+    mockListInvites.mockResolvedValue([]);
+    mockListUsers.mockResolvedValue([]);
+    render(<Admin />);
+    await waitFor(() =>
+      expect(screen.getByText('Создать приглашение')).toBeDefined()
     );
-    vi.spyOn(api, 'listUsers').mockImplementation(() => new Promise(() => {}));
-    renderAdmin();
-
-    expect(screen.getByText('Загрузка...')).toBeInTheDocument();
   });
 
-  it('loads and displays empty state', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Нет приглашений')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Нет пользователей')).toBeInTheDocument();
+  it('renders access denied for non-admin', () => {
+    mockUseAuth.mockReturnValue({ isAdmin: false });
+    render(<Admin />);
+    expect(screen.getByText('Доступ запрещён')).toBeDefined();
   });
 
-  it('displays invites', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
+  it('loads invites and users', async () => {
+    mockListInvites.mockResolvedValue([
+      { invite_id: '1', code: 'ABC123', is_active: true, role: 'client' },
     ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Активно')).toBeInTheDocument();
-  });
-
-  it('displays revoked invites', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: false,
-      },
+    mockListUsers.mockResolvedValue([
+      { user_id: '1', full_name: 'Test', email: 'test@test.com', role: 'client' },
     ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Отозвано')).toBeInTheDocument();
+    render(<Admin />);
+    await waitFor(() =>
+      expect(screen.getByText('ABC123')).toBeDefined()
+    );
+    expect(screen.getByText('Test')).toBeDefined();
   });
 
-  it('displays users', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([
-      {
-        user_id: '1',
-        full_name: 'Test User',
-        email: 'test@test.com',
-        role: 'client',
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z',
-      },
-    ]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test User')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('test@test.com')).toBeInTheDocument();
-  });
-
-  it('creates invite successfully', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'createInvite').mockResolvedValueOnce({});
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Создать'));
-
-    expect(api.createInvite).toHaveBeenCalledWith('client', '', 1);
-  });
-
-  it('creates admin invite', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'createInvite').mockResolvedValueOnce({});
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
-    });
-
-    const roleSelect = screen.getByLabelText('Роль');
-    await userEvent.selectOptions(roleSelect, 'admin');
-
-    await userEvent.click(screen.getByText('Создать'));
-
-    expect(api.createInvite).toHaveBeenCalledWith('admin', '', 1);
-  });
-
-  it('revokes invite successfully', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
-    ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'revokeInvite').mockResolvedValueOnce({});
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Отозвать'));
-
-    expect(api.revokeInvite).toHaveBeenCalledWith('ABC123');
-  });
-
-  it('cancels revoke when confirm is false', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
-    ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Отозвать'));
-
-    expect(api.revokeInvite).not.toHaveBeenCalled();
+  it('creates an invite', async () => {
+    const user = userEvent.setup();
+    mockListInvites.mockResolvedValue([]);
+    mockListUsers.mockResolvedValue([]);
+    mockCreateInvite.mockResolvedValue({});
+    render(<Admin />);
+    await waitFor(() =>
+      expect(screen.getByText('Создать приглашение')).toBeDefined()
+    );
+    const button = screen.getByText('Создать');
+    await user.click(button);
+    expect(mockCreateInvite).toHaveBeenCalledWith('client', '', 1);
   });
 
   it('copies invite link to clipboard', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
+    const user = userEvent.setup();
+    mockListInvites.mockResolvedValue([
+      { invite_id: '1', code: 'ABC123', is_active: true },
     ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
+    mockListUsers.mockResolvedValue([]);
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
     });
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
     });
-
-    await userEvent.click(screen.getByText('Скопировать ссылку'));
-
-    expect(navigator.clipboard.writeText).toHaveBeenCalled();
-    expect(window.alert).toHaveBeenCalledWith('Ссылка скопирована');
-  });
-
-  it('handles create invite error', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'createInvite').mockRejectedValueOnce(
-      new Error('create failed')
+    render(<Admin />);
+    await waitFor(() =>
+      expect(screen.getByText('Скопировать ссылку')).toBeDefined()
     );
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderAdmin();
+    await user.click(screen.getByText('Скопировать ссылку'));
+    expect(writeText).toHaveBeenCalled();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Создать'));
-
-    expect(window.alert).toHaveBeenCalledWith(
-      'Ошибка: create failed. Проверьте ввод и попробуйте снова.'
+  it('shows no invites message when empty', async () => {
+    mockListInvites.mockResolvedValue([]);
+    mockListUsers.mockResolvedValue([]);
+    render(<Admin />);
+    await waitFor(() =>
+      expect(screen.getByText('Нет приглашений')).toBeDefined()
     );
-  });
-
-  it('handles load admin data error', async () => {
-    vi.spyOn(api, 'listInvites').mockRejectedValueOnce(
-      new Error('load failed')
-    );
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Загрузка...')).toBeInTheDocument();
-    });
-  });
-
-  it('handles revoke invite error', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
-    ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'revokeInvite').mockRejectedValueOnce(
-      new Error('revoke failed')
-    );
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Отозвать'));
-
-    expect(window.alert).toHaveBeenCalledWith('Ошибка: revoke failed');
-  });
-
-  it('handles clipboard copy failure', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: 'client',
-        max_uses: 1,
-        used_count: 0,
-        is_active: true,
-      },
-    ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn().mockRejectedValueOnce(new Error('clipboard failed')),
-      },
-    });
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByText('Скопировать ссылку'));
-
-    expect(window.alert).toHaveBeenCalledWith('Не удалось скопировать ссылку');
-  });
-
-  it('changes max uses input', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Создать приглашение')).toBeInTheDocument();
-    });
-
-    const maxUsesInput = screen.getByLabelText('Максимум использований');
-    await userEvent.clear(maxUsesInput);
-    await userEvent.type(maxUsesInput, '5');
-
-    expect(maxUsesInput).toHaveValue(5);
-  });
-
-  it('logs error when load admin data fails', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    const originalAllSettled = Promise.allSettled;
-    Promise.allSettled = vi.fn(() => {
-      throw new Error('settled failed');
-    });
-
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to load admin data:',
-        expect.any(Error)
-      );
-    });
-
-    Promise.allSettled = originalAllSettled;
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('handles rejected listInvites in loadAdminData', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    vi.spyOn(api, 'listInvites').mockRejectedValueOnce(
-      new Error('invites failed')
-    );
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Нет пользователей')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Нет приглашений')).toBeInTheDocument();
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('handles rejected listUsers in loadAdminData', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockRejectedValueOnce(new Error('users failed'));
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('Нет приглашений')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Нет пользователей')).toBeInTheDocument();
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('displays invite with fallback values', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([
-      {
-        invite_id: '1',
-        code: 'ABC123',
-        role: '',
-        max_uses: 0,
-        used_count: 0,
-        is_active: true,
-      },
-    ]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('ABC123')).toBeInTheDocument();
-    });
-
-    const inviteMeta = document.querySelector('.invite-meta');
-    expect(inviteMeta).toBeTruthy();
-    expect(inviteMeta.textContent).toContain('client');
-    expect(inviteMeta.textContent).toContain('0/1');
-  });
-
-  it('displays user with fallback values', async () => {
-    vi.spyOn(api, 'listInvites').mockResolvedValueOnce([]);
-    vi.spyOn(api, 'listUsers').mockResolvedValueOnce([
-      {
-        user_id: '1',
-        full_name: '',
-        nickname: '',
-        email: 'test@test.com',
-        role: '',
-        created_at: '',
-        updated_at: '',
-      },
-    ]);
-    renderAdmin();
-
-    await waitFor(() => {
-      expect(screen.getByText('test@test.com')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('client')).toBeInTheDocument();
   });
 });

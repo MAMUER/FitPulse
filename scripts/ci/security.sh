@@ -38,9 +38,18 @@ install_tools() {
 		echo "Gitleaks download failed (attempt $attempt), retrying..."
 		sleep $((attempt * 5))
 	done
-	sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
-	sudo chmod +x /usr/local/bin/gitleaks
-}
+ 	sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+ 	sudo chmod +x /usr/local/bin/gitleaks
+
+ 	echo "Installing cosign..."
+ 	for i in 1 2 3; do
+ 		if go install github.com/sigstore/cosign/v2/cmd/cosign@latest; then
+ 			break
+ 		fi
+ 		echo "cosign install attempt $i failed; retrying..."
+ 		sleep 5
+ 	done
+ }
 
 run_gosec() {
 	mkdir -p sarif-results

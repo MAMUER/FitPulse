@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
@@ -15,7 +14,7 @@ import (
 
 // TrainingRepositoryPGX implements training operations using pgxpool.Pool.
 type TrainingRepositoryPGX struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 func scanAchievements(rows pgx.Rows) ([]*entity.Achievement, error) {
@@ -24,7 +23,7 @@ func scanAchievements(rows pgx.Rows) ([]*entity.Achievement, error) {
 	})
 }
 
-func NewTrainingRepositoryPGX(db *pgxpool.Pool) *TrainingRepositoryPGX {
+func NewTrainingRepositoryPGX(db DB) *TrainingRepositoryPGX {
 	return &TrainingRepositoryPGX{db: db}
 }
 
