@@ -25,11 +25,10 @@ func (m *mockRow) Scan(dest ...interface{}) error {
 }
 
 type mockRows struct {
-	rows      [][]interface{}
-	idx       int
-	scanFunc  func(dest ...interface{}) error
-	err       error
-	closeErr  error
+	rows     [][]interface{}
+	idx      int
+	scanFunc func(dest ...interface{}) error
+	err      error
 }
 
 func newMockRows(rows [][]interface{}, scanFunc func(dest ...interface{}) error) *mockRows {
@@ -116,8 +115,8 @@ func (m *mockRows) Conn() *pgx.Conn {
 }
 
 type mockTx struct {
-	execFunc  func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
-	commitErr error
+	execFunc    func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	commitErr   error
 	rollbackErr error
 }
 
@@ -172,10 +171,10 @@ func (m *mockTx) Conn() *pgx.Conn {
 }
 
 type mockDB struct {
-	queryFunc      func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error)
-	queryRowFunc   func(ctx context.Context, query string, args ...interface{}) pgx.Row
-	execFunc       func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
-	beginTxFunc    func(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
+	queryFunc    func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error)
+	queryRowFunc func(ctx context.Context, query string, args ...interface{}) pgx.Row
+	execFunc     func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
+	beginTxFunc  func(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
 func (m *mockDB) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
@@ -530,10 +529,10 @@ func TestDeviceRepositoryPGX_BatchCreate_Success(t *testing.T) {
 		beginTxCalled = true
 		execCount := 0
 		return &mockTx{
-execFunc: func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
-			execCount++
-			return pgconn.NewCommandTag("INSERT 0 1"), nil
-		},
+			execFunc: func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
+				execCount++
+				return pgconn.NewCommandTag("INSERT 0 1"), nil
+			},
 			commitErr: nil,
 		}, nil
 	}
@@ -596,9 +595,9 @@ func TestDeviceRepositoryPGX_BatchCreate_CommitError(t *testing.T) {
 
 	mock.beginTxFunc = func(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
 		return &mockTx{
-execFunc: func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
-			return pgconn.NewCommandTag("INSERT 0 1"), nil
-		},
+			execFunc: func(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
+				return pgconn.NewCommandTag("INSERT 0 1"), nil
+			},
 			commitErr: assert.AnError,
 		}, nil
 	}

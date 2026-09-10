@@ -3,3 +3,13 @@ kind: Kustomization
 
 resources:
   - security-zones.yaml
+  - default-deny-all.yaml
+  - allow-ingress-nginx-to-gateway.yaml
+  - allow-ingress-nginx-to-frontend.yaml
+  - allow-gateway-to-backends.yaml
+  - allow-gateway-to-ml-generator.yaml
+  - allow-backends-ingress.yaml
+  - allow-backends-to-infrastructure.yaml
+  - allow-ml-generator-ingress.yaml
+  - allow-ml-generator-egress.yaml
+  - allow-frontend-egress.yaml

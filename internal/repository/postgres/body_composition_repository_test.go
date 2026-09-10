@@ -143,17 +143,17 @@ func TestUserBodyCompositionRepository_Create_Success(t *testing.T) {
 	repo, mock := setupBodyCompositionRepo(t)
 	ctx := context.Background()
 	bc := &port.UserBodyComposition{
-		UserID:        "user-1",
-		WeightKG:      70.0,
-		HeightCM:      175.0,
-		BMI:           22.9,
-		BodyFatPercentage: ptrFloat64(15.0),
+		UserID:               "user-1",
+		WeightKG:             70.0,
+		HeightCM:             175.0,
+		BMI:                  22.9,
+		BodyFatPercentage:    ptrFloat64(15.0),
 		MuscleMassPercentage: ptrFloat64(45.0),
-		BoneMassPercentage: ptrFloat64(3.5),
-		WaterPercentage: ptrFloat64(60.0),
-		VisceralFatRating: ptrFloat64(5.0),
-		MetabolicAge:  ptrFloat64(30.0),
-		Source:        "manual",
+		BoneMassPercentage:   ptrFloat64(3.5),
+		WaterPercentage:      ptrFloat64(60.0),
+		VisceralFatRating:    ptrFloat64(5.0),
+		MetabolicAge:         ptrFloat64(30.0),
+		Source:               "manual",
 	}
 
 	rows := sqlmock.NewRows([]string{"id", "recorded_at"}).
@@ -174,12 +174,12 @@ func TestUserBodyCompositionRepository_Create_WithRecordedAt(t *testing.T) {
 	ctx := context.Background()
 	recordedAt := time.Now().Add(-24 * time.Hour)
 	bc := &port.UserBodyComposition{
-		UserID:        "user-1",
-		RecordedAt:    recordedAt,
-		WeightKG:      70.0,
-		HeightCM:      175.0,
-		BMI:           22.9,
-		Source:        "manual",
+		UserID:     "user-1",
+		RecordedAt: recordedAt,
+		WeightKG:   70.0,
+		HeightCM:   175.0,
+		BMI:        22.9,
+		Source:     "manual",
 	}
 
 	rows := sqlmock.NewRows([]string{"id", "recorded_at"}).

@@ -1256,7 +1256,7 @@ func initTrainingServices(dbCfg db.Config, log *logger.Logger) (*sql.DB, *pgxpoo
 	trainingRepo := pgx.NewTrainingRepositoryPGX(pgxPool)
 	trainingSvc := service.NewTrainingService(trainingRepo)
 
-	rabbitURL := config.GetEnv("RABBITMQ_URL")
+	rabbitURL := config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
 	queueName := "training_events"
 	rabbitQueue := createRabbitQueue(rabbitURL, queueName, log)
 

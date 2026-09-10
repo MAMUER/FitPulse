@@ -7,11 +7,19 @@ resources:
   - valkey.yaml
   - valkey-config.yaml
   - rabbitmq-statefulset.yaml
+  - rabbitmq-pdb.yaml
   - user-service.yaml
+  - user-service-pdb.yaml
   - biometric-service.yaml
+  - biometric-service-pdb.yaml
   - training-service.yaml
+  - training-service-pdb.yaml
   - gateway.yaml
+  - gateway-pdb.yaml
   - classifier.yaml
+  - classifier-pdb.yaml
   - ml-generator.yaml
+  - ml-generator-pdb.yaml
   - open-wearables.yaml
+  - open-wearables-pdb.yaml
   - open-wearables-frontend.yaml

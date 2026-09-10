@@ -5,21 +5,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockUserRepository struct {
-	createFn       func(ctx context.Context, user *entity.User) error
-	getByIDFn      func(ctx context.Context, id string) (*entity.User, error)
-	getByEmailFn   func(ctx context.Context, email string) (*entity.User, error)
-	updateFn       func(ctx context.Context, user *entity.User) error
-	deleteFn       func(ctx context.Context, id string) error
-	listFn         func(ctx context.Context, page, pageSize int) ([]*entity.User, error)
-	countFn        func(ctx context.Context) (int, error)
+	createFn        func(ctx context.Context, user *entity.User) error
+	getByIDFn       func(ctx context.Context, id string) (*entity.User, error)
+	getByEmailFn    func(ctx context.Context, email string) (*entity.User, error)
+	updateFn        func(ctx context.Context, user *entity.User) error
+	deleteFn        func(ctx context.Context, id string) error
+	listFn          func(ctx context.Context, page, pageSize int) ([]*entity.User, error)
+	countFn         func(ctx context.Context) (int, error)
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
 }
 
@@ -86,11 +87,11 @@ func (m *mockUserRepository) ListByRole(ctx context.Context, role string, page, 
 var _ port.UserRepository = (*mockUserRepository)(nil)
 
 type mockProfileRepository struct {
-	getProfileFn     func(ctx context.Context, userID string) (*entity.User, error)
-	updateProfileFn  func(ctx context.Context, userID, fullName string, goals, contraindications []string, nutrition string, sleepHours float32) error
-	userExistsFn     func(ctx context.Context, userID string) (bool, error)
-	createProfileFn  func(ctx context.Context, userID string) error
-	upsertProfileFn  func(ctx context.Context, userID string, data *port.ProfileData) error
+	getProfileFn    func(ctx context.Context, userID string) (*entity.User, error)
+	updateProfileFn func(ctx context.Context, userID, fullName string, goals, contraindications []string, nutrition string, sleepHours float32) error
+	userExistsFn    func(ctx context.Context, userID string) (bool, error)
+	createProfileFn func(ctx context.Context, userID string) error
+	upsertProfileFn func(ctx context.Context, userID string, data *port.ProfileData) error
 }
 
 func (m *mockProfileRepository) GetProfile(ctx context.Context, userID string) (*entity.User, error) {
@@ -131,10 +132,10 @@ func (m *mockProfileRepository) UpsertProfile(ctx context.Context, userID string
 var _ port.ProfileRepository = (*mockProfileRepository)(nil)
 
 type mockInviteRepository struct {
-	createFn  func(ctx context.Context, invite *port.Invite) error
+	createFn    func(ctx context.Context, invite *port.Invite) error
 	getByCodeFn func(ctx context.Context, code string) (*port.Invite, error)
-	listFn    func(ctx context.Context, page, pageSize int) ([]*port.Invite, int, error)
-	revokeFn  func(ctx context.Context, code string) error
+	listFn      func(ctx context.Context, page, pageSize int) ([]*port.Invite, int, error)
+	revokeFn    func(ctx context.Context, code string) error
 }
 
 func (m *mockInviteRepository) Create(ctx context.Context, invite *port.Invite) error {
@@ -168,13 +169,13 @@ func (m *mockInviteRepository) Revoke(ctx context.Context, code string) error {
 var _ port.InviteRepository = (*mockInviteRepository)(nil)
 
 type mockInviteCodeRepository struct {
-	listFn                func(ctx context.Context, page, pageSize int) ([]*port.InviteCode, int, error)
-	createFn              func(ctx context.Context, invite *port.InviteCode) error
-	revokeFn              func(ctx context.Context, code string) error
-	validateFn            func(ctx context.Context, code string) (*port.InviteCode, error)
-	useInviteCodeFn       func(ctx context.Context, code string) error
+	listFn                  func(ctx context.Context, page, pageSize int) ([]*port.InviteCode, int, error)
+	createFn                func(ctx context.Context, invite *port.InviteCode) error
+	revokeFn                func(ctx context.Context, code string) error
+	validateFn              func(ctx context.Context, code string) (*port.InviteCode, error)
+	useInviteCodeFn         func(ctx context.Context, code string) error
 	validateInviteCodeUseFn func(ctx context.Context, code string) (bool, string, string, string, error)
-	logInviteCodeUseFn    func(ctx context.Context, code, userID string) error
+	logInviteCodeUseFn      func(ctx context.Context, code, userID string) error
 }
 
 func (m *mockInviteCodeRepository) List(ctx context.Context, page, pageSize int) ([]*port.InviteCode, int, error) {
@@ -229,9 +230,9 @@ func (m *mockInviteCodeRepository) LogInviteCodeUse(ctx context.Context, code, u
 var _ port.InviteCodeRepository = (*mockInviteCodeRepository)(nil)
 
 type mockHealthConditionRepository struct {
-	createFn  func(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error)
-	listFn    func(ctx context.Context, userID, conditionType string) ([]*entity.HealthCondition, error)
-	deleteFn  func(ctx context.Context, id string) error
+	createFn func(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error)
+	listFn   func(ctx context.Context, userID, conditionType string) ([]*entity.HealthCondition, error)
+	deleteFn func(ctx context.Context, id string) error
 }
 
 func (m *mockHealthConditionRepository) Create(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error) {
@@ -366,18 +367,18 @@ func (m *mockMenstrualCycleRepository) Delete(ctx context.Context, id string) er
 var _ port.MenstrualCycleRepository = (*mockMenstrualCycleRepository)(nil)
 
 type mockUserMenstrualRepository struct {
-	listCyclesFn              func(ctx context.Context, userID string) ([]*port.UserMenstrualCycle, error)
-	createCycleFn             func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-	createCycleWithDetailsFn  func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-	updateCycleFn             func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-	updateCycleWithDetailsFn  func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-	deleteCycleFn             func(ctx context.Context, id, userID string) error
-	listSymptomsFn            func(ctx context.Context, cycleID string) ([]string, error)
-	createSymptomFn           func(ctx context.Context, cycleID, symptom string) error
-	deleteSymptomsFn          func(ctx context.Context, cycleID string) error
-	listMoodsFn               func(ctx context.Context, cycleID string) ([]string, error)
-	createMoodFn              func(ctx context.Context, cycleID, mood string) error
-	deleteMoodsFn             func(ctx context.Context, cycleID string) error
+	listCyclesFn             func(ctx context.Context, userID string) ([]*port.UserMenstrualCycle, error)
+	createCycleFn            func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
+	createCycleWithDetailsFn func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
+	updateCycleFn            func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
+	updateCycleWithDetailsFn func(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
+	deleteCycleFn            func(ctx context.Context, id, userID string) error
+	listSymptomsFn           func(ctx context.Context, cycleID string) ([]string, error)
+	createSymptomFn          func(ctx context.Context, cycleID, symptom string) error
+	deleteSymptomsFn         func(ctx context.Context, cycleID string) error
+	listMoodsFn              func(ctx context.Context, cycleID string) ([]string, error)
+	createMoodFn             func(ctx context.Context, cycleID, mood string) error
+	deleteMoodsFn            func(ctx context.Context, cycleID string) error
 }
 
 func (m *mockUserMenstrualRepository) ListCycles(ctx context.Context, userID string) ([]*port.UserMenstrualCycle, error) {

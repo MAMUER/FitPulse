@@ -43,6 +43,7 @@ func EncryptionKey() []byte {
 	}
 	return encryptionKey
 }
+
 // EmailHash returns a lowercase SHA256 hex representation for lookup.
 func EmailHash(email string) string {
 	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(email))))

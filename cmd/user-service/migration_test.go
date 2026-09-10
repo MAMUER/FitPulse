@@ -61,8 +61,8 @@ func (r *_errRow) Scan(_ ...interface{}) error { return r.err }
 // io.EOF (subsequent calls).  New instances must be created via
 // noRows() or singleRow(col, val) to ensure a fresh done=false state.
 type _seqRows struct {
-	cols []string
-	vals []driver.Value
+	cols  []string
+	vals  []driver.Value
 	exErr error
 	done  bool
 }
@@ -77,7 +77,7 @@ type _noRows struct {
 
 func (r *_noRows) Columns() []string { return r.cols }
 
-func (r *_noRows) Next(dest []driver.Value) error {
+func (r *_noRows) Next(_ []driver.Value) error {
 	if r.done {
 		return io.EOF
 	}
@@ -86,11 +86,6 @@ func (r *_noRows) Next(dest []driver.Value) error {
 }
 
 func (r *_noRows) Close() error { return nil }
-
-// _hasNoNext implements driver.RowsNextResultSet: always false.
-type _hasNoNext struct{}
-
-func (_hasNoNext) HasNextResultSet() bool { return false }
 
 // noRows returns a driver.Rows that signals "no rows" on first Next call.
 // The returned rows also implement driver.RowsNextResultSet so that
@@ -105,10 +100,10 @@ type _noRowsColWrapper struct {
 	rows *_noRows
 }
 
-func (w *_noRowsColWrapper) Columns() []string  { return w.rows.Columns() }
+func (w *_noRowsColWrapper) Columns() []string              { return w.rows.Columns() }
 func (w *_noRowsColWrapper) Next(dest []driver.Value) error { return w.rows.Next(dest) }
-func (w *_noRowsColWrapper) Close() error                       { return w.rows.Close() }
-func (w *_noRowsColWrapper) HasNextResultSet() bool             { return false }
+func (w *_noRowsColWrapper) Close() error                   { return w.rows.Close() }
+func (w *_noRowsColWrapper) HasNextResultSet() bool         { return false }
 
 // singleRow returns a _seqRows that yields one row with the given column/value.
 func singleRow(col string, val driver.Value) *_seqRows {
@@ -159,7 +154,7 @@ type _seqResult struct {
 type _seqDrv struct{}
 
 func (d *_seqDrv) Open(name string) (driver.Conn, error) {
-	return nil, fmt.Errorf("use OpenConnector")
+	return nil, errors.New("use OpenConnector")
 }
 
 func (d *_seqDrv) OpenConnector(name string) (driver.Connector, error) {
@@ -208,7 +203,7 @@ func (c *_seqC) Query(query string, args []driver.Value) (driver.Rows, error) {
 // QueryContext returns the next pre-configured driver.Rows or error.
 // Never returns io.EOF as an error (causes nil rowsi panic in database/sql);
 // use noRows() for empty result sets.
-func (c *_seqC) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *_seqC) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
 	if c.idx >= len(c.results) {
 		return nil, fmt.Errorf("unexpected query %q (no more expectations)", query)
 	}
@@ -224,7 +219,7 @@ func (c *_seqC) QueryContext(ctx context.Context, query string, args []driver.Na
 }
 
 // QueryRowContext returns the next pre-configured rower.
-func (c *_seqC) QueryRowContext(ctx context.Context, query string, args []driver.NamedValue) rower {
+func (c *_seqC) QueryRowContext(_ context.Context, query string, _ []driver.NamedValue) rower {
 	if c.idx >= len(c.results) {
 		return &_errRow{err: fmt.Errorf("unexpected query %q (no more expectations)", query)}
 	}
@@ -349,7 +344,11 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 		ctx := context.Background()
 		mockDB, _, err := sqlmock.New()
 		require.NoError(t, err)
-		defer mockDB.Close()
+		defer func() {
+			if cerr := mockDB.Close(); cerr != nil {
+				t.Logf("mockDB.Close error: %v", cerr)
+			}
+		}()
 
 		log := newTestLogger(t)
 		err = ensurePgsodiumKey(ctx, mockDB, log)
@@ -369,7 +368,11 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 		mockDB := newSeqDB(
 			_seqResult{qcRows: singleRow("id", int64(42))},
 		)
-		defer mockDB.Close()
+		defer func() {
+			if cerr := mockDB.Close(); cerr != nil {
+				t.Logf("mockDB.Close error: %v", cerr)
+			}
+		}()
 
 		log := newTestLogger(t)
 		err := ensurePgsodiumKey(ctx, mockDB, log)
@@ -390,7 +393,11 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 			_seqResult{qcRows: noRows("id")},
 			_seqResult{qrRow: &_singleIDRow{v: 7}},
 		)
-		defer mockDB.Close()
+		defer func() {
+			if cerr := mockDB.Close(); cerr != nil {
+				t.Logf("mockDB.Close error: %v", cerr)
+			}
+		}()
 
 		log := newTestLogger(t)
 		err := ensurePgsodiumKey(ctx, mockDB, log)
@@ -409,7 +416,11 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 		mockDB := newSeqDB(
 			_seqResult{qcErr: errors.New("connection lost")},
 		)
-		defer mockDB.Close()
+		defer func() {
+			if cerr := mockDB.Close(); cerr != nil {
+				t.Logf("mockDB.Close error: %v", cerr)
+			}
+		}()
 
 		log := newTestLogger(t)
 		err := ensurePgsodiumKey(ctx, mockDB, log)
@@ -431,7 +442,11 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 			_seqResult{qcRows: noRows("id")},
 			_seqResult{qrErr: errors.New("import failed")},
 		)
-		defer mockDB.Close()
+		defer func() {
+			if cerr := mockDB.Close(); cerr != nil {
+				t.Logf("mockDB.Close error: %v", cerr)
+			}
+		}()
 
 		log := newTestLogger(t)
 		err := ensurePgsodiumKey(ctx, mockDB, log)
@@ -503,7 +518,11 @@ func TestBackfillEncryptedPII_SkipsWhenKeyEmpty(t *testing.T) {
 	ctx := context.Background()
 	mockDB, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	log := newTestLogger(t)
 	backfillEncryptedPII(ctx, mockDB, log)
@@ -517,7 +536,11 @@ func TestBackfillEncryptedPII_SkipsWhenKeyIDZero(t *testing.T) {
 	ctx := context.Background()
 	mockDB, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	log := newTestLogger(t)
 	backfillEncryptedPII(ctx, mockDB, log)
@@ -538,7 +561,11 @@ func TestBackfillEncryptedPII_ExecutesQueries(t *testing.T) {
 	ctx := context.Background()
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 3))
 	mock.ExpectExec(evBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 1))
@@ -557,7 +584,11 @@ func TestBackfillEncryptedPII_HandlesExecError(t *testing.T) {
 	ctx := context.Background()
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	mock.ExpectExec(usersBackfillPattern).WillReturnError(errors.New("query failed"))
 
@@ -579,7 +610,11 @@ func TestReencryptPIIFromPgcrypto_SkipsWhenKeyEmpty(t *testing.T) {
 	ctx := context.Background()
 	mockDB, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	log := newTestLogger(t)
 	reencryptPIIFromPgcrypto(ctx, mockDB, log)
@@ -593,7 +628,11 @@ func TestReencryptPIIFromPgcrypto_SkipsWhenKeyIDZero(t *testing.T) {
 	ctx := context.Background()
 	mockDB, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
 
 	log := newTestLogger(t)
 	reencryptPIIFromPgcrypto(ctx, mockDB, log)

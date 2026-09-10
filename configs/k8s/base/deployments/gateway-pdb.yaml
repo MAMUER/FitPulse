@@ -1,0 +1,20 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway-pdb
+  namespace: fitness-platform-production
+  labels:
+    app: gateway
+    tier: gateway
+    environment: production
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gateway
+      tier: gateway

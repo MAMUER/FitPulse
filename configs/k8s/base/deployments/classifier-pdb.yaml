@@ -1,0 +1,20 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: classifier-pdb
+  namespace: fitness-platform-production
+  labels:
+    app: classifier
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: classifier
+    app.kubernetes.io/instance: classifier
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: classifier
+      tier: backend

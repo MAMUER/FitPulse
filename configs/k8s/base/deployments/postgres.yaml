@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/version: "18"
     app.kubernetes.io/managed-by: kustomize
 spec:
-  revisionHistoryLimit: 1
+  revisionHistoryLimit: 3
   serviceName: postgres-service
   replicas: 1
   selector:
@@ -59,44 +59,9 @@ spec:
             secretName: app-secrets
         - name: tmp
           emptyDir: {}
-        - name: postgres-config
-          configMap:
-            name: postgres-config
-      initContainers:
-        - name: fix-permissions
-          # Runs as root to chown the PVC; required because the postgres image
-          # expects to drop from root to 999:999 on startup.
-          # checkov:skip=CKV_K8S_1: Init container intentionally runs as root to chown PVC
-          # checkov:skip=CKV_K8S_43: Init container; image digest pinned for reproducibility
-          image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              chown -R 999:999 /var/lib/postgresql/data || true
-              chmod 2775 /var/run/postgresql || true
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: false
-            runAsUser: 0
-            capabilities:
-              drop: ["ALL"]
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: postgres-storage
-              mountPath: /var/lib/postgresql/data
-            - name: tmp
-              mountPath: /var/run/postgresql
-          resources:
-            requests:
-              cpu: "10m"
-              memory: "16Mi"
-              ephemeral-storage: "64Mi"
-            limits:
-              cpu: "20m"
-              memory: "24Mi"
-              ephemeral-storage: "128Mi"
+         - name: postgres-config
+           configMap:
+             name: postgres-config
       containers:
         - name: postgres
           # Образ с предустановленным pgsodium (libsodium) для шифрования PII.

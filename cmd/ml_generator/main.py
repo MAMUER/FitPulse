@@ -443,7 +443,7 @@ async def init_async():
         return
 
     # Async RabbitMQ consumer
-    rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqps://rabbitmq:5671/")
 
     try:
         rabbitmq_connection = await connect_robust(rabbitmq_url)

@@ -1,0 +1,20 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: user-service-pdb
+  namespace: fitness-platform-production
+  labels:
+    app: user-service
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: user-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: user-service
+      tier: backend

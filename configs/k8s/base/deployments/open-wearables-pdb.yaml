@@ -1,0 +1,20 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: open-wearables-pdb
+  namespace: fitness-platform-production
+  labels:
+    app: open-wearables
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: open-wearables
+    app.kubernetes.io/instance: open-wearables
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: open-wearables
+      tier: backend

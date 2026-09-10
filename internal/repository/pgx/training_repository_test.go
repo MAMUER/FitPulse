@@ -39,7 +39,8 @@ func TestTrainingRepositoryPGX_CreatePlan_Success(t *testing.T) {
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*string); *ptr = "plan-1"
+			ptr := dest[0].(*string)
+			*ptr = "plan-1"
 			return nil
 		}}
 	}
@@ -242,7 +243,8 @@ func TestTrainingRepositoryPGX_ListPlans_Success(t *testing.T) {
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int); *ptr = 1
+			ptr := dest[0].(*int)
+			*ptr = 1
 			return nil
 		}}
 	}
@@ -266,7 +268,8 @@ func TestTrainingRepositoryPGX_ListPlans_Empty(t *testing.T) {
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int); *ptr = 0
+			ptr := dest[0].(*int)
+			*ptr = 0
 			return nil
 		}}
 	}
@@ -296,7 +299,7 @@ func TestTrainingRepositoryPGX_ListPlans_UnmarshalError(t *testing.T) {
 	repo, mock := setupTrainingRepo(t)
 	ctx := context.Background()
 
-mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
+	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 		return newMockRows([][]interface{}{
 			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, []byte("invalid json"), time.Now(), time.Now()},
 		}, func(dest ...interface{}) error {
@@ -332,7 +335,8 @@ mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (p
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int); *ptr = 1
+			ptr := dest[0].(*int)
+			*ptr = 1
 			return nil
 		}}
 	}
@@ -425,14 +429,15 @@ func TestTrainingRepositoryPGX_GetProgress_Success(t *testing.T) {
 	repo, mock := setupTrainingRepo(t)
 	ctx := context.Background()
 
-		mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-			return &mockRow{scanFunc: func(dest ...interface{}) error {
-				ptr := dest[0].(*int); *ptr = 10
-				ptr = dest[1].(*int)
-				*ptr = 5
-				return nil
-			}}
-		}
+	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+		return &mockRow{scanFunc: func(dest ...interface{}) error {
+			ptr := dest[0].(*int)
+			*ptr = 10
+			ptr = dest[1].(*int)
+			*ptr = 5
+			return nil
+		}}
+	}
 
 	result, err := repo.GetProgress(ctx, "user-1")
 	require.NoError(t, err)
@@ -463,7 +468,8 @@ func TestTrainingRepositoryPGX_GetProgress_PanicOnZeroPlans(t *testing.T) {
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*int); *ptr = 0
+			ptr := dest[0].(*int)
+			*ptr = 0
 			ptr = dest[1].(*int)
 			*ptr = 0
 			return nil
@@ -533,7 +539,8 @@ func TestTrainingRepositoryPGX_CreateAchievement_Success(t *testing.T) {
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			ptr := dest[0].(*string); *ptr = "ach-1"
+			ptr := dest[0].(*string)
+			*ptr = "ach-1"
 			return nil
 		}}
 	}

@@ -1,0 +1,20 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: biometric-service-pdb
+  namespace: fitness-platform-production
+  labels:
+    app: biometric-service
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: biometric-service
+    app.kubernetes.io/instance: biometric-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: biometric-service
+      tier: backend

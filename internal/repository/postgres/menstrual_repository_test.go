@@ -153,11 +153,11 @@ func TestUserMenstrualRepository_UpdateCycle_Success(t *testing.T) {
 	repo, mock := setupMenstrualRepo(t)
 	ctx := context.Background()
 	cycle := &port.UserMenstrualCycle{
-		ID:           "cycle-1",
-		UserID:       "user-1",
-		CycleEndDate: "2024-01-05",
+		ID:            "cycle-1",
+		UserID:        "user-1",
+		CycleEndDate:  "2024-01-05",
 		FlowIntensity: "medium",
-		Notes:        "Updated notes",
+		Notes:         "Updated notes",
 	}
 
 	mock.ExpectExec("UPDATE user_menstrual_cycles").
@@ -174,11 +174,11 @@ func TestUserMenstrualRepository_UpdateCycle_NilOptionalFields(t *testing.T) {
 	repo, mock := setupMenstrualRepo(t)
 	ctx := context.Background()
 	cycle := &port.UserMenstrualCycle{
-		ID:           "cycle-1",
-		UserID:       "user-1",
-		CycleEndDate: "",
+		ID:            "cycle-1",
+		UserID:        "user-1",
+		CycleEndDate:  "",
 		FlowIntensity: "",
-		Notes:        "",
+		Notes:         "",
 	}
 
 	mock.ExpectExec("UPDATE user_menstrual_cycles").
@@ -543,13 +543,13 @@ func TestUserMenstrualRepository_UpdateCycleWithDetails_Success(t *testing.T) {
 	repo, mock := setupMenstrualRepo(t)
 	ctx := context.Background()
 	cycle := &port.UserMenstrualCycle{
-		ID:           "cycle-1",
-		UserID:       "user-1",
-		CycleEndDate: "2024-01-05",
+		ID:            "cycle-1",
+		UserID:        "user-1",
+		CycleEndDate:  "2024-01-05",
 		FlowIntensity: "medium",
-		Notes:        "Updated notes",
-		Symptoms:     []string{"bloating"},
-		Moods:        []string{"calm"},
+		Notes:         "Updated notes",
+		Symptoms:      []string{"bloating"},
+		Moods:         []string{"calm"},
 	}
 
 	mock.ExpectBegin()
@@ -692,4 +692,3 @@ func TestUserMenstrualRepository_UpdateCycleWithDetails_CommitError(t *testing.T
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
-

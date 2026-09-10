@@ -5,19 +5,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockBiometricRepository struct {
-	createFn         func(ctx context.Context, record *entity.BiometricRecord) (*entity.BiometricRecord, error)
-	batchCreateFn    func(ctx context.Context, records []*entity.BiometricRecord) (int, error)
-	getByUserIDFn    func(ctx context.Context, userID, metricType string, limit, offset int) ([]*entity.BiometricRecord, error)
-	updateFn         func(ctx context.Context, record *entity.BiometricRecord) (*entity.BiometricRecord, error)
-	deleteFn         func(ctx context.Context, id string) error
+	createFn      func(ctx context.Context, record *entity.BiometricRecord) (*entity.BiometricRecord, error)
+	batchCreateFn func(ctx context.Context, records []*entity.BiometricRecord) (int, error)
+	getByUserIDFn func(ctx context.Context, userID, metricType string, limit, offset int) ([]*entity.BiometricRecord, error)
+	updateFn      func(ctx context.Context, record *entity.BiometricRecord) (*entity.BiometricRecord, error)
+	deleteFn      func(ctx context.Context, id string) error
 }
 
 func (m *mockBiometricRepository) Create(ctx context.Context, record *entity.BiometricRecord) (*entity.BiometricRecord, error) {
