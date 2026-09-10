@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: fitness-platform-production
+  labels:
+    app: jaeger
+data:
+  span-storage-type: "memory"
+  collector: |
+    extensions:
+      health_check:
+        endpoint: ":14269"
+    service:
+      extensions: [health_check]

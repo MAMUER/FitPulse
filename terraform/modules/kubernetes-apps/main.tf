@@ -19,6 +19,111 @@ resource "kubernetes_namespace" "cert_manager" {
   }
 }
 
+resource "kubernetes_namespace" "ml_system" {
+  metadata {
+    name = "ml-system"
+
+    labels = {
+      name = "ml-system"
+      zone  = "ml"
+    }
+  }
+}
+
+resource "kubernetes_namespace" "database" {
+  metadata {
+    name = "database"
+
+    labels = {
+      name = "database"
+      zone  = "data"
+    }
+  }
+}
+
+resource "helm_release" "vpa" {
+  name       = "vpa"
+  repository = "https://kubernetes.github.io/autoscaler"
+  chart      = "vertical-pod-autoscaler"
+  version    = "2.4.2"
+  namespace  = "kube-system"
+
+  values = [
+    yamlencode({
+      installer = {
+        crds = {
+          keep = false
+        }
+      }
+      verticalPodAutoscaler = {
+        enabled = true
+        updatePolicy = {
+          updateMode = "Auto"
+        }
+      }
+    })
+  ]
+
+  depends_on = [helm_release.ingress_nginx]
+}
+
+resource "helm_release" "argocd" {
+  name       = "argocd"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  version    = "7.5.0"
+  namespace  = "argocd"
+
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      global = {
+        domain = "${var.domain}"
+      }
+      configs = {
+        params = {
+          server = {
+            rootpath = "/argocd"
+          }
+        }
+      }
+      server = {
+        service = {
+          type = "ClusterIP"
+        }
+        resources = {
+          requests = {
+            cpu    = "50m"
+            memory = "128Mi"
+          }
+          limits = {
+            cpu    = "500m"
+            memory = "512Mi"
+          }
+        }
+      }
+      repoServer = {
+        resources = {
+          requests = {
+            cpu    = "50m"
+            memory = "128Mi"
+          }
+          limits = {
+            cpu    = "500m"
+            memory = "512Mi"
+          }
+        }
+      }
+      applicationSet = {
+        enabled = true
+      }
+    })
+  ]
+
+  depends_on = [helm_release.ingress_nginx]
+}
+
 resource "helm_release" "external_secrets" {
   name       = "external-secrets"
   repository = "https://charts.external-secrets.io"

@@ -9,6 +9,11 @@ data:
   alertmanager.yml: |
     global:
       resolve_timeout: 5m
+      smtp_smarthost: "smtp.gmail.com:587"
+      smtp_from: "fitpulse-alerts@example.com"
+      smtp_auth_username: "${SMTP_USER}"
+      smtp_auth_password: "${SMTP_PASS}"
+      smtp_require_tls: true
 
     route:
       group_by: ['alertname', 'namespace', 'service']
@@ -27,20 +32,18 @@ data:
 
     receivers:
       - name: 'default'
-        # Логируем алерты в stdout (для просмотра через kubectl logs)
-        webhook_configs:
-          - url: 'http://localhost:9093/api/v1/alerts'
-            send_resolved: false
+        email_configs:
+          - to: 'ops-team@example.com'
+            send_resolved: true
+            headers:
+              subject: '[FITPULSE] {{ .GroupLabels.alertname }}'
 
       - name: 'critical'
-        # Критические алерты — можно настроить webhook на Telegram/Slack
-        # Пример webhook для Telegram:
-        # webhook_configs:
-        #   - url: 'https://api.telegram.org/bot<TOKEN>/sendMessage'
-        #     send_resolved: true
-        #     http_config:
-        #       tls_config:
-        #         insecure_skip_verify: true
+        email_configs:
+          - to: 'oncall@example.com'
+            send_resolved: true
+            headers:
+              subject: '[FITPULSE CRITICAL] {{ .GroupLabels.alertname }}'
 
     inhibit_rules:
       - source_match:

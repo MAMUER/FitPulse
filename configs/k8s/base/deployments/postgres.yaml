@@ -59,9 +59,11 @@ spec:
             secretName: app-secrets
         - name: tmp
           emptyDir: {}
-         - name: postgres-config
-           configMap:
-             name: postgres-config
+        - name: postgres-config
+          configMap:
+            name: postgres-config
+        - name: wal-archive
+          emptyDir: {}
       containers:
         - name: postgres
           # Образ с предустановленным pgsodium (libsodium) для шифрования PII.
@@ -95,6 +97,8 @@ spec:
             - name: postgres-config
               mountPath: /etc/postgresql
               readOnly: true
+            - name: wal-archive
+              mountPath: /var/lib/postgresql/wal-archive
           env:
             - name: POSTGRES_USER_FILE
               value: "/etc/secrets/POSTGRES_USER"

@@ -32,3 +32,8 @@ data:
     lc_numeric = 'en_US.utf8'
     lc_time = 'en_US.utf8'
     default_text_search_config = 'pg_catalog.english'
+    wal_level = replica
+    archive_mode = on
+    archive_command = 'test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f'
+    archive_timeout = 300
+    restore_command = 'cp /var/lib/postgresql/wal-archive/%f %p'

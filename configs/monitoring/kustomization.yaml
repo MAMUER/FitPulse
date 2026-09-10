@@ -6,6 +6,7 @@ resources:
   - grafana
   - fluent-bit
   - node-exporter
+  - jaeger
 namespace: fitness-platform-production
 labels:
   - pairs:

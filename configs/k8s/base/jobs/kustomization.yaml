@@ -13,3 +13,5 @@ resources:
   - seed-admin.yaml
   - update-modsecurity-crs.yaml
   - create-open-wearables-db.yaml
+  - postgres-backup-pvc.yaml
+  - postgres-backup-cronjob.yaml

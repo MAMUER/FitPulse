@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: fitness-platform-production
+  labels:
+    app: postgres
+    component: backup
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+          containers:
+            - name: backup
+              image: postgres:18-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_DIR=/backups
+                  mkdir -p "${BACKUP_DIR}"
+                  echo "Starting PostgreSQL backup at ${TIMESTAMP}"
+                  pg_dump -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+                    -F c -f "${BACKUP_DIR}/fitness_${TIMESTAMP}.dump"
+                  echo "Backup completed: fitness_${TIMESTAMP}.dump"
+                  ls -lh "${BACKUP_DIR}"
+                  echo "Backup job finished successfully"
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secrets
+                      key: POSTGRES_USER
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secrets
+                      key: POSTGRES_DB
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secrets
+                      key: POSTGRES_PASSWORD
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+          restartPolicy: Never
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc
