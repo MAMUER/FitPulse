@@ -38,6 +38,10 @@ spec:
                   pg_dump -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
                     -F c -f "${BACKUP_DIR}/fitness_${TIMESTAMP}.dump"
                   echo "Backup completed: fitness_${TIMESTAMP}.dump"
+                  if [ -d "/wal-archive" ] && [ "$(ls -A /wal-archive 2>/dev/null)" ]; then
+                    tar -czf "${BACKUP_DIR}/wal_${TIMESTAMP}.tar.gz" -C /wal-archive .
+                    echo "WAL archive backed up: wal_${TIMESTAMP}.tar.gz"
+                  fi
                   ls -lh "${BACKUP_DIR}"
                   echo "Backup job finished successfully"
               env:
@@ -61,18 +65,23 @@ spec:
                 readOnlyRootFilesystem: false
                 capabilities:
                   drop: ["ALL"]
-              volumeMounts:
-                - name: backup-storage
-                  mountPath: /backups
-              resources:
-                requests:
-                  cpu: "50m"
-                  memory: "64Mi"
-                limits:
-                  cpu: "200m"
-                  memory: "256Mi"
-          restartPolicy: Never
-          volumes:
-            - name: backup-storage
-              persistentVolumeClaim:
-                claimName: postgres-backup-pvc
+               volumeMounts:
+                 - name: backup-storage
+                   mountPath: /backups
+                 - name: wal-archive-storage
+                   mountPath: /wal-archive
+               resources:
+                 requests:
+                   cpu: "50m"
+                   memory: "64Mi"
+                 limits:
+                   cpu: "200m"
+                   memory: "256Mi"
+           restartPolicy: Never
+           volumes:
+             - name: backup-storage
+               persistentVolumeClaim:
+                 claimName: postgres-backup-pvc
+             - name: wal-archive-storage
+               persistentVolumeClaim:
+                 claimName: postgres-wal-archive

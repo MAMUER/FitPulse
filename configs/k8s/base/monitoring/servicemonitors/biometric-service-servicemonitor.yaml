@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: biometric-service
+  namespace: fitness-platform-production
+  labels:
+    app: biometric-service
+    tier: backend
+spec:
+  selector:
+    matchLabels:
+      app: biometric-service
+  namespaceSelector:
+    matchNames:
+      - fitness-platform-production
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

@@ -29,6 +29,10 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/part-of: fitness-platform
         app.kubernetes.io/managed-by: kustomize
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9096"
+        prometheus.io/path: "/metrics"
     spec:
       automountServiceAccountToken: false
       enableServiceLinks: false
@@ -118,6 +122,8 @@ spec:
           ports:
             - containerPort: 50051
               name: grpc
+            - containerPort: 9096
+              name: metrics
           volumeMounts:
             - name: tmp
               mountPath: /tmp

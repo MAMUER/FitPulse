@@ -13,10 +13,27 @@ import (
 
 type TrainingRepository struct {
 	db *sql.DB
+	stmts map[string]*sql.Stmt
 }
 
 func NewTrainingRepository(db *sql.DB) port.TrainingRepository {
-	return &TrainingRepository{db: db}
+	repo := &TrainingRepository{db: db}
+	repo.prepareStatements()
+	return repo
+}
+
+func (r *TrainingRepository) prepareStatements() {
+	r.stmts = map[string]*sql.Stmt{}
+	var err error
+	if r.stmts["getPlan"], err = r.db.PrepareContext(context.Background(), `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at FROM training_plans WHERE id = $1 AND user_id = $2`); err != nil {
+		panic(err)
+	}
+	if r.stmts["listPlans"], err = r.db.PrepareContext(context.Background(), `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at, COUNT(*) OVER() AS total_count FROM training_plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`); err != nil {
+		panic(err)
+	}
+	if r.stmts["getProgress"], err = r.db.PrepareContext(context.Background(), `SELECT COUNT(*) as total_plans, COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts FROM training_plans WHERE user_id = $1`); err != nil {
+		panic(err)
+	}
 }
 
 func scanAchievements(rows *sql.Rows) ([]*entity.Achievement, error) {
@@ -62,14 +79,10 @@ func (r *TrainingRepository) CreatePlan(ctx context.Context, plan *entity.Traini
 }
 
 func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string) (*entity.TrainingPlan, error) {
-	query := `
-		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at
-		FROM training_plans WHERE id = $1 AND user_id = $2
-	`
 	plan := &entity.TrainingPlan{}
 	var planDataJSON []byte
 
-	err := r.db.QueryRowContext(ctx, query, planID, userID).Scan(
+	err := r.stmts["getPlan"].QueryRowContext(ctx, planID, userID).Scan(
 		&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
 		&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
 	)
@@ -92,13 +105,7 @@ func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string)
 func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page, pageSize int) ([]*entity.TrainingPlan, int, error) {
 	offset := (page - 1) * pageSize
 
-	query := `
-		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at,
-		       COUNT(*) OVER() AS total_count
-		FROM training_plans WHERE user_id = $1
-		ORDER BY created_at DESC LIMIT $2 OFFSET $3
-	`
-	rows, err := r.db.QueryContext(ctx, query, userID, pageSize, offset)
+	rows, err := r.stmts["listPlans"].QueryContext(ctx, userID, pageSize, offset)
 	if err != nil {
 		return nil, 0, apperrors.Internal("failed to list training plans", err)
 	}
@@ -142,14 +149,8 @@ func (r *TrainingRepository) CompleteWorkout(ctx context.Context, userID, planID
 }
 
 func (r *TrainingRepository) GetProgress(ctx context.Context, userID string) (map[string]interface{}, error) {
-	query := `
-		SELECT 
-			COUNT(*) as total_plans,
-			COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts
-		FROM training_plans WHERE user_id = $1
-	`
 	var totalPlans, completedWorkouts int
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&totalPlans, &completedWorkouts)
+	err := r.stmts["getProgress"].QueryRowContext(ctx, userID).Scan(&totalPlans, &completedWorkouts)
 	if err != nil {
 		return nil, apperrors.Internal("failed to get progress", err)
 	}

@@ -25,6 +25,12 @@ variable "enable_backup" {
   default     = true
 }
 
+variable "enable_progressive_delivery" {
+  description = "Enable progressive delivery with Argo Rollouts"
+  type        = bool
+  default     = false
+}
+
 variable "grafana_admin_password" {
   description = "Grafana admin password"
   type        = string

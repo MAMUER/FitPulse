@@ -25,7 +25,15 @@ resource "cloudinit_config" "vps_init" {
         "ufw enable",
         "systemctl enable systemd-timesyncd",
         "timedatectl set-timezone UTC",
+        "mkdir -p /etc/docker",
+        "cat > /etc/docker/daemon.json <<'EOF'\n{\n  \\\"log-driver\\\": \\\"json-file\\\",\n  \\\"log-opts\\\": {\n    \\\"max-size\\\": \\\"10m\\\",\n    \\\"max-file\\\": \\\"3\\\"\n  }\n}\nEOF",
+        "mkdir -p /etc/systemd/journald.conf.d",
+        "cat > /etc/systemd/journald.conf.d/99-size-limit.conf <<'EOF'\n[Journal]\nSystemMaxUse=500M\nSystemMaxFileSize=50M\nMaxRetentionSec=1week\nEOF",
+        "systemctl daemon-reload",
+        "systemctl restart systemd-journald",
         "curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='${var.kubernetes_version}' sh -s - server --write-kubeconfig /etc/rancher/k3s/k3s.yaml --write-kubeconfig-mode 600",
+        "mkdir -p /etc/rancher/k3s",
+        "curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='${var.kubernetes_version}' K3S_URL=https://${var.vps_host}:6443 sh -s - server --write-kubeconfig /etc/rancher/k3s/k3s.yaml --write-kubeconfig-mode 600",
       ]
     })
   }

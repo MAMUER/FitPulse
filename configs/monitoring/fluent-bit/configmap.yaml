@@ -42,3 +42,13 @@ data:
             Name            stdout
             Match           *
             Format          json_lines
+
+        [OUTPUT]
+            Name            loki
+            Match           *
+            Host            loki
+            Port            3100
+            TenantID       ""
+            Auto_Kubernetes_Labels         On
+            Remove_Keys    kubernetes
+            Label_Map_With_Underscores     On

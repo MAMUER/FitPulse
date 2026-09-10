@@ -102,6 +102,60 @@
 
 ---
 
+## C4 Container Diagram
+
+```mermaid
+C4Container
+    title FitPulse — Container Diagram
+
+    Person(user, "Пользователь", "Клиент мобильного/веб-приложения")
+
+    System_Boundary(fitness_platform, "FitPulse Platform") {
+        Container(web, "React SPA", "React 19 + Vite", "Фронтенд: дашборд, профиль, тренировки, устройства")
+        Container(gateway, "API Gateway", "Go + Chi + gRPC", "REST/GraphQL gateway, auth, rate limiting, metrics")
+        Container(user_service, "User Service", "Go + gRPC", "Аутентификация, профили, invite-коды, 2FA")
+        Container(biometric_service, "Biometric Service", "Go + gRPC", "Биометрические данные, Open Wearables webhook")
+        Container(training_service, "Training Service", "Go + gRPC", "Тренировочные планы, достижения")
+        Container(classifier, "Classifier", "Go + HTTP", "Классификация состояния по биометрике")
+        Container(ml_generator, "ML Generator", "Python + FastAPI", "Генерация планов тренировок")
+        Container(device_aggregator, "Device Aggregator", "Go + HTTP", "Webhook-forwarder для Open Wearables")
+        ContainerDb(postgres, "PostgreSQL + pgsodium", "PostgreSQL 18", "Пользователи, профили, планы, биометрика")
+        ContainerDb(valkey, "Valkey/Redis", "Valkey 8", "Сессии, кэши, rate limiting")
+        ContainerDb(rabbitmq, "RabbitMQ", "RabbitMQ 4", "Асинхронные события, ML-очереди")
+        Container(jaeger, "Jaeger", "OpenTelemetry", "Трейсинг запросов")
+        Container(prometheus, "Prometheus", "Prometheus 2.51", "Метрики, алерты")
+        Container(grafana, "Grafana", "Grafana", "Дашборды, визуализация")
+        Container(loki, "Loki", "Loki 2.9", "Централизованные логи")
+    }
+
+    Rel(user, web, "Использует", "HTTPS")
+    Rel(web, gateway, "API вызовы", "HTTPS / gRPC-Web")
+    Rel(gateway, user_service, "gRPC вызовы", "mTLS")
+    Rel(gateway, biometric_service, "gRPC вызовы", "mTLS")
+    Rel(gateway, training_service, "gRPC вызовы", "mTLS")
+    Rel(gateway, classifier, "HTTP вызовы", "HTTP/1.1")
+    Rel(gateway, device_aggregator, "HTTP вызовы", "HTTP/1.1")
+    Rel(gateway, ml_generator, "HTTP вызовы", "HTTP/1.1")
+    Rel(user_service, postgres, "Чтение/запись", "SQL")
+    Rel(biometric_service, postgres, "Чтение/запись", "SQL")
+    Rel(training_service, postgres, "Чтение/запись", "SQL")
+    Rel(classifier, postgres, "Чтение/запись", "SQL")
+    Rel(user_service, valkey, "Сессии", "RESP")
+    Rel(biometric_service, valkey, "Кэши", "RESP")
+    Rel(biometric_service, rabbitmq, "Публикация событий", "AMQP 0.9.1")
+    Rel(training_service, rabbitmq, "Публикация событий", "AMQP 0.9.1")
+    Rel(ml_generator, rabbitmq, "Потребление событий", "AMQP 0.9.1")
+    Rel(device_aggregator, rabbitmq, "Публикация событий", "AMQP 0.9.1")
+    Rel(gateway, prometheus, "Метрики", "HTTP /metrics")
+    Rel(user_service, prometheus, "Метрики", "HTTP /metrics")
+    Rel(biometric_service, prometheus, "Метрики", "HTTP /metrics")
+    Rel(training_service, prometheus, "Метрики", "HTTP /metrics")
+    Rel(classifier, prometheus, "Метрики", "HTTP /metrics")
+    Rel(prometheus, grafana, "Данные", "HTTP")
+    Rel(jaeger, prometheus, "Метрики", "HTTP /metrics")
+    Rel(loki, prometheus, "Метрики", "HTTP /metrics")
+```
+
 ## 1. Компоненты инфраструктуры
 
 ### 1.1 Message Broker: RabbitMQ

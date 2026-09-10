@@ -1,5 +1,5 @@
 # Python 3.14 — последняя стабильная версия на July 2026
-FROM python:3.14-slim AS builder
+FROM python@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS builder
 
 # Security: non-root user
 RUN groupadd -r mluser -g 1001 && \
@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir --only-binary :all: --retries 5 \
     --timeout 120 --require-hashes -r /tmp/requirements.lock.txt
 
 # Runtime stage
-FROM python:3.14-slim AS runtime
+FROM python@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS runtime
 
 RUN groupadd -r mluser -g 1001 && \
     useradd -r -u 1001 -g mluser -d /app -s /sbin/nologin mluser

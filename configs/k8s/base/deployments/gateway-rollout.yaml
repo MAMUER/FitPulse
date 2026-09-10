@@ -1,0 +1,133 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: gateway
+  namespace: fitness-platform-production
+  labels:
+    app: gateway
+    tier: gateway
+    environment: production
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: gateway
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+        zone: dmz
+        environment: production
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/instance: gateway
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/managed-by: kustomize
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: gateway-sa
+      containers:
+        - name: gateway
+          # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
+          image: ghcr.io/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: USER_SERVICE_ADDR
+              value: "user-service:50051"
+            - name: BIOMETRIC_SERVICE_ADDR
+              value: "biometric-service:50052"
+            - name: TRAINING_SERVICE_ADDR
+              value: "training-service:50053"
+            - name: CLASSIFIER_ADDR
+              value: "classifier:8001"
+            - name: DEVICE_AGGREGATOR_ADDR
+              value: "device-aggregator:8083"
+            - name: ML_GENERATOR_ADDR
+              value: "ml-generator:8002"
+            - name: JWT_PUBLIC_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
+            - name: RABBITMQ_URL_FILE
+              value: "/etc/secrets/RABBITMQ_URL"
+            - name: REDIS_HOST
+              value: "valkey"
+            - name: REDIS_PASSWORD_FILE
+              value: "/etc/secrets/REDIS_PASSWORD"
+          volumeMounts:
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+            - name: web-dist
+              mountPath: /app/web/dist
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
+        - name: web-dist
+          configMap:
+            name: web-dist
+        - name: tmp
+          emptyDir: {}
+  strategy:
+    canary:
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 20
+        - pause: { duration: 2m }
+        - setWeight: 50
+        - pause: { duration: 5m }
+        - setWeight: 100

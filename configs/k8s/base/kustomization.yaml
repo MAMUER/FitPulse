@@ -18,5 +18,7 @@ resources:
   - ingress-nginx
   - cert-manager
   - jobs
+  - monitoring
+  - monitoring/servicemonitors
   - local-path-provisioner/resource-quota.yaml
   - local-path-provisioner/limit-range.yaml

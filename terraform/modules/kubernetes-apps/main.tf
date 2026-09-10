@@ -177,6 +177,8 @@ resource "helm_release" "prometheus" {
       prometheus = {
         prometheusSpec = {
           serviceMonitorSelectorNilUsesHelmValues = false
+          retention = "15d"
+          retentionSize = "10GB"
         }
       }
       grafana = {
@@ -210,6 +212,27 @@ resource "helm_release" "ingress_nginx" {
       }
     })
   ]
+}
+
+resource "helm_release" "argo_rollouts" {
+  count      = var.enable_progressive_delivery ? 1 : 0
+  name       = "argo-rollouts"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-rollouts"
+  version    = "2.37.0"
+  namespace  = "argo-rollouts"
+
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      metricsService = {
+        enabled = false
+      }
+    })
+  ]
+
+  depends_on = [helm_release.ingress_nginx]
 }
 
 # Managed by External Secrets Operator (ESO) via configs/k8s/base/external-secrets/app-secrets.yaml

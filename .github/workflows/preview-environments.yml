@@ -1,0 +1,117 @@
+name: Preview Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    name: Preview Environment
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@90b45c4d3cf7b49a63c7c6f430b1d7c5b5c5b5c5 # originally: v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push preview images
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          SHA=$(git rev-parse --short HEAD)
+          IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
+          
+          for service in gateway user-service biometric-service training-service classifier; do
+            docker build -t "ghcr.io/mamuer/project/${service}:${IMAGE_TAG}" \
+              --build-arg SERVICE_NAME=${service} \
+              -f "cmd/${service}/Dockerfile" .
+            docker push "ghcr.io/mamuer/project/${service}:${IMAGE_TAG}"
+          done
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@90b45c4d3cf7b49a63c7c6f430b1d7c5b5c5b5c5 # originally: v4
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Create preview namespace
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
+          kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply --validate=false -f -
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" \
+            --docker-password="${{ secrets.GHCR_TOKEN }}" \
+            -n "${NAMESPACE}" \
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
+
+      - name: Deploy to preview namespace
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          SHA=$(git rev-parse --short HEAD)
+          IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
+          NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
+          
+          cd configs/k8s/base
+          for svc in gateway user-service biometric-service training-service classifier; do
+            kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:${IMAGE_TAG}" || true
+          done
+          
+          kustomize build . > /tmp/preview-manifests.yaml
+          sed "s/namespace: fitness-platform-production/namespace: ${NAMESPACE}/g" /tmp/preview-manifests.yaml | kubectl apply --validate=false -f -
+
+      - name: Wait for preview deployment
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
+          kubectl wait --for=condition=ready pod -l app=gateway -n "${NAMESPACE}" --timeout=180s || true
+          kubectl get pods -n "${NAMESPACE}"
+
+      - name: Comment preview URL on PR
+        if: success()
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.duckdns.org"
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    name: Cleanup Preview Environment
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@90b45c4d3cf7b49a63c7c6f430b1d7c5b5c5b5c5 # originally: v4
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Delete preview namespace
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
+          kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true --timeout=60s || true

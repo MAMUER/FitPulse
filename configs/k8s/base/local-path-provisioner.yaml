@@ -180,7 +180,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-              add: ["DAC_OVERRIDE"]  # NOSONAR: S5849
+              # NOSONAR: S5849 - local-path-provisioner requires DAC_OVERRIDE for host path provisioning
+              add: ["DAC_OVERRIDE"]
             seccompProfile:
               type: RuntimeDefault
           resources:

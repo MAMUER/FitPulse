@@ -14,25 +14,33 @@ import (
 
 type UserRepository struct {
 	db *sql.DB
+	stmts map[string]*sql.Stmt
 }
 
 func NewUserRepository(db *sql.DB) port.UserRepository {
-	return &UserRepository{db: db}
+	repo := &UserRepository{db: db}
+	repo.prepareStatements()
+	return repo
 }
 
-func (r *UserRepository) queryUser(ctx context.Context, query string, args ...interface{}) (*entity.User, error) {
-	user := &entity.User{}
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(
-		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
-		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, apperrors.NotFound(errUserNotFound)
-		}
-		return nil, apperrors.Internal("failed to get user", err)
+func (r *UserRepository) prepareStatements() {
+	r.stmts = map[string]*sql.Stmt{}
+	var err error
+	if r.stmts["getByID"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at FROM users WHERE id = $1`); err != nil {
+		panic(err)
 	}
-	return user, nil
+	if r.stmts["getByEmail"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at FROM users WHERE email = $1`); err != nil {
+		panic(err)
+	}
+	if r.stmts["existsByEmail"], err = r.db.PrepareContext(context.Background(), `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`); err != nil {
+		panic(err)
+	}
+	if r.stmts["listByRole"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users WHERE role = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`); err != nil {
+		panic(err)
+	}
+	if r.stmts["count"], err = r.db.PrepareContext(context.Background(), `SELECT COUNT(*) FROM users`); err != nil {
+		panic(err)
+	}
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *entity.User) error {
@@ -51,17 +59,33 @@ func (r *UserRepository) Create(ctx context.Context, user *entity.User) error {
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, error) {
-	return r.queryUser(ctx, `
-		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at
-		FROM users WHERE id = $1
-	`, id)
+	user := &entity.User{}
+	err := r.stmts["getByID"].QueryRowContext(ctx, id).Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperrors.NotFound(errUserNotFound)
+		}
+		return nil, apperrors.Internal(errFailedToGetUser, err)
+	}
+	return user, nil
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-	return r.queryUser(ctx, `
-		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at
-		FROM users WHERE email = $1
-	`, email)
+	user := &entity.User{}
+	err := r.stmts["getByEmail"].QueryRowContext(ctx, email).Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperrors.NotFound(errUserNotFound)
+		}
+		return nil, apperrors.Internal(errFailedToGetUser, err)
+	}
+	return user, nil
 }
 
 func (r *UserRepository) Update(ctx context.Context, user *entity.User) error {
@@ -115,12 +139,7 @@ func (r *UserRepository) List(ctx context.Context, page, pageSize int) ([]*entit
 
 func (r *UserRepository) ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error) {
 	offset := (page - 1) * pageSize
-	query := `
-		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at,
-		       COUNT(*) OVER() AS total_count
-		FROM users WHERE role = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
-	`
-	rows, err := r.db.QueryContext(ctx, query, role, pageSize, offset)
+	rows, err := r.stmts["listByRole"].QueryContext(ctx, role, pageSize, offset)
 	if err != nil {
 		return nil, 0, apperrors.Internal("failed to list users", err)
 	}
@@ -147,7 +166,7 @@ func (r *UserRepository) ListByRole(ctx context.Context, role string, page, page
 
 func (r *UserRepository) Count(ctx context.Context) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count)
+	err := r.stmts["count"].QueryRowContext(ctx).Scan(&count)
 	if err != nil {
 		return 0, apperrors.Internal("failed to count users", err)
 	}
@@ -156,8 +175,7 @@ func (r *UserRepository) Count(ctx context.Context) (int, error) {
 
 func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
-	err := r.db.QueryRowContext(ctx, query, email).Scan(&exists)
+	err := r.stmts["existsByEmail"].QueryRowContext(ctx, email).Scan(&exists)
 	if err != nil {
 		return false, apperrors.Internal("failed to check user existence", err)
 	}

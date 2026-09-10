@@ -3,7 +3,7 @@ imports:
 	@go run github.com/daixiang0/gci@v0.14.0 write -s standard -s default -s "prefix(github.com/MAMUER/project)" --skip-generated --skip-vendor cmd internal
 	@echo "Imports updated."
 
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
 BIN_DIR := bin
 GO_VERSION := 1.26.5
 
@@ -41,7 +41,10 @@ test:
 coverage:
 	@echo "Generating Go coverage..."
 	@powershell -Command "New-Item -ItemType Directory -Force -Path coverage | Out-Null"
-	@go test -coverprofile=coverage/coverage.out ./...
+	@go test -covermode=atomic -coverprofile=coverage/coverage.out ./...
+	@echo "Checking coverage threshold..."
+	@go tool cover -func=coverage/coverage.out | tail -1 | awk '{ for(i=1;i<=NF;i++) if($i ~ /%/) { gsub(/%/,"",$i); if ($i+0 < 80) { print "Coverage below 80%: " $$0; exit 1 } } }' || (echo "Coverage below threshold" && exit 1)
+	@echo "Coverage threshold met"
 	@echo "Generating frontend coverage..."
 	@cd web && npm run test
 	@echo "Frontend coverage complete."
@@ -73,6 +76,11 @@ check: tidy fmt vet imports lint frontend-install coverage frontend-build pip-co
 proto:
 	@echo "Generating proto files..."
 	@bash scripts/proto.sh
+
+swag:
+	@echo "Generating Swagger docs..."
+	@go install github.com/swaggo/swag/cmd/swag@latest
+	@swag init -g cmd/gateway/main.go -o api/rest --parseDependency --parseInternal
 
 frontend-install:
 	@echo "Installing frontend dependencies..."

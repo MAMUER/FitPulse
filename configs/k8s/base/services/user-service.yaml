@@ -9,4 +9,7 @@ spec:
   ports:
     - port: 50051
       targetPort: 50051
+    - port: 9096
+      targetPort: 9096
+      name: metrics
   type: ClusterIP

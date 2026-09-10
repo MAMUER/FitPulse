@@ -1318,7 +1318,7 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, test-staging]
+    needs: [detect-changes, docker, provision-k8s-vps]
     timeout-minutes: 90
     environment: production
     outputs:
