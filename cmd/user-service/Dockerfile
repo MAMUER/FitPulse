@@ -39,6 +39,8 @@ COPY --from=builder --chown=appuser:appgroup /app/bin/user-service .
 
 USER 1001
 
+HEALTHCHECK --interval=30s --timeout=3s CMD ps | grep -E 'user-service' | grep -v grep || exit 1
+
 EXPOSE 50051
 
 ENTRYPOINT ["./user-service"]

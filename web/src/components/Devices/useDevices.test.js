@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDevices } from './useDevices';
 
 const mockUseAuth = vi.fn();
@@ -28,7 +28,7 @@ describe('useDevices', () => {
 
   it('loads providers', async () => {
     mockGetProviders.mockResolvedValue({ providers: [] });
-    const { result } = renderHook(() => useDevices());
+    renderHook(() => useDevices());
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });

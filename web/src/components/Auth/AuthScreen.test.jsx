@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../../contexts/AuthContext';
 import AuthScreen from './AuthScreen';
 
@@ -13,10 +13,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useSearchParams: () => [
-      new URLSearchParams(),
-      vi.fn(),
-    ],
+    useSearchParams: () => [new URLSearchParams(), vi.fn()],
   };
 });
 
@@ -24,10 +21,21 @@ describe('AuthScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuthForm.mockReturnValue({
-      formData: { email: '', password: '', name: '', totpCode: '', backupCode: '' },
+      formData: {
+        email: '',
+        password: '',
+        name: '',
+        totpCode: '',
+        backupCode: '',
+      },
       errors: {},
       generalError: '',
-      passwordChecks: { length: false, upper: false, lower: false, digit: false },
+      passwordChecks: {
+        length: false,
+        upper: false,
+        lower: false,
+        digit: false,
+      },
       submitting: false,
       setField: vi.fn(),
       getFieldClass: vi.fn(() => ''),

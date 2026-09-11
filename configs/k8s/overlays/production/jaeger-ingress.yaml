@@ -1,3 +1,5 @@
+# checkov:skip=CKV_K8S_153: Server snippet used only for security headers (X-Frame-Options, X-Content-Type-Options); no user input in snippet
+# checkov:skip=CKV_SECRET_6: auth-secret is a Kubernetes secret name reference, not an actual base64-encoded secret value
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

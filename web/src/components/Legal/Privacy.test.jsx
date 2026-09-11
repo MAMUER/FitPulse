@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import Privacy from './Privacy';
 
 describe('Privacy', () => {
   it('renders privacy page', () => {
     render(<Privacy />);
-    expect(screen.getByText('Политика конфиденциальности — FitPulse')).toBeDefined();
+    expect(
+      screen.getByText('Политика конфиденциальности — FitPulse')
+    ).toBeDefined();
   });
 
   it('renders policy sections', () => {

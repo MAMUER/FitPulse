@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Devices from './Devices';
 
 const mockUseAuth = vi.fn();
@@ -43,14 +43,18 @@ describe('Devices', () => {
   it('disconnects a provider', async () => {
     const user = userEvent.setup();
     mockGetProviders.mockResolvedValue({
-      providers: [{ source: 'google', source_name: 'Google Fit', connected_at: '2024-01-01' }],
+      providers: [
+        {
+          source: 'google',
+          source_name: 'Google Fit',
+          connected_at: '2024-01-01',
+        },
+      ],
     });
     mockDisconnectIntegration.mockResolvedValue({});
     window.confirm = vi.fn(() => true);
     render(<Devices />);
-    await waitFor(() =>
-      expect(screen.getByText('Google Fit')).toBeDefined()
-    );
+    await waitFor(() => expect(screen.getByText('Google Fit')).toBeDefined());
     await user.click(screen.getByText('Отключить'));
     expect(mockDisconnectIntegration).toHaveBeenCalledWith('google');
   });

@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import Modal from './Modal';
 
 describe('Modal', () => {
   it('renders modal content', () => {
     render(
-      <Modal onClose={vi.fn()} ariaLabel="Test Modal">
+      <Modal onClose={vi.fn()} ariaLabel='Test Modal'>
         <div>Modal Content</div>
       </Modal>
     );
@@ -15,7 +15,7 @@ describe('Modal', () => {
   it('calls onClose when escape pressed', () => {
     const onClose = vi.fn();
     render(
-      <Modal onClose={onClose} ariaLabel="Test Modal">
+      <Modal onClose={onClose} ariaLabel='Test Modal'>
         <div>Modal Content</div>
       </Modal>
     );
@@ -26,7 +26,7 @@ describe('Modal', () => {
 
   it('renders with aria-label', () => {
     render(
-      <Modal onClose={vi.fn()} ariaLabel="Test Modal">
+      <Modal onClose={vi.fn()} ariaLabel='Test Modal'>
         <div>Modal Content</div>
       </Modal>
     );

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Admin from './Admin';
 
 const mockUseAuth = vi.fn();
@@ -46,12 +46,15 @@ describe('Admin', () => {
       { invite_id: '1', code: 'ABC123', is_active: true, role: 'client' },
     ]);
     mockListUsers.mockResolvedValue([
-      { user_id: '1', full_name: 'Test', email: 'test@test.com', role: 'client' },
+      {
+        user_id: '1',
+        full_name: 'Test',
+        email: 'test@test.com',
+        role: 'client',
+      },
     ]);
     render(<Admin />);
-    await waitFor(() =>
-      expect(screen.getByText('ABC123')).toBeDefined()
-    );
+    await waitFor(() => expect(screen.getByText('ABC123')).toBeDefined());
     expect(screen.getByText('Test')).toBeDefined();
   });
 

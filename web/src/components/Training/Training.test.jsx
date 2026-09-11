@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Training from './Training';
 
 const mockGetTrainingPlans = vi.fn();
@@ -35,19 +35,25 @@ describe('Training', () => {
   it('renders plans list', async () => {
     mockGetTrainingPlans.mockResolvedValue({
       plans: [
-        { plan_id: '1', plan_data: { name: 'Test Plan' }, training_goal: 'Strength', duration_weeks: 4 },
+        {
+          plan_id: '1',
+          plan_data: { name: 'Test Plan' },
+          training_goal: 'Strength',
+          duration_weeks: 4,
+        },
       ],
     });
     render(<Training />);
-    await waitFor(() =>
-      expect(screen.getByText('Test Plan')).toBeDefined()
-    );
+    await waitFor(() => expect(screen.getByText('Test Plan')).toBeDefined());
   });
 
   it('generates plan when button clicked', async () => {
     const user = userEvent.setup();
     mockGetTrainingPlans.mockResolvedValue({ plans: [] });
-    mockClassifyState.mockResolvedValue({ predicted_class: 'recovery', confidence: 0.5 });
+    mockClassifyState.mockResolvedValue({
+      predicted_class: 'recovery',
+      confidence: 0.5,
+    });
     mockGenerateTrainingPlan.mockResolvedValue({});
     render(<Training />);
     await waitFor(() =>

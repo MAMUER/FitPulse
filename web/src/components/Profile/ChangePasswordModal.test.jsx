@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ChangePasswordModal from './ChangePasswordModal';
 
 const mockChangePassword = vi.fn();
@@ -34,7 +34,10 @@ describe('ChangePasswordModal', () => {
     render(<ChangePasswordModal onClose={onClose} />);
     await user.type(screen.getByLabelText('Текущий пароль'), 'oldpass');
     await user.type(screen.getByLabelText('Новый пароль'), 'newpass123');
-    await user.type(screen.getByLabelText('Подтверждение пароля'), 'newpass123');
+    await user.type(
+      screen.getByLabelText('Подтверждение пароля'),
+      'newpass123'
+    );
     const form = document.querySelector('form');
     fireEvent.submit(form);
     await waitFor(() => expect(onClose).toHaveBeenCalled());

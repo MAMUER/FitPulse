@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../../contexts/AuthContext';
 import Profile from './Profile';
 
@@ -39,7 +39,18 @@ describe('Profile', () => {
       saving: false,
       errors: {},
       toast: '',
-      form: { nickname: '', age: '', gender: '', height: '', weight: '', fitness: '', nutrition: '', allergies: '', contraindications: '', goal: '' },
+      form: {
+        nickname: '',
+        age: '',
+        gender: '',
+        height: '',
+        weight: '',
+        fitness: '',
+        nutrition: '',
+        allergies: '',
+        contraindications: '',
+        goal: '',
+      },
       bmi: null,
       setField: vi.fn(),
       handleSubmit: vi.fn(),

@@ -1,10 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import RegisterForm from './RegisterForm';
 
 describe('RegisterForm', () => {
   const defaultProps = {
-    formData: { name: '', email: '', password: '', totpCode: '', backupCode: '' },
+    formData: {
+      name: '',
+      email: '',
+      password: '',
+      totpCode: '',
+      backupCode: '',
+    },
     errors: {},
     generalError: '',
     passwordChecks: { length: false, upper: false, lower: false, digit: false },
@@ -26,12 +32,16 @@ describe('RegisterForm', () => {
   it('calls setField on name change', () => {
     const setField = vi.fn();
     render(<RegisterForm {...defaultProps} setField={setField} />);
-    fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'John' } });
+    fireEvent.change(screen.getByLabelText('Имя'), {
+      target: { value: 'John' },
+    });
     expect(setField).toHaveBeenCalledWith('name', 'John');
   });
 
   it('calls onSwitchMode when switch button clicked', async () => {
-    const user = await import('@testing-library/user-event').then(m => m.default.setup());
+    const user = await import('@testing-library/user-event').then((m) =>
+      m.default.setup()
+    );
     const onSwitchMode = vi.fn();
     render(<RegisterForm {...defaultProps} onSwitchMode={onSwitchMode} />);
     await user.click(screen.getByText('Войти'));
@@ -48,7 +58,12 @@ describe('RegisterForm', () => {
       <RegisterForm
         {...defaultProps}
         formData={{ ...defaultProps.formData, password: 'Test1234' }}
-        passwordChecks={{ length: true, upper: true, lower: false, digit: false }}
+        passwordChecks={{
+          length: true,
+          upper: true,
+          lower: false,
+          digit: false,
+        }}
       />
     );
     expect(screen.getByText(/8\+ символов/)).toBeDefined();

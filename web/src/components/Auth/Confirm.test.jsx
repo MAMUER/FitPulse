@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Confirm from './Confirm';
 
 const mockApiConfirmEmail = vi.fn();
@@ -28,7 +27,7 @@ describe('Confirm', () => {
 
   it('confirms email successfully', async () => {
     mockApiConfirmEmail.mockResolvedValue({});
-    render(<Confirm token="valid-token" />);
+    render(<Confirm token='valid-token' />);
     await waitFor(() =>
       expect(screen.getByText(/Email успешно подтверждён/i)).toBeDefined()
     );
@@ -36,7 +35,7 @@ describe('Confirm', () => {
 
   it('shows error on failed confirmation', async () => {
     mockApiConfirmEmail.mockRejectedValue(new Error('Invalid token'));
-    render(<Confirm token="invalid-token" />);
+    render(<Confirm token='invalid-token' />);
     await waitFor(() =>
       expect(screen.getByText('Invalid token')).toBeDefined()
     );
@@ -44,7 +43,7 @@ describe('Confirm', () => {
 
   it('renders back button after confirmation', async () => {
     mockApiConfirmEmail.mockResolvedValue({});
-    render(<Confirm token="valid-token" />);
+    render(<Confirm token='valid-token' />);
     await waitFor(() =>
       expect(screen.getByText('← Вернуться ко входу')).toBeDefined()
     );

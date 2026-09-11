@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Diet from './Diet';
 
 const mockGetProfile = vi.fn();
@@ -59,7 +59,7 @@ describe('Diet', () => {
   });
 
   it('changes meal count', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     mockGetProfile.mockResolvedValue({
       profile: {
         weight_kg: 70,

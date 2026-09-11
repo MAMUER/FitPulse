@@ -31,7 +31,10 @@ describe('auth api', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'test@test.com', password: 'password123' }),
+        body: JSON.stringify({
+          email: 'test@test.com',
+          password: 'password123',
+        }),
       })
     );
     expect(localStorage.getItem('authToken')).toBe('token123');

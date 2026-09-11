@@ -39,6 +39,8 @@ COPY --from=builder --chown=appuser:appgroup /app/bin/biometric-service .
 
 USER 1001
 
+HEALTHCHECK --interval=30s --timeout=3s CMD ps | grep -E 'biometric-service' | grep -v grep || exit 1
+
 EXPOSE 50052
 
 ENTRYPOINT ["./biometric-service"]

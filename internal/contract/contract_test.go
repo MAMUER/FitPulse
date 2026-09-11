@@ -2,11 +2,12 @@ package contract
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 
-	pb "github.com/MAMUER/project/api/gen"
+	userpb "github.com/MAMUER/project/api/gen/user"
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -22,27 +23,27 @@ func TestUserServiceContract(t *testing.T) {
 	}
 	defer conn.Close()
 
-	client := pb.NewUserServiceClient(conn)
+	client := userpb.NewUserServiceClient(conn)
 
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"Register", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.Register(ctx, req.(*pb.RegisterRequest))
-		}},
-		{"Login", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.Login(ctx, req.(*pb.LoginRequest))
-		}},
-		{"GetProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GetProfile(ctx, req.(*pb.GetProfileRequest))
-		}},
-		{"UpdateProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.UpdateProfile(ctx, req.(*pb.UpdateProfileRequest))
-		}},
-		{"ListDevices", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.ListDevices(ctx, req.(*pb.ListDevicesRequest))
-		}},
+		methods := []struct {
+			name string
+			fn   func(ctx context.Context, req interface{}) (interface{}, error)
+		}{
+			{"Register", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.Register(ctx, req.(*userpb.RegisterRequest))
+			}},
+			{"Login", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.Login(ctx, req.(*userpb.LoginRequest))
+			}},
+			{"GetProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GetProfile(ctx, req.(*userpb.GetProfileRequest))
+			}},
+			{"UpdateProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.UpdateProfile(ctx, req.(*userpb.UpdateProfileRequest))
+			}},
+			{"ListDevices", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.ListDevices(ctx, req.(*userpb.ListDevicesRequest))
+			}},
 	}
 
 	ctx := context.Background()
@@ -68,21 +69,21 @@ func TestBiometricServiceContract(t *testing.T) {
 	}
 	defer conn.Close()
 
-	client := pb.NewBiometricServiceClient(conn)
+		client := biometricpb.NewBiometricServiceClient(conn)
 
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"AddRecord", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.AddRecord(ctx, req.(*pb.AddRecordRequest))
-		}},
-		{"GetRecords", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GetRecords(ctx, req.(*pb.GetRecordsRequest))
-		}},
-		{"GetLatest", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GetLatest(ctx, req.(*pb.GetLatestRequest))
-		}},
+		methods := []struct {
+			name string
+			fn   func(ctx context.Context, req interface{}) (interface{}, error)
+		}{
+			{"AddRecord", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.AddRecord(ctx, req.(*biometricpb.AddRecordRequest))
+			}},
+			{"GetRecords", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GetRecords(ctx, req.(*biometricpb.GetRecordsRequest))
+			}},
+			{"GetLatest", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GetLatest(ctx, req.(*biometricpb.GetLatestRequest))
+			}},
 	}
 
 	ctx := context.Background()
@@ -108,27 +109,27 @@ func TestTrainingServiceContract(t *testing.T) {
 	}
 	defer conn.Close()
 
-	client := pb.NewTrainingServiceClient(conn)
+		client := trainingpb.NewTrainingServiceClient(conn)
 
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"GeneratePlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GeneratePlan(ctx, req.(*pb.GeneratePlanRequest))
-		}},
-		{"GetPlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GetPlan(ctx, req.(*pb.GetPlanRequest))
-		}},
-		{"ListPlans", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.ListPlans(ctx, req.(*pb.ListPlansRequest))
-		}},
-		{"CompleteWorkout", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.CompleteWorkout(ctx, req.(*pb.CompleteWorkoutRequest))
-		}},
-		{"GetProgress", func(ctx context.Context, req interface{}) (interface{}, error) {
-			return client.GetProgress(ctx, req.(*pb.GetProgressRequest))
-		}},
+		methods := []struct {
+			name string
+			fn   func(ctx context.Context, req interface{}) (interface{}, error)
+		}{
+			{"GeneratePlan", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GeneratePlan(ctx, req.(*trainingpb.GeneratePlanRequest))
+			}},
+			{"GetPlan", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GetPlan(ctx, req.(*trainingpb.GetPlanRequest))
+			}},
+			{"ListPlans", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.ListPlans(ctx, req.(*trainingpb.ListPlansRequest))
+			}},
+			{"CompleteWorkout", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.CompleteWorkout(ctx, req.(*trainingpb.CompleteWorkoutRequest))
+			}},
+			{"GetProgress", func(ctx context.Context, req interface{}) (interface{}, error) {
+				return client.GetProgress(ctx, req.(*trainingpb.GetProgressRequest))
+			}},
 	}
 
 	ctx := context.Background()

@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, renderHook, act } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import {
   PauseOverlay,
   useLivePauseId,
@@ -164,9 +164,7 @@ describe('PauseOverlay', () => {
       <PauseOverlay onToggle={onToggle} paused={true} />
     );
 
-    expect(getByRole('button')).toHaveTextContent(
-      '▶ Обновление остановлено'
-    );
+    expect(getByRole('button')).toHaveTextContent('▶ Обновление остановлено');
     expect(getByRole('button')).toHaveAttribute('aria-pressed', 'true');
   });
 

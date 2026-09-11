@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import LoginForm from './LoginForm';
 
 describe('LoginForm', () => {
@@ -24,7 +24,9 @@ describe('LoginForm', () => {
   it('calls setField on input change', () => {
     const setField = vi.fn();
     render(<LoginForm {...defaultProps} setField={setField} />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@test.com' } });
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'test@test.com' },
+    });
     expect(setField).toHaveBeenCalledWith('email', 'test@test.com');
   });
 
@@ -50,7 +52,7 @@ describe('LoginForm', () => {
   });
 
   it('shows general error', () => {
-    render(<LoginForm {...defaultProps} generalError="Invalid credentials" />);
+    render(<LoginForm {...defaultProps} generalError='Invalid credentials' />);
     expect(screen.getByText('Invalid credentials')).toBeDefined();
   });
 });

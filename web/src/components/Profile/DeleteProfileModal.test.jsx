@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DeleteProfileModal from './DeleteProfileModal';
 
 const mockUseAuth = vi.fn();
@@ -21,7 +21,9 @@ describe('DeleteProfileModal', () => {
 
   it('renders delete profile form', () => {
     render(<DeleteProfileModal onClose={vi.fn()} />);
-    expect(screen.getByLabelText('Введите пароль для подтверждения')).toBeDefined();
+    expect(
+      screen.getByLabelText('Введите пароль для подтверждения')
+    ).toBeDefined();
   });
 
   it('shows error when password is empty', async () => {
@@ -37,7 +39,10 @@ describe('DeleteProfileModal', () => {
     mockUseAuth.mockReturnValue({ logout });
     mockDeleteProfile.mockResolvedValue({});
     render(<DeleteProfileModal onClose={vi.fn()} />);
-    await user.type(screen.getByLabelText('Введите пароль для подтверждения'), 'password');
+    await user.type(
+      screen.getByLabelText('Введите пароль для подтверждения'),
+      'password'
+    );
     const form = document.querySelector('form');
     fireEvent.submit(form);
     await waitFor(() => expect(logout).toHaveBeenCalled());

@@ -12,7 +12,6 @@ Run from repo root or cmd/ml_generator/:
     pytest cmd/ml_generator/tests/test_train_gan.py -v
 """
 
-import math
 import sys
 import types
 from unittest import mock
@@ -26,6 +25,7 @@ import torch  # type: ignore
 # lightning being fully installed.  We insert fake modules into sys.modules
 # *before* importing train_gan.
 # ---------------------------------------------------------------------------
+
 
 class _MockWandb:
     """Stand-in for wandb when WANDB_ENABLED is True."""
@@ -118,7 +118,10 @@ def _install_mocks():
     sys.modules.setdefault("wandb", _MockWandb())
     sys.modules.setdefault("lightning", _MockL())
     sys.modules.setdefault("lightning.pytorch", sys.modules["lightning"].pytorch)
-    sys.modules.setdefault("lightning.pytorch.callbacks", sys.modules["lightning"].pytorch.callbacks)
+    sys.modules.setdefault(
+        "lightning.pytorch.callbacks",
+        sys.modules["lightning"].pytorch.callbacks,
+    )
 
 
 _install_mocks()
@@ -126,10 +129,10 @@ _install_mocks()
 # Now import the module under test
 from cmd.ml_generator import train_gan  # noqa: E402  (import after mocks)
 
-
 # ===========================================================================
 # Fixtures
 # ===========================================================================
+
 
 @pytest.fixture(autouse=True)
 def _isolate_global_state():
@@ -150,6 +153,7 @@ def default_model():
 # ConditionalDiffusionModel
 # ===========================================================================
 
+
 class TestConditionalDiffusionModelInit:
     def test_default_dimensions(self, default_model):
         assert default_model.latent_dim == train_gan.LATENT_DIM
@@ -158,7 +162,9 @@ class TestConditionalDiffusionModelInit:
 
     def test_custom_dimensions(self):
         model = train_gan.ConditionalDiffusionModel(
-            latent_dim=32, plan_dim=10, condition_dim=8,
+            latent_dim=32,
+            plan_dim=10,
+            condition_dim=8,
         )
         assert model.latent_dim == 32
         assert model.plan_dim == 10
@@ -285,6 +291,7 @@ class TestConditionalDiffusionModelSample:
 # Rule-based plan builders
 # ===========================================================================
 
+
 class TestBuildRuleBasedPlan:
     def test_output_shape(self):
         profile = train_gan.UserProfile(age=30, fitness_level="intermediate")
@@ -300,9 +307,9 @@ class TestBuildRuleBasedPlan:
         profile = train_gan.UserProfile(age=25, fitness_level="advanced")
         for cls in train_gan.TRAINING_TEMPLATES:
             plan = train_gan.build_rule_based_plan(cls, profile)
-            assert (plan >= 0.0).all() and (plan <= 1.0).all(), (
-                f"values out of range for class {cls}"
-            )
+            assert (plan >= 0.0).all() and (
+                plan <= 1.0
+            ).all(), f"values out of range for class {cls}"
 
     def test_unknown_class_falls_back_to_endurance_basic(self):
         profile = train_gan.UserProfile()
@@ -390,6 +397,7 @@ class TestBuildStaticBeginnerPlan:
 # apply_post_processing_rules
 # ===========================================================================
 
+
 class TestApplyPostProcessingRules:
     def _base_plan(self):
         return np.ones(train_gan.PLAN_DIM, dtype=np.float32)
@@ -470,7 +478,9 @@ class TestApplyPostProcessingRules:
             training_class="endurance_basic",
             user_profile=profile_obese,
         )
-        result_normal = train_gan.apply_post_processing_rules(plan.copy(), request_normal)
+        result_normal = train_gan.apply_post_processing_rules(
+            plan.copy(), request_normal
+        )
         result_obese = train_gan.apply_post_processing_rules(plan.copy(), request_obese)
         assert result_obese[1] <= result_normal[1]
 
@@ -509,6 +519,7 @@ class TestApplyPostProcessingRules:
 # ===========================================================================
 # encode_user_profile
 # ===========================================================================
+
 
 class TestEncodeUserProfile:
     def test_output_shape(self):
@@ -601,7 +612,11 @@ class TestEncodeUserProfile:
             avg_intensity=0.7,
             last_workout_date="2025-01-15T00:00:00Z",
         )
-        preferences = {"available_days": ["mon", "wed", "fri"], "time": "morning", "equipment": ["dumbbell"]}
+        preferences = {
+            "available_days": ["mon", "wed", "fri"],
+            "time": "morning",
+            "equipment": ["dumbbell"],
+        }
         encoded = train_gan.encode_user_profile(profile, health, history, preferences)
         assert encoded.shape == (1, train_gan.CONDITION_DIM)
 
@@ -609,6 +624,7 @@ class TestEncodeUserProfile:
 # ===========================================================================
 # decode_plan
 # ===========================================================================
+
 
 class TestDecodePlan:
     def _default_request(self):
@@ -619,35 +635,56 @@ class TestDecodePlan:
 
     def test_output_has_required_keys(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "endurance_basic", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "endurance_basic", train_gan.UserProfile()
+        )
         expected_keys = {
-            "training_type", "training_type_ru", "duration_minutes",
-            "intensity", "weekly_frequency", "primary_exercise",
-            "warmup_minutes", "cooldown_minutes", "exercises",
-            "session_structure", "notes", "weekly_schedule",
+            "training_type",
+            "training_type_ru",
+            "duration_minutes",
+            "intensity",
+            "weekly_frequency",
+            "primary_exercise",
+            "warmup_minutes",
+            "cooldown_minutes",
+            "exercises",
+            "session_structure",
+            "notes",
+            "weekly_schedule",
         }
         assert expected_keys.issubset(result.keys())
 
     def test_duration_minutes_in_valid_range(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "endurance_basic", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "endurance_basic", train_gan.UserProfile()
+        )
         assert 20 <= result["duration_minutes"] <= 120
 
     def test_intensity_in_unit_interval(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "endurance_basic", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "endurance_basic", train_gan.UserProfile()
+        )
         assert 0.0 <= result["intensity"] <= 1.0
 
     def test_weekly_frequency_in_valid_range(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "endurance_basic", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "endurance_basic", train_gan.UserProfile()
+        )
         assert 1 <= result["weekly_frequency"] <= 7
 
     def test_unknown_class_falls_back(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "nonexistent_class", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "nonexistent_class", train_gan.UserProfile()
+        )
         assert result["training_type"] == "nonexistent_class"
-        assert result["training_type_ru"] == train_gan.TRAINING_TEMPLATES["endurance_basic"]["name_ru"]
+        assert (
+            result["training_type_ru"]
+            == train_gan.TRAINING_TEMPLATES["endurance_basic"]["name_ru"]
+        )
 
     def test_session_structure_has_three_exercises(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
@@ -656,7 +693,9 @@ class TestDecodePlan:
 
     def test_weekly_schedule_has_expected_days(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
-        result = train_gan.decode_plan(plan_vec, "endurance_basic", train_gan.UserProfile())
+        result = train_gan.decode_plan(
+            plan_vec, "endurance_basic", train_gan.UserProfile()
+        )
         expected_days = {"monday", "wednesday", "friday", "saturday", "sunday"}
         assert expected_days == set(result["weekly_schedule"].keys())
 
@@ -705,16 +744,22 @@ class TestDecodePlan:
     def test_primary_exercise_from_template(self):
         plan_vec = np.ones(train_gan.PLAN_DIM, dtype=np.float32)
         result = train_gan.decode_plan(plan_vec, "power_hiit", train_gan.UserProfile())
-        assert result["primary_exercise"] in train_gan.TRAINING_TEMPLATES["power_hiit"]["exercises"]
+        assert (
+            result["primary_exercise"]
+            in train_gan.TRAINING_TEMPLATES["power_hiit"]["exercises"]
+        )
 
 
 # ===========================================================================
 # load_real_data
 # ===========================================================================
 
+
 class TestLoadRealData:
     def test_raises_file_not_found_when_no_data_files(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(train_gan, "TRAINING_DATA_PATH", tmp_path / "nonexistent.csv")
+        monkeypatch.setattr(
+            train_gan, "TRAINING_DATA_PATH", tmp_path / "nonexistent.csv"
+        )
         monkeypatch.setattr(
             train_gan, "FALLBACK_TRAINING_DATA_PATH", tmp_path / "fallback.csv"
         )
@@ -725,15 +770,15 @@ class TestLoadRealData:
         import pandas as pd
 
         fallback_path = tmp_path / "fallback.csv"
-        df = pd.DataFrame({"plan_vector": ["[0.5, 0.5, 0.5, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"] * 10})
+        plan_vec_str = (
+            "[0.5, 0.5, 0.5, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, "
+            "0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
+        )
+        df = pd.DataFrame({"plan_vector": [plan_vec_str] * 10})
         df.to_csv(fallback_path, index=False)
 
-        monkeypatch.setattr(
-            train_gan, "TRAINING_DATA_PATH", tmp_path / "primary.csv"
-        )
-        monkeypatch.setattr(
-            train_gan, "FALLBACK_TRAINING_DATA_PATH", fallback_path
-        )
+        monkeypatch.setattr(train_gan, "TRAINING_DATA_PATH", tmp_path / "primary.csv")
+        monkeypatch.setattr(train_gan, "FALLBACK_TRAINING_DATA_PATH", fallback_path)
 
         train, train_c, val, val_c = train_gan.load_real_data()
         assert len(train) + len(val) == 10
@@ -784,10 +829,12 @@ class TestLoadRealData:
         data_path = tmp_path / "training_data.csv"
         plan_vec = [0.5] * train_gan.PLAN_DIM
         cond_vec = [float(i % 2) for i in range(train_gan.CONDITION_DIM)]
-        df = pd.DataFrame({
-            "plan_vector": [str(plan_vec)] * 6,
-            "condition_vector": [str(cond_vec)] * 6,
-        })
+        df = pd.DataFrame(
+            {
+                "plan_vector": [str(plan_vec)] * 6,
+                "condition_vector": [str(cond_vec)] * 6,
+            }
+        )
         df.to_csv(data_path, index=False)
 
         monkeypatch.setattr(train_gan, "TRAINING_DATA_PATH", data_path)
@@ -841,6 +888,7 @@ class TestLoadRealData:
 # Module constants
 # ===========================================================================
 
+
 class TestModuleConstants:
     def test_plan_dim(self):
         assert train_gan.PLAN_DIM == 19
@@ -853,5 +901,6 @@ class TestModuleConstants:
 
     def test_script_dir_is_path(self):
         from pathlib import Path
+
         assert isinstance(train_gan.SCRIPT_DIR, Path)
         assert train_gan.SCRIPT_DIR.exists()
