@@ -19,45 +19,28 @@ EOF
 	openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 365 -sha256
 	echo "✅ gRPC mTLS certificates generated"
 
-	echo "Creating app-secrets..."
-	RABBITMQ_URL="amqps://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5671/"
-	kubectl create secret generic app-secrets -n fitness-platform-production \
-		--from-literal=POSTGRES_USER=postgres \
-		--from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
-		--from-literal=POSTGRES_DB=fitness \
-		--from-literal=JWT_PRIVATE_KEY_PEM="${JWT_PRIVATE_KEY_PEM}" \
-		--from-literal=JWT_PUBLIC_KEY_PEM="${JWT_PUBLIC_KEY_PEM}" \
-		--from-literal=RABBITMQ_USER="${RABBITMQ_USER}" \
-		--from-literal=RABBITMQ_PASS="${RABBITMQ_PASS}" \
-		--from-literal=VALKEY_PASSWORD="${VALKEY_PASSWORD}" \
-		--from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
-		--from-literal=SMTP_HOST="$SMTP_HOST" \
-		--from-literal=SMTP_PORT="$SMTP_PORT" \
-		--from-literal=SMTP_USER="$SMTP_USER" \
-		--from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
-		--from-literal=SMTP_FROM="$SMTP_FROM" \
-		--from-literal=APP_BASE_URL="$APP_BASE_URL" \
-		--from-literal=SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL}" \
-		--from-literal=SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD}" \
-		--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET}" \
-		--from-literal=GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}" \
-		--from-literal=GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET}" \
-		--from-literal=GOOGLE_REDIRECT_URL="$GOOGLE_REDIRECT_URL" \
-		--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY}" \
-		--from-file=GRPC_TLS_CERT=/tmp/grpc-certs/server.crt \
-		--from-file=GRPC_TLS_KEY=/tmp/grpc-certs/server.key \
-		--from-file=GRPC_TLS_CA_CERT=/tmp/grpc-certs/ca.crt \
-		--from-file=GRPC_TLS_CLIENT_CERT=/tmp/grpc-certs/client.crt \
-		--from-file=GRPC_TLS_CLIENT_KEY=/tmp/grpc-certs/client.key \
+	echo "Creating grpc-tls secret..."
+	kubectl create secret generic grpc-tls \
+		-n fitness-platform-production \
+		--from-file=server.crt=/tmp/grpc-certs/server.crt \
+		--from-file=server.key=/tmp/grpc-certs/server.key \
+		--from-file=ca.crt=/tmp/grpc-certs/ca.crt \
+		--from-file=client.crt=/tmp/grpc-certs/client.crt \
+		--from-file=client.key=/tmp/grpc-certs/client.key \
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ app-secrets created"
+	echo "✅ grpc-tls secret created"
+
+	echo "Applying ExternalSecret manifests..."
+	kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production
+	echo "✅ ExternalSecrets applied"
+
 	echo "Waiting for secrets to propagate..."
-	sleep 10
+	sleep 15
+
 	echo "Creating rabbitmq-secret with rabbitmq.conf..."
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
-	echo "Waiting for secrets to propagate..."
-	sleep 10
+
 	echo "Creating monitoring-secrets..."
 	kubectl create secret generic monitoring-secrets -n fitness-platform-production \
 		--from-literal=grafana-admin-password="${GRAFANA_ADMIN_PASSWORD}" \

@@ -25,6 +25,7 @@ func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFiel
 
 	if r.Method != http.MethodPost {
 		log.Error("Method not allowed", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
+		webhookRequestsTotal.WithLabelValues(source, "method_not_allowed").Inc()
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -32,6 +33,7 @@ func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFiel
 	body, err := readBody(r)
 	if err != nil {
 		log.Error("Failed to read webhook body", zap.Error(err))
+		webhookRequestsTotal.WithLabelValues(source, "bad_request").Inc()
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
@@ -39,6 +41,7 @@ func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFiel
 	var notification map[string]interface{}
 	if err := json.Unmarshal(body, &notification); err != nil {
 		log.Error("Failed to parse webhook JSON", zap.Error(err))
+		webhookRequestsTotal.WithLabelValues(source, "bad_request").Inc()
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -51,6 +54,7 @@ func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFiel
 		zap.Any("fields", sanitize.MapStringString(fields)),
 	)
 
+	webhookRequestsTotal.WithLabelValues(source, "success").Inc()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "accepted"}); err != nil {

@@ -1,0 +1,9 @@
+version: v1
+breaking:
+  ignore:
+    - FIELD_NO_DELETE
+    - FIELD_NAMES_NO_UNDERSCORE
+lint:
+  deny:
+    - PACKAGE_VERSION_SUFFIXES
+    - ENUM_ZERO_VALUE_DEFAULT_ONLY

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
 
 const mockGetProfile = vi.fn();
 

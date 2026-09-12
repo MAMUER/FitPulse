@@ -31,9 +31,7 @@ describe('DeleteProfileModal', () => {
     const form = document.querySelector('form');
     fireEvent.submit(form);
     expect(
-      screen.getByText(
-        'Введите пароль для подтверждения удаления аккаунта.'
-      )
+      screen.getByText('Введите пароль для подтверждения удаления аккаунта.')
     ).toBeDefined();
   });
 

@@ -1,0 +1,14 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/MAMUER/project/api/gen
+    except:
+      - buf.build/mamuer/project
+plugins:
+  - remote: buf.build/community/stephenh/grpc-gateway
+    out: api/gen
+    opt: logtostderr=true
+  - remote: buf.build/community/grpc-ecosystem/openapi
+    out: api/rest
+    opt: logtostderr=true

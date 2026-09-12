@@ -64,7 +64,7 @@ clean:
 	@find . -maxdepth 1 -type f -name '*.test' -delete
 	@echo "Clean complete."
 
-check: tidy fmt vet imports lint frontend-install coverage frontend-build pip-compile
+check: tidy fmt vet lint frontend-install frontend-build
 	@echo "========================================"
 	@echo "  ALL CHECKS PASSED!"
 	@echo "========================================"

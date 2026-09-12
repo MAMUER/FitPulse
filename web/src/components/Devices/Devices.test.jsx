@@ -31,7 +31,9 @@ describe('Devices', () => {
   it('shows no providers when empty', async () => {
     mockGetProviders.mockResolvedValue({ providers: [] });
     render(<Devices />);
-    expect(await screen.findByText('Нет подключённых источников')).toBeDefined();
+    expect(
+      await screen.findByText('Нет подключённых источников')
+    ).toBeDefined();
   });
 
   it('renders connect button', () => {

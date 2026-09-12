@@ -155,6 +155,27 @@ FitPulse реализует комплексные меры безопаснос
 | Виртуализация | KVM |
 | ОС | Ubuntu 26.04 LTS |
 
+### Локальная разработка
+
+Для запуска всего стека локально используйте Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Сервисы:
+
+- **Gateway**: <http://localhost:8080>
+- **Frontend**: <http://localhost:5173>
+- **PostgreSQL**: localhost:5432
+- **Valkey**: localhost:6379
+- **RabbitMQ**: localhost:5672 (AMQPS), Management UI: <http://localhost:15672>
+- **Prometheus**: <http://localhost:9090>
+- **Grafana**: <http://localhost:3000>
+- **Jaeger**: <http://localhost:16686>
+
+Переменные окружения для локального запуска описаны в `docker-compose.yml`.
+
 ### Frontend Stack
 
 - **Framework**: React 19.2+ with Vite 8

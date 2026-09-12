@@ -17,18 +17,27 @@ describe('Diet', () => {
   });
 
   it('renders loading state', async () => {
-    mockGetProfile.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({
-      profile: {
-        weight_kg: 70,
-        height_cm: 175,
-        age: 30,
-        gender: 'male',
-        fitness_level: 'beginner',
-        goals: ['weight_loss'],
-        allergies: [],
-        contraindications: [],
-      },
-    }), 1000)));
+    mockGetProfile.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                profile: {
+                  weight_kg: 70,
+                  height_cm: 175,
+                  age: 30,
+                  gender: 'male',
+                  fitness_level: 'beginner',
+                  goals: ['weight_loss'],
+                  allergies: [],
+                  contraindications: [],
+                },
+              }),
+            1000
+          )
+        )
+    );
     render(<Diet />);
     expect(screen.getByText('Загрузка...')).toBeDefined();
   });
@@ -82,6 +91,8 @@ describe('Diet', () => {
       },
     });
     render(<Diet />);
-    expect(await screen.findByLabelText('Количество приёмов пищи')).toBeDefined();
+    expect(
+      await screen.findByLabelText('Количество приёмов пищи')
+    ).toBeDefined();
   });
 });

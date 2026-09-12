@@ -370,7 +370,12 @@ export default function Diet({ initialTemplate } = {}) {
   }, [allergyList, dislikeList]);
 
   useEffect(() => {
-    console.log('useEffect [nutrition, template, ...] running, nutrition:', !!nutrition, 'template:', template);
+    console.log(
+      'useEffect [nutrition, template, ...] running, nutrition:',
+      !!nutrition,
+      'template:',
+      template
+    );
     if (!nutrition) {
       console.log('useEffect returning early because !nutrition');
       return;
@@ -378,39 +383,47 @@ export default function Diet({ initialTemplate } = {}) {
     try {
       const selectedTemplate =
         MEAL_TEMPLATES[template] || MEAL_TEMPLATES.balanced;
-      console.log('useEffect continuing, selectedTemplate:', selectedTemplate.name);
+      console.log(
+        'useEffect continuing, selectedTemplate:',
+        selectedTemplate.name
+      );
       const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner']; // istanbul ignore next
       const selectedMealKeys = mealKeys.slice(0, mealCount); // istanbul ignore next
-      console.log('selectedMealKeys:', selectedMealKeys, 'selectedTemplate:', selectedTemplate.name);
+      console.log(
+        'selectedMealKeys:',
+        selectedMealKeys,
+        'selectedTemplate:',
+        selectedTemplate.name
+      );
 
-    const [hours, minutes] = firstMealTime.split(':').map(Number);
-    const startMinutes =
-      Number.isFinite(hours) && Number.isFinite(minutes)
-        ? hours * 60 + minutes
-        : 8 * 60;
-    const windowMinutes = 14 * 60;
-    const step = mealCount > 1 ? windowMinutes / (mealCount - 1) : 0;
+      const [hours, minutes] = firstMealTime.split(':').map(Number);
+      const startMinutes =
+        Number.isFinite(hours) && Number.isFinite(minutes)
+          ? hours * 60 + minutes
+          : 8 * 60;
+      const windowMinutes = 14 * 60;
+      const step = mealCount > 1 ? windowMinutes / (mealCount - 1) : 0;
 
-    const generated = selectedMealKeys.map((key, idx) => {
-      const options = filterMeals(selectedTemplate[key]);
-      console.log('options for', key, ':', options.length);
-      const meal = options[secureRandomIndex(options.length)] || {
-        name: '—',
-        kcal: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-      };
-      const timeMinutes =
-        mealCount > 1 ? startMinutes + idx * step : startMinutes;
-      const h = Math.floor(timeMinutes / 60) % 24;
-      const m = timeMinutes % 60;
-      const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      return { ...meal, time };
-    });
+      const generated = selectedMealKeys.map((key, idx) => {
+        const options = filterMeals(selectedTemplate[key]);
+        console.log('options for', key, ':', options.length);
+        const meal = options[secureRandomIndex(options.length)] || {
+          name: '—',
+          kcal: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        };
+        const timeMinutes =
+          mealCount > 1 ? startMinutes + idx * step : startMinutes;
+        const h = Math.floor(timeMinutes / 60) % 24;
+        const m = timeMinutes % 60;
+        const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        return { ...meal, time };
+      });
 
-    console.log('setting meals, count:', generated.length);
-    setMeals(generated);
+      console.log('setting meals, count:', generated.length);
+      setMeals(generated);
     } catch (err) {
       console.error('Failed to generate meals', err);
     }

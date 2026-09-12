@@ -1245,6 +1245,36 @@ jobs:
           NAMESPACE: fitness-platform-staging
         run: bash scripts/ci/deploy-staging.sh run_uat_tests
   # ============================================================================
+  # PLAYWRIGHT E2E TESTS
+  # ============================================================================
+  playwright-e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    timeout-minutes: 20
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - name: Setup Node.js
+        uses: actions/setup-node@2030ffe8868c4d2fd9f24a3de71d44d57bfe58c1 # originally: v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+      - name: Install frontend dependencies
+        run: cd web && npm install --legacy-peer-deps
+      - name: Install Playwright browsers
+        run: cd web && npx playwright install --with-deps chromium
+      - name: Run Playwright E2E tests
+        run: cd web && npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@6c62cb5ab5765d60c4a0399c6b49796658f7f8eb # originally: v4
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+  # ============================================================================
   # HEALTH CHECK
   # ============================================================================
   health-check:
@@ -1318,7 +1348,7 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps]
+    needs: [detect-changes, docker, provision-k8s-vps, test-staging]
     timeout-minutes: 90
     environment: production
     outputs:
@@ -1532,6 +1562,7 @@ jobs:
         provision-k8s-vps,
         deploy-staging,
         test-staging,
+        playwright-e2e,
         deploy-production,
         test-production,
         smoke-test,

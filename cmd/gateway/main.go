@@ -358,9 +358,25 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 		return nil, nil, false
 	}
 
-	rmqConn, err := amqp.Dial(rabbitmqURL)
+	var rmqConn *amqp.Connection
+	var err error
+	for attempt := 1; attempt <= 5; attempt++ {
+		rmqConn, err = dialRabbitMQ(rabbitmqURL)
+		if err == nil {
+			break
+		}
+		log.Warn("RabbitMQ connection attempt failed",
+			zap.Int("attempt", attempt),
+			zap.Int("max_attempts", 5),
+			zap.Error(err))
+		if attempt < 5 {
+			wait := time.Duration(attempt*2) * time.Second
+			log.Info("Waiting before RabbitMQ retry", zap.Duration("wait", wait))
+			time.Sleep(wait)
+		}
+	}
 	if err != nil {
-		log.Warn("RabbitMQ unavailable, async ML mode disabled", zap.Error(err))
+		log.Warn("RabbitMQ unavailable after retries, async ML mode disabled", zap.Error(err))
 		return nil, nil, false
 	}
 
@@ -375,13 +391,37 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 
 	_, _ = rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil)
 	_, _ = rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil)
-	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", rabbitmqURL))
+	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", maskRabbitMQURL(rabbitmqURL)))
 
 	return rmqCh, func() {
 		if closeErr := rmqConn.Close(); closeErr != nil {
 			log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
 		}
 	}, true
+}
+
+func dialRabbitMQ(rabbitmqURL string) (*amqp.Connection, error) {
+	if strings.HasPrefix(rabbitmqURL, "amqps://") {
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS13,
+		}
+		return amqp.DialTLS(rabbitmqURL, tlsConfig)
+	}
+	if strings.HasPrefix(rabbitmqURL, "amqp://") {
+		return nil, errors.New("insecure amqp:// connection to RabbitMQ is not allowed; use amqps://")
+	}
+	return amqp.Dial(rabbitmqURL)
+}
+
+func maskRabbitMQURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "<invalid-url>"
+	}
+	if parsed.User != nil {
+		parsed.User = url.UserPassword(parsed.User.Username(), "***")
+	}
+	return parsed.String()
 }
 
 func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {

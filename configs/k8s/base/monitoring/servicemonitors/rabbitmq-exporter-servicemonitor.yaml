@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rabbitmq-exporter
+  namespace: fitness-platform-production
+  labels:
+    app: rabbitmq-exporter
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq-exporter
+  namespaceSelector:
+    matchNames:
+      - fitness-platform-production
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
