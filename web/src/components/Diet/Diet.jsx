@@ -250,9 +250,13 @@ export default function Diet({ initialTemplate } = {}) {
   const [template, setTemplate] = useState(() => initialTemplate || 'balanced');
   const [meals, setMeals] = useState([]);
 
+  console.log('Diet render, loading:', loading, 'profile:', !!profile);
+
   const loadProfile = useCallback(async () => {
+    console.log('loadProfile started');
     try {
       const data = await getProfile();
+      console.log('loadProfile got data:', data);
       setProfile(data);
       const p = data.profile || data;
       setAllergies((p.allergies || []).join(', '));
@@ -267,6 +271,7 @@ export default function Diet({ initialTemplate } = {}) {
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {
+      console.log('loadProfile finally, setLoading(false)');
       setLoading(false);
     }
   }, []);
@@ -276,6 +281,7 @@ export default function Diet({ initialTemplate } = {}) {
   }, [loadProfile]);
 
   const nutrition = useMemo(() => {
+    console.log('nutrition useMemo running, profile:', !!profile);
     if (!profile) return null;
     const p = profile.profile || profile;
     const weight = p.weight_kg || 70; // istanbul ignore next
@@ -364,11 +370,18 @@ export default function Diet({ initialTemplate } = {}) {
   }, [allergyList, dislikeList]);
 
   useEffect(() => {
-    if (!nutrition) return;
-    const selectedTemplate =
-      MEAL_TEMPLATES[template] || MEAL_TEMPLATES.balanced;
-    const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner']; // istanbul ignore next
-    const selectedMealKeys = mealKeys.slice(0, mealCount); // istanbul ignore next
+    console.log('useEffect [nutrition, template, ...] running, nutrition:', !!nutrition, 'template:', template);
+    if (!nutrition) {
+      console.log('useEffect returning early because !nutrition');
+      return;
+    }
+    try {
+      const selectedTemplate =
+        MEAL_TEMPLATES[template] || MEAL_TEMPLATES.balanced;
+      console.log('useEffect continuing, selectedTemplate:', selectedTemplate.name);
+      const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner']; // istanbul ignore next
+      const selectedMealKeys = mealKeys.slice(0, mealCount); // istanbul ignore next
+      console.log('selectedMealKeys:', selectedMealKeys, 'selectedTemplate:', selectedTemplate.name);
 
     const [hours, minutes] = firstMealTime.split(':').map(Number);
     const startMinutes =
@@ -380,6 +393,7 @@ export default function Diet({ initialTemplate } = {}) {
 
     const generated = selectedMealKeys.map((key, idx) => {
       const options = filterMeals(selectedTemplate[key]);
+      console.log('options for', key, ':', options.length);
       const meal = options[secureRandomIndex(options.length)] || {
         name: '—',
         kcal: 0,
@@ -395,7 +409,11 @@ export default function Diet({ initialTemplate } = {}) {
       return { ...meal, time };
     });
 
+    console.log('setting meals, count:', generated.length);
     setMeals(generated);
+    } catch (err) {
+      console.error('Failed to generate meals', err);
+    }
   }, [nutrition, template, mealCount, firstMealTime, filterMeals]);
 
   const totals = useMemo(() => {

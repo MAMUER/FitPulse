@@ -395,7 +395,7 @@ jobs:
           JUPYTER_NBQA_MYPY: "false"
           JUPYTER_NBQA_PYLINT: "false"
           JUPYTER_NBQA_RUFF: "false"
-          PYTHON_MYPY_ARGS: "--namespace-packages --explicit-package-bases --exclude cmd/ml_generator/"
+          PYTHON_MYPY_ARGS: "--config-file .github/linters/pyproject.toml"
 
   # ============================================================================
   # CODEQL ANALYSIS

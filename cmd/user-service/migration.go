@@ -63,8 +63,8 @@ type piiTable struct {
 }
 
 var allowedPiiTables = map[string][]string{
-	"users":               {"id", "email_encrypted", "full_name_encrypted", "nickname_encrypted"},
-	"email_verifications": {"id", "email_encrypted", "token_encrypted"},
+	"users":               {"id", "email", "email_encrypted", "full_name", "full_name_encrypted", "nickname", "nickname_encrypted"},
+	"email_verifications": {"id", "email", "email_encrypted", "token", "token_encrypted"},
 }
 
 func validatePiiTable(t piiTable) error {

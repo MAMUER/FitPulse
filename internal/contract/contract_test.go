@@ -2,14 +2,16 @@ package contract
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 
-	userpb "github.com/MAMUER/project/api/gen/user"
-	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	biometricpb "github.com/MAMUER/project/api/gen/biometric"
+	trainingpb "github.com/MAMUER/project/api/gen/training"
+	userpb "github.com/MAMUER/project/api/gen/user"
 )
 
 func TestUserServiceContract(t *testing.T) {
@@ -17,33 +19,48 @@ func TestUserServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("failed to connect to user-service: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := userpb.NewUserServiceClient(conn)
 
-		methods := []struct {
-			name string
-			fn   func(ctx context.Context, req interface{}) (interface{}, error)
-		}{
-			{"Register", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.Register(ctx, req.(*userpb.RegisterRequest))
-			}},
-			{"Login", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.Login(ctx, req.(*userpb.LoginRequest))
-			}},
-			{"GetProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GetProfile(ctx, req.(*userpb.GetProfileRequest))
-			}},
-			{"UpdateProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.UpdateProfile(ctx, req.(*userpb.UpdateProfileRequest))
-			}},
-			{"ListDevices", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.ListDevices(ctx, req.(*userpb.ListDevicesRequest))
-			}},
+	methods := []struct {
+		name string
+		fn   func(ctx context.Context, req interface{}) (interface{}, error)
+	}{
+		{"Register", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.Register(ctx, req.(*userpb.RegisterRequest))
+		}},
+		{"Login", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.Login(ctx, req.(*userpb.LoginRequest))
+		}},
+		{"GetProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GetProfile(ctx, req.(*userpb.GetProfileRequest))
+		}},
+		{"UpdateProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.UpdateProfile(ctx, req.(*userpb.UpdateProfileRequest))
+		}},
+		{"ListDevices", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.ListDevices(ctx, req.(*userpb.ListDevicesRequest))
+		}},
 	}
 
 	ctx := context.Background()
@@ -63,27 +80,36 @@ func TestBiometricServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
-	conn, err := grpc.Dial("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("failed to connect to biometric-service: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
-		client := biometricpb.NewBiometricServiceClient(conn)
+	client := biometricpb.NewBiometricServiceClient(conn)
 
-		methods := []struct {
-			name string
-			fn   func(ctx context.Context, req interface{}) (interface{}, error)
-		}{
-			{"AddRecord", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.AddRecord(ctx, req.(*biometricpb.AddRecordRequest))
-			}},
-			{"GetRecords", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GetRecords(ctx, req.(*biometricpb.GetRecordsRequest))
-			}},
-			{"GetLatest", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GetLatest(ctx, req.(*biometricpb.GetLatestRequest))
-			}},
+	methods := []struct {
+		name string
+		fn   func(ctx context.Context, req interface{}) (interface{}, error)
+	}{
+		{"AddRecord", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.AddRecord(ctx, req.(*biometricpb.AddRecordRequest))
+		}},
+		{"GetRecords", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GetRecords(ctx, req.(*biometricpb.GetRecordsRequest))
+		}},
+		{"GetLatest", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GetLatest(ctx, req.(*biometricpb.GetLatestRequest))
+		}},
 	}
 
 	ctx := context.Background()
@@ -103,33 +129,48 @@ func TestTrainingServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
-	conn, err := grpc.Dial("localhost:50053", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50053", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("failed to connect to training-service: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
-		client := trainingpb.NewTrainingServiceClient(conn)
+	client := trainingpb.NewTrainingServiceClient(conn)
 
-		methods := []struct {
-			name string
-			fn   func(ctx context.Context, req interface{}) (interface{}, error)
-		}{
-			{"GeneratePlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GeneratePlan(ctx, req.(*trainingpb.GeneratePlanRequest))
-			}},
-			{"GetPlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GetPlan(ctx, req.(*trainingpb.GetPlanRequest))
-			}},
-			{"ListPlans", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.ListPlans(ctx, req.(*trainingpb.ListPlansRequest))
-			}},
-			{"CompleteWorkout", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.CompleteWorkout(ctx, req.(*trainingpb.CompleteWorkoutRequest))
-			}},
-			{"GetProgress", func(ctx context.Context, req interface{}) (interface{}, error) {
-				return client.GetProgress(ctx, req.(*trainingpb.GetProgressRequest))
-			}},
+	methods := []struct {
+		name string
+		fn   func(ctx context.Context, req interface{}) (interface{}, error)
+	}{
+		{"GeneratePlan", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GeneratePlan(ctx, req.(*trainingpb.GeneratePlanRequest))
+		}},
+		{"GetPlan", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GetPlan(ctx, req.(*trainingpb.GetPlanRequest))
+		}},
+		{"ListPlans", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.ListPlans(ctx, req.(*trainingpb.ListPlansRequest))
+		}},
+		{"CompleteWorkout", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.CompleteWorkout(ctx, req.(*trainingpb.CompleteWorkoutRequest))
+		}},
+		{"GetProgress", func(ctx context.Context, req interface{}) (interface{}, error) {
+			if req == nil {
+				return nil, errors.New("nil request")
+			}
+			return client.GetProgress(ctx, req.(*trainingpb.GetProgressRequest))
+		}},
 	}
 
 	ctx := context.Background()
@@ -153,7 +194,7 @@ func TestClassifierContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("classifier not reachable: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		t.Fatalf("classifier health check failed: %d", resp.StatusCode)

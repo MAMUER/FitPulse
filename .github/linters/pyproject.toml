@@ -36,7 +36,5 @@ exclude = [
   "build/",
   "dist/",
   ".venv/",
+  "cmd/ml_generator/",
 ]
-
-[[tool.mypy.overrides]]
-module = "cmd.ml_generator.main"

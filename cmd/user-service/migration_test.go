@@ -27,35 +27,6 @@ import (
 // We therefore use a custom driver that returns pre-configured results.
 // ---------------------------------------------------------------------------
 
-// rower mirrors the unexported driver.Row interface.
-type rower interface {
-	Scan(dest ...interface{}) error
-}
-
-// _singleIDRow scans a fixed int64 on first Scan call.
-type _singleIDRow struct {
-	v       int64
-	scanned bool
-}
-
-func (r *_singleIDRow) Scan(dest ...interface{}) error {
-	if !r.scanned {
-		r.scanned = true
-		if len(dest) > 0 {
-			if p, ok := dest[0].(*int64); ok {
-				*p = r.v
-				return nil
-			}
-		}
-	}
-	return nil
-}
-
-// _errRow always returns the stored error.
-type _errRow struct{ err error }
-
-func (r *_errRow) Scan(_ ...interface{}) error { return r.err }
-
 // _seqRows implements driver.Rows backed by a single-row result set.
 // Each call to Next either returns the stored values (first call) or
 // io.EOF (subsequent calls).  New instances must be created via
@@ -142,12 +113,8 @@ func (r *_seqRows) Close() error { return nil }
 type _seqResult struct {
 	// qcRows is returned by QueryContext.  Must be a fresh _seqRows per call.
 	qcRows driver.Rows
-	// qrRow is returned by QueryRowContext.
-	qrRow rower
 	// qcErr is the error returned by QueryContext (overrides qcRows).
 	qcErr error
-	// qrErr is the error embedded in the returned row for QueryRowContext.
-	qrErr error
 }
 
 // _seqDrv / _seqC / _seqCtor: driver registered as "seq_test_driver".
@@ -216,19 +183,6 @@ func (c *_seqC) QueryContext(_ context.Context, query string, _ []driver.NamedVa
 		return noRows(), nil
 	}
 	return r.qcRows, nil
-}
-
-// QueryRowContext returns the next pre-configured rower.
-func (c *_seqC) QueryRowContext(_ context.Context, query string, _ []driver.NamedValue) rower {
-	if c.idx >= len(c.results) {
-		return &_errRow{err: fmt.Errorf("unexpected query %q (no more expectations)", query)}
-	}
-	r := c.results[c.idx]
-	c.idx++
-	if r.qrErr != nil {
-		return &_errRow{err: r.qrErr}
-	}
-	return r.qrRow
 }
 
 func (c *_seqC) CheckNamedValue(nv *driver.NamedValue) error { return nil }
@@ -388,10 +342,10 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 
 		ctx := context.Background()
 		// Call 1 (QueryContext → Next→io.EOF → sql.ErrNoRows): keyring miss
-		// Call 2 (QueryRowContext): import_key returns id=7
+		// Call 2 (QueryContext → single row id=7): import_key returns id=7
 		mockDB := newSeqDB(
 			_seqResult{qcRows: noRows("id")},
-			_seqResult{qrRow: &_singleIDRow{v: 7}},
+			_seqResult{qcRows: singleRow("id", int64(7))},
 		)
 		defer func() {
 			if cerr := mockDB.Close(); cerr != nil {
@@ -437,10 +391,10 @@ func TestEnsurePgsodiumKey(t *testing.T) {
 
 		ctx := context.Background()
 		// Call 1 (QueryContext → io.EOF → sql.ErrNoRows): keyring miss
-		// Call 2 (QueryRowContext): import_key returns error
+		// Call 2 (QueryContext → error): import_key returns error
 		mockDB := newSeqDB(
 			_seqResult{qcRows: noRows("id")},
-			_seqResult{qrErr: errors.New("import failed")},
+			_seqResult{qcErr: errors.New("import failed")},
 		)
 		defer func() {
 			if cerr := mockDB.Close(); cerr != nil {

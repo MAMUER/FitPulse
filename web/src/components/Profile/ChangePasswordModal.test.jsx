@@ -24,7 +24,7 @@ describe('ChangePasswordModal', () => {
     render(<ChangePasswordModal onClose={vi.fn()} />);
     const form = document.querySelector('form');
     fireEvent.submit(form);
-    expect(screen.getByText(/Заполните все поля/i)).toBeDefined();
+    expect(screen.getByText('Введите текущий пароль')).toBeDefined();
   });
 
   it('calls onClose on successful change', async () => {

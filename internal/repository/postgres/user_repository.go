@@ -13,7 +13,7 @@ import (
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db    *sql.DB
 	stmts map[string]*sql.Stmt
 }
 
@@ -59,33 +59,11 @@ func (r *UserRepository) Create(ctx context.Context, user *entity.User) error {
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, error) {
-	user := &entity.User{}
-	err := r.stmts["getByID"].QueryRowContext(ctx, id).Scan(
-		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
-		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, apperrors.NotFound(errUserNotFound)
-		}
-		return nil, apperrors.Internal(errFailedToGetUser, err)
-	}
-	return user, nil
+	return scanUser(r.stmts["getByID"].QueryRowContext(ctx, id))
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-	user := &entity.User{}
-	err := r.stmts["getByEmail"].QueryRowContext(ctx, email).Scan(
-		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
-		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, apperrors.NotFound(errUserNotFound)
-		}
-		return nil, apperrors.Internal(errFailedToGetUser, err)
-	}
-	return user, nil
+	return scanUser(r.stmts["getByEmail"].QueryRowContext(ctx, email))
 }
 
 func (r *UserRepository) Update(ctx context.Context, user *entity.User) error {
@@ -588,4 +566,19 @@ func (r *deviceRepository) Delete(ctx context.Context, userID, deviceID string) 
 		return apperrors.Internal("failed to delete device", err)
 	}
 	return nil
+}
+
+func scanUser(row *sql.Row) (*entity.User, error) {
+	user := &entity.User{}
+	err := row.Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperrors.NotFound(errUserNotFound)
+		}
+		return nil, apperrors.Internal(errFailedToGetUser, err)
+	}
+	return user, nil
 }

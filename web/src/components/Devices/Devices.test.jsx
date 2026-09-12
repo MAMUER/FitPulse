@@ -1,7 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Devices from './Devices';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../contexts/AuthContext', () => ({
@@ -15,6 +14,8 @@ vi.mock('../../utils/api', () => ({
   getProviders: (...args) => mockGetProviders(...args),
   disconnectIntegration: (...args) => mockDisconnectIntegration(...args),
 }));
+
+import Devices from './Devices';
 
 describe('Devices', () => {
   beforeEach(() => {
@@ -30,9 +31,7 @@ describe('Devices', () => {
   it('shows no providers when empty', async () => {
     mockGetProviders.mockResolvedValue({ providers: [] });
     render(<Devices />);
-    await waitFor(() =>
-      expect(screen.getByText('Нет подключённых источников')).toBeDefined()
-    );
+    expect(await screen.findByText('Нет подключённых источников')).toBeDefined();
   });
 
   it('renders connect button', () => {
@@ -54,7 +53,13 @@ describe('Devices', () => {
     mockDisconnectIntegration.mockResolvedValue({});
     window.confirm = vi.fn(() => true);
     render(<Devices />);
-    await waitFor(() => expect(screen.getByText('Google Fit')).toBeDefined());
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'OPEN_WEARABLES_CONNECTED' },
+        origin: 'https://openwearables.com',
+      })
+    );
+    expect(await screen.findByText('Google Fit')).toBeDefined();
     await user.click(screen.getByText('Отключить'));
     expect(mockDisconnectIntegration).toHaveBeenCalledWith('google');
   });

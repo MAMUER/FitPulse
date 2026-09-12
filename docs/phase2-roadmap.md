@@ -76,7 +76,6 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ---
 
-
 ## 4. Compliance: 152-ФЗ
 
 ### 4.1 Контекст
@@ -89,6 +88,7 @@ Single PostgreSQL инстанс сейчас работает на том же 
 - механизмы реализации прав субъекта (доступ, удаление)
 
 ### 4.2 Задачи
+
 1. Расширить retention ELK-логов до 3 лет для соответствия 152-ФЗ (текущий retention в `docs/ARCHITECTURE.md`: 90 дней).
 2. Подготовка документации (Политика обработки ПДн, Инструкция по работе с инцидентами, DPIA).
 
@@ -260,6 +260,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 - Время canary-фазы ≤ 10 минут до full rollout
 
 ## 10. Bug Bounty / Researcher Program
+
 ### 10.1 Контекст
 
 Базовая self-hosted политика уже реализована: созданы `BUG_BOUNTY_SCOPE.md` и раздел в `SECURITY.md`, определены in-scope/out-of-scope цели и transparent SLA по ответу (best effort).
@@ -273,6 +274,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 3. **WKD (Web Key Directory)**: опубликовать PGP-ключ через WKD для автоматического обнаружения ключа почтовыми клиентами (GnuPG, Thunderbird).
 4. **Оценка платформенной интеграции**: рассмотреть целесообразность миграции с self-hosted (GitHub Advisory + email) на HackerOne / Bugcrowd / Intigriti (включая интеграцию алертов в Slack/Telegram), если появится бюджет.
 5. **Миграция на корпоративную почту**: см. раздел замена личного email на `security@fitpulse.app` с hardware 2FA.
+
 ### 10.3 Acceptance Criteria
 
 - PGP key fingerprint опубликован в `SECURITY.md` и `BUG_BOUNTY_SCOPE.md`.
@@ -867,7 +869,7 @@ Phase 2 считается завершённой, когда выполнены
 | Multi-region DR | 4–6 недель | DevOps |
 | Full Service Mesh (Istio) | 2–3 недели | Platform |
 
-**Итого Phase 3: 3–4 месяца**
+### Итого Phase 3: 3–4 месяца
 
 ---
 
@@ -907,6 +909,7 @@ Phase 2 считается завершённой, когда выполнены
 На текущем домене `fittpulse.duckdns.org` (бесплатный динамический DNS, DuckDNS) Google блокирует перевод OAuth consent screen в production и окончательную branding verification. Приложение остаётся в статусе **testing** с ограничениями: 7 дней жизни токенов, вход доступен только добавленным вручную тестовым пользователям.
 
 Чтобы разблокировать полноценный вход для всех пользователей через Google OAuth 2.0 с production-статусом consent screen, требуется:
+
 - подтверждённый домен, принадлежащий проекту;
 - живой homepage на этом домене;
 - privacy policy и terms of service на том же домене;
@@ -956,4 +959,3 @@ Phase 2 считается завершённой, когда выполнены
 | Проблемы с DNS propagation | Средняя | Среднее | Использовать TTL 300s на время переезда, мониторить `dig`/`nslookup` |
 | Просрочение сертификата cert-manager | Низкая | Низкое | cert-manager автоматически продлевает; настроить алерты за 7 дней до истечения |
 | Утеря DuckDNS как fallback | Низкая | Среднее | Оставить DuckDNS как secondary A/AAAA до полного cutover |
-

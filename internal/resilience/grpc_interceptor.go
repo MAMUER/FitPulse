@@ -3,6 +3,7 @@ package resilience
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 
@@ -29,7 +30,7 @@ func UnaryClientInterceptor(log CircuitBreakerLogger) grpc.UnaryClientIntercepto
 			return invoker(ctx, method, req, reply, cc, opts...)
 		})
 		if err != nil {
-			if err == ErrCircuitOpen {
+			if errors.Is(err, ErrCircuitOpen) {
 				log.Warn("gRPC circuit breaker open",
 					zap.String("service", service),
 					zap.String("method", method),

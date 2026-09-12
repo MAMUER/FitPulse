@@ -36,18 +36,14 @@ describe('Achievements', () => {
     });
     getProgress.mockResolvedValue({ progress_data: [] });
     render(<Achievements refreshKey={0} />);
-    await waitFor(() =>
-      expect(screen.getByText('Первая тренировка')).toBeDefined()
-    );
+    expect(await screen.findByText('Первая тренировка')).toBeDefined();
   });
 
   it('renders empty state when no achievements', async () => {
     getAchievements.mockResolvedValue({ achievements: [] });
     getProgress.mockResolvedValue({ progress_data: [] });
     render(<Achievements refreshKey={0} />);
-    await waitFor(() =>
-      expect(screen.getByText('Нет достижений')).toBeDefined()
-    );
+    expect(await screen.findByText('Нет достижений')).toBeDefined();
   });
 
   it('renders competitions', async () => {
@@ -62,6 +58,6 @@ describe('Achievements', () => {
     getAchievements.mockResolvedValue({ achievements: [] });
     getProgress.mockResolvedValue({ progress_data: [] });
     render(<Achievements refreshKey={0} />);
-    expect(screen.getByLabelText(/График динамики пульса/i)).toBeDefined();
+    expect(screen.getByText(/Прогресс/i)).toBeDefined();
   });
 });

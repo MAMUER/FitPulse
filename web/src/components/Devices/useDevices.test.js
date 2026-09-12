@@ -1,6 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useDevices } from './useDevices';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../contexts/AuthContext', () => ({
@@ -14,6 +13,8 @@ vi.mock('../../utils/api', () => ({
   getProviders: (...args) => mockGetProviders(...args),
   disconnectIntegration: (...args) => mockDisconnectIntegration(...args),
 }));
+
+import { useDevices } from './useDevices';
 
 describe('useDevices', () => {
   beforeEach(() => {
@@ -30,7 +31,12 @@ describe('useDevices', () => {
     mockGetProviders.mockResolvedValue({ providers: [] });
     renderHook(() => useDevices());
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'OPEN_WEARABLES_CONNECTED' },
+          origin: 'https://openwearables.com',
+        })
+      );
     });
     expect(mockGetProviders).toHaveBeenCalled();
   });

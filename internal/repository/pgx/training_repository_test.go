@@ -86,37 +86,10 @@ func TestTrainingRepositoryPGX_GetPlan_Success(t *testing.T) {
 	repo, mock := setupTrainingRepo(t)
 	ctx := context.Background()
 
+	planData, _ := json.Marshal(map[string]interface{}{"weeks": 4})
+
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			if len(dest) >= 8 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "strength"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 4
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 3, 5}
-				}
-				if b, ok := dest[5].(*[]byte); ok {
-					planData, _ := json.Marshal(map[string]interface{}{"weeks": 4})
-					*b = planData
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = time.Now()
-				}
-				if t, ok := dest[7].(*time.Time); ok {
-					*t = time.Now()
-				}
-			}
-			return nil
-		}}
+		return &mockRow{scanFunc: newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planData, time.Now(), time.Now(), nil})}
 	}
 
 	result, err := repo.GetPlan(ctx, "user-1", "plan-1")
@@ -162,35 +135,7 @@ func TestTrainingRepositoryPGX_GetPlan_UnmarshalError(t *testing.T) {
 	ctx := context.Background()
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			if len(dest) >= 8 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "strength"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 4
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 3, 5}
-				}
-				if b, ok := dest[5].(*[]byte); ok {
-					*b = []byte("invalid json")
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = time.Now()
-				}
-				if t, ok := dest[7].(*time.Time); ok {
-					*t = time.Now()
-				}
-			}
-			return nil
-		}}
+		return &mockRow{scanFunc: newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, []byte("invalid json"), time.Now(), time.Now(), nil})}
 	}
 
 	result, err := repo.GetPlan(ctx, "user-1", "plan-1")
@@ -208,40 +153,10 @@ func TestTrainingRepositoryPGX_ListPlans_Success(t *testing.T) {
 
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 		assert.Contains(t, query, "FROM training_plans")
+		totalCount := 1
 		return newMockRows([][]interface{}{
 			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planDataJSON, now, now, 1},
-		}, func(dest ...interface{}) error {
-			if len(dest) >= 8 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "strength"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 4
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 3, 5}
-				}
-				if b, ok := dest[5].(*[]byte); ok {
-					*b = planDataJSON
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = now
-				}
-				if t, ok := dest[7].(*time.Time); ok {
-					*t = now
-				}
-				if t, ok := dest[8].(*int); ok {
-					*t = 1
-				}
-			}
-			return nil
-		}), nil
+		}, newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planDataJSON, now, now, totalCount})), nil
 	}
 
 	result, total, err := repo.ListPlans(ctx, "user-1", 1, 10)
@@ -256,9 +171,9 @@ func TestTrainingRepositoryPGX_ListPlans_Empty(t *testing.T) {
 	ctx := context.Background()
 
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
-	return newMockRows([][]interface{}{}, func(dest ...interface{}) error {
-		return nil
-	}), nil
+		return newMockRows([][]interface{}{}, func(dest ...interface{}) error {
+			return nil
+		}), nil
 	}
 
 	result, total, err := repo.ListPlans(ctx, "user-1", 1, 10)
@@ -289,35 +204,7 @@ func TestTrainingRepositoryPGX_ListPlans_UnmarshalError(t *testing.T) {
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 		return newMockRows([][]interface{}{
 			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, []byte("invalid json"), time.Now(), time.Now()},
-		}, func(dest ...interface{}) error {
-			if len(dest) >= 8 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "strength"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 4
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 3, 5}
-				}
-				if b, ok := dest[5].(*[]byte); ok {
-					*b = []byte("invalid json")
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = time.Now()
-				}
-				if t, ok := dest[7].(*time.Time); ok {
-					*t = time.Now()
-				}
-			}
-			return nil
-		}), nil
+		}, newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, []byte("invalid json"), time.Now(), time.Now(), nil})), nil
 	}
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
@@ -343,34 +230,14 @@ func TestTrainingRepositoryPGX_ListPlans_CountError(t *testing.T) {
 		return newMockRows([][]interface{}{
 			{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, []byte{}, time.Now(), time.Now()},
 		}, func(dest ...interface{}) error {
-			if len(dest) >= 8 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "strength"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 4
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 3, 5}
-				}
-				if b, ok := dest[5].(*[]byte); ok {
-					*b = []byte{}
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = time.Now()
-				}
-				if t, ok := dest[7].(*time.Time); ok {
-					*t = time.Now()
-				}
-				if len(dest) > 8 {
-					return assert.AnError
-				}
+			if err := newTrainingPlanScanFunc([]interface{}{
+				"plan-1", "user-1", "strength", 4, []int{1, 3, 5},
+				[]byte{}, time.Now(), time.Now(), nil,
+			})(dest...); err != nil {
+				return err
+			}
+			if len(dest) > 8 {
+				return assert.AnError
 			}
 			return nil
 		}), nil
@@ -597,38 +464,37 @@ func TestTrainingRepositoryPGX_UpdatePlan_Success(t *testing.T) {
 	}
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			if len(dest) >= 7 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "plan-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "cardio"
-				}
-				if i, ok := dest[3].(*int); ok {
-					*i = 8
-				}
-				if p, ok := dest[4].(*[]int); ok {
-					*p = []int{1, 2, 3, 4, 5}
-				}
-				if t, ok := dest[5].(*time.Time); ok {
-					*t = now
-				}
-				if t, ok := dest[6].(*time.Time); ok {
-					*t = now
-				}
-			}
-			return nil
-		}}
+		return &mockRow{scanFunc: newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "cardio", 8, []int{1, 2, 3, 4, 5}, nil, now, now, nil})}
 	}
 
 	result, err := repo.UpdatePlan(ctx, plan)
 	require.NoError(t, err)
 	assert.Equal(t, "plan-1", result.ID)
 	assert.Equal(t, "cardio", result.Classification)
+}
+
+// nolint:unparam // test helper with explicit values for readability
+func newTrainingPlanScanFunc(values []interface{}) func(...interface{}) error {
+	return func(dest ...interface{}) error {
+		for i, v := range values {
+			if i >= len(dest) || v == nil {
+				continue
+			}
+			switch d := dest[i].(type) {
+			case *string:
+				*d = v.(string)
+			case *int:
+				*d = v.(int)
+			case *[]byte:
+				*d = v.([]byte)
+			case *time.Time:
+				*d = v.(time.Time)
+			case *[]int:
+				*d = v.([]int)
+			}
+		}
+		return nil
+	}
 }
 
 func TestTrainingRepositoryPGX_UpdatePlan_NotFound(t *testing.T) {

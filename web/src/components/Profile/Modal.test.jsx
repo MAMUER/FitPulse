@@ -20,7 +20,7 @@ describe('Modal', () => {
       </Modal>
     );
     const event = new KeyboardEvent('keydown', { key: 'Escape' });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
     expect(onClose).toHaveBeenCalled();
   });
 

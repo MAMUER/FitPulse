@@ -30,7 +30,11 @@ describe('DeleteProfileModal', () => {
     render(<DeleteProfileModal onClose={vi.fn()} />);
     const form = document.querySelector('form');
     fireEvent.submit(form);
-    expect(screen.getByText(/Введите пароль/i)).toBeDefined();
+    expect(
+      screen.getByText(
+        'Введите пароль для подтверждения удаления аккаунта.'
+      )
+    ).toBeDefined();
   });
 
   it('calls logout and redirects on successful delete', async () => {

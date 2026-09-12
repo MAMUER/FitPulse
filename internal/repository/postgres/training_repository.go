@@ -12,7 +12,7 @@ import (
 )
 
 type TrainingRepository struct {
-	db *sql.DB
+	db    *sql.DB
 	stmts map[string]*sql.Stmt
 }
 
@@ -82,10 +82,19 @@ func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string)
 	plan := &entity.TrainingPlan{}
 	var planDataJSON []byte
 
-	err := r.stmts["getPlan"].QueryRowContext(ctx, planID, userID).Scan(
-		&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
-		&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
-	)
+	query := `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at FROM training_plans WHERE id = $1 AND user_id = $2`
+	var err error
+	if stmt := r.stmts["getPlan"]; stmt != nil {
+		err = stmt.QueryRowContext(ctx, planID, userID).Scan(
+			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
+			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
+		)
+	} else {
+		err = r.db.QueryRowContext(ctx, query, planID, userID).Scan(
+			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
+			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
+		)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, apperrors.NotFound("training plan not found")
@@ -105,7 +114,14 @@ func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string)
 func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page, pageSize int) ([]*entity.TrainingPlan, int, error) {
 	offset := (page - 1) * pageSize
 
-	rows, err := r.stmts["listPlans"].QueryContext(ctx, userID, pageSize, offset)
+	query := `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at, COUNT(*) OVER() AS total_count FROM training_plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	var rows *sql.Rows
+	var err error
+	if stmt := r.stmts["listPlans"]; stmt != nil {
+		rows, err = stmt.QueryContext(ctx, userID, pageSize, offset)
+	} else {
+		rows, err = r.db.QueryContext(ctx, query, userID, pageSize, offset)
+	}
 	if err != nil {
 		return nil, 0, apperrors.Internal("failed to list training plans", err)
 	}
@@ -150,7 +166,13 @@ func (r *TrainingRepository) CompleteWorkout(ctx context.Context, userID, planID
 
 func (r *TrainingRepository) GetProgress(ctx context.Context, userID string) (map[string]interface{}, error) {
 	var totalPlans, completedWorkouts int
-	err := r.stmts["getProgress"].QueryRowContext(ctx, userID).Scan(&totalPlans, &completedWorkouts)
+	query := `SELECT COUNT(*) as total_plans, COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts FROM training_plans WHERE user_id = $1`
+	var err error
+	if stmt := r.stmts["getProgress"]; stmt != nil {
+		err = stmt.QueryRowContext(ctx, userID).Scan(&totalPlans, &completedWorkouts)
+	} else {
+		err = r.db.QueryRowContext(ctx, query, userID).Scan(&totalPlans, &completedWorkouts)
+	}
 	if err != nil {
 		return nil, apperrors.Internal("failed to get progress", err)
 	}
