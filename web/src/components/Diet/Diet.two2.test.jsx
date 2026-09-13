@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetProfile = vi.fn();
@@ -12,10 +12,9 @@ import Diet from './Diet';
 describe('Diet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetProfile.mockReset();
   });
 
-  it('renders plan after loading', async () => {
+  it('renders loading state', async () => {
     mockGetProfile.mockImplementation(
       () =>
         new Promise((resolve) =>
@@ -33,14 +32,28 @@ describe('Diet', () => {
                   contraindications: [],
                 },
               }),
-            0
+            100
           )
         )
     );
     render(<Diet />);
-    await waitFor(() =>
-      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument()
-    );
-    expect(screen.getByText(/План питания на сегодня/i)).toBeDefined();
+    expect(screen.getByText('Загрузка...')).toBeDefined();
+  });
+
+  it('renders something else', async () => {
+    mockGetProfile.mockResolvedValue({
+      profile: {
+        weight_kg: 70,
+        height_cm: 175,
+        age: 30,
+        gender: 'male',
+        fitness_level: 'beginner',
+        goals: ['weight_loss'],
+        allergies: [],
+        contraindications: [],
+      },
+    });
+    render(<Diet />);
+    expect(screen.getByText('Загрузка...')).toBeDefined();
   });
 });

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,10 +10,20 @@ vi.mock('../../utils/api', () => ({
 
 import Diet from './Diet';
 
+const profile = {
+  weight_kg: 70,
+  height_cm: 175,
+  age: 30,
+  gender: 'male',
+  fitness_level: 'beginner',
+  goals: ['weight_loss'],
+  allergies: [],
+  contraindications: [],
+};
+
 describe('Diet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetProfile.mockReset();
   });
 
   it('renders loading state', async () => {
@@ -23,18 +33,9 @@ describe('Diet', () => {
           setTimeout(
             () =>
               resolve({
-                profile: {
-                  weight_kg: 70,
-                  height_cm: 175,
-                  age: 30,
-                  gender: 'male',
-                  fitness_level: 'beginner',
-                  goals: ['weight_loss'],
-                  allergies: [],
-                  contraindications: [],
-                },
+                profile,
               }),
-            1000
+            100
           )
         )
     );
@@ -44,55 +45,38 @@ describe('Diet', () => {
 
   it('renders diet plan after loading', async () => {
     mockGetProfile.mockResolvedValue({
-      profile: {
-        weight_kg: 70,
-        height_cm: 175,
-        age: 30,
-        gender: 'male',
-        fitness_level: 'beginner',
-        goals: ['weight_loss'],
-        allergies: [],
-        contraindications: [],
-      },
+      profile,
     });
     render(<Diet />);
-    expect(await screen.findByText(/План питания на сегодня/i)).toBeDefined();
-  }, 5000);
+    await waitFor(() =>
+      expect(screen.getByText(/План питания на сегодня/i)).toBeDefined()
+    );
+  });
 
   it('renders meal template selector', async () => {
     mockGetProfile.mockResolvedValue({
       profile: {
-        weight_kg: 70,
-        height_cm: 175,
-        age: 30,
-        gender: 'male',
-        fitness_level: 'beginner',
+        ...profile,
         goals: [],
-        allergies: [],
-        contraindications: [],
       },
     });
     render(<Diet />);
-    expect(await screen.findByText('Сбалансированное')).toBeDefined();
+    await waitFor(() =>
+      expect(screen.getByText('Сбалансированное')).toBeDefined()
+    );
   });
 
   it('changes meal count', async () => {
     const _user = userEvent.setup();
     mockGetProfile.mockResolvedValue({
       profile: {
-        weight_kg: 70,
-        height_cm: 175,
-        age: 30,
-        gender: 'male',
-        fitness_level: 'beginner',
+        ...profile,
         goals: [],
-        allergies: [],
-        contraindications: [],
       },
     });
     render(<Diet />);
-    expect(
-      await screen.findByLabelText('Количество приёмов пищи')
-    ).toBeDefined();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Количество приёмов пищи')).toBeDefined()
+    );
   });
 });

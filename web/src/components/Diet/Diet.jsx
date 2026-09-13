@@ -248,15 +248,10 @@ export default function Diet({ initialTemplate } = {}) {
   const [mealCount, setMealCount] = useState(5);
   const [firstMealTime, setFirstMealTime] = useState('08:00');
   const [template, setTemplate] = useState(() => initialTemplate || 'balanced');
-  const [meals, setMeals] = useState([]);
-
-  console.log('Diet render, loading:', loading, 'profile:', !!profile);
 
   const loadProfile = useCallback(async () => {
-    console.log('loadProfile started');
     try {
       const data = await getProfile();
-      console.log('loadProfile got data:', data);
       setProfile(data);
       const p = data.profile || data;
       setAllergies((p.allergies || []).join(', '));
@@ -271,7 +266,6 @@ export default function Diet({ initialTemplate } = {}) {
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {
-      console.log('loadProfile finally, setLoading(false)');
       setLoading(false);
     }
   }, []);
@@ -281,7 +275,6 @@ export default function Diet({ initialTemplate } = {}) {
   }, [loadProfile]);
 
   const nutrition = useMemo(() => {
-    console.log('nutrition useMemo running, profile:', !!profile);
     if (!profile) return null;
     const p = profile.profile || profile;
     const weight = p.weight_kg || 70; // istanbul ignore next
@@ -369,64 +362,37 @@ export default function Diet({ initialTemplate } = {}) {
     };
   }, [allergyList, dislikeList]);
 
-  useEffect(() => {
-    console.log(
-      'useEffect [nutrition, template, ...] running, nutrition:',
-      !!nutrition,
-      'template:',
-      template
-    );
-    if (!nutrition) {
-      console.log('useEffect returning early because !nutrition');
-      return;
-    }
-    try {
-      const selectedTemplate =
-        MEAL_TEMPLATES[template] || MEAL_TEMPLATES.balanced;
-      console.log(
-        'useEffect continuing, selectedTemplate:',
-        selectedTemplate.name
-      );
-      const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner']; // istanbul ignore next
-      const selectedMealKeys = mealKeys.slice(0, mealCount); // istanbul ignore next
-      console.log(
-        'selectedMealKeys:',
-        selectedMealKeys,
-        'selectedTemplate:',
-        selectedTemplate.name
-      );
+  const meals = useMemo(() => {
+    if (!nutrition) return [];
+    const selectedTemplate =
+      MEAL_TEMPLATES[template] || MEAL_TEMPLATES.balanced;
+    const mealKeys = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'];
+    const selectedMealKeys = mealKeys.slice(0, mealCount);
 
-      const [hours, minutes] = firstMealTime.split(':').map(Number);
-      const startMinutes =
-        Number.isFinite(hours) && Number.isFinite(minutes)
-          ? hours * 60 + minutes
-          : 8 * 60;
-      const windowMinutes = 14 * 60;
-      const step = mealCount > 1 ? windowMinutes / (mealCount - 1) : 0;
+    const [hours, minutes] = firstMealTime.split(':').map(Number);
+    const startMinutes =
+      Number.isFinite(hours) && Number.isFinite(minutes)
+        ? hours * 60 + minutes
+        : 8 * 60;
+    const windowMinutes = 14 * 60;
+    const step = mealCount > 1 ? windowMinutes / (mealCount - 1) : 0;
 
-      const generated = selectedMealKeys.map((key, idx) => {
-        const options = filterMeals(selectedTemplate[key]);
-        console.log('options for', key, ':', options.length);
-        const meal = options[secureRandomIndex(options.length)] || {
-          name: '—',
-          kcal: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-        };
-        const timeMinutes =
-          mealCount > 1 ? startMinutes + idx * step : startMinutes;
-        const h = Math.floor(timeMinutes / 60) % 24;
-        const m = timeMinutes % 60;
-        const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        return { ...meal, time };
-      });
-
-      console.log('setting meals, count:', generated.length);
-      setMeals(generated);
-    } catch (err) {
-      console.error('Failed to generate meals', err);
-    }
+    return selectedMealKeys.map((key, idx) => {
+      const options = filterMeals(selectedTemplate[key]);
+      const meal = options[secureRandomIndex(options.length)] || {
+        name: '—',
+        kcal: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      };
+      const timeMinutes =
+        mealCount > 1 ? startMinutes + idx * step : startMinutes;
+      const h = Math.floor(timeMinutes / 60) % 24;
+      const m = timeMinutes % 60;
+      const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      return { ...meal, time };
+    });
   }, [nutrition, template, mealCount, firstMealTime, filterMeals]);
 
   const totals = useMemo(() => {
