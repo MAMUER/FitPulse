@@ -60,7 +60,7 @@ describe('useProfile', () => {
     const { getProfile } = await import('../../utils/api');
     getProfile.mockRejectedValue(new Error('Network error'));
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
     const { result } = renderHook(() => useProfile());
 
     await waitFor(() => {

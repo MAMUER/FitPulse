@@ -32,9 +32,7 @@ describe('ML', () => {
     });
     render(<ML />);
     await user.click(screen.getByText('Анализировать'));
-    await waitFor(() =>
-      expect(screen.getByText('Восстановление')).toBeDefined()
-    );
+    expect(await screen.findByText('Восстановление')).toBeDefined();
   });
 
   it('generates plan when form submitted', async () => {

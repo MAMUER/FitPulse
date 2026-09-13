@@ -44,7 +44,7 @@ describe('Dashboard', () => {
     mockClassifyState.mockResolvedValue({ predicted_class_ru: 'Норма' });
     mockGetTrainingPlans.mockResolvedValue({ plans: [] });
     render(<Dashboard />);
-    await waitFor(() => expect(screen.getByText('Норма')).toBeDefined());
+    expect(await screen.findByText('Норма')).toBeDefined();
   });
 
   it('renders health summary cards', async () => {

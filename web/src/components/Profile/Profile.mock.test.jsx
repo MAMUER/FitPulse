@@ -12,6 +12,5 @@ describe('Mock check', () => {
     mockApi.mockResolvedValue({ hello: 'world' });
     const result = await mockApi();
     expect(result).toEqual({ hello: 'world' });
-    await waitFor(() => expect(true).toBe(true));
   });
 });

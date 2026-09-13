@@ -48,9 +48,7 @@ describe('Diet', () => {
       profile,
     });
     render(<Diet />);
-    await waitFor(() =>
-      expect(screen.getByText(/План питания на сегодня/i)).toBeDefined()
-    );
+    expect(await screen.findByText(/План питания на сегодня/i)).toBeDefined();
   });
 
   it('renders meal template selector', async () => {
@@ -61,9 +59,7 @@ describe('Diet', () => {
       },
     });
     render(<Diet />);
-    await waitFor(() =>
-      expect(screen.getByText('Сбалансированное')).toBeDefined()
-    );
+    expect(await screen.findByText('Сбалансированное')).toBeDefined();
   });
 
   it('changes meal count', async () => {
@@ -75,8 +71,6 @@ describe('Diet', () => {
       },
     });
     render(<Diet />);
-    await waitFor(() =>
-      expect(screen.getByLabelText('Количество приёмов пищи')).toBeDefined()
-    );
+    expect(await screen.findByLabelText('Количество приёмов пищи')).toBeDefined();
   });
 });

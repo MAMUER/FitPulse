@@ -34,7 +34,7 @@ export default function ChangePasswordModal({ onClose }) {
     } catch (err) {
       setError(
         err.message ||
-          'Не удалось сменить пароль. Проверьте текущий пароль и попробуйте снова.'
+        'Не удалось сменить пароль. Проверьте текущий пароль и попробуйте снова.'
       );
     } finally {
       setSubmitting(false);

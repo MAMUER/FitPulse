@@ -19,7 +19,7 @@ describe('Training', () => {
   });
 
   it('renders loading state', () => {
-    mockGetTrainingPlans.mockImplementation(() => new Promise(() => {}));
+    mockGetTrainingPlans.mockImplementation(() => new Promise(() => { }));
     render(<Training />);
     expect(screen.getByText('Загрузка программ...')).toBeDefined();
   });
@@ -27,9 +27,7 @@ describe('Training', () => {
   it('renders empty state when no plans', async () => {
     mockGetTrainingPlans.mockResolvedValue({ plans: [] });
     render(<Training />);
-    await waitFor(() =>
-      expect(screen.getByText('Нет активных программ')).toBeDefined()
-    );
+    expect(await screen.findByText('Нет активных программ')).toBeDefined();
   });
 
   it('renders plans list', async () => {
@@ -44,7 +42,7 @@ describe('Training', () => {
       ],
     });
     render(<Training />);
-    await waitFor(() => expect(screen.getByText('Test Plan')).toBeDefined());
+    expect(await screen.findByText('Test Plan')).toBeDefined();
   });
 
   it('generates plan when button clicked', async () => {
@@ -56,9 +54,7 @@ describe('Training', () => {
     });
     mockGenerateTrainingPlan.mockResolvedValue({});
     render(<Training />);
-    await waitFor(() =>
-      expect(screen.getByLabelText('Сгенерировать план')).toBeDefined()
-    );
+    await screen.findByLabelText('Сгенерировать план');
     await user.click(screen.getByLabelText('Сгенерировать план'));
     expect(mockGenerateTrainingPlan).toHaveBeenCalled();
   });

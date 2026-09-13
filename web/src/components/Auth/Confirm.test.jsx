@@ -28,24 +28,18 @@ describe('Confirm', () => {
   it('confirms email successfully', async () => {
     mockApiConfirmEmail.mockResolvedValue({});
     render(<Confirm token='valid-token' />);
-    await waitFor(() =>
-      expect(screen.getByText(/Email успешно подтверждён/i)).toBeDefined()
-    );
+    expect(await screen.findByText(/Email успешно подтверждён/i)).toBeDefined();
   });
 
   it('shows error on failed confirmation', async () => {
     mockApiConfirmEmail.mockRejectedValue(new Error('Invalid token'));
     render(<Confirm token='invalid-token' />);
-    await waitFor(() =>
-      expect(screen.getByText('Invalid token')).toBeDefined()
-    );
+    expect(await screen.findByText('Invalid token')).toBeDefined();
   });
 
   it('renders back button after confirmation', async () => {
     mockApiConfirmEmail.mockResolvedValue({});
     render(<Confirm token='valid-token' />);
-    await waitFor(() =>
-      expect(screen.getByText('← Вернуться ко входу')).toBeDefined()
-    );
+    expect(await screen.findByText('← Вернуться ко входу')).toBeDefined();
   });
 });

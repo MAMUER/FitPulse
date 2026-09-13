@@ -12,7 +12,9 @@
     "indentWidth": 2,
     "lineEnding": "lf",
     "bracketSpacing": true,
-    "includes": ["**"]
+    "includes": [
+      "**"
+    ]
   },
   "javascript": {
     "globals": [

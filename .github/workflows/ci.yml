@@ -67,7 +67,7 @@ on:
     types: [opened, labeled, unlabeled]
 
 env:
-  GO_VERSION: "1.26.5"
+  GO_VERSION: "1.27.0"
   REGISTRY: ghcr.io
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
@@ -366,7 +366,7 @@ jobs:
       - name: Lint Code Base
         uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918
         env:
-          GO_VERSION: 1.26.5
+          GO_VERSION: 1.27.0
           REGISTRY: ghcr.io
           FITPULSE_DOMAIN: fittpulse.duckdns.org
           PYTHON_BLACK_VERSION: "26.5.1"

@@ -90,16 +90,44 @@ jobs:
           if [ -n "$MAKE_GO_VERSION" ]; then
             MAJOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f1)
             MINOR=$(echo "$MAKE_GO_VERSION" | cut -d. -f2)
-            if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 26 ]; }; then
-              echo "❌ Found outdated GO_VERSION in Makefile: $MAKE_GO_VERSION (current: 1.26+)"
+             if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 27 ]; }; then
+               echo "❌ Found outdated GO_VERSION in Makefile: $MAKE_GO_VERSION (current: 1.27+)"
               exit 1
             fi
             echo "✅ GO_VERSION in Makefile is consistent ($MAKE_GO_VERSION)"
           else
-            echo "⚠️  GO_VERSION not found in Makefile"
-          fi
+             echo "⚠️  GO_VERSION not found in Makefile"
+           fi
 
-          echo "-> Checking Python version references..."
+           echo "-> Checking GO_VERSION in .github/workflows/ci.yml..."
+           CI_GO_VERSION=$(grep -E '^[[:space:]]*GO_VERSION:' .github/workflows/ci.yml | head -1 | sed -E 's/.*GO_VERSION:[[:space:]]*"?([0-9.]+)"?.*/\1/' || true)
+           if [ -n "$CI_GO_VERSION" ]; then
+             MAJOR=$(echo "$CI_GO_VERSION" | cut -d. -f1)
+             MINOR=$(echo "$CI_GO_VERSION" | cut -d. -f2)
+              if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 27 ]; }; then
+                echo "❌ Found outdated GO_VERSION in .github/workflows/ci.yml: $CI_GO_VERSION (current: 1.27+)"
+               exit 1
+             fi
+             echo "✅ GO_VERSION in .github/workflows/ci.yml is consistent ($CI_GO_VERSION)"
+           else
+             echo "⚠️  GO_VERSION not found in .github/workflows/ci.yml"
+           fi
+
+           echo "-> Checking Go version in go.mod..."
+           GO_MOD_VERSION=$(grep -E '^go [0-9]+\.[0-9]+(\.[0-9]+)?' go.mod | sed 's/go //' | tr -d ' ')
+           if [ -n "$GO_MOD_VERSION" ]; then
+             MAJOR=$(echo "$GO_MOD_VERSION" | cut -d. -f1)
+             MINOR=$(echo "$GO_MOD_VERSION" | cut -d. -f2)
+            if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 27 ]; }; then
+              echo "❌ Found outdated Go version in go.mod: $GO_MOD_VERSION (current: 1.27+)"
+               exit 1
+             fi
+             echo "✅ Go version in go.mod is consistent ($GO_MOD_VERSION)"
+           else
+             echo "⚠️  Go version not found in go.mod"
+           fi
+
+           echo "-> Checking Python version references..."
           PYTHON_REFS=$(grep -rn "python:3\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "3\.1[4-9]\|3\.[2-9][0-9]" || true)
           if [ -n "$PYTHON_REFS" ]; then
             echo "❌ Found outdated Python references (current: 3.14+):"
@@ -133,9 +161,33 @@ jobs:
             echo "$NODE_REFS"
             exit 1
           fi
-          echo "✅ Node.js version references are consistent (26+)"
+           echo "✅ Node.js version references are consistent (26+)"
 
-          echo "-> Checking Ubuntu version references..."
+           echo "-> Checking .nvmrc version..."
+           if [ -f ".nvmrc" ]; then
+             NODE_NVM_VERSION=$(cat .nvmrc | tr -d ' ')
+             if [ "$NODE_NVM_VERSION" -lt 26 ]; then
+               echo "❌ Found outdated .nvmrc version: $NODE_NVM_VERSION (current: 26+)"
+               exit 1
+             fi
+             echo "✅ .nvmrc version is consistent ($NODE_NVM_VERSION)"
+           else
+             echo "⚠️  .nvmrc not found"
+            fi
+
+           echo "-> Checking node-version in .github/workflows/ci.yml..."
+           CI_NODE_VERSION=$(grep -E 'node-version:' .github/workflows/ci.yml | head -1 | sed -E "s/.*node-version:[[:space:]]*['\"]?([0-9]+)['\"]?.*/\1/" || true)
+           if [ -n "$CI_NODE_VERSION" ]; then
+             if [ "$CI_NODE_VERSION" -lt 26 ]; then
+               echo "❌ Found outdated node-version in .github/workflows/ci.yml: $CI_NODE_VERSION (current: 26+)"
+               exit 1
+             fi
+             echo "✅ node-version in .github/workflows/ci.yml is consistent ($CI_NODE_VERSION)"
+           else
+             echo "⚠️  node-version not found in .github/workflows/ci.yml"
+           fi
+
+           echo "-> Checking Ubuntu version references..."
           UBUNTU_REFS=$(grep -rn "ubuntu:1[0-9]\.[0-9]\+\|ubuntu:2[0-5]\.[0-9]\+\|Ubuntu\s\+1[0-9]\b\|Ubuntu\s\+2[0-5]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" || true)
           if [ -n "$UBUNTU_REFS" ]; then
             echo "❌ Found outdated Ubuntu references (current: 26.04+):"
@@ -303,6 +355,76 @@ jobs:
 
       - name: Documentation status
         run: |
-          echo "============================================"
-          echo "  Documentation Check PASSED"
-          echo "============================================"
+           echo "============================================"
+           echo "  Documentation Check PASSED"
+           echo "============================================"
+
+  runtime-version-update:
+    name: Runtime Version Update Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check latest Go version
+        id: go
+        run: |
+          LATEST_GO=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[0].version' | sed 's/go//' | sed 's/^v//' | tr -d ' ')
+          echo "latest=$LATEST_GO" >> $GITHUB_OUTPUT
+          CURRENT_GO=$(grep -E '^go [0-9]+\.[0-9]+(\.[0-9]+)?' go.mod | sed 's/go //' | tr -d ' ')
+          echo "current=$CURRENT_GO" >> $GITHUB_OUTPUT
+
+      - name: Check latest Node.js LTS version
+        id: node
+        run: |
+          LATEST_NODE=$(curl -s https://nodejs.org/dist/index.json | jq -r '.[] | select(.lts != false) | .version' | head -1 | sed 's/v//' | tr -d ' ')
+          echo "latest=$LATEST_NODE" >> $GITHUB_OUTPUT
+          CURRENT_NODE=$(cat .nvmrc 2>/dev/null || echo "26" | tr -d ' ')
+          echo "current=$CURRENT_NODE" >> $GITHUB_OUTPUT
+
+      - name: Update Go version
+        if: steps.go.outputs.latest != steps.go.outputs.current
+        run: |
+          LATEST=${{ steps.go.outputs.latest }}
+          sed -i "s/^go [0-9]\+\.[0-9]\+\.[0-9]\+/go $LATEST/" go.mod
+          sed -i "s/^GO_VERSION := [0-9]\+\.[0-9]\+\.[0-9]\+/GO_VERSION := $LATEST/" Makefile
+          sed -i "s/GO_VERSION: \"[0-9.]*\"/GO_VERSION: \"$LATEST\"/" .github/workflows/ci.yml
+          sed -i "s/GO_VERSION: [0-9.]*/GO_VERSION: $LATEST/" .github/workflows/ci.yml
+
+      - name: Update Node.js version
+        if: steps.node.outputs.latest != steps.node.outputs.current
+        run: |
+          LATEST=${{ steps.node.outputs.latest }}
+          echo "$LATEST" > .nvmrc
+          jq --arg version "$LATEST" 'if .engines then .engines.node = ">=" + $version else . + {engines: {node: ">=" + $version}} end' web/package.json > web/package.json.tmp && mv web/package.json.tmp web/package.json
+          sed -i "s/node-version: \"26\"/node-version: \"$LATEST\"/" .github/workflows/ci.yml
+          sed -i "s/node-version: '24'/node-version: '$LATEST'/" .github/workflows/ci.yml
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git diff --quiet
+          if [ $? -eq 0 ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update Go and Node.js versions"
+          title: "chore: update Go and Node.js versions"
+          body: |
+            Automated update of runtime versions:
+            - Go: ${{ steps.go.outputs.current }} → ${{ steps.go.outputs.latest }}
+            - Node.js: ${{ steps.node.outputs.current }} → ${{ steps.node.outputs.latest }}
+          branch: "chore/runtime-versions"
+          delete-branch: true

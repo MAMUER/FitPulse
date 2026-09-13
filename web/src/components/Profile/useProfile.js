@@ -122,9 +122,9 @@ export function useProfile() {
   const bmi =
     form.height && form.weight
       ? calculateBMI(
-          Number.parseFloat(form.height),
-          Number.parseFloat(form.weight)
-        )
+        Number.parseFloat(form.height),
+        Number.parseFloat(form.weight)
+      )
       : null;
 
   return {

@@ -31,24 +31,20 @@ describe('Health', () => {
   });
 
   it('renders loading state initially', () => {
-    mockListHealthConditions.mockImplementation(() => new Promise(() => {}));
+    mockListHealthConditions.mockImplementation(() => new Promise(() => { }));
     render(<Health />);
     expect(screen.getByText(/Загрузка данных здоровья/i)).toBeDefined();
   });
 
   it('renders health sections after loading', async () => {
     render(<Health />);
-    await waitFor(() =>
-      expect(screen.getByText('Заболевания и состояния')).toBeDefined()
-    );
+    expect(await screen.findByText('Заболевания и состояния')).toBeDefined();
     expect(screen.getByText('Состав тела')).toBeDefined();
     expect(screen.getByText('Менструальный цикл')).toBeDefined();
   });
 
   it('shows empty states when no data', async () => {
     render(<Health />);
-    await waitFor(() =>
-      expect(screen.getByText('Нет добавленных состояний')).toBeDefined()
-    );
+    expect(await screen.findByText('Нет добавленных состояний')).toBeDefined();
   });
 });

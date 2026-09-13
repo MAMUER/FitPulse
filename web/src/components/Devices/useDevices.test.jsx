@@ -20,7 +20,7 @@ describe('useDevices', () => {
   it('logs error when getProviders fails', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
-      .mockImplementation(() => {});
+      .mockImplementation(() => { });
     mockUseAuth.mockReturnValue({ token: 'test-token' });
     vi.spyOn(api, 'getProviders').mockRejectedValueOnce(
       new Error('providers failed')

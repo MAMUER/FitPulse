@@ -6,7 +6,7 @@ imports:
 
 .PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
 BIN_DIR := bin
-GO_VERSION := 1.26.5
+GO_VERSION := 1.27.0
 
 tidy:
 	@echo "Tidying Go modules..."

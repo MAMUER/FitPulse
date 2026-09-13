@@ -53,6 +53,10 @@ web/coverage/
 coverage/
 internal/webhook/coverage
 
+# Playwright reports
+web/playwright-report/
+playwright-report/
+
 # Vite build output
 web/dist/
 

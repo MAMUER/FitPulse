@@ -30,9 +30,7 @@ describe('Admin', () => {
     mockListInvites.mockResolvedValue([]);
     mockListUsers.mockResolvedValue([]);
     render(<Admin />);
-    await waitFor(() =>
-      expect(screen.getByText('Создать приглашение')).toBeDefined()
-    );
+    expect(await screen.findByText('Создать приглашение')).toBeDefined();
   });
 
   it('renders access denied for non-admin', () => {
@@ -54,7 +52,7 @@ describe('Admin', () => {
       },
     ]);
     render(<Admin />);
-    await waitFor(() => expect(screen.getByText('ABC123')).toBeDefined());
+    expect(await screen.findByText('ABC123')).toBeDefined();
     expect(screen.getByText('Test')).toBeDefined();
   });
 
@@ -64,9 +62,7 @@ describe('Admin', () => {
     mockListUsers.mockResolvedValue([]);
     mockCreateInvite.mockResolvedValue({});
     render(<Admin />);
-    await waitFor(() =>
-      expect(screen.getByText('Создать приглашение')).toBeDefined()
-    );
+    expect(await screen.findByText('Создать приглашение')).toBeDefined();
     const button = screen.getByText('Создать');
     await user.click(button);
     expect(mockCreateInvite).toHaveBeenCalledWith('client', '', 1);
@@ -90,9 +86,7 @@ describe('Admin', () => {
       configurable: true,
     });
     render(<Admin />);
-    await waitFor(() =>
-      expect(screen.getByText('Скопировать ссылку')).toBeDefined()
-    );
+    expect(await screen.findByText('Скопировать ссылку')).toBeDefined();
     await user.click(screen.getByText('Скопировать ссылку'));
     expect(writeText).toHaveBeenCalled();
   });
@@ -101,8 +95,6 @@ describe('Admin', () => {
     mockListInvites.mockResolvedValue([]);
     mockListUsers.mockResolvedValue([]);
     render(<Admin />);
-    await waitFor(() =>
-      expect(screen.getByText('Нет приглашений')).toBeDefined()
-    );
+    expect(await screen.findByText('Нет приглашений')).toBeDefined();
   });
 });
