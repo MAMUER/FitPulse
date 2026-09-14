@@ -33,7 +33,7 @@ provider "helm" {
 }
 
 module "vps" {
-  source = "../modules/vps"
+  source = "../../modules/vps"
 
   vps_host          = var.vps_host
   vps_user          = var.vps_user
@@ -53,7 +53,7 @@ module "vps" {
 }
 
 module "k3s" {
-  source = "../modules/k3s"
+  source = "../../modules/k3s"
 
   vps_host          = var.vps_host
   vps_user          = var.vps_user
@@ -63,12 +63,23 @@ module "k3s" {
 }
 
 module "kubernetes_apps" {
-  source = "../modules/kubernetes-apps"
+  source = "../../modules/kubernetes-apps"
 
-  kubeconfig_path = var.kubeconfig_path
-  domain          = var.domain
-  environment     = var.environment
+  kubeconfig_path      = var.kubeconfig_path
+  domain               = var.domain
+  environment          = var.environment
 
-  enable_monitoring = var.enable_monitoring
-  enable_backup     = var.enable_backup
+  enable_monitoring    = var.enable_monitoring
+  enable_backup        = var.enable_backup
+
+  grafana_admin_password = var.grafana_admin_password
+  jwt_private_key_pem    = var.jwt_private_key_pem
+  jwt_public_key_pem     = var.jwt_public_key_pem
+  rabbitmq_url           = var.rabbitmq_url
+  valkey_password         = var.valkey_password
+  postgres_password       = var.postgres_password
+  google_client_id        = var.google_client_id
+  google_client_secret    = var.google_client_secret
+  smtp_password           = var.smtp_password
+  totp_encryption_key     = var.totp_encryption_key
 }

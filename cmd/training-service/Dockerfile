@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ========== Builder stage ==========
-FROM golang@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628 AS builder
+FROM golang@sha256:f86f1a6701e3dcc445fec097a42f78b758f15950ccf032c2d3e54e2754d32fdb AS builder
 
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct

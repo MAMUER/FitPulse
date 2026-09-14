@@ -10,7 +10,7 @@ echo "=== Updating Docker image digests ==="
 # Define images and their digests (update these regularly)
 declare -A IMAGE_DIGESTS
 IMAGE_DIGESTS["node:26-alpine"]="node:26-alpine@sha256:REPLACE_NODE_DIGEST"
-IMAGE_DIGESTS["golang:1.26-alpine"]="golang:1.26-alpine@sha256:REPLACE_GOLANG_DIGEST"
+IMAGE_DIGESTS["golang:1.27-alpine"]="golang:1.27-alpine@sha256:REPLACE_GOLANG_DIGEST"
 IMAGE_DIGESTS["alpine:3.24"]="alpine:3.24@sha256:REPLACE_ALPINE_DIGEST"
 IMAGE_DIGESTS["python:3.14-slim"]="python:3.14-slim@sha256:REPLACE_PYTHON_DIGEST"
 

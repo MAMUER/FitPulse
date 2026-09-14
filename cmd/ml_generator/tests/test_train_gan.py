@@ -52,6 +52,7 @@ class _MockLightningModule:
     """Stand-in for lightning.LightningModule."""
 
     def __init__(self, *args, **kwargs):
+        # Mock: no initialization needed
         pass
 
     def __call__(self, *args, **kwargs):
@@ -92,6 +93,7 @@ class _MockTrainer:
 
 class _MockEarlyStopping:
     def __init__(self, *args, **kwargs):
+        # Mock: no initialization needed
         pass
 
 
@@ -110,7 +112,7 @@ class _MockL:
             ModelCheckpoint=_MockModelCheckpoint,
         ),
     )
-    Trainer = _MockTrainer
+    Trainer = _MockTrainer  # NOSONAR: intentional uppercase to match Lightning API
 
 
 def _install_mocks():
@@ -440,8 +442,8 @@ class TestApplyPostProcessingRules:
             health_status=train_gan.HealthStatus(predicted_class="illness"),
         )
         result = train_gan.apply_post_processing_rules(plan, request)
-        assert result[0] == 0.0
-        assert result[1] == 0.0
+        assert result[0] == pytest.approx(0.0)
+        assert result[1] == pytest.approx(0.0)
 
     def test_overtraining_class_reduces_weekly_freq_and_increases_rest(self):
         plan = self._base_plan()
@@ -542,15 +544,15 @@ class TestEncodeUserProfile:
         profile = train_gan.UserProfile(goals=["набор массы"])
         encoded = train_gan.encode_user_profile(profile)
         # goals start at index 3: [strength, endurance, weight_loss, flexibility]
-        assert encoded[0, 3] == 1.0  # goal_strength
+        assert encoded[0, 3] == pytest.approx(1.0)
 
     def test_no_goals_sets_all_goal_bits_zero(self):
         profile = train_gan.UserProfile(goals=[])
         encoded = train_gan.encode_user_profile(profile)
-        assert encoded[0, 3] == 0.0
-        assert encoded[0, 4] == 0.0
-        assert encoded[0, 5] == 0.0
-        assert encoded[0, 6] == 0.0
+        assert encoded[0, 3] == pytest.approx(0.0)
+        assert encoded[0, 4] == pytest.approx(0.0)
+        assert encoded[0, 5] == pytest.approx(0.0)
+        assert encoded[0, 6] == pytest.approx(0.0)
 
     def test_illness_predicted_class_sets_recovery_bit(self):
         health = train_gan.HealthStatus(predicted_class="recovery")
@@ -558,19 +560,19 @@ class TestEncodeUserProfile:
             train_gan.UserProfile(), health_status=health
         )
         # recovery_needed is index 14
-        assert encoded[0, 14] == 1.0
+        assert encoded[0, 14] == pytest.approx(1.0)
 
     def test_contraindications_set_bit(self):
         profile = train_gan.UserProfile(contraindications=["diabetes"])
         encoded = train_gan.encode_user_profile(profile)
         # has_contraindications is index 12
-        assert encoded[0, 12] == 1.0
+        assert encoded[0, 12] == pytest.approx(1.0)
 
     def test_allergies_set_bit(self):
         profile = train_gan.UserProfile(allergies=["nuts"])
         encoded = train_gan.encode_user_profile(profile)
         # has_allergies is index 13
-        assert encoded[0, 13] == 1.0
+        assert encoded[0, 13] == pytest.approx(1.0)
 
     def test_age_encoding_increases_with_age(self):
         young = train_gan.UserProfile(age=20)

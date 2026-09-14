@@ -9,7 +9,7 @@ COPY web/ .
 RUN npm run build
 
 # ========== Go builder stage ==========
-FROM golang@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628 AS builder
+FROM golang@sha256:f86f1a6701e3dcc445fec097a42f78b758f15950ccf032c2d3e54e2754d32fdb AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 RUN apk add --no-cache ca-certificates=20260611-r0 git=2.54.0-r0
