@@ -65,23 +65,23 @@ spec:
                 readOnlyRootFilesystem: false
                 capabilities:
                   drop: ["ALL"]
-               volumeMounts:
-                 - name: backup-storage
-                   mountPath: /backups
-                 - name: wal-archive-storage
-                   mountPath: /wal-archive
-               resources:
-                 requests:
-                   cpu: "50m"
-                   memory: "64Mi"
-                 limits:
-                   cpu: "200m"
-                   memory: "256Mi"
-           restartPolicy: Never
-           volumes:
-             - name: backup-storage
-               persistentVolumeClaim:
-                 claimName: postgres-backup-pvc
-             - name: wal-archive-storage
-               persistentVolumeClaim:
-                 claimName: postgres-wal-archive
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                - name: wal-archive-storage
+                  mountPath: /wal-archive
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+          restartPolicy: Never
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc
+            - name: wal-archive-storage
+              persistentVolumeClaim:
+                claimName: postgres-wal-archive

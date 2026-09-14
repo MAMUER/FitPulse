@@ -180,7 +180,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-              add: ["DAC_OVERRIDE"]  # NOSONAR
+              add: ["DAC_OVERRIDE"] # NOSONAR
             seccompProfile:
               type: RuntimeDefault
           resources:

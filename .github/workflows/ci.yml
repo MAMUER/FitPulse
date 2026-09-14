@@ -94,10 +94,10 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # originally: v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         id: filter
         with:
           filters: |
@@ -303,9 +303,9 @@ jobs:
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # originally: v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "26"
           cache: "npm"
@@ -331,7 +331,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
@@ -344,7 +344,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run Hadolint on all Dockerfiles
         run: bash scripts/ci/ci-helpers.sh run_hadolint
   # ============================================================================
@@ -360,7 +360,7 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Lint Code Base
@@ -420,7 +420,7 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Initialize CodeQL
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
@@ -456,9 +456,9 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Dependency Review
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # originally: v5
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
         with:
           base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.after }}
@@ -477,7 +477,7 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
         run: bash scripts/ci/security.sh install_tools
       - name: Run Kubescape scan
@@ -501,7 +501,7 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Semgrep
         run: "pip install --only-binary :all: 'semgrep==1.172.0'"
       - name: Run Semgrep scan
@@ -524,9 +524,9 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run OSV Scanner (Go dependencies)
-        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67
         with:
           scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator
       - name: Run OSV Scanner (Python requirements)
@@ -543,9 +543,9 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -559,9 +559,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -582,11 +582,11 @@ jobs:
     steps:
       - name: Configure Git default branch
         run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -644,7 +644,6 @@ jobs:
           cache-dir: "/home/runner/work/FitPulse/FitPulse/.cache/trivy"
           list-all-pkgs: false
           cache: true
-          skip-setup-trivy: false
           hide-progress: true
         env:
           TRIVY_SKIP_VERSION_CHECK: true
@@ -692,16 +691,16 @@ jobs:
       checks: write
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # originally: v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "26"
           cache: "npm"
@@ -741,7 +740,7 @@ jobs:
     needs: [validate-workflow]
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Check conventional commits on main branch
@@ -759,7 +758,7 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run kube-bench against cluster (if available)
 
         run: bash scripts/ci/security.sh run_kube_bench
@@ -775,7 +774,7 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run kube-hunter (passive scan)
 
         run: bash scripts/ci/security.sh run_kube_hunter
@@ -791,7 +790,7 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run Checkov scan
 
         run: bash scripts/ci/security.sh run_checkov
@@ -816,9 +815,9 @@ jobs:
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # originally: v4.1.2
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
       - name: Download cosign public key
         env:
           COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
@@ -841,11 +840,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -880,17 +879,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Build Go services (parallel)
         run: bash scripts/ci/build-push.sh build_go_binaries
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # originally: v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: binaries
           path: bin/
@@ -909,11 +908,11 @@ jobs:
       security-events: write
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # originally: v4.6.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -923,7 +922,7 @@ jobs:
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # originally: v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
       - name: Build and push Go services
         run: bash scripts/ci/build-push.sh build_go_services
       - name: Build and push ML images (if models exist)
@@ -954,7 +953,7 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-docker
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # originally: v4.1.2
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
       - name: Sign Docker images with cosign
         if: github.event_name != 'pull_request'
         env:
@@ -977,7 +976,7 @@ jobs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Build artifacts
         run: bash scripts/ci/build-push.sh build_artifacts
       - name: Generate subject for provenance
@@ -990,7 +989,7 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # originally: v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
     with:
       base64-subjects: "${{ needs.slsa-provenance.outputs.hashes }}"
       upload-assets: true
@@ -1010,8 +1009,8 @@ jobs:
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1160,7 +1159,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh download_kubeconfig
       - name: Upload kubeconfig artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # originally: v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: kubeconfig
           path: ./k3s-config.yaml
@@ -1186,12 +1185,12 @@ jobs:
     environment: staging
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1199,7 +1198,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1229,9 +1228,9 @@ jobs:
     environment: staging
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1254,22 +1253,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup Node.js
-        uses: actions/setup-node@2030ffe8868c4d2fd9f24a3de71d44d57bfe58c1 # originally: v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: 'web/package-lock.json'
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
       - name: Install frontend dependencies
-        run: cd web && npm install --legacy-peer-deps
+        run: cd web && npm ci --ignore-scripts
       - name: Install Playwright browsers
-        run: cd web && npx playwright install --with-deps chromium
+        run: cd web && npx --ignore-scripts playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         run: cd web && npm run test:e2e
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@6c62cb5ab5765d60c4a0399c6b49796658f7f8eb # originally: v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: playwright-report
           path: web/playwright-report/
@@ -1284,8 +1283,8 @@ jobs:
     if: always() && needs.deploy-production.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1319,7 +1318,7 @@ jobs:
     if: always() && needs.provision-k8s-vps.result == 'success' && needs.health-check.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Check CSP and security headers
         env:
           CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"
@@ -1334,9 +1333,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # originally: v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -1355,12 +1354,12 @@ jobs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # originally: v0.10.0
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Add VPS to known_hosts
@@ -1368,7 +1367,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1509,9 +1508,9 @@ jobs:
       PRODUCTION_URL: ${VPS_HOST}
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # originally: v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1528,7 +1527,7 @@ jobs:
         run: |
           python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
       - name: Performance test (k6)
-        uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # originally: v0.3.1
+        uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec
         with:
           filename: load-test.k6
         env:
@@ -1576,7 +1575,7 @@ jobs:
       ]
     steps:
       - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # originally: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Collect job statuses
         id: statuses
         env:
@@ -1611,7 +1610,7 @@ jobs:
           JOB_STATUS_DEPENDENCY_REVIEW: ${{ needs['dependency-review'].result }}
         run: bash scripts/ci/ci-helpers.sh collect_statuses
       - name: Send to Telegram
-        uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1 # originally: v1.1.1
+        uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}

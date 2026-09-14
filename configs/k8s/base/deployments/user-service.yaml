@@ -68,8 +68,8 @@ spec:
                 path: JWT_PRIVATE_KEY_PEM
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
               - key: SMTP_HOST
                 path: SMTP_HOST
               - key: SMTP_PORT
@@ -159,10 +159,10 @@ spec:
               value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: SMTP_HOST_FILE
               value: "/etc/secrets/SMTP_HOST"
             - name: SMTP_PORT_FILE

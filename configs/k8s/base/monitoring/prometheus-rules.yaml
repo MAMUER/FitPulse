@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=
 apiVersion: v1
 kind: ConfigMap
 metadata:

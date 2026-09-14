@@ -16,7 +16,7 @@ spec:
     spec:
       serviceAccountName: node-exporter
       automountServiceAccountToken: false
-      hostPID: true  # NOSONAR
+      hostPID: true # NOSONAR
       securityContext:
         # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
         runAsNonRoot: false
@@ -25,7 +25,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: node-exporter  # NOSONAR
+        - name: node-exporter # NOSONAR
           image: prom/node-exporter:v1.8.2
           imagePullPolicy: IfNotPresent
           args:

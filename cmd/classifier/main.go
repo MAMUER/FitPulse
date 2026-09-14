@@ -297,12 +297,12 @@ func validateClassifyRequest(req classifyRequest) error {
 	return nil
 }
 
-func validateNonZeroRange(name string, val, min, max float64) error {
+func validateNonZeroRange(name string, val, lowerBound, upperBound float64) error {
 	if val == 0 {
 		return nil
 	}
-	if val < min || val > max {
-		return errors.New(name + " out of valid range (" + strconv.FormatFloat(min, 'f', -1, 64) + "-" + strconv.FormatFloat(max, 'f', -1, 64) + ")")
+	if val < lowerBound || val > upperBound {
+		return errors.New(name + " out of valid range (" + strconv.FormatFloat(lowerBound, 'f', -1, 64) + "-" + strconv.FormatFloat(upperBound, 'f', -1, 64) + ")")
 	}
 	return nil
 }

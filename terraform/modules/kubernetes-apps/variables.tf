@@ -55,8 +55,8 @@ variable "rabbitmq_url" {
   sensitive   = true
 }
 
-variable "redis_password" {
-  description = "Redis password"
+variable "valkey_password" {
+  description = "Valkey password"
   type        = string
   sensitive   = true
 }

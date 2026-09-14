@@ -85,8 +85,8 @@ spec:
               value: "/etc/secrets/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
               value: "/etc/secrets/POSTGRES_PASSWORD"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
               value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
             - name: API_BASE_URL

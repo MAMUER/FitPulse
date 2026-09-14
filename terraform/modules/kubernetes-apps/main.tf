@@ -246,7 +246,7 @@ resource "helm_release" "argo_rollouts" {
 #     JWT_PRIVATE_KEY_PEM        = var.jwt_private_key_pem
 #     JWT_PUBLIC_KEY_PEM         = var.jwt_public_key_pem
 #     RABBITMQ_URL               = var.rabbitmq_url
-#     REDIS_PASSWORD             = var.redis_password
+#     VALKEY_PASSWORD            = var.valkey_password
 #     POSTGRES_PASSWORD          = var.postgres_password
 #     GOOGLE_CLIENT_ID           = var.google_client_id
 #     GOOGLE_CLIENT_SECRET       = var.google_client_secret
@@ -281,8 +281,8 @@ variable "rabbitmq_url" {
   sensitive   = true
 }
 
-variable "redis_password" {
-  description = "Redis/Valkey password"
+variable "valkey_password" {
+  description = "Valkey password"
   type        = string
   sensitive   = true
 }

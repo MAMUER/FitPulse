@@ -111,5 +111,11 @@ results.json
 
 .kilo
 
+# Terraform
+*.tfvars
+terraform.tfvars
+.terraform/
+.terraform.lock.hcl
+
 # Raw datasets (too large for git)
 datasets/raw/

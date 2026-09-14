@@ -66,8 +66,8 @@ spec:
                 path: POSTGRES_DB
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
               - key: JWT_PUBLIC_KEY_PEM
                 path: JWT_PUBLIC_KEY_PEM
               - key: OPEN_WEARABLES_WEBHOOK_SECRET
@@ -151,10 +151,10 @@ spec:
                   key: BIOMETRIC_METRICS_PORT
             - name: JWT_PUBLIC_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: GRPC_SERVER_ADDRESS

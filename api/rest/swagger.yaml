@@ -1006,7 +1006,39 @@ paths:
               properties:
                 metric_type:
                   type: string
-                  enum: [heart_rate, spo2, sleep, blood_pressure, steps, calories, distance, active_minutes, stress, respiration_rate, body_temperature, blood_glucose, oxygen_saturation, vo2_max, hrv, respiratory_rate, skin_temperature, glucose, lactate, caffeine_intake, water_intake, steps_per_minute, heart_rate_variability, sleep_stages, rem_sleep, deep_sleep, light_sleep, sleep_score, readiness_score, activity_score]
+                  enum:
+                    [
+                      heart_rate,
+                      spo2,
+                      sleep,
+                      blood_pressure,
+                      steps,
+                      calories,
+                      distance,
+                      active_minutes,
+                      stress,
+                      respiration_rate,
+                      body_temperature,
+                      blood_glucose,
+                      oxygen_saturation,
+                      vo2_max,
+                      hrv,
+                      respiratory_rate,
+                      skin_temperature,
+                      glucose,
+                      lactate,
+                      caffeine_intake,
+                      water_intake,
+                      steps_per_minute,
+                      heart_rate_variability,
+                      sleep_stages,
+                      rem_sleep,
+                      deep_sleep,
+                      light_sleep,
+                      sleep_score,
+                      readiness_score,
+                      activity_score,
+                    ]
                 value:
                   oneOf:
                     - type: number
@@ -1319,11 +1351,11 @@ paths:
           description: Device registered
           content:
             application/json:
-               schema:
-                 type: object
-                 properties:
-                   status:
-                     type: string
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
 
   /devices/{device_id}/ingest:
     post:
@@ -1419,8 +1451,8 @@ paths:
             schema:
               type: object
       responses:
-         "204":
-           description: Webhook received
+        "204":
+          description: Webhook received
 
   /devices/withings/auth:
     get:
@@ -1942,7 +1974,21 @@ components:
           type: string
         condition_type:
           type: string
-          enum: [chronic, allergy, injury, cardiovascular, respiratory, metabolic, neurological, musculoskeletal, gastrointestinal, dermatological, mental_health, other]
+          enum:
+            [
+              chronic,
+              allergy,
+              injury,
+              cardiovascular,
+              respiratory,
+              metabolic,
+              neurological,
+              musculoskeletal,
+              gastrointestinal,
+              dermatological,
+              mental_health,
+              other,
+            ]
         condition_name:
           type: string
         severity:
@@ -1970,7 +2016,21 @@ components:
       properties:
         condition_type:
           type: string
-          enum: [chronic, allergy, injury, cardiovascular, respiratory, metabolic, neurological, musculoskeletal, gastrointestinal, dermatological, mental_health, other]
+          enum:
+            [
+              chronic,
+              allergy,
+              injury,
+              cardiovascular,
+              respiratory,
+              metabolic,
+              neurological,
+              musculoskeletal,
+              gastrointestinal,
+              dermatological,
+              mental_health,
+              other,
+            ]
         condition_name:
           type: string
         severity:
@@ -2132,7 +2192,15 @@ components:
           type: array
           items:
             type: string
-            enum: [weight_loss, muscle_gain, endurance, flexibility, general_health, sport_specific]
+            enum:
+              [
+                weight_loss,
+                muscle_gain,
+                endurance,
+                flexibility,
+                general_health,
+                sport_specific,
+              ]
         contraindications:
           type: array
           items:

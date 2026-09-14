@@ -5,10 +5,10 @@ WORKDIR /tmp/pgsodium
 
 # hadolint ignore=DL3003,DL3018
 RUN apk add --no-cache --virtual .build-deps \
-        build-base \
-        git \
-        libsodium-dev \
-        postgresql-dev \
+    build-base \
+    git \
+    libsodium-dev \
+    postgresql-dev \
     && git clone https://github.com/michelp/pgsodium.git . \
     && make -f Makefile \
     && make install \

@@ -134,8 +134,8 @@ spec:
               value: "verify_peer"
             - name: RABBITMQ_SSL_FAIL_IF_NO_PEER_CERT
               value: "false"
-             - name: RABBITMQ_LISTENERS_SSL_DEFAULT
-               value: "5671"
+            - name: RABBITMQ_LISTENERS_SSL_DEFAULT
+              value: "5671"
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq

@@ -66,8 +66,8 @@ spec:
                 path: POSTGRES_DB
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
         - name: grpc-tls
           secret:
             secretName: app-secrets
@@ -133,10 +133,10 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: DB_SSLMODE
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: ML_GENERATOR_HOST

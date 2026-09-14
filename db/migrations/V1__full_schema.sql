@@ -432,7 +432,7 @@ CREATE OR REPLACE FUNCTION create_invite_code(
     p_valid_days INT
 ) RETURNS VARCHAR AS $$
 DECLARE
-    v_code VARCHAR(100);
+    v_code TEXT;
 BEGIN
     v_code := UPPER(p_role) || '-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
               UPPER(REPLACE(
@@ -472,22 +472,22 @@ DECLARE
     v_record RECORD;
     v_used_count INT;
 BEGIN
-    SELECT * INTO v_record FROM invite_codes WHERE code = p_code AND is_active = TRUE;
+    SELECT code, role, specialty, max_uses, is_active, expires_at INTO v_record FROM invite_codes WHERE code = p_code AND is_active;
 
     IF NOT FOUND THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code not found or inactive';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     IF v_record.expires_at IS NOT NULL AND v_record.expires_at < NOW() THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has expired';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     SELECT COUNT(*) INTO v_used_count FROM invite_code_uses WHERE invite_code_id = v_record.id;
     IF v_used_count >= v_record.max_uses THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has reached its usage limit';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     is_valid := TRUE;

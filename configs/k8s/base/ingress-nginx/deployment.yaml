@@ -23,7 +23,7 @@ spec:
       # ingress-nginx on single-node k3s clusters without a load balancer.
       # See: https://kubernetes.github.io/ingress-nginx/deploy/bare-metal/
       # checkov:skip=CKV_K8S_19: Required for bare-metal ingress
-      hostNetwork: true
+      hostNetwork: true # NOSONAR
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: ingress-nginx
       automountServiceAccountToken: false

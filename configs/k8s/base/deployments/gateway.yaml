@@ -62,8 +62,8 @@ spec:
                 path: JWT_PUBLIC_KEY_PEM
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
         - name: grpc-tls
           secret:
             secretName: app-secrets
@@ -106,10 +106,10 @@ spec:
               mountPath: /etc/grpc-tls
               readOnly: true
           env:
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: ML_ASYNC
               value: "false"
             - name: RABBITMQ_URL_FILE

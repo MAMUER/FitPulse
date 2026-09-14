@@ -43,6 +43,7 @@ func (m *mockRows) Next() bool {
 	return false
 }
 
+// nolint:gocyclo
 func (m *mockRows) Scan(dest ...interface{}) error {
 	if m.scanFunc != nil {
 		return m.scanFunc(dest...)
@@ -301,6 +302,7 @@ func TestDeviceRepositoryPGX_Delete_Error(t *testing.T) {
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
 }
 
+// nolint:gocyclo
 func TestDeviceRepositoryPGX_GetByID_Success(t *testing.T) {
 	repo, mock := setupDeviceRepo(t)
 	ctx := context.Background()

@@ -196,7 +196,7 @@ func mapClassToScores(predictedClass string) (float64, float64, float64) {
 }
 
 func (g *gateway) proxyToMLGenerator(w http.ResponseWriter, r *http.Request, path string) {
-	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") {
+	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") { // NOSONAR: S5332 - internal service-to-service call within trusted Kubernetes cluster
 		g.log.Error("Invalid ML generator URL", zap.String("url", g.mlGeneratorURL))
 		http.Error(w, "mlServiceUnavailable", http.StatusServiceUnavailable)
 		return

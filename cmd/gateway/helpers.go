@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	msgUnauthorized            = "Необходима авторизация"
+	msgUnauthorized            = "Необходима авторизация" // NOSONAR: S6418 - user-facing message, not a secret
 	logFailedToEncodeResponse  = "Failed to encode response"
 	errBadRequest              = "Некорректный запрос"
 	msgMethodNotAllowed        = "method not allowed"

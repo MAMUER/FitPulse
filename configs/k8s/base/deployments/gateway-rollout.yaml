@@ -80,10 +80,10 @@ spec:
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
           volumeMounts:
             - name: secrets
               mountPath: /etc/secrets

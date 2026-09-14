@@ -16,9 +16,9 @@ COPY internal/ ./internal/
 COPY api/ ./api/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
--ldflags="-w -s -buildid=" \
--o /app/bin/classifier \
-./cmd/classifier
+	-ldflags="-w -s -buildid=" \
+	-o /app/bin/classifier \
+	./cmd/classifier
 
 FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
@@ -37,6 +37,6 @@ USER 1001
 EXPOSE 8001 9091
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["curl", "-f", "http://localhost:8001/health"]
+	CMD ["curl", "-f", "http://localhost:8001/health"]
 
 ENTRYPOINT ["./classifier"]

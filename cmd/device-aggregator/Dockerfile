@@ -15,9 +15,9 @@ FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943
 # Fixed in libssl3 3.5.7-r0; alpine:3.24 ships 3.5.7-r0 by default
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-    apk --no-cache add ca-certificates tzdata && \
-    addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+  apk --no-cache add ca-certificates tzdata && \
+  addgroup -g 1001 -S appgroup && \
+  adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/bin/device-aggregator .

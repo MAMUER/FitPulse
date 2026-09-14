@@ -54,7 +54,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      REDIS_HOST: valkey
+      VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
       USER_SERVICE_ADDR: user-service:50051
       BIOMETRIC_SERVICE_ADDR: biometric-service:50052
@@ -89,7 +89,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      REDIS_HOST: valkey
+      VALKEY_ADDR: valkey:6379
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     depends_on:
       postgres:
@@ -111,7 +111,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      REDIS_HOST: valkey
+      VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     depends_on:
@@ -136,7 +136,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      REDIS_HOST: valkey
+      VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
       ML_GENERATOR_HOST: ml-generator
       ML_GENERATOR_PORT: 8002
@@ -180,7 +180,7 @@ services:
     ports:
       - "8083:8083"
     environment:
-      REDIS_HOST: valkey
+      VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
     depends_on:
       valkey:

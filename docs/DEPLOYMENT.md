@@ -47,7 +47,6 @@ curl -k https://localhost:8443/health
 - **Kubernetes**: k3s (рекомендуется для VPS)
 - **Сеть**: HTTPS (порт 8443), TLS 1.3
 
-
 ## Развертывание на Kubernetes
 
 ### 1. Установка k3s (рекомендуется для VPS)

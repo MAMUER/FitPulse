@@ -139,10 +139,9 @@ def _isolate_global_state():
     """Reset the module-level betas_np / _betas_np before each test."""
     train_gan._betas_np = None
     train_gan.betas_np = train_gan.get_betas()
-    yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def default_model():
     """Return a fresh ConditionalDiffusionModel on CPU."""
     torch.manual_seed(0)
@@ -284,7 +283,8 @@ class TestConditionalDiffusionModelSample:
         default_model.eval()
         with torch.no_grad():
             sample = default_model.sample(num_steps=1)
-        assert (sample >= 0.0).all() and (sample <= 1.0).all()
+        assert (sample >= 0.0).all()
+        assert (sample <= 1.0).all()
 
 
 # ===========================================================================
@@ -307,9 +307,8 @@ class TestBuildRuleBasedPlan:
         profile = train_gan.UserProfile(age=25, fitness_level="advanced")
         for cls in train_gan.TRAINING_TEMPLATES:
             plan = train_gan.build_rule_based_plan(cls, profile)
-            assert (plan >= 0.0).all() and (
-                plan <= 1.0
-            ).all(), f"values out of range for class {cls}"
+            assert (plan >= 0.0).all(), f"values out of range for class {cls}"
+            assert (plan <= 1.0).all(), f"values out of range for class {cls}"
 
     def test_unknown_class_falls_back_to_endurance_basic(self):
         profile = train_gan.UserProfile()
@@ -378,7 +377,8 @@ class TestBuildStaticBeginnerPlan:
 
     def test_values_in_unit_interval(self):
         plan = train_gan.build_static_beginner_plan()
-        assert (plan >= 0.0).all() and (plan <= 1.0).all()
+        assert (plan >= 0.0).all()
+        assert (plan <= 1.0).all()
 
     def test_is_deterministic(self):
         p1 = train_gan.build_static_beginner_plan()
@@ -535,7 +535,8 @@ class TestEncodeUserProfile:
     def test_output_values_in_unit_interval(self):
         profile = train_gan.UserProfile()
         encoded = train_gan.encode_user_profile(profile)
-        assert (encoded >= 0.0).all() and (encoded <= 1.0).all()
+        assert (encoded >= 0.0).all()
+        assert (encoded <= 1.0).all()
 
     def test_muscle_gain_goal_sets_strength_bit(self):
         profile = train_gan.UserProfile(goals=["набор массы"])

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: prometheus
 data:
-   prometheus.yml: |
+  prometheus.yml: |
     global:
       scrape_interval: 30s
       evaluation_interval: 30s
