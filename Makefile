@@ -75,7 +75,7 @@ proto:
 
 swag:
 	@echo "Generating Swagger docs..."
-	@go install github.com/swaggo/swag/cmd/swag@latest
+	@go install github.com/swaggo/swag/cmd/swag@v1.16.6
 	@swag init -g cmd/gateway/main.go -o api/rest --parseDependency --parseInternal
 
 frontend-install:
