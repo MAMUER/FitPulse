@@ -113,7 +113,7 @@ httpx==0.28.1
     # via
     #   huggingface-hub
     #   litestar
-huggingface-hub==1.27.0
+huggingface-hub==1.30.0
     # via
     #   optimum
     #   tokenizers
