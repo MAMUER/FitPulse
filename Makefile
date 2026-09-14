@@ -31,7 +31,7 @@ vet:
 
 lint:
 	@echo "Running golangci-lint..."
-	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run --max-issues-per-linter=0 ./cmd/... ./internal/...
+	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.0 run --max-issues-per-linter=0 ./cmd/... ./internal/...
 	@echo "Lint complete."
 
 test:
