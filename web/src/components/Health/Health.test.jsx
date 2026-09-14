@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Health from './Health';
 
@@ -31,7 +31,7 @@ describe('Health', () => {
   });
 
   it('renders loading state initially', () => {
-    mockListHealthConditions.mockImplementation(() => new Promise(() => { }));
+    mockListHealthConditions.mockImplementation(() => new Promise(() => {}));
     render(<Health />);
     expect(screen.getByText(/Загрузка данных здоровья/i)).toBeDefined();
   });

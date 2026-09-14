@@ -23,7 +23,7 @@ export default function DeleteProfileModal({ onClose }) {
     } catch (err) {
       setError(
         err.message ||
-        'Не удалось удалить аккаунт. Проверьте пароль и попробуйте снова.'
+          'Не удалось удалить аккаунт. Проверьте пароль и попробуйте снова.'
       );
     } finally {
       setSubmitting(false);

@@ -39,7 +39,7 @@ export default function ChangeEmailModal({ onClose }) {
     } catch (err) {
       setError(
         err.message ||
-        'Не удалось сменить email. Проверьте текущий пароль и попробуйте снова.'
+          'Не удалось сменить email. Проверьте текущий пароль и попробуйте снова.'
       );
     } finally {
       setSubmitting(false);

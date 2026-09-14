@@ -27,7 +27,7 @@ describe('useTwoFA', () => {
     const { get2FAStatus } = await import('../../utils/api');
     get2FAStatus.mockRejectedValue(new Error('Network error'));
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { result } = renderHook(() => useTwoFA());
 
     await waitFor(() => {

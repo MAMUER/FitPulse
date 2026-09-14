@@ -1,4 +1,3 @@
-import { waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockApi = vi.fn();

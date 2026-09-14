@@ -16,7 +16,8 @@ spec:
     spec:
       serviceAccountName: node-exporter
       automountServiceAccountToken: false
-      hostPID: true # NOSONAR
+      # NOSONAR
+      hostPID: true
       securityContext:
         # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
         runAsNonRoot: false

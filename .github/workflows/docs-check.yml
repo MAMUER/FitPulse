@@ -165,7 +165,7 @@ jobs:
 
            echo "-> Checking .nvmrc version..."
            if [ -f ".nvmrc" ]; then
-             NODE_NVM_VERSION=$(cat .nvmrc | tr -d ' ')
+              NODE_NVM_VERSION=$(tr -d ' ' < .nvmrc)
              if [ "$NODE_NVM_VERSION" -lt 26 ]; then
                echo "❌ Found outdated .nvmrc version: $NODE_NVM_VERSION (current: 26+)"
                exit 1
@@ -375,17 +375,17 @@ jobs:
         id: go
         run: |
           LATEST_GO=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[0].version' | sed 's/go//' | sed 's/^v//' | tr -d ' ')
-          echo "latest=$LATEST_GO" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST_GO" >> "$GITHUB_OUTPUT"
           CURRENT_GO=$(grep -E '^go [0-9]+\.[0-9]+(\.[0-9]+)?' go.mod | sed 's/go //' | tr -d ' ')
-          echo "current=$CURRENT_GO" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT_GO" >> "$GITHUB_OUTPUT"
 
       - name: Check latest Node.js LTS version
         id: node
         run: |
           LATEST_NODE=$(curl -s https://nodejs.org/dist/index.json | jq -r '.[] | select(.lts != false) | .version' | head -1 | sed 's/v//' | tr -d ' ')
-          echo "latest=$LATEST_NODE" >> $GITHUB_OUTPUT
-          CURRENT_NODE=$(cat .nvmrc 2>/dev/null || echo "26" | tr -d ' ')
-          echo "current=$CURRENT_NODE" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST_NODE" >> "$GITHUB_OUTPUT"
+          CURRENT_NODE=$([ -f .nvmrc ] && tr -d ' ' < .nvmrc || echo "26")
+          echo "current=$CURRENT_NODE" >> "$GITHUB_OUTPUT"
 
       - name: Update Go version
         if: steps.go.outputs.latest != steps.go.outputs.current
@@ -408,11 +408,10 @@ jobs:
       - name: Check for changes
         id: changes
         run: |
-          git diff --quiet
-          if [ $? -eq 0 ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create Pull Request

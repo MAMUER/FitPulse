@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Training from './Training';
@@ -19,7 +19,7 @@ describe('Training', () => {
   });
 
   it('renders loading state', () => {
-    mockGetTrainingPlans.mockImplementation(() => new Promise(() => { }));
+    mockGetTrainingPlans.mockImplementation(() => new Promise(() => {}));
     render(<Training />);
     expect(screen.getByText('Загрузка программ...')).toBeDefined();
   });

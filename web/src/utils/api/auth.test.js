@@ -139,7 +139,7 @@ describe('auth api', () => {
 
   it('clears token on logout error', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await api.logout();
     expect(consoleSpy).toHaveBeenCalledWith(
