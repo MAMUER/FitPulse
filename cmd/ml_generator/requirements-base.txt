@@ -39,5 +39,5 @@ tenacity>=9.1.4
 structlog>=26.1.0
 pillow>=12.3.0
 nltk @ git+https://github.com/nltk/nltk.git@70d34158700f0624a7e31af606232effb4465566
-ujson>=5.13.0
+ujson>=6.0.0
 idna>=3.15
