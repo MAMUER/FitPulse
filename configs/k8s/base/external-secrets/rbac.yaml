@@ -37,6 +37,7 @@ rules:
 
 ---
 # checkov:skip=CKV_K8S_20:External Secrets Operator needs namespace-scoped secret write access
+# checkov:skip=CKV2_K8S_5:External Secrets Operator requires read access to all secrets in target namespace for reconciliation
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

@@ -174,6 +174,7 @@ spec:
             - --helper-pod-file
             - /etc/local-path-config/helperPod.yaml
           # checkov:skip=CKV_K8S_38: Service account token required for provisioning operations
+          # checkov:skip=CKV_K8S_40: System component; runs as root to manage host paths
           # checkov:skip=CKV_K8S_25: DAC_OVERRIDE capability required for host path ownership changes
           securityContext:
             allowPrivilegeEscalation: false

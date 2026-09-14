@@ -13,12 +13,12 @@ metadata:
     app.kubernetes.io/part-of: fitness-platform
     app.kubernetes.io/managed-by: kustomize
   annotations:
-    # checkov:skip=CKV_K8S_43:Cert-managed image; digest pinned for reproducibility
-    # checkov:skip=CKV_K8S_15:imagePullPolicy Always is set on container spec
-    # checkov:skip=CKV_K8S_11:CPU limits are set on container resources
-    # checkov:skip=CKV_K8S_13:Memory limits are set on container resources
-    # checkov:skip=CKV_K8S_10:CPU requests are set on container resources
-    # checkov:skip=CKV_K8S_12:Memory requests are set on container resources
+    checkov:skip=CKV_K8S_43: "Cert-managed image; digest pinned for reproducibility"
+    checkov:skip=CKV_K8S_15: "imagePullPolicy Always is set on container spec"
+    checkov:skip=CKV_K8S_11: "CPU limits are set on container resources"
+    checkov:skip=CKV_K8S_13: "Memory limits are set on container resources"
+    checkov:skip=CKV_K8S_10: "CPU requests are set on container resources"
+    checkov:skip=CKV_K8S_12: "Memory requests are set on container resources"
 spec:
   revisionHistoryLimit: 3
   serviceName: rabbitmq
@@ -42,9 +42,9 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
@@ -81,7 +81,7 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-            runAsUser: 1000
+            runAsUser: 10001
             capabilities:
               drop: ["ALL"]
             seccompProfile:
@@ -111,7 +111,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 1000
+            runAsUser: 100011
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]

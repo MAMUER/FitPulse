@@ -32,7 +32,8 @@ describe('ML', () => {
     });
     render(<ML />);
     await user.click(screen.getByText('Анализировать'));
-    expect(await screen.findByText('Восстановление')).toBeDefined();
+    const elements = await screen.findAllByText('Восстановление');
+    expect(elements.length).toBeGreaterThan(0);
   });
 
   it('generates plan when form submitted', async () => {

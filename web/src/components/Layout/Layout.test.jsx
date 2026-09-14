@@ -38,9 +38,9 @@ describe('Layout', () => {
         <Layout />
       </MemoryRouter>
     );
-    expect(screen.getByText('Обзор')).toBeDefined();
-    expect(screen.getByText('Профиль')).toBeDefined();
-    expect(screen.getByText('Тренировки')).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Обзор' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Профиль' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Тренировки' })).toBeDefined();
   });
 
   it('calls logout when logout button clicked', async () => {

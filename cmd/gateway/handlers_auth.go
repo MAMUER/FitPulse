@@ -87,7 +87,10 @@ func (g *gateway) issueJWT(ctx context.Context, userID string) (string, error) {
 	}
 
 	token, err := g.tokenProvider.GenerateAccessToken(userID, resp.GetEmail(), resp.GetRole(), 15*time.Minute)
-	return token, fmt.Errorf("issue jwt: %w", err)
+	if err != nil {
+		return "", fmt.Errorf("issue jwt: %w", err)
+	}
+	return token, nil
 }
 
 func (g *gateway) issueRefreshToken(ctx context.Context, userID string) (string, error) {

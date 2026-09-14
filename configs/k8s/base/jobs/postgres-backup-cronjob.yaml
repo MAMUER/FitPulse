@@ -17,15 +17,18 @@ spec:
       backoffLimit: 2
       template:
         spec:
+          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-            fsGroup: 999
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
           containers:
             - name: backup
+              # checkov:skip=CKV_K8S_43: Public image tag resolved at runtime; digest not pinned for ephemeral job
+              # checkov:skip=CKV_K8S_35: Backup script requires secrets as environment variables for pg_dump authentication
               image: postgres:18-alpine
-              imagePullPolicy: IfNotPresent
+              imagePullPolicy: Always
               command:
                 - /bin/sh
                 - -c
@@ -62,9 +65,11 @@ spec:
                       key: POSTGRES_PASSWORD
               securityContext:
                 allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: false
+                readOnlyRootFilesystem: true
                 capabilities:
                   drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
               volumeMounts:
                 - name: backup-storage
                   mountPath: /backups

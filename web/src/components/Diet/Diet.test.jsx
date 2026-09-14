@@ -2,6 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+Object.defineProperty(window, 'crypto', {
+  value: {
+    getRandomValues: (arr) => {
+      arr[0] = 0;
+    },
+  },
+});
+
 const mockGetProfile = vi.fn();
 
 vi.mock('../../utils/api', () => ({

@@ -39,9 +39,9 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         fsGroupChangePolicy: "OnRootMismatch"
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
@@ -75,8 +75,8 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 10001
+            runAsGroup: 10001
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
