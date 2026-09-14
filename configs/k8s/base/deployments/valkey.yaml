@@ -43,7 +43,13 @@ spec:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: valkey
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -94,6 +100,8 @@ spec:
             requests:
               cpu: "15m"
               memory: "32Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "20m"
               memory: "48Mi"
+              ephemeral-storage: "200Mi"

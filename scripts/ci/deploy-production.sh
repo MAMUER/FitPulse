@@ -2,33 +2,12 @@
 set -euo pipefail
 
 create_secrets() {
-	echo "Generating gRPC mTLS certificates..."
-	mkdir -p /tmp/grpc-certs
-	cd /tmp/grpc-certs
-	openssl genrsa -out ca.key 4096
-	openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/CN=fitpulse-ca"
-	openssl genrsa -out server.key 2048
-	openssl req -new -key server.key -out server.csr -subj "/CN=*.fitness-platform-production.svc.cluster.local"
-	cat >server-ext.cnf <<'EOF'
-[v3_ext]
-subjectAltName = DNS:*.fitness-platform-production.svc.cluster.local,DNS:fitness-platform-production.svc.cluster.local
-EOF
-	openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile server-ext.cnf -extensions v3_ext
-	openssl genrsa -out client.key 2048
-	openssl req -new -key client.key -out client.csr -subj "/CN=fitpulse-client"
-	openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 365 -sha256
-	echo "✅ gRPC mTLS certificates generated"
-
-	echo "Creating grpc-tls secret..."
-	kubectl create secret generic grpc-tls \
-		-n fitness-platform-production \
-		--from-file=server.crt=/tmp/grpc-certs/server.crt \
-		--from-file=server.key=/tmp/grpc-certs/server.key \
-		--from-file=ca.crt=/tmp/grpc-certs/ca.crt \
-		--from-file=client.crt=/tmp/grpc-certs/client.crt \
-		--from-file=client.key=/tmp/grpc-certs/client.key \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ grpc-tls secret created"
+	echo "Creating gRPC mTLS certificates via cert-manager..."
+	kubectl apply -f configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml
+	kubectl apply -f configs/k8s/base/deployments/grpc-server-cert.yaml -n fitness-platform-production
+	echo "Waiting for gRPC certificates to be ready..."
+	kubectl wait --for=condition=ready certificate/grpc-server-cert -n fitness-platform-production --timeout=300s || true
+	echo "✅ gRPC mTLS certificates managed by cert-manager"
 
 	echo "Applying ExternalSecret manifests..."
 	kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production
@@ -53,9 +32,15 @@ ensure_service_account() {
 	kubectl create serviceaccount app-service-account \
 		-n fitness-platform-production \
 		--dry-run=client -o yaml | kubectl apply -f -
-	kubectl create clusterrolebinding app-service-account-binding \
-		--clusterrole=edit \
+	kubectl create role app-service-account-role \
+		-n fitness-platform-production \
+		--verb=get,list \
+		--resource=configmaps,secrets \
+		--dry-run=client -o yaml | kubectl apply -f - || true
+	kubectl create rolebinding app-service-account-binding \
+		--role=app-service-account-role \
 		--serviceaccount=fitness-platform-production:app-service-account \
+		-n fitness-platform-production \
 		--dry-run=client -o yaml | kubectl apply -f - || true
 	echo "ServiceAccount ready"
 }

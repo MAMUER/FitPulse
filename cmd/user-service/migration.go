@@ -118,7 +118,6 @@ func reencryptPIIFromPgcrypto(ctx context.Context, database *sql.DB, log *logger
 }
 
 type piiMigrationContext struct {
-	ctx      context.Context
 	database *sql.DB
 	log      *logger.Logger
 	t        piiTable
@@ -146,7 +145,7 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	selectBuilder.WriteString(" IS NOT NULL")
 	// Table/column names are validated by validatePiiTable before this point.
 	// Values are passed as parameterized arguments below.
-	rows, err := database.QueryContext(ctx, selectBuilder.String()) // nolint:gosimple,staticcheck,S2077
+	rows, err := database.QueryContext(ctx, selectBuilder.String()) // NOSONAR go:S2077
 	if err != nil {
 		log.Error("Failed to scan PII rows for migration", zap.Error(err), zap.String("table", t.name))
 		return
@@ -164,7 +163,6 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	}
 
 	migCtx := piiMigrationContext{
-		ctx:      ctx,
 		database: database,
 		log:      log,
 		t:        t,
@@ -179,7 +177,7 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 		}
 		rowID := fmt.Sprint(rowVals[0])
 
-		if migratePIIRow(migCtx, rowID, rowVals) {
+		if migratePIIRow(ctx, migCtx, rowID, rowVals) {
 			migrated++
 		}
 	}
@@ -195,9 +193,9 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	}
 }
 
-func migratePIIRow(migCtx piiMigrationContext, rowID string, rowVals []interface{}) bool {
+func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string, rowVals []interface{}) bool {
 	var probe string
-	if migCtx.database.QueryRowContext(migCtx.ctx,
+	if migCtx.database.QueryRowContext(ctx,
 		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", migCtx.id), rowVals[1],
 	).Scan(&probe) == nil {
 		return false
@@ -208,7 +206,7 @@ func migratePIIRow(migCtx piiMigrationContext, rowID string, rowVals []interface
 	ai := 1
 	for i, p := range migCtx.t.pairs {
 		var plain sql.NullString
-		if dErr := migCtx.database.QueryRowContext(migCtx.ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
+		if dErr := migCtx.database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
 			migCtx.log.Warn("Failed to pgcrypto-decrypt during PII migration",
 				zap.Error(dErr), zap.String("table", migCtx.t.name), zap.String("col", p.enc))
 			return false
@@ -233,7 +231,7 @@ func migratePIIRow(migCtx piiMigrationContext, rowID string, rowVals []interface
 	queryBuilder.WriteString(strconv.Itoa(ai))
 	query := queryBuilder.String()
 
-	if _, uErr := migCtx.database.ExecContext(migCtx.ctx, query, args...); uErr != nil { // nolint:gosimple,staticcheck,S2077
+	if _, uErr := migCtx.database.ExecContext(ctx, query, args...); uErr != nil { // NOSONAR go:S2077
 		migCtx.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", migCtx.t.name), zap.String("id", rowID))
 		return false
 	}
@@ -255,7 +253,7 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 	}
 
 	usersQuery := buildUsersBackfillQuery(id)
-	res, err := database.ExecContext(ctx, usersQuery) // nolint:gosimple,staticcheck,S2077
+	res, err := database.ExecContext(ctx, usersQuery) // NOSONAR go:S2077
 	if err != nil {
 		log.Error("Failed to backfill PII in users", zap.Error(err))
 	} else {
@@ -264,7 +262,7 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 	}
 
 	emailVerificationsQuery := buildEmailVerificationsBackfillQuery(id)
-	_, err = database.ExecContext(ctx, emailVerificationsQuery) // nolint:gosimple,staticcheck,S2077
+	_, err = database.ExecContext(ctx, emailVerificationsQuery) // NOSONAR go:S2077
 	if err != nil {
 		log.Error("Failed to backfill PII in email_verifications", zap.Error(err))
 	}

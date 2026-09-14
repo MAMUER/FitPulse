@@ -4,6 +4,8 @@ resources:
   - postgres.yaml
   - postgres-pdb.yaml
   - postgres-config.yaml
+  - app-service-account-role.yaml
+  - grpc-server-cert.yaml
   - valkey.yaml
   - valkey-config.yaml
   - rabbitmq-statefulset.yaml

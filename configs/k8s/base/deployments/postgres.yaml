@@ -49,7 +49,13 @@ spec:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 60
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: postgres
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -110,13 +116,13 @@ spec:
               value: "/var/lib/postgresql/data/pgdata"
           resources:
             requests:
-              cpu: "20m"
-              memory: "64Mi"
+              cpu: "500m"
+              memory: "1Gi"
               ephemeral-storage: "256Mi"
             limits:
-              cpu: "100m"
-              memory: "256Mi" # Жесткий лимит для БД
-              ephemeral-storage: "512Mi"
+              cpu: "2000m"
+              memory: "4Gi"
+              ephemeral-storage: "1Gi"
           livenessProbe:
             exec:
               command:

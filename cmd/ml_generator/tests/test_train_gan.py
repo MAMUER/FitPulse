@@ -112,7 +112,7 @@ class _MockL:
             ModelCheckpoint=_MockModelCheckpoint,
         ),
     )
-    Trainer = _MockTrainer  # NOSONAR: intentional uppercase to match Lightning API
+    Trainer = _MockTrainer  # NOSONAR intentional uppercase to match Lightning API
 
 
 def _install_mocks():

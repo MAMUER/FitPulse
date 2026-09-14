@@ -5,3 +5,4 @@ resources:
   - namespace.yaml
   - cluster-issuer.yaml
   - cluster-issuer-staging.yaml
+  - grpc-selfsigned-ca.yaml

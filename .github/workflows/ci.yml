@@ -528,7 +528,7 @@ jobs:
       - name: Run OSV Scanner (Go dependencies)
         uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67
         with:
-          scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator --skip-govulncheck
+          scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator
       - name: Run OSV Scanner (Python requirements)
 
         run: bash scripts/ci/security.sh run_osv_python_requirements
@@ -870,12 +870,53 @@ jobs:
         run: make frontend-build
 
   # ============================================================================
+  # UNIT + INTEGRATION TESTS
+  # ============================================================================
+  test:
+    name: Tests (Unit + Integration)
+    runs-on: ubuntu-latest
+    needs: [check]
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: {POSTGRES_PASSWORD: test}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:4-management-alpine
+        options: >-
+          --health-cmd rabbitmq-diagnostics -q ping
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run unit tests
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Run integration tests
+        run: go test -tags integration ./...
+      - name: Check coverage threshold
+        run: bash scripts/ci/coverage-check.sh
+
+  # ============================================================================
   # BUILD BINARIES
   # ============================================================================
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
-    needs: [detect-changes, check, frontend, conventional-commits]
+    needs: [detect-changes, check, test, frontend, conventional-commits]
     timeout-minutes: 30
     steps:
       - run: git config --global init.defaultBranch main

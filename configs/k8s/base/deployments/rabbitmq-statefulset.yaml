@@ -51,7 +51,13 @@ spec:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 60
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: rabbitmq
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account

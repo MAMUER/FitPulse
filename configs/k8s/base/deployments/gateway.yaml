@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 3
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: gateway
@@ -47,7 +47,13 @@ spec:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 20
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: gateway
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: gateway-sa
@@ -66,22 +72,11 @@ spec:
                 path: VALKEY_PASSWORD
         - name: grpc-tls
           secret:
-            secretName: app-secrets
-            items:
-              - key: GRPC_TLS_CERT
-                path: tls.crt
-              - key: GRPC_TLS_KEY
-                path: tls.key
-              - key: GRPC_TLS_CA_CERT
-                path: ca.crt
-              - key: GRPC_TLS_CLIENT_CERT
-                path: client.crt
-              - key: GRPC_TLS_CLIENT_KEY
-                path: client.key
+            secretName: grpc-server-tls
       containers:
         - name: gateway
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
-          image: ghcr.io/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}
+          image: ghcr.io/mamuer/project/gateway:0.0.0-dev
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -138,6 +133,8 @@ spec:
             requests:
               cpu: "200m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "1000m"
               memory: "512Mi"
+              ephemeral-storage: "200Mi"

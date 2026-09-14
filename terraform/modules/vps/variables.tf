@@ -47,8 +47,3 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
-
-output "vps_ip" {
-  description = "VPS IP address"
-  value       = var.vps_host
-}

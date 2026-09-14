@@ -58,61 +58,61 @@ variable "enable_backup" {
 }
 
 variable "grafana_admin_password" {
-  description = "Grafana admin password"
+  description = "Grafana admin password (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "jwt_private_key_pem" {
-  description = "JWT private key PEM"
+  description = "JWT private key PEM (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "jwt_public_key_pem" {
-  description = "JWT public key PEM"
+  description = "JWT public key PEM (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "rabbitmq_url" {
-  description = "RabbitMQ URL"
+  description = "RabbitMQ URL (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "valkey_password" {
-  description = "Valkey password"
+  description = "Valkey password (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "postgres_password" {
-  description = "PostgreSQL password"
+  description = "PostgreSQL password (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "google_client_id" {
-  description = "Google OAuth client ID"
+  description = "Google OAuth client ID (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "google_client_secret" {
-  description = "Google OAuth client secret"
+  description = "Google OAuth client secret (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "smtp_password" {
-  description = "SMTP password"
+  description = "SMTP password (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
 variable "totp_encryption_key" {
-  description = "TOTP encryption key"
+  description = "TOTP encryption key (store in Secrets Manager)"
   type        = string
   sensitive   = true
 }

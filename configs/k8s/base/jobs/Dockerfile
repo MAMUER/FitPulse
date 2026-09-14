@@ -4,7 +4,7 @@ ARG KUBECTL_VERSION=v1.36.0
 
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
-    apk add --no-cache bash ca-certificates curl tzdata unzip && \
+    apk add --no-cache bash ca-certificates curl libressl tzdata unzip && \
     curl --proto =https --proto =ftps -sSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/kubectl && \
     kubectl version --client=true && \
