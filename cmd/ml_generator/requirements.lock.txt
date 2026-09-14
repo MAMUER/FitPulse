@@ -79,7 +79,7 @@ faker==40.37.0
     # via polyfactory
 fastapi==0.141.1
     # via -r requirements.txt
-filelock==3.32.3
+filelock==3.32.5
     # via
     #   huggingface-hub
     #   iterative-telemetry
@@ -113,7 +113,7 @@ httpx==0.28.1
     # via
     #   huggingface-hub
     #   litestar
-huggingface-hub==1.27.0
+huggingface-hub==1.30.0
     # via
     #   optimum
     #   tokenizers
@@ -206,7 +206,7 @@ onnx==1.22.0
     #   onnxscript
 onnx-ir==1.0.0
     # via onnxscript
-onnxruntime==1.28.0
+onnxruntime==1.29.0
     # via -r requirements.txt
 onnxscript==0.7.1
     # via -r requirements.txt
@@ -239,7 +239,7 @@ pandas==3.0.5
     #   -r requirements.txt
     #   evidently
     #   statsmodels
-patsy==1.0.2
+patsy==1.0.3
     # via statsmodels
 pillow==12.3.0
     # via
@@ -408,7 +408,7 @@ tzdata==2026.3
     # via
     #   faker
     #   pandas
-ujson==5.13.0
+ujson==6.0.0
     # via
     #   -r requirements.txt
     #   evidently
