@@ -1,3 +1,4 @@
+// Package shared contains reusable training queries and scanner helpers.
 package shared
 
 const (

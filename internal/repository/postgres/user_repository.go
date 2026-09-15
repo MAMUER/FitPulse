@@ -1,4 +1,5 @@
 // Package postgres provides PostgreSQL repository implementations.
+
 package postgres
 
 import (
@@ -13,157 +14,275 @@ import (
 )
 
 type UserRepository struct {
-	db    *sql.DB
+	db *sql.DB
+
 	stmts map[string]*sql.Stmt
 }
 
 func NewUserRepository(db *sql.DB) port.UserRepository {
+
 	repo := &UserRepository{db: db}
+
 	repo.prepareStatements()
+
 	return repo
+
 }
 
 func (r *UserRepository) prepareStatements() {
+
 	r.stmts = map[string]*sql.Stmt{}
+
 	var err error
+
 	if r.stmts["getByID"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at FROM users WHERE id = $1`); err != nil {
+
 		panic(err)
+
 	}
+
 	if r.stmts["getByEmail"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at FROM users WHERE email = $1`); err != nil {
+
 		panic(err)
+
 	}
+
 	if r.stmts["existsByEmail"], err = r.db.PrepareContext(context.Background(), `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`); err != nil {
+
 		panic(err)
+
 	}
+
 	if r.stmts["listByRole"], err = r.db.PrepareContext(context.Background(), `SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users WHERE role = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`); err != nil {
+
 		panic(err)
+
 	}
+
 	if r.stmts["count"], err = r.db.PrepareContext(context.Background(), `SELECT COUNT(*) FROM users`); err != nil {
+
 		panic(err)
+
 	}
+
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *entity.User) error {
+
 	query := `
+
 		INSERT INTO users (id, email, email_hash, password_hash, full_name, full_name_hash, role, email_verified, created_at, updated_at)
+
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+
 	`
+
 	_, err := r.db.ExecContext(ctx, query,
+
 		user.ID, user.Email, user.Email, user.PasswordHash, user.FullName, user.FullName,
+
 		user.Role, user.EmailVerified, user.CreatedAt, user.UpdatedAt,
 	)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to create user", err)
+
 	}
+
 	return nil
+
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, error) {
+
 	return scanUser(r.stmts["getByID"].QueryRowContext(ctx, id))
+
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
+
 	return scanUser(r.stmts["getByEmail"].QueryRowContext(ctx, email))
+
 }
 
 func (r *UserRepository) Update(ctx context.Context, user *entity.User) error {
+
 	query := `
+
 		UPDATE users SET full_name = $1, updated_at = $2 WHERE id = $3
+
 	`
+
 	_, err := r.db.ExecContext(ctx, query, user.FullName, time.Now(), user.ID)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to update user", err)
+
 	}
+
 	return nil
+
 }
 
 func (r *UserRepository) Delete(ctx context.Context, id string) error {
+
 	query := `DELETE FROM users WHERE id = $1`
+
 	_, err := r.db.ExecContext(ctx, query, id)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to delete user", err)
+
 	}
+
 	return nil
+
 }
 
 func (r *UserRepository) List(ctx context.Context, page, pageSize int) ([]*entity.User, error) {
+
 	offset := (page - 1) * pageSize
+
 	query := `
+
 		SELECT id, email, password_hash, full_name, role, email_verified, created_at, updated_at
+
 		FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
+
 	`
+
 	rows, err := r.db.QueryContext(ctx, query, pageSize, offset)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list users", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	var users []*entity.User
+
 	for rows.Next() {
+
 		user := &entity.User{}
+
 		if err := rows.Scan(
+
 			&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+
 			&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {
+
 			return nil, apperrors.Internal("failed to scan user", err)
+
 		}
+
 		users = append(users, user)
+
 	}
+
 	if err := rows.Err(); err != nil {
+
 		return nil, apperrors.Internal("failed to iterate users", err)
+
 	}
+
 	return users, nil
+
 }
 
 func (r *UserRepository) ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error) {
+
 	offset := (page - 1) * pageSize
+
 	rows, err := r.stmts["listByRole"].QueryContext(ctx, role, pageSize, offset)
+
 	if err != nil {
+
 		return nil, 0, apperrors.Internal("failed to list users", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	var users []*entity.User
+
 	var totalCount int
+
 	for rows.Next() {
+
 		user := &entity.User{}
+
 		if err := rows.Scan(
+
 			&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+
 			&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+
 			&totalCount,
 		); err != nil {
+
 			return nil, 0, apperrors.Internal("failed to scan user", err)
+
 		}
+
 		users = append(users, user)
+
 	}
+
 	if err := rows.Err(); err != nil {
+
 		return nil, 0, apperrors.Internal("failed to iterate users", err)
+
 	}
+
 	return users, totalCount, nil
+
 }
 
 func (r *UserRepository) Count(ctx context.Context) (int, error) {
+
 	var count int
+
 	err := r.stmts["count"].QueryRowContext(ctx).Scan(&count)
+
 	if err != nil {
+
 		return 0, apperrors.Internal("failed to count users", err)
+
 	}
+
 	return count, nil
+
 }
 
 func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+
 	var exists bool
+
 	err := r.stmts["existsByEmail"].QueryRowContext(ctx, email).Scan(&exists)
+
 	if err != nil {
+
 		return false, apperrors.Internal("failed to check user existence", err)
+
 	}
+
 	return exists, nil
+
 }
 
 type InviteRepository interface {
 	Create(ctx context.Context, invite *port.Invite) error
+
 	GetByCode(ctx context.Context, code string) (*port.Invite, error)
+
 	List(ctx context.Context, page, pageSize int) ([]*port.Invite, int, error)
+
 	Revoke(ctx context.Context, code string) error
 }
 
@@ -172,86 +291,149 @@ type inviteRepository struct {
 }
 
 func NewInviteRepository(db *sql.DB) port.InviteRepository {
+
 	return &inviteRepository{db: db}
+
 }
 
 func (r *inviteRepository) Create(ctx context.Context, invite *port.Invite) error {
+
 	query := `
+
 		INSERT INTO invites (code, role, specialty, max_uses, used_count, is_active, created_at)
+
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
+
 	`
+
 	_, err := r.db.ExecContext(ctx, query,
+
 		invite.Code, invite.Role, invite.Specialty, invite.MaxUses, invite.UsedCount, invite.IsActive, invite.CreatedAt,
 	)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to create invite", err)
+
 	}
+
 	return nil
+
 }
 
 func (r *inviteRepository) GetByCode(ctx context.Context, code string) (*port.Invite, error) {
+
 	query := `
+
 		SELECT code, role, specialty, max_uses, used_count, is_active, created_at
+
 		FROM invites WHERE code = $1
+
 	`
+
 	invite := &port.Invite{}
+
 	err := r.db.QueryRowContext(ctx, query, code).Scan(
+
 		&invite.Code, &invite.Role, &invite.Specialty, &invite.MaxUses, &invite.UsedCount, &invite.IsActive, &invite.CreatedAt,
 	)
+
 	if err != nil {
+
 		if err == sql.ErrNoRows {
+
 			return nil, apperrors.NotFound("invite not found")
+
 		}
+
 		return nil, apperrors.Internal("failed to get invite", err)
+
 	}
+
 	return invite, nil
+
 }
 
 func (r *inviteRepository) List(ctx context.Context, page, pageSize int) ([]*port.Invite, int, error) {
+
 	offset := (page - 1) * pageSize
+
 	query := `
+
 		SELECT code, role, specialty, max_uses, used_count, is_active, created_at,
+
 		       COUNT(*) OVER() AS total_count
+
 		FROM invites ORDER BY created_at DESC LIMIT $1 OFFSET $2
+
 	`
+
 	rows, err := r.db.QueryContext(ctx, query, pageSize, offset)
+
 	if err != nil {
+
 		return nil, 0, apperrors.Internal("failed to list invites", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	var invites []*port.Invite
+
 	var totalCount int
+
 	for rows.Next() {
+
 		invite := &port.Invite{}
+
 		if err := rows.Scan(
+
 			&invite.Code, &invite.Role, &invite.Specialty, &invite.MaxUses,
+
 			&invite.UsedCount, &invite.IsActive, &invite.CreatedAt,
+
 			&totalCount,
 		); err != nil {
+
 			return nil, 0, apperrors.Internal("failed to scan invite", err)
+
 		}
+
 		invites = append(invites, invite)
+
 	}
+
 	if err := rows.Err(); err != nil {
+
 		return nil, 0, apperrors.Internal("failed to iterate invites", err)
+
 	}
 
 	return invites, totalCount, nil
+
 }
 
 func (r *inviteRepository) Revoke(ctx context.Context, code string) error {
+
 	query := `UPDATE invites SET is_active = false WHERE code = $1`
+
 	_, err := r.db.ExecContext(ctx, query, code)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to revoke invite", err)
+
 	}
+
 	return nil
+
 }
 
 type HealthConditionRepository interface {
 	Create(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error)
+
 	List(ctx context.Context, userID, conditionType string) ([]*entity.HealthCondition, error)
+
 	Delete(ctx context.Context, id string) error
 }
 
@@ -260,69 +442,118 @@ type healthConditionRepository struct {
 }
 
 func NewHealthConditionRepository(db *sql.DB) port.HealthConditionRepository {
+
 	return &healthConditionRepository{db: db}
+
 }
 
 func (r *healthConditionRepository) Create(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error) {
+
 	query := `
+
 		INSERT INTO health_conditions (id, user_id, condition_type, description, created_at)
+
 		VALUES ($1, $2, $3, $4, $5)
+
 		RETURNING id
+
 	`
+
 	err := r.db.QueryRowContext(ctx, query,
+
 		condition.ID, condition.UserID, condition.ConditionType, condition.Description, condition.CreatedAt,
 	).Scan(&condition.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to create health condition", err)
+
 	}
+
 	return condition, nil
+
 }
 
 func (r *healthConditionRepository) List(ctx context.Context, userID, conditionType string) ([]*entity.HealthCondition, error) {
+
 	query := `
+
 		SELECT id, user_id, condition_type, description, created_at
+
 		FROM health_conditions WHERE user_id = $1
+
 	`
+
 	args := []interface{}{userID}
+
 	if conditionType != "" {
+
 		query += " AND condition_type = $2"
+
 		args = append(args, conditionType)
+
 	}
+
 	query += " ORDER BY created_at DESC"
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list health conditions", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	var conditions []*entity.HealthCondition
+
 	for rows.Next() {
+
 		condition := &entity.HealthCondition{}
+
 		if err := rows.Scan(
+
 			&condition.ID, &condition.UserID, &condition.ConditionType, &condition.Description, &condition.CreatedAt,
 		); err != nil {
+
 			return nil, apperrors.Internal("failed to scan health condition", err)
+
 		}
+
 		conditions = append(conditions, condition)
+
 	}
+
 	if err := rows.Err(); err != nil {
+
 		return nil, apperrors.Internal("failed to iterate health conditions", err)
+
 	}
+
 	return conditions, nil
+
 }
 
 func (r *healthConditionRepository) Delete(ctx context.Context, id string) error {
+
 	query := `DELETE FROM health_conditions WHERE id = $1`
+
 	_, err := r.db.ExecContext(ctx, query, id)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to delete health condition", err)
+
 	}
+
 	return nil
+
 }
 
 type BodyCompositionRepository interface {
 	Create(ctx context.Context, bc *entity.BodyComposition) (*entity.BodyComposition, error)
+
 	List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*entity.BodyComposition, error)
 }
 
@@ -331,60 +562,101 @@ type bodyCompositionRepository struct {
 }
 
 func NewBodyCompositionRepository(db *sql.DB) port.BodyCompositionRepository {
+
 	return &bodyCompositionRepository{db: db}
+
 }
 
 func (r *bodyCompositionRepository) Create(ctx context.Context, bc *entity.BodyComposition) (*entity.BodyComposition, error) {
+
 	query := `
+
 		INSERT INTO body_composition (id, user_id, weight_kg, height_cm, bmi, recorded_at)
+
 		VALUES ($1, $2, $3, $4, $5, $6)
+
 		RETURNING id
+
 	`
+
 	err := r.db.QueryRowContext(ctx, query,
+
 		bc.ID, bc.UserID, bc.WeightKG, bc.HeightCM, bc.BMI, bc.RecordedAt,
 	).Scan(&bc.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to create body composition", err)
+
 	}
+
 	return bc, nil
+
 }
 
 func (r *bodyCompositionRepository) List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*entity.BodyComposition, error) {
+
 	query, args := BuildDateRangeQuery(
+
 		"body_composition",
+
 		"id, user_id, weight_kg, height_cm, bmi, recorded_at",
+
 		"user_id",
+
 		userID,
+
 		from,
+
 		to,
+
 		limit,
 	)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list body composition", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	records, err := ScanRows(rows, func(rows *sql.Rows) (*entity.BodyComposition, error) {
+
 		bc := &entity.BodyComposition{}
-		if err := rows.Scan(
+
+		if scanErr := rows.Scan(
+
 			&bc.ID, &bc.UserID, &bc.WeightKG, &bc.HeightCM, &bc.BMI, &bc.RecordedAt,
-		); err != nil {
-			return nil, apperrors.Internal("failed to scan body composition", err)
+		); scanErr != nil {
+
+			return nil, apperrors.Internal("failed to scan body composition", scanErr)
+
 		}
+
 		return bc, nil
+
 	})
+
 	if err != nil {
+
 		return nil, err
+
 	}
+
 	return records, nil
+
 }
 
 type MenstrualCycleRepository interface {
 	Create(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error)
+
 	List(ctx context.Context, userID string) ([]*entity.MenstrualCycle, error)
+
 	Update(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error)
+
 	Delete(ctx context.Context, id string) error
 }
 
@@ -393,74 +665,128 @@ type menstrualCycleRepository struct {
 }
 
 func NewMenstrualCycleRepository(db *sql.DB) port.MenstrualCycleRepository {
+
 	return &menstrualCycleRepository{db: db}
+
 }
 
 func (r *menstrualCycleRepository) Create(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error) {
+
 	query := `
+
 		INSERT INTO menstrual_cycles (id, user_id, start_date, end_date, flow_level, notes, created_at)
+
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
+
 		RETURNING id
+
 	`
+
 	err := r.db.QueryRowContext(ctx, query,
+
 		cycle.ID, cycle.UserID, cycle.StartDate, cycle.EndDate, cycle.FlowLevel, cycle.Notes, cycle.CreatedAt,
 	).Scan(&cycle.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to create menstrual cycle", err)
+
 	}
+
 	return cycle, nil
+
 }
 
 func (r *menstrualCycleRepository) List(ctx context.Context, userID string) ([]*entity.MenstrualCycle, error) {
+
 	query := `
+
 		SELECT id, user_id, start_date, end_date, flow_level, notes, created_at
+
 		FROM menstrual_cycles WHERE user_id = $1 ORDER BY start_date DESC
+
 	`
+
 	rows, err := r.db.QueryContext(ctx, query, userID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list menstrual cycles", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	var cycles []*entity.MenstrualCycle
+
 	for rows.Next() {
+
 		cycle := &entity.MenstrualCycle{}
+
 		if err := rows.Scan(
+
 			&cycle.ID, &cycle.UserID, &cycle.StartDate, &cycle.EndDate, &cycle.FlowLevel, &cycle.Notes, &cycle.CreatedAt,
 		); err != nil {
+
 			return nil, apperrors.Internal("failed to scan menstrual cycle", err)
+
 		}
+
 		cycles = append(cycles, cycle)
+
 	}
+
 	if err := rows.Err(); err != nil {
+
 		return nil, apperrors.Internal("failed to iterate menstrual cycles", err)
+
 	}
+
 	return cycles, nil
+
 }
 
 func (r *menstrualCycleRepository) Update(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error) {
+
 	query := `
+
 		UPDATE menstrual_cycles SET start_date = $1, end_date = $2, flow_level = $3, notes = $4
+
 		WHERE id = $5
+
 	`
+
 	_, err := r.db.ExecContext(ctx, query, cycle.StartDate, cycle.EndDate, cycle.FlowLevel, cycle.Notes, cycle.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to update menstrual cycle", err)
+
 	}
+
 	return cycle, nil
+
 }
 
 func (r *menstrualCycleRepository) Delete(ctx context.Context, id string) error {
+
 	query := `DELETE FROM menstrual_cycles WHERE id = $1`
+
 	_, err := r.db.ExecContext(ctx, query, id)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to delete menstrual cycle", err)
+
 	}
+
 	return nil
+
 }
 
 type AchievementRepository interface {
 	Create(ctx context.Context, achievement *entity.Achievement) (*entity.Achievement, error)
+
 	List(ctx context.Context, userID string) ([]*entity.Achievement, error)
 }
 
@@ -469,41 +795,67 @@ type achievementRepository struct {
 }
 
 func NewAchievementRepository(db *sql.DB) port.AchievementRepository {
+
 	return &achievementRepository{db: db}
+
 }
 
 func (r *achievementRepository) Create(ctx context.Context, achievement *entity.Achievement) (*entity.Achievement, error) {
+
 	query := `
+
 		INSERT INTO achievements (id, user_id, type, title, description, earned_at)
+
 		VALUES ($1, $2, $3, $4, $5, $6)
+
 		RETURNING id
+
 	`
+
 	err := r.db.QueryRowContext(ctx, query,
+
 		achievement.ID, achievement.UserID, achievement.Type, achievement.Title, achievement.Description, achievement.EarnedAt,
 	).Scan(&achievement.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to create achievement", err)
+
 	}
+
 	return achievement, nil
+
 }
 
 func (r *achievementRepository) List(ctx context.Context, userID string) ([]*entity.Achievement, error) {
+
 	query := `
+
 		SELECT id, user_id, type, title, description, earned_at
+
 		FROM achievements WHERE user_id = $1 ORDER BY earned_at DESC
+
 	`
+
 	rows, err := r.db.QueryContext(ctx, query, userID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list achievements", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	return ScanAchievements(rows)
+
 }
 
 type DeviceRepository interface {
 	List(ctx context.Context, userID string) ([]*entity.Device, error)
+
 	Create(ctx context.Context, device *entity.Device) (*entity.Device, error)
+
 	Delete(ctx context.Context, userID, deviceID string) error
 }
 
@@ -512,58 +864,101 @@ type deviceRepository struct {
 }
 
 func NewDeviceRepository(db *sql.DB) port.DeviceRepository {
+
 	return &deviceRepository{db: db}
+
 }
 
 func (r *deviceRepository) List(ctx context.Context, userID string) ([]*entity.Device, error) {
+
 	query := `
+
 		SELECT id, user_id, device_type, device_name, is_connected, last_sync
+
 		FROM devices WHERE user_id = $1
+
 	`
+
 	rows, err := r.db.QueryContext(ctx, query, userID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to list devices", err)
+
 	}
+
 	defer func() { _ = rows.Close() }()
 
 	return ScanDevices(rows)
+
 }
 
 func (r *deviceRepository) Create(ctx context.Context, device *entity.Device) (*entity.Device, error) {
+
 	query := `
+
 		INSERT INTO devices (id, user_id, device_type, device_name, token, is_connected, last_sync)
+
 		VALUES ($1, $2, $3, $4, $5, true, NOW())
+
 		RETURNING id
+
 	`
+
 	err := r.db.QueryRowContext(ctx, query,
+
 		device.ID, device.UserID, device.DeviceType, device.DeviceName, device.Token,
 	).Scan(&device.ID)
+
 	if err != nil {
+
 		return nil, apperrors.Internal("failed to create device", err)
+
 	}
+
 	return device, nil
+
 }
 
 func (r *deviceRepository) Delete(ctx context.Context, userID, deviceID string) error {
+
 	query := `DELETE FROM devices WHERE user_id = $1 AND id = $2`
+
 	_, err := r.db.ExecContext(ctx, query, userID, deviceID)
+
 	if err != nil {
+
 		return apperrors.Internal("failed to delete device", err)
+
 	}
+
 	return nil
+
 }
 
 func scanUser(row *sql.Row) (*entity.User, error) {
+
 	user := &entity.User{}
+
 	err := row.Scan(
+
 		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+
 		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
+
 	if err != nil {
+
 		if errors.Is(err, sql.ErrNoRows) {
+
 			return nil, apperrors.NotFound(errUserNotFound)
+
 		}
+
 		return nil, apperrors.Internal(errFailedToGetUser, err)
+
 	}
+
 	return user, nil
+
 }

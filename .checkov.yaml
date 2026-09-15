@@ -6,3 +6,6 @@ checkov:
     - id: CKV_K8S_43
       file_pattern: "configs/k8s/base/local-path-provisioner.yaml"
       comment: "System component; image resolved in deployment pipeline"
+    - id: CKV_K8S_43
+      file_pattern: "configs/k8s/base/deployments/kustomization.yaml"
+      comment: "Kustomization entry point; image digests resolved in overlay pipeline"

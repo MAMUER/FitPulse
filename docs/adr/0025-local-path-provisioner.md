@@ -40,4 +40,4 @@ k3s по умолчанию использует local-path-provisioner для �
 
 - `configs/k8s/base/local-path-provisioner.yaml` — манифест provisioner.
 - `configs/k8s/base/local-path-provisioner/resource-quota.yaml` — ограничения для database namespace.
-- `terraform/modules/k3s/main.tf` — настройка k3s с local-path.
+- `scripts/ci/vps-provision.sh` — подготовка и установка k3s с local-path через CI/CD.
