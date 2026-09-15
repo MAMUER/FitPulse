@@ -12,8 +12,8 @@ import (
 )
 
 type fakeLogger struct {
-	lastWarn  string
-	lastInfo  string
+	lastWarn string
+	lastInfo string
 }
 
 func (f *fakeLogger) Warn(msg string, fields ...zap.Field) {

@@ -92,11 +92,11 @@ func TestScanAchievementRows(t *testing.T) {
 }
 
 type mockTrainingRows struct {
-	plans    []*entity.TrainingPlan
-	idx      int
-	total    int
-	scanErr  error
-	iterErr  error
+	plans   []*entity.TrainingPlan
+	idx     int
+	total   int
+	scanErr error
+	iterErr error
 }
 
 func newMockTrainingRows(plans []*entity.TrainingPlan, total int) *mockTrainingRows {

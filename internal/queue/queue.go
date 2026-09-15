@@ -115,26 +115,34 @@ type rabbitConsumer struct {
 	closed  bool
 }
 
-// NewPublisher создаёт нового издателя
-func NewPublisher(url, queueName string, log *logger.Logger, opts ...PublisherOption) (Publisher, error) {
-	log = ensureLogger(log)
-
+func dialAndDeclare(url, queueName string) (*amqp.Connection, *amqp.Channel, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("failed to open channel: %w", err)
+		return nil, nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	err = DeclareQueueWithDLQ(ch, queueName)
-	if err != nil {
+	if err := DeclareQueueWithDLQ(ch, queueName); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
-		return nil, fmt.Errorf("failed to declare queue: %w", err)
+		return nil, nil, fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	return conn, ch, nil
+}
+
+// NewPublisher создаёт нового издателя
+func NewPublisher(url, queueName string, log *logger.Logger, opts ...PublisherOption) (Publisher, error) {
+	log = ensureLogger(log)
+
+	conn, ch, err := dialAndDeclare(url, queueName)
+	if err != nil {
+		return nil, err
 	}
 
 	o := &publisherOptions{priority: "default"}
@@ -232,22 +240,9 @@ func closeResources(mu *sync.RWMutex, closed *bool, conn *amqp.Connection, chann
 func NewConsumer(url, queueName string, log *logger.Logger, opts ...ConsumerOption) (Consumer, error) {
 	log = ensureLogger(log)
 
-	conn, err := amqp.Dial(url)
+	conn, ch, err := dialAndDeclare(url, queueName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("failed to open channel: %w", err)
-	}
-
-	err = DeclareQueueWithDLQ(ch, queueName)
-	if err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
-		return nil, fmt.Errorf("failed to declare queue: %w", err)
+		return nil, err
 	}
 
 	if qosErr := ch.Qos(1, 0, false); qosErr != nil {

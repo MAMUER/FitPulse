@@ -32,11 +32,11 @@ func TestConfigValidation(t *testing.T) {
 
 	t.Run("custom timeouts are preserved", func(t *testing.T) {
 		cfg := Config{
-			Port:           "8080",
-			MetricsPort:    "9090",
-			ReadTimeout:    5 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			IdleTimeout:    15 * time.Second,
+			Port:            "8080",
+			MetricsPort:     "9090",
+			ReadTimeout:     5 * time.Second,
+			WriteTimeout:    10 * time.Second,
+			IdleTimeout:     15 * time.Second,
 			ShutdownTimeout: 3 * time.Second,
 		}
 		assert.Equal(t, 5*time.Second, cfg.ReadTimeout)
