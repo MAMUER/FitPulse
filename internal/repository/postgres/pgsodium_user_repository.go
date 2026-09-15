@@ -87,10 +87,6 @@ const (
 
 	sqlUsersByEmailHashPrefix = "SELECT id, email_hash, password_hash, full_name_hash, role, email_verified, created_at, updated_at FROM users WHERE email_hash = $1"
 
-	sqlEmailTotpPrefix = "SELECT email, totp_enabled FROM users WHERE id = $1"
-
-	sqlClaimsPrefix = "SELECT email, role, totp_enabled, COALESCE(totp_backup_codes_remaining, 0) FROM users WHERE id = $1"
-
 	sqlFromUsersByID = " FROM users WHERE id = $1"
 
 	sqlCommaNewline = ",\n               "
@@ -475,6 +471,12 @@ func (r *PgsodiumUserRepository) GetClaimsByID(ctx context.Context, userID strin
 
 func (r *PgsodiumUserRepository) GetProfileWithPgsodium(ctx context.Context, userID string) (*entity.User, error) {
 
+	return r.loadProfile(ctx, userID)
+
+}
+
+func (r *PgsodiumUserRepository) loadProfile(ctx context.Context, userID string) (*entity.User, error) {
+
 	var profile entity.User
 
 	var nickname, profilePhotoURL sql.NullString
@@ -495,7 +497,48 @@ func (r *PgsodiumUserRepository) GetProfileWithPgsodium(ctx context.Context, use
 
 	var sleepHours sql.NullFloat64
 
-	var err error
+	err := r.db.QueryRowContext(ctx, r.profileSelectQuery(), userID).Scan( // NOSONAR go:S2077
+
+		&profile.ID, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
+
+		&age, &gender, &heightCm, &weightKg, &fitnessLevel,
+
+		&goals, &nutrition, &sleepHours,
+
+		&profile.CreatedAt, &profile.UpdatedAt,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+
+		return nil, apperrors.NotFound(errUserNotFound)
+
+	}
+
+	if err != nil {
+
+		return nil, apperrors.Internal(errDatabaseGetProfile, err)
+
+	}
+
+	nullableProfileFields{
+		Nickname:        nickname,
+		ProfilePhotoURL: profilePhotoURL,
+		Age:             age,
+		Gender:          gender,
+		HeightCm:        heightCm,
+		WeightKg:        weightKg,
+		FitnessLevel:    fitnessLevel,
+		Nutrition:       nutrition,
+		SleepHours:      sleepHours,
+	}.applyTo(&profile)
+
+	profile.Goals = goals
+
+	return &profile, nil
+
+}
+
+func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 	if db.PgsodiumKeyID() > 0 {
 
@@ -515,118 +558,70 @@ func (r *PgsodiumUserRepository) GetProfileWithPgsodium(ctx context.Context, use
 
 		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
-		err = r.db.QueryRowContext(ctx, getProfileQuery.String(), userID).Scan( // NOSONAR go:S2077
-
-			&profile.ID, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
-
-			&age, &gender, &heightCm, &weightKg, &fitnessLevel,
-
-			&goals, &nutrition, &sleepHours,
-
-			&profile.CreatedAt, &profile.UpdatedAt,
-		)
-
-	} else {
-
-		err = r.db.QueryRowContext(ctx, `
-
-			SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,
-
-			       p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
-
-			       p.goals, p.nutrition, p.sleep_hours,
-
-			       u.created_at, u.updated_at
-
-			FROM users u
-
-			LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
-
-			WHERE u.id = $1
-
-		`, userID).Scan(
-
-			&profile.ID, &profile.Email, &profile.FullName, &nickname, &profilePhotoURL, &profile.Role,
-
-			&age, &gender, &heightCm, &weightKg, &fitnessLevel,
-
-			&goals, &nutrition, &sleepHours,
-
-			&profile.CreatedAt, &profile.UpdatedAt,
-		)
+		return getProfileQuery.String()
 
 	}
 
-	if errors.Is(err, sql.ErrNoRows) {
+	return `
 
-		return nil, apperrors.NotFound(errUserNotFound)
+		SELECT u.id, u.email, u.full_name, u.nickname, u.profile_photo_url, u.role,
 
+		       p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
+
+		       p.goals, p.nutrition, p.sleep_hours,
+
+		       u.created_at, u.updated_at
+
+		FROM users u
+
+		LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id
+
+		WHERE u.id = $1
+
+	`
+
+}
+
+type nullableProfileFields struct {
+	Nickname        sql.NullString
+	ProfilePhotoURL sql.NullString
+	Age             sql.NullInt32
+	Gender          sql.NullString
+	HeightCm        sql.NullInt32
+	WeightKg        sql.NullFloat64
+	FitnessLevel    sql.NullString
+	Nutrition       sql.NullString
+	SleepHours      sql.NullFloat64
+}
+
+func (n nullableProfileFields) applyTo(profile *entity.User) {
+	if n.Nickname.Valid {
+		profile.Nickname = n.Nickname.String
 	}
-
-	if err != nil {
-
-		return nil, apperrors.Internal(errDatabaseGetProfile, err)
-
+	if n.ProfilePhotoURL.Valid {
+		profile.ProfilePhotoURL = n.ProfilePhotoURL.String
 	}
-
-	if nickname.Valid {
-
-		profile.Nickname = nickname.String
-
+	if n.Age.Valid {
+		profile.Age = n.Age.Int32
 	}
-
-	if profilePhotoURL.Valid {
-
-		profile.ProfilePhotoURL = profilePhotoURL.String
-
+	if n.Gender.Valid {
+		profile.Gender = n.Gender.String
 	}
-
-	if age.Valid {
-
-		profile.Age = age.Int32
-
+	if n.HeightCm.Valid {
+		profile.HeightCm = n.HeightCm.Int32
 	}
-
-	if gender.Valid {
-
-		profile.Gender = gender.String
-
+	if n.WeightKg.Valid {
+		profile.WeightKg = n.WeightKg.Float64
 	}
-
-	if heightCm.Valid {
-
-		profile.HeightCm = heightCm.Int32
-
+	if n.FitnessLevel.Valid {
+		profile.FitnessLevel = n.FitnessLevel.String
 	}
-
-	if weightKg.Valid {
-
-		profile.WeightKg = weightKg.Float64
-
+	if n.Nutrition.Valid {
+		profile.Nutrition = n.Nutrition.String
 	}
-
-	if fitnessLevel.Valid {
-
-		profile.FitnessLevel = fitnessLevel.String
-
+	if n.SleepHours.Valid {
+		profile.SleepHours = float32(n.SleepHours.Float64)
 	}
-
-	profile.Goals = goals
-
-	if nutrition.Valid {
-
-		profile.Nutrition = nutrition.String
-
-	}
-
-	if sleepHours.Valid {
-
-		profile.SleepHours = float32(sleepHours.Float64)
-
-	}
-
-	return &profile, nil
-
 }
 
 func (r *PgsodiumUserRepository) Update(ctx context.Context, user *entity.User) error {

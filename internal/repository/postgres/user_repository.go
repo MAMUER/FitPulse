@@ -11,6 +11,7 @@ import (
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
+	"github.com/MAMUER/project/internal/repository/shared"
 )
 
 type UserRepository struct {
@@ -837,7 +838,7 @@ func (r *achievementRepository) List(ctx context.Context, userID string) ([]*ent
 
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID) //nolint:rowserrcheck // ScanAchievements checks rows.Err internally
 
 	if err != nil {
 
@@ -847,7 +848,7 @@ func (r *achievementRepository) List(ctx context.Context, userID string) ([]*ent
 
 	defer func() { _ = rows.Close() }()
 
-	return ScanAchievements(rows)
+	return shared.ScanAchievements(rows)
 
 }
 
@@ -889,7 +890,13 @@ func (r *deviceRepository) List(ctx context.Context, userID string) ([]*entity.D
 
 	defer func() { _ = rows.Close() }()
 
-	return ScanDevices(rows)
+	return ScanRows(rows, func(rows *sql.Rows) (*entity.Device, error) {
+		d := &entity.Device{}
+		if err := rows.Scan(&d.ID, &d.UserID, &d.DeviceType, &d.DeviceName, &d.IsConnected, &d.LastSync); err != nil {
+			return nil, apperrors.Internal("failed to scan device", err)
+		}
+		return d, nil
+	})
 
 }
 

@@ -5,9 +5,6 @@ package postgres
 import (
 	"database/sql"
 	"time"
-
-	"github.com/MAMUER/project/internal/apperrors"
-	"github.com/MAMUER/project/internal/domain/entity"
 )
 
 const (
@@ -95,35 +92,5 @@ func ScanRows[T any](rows *sql.Rows, scanFunc func(*sql.Rows) (T, error)) ([]T, 
 	}
 
 	return results, nil
-
-}
-
-// ScanDevices scans rows into devices.
-
-func ScanDevices(rows *sql.Rows) ([]*entity.Device, error) {
-
-	var devices []*entity.Device
-
-	for rows.Next() {
-
-		d := &entity.Device{}
-
-		if err := rows.Scan(&d.ID, &d.UserID, &d.DeviceType, &d.DeviceName, &d.IsConnected, &d.LastSync); err != nil {
-
-			return nil, apperrors.Internal("failed to scan device", err)
-
-		}
-
-		devices = append(devices, d)
-
-	}
-
-	if err := rows.Err(); err != nil {
-
-		return nil, apperrors.Internal("failed to iterate devices", err)
-
-	}
-
-	return devices, nil
 
 }

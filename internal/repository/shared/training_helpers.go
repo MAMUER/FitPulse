@@ -16,56 +16,27 @@ import (
 
 func ScanTrainingPlans(rows *sql.Rows) ([]*entity.TrainingPlan, int, error) {
 
-	var plans []*entity.TrainingPlan
-
-	var totalCount int
-
-	for rows.Next() {
-
-		plan := &entity.TrainingPlan{}
-
-		var planDataJSON []byte
-
-		if err := rows.Scan(
-
-			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
-
-			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
-
-			&totalCount,
-		); err != nil {
-
-			return nil, 0, apperrors.Internal("failed to scan training plan", err)
-
-		}
-
-		if len(planDataJSON) > 0 {
-
-			if err := json.Unmarshal(planDataJSON, &plan.PlanData); err != nil {
-
-				return nil, 0, apperrors.Internal("failed to unmarshal plan data", err)
-
-			}
-
-		}
-
-		plans = append(plans, plan)
-
-	}
-
-	if err := rows.Err(); err != nil {
-
-		return nil, 0, apperrors.Internal("failed to iterate training plans", err)
-
-	}
-
-	return plans, totalCount, nil
+	return scanTrainingPlanRows(rows)
 
 }
 
 // ScanTrainingPlansPGX scans pgx rows into training plans with plan data unmarshaling.
 
 func ScanTrainingPlansPGX(rows pgx.Rows) ([]*entity.TrainingPlan, int, error) {
+
+	return scanTrainingPlanRows(rows)
+
+}
+
+type trainingPlanScanner interface {
+	Next() bool
+
+	Scan(dest ...interface{}) error
+
+	Err() error
+}
+
+func scanTrainingPlanRows(rows trainingPlanScanner) ([]*entity.TrainingPlan, int, error) {
 
 	var plans []*entity.TrainingPlan
 

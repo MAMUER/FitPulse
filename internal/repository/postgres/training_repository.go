@@ -163,11 +163,11 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 
 	if stmt := r.stmts["listPlans"]; stmt != nil {
 
-		rows, err = stmt.QueryContext(ctx, userID, pageSize, offset)
+		rows, err = stmt.QueryContext(ctx, userID, pageSize, offset) //nolint:rowserrcheck // ScanTrainingPlans checks rows.Err internally
 
 	} else {
 
-		rows, err = r.db.QueryContext(ctx, query, userID, pageSize, offset)
+		rows, err = r.db.QueryContext(ctx, query, userID, pageSize, offset) //nolint:rowserrcheck // ScanTrainingPlans checks rows.Err internally
 
 	}
 
@@ -179,7 +179,7 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 
 	defer func() { _ = rows.Close() }()
 
-	return ScanTrainingPlans(rows)
+	return shared.ScanTrainingPlans(rows)
 
 }
 
