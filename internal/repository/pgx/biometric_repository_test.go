@@ -48,6 +48,11 @@ func setupBiometricRepo(t *testing.T) (*pgx.BiometricRepositoryPGX, func()) {
 		)
 	`)
 	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		CREATE UNIQUE INDEX IF NOT EXISTS biometric_data_user_metric_time_source_key
+		ON biometric_data (user_id, metric_type, timestamp, source)
+	`)
+	require.NoError(t, err)
 
 	repo := pgx.NewBiometricRepositoryPGX(pool)
 	cleanup := func() {
