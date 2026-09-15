@@ -915,6 +915,98 @@ jobs:
         run: bash scripts/ci/coverage-check.sh
 
   # ============================================================================
+  # CONTRACT TESTS
+  # ============================================================================
+  contract:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: {POSTGRES_PASSWORD: test}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:4-management-alpine
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      valkey:
+        image: valkey/valkey:9
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install grpcurl
+        run: sudo apt-get update && sudo apt-get install -y grpcurl
+      - name: Build services
+        run: |
+          go build -o /tmp/user-service ./cmd/user-service
+          go build -o /tmp/biometric-service ./cmd/biometric-service
+          go build -o /tmp/training-service ./cmd/training-service
+          go build -o /tmp/classifier ./cmd/classifier
+      - name: Start services
+        run: |
+          /tmp/user-service &
+          /tmp/biometric-service &
+          /tmp/training-service &
+          /tmp/classifier &
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          VALKEY_ADDR: localhost:6379
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+          POSTGRES_PASSWORD: test
+      - name: Wait for gRPC services
+        run: |
+          sleep 5
+          for port in 50051 50052 50053; do
+            for i in $(seq 1 30); do
+              if grpcurl -plaintext localhost:$port list >/dev/null 2>&1; then
+                echo "gRPC service on port $port is ready"
+                break
+              fi
+              sleep 1
+            done
+          done
+      - name: Wait for classifier HTTP service
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8001/health >/dev/null 2>&1; then
+              echo "Classifier HTTP service is ready"
+              break
+            fi
+            sleep 1
+          done
+      - name: Run contract tests
+        run: go test -tags=contract ./internal/contract/...
+      - name: Tear down services
+        if: always()
+        run: |
+          pkill -f /tmp/user-service || true
+          pkill -f /tmp/biometric-service || true
+          pkill -f /tmp/training-service || true
+          pkill -f /tmp/classifier || true
+
+  # ============================================================================
   # BUILD BINARIES
   # ============================================================================
   binary_build:

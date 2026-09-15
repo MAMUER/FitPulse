@@ -1,3 +1,5 @@
+//go:build contract
+
 package contract
 
 import (
@@ -21,7 +23,7 @@ func TestUserServiceContract(t *testing.T) {
 
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("failed to connect to user-service: %v", err)
+		t.Fatalf("user-service not reachable: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -82,7 +84,7 @@ func TestBiometricServiceContract(t *testing.T) {
 
 	conn, err := grpc.NewClient("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("failed to connect to biometric-service: %v", err)
+		t.Fatalf("biometric-service not reachable: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -131,7 +133,7 @@ func TestTrainingServiceContract(t *testing.T) {
 
 	conn, err := grpc.NewClient("localhost:50053", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("failed to connect to training-service: %v", err)
+		t.Fatalf("training-service not reachable: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 
