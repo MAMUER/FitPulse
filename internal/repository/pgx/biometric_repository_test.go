@@ -35,6 +35,20 @@ func setupBiometricRepo(t *testing.T) (*pgx.BiometricRepositoryPGX, func()) {
 	pool, err := pgxpool.New(ctx, connStr)
 	require.NoError(t, err)
 
+	_, err = pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS biometric_data (
+			id          VARCHAR(36) PRIMARY KEY,
+			user_id     VARCHAR(255) NOT NULL,
+			metric_type VARCHAR(100) NOT NULL,
+			value       DOUBLE PRECISION NOT NULL,
+			timestamp   TIMESTAMPTZ NOT NULL,
+			device_type VARCHAR(100),
+			source      VARCHAR(100),
+			created_at  TIMESTAMPTZ DEFAULT NOW()
+		)
+	`)
+	require.NoError(t, err)
+
 	repo := pgx.NewBiometricRepositoryPGX(pool)
 	cleanup := func() {
 		pool.Close()

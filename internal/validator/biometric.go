@@ -21,8 +21,8 @@ type MetricRules struct {
 	Name     string
 }
 
-// getMetricRules returns validation rules for a given biometric metric type.
-func getMetricRules(metricType string) (MetricRules, bool) {
+// GetMetricRules returns validation rules for a given biometric metric type.
+func GetMetricRules(metricType string) (MetricRules, bool) {
 	rules := map[string]MetricRules{
 		"heart_rate":               {30, 220, "heart_rate"},
 		"spo2":                     {70, 100, "spo2"},
@@ -62,7 +62,7 @@ func ValidateBiometricRecord(req *pb.AddRecordRequest) error {
 		return status.Error(codes.InvalidArgument, ErrValueNegative.Error())
 	}
 
-	if rules, ok := getMetricRules(req.MetricType); ok {
+	if rules, ok := GetMetricRules(req.MetricType); ok {
 		if req.Value < rules.Min || req.Value > rules.Max {
 			return status.Error(codes.InvalidArgument, rules.Name+" out of valid range")
 		}

@@ -89,29 +89,7 @@ func scanTrainingPlanRows(rows trainingPlanScanner) ([]*entity.TrainingPlan, int
 
 func ScanAchievementsPGX(rows pgx.Rows) ([]*entity.Achievement, error) {
 
-	var achievements []*entity.Achievement
-
-	for rows.Next() {
-
-		a := &entity.Achievement{}
-
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.Title, &a.Description, &a.EarnedAt); err != nil {
-
-			return nil, apperrors.Internal("failed to scan achievement", err)
-
-		}
-
-		achievements = append(achievements, a)
-
-	}
-
-	if err := rows.Err(); err != nil {
-
-		return nil, apperrors.Internal("failed to iterate achievements", err)
-
-	}
-
-	return achievements, nil
+	return scanAchievementRows(rows)
 
 }
 
@@ -119,30 +97,29 @@ func ScanAchievementsPGX(rows pgx.Rows) ([]*entity.Achievement, error) {
 
 func ScanAchievements(rows *sql.Rows) ([]*entity.Achievement, error) {
 
+	return scanAchievementRows(rows)
+
+}
+
+type achievementScanner interface {
+	Next() bool
+	Scan(dest ...interface{}) error
+	Err() error
+}
+
+func scanAchievementRows(rows achievementScanner) ([]*entity.Achievement, error) {
 	var achievements []*entity.Achievement
-
 	for rows.Next() {
-
 		a := &entity.Achievement{}
-
 		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.Title, &a.Description, &a.EarnedAt); err != nil {
-
 			return nil, apperrors.Internal("failed to scan achievement", err)
-
 		}
-
 		achievements = append(achievements, a)
-
 	}
-
 	if err := rows.Err(); err != nil {
-
 		return nil, apperrors.Internal("failed to iterate achievements", err)
-
 	}
-
 	return achievements, nil
-
 }
 
 // TrainingProgress holds training progress metrics.

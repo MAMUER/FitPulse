@@ -23,6 +23,7 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/queue"
+	"github.com/MAMUER/project/internal/validator"
 )
 
 type biometricEvent struct {
@@ -243,7 +244,7 @@ func validateBiometricEvent(event biometricEvent) error {
 		return errors.New("value cannot be negative")
 	}
 
-	rules, ok := getMetricRules(event.MetricType)
+	rules, ok := validator.GetMetricRules(event.MetricType)
 	if !ok {
 		return fmt.Errorf("unknown metric_type: %s", event.MetricType)
 	}
@@ -252,25 +253,6 @@ func validateBiometricEvent(event biometricEvent) error {
 	}
 
 	return nil
-}
-
-type MetricRules struct {
-	Min, Max float64
-	Name     string
-}
-
-func getMetricRules(metricType string) (MetricRules, bool) {
-	rules := map[string]MetricRules{
-		"heart_rate":               {30, 220, "heart_rate"},
-		"spo2":                     {70, 100, "spo2"},
-		"temperature":              {35.5, 38.5, "temperature"},
-		"blood_pressure_systolic":  {80, 200, "blood_pressure_systolic"},
-		"blood_pressure_diastolic": {50, 130, "blood_pressure_diastolic"},
-		"steps":                    {0, 100000, "steps"},
-		"hrv":                      {0, 200, "hrv"},
-	}
-	r, ok := rules[metricType]
-	return r, ok
 }
 
 func insertBiometricRecord(ctx context.Context, database *sql.DB, event biometricEvent) error {

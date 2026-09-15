@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/MAMUER/project/internal/validator"
 )
 
 func TestParseBiometricEvent(t *testing.T) {
@@ -87,7 +89,7 @@ func TestValidateBiometricEvent(t *testing.T) {
 
 func TestGetMetricRules(t *testing.T) {
 	t.Run("known metric", func(t *testing.T) {
-		rules, ok := getMetricRules("heart_rate")
+		rules, ok := validator.GetMetricRules("heart_rate")
 		assert.True(t, ok)
 		assert.Equal(t, 30.0, rules.Min)
 		assert.Equal(t, 220.0, rules.Max)
@@ -95,7 +97,7 @@ func TestGetMetricRules(t *testing.T) {
 	})
 
 	t.Run("unknown metric", func(t *testing.T) {
-		_, ok := getMetricRules("unknown_metric")
+		_, ok := validator.GetMetricRules("unknown_metric")
 		assert.False(t, ok)
 	})
 }
