@@ -21,7 +21,7 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	}
 
 	log := logger.New("classifier-test")
-	s := &server{log: log}
+	s := &classifierServer{log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/classify", s.classifyHandler)

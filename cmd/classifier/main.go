@@ -1,16 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"math"
 	"net/http"
-	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -21,9 +17,10 @@ import (
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/server"
 )
 
-type server struct {
+type classifierServer struct {
 	log *logger.Logger
 }
 
@@ -176,7 +173,7 @@ type healthResponse struct {
 	AsyncEnabled bool   `json:"async_enabled"`
 }
 
-func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
+func (s *classifierServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(healthResponse{
 		Status:       "healthy",
@@ -186,17 +183,17 @@ func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *server) classesHandler(w http.ResponseWriter, r *http.Request) {
+func (s *classifierServer) classesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(trainingClasses)
 }
 
-func (s *server) metricsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *classifierServer) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, "text/plain; version=0.0.4")
 	_, _ = w.Write([]byte("# Classifier metrics\n"))
 }
 
-func (s *server) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
+func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"model_name":       "rule-based-classifier",
@@ -208,7 +205,7 @@ func (s *server) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *server) classifyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.log.Error("Method not allowed", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -517,7 +514,7 @@ func main() {
 	config.InitViper("classifier")
 	_ = config.GetViper()
 
-	s := &server{log: log}
+	s := &classifierServer{log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.healthHandler)
@@ -536,58 +533,7 @@ func main() {
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
-	metricsSrv := &http.Server{
-		Addr:              ":" + metricsPort,
-		Handler:           metricsMux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
 
-	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           handler,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	go func() {
-		log.Info("Starting metrics server", zap.String("port", metricsPort))
-		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Metrics server failed", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		log.Info("Starting classifier service", zap.String("port", port))
-		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Server failed", zap.Error(err))
-		}
-	}()
-
-	<-ctx.Done()
-	log.Info("Shutting down classifier service")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Error("HTTP server shutdown error", zap.Error(err))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
-			log.Error("Metrics server shutdown error", zap.Error(err))
-		}
-	}()
-	wg.Wait()
-	log.Info("Classifier service stopped")
+	cfg := server.DefaultConfig(port, metricsPort)
+	server.Serve(log, cfg, metricsMux, mux, handler)
 }

@@ -350,23 +350,15 @@ func (r *bodyCompositionRepository) Create(ctx context.Context, bc *entity.BodyC
 }
 
 func (r *bodyCompositionRepository) List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*entity.BodyComposition, error) {
-	var query string
-	var args []interface{}
-
-	switch {
-	case from != nil && to != nil:
-		query = "SELECT id, user_id, weight_kg, height_cm, bmi, recorded_at FROM body_composition WHERE user_id = $1 AND recorded_at >= $2 AND recorded_at <= $3 ORDER BY recorded_at DESC LIMIT $4"
-		args = []interface{}{userID, *from, *to, limit}
-	case from != nil:
-		query = "SELECT id, user_id, weight_kg, height_cm, bmi, recorded_at FROM body_composition WHERE user_id = $1 AND recorded_at >= $2 ORDER BY recorded_at DESC LIMIT $3"
-		args = []interface{}{userID, *from, limit}
-	case to != nil:
-		query = "SELECT id, user_id, weight_kg, height_cm, bmi, recorded_at FROM body_composition WHERE user_id = $1 AND recorded_at <= $2 ORDER BY recorded_at DESC LIMIT $3"
-		args = []interface{}{userID, *to, limit}
-	default:
-		query = "SELECT id, user_id, weight_kg, height_cm, bmi, recorded_at FROM body_composition WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT $2"
-		args = []interface{}{userID, limit}
-	}
+	query, args := BuildDateRangeQuery(
+		"body_composition",
+		"id, user_id, weight_kg, height_cm, bmi, recorded_at",
+		"user_id",
+		userID,
+		from,
+		to,
+		limit,
+	)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -374,18 +366,17 @@ func (r *bodyCompositionRepository) List(ctx context.Context, userID string, fro
 	}
 	defer func() { _ = rows.Close() }()
 
-	var records []*entity.BodyComposition
-	for rows.Next() {
+	records, err := ScanRows(rows, func(rows *sql.Rows) (*entity.BodyComposition, error) {
 		bc := &entity.BodyComposition{}
 		if err := rows.Scan(
 			&bc.ID, &bc.UserID, &bc.WeightKG, &bc.HeightCM, &bc.BMI, &bc.RecordedAt,
 		); err != nil {
 			return nil, apperrors.Internal("failed to scan body composition", err)
 		}
-		records = append(records, bc)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, apperrors.Internal("failed to iterate body composition", err)
+		return bc, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return records, nil
 }
@@ -507,7 +498,7 @@ func (r *achievementRepository) List(ctx context.Context, userID string) ([]*ent
 	}
 	defer func() { _ = rows.Close() }()
 
-	return scanAchievements(rows)
+	return ScanAchievements(rows)
 }
 
 type DeviceRepository interface {
@@ -524,12 +515,6 @@ func NewDeviceRepository(db *sql.DB) port.DeviceRepository {
 	return &deviceRepository{db: db}
 }
 
-func scanDevices(rows *sql.Rows) ([]*entity.Device, error) {
-	return scanSlice(rows, func(d *entity.Device) error {
-		return rows.Scan(&d.ID, &d.UserID, &d.DeviceType, &d.DeviceName, &d.IsConnected, &d.LastSync)
-	})
-}
-
 func (r *deviceRepository) List(ctx context.Context, userID string) ([]*entity.Device, error) {
 	query := `
 		SELECT id, user_id, device_type, device_name, is_connected, last_sync
@@ -541,7 +526,7 @@ func (r *deviceRepository) List(ctx context.Context, userID string) ([]*entity.D
 	}
 	defer func() { _ = rows.Close() }()
 
-	return scanDevices(rows)
+	return ScanDevices(rows)
 }
 
 func (r *deviceRepository) Create(ctx context.Context, device *entity.Device) (*entity.Device, error) {

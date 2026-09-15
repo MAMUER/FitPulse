@@ -13,8 +13,8 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 )
 
-func setupClassifierTestServer() *server {
-	return &server{log: logger.New("classifier")}
+func setupClassifierTestServer() *classifierServer {
+	return &classifierServer{log: logger.New("classifier")}
 }
 
 func TestHealthHandler(t *testing.T) {

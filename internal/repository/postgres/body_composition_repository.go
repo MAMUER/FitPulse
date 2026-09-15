@@ -23,23 +23,15 @@ func NewUserBodyCompositionRepository(db *sql.DB) port.UserBodyCompositionReposi
 }
 
 func (r *userBodyCompositionRepository) List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*port.UserBodyComposition, error) {
-	var query string
-	var args []interface{}
-
-	switch {
-	case from != nil && to != nil:
-		query = "SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at FROM user_body_composition WHERE user_id = $1 AND recorded_at >= $2 AND recorded_at <= $3 ORDER BY recorded_at DESC LIMIT $4"
-		args = []interface{}{userID, *from, *to, limit}
-	case from != nil:
-		query = "SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at FROM user_body_composition WHERE user_id = $1 AND recorded_at >= $2 ORDER BY recorded_at DESC LIMIT $3"
-		args = []interface{}{userID, *from, limit}
-	case to != nil:
-		query = "SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at FROM user_body_composition WHERE user_id = $1 AND recorded_at <= $2 ORDER BY recorded_at DESC LIMIT $3"
-		args = []interface{}{userID, *to, limit}
-	default:
-		query = "SELECT id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at FROM user_body_composition WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT $2"
-		args = []interface{}{userID, limit}
-	}
+	query, args := BuildDateRangeQuery(
+		"user_body_composition",
+		"id, user_id, recorded_at, weight_kg, height_cm, bmi, body_fat_percentage, muscle_mass_percentage, bone_mass_percentage, water_percentage, visceral_fat_rating, metabolic_age, source, created_at",
+		"user_id",
+		userID,
+		from,
+		to,
+		limit,
+	)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -47,8 +39,7 @@ func (r *userBodyCompositionRepository) List(ctx context.Context, userID string,
 	}
 	defer func() { _ = rows.Close() }()
 
-	var records []*port.UserBodyComposition
-	for rows.Next() {
+	records, err := ScanRows(rows, func(rows *sql.Rows) (*port.UserBodyComposition, error) {
 		bc := &port.UserBodyComposition{}
 		if err := rows.Scan(
 			&bc.ID, &bc.UserID, &bc.RecordedAt, &bc.WeightKG, &bc.HeightCM, &bc.BMI,
@@ -57,10 +48,10 @@ func (r *userBodyCompositionRepository) List(ctx context.Context, userID string,
 		); err != nil {
 			return nil, apperrors.Internal("failed to scan body composition", err)
 		}
-		records = append(records, bc)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, apperrors.Internal("failed to iterate body composition", err)
+		return bc, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return records, nil
 }

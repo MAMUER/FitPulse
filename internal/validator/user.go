@@ -29,33 +29,28 @@ var (
 // emailRegex проверяет формат email
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-// NilRequestError возвращает стандартизированную ошибку для nil запроса
-func NilRequestError() error {
-	return status.Error(codes.InvalidArgument, "request is nil")
-}
-
 // ValidateRegisterRequest проверяет данные регистрации
 func ValidateRegisterRequest(req *pb.RegisterRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.Email == "" {
-		return status.Error(codes.InvalidArgument, ErrEmailRequired.Error())
+	if err := RequireString(req.Email, "email", ErrEmailRequired); err != nil {
+		return err
 	}
 	if !emailRegex.MatchString(req.Email) {
 		return status.Error(codes.InvalidArgument, ErrInvalidEmail.Error())
 	}
-	if req.Password == "" {
-		return status.Error(codes.InvalidArgument, ErrPasswordRequired.Error())
+	if err := RequireString(req.Password, "password", ErrPasswordRequired); err != nil {
+		return err
 	}
 	if len(req.Password) < 8 {
 		return status.Error(codes.InvalidArgument, ErrPasswordTooShort.Error())
 	}
-	if req.FullName == "" {
-		return status.Error(codes.InvalidArgument, ErrFullNameRequired.Error())
+	if err := RequireString(req.FullName, "full_name", ErrFullNameRequired); err != nil {
+		return err
 	}
-	if req.Role == "" {
-		return status.Error(codes.InvalidArgument, ErrRoleRequired.Error())
+	if err := RequireString(req.Role, "role", ErrRoleRequired); err != nil {
+		return err
 	}
 	validRoles := map[string]bool{"client": true, "admin": true}
 	if !validRoles[req.Role] {
@@ -69,11 +64,11 @@ func ValidateLoginRequest(req *pb.LoginRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.Email == "" {
-		return status.Error(codes.InvalidArgument, ErrEmailRequired.Error())
+	if err := RequireString(req.Email, "email", ErrEmailRequired); err != nil {
+		return err
 	}
-	if req.Password == "" {
-		return status.Error(codes.InvalidArgument, ErrPasswordRequired.Error())
+	if err := RequireString(req.Password, "password", ErrPasswordRequired); err != nil {
+		return err
 	}
 	return nil
 }

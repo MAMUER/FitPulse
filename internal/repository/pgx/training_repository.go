@@ -10,17 +10,12 @@ import (
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
+	"github.com/MAMUER/project/internal/repository/shared"
 )
 
 // TrainingRepositoryPGX implements training operations using pgxpool.Pool.
 type TrainingRepositoryPGX struct {
 	db DB
-}
-
-func scanAchievements(rows pgx.Rows) ([]*entity.Achievement, error) {
-	return scanSlice(rows, func(a *entity.Achievement) error {
-		return rows.Scan(&a.ID, &a.UserID, &a.Type, &a.Title, &a.Description, &a.EarnedAt)
-	})
 }
 
 func NewTrainingRepositoryPGX(db DB) *TrainingRepositoryPGX {
@@ -49,14 +44,10 @@ func (r *TrainingRepositoryPGX) CreatePlan(ctx context.Context, plan *entity.Tra
 }
 
 func (r *TrainingRepositoryPGX) GetPlan(ctx context.Context, userID, planID string) (*entity.TrainingPlan, error) {
-	query := `
-		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at
-		FROM training_plans WHERE id = $1 AND user_id = $2
-	`
 	plan := &entity.TrainingPlan{}
 	var planDataJSON []byte
 
-	err := r.db.QueryRow(ctx, query, planID, userID).Scan(
+	err := r.db.QueryRow(ctx, shared.QueryGetPlan, planID, userID).Scan(
 		&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
 		&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
 	)
@@ -79,41 +70,17 @@ func (r *TrainingRepositoryPGX) GetPlan(ctx context.Context, userID, planID stri
 func (r *TrainingRepositoryPGX) ListPlans(ctx context.Context, userID string, page, pageSize int) ([]*entity.TrainingPlan, int, error) {
 	offset := (page - 1) * pageSize
 
-	query := `
-		SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at,
-		       COUNT(*) OVER() AS total_count
-		FROM training_plans WHERE user_id = $1
-		ORDER BY created_at DESC LIMIT $2 OFFSET $3
-	`
+	query := shared.QueryListPlans
 	rows, err := r.db.Query(ctx, query, userID, pageSize, offset)
 	if err != nil {
 		return nil, 0, apperrors.Internal("failed to list training plans", err)
 	}
 	defer rows.Close()
 
-	var plans []*entity.TrainingPlan
-	var totalCount int
-	for rows.Next() {
-		plan := &entity.TrainingPlan{}
-		var planDataJSON []byte
-		if err := rows.Scan(
-			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
-			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
-			&totalCount,
-		); err != nil {
-			return nil, 0, apperrors.Internal("failed to scan training plan", err)
-		}
-		if len(planDataJSON) > 0 {
-			if err := json.Unmarshal(planDataJSON, &plan.PlanData); err != nil {
-				return nil, 0, apperrors.Internal("failed to unmarshal plan data", err)
-			}
-		}
-		plans = append(plans, plan)
+	plans, totalCount, err := shared.ScanTrainingPlansPGX(rows)
+	if err != nil {
+		return nil, 0, err
 	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, apperrors.Internal("failed to iterate training plans", err)
-	}
-
 	return plans, totalCount, nil
 }
 
@@ -129,35 +96,27 @@ func (r *TrainingRepositoryPGX) CompleteWorkout(ctx context.Context, userID, pla
 
 func (r *TrainingRepositoryPGX) GetProgress(ctx context.Context, userID string) (map[string]interface{}, error) {
 	var totalPlans, completedWorkouts int
-	err := r.db.QueryRow(ctx, `
-		SELECT 
-			COUNT(*) as total_plans,
-			COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts
-		FROM training_plans WHERE user_id = $1
-	`, userID).Scan(&totalPlans, &completedWorkouts)
+	err := r.db.QueryRow(ctx, shared.QueryGetProgress, userID).Scan(&totalPlans, &completedWorkouts)
 	if err != nil {
 		return nil, apperrors.Internal("failed to get progress", err)
 	}
 
+	progress := shared.ScanTrainingProgress(totalPlans, completedWorkouts)
 	return map[string]interface{}{
-		"total_plans":        totalPlans,
-		"completed_workouts": completedWorkouts,
-		"completion_rate":    float64(completedWorkouts) / float64(totalPlans) * 100,
+		"total_plans":        progress.TotalPlans,
+		"completed_workouts": progress.CompletedWorkouts,
+		"completion_rate":    progress.CompletionRate,
 	}, nil
 }
 
 func (r *TrainingRepositoryPGX) GetAchievements(ctx context.Context, userID string) ([]*entity.Achievement, error) {
-	query := `
-		SELECT id, user_id, type, title, description, earned_at
-		FROM achievements WHERE user_id = $1 ORDER BY earned_at DESC
-	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, shared.QueryGetAchievements, userID)
 	if err != nil {
 		return nil, apperrors.Internal("failed to get achievements", err)
 	}
 	defer rows.Close()
 
-	return scanAchievements(rows)
+	return shared.ScanAchievementsPGX(rows)
 }
 
 func (r *TrainingRepositoryPGX) CreateAchievement(ctx context.Context, achievement *entity.Achievement) (*entity.Achievement, error) {

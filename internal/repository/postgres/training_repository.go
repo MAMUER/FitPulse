@@ -9,6 +9,7 @@ import (
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
+	"github.com/MAMUER/project/internal/repository/shared"
 )
 
 type TrainingRepository struct {
@@ -25,36 +26,15 @@ func NewTrainingRepository(db *sql.DB) port.TrainingRepository {
 func (r *TrainingRepository) prepareStatements() {
 	r.stmts = map[string]*sql.Stmt{}
 	var err error
-	if r.stmts["getPlan"], err = r.db.PrepareContext(context.Background(), `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at FROM training_plans WHERE id = $1 AND user_id = $2`); err != nil {
+	if r.stmts["getPlan"], err = r.db.PrepareContext(context.Background(), shared.QueryGetPlan); err != nil {
 		panic(err)
 	}
-	if r.stmts["listPlans"], err = r.db.PrepareContext(context.Background(), `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at, COUNT(*) OVER() AS total_count FROM training_plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`); err != nil {
+	if r.stmts["listPlans"], err = r.db.PrepareContext(context.Background(), shared.QueryListPlans); err != nil {
 		panic(err)
 	}
-	if r.stmts["getProgress"], err = r.db.PrepareContext(context.Background(), `SELECT COUNT(*) as total_plans, COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts FROM training_plans WHERE user_id = $1`); err != nil {
+	if r.stmts["getProgress"], err = r.db.PrepareContext(context.Background(), shared.QueryGetProgress); err != nil {
 		panic(err)
 	}
-}
-
-func scanAchievements(rows *sql.Rows) ([]*entity.Achievement, error) {
-	return scanSlice(rows, func(a *entity.Achievement) error {
-		return rows.Scan(&a.ID, &a.UserID, &a.Type, &a.Title, &a.Description, &a.EarnedAt)
-	})
-}
-
-func scanSlice[T any](rows *sql.Rows, scanFunc func(*T) error) ([]*T, error) {
-	var items []*T
-	for rows.Next() {
-		item := new(T)
-		if err := scanFunc(item); err != nil {
-			return nil, apperrors.Internal("failed to scan item", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, apperrors.Internal("failed to iterate items", err)
-	}
-	return items, nil
 }
 
 func (r *TrainingRepository) CreatePlan(ctx context.Context, plan *entity.TrainingPlan) (*entity.TrainingPlan, error) {
@@ -82,7 +62,7 @@ func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string)
 	plan := &entity.TrainingPlan{}
 	var planDataJSON []byte
 
-	query := `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at FROM training_plans WHERE id = $1 AND user_id = $2`
+	query := shared.QueryGetPlan
 	var err error
 	if stmt := r.stmts["getPlan"]; stmt != nil {
 		err = stmt.QueryRowContext(ctx, planID, userID).Scan(
@@ -114,7 +94,7 @@ func (r *TrainingRepository) GetPlan(ctx context.Context, userID, planID string)
 func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page, pageSize int) ([]*entity.TrainingPlan, int, error) {
 	offset := (page - 1) * pageSize
 
-	query := `SELECT id, user_id, classification, duration_weeks, available_days, plan_data, created_at, updated_at, COUNT(*) OVER() AS total_count FROM training_plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	query := shared.QueryListPlans
 	var rows *sql.Rows
 	var err error
 	if stmt := r.stmts["listPlans"]; stmt != nil {
@@ -127,30 +107,7 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 	}
 	defer func() { _ = rows.Close() }()
 
-	var plans []*entity.TrainingPlan
-	var totalCount int
-	for rows.Next() {
-		plan := &entity.TrainingPlan{}
-		var planDataJSON []byte
-		if err := rows.Scan(
-			&plan.ID, &plan.UserID, &plan.Classification, &plan.DurationWeeks,
-			&plan.AvailableDays, &planDataJSON, &plan.CreatedAt, &plan.UpdatedAt,
-			&totalCount,
-		); err != nil {
-			return nil, 0, apperrors.Internal("failed to scan training plan", err)
-		}
-		if len(planDataJSON) > 0 {
-			if err := json.Unmarshal(planDataJSON, &plan.PlanData); err != nil {
-				return nil, 0, apperrors.Internal("failed to unmarshal plan data", err)
-			}
-		}
-		plans = append(plans, plan)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, apperrors.Internal("failed to iterate training plans", err)
-	}
-
-	return plans, totalCount, nil
+	return ScanTrainingPlans(rows)
 }
 
 func (r *TrainingRepository) CompleteWorkout(ctx context.Context, userID, planID string) error {
@@ -165,8 +122,8 @@ func (r *TrainingRepository) CompleteWorkout(ctx context.Context, userID, planID
 }
 
 func (r *TrainingRepository) GetProgress(ctx context.Context, userID string) (map[string]interface{}, error) {
+	query := shared.QueryGetProgress
 	var totalPlans, completedWorkouts int
-	query := `SELECT COUNT(*) as total_plans, COUNT(CASE WHEN updated_at > created_at THEN 1 END) as completed_workouts FROM training_plans WHERE user_id = $1`
 	var err error
 	if stmt := r.stmts["getProgress"]; stmt != nil {
 		err = stmt.QueryRowContext(ctx, userID).Scan(&totalPlans, &completedWorkouts)
@@ -177,23 +134,21 @@ func (r *TrainingRepository) GetProgress(ctx context.Context, userID string) (ma
 		return nil, apperrors.Internal("failed to get progress", err)
 	}
 
+	progress := shared.ScanTrainingProgress(totalPlans, completedWorkouts)
 	return map[string]interface{}{
-		"total_plans":        totalPlans,
-		"completed_workouts": completedWorkouts,
-		"completion_rate":    float64(completedWorkouts) / float64(totalPlans) * 100,
+		"total_plans":        progress.TotalPlans,
+		"completed_workouts": progress.CompletedWorkouts,
+		"completion_rate":    progress.CompletionRate,
 	}, nil
 }
 
 func (r *TrainingRepository) GetAchievements(ctx context.Context, userID string) ([]*entity.Achievement, error) {
-	query := `
-		SELECT id, user_id, type, title, description, earned_at
-		FROM achievements WHERE user_id = $1 ORDER BY earned_at DESC
-	`
+	query := shared.QueryGetAchievements
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, apperrors.Internal("failed to get achievements", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	return scanAchievements(rows)
+	return shared.ScanAchievements(rows)
 }

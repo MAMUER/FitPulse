@@ -33,8 +33,8 @@ func ValidateGeneratePlanRequest(req *pb.GeneratePlanRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.UserId == "" {
-		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
+	if err := RequireString(req.UserId, "user_id", ErrUserIDRequiredTraining); err != nil {
+		return err
 	}
 	if req.DurationWeeks <= 0 {
 		return status.Error(codes.InvalidArgument, ErrDurationWeeksRequired.Error())
@@ -56,14 +56,14 @@ func ValidateCompleteWorkoutRequest(req *pb.CompleteWorkoutRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.UserId == "" {
-		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
+	if err := RequireString(req.UserId, "user_id", ErrUserIDRequiredTraining); err != nil {
+		return err
 	}
-	if req.PlanId == "" {
-		return status.Error(codes.InvalidArgument, ErrPlanIDRequired.Error())
+	if err := RequireString(req.PlanId, "plan_id", ErrPlanIDRequired); err != nil {
+		return err
 	}
-	if req.WorkoutId == "" {
-		return status.Error(codes.InvalidArgument, ErrWorkoutIDRequired.Error())
+	if err := RequireString(req.WorkoutId, "workout_id", ErrWorkoutIDRequired); err != nil {
+		return err
 	}
 	return nil
 }
@@ -73,8 +73,8 @@ func ValidateListPlansRequest(req *pb.ListPlansRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.UserId == "" {
-		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
+	if err := RequireString(req.UserId, "user_id", ErrUserIDRequiredTraining); err != nil {
+		return err
 	}
 	if req.PageSize <= 0 {
 		return status.Error(codes.InvalidArgument, "page_size must be greater than 0")
@@ -90,8 +90,8 @@ func ValidateGetProgressRequest(req *pb.GetProgressRequest) error {
 	if req == nil {
 		return NilRequestError()
 	}
-	if req.UserId == "" {
-		return status.Error(codes.InvalidArgument, ErrUserIDRequiredTraining.Error())
+	if err := RequireString(req.UserId, "user_id", ErrUserIDRequiredTraining); err != nil {
+		return err
 	}
 	return nil
 }

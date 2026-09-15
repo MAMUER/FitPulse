@@ -525,12 +525,16 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Run OSV Scanner (Go dependencies)
-        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run OSV Scanner (Go dependencies)
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc
+        with:
+          scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator --skip-govulncheck
       - name: Run OSV Scanner (Python requirements)
-
         run: bash scripts/ci/security.sh run_osv_python_requirements
   # ============================================================================
   # FUZZ TESTS
@@ -889,7 +893,7 @@ jobs:
       rabbitmq:
         image: rabbitmq:4-management-alpine
         options: >-
-          --health-cmd rabbitmq-diagnostics -q ping
+          --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5

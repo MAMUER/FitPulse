@@ -42,8 +42,8 @@ func ValidateBiometricRequest(req *pb.AddRecordRequest) error {
 		return NilRequestError()
 	}
 
-	if req.UserId == "" {
-		return status.Error(codes.InvalidArgument, ErrUserIDRequired.Error())
+	if err := RequireString(req.UserId, "user_id", ErrUserIDRequired); err != nil {
+		return err
 	}
 
 	return ValidateBiometricRecord(req)
@@ -55,8 +55,8 @@ func ValidateBiometricRecord(req *pb.AddRecordRequest) error {
 		return NilRequestError()
 	}
 
-	if req.MetricType == "" {
-		return status.Error(codes.InvalidArgument, ErrMetricTypeRequired.Error())
+	if err := RequireString(req.MetricType, "metric_type", ErrMetricTypeRequired); err != nil {
+		return err
 	}
 	if req.Value < 0 {
 		return status.Error(codes.InvalidArgument, ErrValueNegative.Error())

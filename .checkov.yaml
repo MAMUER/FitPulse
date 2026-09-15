@@ -1,0 +1,8 @@
+checkov:
+  skip_check:
+    - id: CKV_K8S_43
+      file_pattern: "configs/k8s/base/deployments/*.yaml"
+      comment: "CI-built images; digests resolved in deployment pipeline via kustomize overlay"
+    - id: CKV_K8S_43
+      file_pattern: "configs/k8s/base/local-path-provisioner.yaml"
+      comment: "System component; image resolved in deployment pipeline"
