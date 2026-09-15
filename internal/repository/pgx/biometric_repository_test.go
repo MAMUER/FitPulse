@@ -188,9 +188,10 @@ func TestBiometricRepositoryPGX_BatchCreate(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	now := time.Now()
 	records := []*entity.BiometricRecord{
-		{UserID: "user-1", MetricType: "heart_rate", Value: 70, Timestamp: time.Now(), DeviceType: "apple_watch", Source: "test"},
-		{UserID: "user-1", MetricType: "heart_rate", Value: 71, Timestamp: time.Now(), DeviceType: "apple_watch", Source: "test"},
+		{UserID: "user-1", MetricType: "heart_rate", Value: 70, Timestamp: now, DeviceType: "apple_watch", Source: "test"},
+		{UserID: "user-1", MetricType: "heart_rate", Value: 71, Timestamp: now.Add(time.Millisecond), DeviceType: "apple_watch", Source: "test"},
 	}
 
 	inserted, err := repo.BatchCreate(ctx, records)
