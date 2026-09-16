@@ -979,7 +979,7 @@ jobs:
         run: |
           sleep 5
           for port in 50051 50052 50053; do
-            for i in $(seq 1 30); do
+            for _ in $(seq 1 30); do
               if grpcurl -plaintext localhost:$port list >/dev/null 2>&1; then
                 echo "gRPC service on port $port is ready"
                 break
@@ -989,7 +989,7 @@ jobs:
           done
       - name: Wait for classifier HTTP service
         run: |
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -s http://localhost:8001/health >/dev/null 2>&1; then
               echo "Classifier HTTP service is ready"
               break
