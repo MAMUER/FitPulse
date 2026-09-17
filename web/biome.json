@@ -82,7 +82,8 @@
       "!**/static",
       "!**/coverage",
       "!**/*.min.js",
-      "!**/*.bundle.js"
+      "!**/*.bundle.js",
+      "!**/*.css"
     ]
   }
 }

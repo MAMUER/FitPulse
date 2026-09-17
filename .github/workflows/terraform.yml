@@ -1,0 +1,64 @@
+# Terraform CI/CD workflow — manages MinIO and DNS on existing k3s
+# Uses MinIO S3-compatible backend for state
+# DuckDNS only — no credit card required
+
+name: Terraform
+on:
+  pull_request:
+    paths: ["terraform/**"]
+  push:
+    branches: [main]
+    paths: ["terraform/**"]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_kubeconfig_path: /tmp/kubeconfig
+      TF_VAR_vps_ip: ${{ secrets.VPS_HOST }}
+      TF_VAR_domain: fittpulse.duckdns.org
+      TF_VAR_minio_root_user: ${{ secrets.MINIO_ACCESS_KEY }}
+      TF_VAR_minio_root_password: ${{ secrets.MINIO_SECRET_KEY }}
+      TF_VAR_storage_class: local-path
+      TF_VAR_duckdns_token: ${{ secrets.DUCKDNS_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.9.0
+
+      - name: Setup kubeconfig
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_DATA" > ${{ env.TF_VAR_kubeconfig_path }}
+          chmod 600 ${{ env.TF_VAR_kubeconfig_path }}
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Apply (main only)
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve -no-color tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}

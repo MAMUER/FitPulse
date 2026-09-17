@@ -102,6 +102,26 @@
 
 ---
 
+## C4 Context Diagram
+
+```mermaid
+C4Context
+    title FitPulse — Context Diagram
+
+    Person(user, "Пользователь", "Клиент мобильного/веб-приложения")
+
+    System(fitpulse, "FitPulse Platform", "Фитнес-платформа с ML-классификацией и wearables интеграцией")
+
+    System_Ext(google_oauth, "Google OAuth 2.0", "Аутентификация")
+    System_Ext(open_wearables, "Open Wearables", "Webhook источник biometric данных")
+    System_Ext(email_smtp, "Email / SMTP", "Отправка писем подтверждения")
+
+    Rel(user, fitpulse, "Использует", "HTTPS")
+    Rel(fitpulse, google_oauth, "Аутентификация", "OAuth 2.0 / OIDC")
+    Rel(fitpulse, open_wearables, "Получение webhook", "HTTPS / HMAC-SHA256")
+    Rel(fitpulse, email_smtp, "Отправка email", "SMTP / STARTTLS")
+```
+
 ## C4 Container Diagram
 
 ```mermaid

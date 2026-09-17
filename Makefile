@@ -4,7 +4,7 @@ imports:
 	@gci write -s standard -s default -s 'prefix(github.com/MAMUER/project)' --skip-generated --skip-vendor cmd internal || echo "gci failed, continuing without import reorganization"
 	@echo "Imports step finished."
 
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag tf-init tf-plan tf-apply tf-fmt
 BIN_DIR := bin
 GO_VERSION := 1.27.0
 
@@ -97,6 +97,19 @@ frontend-build:
 	@echo "Building frontend..."
 	@npm --prefix web run build
 	@echo "Frontend build complete."
+
+tf-init:
+	cd terraform && terraform init
+
+tf-fmt:
+	cd terraform && terraform fmt -check -recursive
+
+tf-plan:
+	cd terraform && terraform plan -var-file="production.tfvars"
+
+tf-apply:
+	cd terraform && terraform apply -var-file="production.tfvars"
+
 
 help:
 	@echo "Available commands:"

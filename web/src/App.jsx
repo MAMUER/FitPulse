@@ -1,66 +1,90 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import Achievements from './components/Achievements/Achievements';
-import Admin from './components/Admin/Admin';
-import AuthScreen from './components/Auth/AuthScreen';
-import Confirm from './components/Auth/Confirm';
-import Dashboard from './components/Dashboard/Dashboard';
-import Devices from './components/Devices/Devices';
-import Diet from './components/Diet/Diet';
-import Health from './components/Health/Health';
-import Layout from './components/Layout/Layout';
-import Privacy from './components/Legal/Privacy';
-import Terms from './components/Legal/Terms';
-import MLComponent from './components/ML/ML';
-import Profile from './components/Profile/Profile';
-import Training from './components/Training/Training';
-import { useAuth } from './contexts/AuthContext';
+import { useApp } from './contexts/AppContext';
+import AI from './screens/AI';
+import Body from './screens/Body';
+import Calendar from './screens/Calendar';
+import Chat from './screens/Chat';
+import Home from './screens/Home';
+import Legal from './screens/Legal';
+import Login from './screens/Login';
+import Nutrition from './screens/Nutrition';
+import Profile from './screens/Profile';
+import Register from './screens/Register';
+import Reset from './screens/Reset';
+import Training from './screens/Training';
+import Videos from './screens/Videos';
+
+function TabBar() {
+  const { state, t, go } = useApp();
+  const tabs = [
+    { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-home' },
+    {
+      key: 'nutrition',
+      label: t('Питание', 'Nutrition'),
+      icon: 'fas fa-apple-alt',
+    },
+    {
+      key: 'calendar',
+      label: t('Календарь', 'Calendar'),
+      icon: 'fas fa-calendar',
+    },
+    {
+      key: 'training',
+      label: t('Тренировки', 'Training'),
+      icon: 'fas fa-dumbbell',
+    },
+    { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
+    { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
+  ];
+
+  return (
+    <nav className='tab-bar'>
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          className={`tab${state.screen === tab.key ? ' active' : ''}`}
+          onClick={() => go(tab.key)}
+        >
+          <i className={tab.icon}></i>
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 export default function App() {
-  const { token, loading } = useAuth();
+  const { state } = useApp();
+  const authScreens = ['login', 'register', 'reset'];
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100dvh',
-          background: 'var(--bg-primary)',
-          color: 'var(--text-primary)',
-          fontSize: '18px',
-        }}
-      >
-        Загрузка...
-      </div>
-    );
-  }
-
-  if (!token) {
+  if (authScreens.includes(state.screen)) {
     return (
       <Routes>
-        <Route path='/confirm' element={<Confirm />} />
-        <Route path='/privacy' element={<Privacy />} />
-        <Route path='/terms' element={<Terms />} />
-        <Route path='*' element={<AuthScreen />} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+        <Route path='/reset' element={<Reset />} />
+        <Route path='*' element={<Login />} />
       </Routes>
     );
   }
 
   return (
-    <Layout>
+    <>
       <Routes>
-        <Route path='/' element={<Dashboard />} />
-        <Route path='/profile' element={<Profile />} />
+        <Route path='/' element={<Home />} />
+        <Route path='/home' element={<Home />} />
+        <Route path='/nutrition' element={<Nutrition />} />
+        <Route path='/calendar' element={<Calendar />} />
         <Route path='/training' element={<Training />} />
-        <Route path='/devices' element={<Devices />} />
-        <Route path='/achievements' element={<Achievements />} />
-        <Route path='/diet' element={<Diet />} />
-        <Route path='/health' element={<Health />} />
-        <Route path='/ml' element={<MLComponent />} />
-        <Route path='/admin' element={<Admin />} />
+        <Route path='/videos' element={<Videos />} />
+        <Route path='/ai' element={<AI />} />
+        <Route path='/body' element={<Body />} />
+        <Route path='/profile' element={<Profile />} />
+        <Route path='/chat' element={<Chat />} />
+        <Route path='/legal' element={<Legal />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
-    </Layout>
+      <TabBar />
+    </>
   );
 }

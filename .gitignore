@@ -114,3 +114,8 @@ results.json
 
 # Raw datasets (too large for git)
 datasets/raw/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
