@@ -656,7 +656,6 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 	g.registerPublicRoutes(r)
 	g.registerProtectedRoutes(r, authMiddleware)
-	g.registerAdminRoutes(r, authMiddleware)
 
 	// ========== Static files ==========
 	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/dist/static/")))
@@ -699,6 +698,10 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	// Open Wearables webhook (public - Open Wearables sends this)
 	r.Post("/api/v1/integrations/open-wearables/webhook", g.proxyToBiometricWebhook)
+
+	// Password reset (public)
+	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/auth/forgot-password", g.forgotPasswordHandler)
+	r.Post("/api/v1/auth/reset", g.resetPasswordHandler)
 }
 
 // registerProtectedRoutes registers routes under /api/v1 that require authentication.
@@ -748,6 +751,25 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Post("/ml/classify", g.classifyHandler)
 		r.Post("/ml/generate-plan", g.mlGenerateHandler)
 		r.Post("/ml/generate-diet", g.mlDietHandler)
+		r.Post("/ml/chat", g.mlChatHandler)
+
+		// Nutrition
+		r.Get("/nutrition/meals", g.listMealsHandler)
+		r.Post("/nutrition/meals", g.createMealHandler)
+		r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
+
+		// Calendar
+		r.Get("/calendar/events", g.listCalendarEventsHandler)
+		r.Post("/calendar/events", g.createCalendarEventHandler)
+		r.Put("/calendar/events/{event_id}", g.updateCalendarEventHandler)
+		r.Delete("/calendar/events/{event_id}", g.deleteCalendarEventHandler)
+
+		// Videos
+		r.Get("/videos", g.listVideosHandler)
+
+		// Body composition
+		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+		r.Post("/health/body-composition", g.createBodyCompositionHandler)
 
 		// Logout
 		r.Post("/logout", g.logoutHandler)
@@ -763,18 +785,6 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 				g.proxyToBiometricWithUser(w, r)
 			})
 		})
-	})
-}
-
-// registerAdminRoutes registers /api/v1/admin routes.
-// Role validation is performed inside user-service for each admin RPC.
-func (g *gateway) registerAdminRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
-	r.Route("/api/v1/admin", func(r chi.Router) {
-		r.Use(authMiddleware)
-		r.Get("/users", g.adminListUsersHandler)
-		r.Get("/invites", g.adminListInvitesHandler)
-		r.Post("/invites", g.adminCreateInviteHandler)
-		r.Post("/invites/{code}/revoke", g.adminRevokeInviteHandler)
 	})
 }
 

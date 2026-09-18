@@ -18,6 +18,8 @@ type UserRepository interface {
 	Count(ctx context.Context) (int, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error)
+	BanUser(ctx context.Context, id string) error
+	UnbanUser(ctx context.Context, id string) error
 }
 
 type BiometricRepository interface {

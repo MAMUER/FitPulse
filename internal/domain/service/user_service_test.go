@@ -22,6 +22,8 @@ type mockUserRepository struct {
 	listFn          func(ctx context.Context, page, pageSize int) ([]*entity.User, error)
 	countFn         func(ctx context.Context) (int, error)
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
+	banFn           func(ctx context.Context, id string) error
+	unbanFn         func(ctx context.Context, id string) error
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *entity.User) error {
@@ -82,6 +84,20 @@ func (m *mockUserRepository) ExistsByEmail(ctx context.Context, email string) (b
 
 func (m *mockUserRepository) ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error) {
 	return nil, 0, nil
+}
+
+func (m *mockUserRepository) BanUser(ctx context.Context, id string) error {
+	if m.banFn != nil {
+		return m.banFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *mockUserRepository) UnbanUser(ctx context.Context, id string) error {
+	if m.unbanFn != nil {
+		return m.unbanFn(ctx, id)
+	}
+	return nil
 }
 
 var _ port.UserRepository = (*mockUserRepository)(nil)

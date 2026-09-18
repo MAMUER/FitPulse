@@ -55,6 +55,7 @@ build:
 	@go build -o $(BIN_DIR)/classifier.exe ./cmd/classifier
 	@go build -o $(BIN_DIR)/device-aggregator.exe ./cmd/device-aggregator
 	@go build -o $(BIN_DIR)/data-processor.exe ./cmd/data-processor
+	@go build -o $(BIN_DIR)/admin-cli.exe ./cmd/admin-cli
 	@echo "Build complete. Binaries are in $(BIN_DIR)/"
 
 clean:

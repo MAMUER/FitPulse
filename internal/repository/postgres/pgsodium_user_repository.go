@@ -738,6 +738,34 @@ func (r *PgsodiumUserRepository) Delete(ctx context.Context, id string) error {
 
 }
 
+func (r *PgsodiumUserRepository) BanUser(ctx context.Context, id string) error {
+
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET is_active = FALSE WHERE id = $1", id)
+
+	if err != nil {
+
+		return apperrors.Internal("failed to ban user", err)
+
+	}
+
+	return nil
+
+}
+
+func (r *PgsodiumUserRepository) UnbanUser(ctx context.Context, id string) error {
+
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET is_active = TRUE WHERE id = $1", id)
+
+	if err != nil {
+
+		return apperrors.Internal("failed to unban user", err)
+
+	}
+
+	return nil
+
+}
+
 func (r *PgsodiumUserRepository) List(ctx context.Context, page, pageSize int) ([]*entity.User, error) {
 
 	offset := (page - 1) * pageSize

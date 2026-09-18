@@ -45,6 +45,9 @@ service UserService {
     rpc AdminListInvites(AdminListInvitesRequest) returns (AdminListInvitesResponse);
     rpc AdminCreateInvite(AdminCreateInviteRequest) returns (AdminCreateInviteResponse);
     rpc AdminRevokeInvite(AdminRevokeInviteRequest) returns (AdminRevokeInviteResponse);
+    rpc AdminDeleteUser(AdminDeleteUserRequest) returns (AdminDeleteUserResponse);
+    rpc AdminBanUser(AdminBanUserRequest) returns (AdminBanUserResponse);
+    rpc AdminUnbanUser(AdminUnbanUserRequest) returns (AdminUnbanUserResponse);
 }
 
 message RegisterRequest {
@@ -551,6 +554,36 @@ message AdminRevokeInviteRequest {
 }
 
 message AdminRevokeInviteResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AdminDeleteUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminDeleteUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AdminBanUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminBanUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AdminUnbanUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminUnbanUserResponse {
     bool success = 1;
     string message = 2;
 }

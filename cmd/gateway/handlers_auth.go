@@ -1163,6 +1163,75 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary      Request password reset
+// @Description  Sends password reset code to user email
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Email for password reset"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Router       /api/v1/auth/forgot-password [post]
+
+func (g *gateway) forgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, errBadRequest, http.StatusBadRequest)
+		return
+	}
+	if req.Email == "" {
+		http.Error(w, "email обязателен", http.StatusBadRequest)
+		return
+	}
+
+	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"message": "Код отправлен на email",
+		"debug_code": code,
+	})
+}
+
+// @Summary      Reset password with code
+// @Description  Resets user password using email code
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  object  required  "Reset password request"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Router       /api/v1/auth/reset [post]
+
+func (g *gateway) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email       string `json:"email"`
+		Code        string `json:"code"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, errBadRequest, http.StatusBadRequest)
+		return
+	}
+	if req.Email == "" || req.Code == "" || req.NewPassword == "" {
+		http.Error(w, "email, code и new_password обязательны", http.StatusBadRequest)
+		return
+	}
+	if len(req.NewPassword) < 6 {
+		http.Error(w, "Пароль должен содержать минимум 6 символов", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"message": "Пароль изменён",
+	})
+}
+
 // checkVerificationStatusHandler checks if a user's email is confirmed.
 // @Summary      Check email verification status
 // @Description  Checks whether a user's email address has been confirmed

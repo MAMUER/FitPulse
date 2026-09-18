@@ -894,6 +894,18 @@ func (m *errorUserServiceClient) AdminRevokeInvite(ctx context.Context, req *use
 	return nil, m.err
 }
 
+func (m *errorUserServiceClient) AdminDeleteUser(ctx context.Context, req *user.AdminDeleteUserRequest, opts ...grpc.CallOption) (*user.AdminDeleteUserResponse, error) {
+	return nil, m.err
+}
+
+func (m *errorUserServiceClient) AdminBanUser(ctx context.Context, req *user.AdminBanUserRequest, opts ...grpc.CallOption) (*user.AdminBanUserResponse, error) {
+	return nil, m.err
+}
+
+func (m *errorUserServiceClient) AdminUnbanUser(ctx context.Context, req *user.AdminUnbanUserRequest, opts ...grpc.CallOption) (*user.AdminUnbanUserResponse, error) {
+	return nil, m.err
+}
+
 type totpEnabledUserClient struct{}
 
 func (m *totpEnabledUserClient) Register(ctx context.Context, req *user.RegisterRequest, opts ...grpc.CallOption) (*user.RegisterResponse, error) {
@@ -1015,6 +1027,18 @@ func (m *totpEnabledUserClient) AdminCreateInvite(ctx context.Context, req *user
 }
 func (m *totpEnabledUserClient) AdminRevokeInvite(ctx context.Context, req *user.AdminRevokeInviteRequest, opts ...grpc.CallOption) (*user.AdminRevokeInviteResponse, error) {
 	return &user.AdminRevokeInviteResponse{Success: true}, nil
+}
+
+func (m *totpEnabledUserClient) AdminDeleteUser(ctx context.Context, req *user.AdminDeleteUserRequest, opts ...grpc.CallOption) (*user.AdminDeleteUserResponse, error) {
+	return &user.AdminDeleteUserResponse{Success: true}, nil
+}
+
+func (m *totpEnabledUserClient) AdminBanUser(ctx context.Context, req *user.AdminBanUserRequest, opts ...grpc.CallOption) (*user.AdminBanUserResponse, error) {
+	return &user.AdminBanUserResponse{Success: true}, nil
+}
+
+func (m *totpEnabledUserClient) AdminUnbanUser(ctx context.Context, req *user.AdminUnbanUserRequest, opts ...grpc.CallOption) (*user.AdminUnbanUserResponse, error) {
+	return &user.AdminUnbanUserResponse{Success: true}, nil
 }
 
 func TestAuth_VerifyTOTPHandler_InvalidJSON(t *testing.T) {

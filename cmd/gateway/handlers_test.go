@@ -149,6 +149,18 @@ func (m *mockUserServiceClient) AdminRevokeInvite(ctx context.Context, req *user
 	return &userpb.AdminRevokeInviteResponse{Success: true}, nil
 }
 
+func (m *mockUserServiceClient) AdminDeleteUser(ctx context.Context, req *userpb.AdminDeleteUserRequest, opts ...grpc.CallOption) (*userpb.AdminDeleteUserResponse, error) {
+	return &userpb.AdminDeleteUserResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) AdminBanUser(ctx context.Context, req *userpb.AdminBanUserRequest, opts ...grpc.CallOption) (*userpb.AdminBanUserResponse, error) {
+	return &userpb.AdminBanUserResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) AdminUnbanUser(ctx context.Context, req *userpb.AdminUnbanUserRequest, opts ...grpc.CallOption) (*userpb.AdminUnbanUserResponse, error) {
+	return &userpb.AdminUnbanUserResponse{Success: true}, nil
+}
+
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

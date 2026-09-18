@@ -1710,6 +1710,51 @@ func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeI
 	return &pb.AdminRevokeInviteResponse{Success: true, Message: "Invite revoked successfully"}, nil
 }
 
+func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUserRequest) (*pb.AdminDeleteUserResponse, error) {
+	if err := s.requireAdminRole(ctx, req.RequesterUserId); err != nil {
+		return nil, err
+	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if err := s.userRepo.Delete(ctx, req.UserId); err != nil {
+		s.log.Error("Failed to delete user", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to delete user")
+	}
+	s.log.Info("User deleted", zap.String("user_id", req.UserId))
+	return &pb.AdminDeleteUserResponse{Success: true, Message: "User deleted successfully"}, nil
+}
+
+func (s *userServer) AdminBanUser(ctx context.Context, req *pb.AdminBanUserRequest) (*pb.AdminBanUserResponse, error) {
+	if err := s.requireAdminRole(ctx, req.RequesterUserId); err != nil {
+		return nil, err
+	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if err := s.userRepo.BanUser(ctx, req.UserId); err != nil {
+		s.log.Error("Failed to ban user", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to ban user")
+	}
+	s.log.Info("User banned", zap.String("user_id", req.UserId))
+	return &pb.AdminBanUserResponse{Success: true, Message: "User banned successfully"}, nil
+}
+
+func (s *userServer) AdminUnbanUser(ctx context.Context, req *pb.AdminUnbanUserRequest) (*pb.AdminUnbanUserResponse, error) {
+	if err := s.requireAdminRole(ctx, req.RequesterUserId); err != nil {
+		return nil, err
+	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if err := s.userRepo.UnbanUser(ctx, req.UserId); err != nil {
+		s.log.Error("Failed to unban user", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, "failed to unban user")
+	}
+	s.log.Info("User unbanned", zap.String("user_id", req.UserId))
+	return &pb.AdminUnbanUserResponse{Success: true, Message: "User unbanned successfully"}, nil
+}
+
 type userServerConfig struct {
 	database          *sql.DB
 	log               *logger.Logger
