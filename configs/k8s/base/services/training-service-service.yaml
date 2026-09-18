@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: training-service
+  namespace: fitness-platform-production
+  labels:
+    app: training-service
+    tier: backend
+    app.kubernetes.io/name: training-service
+    app.kubernetes.io/instance: training-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: fitness-platform
+spec:
+  selector:
+    app: training-service
+  ports:
+    - port: 50053
+      targetPort: 50053
+      name: grpc
+  type: ClusterIP

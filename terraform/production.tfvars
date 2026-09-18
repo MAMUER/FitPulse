@@ -2,9 +2,9 @@
 # Sensitive values are injected via environment variables in CI/CD
 # or via -var flags in local development
 
-vps_ip              = "YOUR_VPS_IP_HERE"
-domain              = "fittpulse.duckdns.org"
-storage_class       = "local-path"
+vps_ip        = "YOUR_VPS_IP_HERE"
+domain        = "fittpulse.duckdns.org"
+storage_class = "local-path"
 
 # Sensitive variables (do NOT commit real values here):
 # - minio_root_user        -> TF_VAR_minio_root_user

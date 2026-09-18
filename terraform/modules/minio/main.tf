@@ -72,7 +72,7 @@ resource "kubernetes_deployment" "minio" {
           }
 
           env {
-            name  = "MINIO_ROOT_USER"
+            name = "MINIO_ROOT_USER"
             value_from {
               secret_key_ref {
                 name = kubernetes_secret.minio_credentials.metadata[0].name
@@ -81,7 +81,7 @@ resource "kubernetes_deployment" "minio" {
             }
           }
           env {
-            name  = "MINIO_ROOT_PASSWORD"
+            name = "MINIO_ROOT_PASSWORD"
             value_from {
               secret_key_ref {
                 name = kubernetes_secret.minio_credentials.metadata[0].name

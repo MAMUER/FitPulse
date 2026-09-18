@@ -180,10 +180,9 @@ docker compose up --build
 
 - **Framework**: React 19.2+ with Vite 8
 - **Routing**: React Router v7
-- **Charts**: Chart.js 4 + react-chartjs-2
 - **Styling**: Plain CSS with CSS Variables
 - **State**: React Context API
-- **Testing**: Vitest + React Testing Library
+- **Testing**: Vitest + React Testing Library + Playwright
 - **Linting/formatting**: Biome
 
 Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

@@ -27,4 +27,6 @@ resources:
   - open-wearables-frontend.yaml
   - device-aggregator.yaml
   - device-aggregator-pdb.yaml
+  - data-processor.yaml
+  - data-processor-pdb.yaml
   - vpa

@@ -8,9 +8,13 @@ resources:
   - user-service.yaml
   - biometric-service.yaml
   - training-service.yaml
+  - user-service.yaml
+  - biometric-service.yaml
+  - training-service.yaml
   - gateway-service.yaml
   - classifier-service.yaml
   - ml-generator-service.yaml
   - open-wearables-service.yaml
   - open-wearables-frontend-service.yaml
   - device-aggregator-service.yaml
+  - data-processor-service.yaml

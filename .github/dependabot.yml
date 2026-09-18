@@ -364,8 +364,6 @@ updates:
           - "react*"
           - "@vitejs/*"
           - "vite"
-          - "chart.js"
-          - "react-chartjs-2"
           - "react-router-dom"
           - "@biomejs/*"
         update-types:

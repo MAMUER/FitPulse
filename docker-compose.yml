@@ -193,6 +193,34 @@ services:
       timeout: 5s
       retries: 5
 
+  data-processor:
+    build:
+      context: .
+      dockerfile: cmd/data-processor/Dockerfile
+    ports:
+      - "8084:8084"
+      - "9092:9092"
+    environment:
+      DATA_PROCESSOR_PORT: 8084
+      DATA_PROCESSOR_METRICS_PORT: 9092
+      DB_HOST: postgres
+      DB_PORT: 5432
+      VALKEY_ADDR: valkey:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   ml-generator:
     build:
       context: .
