@@ -1,6 +1,5 @@
-# Terraform CI/CD workflow — manages MinIO and DNS on existing k3s
-# Uses MinIO S3-compatible backend for state
-# DuckDNS only — no credit card required
+# Terraform CI/CD workflow — manages DNS on existing k3s
+# Uses fittpulse.ru as primary domain
 
 name: Terraform
 on:
@@ -16,11 +15,10 @@ jobs:
     env:
       TF_VAR_kubeconfig_path: /tmp/kubeconfig
       TF_VAR_vps_ip: ${{ secrets.VPS_HOST }}
-      TF_VAR_domain: fittpulse.duckdns.org
+      TF_VAR_domain: fittpulse.ru
       TF_VAR_minio_root_user: ${{ secrets.MINIO_ACCESS_KEY }}
       TF_VAR_minio_root_password: ${{ secrets.MINIO_SECRET_KEY }}
       TF_VAR_storage_class: local-path
-      TF_VAR_duckdns_token: ${{ secrets.DUCKDNS_TOKEN }}
       AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
     steps:

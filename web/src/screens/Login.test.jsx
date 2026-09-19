@@ -54,7 +54,6 @@ describe('Login', () => {
     renderLogin();
     expect(screen.getByText('Продолжить как гость')).toBeInTheDocument();
     expect(screen.getByText('Google')).toBeInTheDocument();
-    expect(screen.getByText('VK')).toBeInTheDocument();
   });
 
   it('switches language', () => {

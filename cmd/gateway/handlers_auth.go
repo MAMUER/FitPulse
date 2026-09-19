@@ -33,19 +33,19 @@ import (
 const (
 	totpRateLimitAttempts = 5
 
-	errUnauthorized             = "Unauthorized access"
-	errGoogleOAuthNotConfigured = "Google OAuth not configured"
-	errCriticalSessionRequired  = "Critical session required"
-	errTOTPRateLimitExceeded    = "TOTP rate limit exceeded"
+	errUnauthorized              = "Unauthorized access"
+	errGoogleOAuthNotConfigured  = "Google OAuth not configured"
+	errCriticalSessionRequired   = "Critical session required"
+	errTOTPRateLimitExceeded     = "TOTP rate limit exceeded"
 
-	googleOAuthStateCookie   = "google_oauth_state"
-	headerContentType        = "Content-Type"
-	contentTypeJSON          = "application/json"
-	refreshTokenPrefix       = "refresh:"
+	googleOAuthStateCookie = "google_oauth_state"
+	headerContentType      = "Content-Type"
+	contentTypeJSON        = "application/json"
+	refreshTokenPrefix     = "refresh:"
 	refreshFingerprintPrefix = "refresh:fp:"
-	refreshIssuedPrefix      = "refresh:issued:"
-	refreshRevokedPrefix     = "refresh:revoked:"
-	twoFATempPrefix          = "2fa_temp:"
+	refreshIssuedPrefix    = "refresh:issued:"
+	refreshRevokedPrefix   = "refresh:revoked:"
+	twoFATempPrefix        = "2fa_temp:"
 )
 
 type totpRateLimiter struct {
@@ -1232,37 +1232,3 @@ func (g *gateway) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// checkVerificationStatusHandler checks if a user's email is confirmed.
-// @Summary      Check email verification status
-// @Description  Checks whether a user's email address has been confirmed
-// @Tags         Auth
-// @Produce      json
-// @Param        email  query  string  true  "User email address"
-// @Success      200  {object}  map[string]interface{}
-// @Failure      400  {object}  map[string]interface{}
-// @Failure      404  {object}  map[string]interface{}
-// @Router       /api/v1/auth/verify-status [get]
-
-func (g *gateway) checkVerificationStatusHandler(w http.ResponseWriter, r *http.Request) {
-	email := r.URL.Query().Get("email")
-	if email == "" {
-		g.log.Error("Missing email in request")
-		http.Error(w, "Укажите email", http.StatusBadRequest)
-		return
-	}
-
-	resp, err := g.userClient.GetUserByEmail(r.Context(), &userpb.GetUserByEmailRequest{Email: email})
-	if err != nil {
-		g.log.Error("Failed to get user by email", zap.Error(err))
-		w.Header().Set(headerContentType, contentTypeJSON)
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"email_confirmed": false, "email": email})
-		return
-	}
-
-	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"email_confirmed": resp.EmailConfirmed,
-		"email":           email,
-	})
-}

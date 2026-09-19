@@ -62,6 +62,9 @@ services:
       CLASSIFIER_ADDR: classifier:8001
       DEVICE_AGGREGATOR_ADDR: device-aggregator:8083
       ML_GENERATOR_ADDR: ml-generator:8002
+      APP_BASE_URL: ${APP_BASE_URL:-https://fittpulse.ru}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,6 +94,7 @@ services:
       DB_PORT: 5432
       VALKEY_ADDR: valkey:6379
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,12 +112,14 @@ services:
       dockerfile: cmd/biometric-service/Dockerfile
     ports:
       - "50052:50052"
+      - "8085:8085"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      OPEN_WEARABLES_WEBHOOK_SECRET: ${OPEN_WEARABLES_WEBHOOK_SECRET:-change-me}
     depends_on:
       postgres:
         condition: service_healthy

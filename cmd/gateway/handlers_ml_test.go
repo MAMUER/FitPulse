@@ -1,104 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	"github.com/MAMUER/project/internal/middleware"
 )
-
-func TestML_ClassifyHandler_Unauthorized(t *testing.T) {
-	g := newTestGateway()
-	withClassifierURL(g, "http://localhost:8001")
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestML_ClassifyHandler_InvalidClassifierURL(t *testing.T) {
-	g := newTestGateway()
-	g.classifierURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_ClassifyHandler_ClassifierUnavailable(t *testing.T) {
-	g := newTestGateway()
-	withClassifierURL(g, "http://localhost:99999")
-	withBiometricClient(g)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_ClassifyHandler_Success(t *testing.T) {
-	g := newTestGateway()
-	withBiometricClient(g)
-
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"predicted_class": "endurance_basic",
-			"confidence":      0.95,
-			"recommendations": []string{"increase cardio", "rest more"},
-		}); encodeErr != nil {
-			t.Logf("encode error: %v", encodeErr)
-		}
-	})}
-	go func() {
-		if serveErr := server.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
-			t.Logf("server error: %v", serveErr)
-		}
-	}()
-	defer func() {
-		if closeErr := server.Close(); closeErr != nil {
-			t.Logf("close error: %v", closeErr)
-		}
-	}()
-
-	withClassifierURL(g, "http://localhost:"+strconv.Itoa(port))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "success")
-	assert.Contains(t, w.Body.String(), "endurance_basic")
-}
 
 func TestML_AggregateMLPayload(t *testing.T) {
 	tests := []struct {
@@ -255,64 +168,47 @@ func TestML_ProxyToMLGenerator_InvalidURL(t *testing.T) {
 	g := newTestGateway()
 	g.mlGeneratorURL = "invalid-url"
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
+	ctx := context.Background()
+	status, body, err := g.proxyToMLGenerator(ctx, "/generate-plan", []byte(`{}`))
 
-	g.proxyToMLGenerator(w, req, "/generate-plan")
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.Error(t, err)
+	assert.Equal(t, http.StatusServiceUnavailable, status)
+	assert.Nil(t, body)
 }
 
-func TestML_ProxyToMLGenerator_ReadBodyError(t *testing.T) {
+func TestML_ProxyToMLGenerator_Success(t *testing.T) {
 	g := newTestGateway()
-	withMLGeneratorURL(g, "http://localhost:99999")
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Body = &errorReader{err: errors.New("read error")}
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"plan": "generated-plan",
+		})
+	})}
+	go func() {
+		if serveErr := server.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
+			t.Logf("server error: %v", serveErr)
+		}
+	}()
+	defer func() {
+		if closeErr := server.Close(); closeErr != nil {
+			t.Logf("close error: %v", closeErr)
+		}
+	}()
 
-	g.proxyToMLGenerator(w, req, "/generate-plan")
+	g.mlGeneratorURL = "http://localhost:" + strconv.Itoa(port)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
+	ctx := context.Background()
+	status, body, err := g.proxyToMLGenerator(ctx, "/generate-plan", []byte(`{}`))
 
-type errorReader struct {
-	err error
-}
-
-func (e *errorReader) Read(p []byte) (n int, err error) {
-	return 0, e.err
-}
-
-func (e *errorReader) Close() error {
-	return nil
-}
-
-func TestML_MLGenerateHandler_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.mlGenerateHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_MLDietHandler_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/diet", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.mlDietHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, status)
+	assert.Contains(t, string(body), "generated-plan")
 }
 
 func TestML_IsValidServiceURL(t *testing.T) {
@@ -334,4 +230,16 @@ func TestML_IsValidServiceURL(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+type errorReader struct {
+	err error
+}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+func (e *errorReader) Close() error {
+	return nil
 }

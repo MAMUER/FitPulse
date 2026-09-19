@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function Register() {
@@ -8,9 +9,9 @@ export default function Register() {
     socialLogin,
     toggleHighContrast,
     toggleLanguage,
-    openLegal,
     go,
   } = useApp();
+  const navigate = useNavigate();
 
   return (
     <section className='auth'>
@@ -42,15 +43,15 @@ export default function Register() {
             'Я согласен(на) с Пользовательским соглашением и Политикой конфиденциальности.',
             'I agree to the Terms of Use and Privacy Policy.'
           )}{' '}
-          <a className='legal-link' onClick={() => openLegal('terms')}>
+          <a className='legal-link' onClick={() => navigate('/terms')}>
             {t('Соглашение', 'Terms')}
           </a>{' '}
           ·{' '}
-          <a className='legal-link' onClick={() => openLegal('consent')}>
+          <a className='legal-link' onClick={() => navigate('/consent')}>
             {t('Персональные данные', 'Personal Data')}
           </a>{' '}
           ·{' '}
-          <a className='legal-link' onClick={() => openLegal('privacy')}>
+          <a className='legal-link' onClick={() => navigate('/privacy')}>
             {t('Политика', 'Privacy')}
           </a>
         </span>
@@ -65,9 +66,6 @@ export default function Register() {
       <div className='socials'>
         <button className='google' onClick={() => socialLogin('google')}>
           <i className='fab fa-google'></i> {t('Google', 'Google')}
-        </button>
-        <button className='vk' onClick={() => socialLogin('vk')}>
-          <i className='fab fa-vk'></i> {t('VK', 'VK')}
         </button>
       </div>
       <div className='auth-link' style={{ marginTop: 8 }}>

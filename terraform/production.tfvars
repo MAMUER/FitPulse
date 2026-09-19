@@ -3,11 +3,10 @@
 # or via -var flags in local development
 
 vps_ip        = "YOUR_VPS_IP_HERE"
-domain        = "fittpulse.duckdns.org"
+domain        = "fittpulse.ru"
 storage_class = "local-path"
 
 # Sensitive variables (do NOT commit real values here):
 # - minio_root_user        -> TF_VAR_minio_root_user
 # - minio_root_password    -> TF_VAR_minio_root_password
 # - external_secrets_db_password -> TF_VAR_external_secrets_db_password
-# - duckdns_token          -> TF_VAR_duckdns_token

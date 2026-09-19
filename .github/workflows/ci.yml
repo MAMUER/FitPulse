@@ -69,7 +69,7 @@ on:
 env:
   GO_VERSION: "1.27.0"
   REGISTRY: ghcr.io
-  FITPULSE_DOMAIN: "fittpulse.duckdns.org"
+  FITPULSE_DOMAIN: "fittpulse.ru"
 
 jobs:
   # ============================================================================
@@ -368,7 +368,7 @@ jobs:
         env:
           GO_VERSION: 1.27.0
           REGISTRY: ghcr.io
-          FITPULSE_DOMAIN: fittpulse.duckdns.org
+          FITPULSE_DOMAIN: fittpulse.ru
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1256,12 +1256,6 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh ensure_k3s_certs
       - name: Install cert-manager and configure Let's Encrypt
         run: bash scripts/ci/k8s-setup.sh install_cert_manager
-      - name: Setup DuckDNS auto-updater
-        env:
-          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh setup_duckdns
       - name: Setup ML infrastructure directories
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1377,7 +1371,7 @@ jobs:
         run: bash scripts/ci/deploy-staging.sh verify_health
       - name: Run UAT tests against staging
         env:
-          BASE_URL: "https://staging.fittpulse.duckdns.org"
+          BASE_URL: "https://staging.fittpulse.ru"
           NAMESPACE: fitness-platform-staging
         run: bash scripts/ci/deploy-staging.sh run_uat_tests
   # ============================================================================

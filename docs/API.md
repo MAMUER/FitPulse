@@ -1,6 +1,6 @@
 # FitPulse — API Reference
 
-> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.duckdns.org:8443/` (development). Production: `https://fitpulse.example.com` (платный домен).
+> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.ru/api/v1/` (production).
 
 ## Аутентификация
 
@@ -49,8 +49,7 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/generate`|Сгенерировать план|`{duration_weeks, available_days, class?, confidence?}`|`{status, plan_id, plan_data, training_type}`|
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
-|POST|`/ml/classify`|Классификация состояния|— (используются последние биометрические данные пользователя)|`{status, state, confidence, recommendation, fatigue_level, motivation_score, recovery_quality}`|
-|POST|`/ml/generate-plan`|Генерация плана (GAN)|`{training_class, user_profile, goal?, constraints?}`|`{status, training_plan, diet_plan}`|
+|POST|`/ml/chat`|AI-советник (классификация + план + диета)|`{message}`|`{status, classification, plan, diet}`|
 |POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
 |POST|`/auth/2fa/setup`|Настройка TOTP|—|`{status, qr_code_url, qr_code_base64, secret, backup_codes}`|
 |POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{passcode, temp_secret?, backup_codes?}`|`{status, message}`|

@@ -37,7 +37,7 @@
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  DuckDNS / Cloudflare (free DNS, no card required)              │
-│  fittpulse.duckdns.org → <VPS_IP>                              │
+│  fittpulse.ru → <VPS_IP>                              │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
@@ -178,19 +178,6 @@ cat ~/.kube/config | base64 -w 0  # Linux/macOS
 #    CLOUDFLARE_API_TOKEN → token value
 ```
 
-### DUCKDNS_TOKEN (Alternative to Cloudflare)
-
-**Source:** DuckDNS account (free, no card required).
-
-```bash
-# 1. Go to https://www.duckdns.org/
-# 2. Sign in with GitHub/Twitter/Reddit (no card)
-# 3. Create subdomain (e.g. fittpulse)
-# 4. Copy token from "install" page
-# 5. Add to GitHub Secrets:
-#    DUCKDNS_TOKEN → token value
-```
-
 ---
 
 ## Terraform — New Architecture (No VPS Provisioning)
@@ -201,7 +188,7 @@ cat ~/.kube/config | base64 -w 0  # Linux/macOS
 - ❌ Removed: k3s bootstrap via remote-exec
 - ✅ Added: Connect to existing k3s via kubeconfig
 - ✅ Added: Deploy MinIO on existing k3s
-- ✅ Added: Manage DNS records (Cloudflare/DuckDNS)
+- ✅ Added: Manage DNS records
 - ✅ Added: PostgreSQL External Secrets backend
 
 ### Directory Structure
@@ -272,7 +259,6 @@ kubectl get secret app-secrets -n fitness-platform-production
 | `MINIO_SECRET_KEY` | MinIO root password | You generate | ❌ No |
 | `EXTERNAL_SECRETS_DB_PASSWORD` | PostgreSQL password | You generate | ❌ No |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token | cloudflare.com (free) | ❌ No |
-| `DUCKDNS_TOKEN` | DuckDNS token | duckdns.org (free) | ❌ No |
 
 ---
 

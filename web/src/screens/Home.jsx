@@ -1,7 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function Home() {
-  const { state, t, drinkWater, startWorkout, go, openLegal } = useApp();
+  const { state, t, drinkWater, startWorkout, go } = useApp();
+  const navigate = useNavigate();
   const bmi =
     state.height > 0 && state.weight > 0
       ? +(state.weight / (state.height / 100) ** 2).toFixed(1)
@@ -73,7 +75,7 @@ export default function Home() {
               {t('Персональные рекомендации', 'Personal recommendations')}
             </div>
           </div>
-          <a className='link' onClick={() => openLegal('consent')}>
+          <a className='link' onClick={() => navigate('/consent')}>
             {t('Политика', 'Policy')}
           </a>
         </div>

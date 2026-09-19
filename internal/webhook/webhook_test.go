@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "test-secret")
+	os.Exit(m.Run())
+}
 
 func parseTime(t *testing.T, value string) time.Time { //nolint:unparam
 	t.Helper()
@@ -172,6 +178,13 @@ func TestValidateSignature(t *testing.T) {
 	})
 }
 
+func signTestBody(t *testing.T, secret []byte, body []byte) string {
+	t.Helper()
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func TestServerHandleWebhook(t *testing.T) {
 	t.Run("method not allowed", func(t *testing.T) {
 		mockDB := &mockDB{}
@@ -188,7 +201,9 @@ func TestServerHandleWebhook(t *testing.T) {
 		log := zap.NewNop()
 		server := NewServer("8085", mockDB, log)
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader([]byte("invalid")))
+		body := []byte("invalid")
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+		r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 		server.handleWebhook(w, r)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -201,6 +216,7 @@ func TestServerHandleWebhook(t *testing.T) {
 		old := time.Now().Add(-10 * time.Minute).UTC().Format(time.RFC3339)
 		body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","nonce":"n1","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, old)
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+		r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 		server.handleWebhook(w, r)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -213,6 +229,7 @@ func TestServerHandleWebhook(t *testing.T) {
 		now := time.Now().UTC().Format(time.RFC3339)
 		body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","nonce":"n1","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, now)
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+		r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 		server.handleWebhook(w, r)
 		assert.Equal(t, http.StatusConflict, w.Code)
 	})
@@ -225,6 +242,7 @@ func TestServerHandleWebhook(t *testing.T) {
 		now := time.Now().UTC().Format(time.RFC3339)
 		body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, now)
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+		r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 		server.handleWebhook(w, r)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
@@ -507,6 +525,7 @@ func TestServerHandleWebhookPayloadValidationFailed(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	body := fmt.Appendf([]byte{}, `{"user_id":"","source":"open_wearables","timestamp":"%s","metrics":[]}`, now)
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+	r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 	server.handleWebhook(w, r)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -519,6 +538,7 @@ func TestServerHandleWebhookSaveMetricsFailed(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	body := fmt.Appendf([]byte{}, `{"user_id":"user-1","source":"open_wearables","timestamp":"%s","metrics":[{"metric_type":"heart_rate","value":72.0}]}`, now)
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
+	r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, body))
 	server.handleWebhook(w, r)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -615,8 +635,9 @@ func TestServerHandleWebhookReadBodyError(t *testing.T) {
 	body := bytes.NewReader([]byte("invalid"))
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", body)
 	r.Header.Set("Content-Length", "100")
+	r.Header.Set("X-Open-Wearables-Signature", signTestBody(t, server.secret, []byte("invalid")))
 	r.Body = &errorReader{err: errors.New("read failed")}
 	server.handleWebhook(w, r)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid request body")
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid signature")
 }

@@ -74,7 +74,7 @@ func LoadConfig() Config {
 		Port:            port,
 		User:            config.GetEnv("SMTP_USER"),
 		Password:        config.GetEnv("SMTP_PASSWORD"),
-		From:            config.GetEnv("SMTP_FROM", "noreply@fitpulse.app"),
+		From:            config.GetEnv("SMTP_FROM", "noreply@fittpulse.ru"),
 		UseTLS:          config.GetEnv("SMTP_TLS", "true") == "true",
 		DailyLimit:      dailyLimit,
 		SkipSendDomains: skipDomains,

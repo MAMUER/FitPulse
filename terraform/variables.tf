@@ -10,13 +10,7 @@ variable "vps_ip" {
 
 variable "domain" {
   type        = string
-  description = "Primary domain (e.g. fittpulse.duckdns.org)"
-}
-
-variable "duckdns_token" {
-  type        = string
-  description = "DuckDNS token"
-  sensitive   = true
+  description = "Primary domain (e.g. fittpulse.ru)"
 }
 
 variable "minio_root_user" {

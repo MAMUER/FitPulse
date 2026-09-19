@@ -25,7 +25,7 @@ type classifierServer struct {
 }
 
 const (
-	trainingClassCount = 6
+	trainingClassCount = 7
 	contentTypeJSON    = "application/json"
 	headerContentType  = "Content-Type"
 )
@@ -121,6 +121,20 @@ var trainingClasses = map[int]struct {
 			"Обратиться к врачу при температуре >37.5°C",
 			"Обильное питьё и постельный режим",
 			"Возобновить тренировки только после выздоровления",
+		},
+	},
+	6: {
+		Name:        "uncertainty",
+		NameRu:      "Неопределённость",
+		Description: "Данные противоречивы, требуется повторное измерение или консультация специалиста",
+		HrRange:     "—",
+		Hrv:         "—",
+		Spo2:        "—",
+		Recommendations: []string{
+			"Повторите измерения через 30-60 минут",
+			"Сравните показатели с базовыми значениями",
+			"Присмотритесь к самочувствию: усталость, боль, головная боль",
+			"При сомнениях откажитесь от тренировки",
 		},
 	},
 }
@@ -318,6 +332,8 @@ func deriveScores(predictedClass int) (fatigueLevel, motivationScore, recoveryQu
 		return 0.9, 0.2, 0.1
 	case 5:
 		return 1.0, 0.0, 0.0
+	case 6:
+		return 0.5, 0.5, 0.5
 	default:
 		return 0.5, 0.5, 0.5
 	}
@@ -331,29 +347,6 @@ func defaultIfZero(val, def float64) float64 {
 }
 
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
-	if data.Temperature > 37.5 {
-		probs := map[string]float64{
-			"recovery":            0.0,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.02,
-			"overtraining":        0.05,
-			"illness":             0.93,
-		}
-		return 5, 0.93, probs
-	}
-	if data.Temperature > 37.3 {
-		probs := map[string]float64{
-			"recovery":            0.05,
-			"endurance_basic":     0.05,
-			"endurance_threshold": 0.02,
-			"power_hiit":          0.03,
-			"overtraining":        0.10,
-			"illness":             0.75,
-		}
-		return 5, 0.75, probs
-	}
-
 	hrMax := 220.0 - float64(age)
 	if hrMax <= 0 {
 		hrMax = 200.0
@@ -372,16 +365,125 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 		zone = 3
 	}
 
-	if data.HeartRateVariability < 30 && hrPct < 0.6 {
-		topProbs := map[string]float64{
-			"recovery":            0.03,
-			"endurance_basic":     0.05,
-			"endurance_threshold": 0.02,
-			"power_hiit":          0.05,
-			"overtraining":        0.85,
-			"illness":             0.05,
+	overtrainingSigns := 0
+	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
+		overtrainingSigns++
+	}
+	if hrPct < 0.6 && data.HeartRate > 0 {
+		overtrainingSigns++
+	}
+	if data.SleepHours < 5.0 && data.SleepHours > 0 {
+		overtrainingSigns++
+	}
+
+	illnessSigns := 0
+	if data.Temperature > 37.5 {
+		illnessSigns++
+	}
+	if data.SpO2 < 95.0 && data.SpO2 > 0 {
+		illnessSigns++
+	}
+	if data.HeartRateVariability < 25 && data.HeartRateVariability > 0 {
+		illnessSigns++
+	}
+
+	hasMildFever := data.Temperature > 37.3 && data.Temperature <= 37.5
+
+	if illnessSigns >= 2 {
+		confidence := 0.55 + float64(illnessSigns-1)*0.15
+		if confidence > 0.95 {
+			confidence = 0.95
 		}
-		return 4, 0.85, topProbs
+		confidence = math.Round(confidence*10000) / 10000.0
+		probs := map[string]float64{
+			"recovery":            0.0,
+			"endurance_basic":     0.0,
+			"endurance_threshold": 0.0,
+			"power_hiit":          0.0,
+			"overtraining":        0.05,
+			"illness":             confidence,
+			"uncertainty":         1.0 - confidence - 0.05,
+		}
+		if probs["uncertainty"] < 0 {
+			probs["uncertainty"] = 0
+		}
+		return 5, confidence, probs
+	}
+
+	if data.Temperature > 37.5 {
+		confidence := 0.45
+		probs := map[string]float64{
+			"recovery":            0.0,
+			"endurance_basic":     0.0,
+			"endurance_threshold": 0.0,
+			"power_hiit":          0.0,
+			"overtraining":        0.05,
+			"illness":             confidence,
+			"uncertainty":         1.0 - confidence - 0.05,
+		}
+		if probs["uncertainty"] < 0 {
+			probs["uncertainty"] = 0
+		}
+		return 6, confidence, probs
+	}
+
+	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
+		confidence := 0.45
+		if hasMildFever {
+			confidence = 0.45
+		}
+		if data.SpO2 < 93.0 && data.SpO2 > 0 {
+			confidence += 0.10
+		}
+		confidence = math.Round(confidence*10000) / 10000.0
+		probs := map[string]float64{
+			"recovery":            0.0,
+			"endurance_basic":     0.0,
+			"endurance_threshold": 0.0,
+			"power_hiit":          0.0,
+			"overtraining":        0.05,
+			"illness":             confidence,
+			"uncertainty":         1.0 - confidence - 0.05,
+		}
+		if probs["uncertainty"] < 0 {
+			probs["uncertainty"] = 0
+		}
+		return 6, confidence, probs
+	}
+
+	if overtrainingSigns >= 2 {
+		confidence := 0.55 + float64(overtrainingSigns-1)*0.10
+		if confidence > 0.90 {
+			confidence = 0.90
+		}
+		confidence = math.Round(confidence*10000) / 10000.0
+		probs := map[string]float64{
+			"recovery":            0.05,
+			"endurance_basic":     0.0,
+			"endurance_threshold": 0.0,
+			"power_hiit":          0.0,
+			"overtraining":        confidence,
+			"illness":             0.05,
+			"uncertainty":         1.0 - confidence - 0.10,
+		}
+		if probs["uncertainty"] < 0 {
+			probs["uncertainty"] = 0
+		}
+		return 4, confidence, probs
+	}
+
+	if data.SpO2 < 94.0 && data.SpO2 > 0 {
+		confidence := 0.50
+		probs := map[string]float64{
+			"recovery":            0.05,
+			"endurance_basic":     0.0,
+			"endurance_threshold": 0.0,
+			"power_hiit":          0.05,
+			"overtraining":        0.10,
+			"illness":             0.10,
+			"uncertainty":         0.70,
+		}
+		return 6, confidence, probs
 	}
 
 	boundaries := []float64{0.0, 0.65, 0.80, 0.90, 1.0}
@@ -392,11 +494,20 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 	if rawConf < 0.35 {
 		rawConf = 0.35
 	}
+	if data.SpO2 < 95.0 && data.SpO2 > 0 {
+		rawConf *= 0.85
+	}
+	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
+		rawConf *= 0.90
+	}
+	if rawConf < 0.35 {
+		rawConf = 0.35
+	}
 	confidence := math.Round(rawConf*10000) / 10000.0
 
+	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness", "uncertainty"}
+	remainder := (1.0 - confidence) / 6.0
 	probs := make(map[string]float64)
-	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness"}
-	remainder := (1.0 - confidence) / 5.0
 	for i, name := range classNames {
 		if i == zone {
 			probs[name] = confidence

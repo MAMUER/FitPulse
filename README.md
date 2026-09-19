@@ -120,8 +120,7 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/training/generate` | Сгенерировать план |
 | POST | `/api/v1/training/complete` | Завершить тренировку |
 | GET | `/api/v1/training/progress` | Прогресс |
-| POST | `/api/v1/ml/classify` | Классификация состояния |
-| POST | `/api/v1/ml/generate-plan` | Генерация плана |
+| POST | `/api/v1/ml/chat` | AI-советник (классификация + план + диета) |
 | POST | `/api/v1/devices/register` | Регистрация устройства |
 | POST | `/api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
 | GET | `/api/v1/devices` | Список устройств |
@@ -173,6 +172,8 @@ docker compose up --build
 - **Prometheus**: <http://localhost:9090>
 - **Grafana**: <http://localhost:3000>
 - **Jaeger**: <http://localhost:16686>
+
+Production домен: <https://fittpulse.ru>
 
 Переменные окружения для локального запуска описаны в `docker-compose.yml`.
 

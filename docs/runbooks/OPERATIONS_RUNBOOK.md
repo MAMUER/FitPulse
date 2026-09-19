@@ -220,7 +220,7 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 ### Доступ к Grafana
 
 ```text
-URL: https://fittpulse.duckdns.org
+URL: https://fittpulse.ru
 Username: admin
 Password: ${GRAFANA_ADMIN_PASSWORD}
 ```
@@ -256,8 +256,8 @@ kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 
 ## Контакты и эскалация
 
-- **Tech Lead**: [tech-lead@fitpulse.app](mailto:tech-lead@fitpulse.app)
-- **CTO**: [cto@fitpulse.app](mailto:cto@fitpulse.app) (только SEV-1, эскалация после 15 мин)
+- **Tech Lead**: [tech-lead@fittpulse.ru](mailto:tech-lead@fittpulse.ru)
+- **CTO**: [cto@fittpulse.ru](mailto:cto@fittpulse.ru) (только SEV-1, эскалация после 15 мин)
 
 ---
 
@@ -265,7 +265,7 @@ kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fittpulse.ru/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|

@@ -5,7 +5,7 @@ info:
   description: API for personalized fitness management with biometric data integration
 
 servers:
-  - url: https://fittpulse.duckdns.org/api/v1
+  - url: https://fittpulse.ru/api/v1
     description: Production server
 
 security:
@@ -1546,32 +1546,11 @@ paths:
   # ============================================================================
   # ML (protected)
   # ============================================================================
-  /ml/classify:
+  /ml/chat:
     post:
       tags:
         - ML
-      summary: Classify user state (proxied to classifier service)
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: Classification result
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /ml/generate-plan:
-    post:
-      tags:
-        - ML
-      summary: Generate training plan via ML (proxied)
+      summary: AI advisor - classify state + generate plan + generate diet
       security:
         - bearerAuth: []
       requestBody:
@@ -1581,51 +1560,31 @@ paths:
             schema:
               type: object
               required:
-                - duration_weeks
-                - available_days
+                - message
               properties:
-                class_name:
+                message:
                   type: string
-                confidence:
-                  type: number
-                  minimum: 0
-                  maximum: 1
-                duration_weeks:
-                  type: integer
-                available_days:
-                  type: array
-                  items:
+                  description: User message or request
+      responses:
+        "200":
+          description: Classification result with generated plan and diet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  classification:
+                    type: object
+                  plan:
+                    type: object
+                  diet:
+                    type: object
+                  timestamp:
                     type: integer
-                    minimum: 0
-                    maximum: 6
-      responses:
-        "200":
-          description: Plan generated
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /ml/generate-diet:
-    post:
-      tags:
-        - ML
-      summary: Generate diet plan via ML (proxied)
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: Diet plan generated
-          content:
-            application/json:
-              schema:
-                type: object
 
   # ============================================================================
   # ADMIN (protected, admin role required)

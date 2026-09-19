@@ -50,9 +50,6 @@
 .fp-no-fa .fa-google::before {
   content: "G";
 }
-.fp-no-fa .fa-vk::before {
-  content: "VK";
-}
 .fp-no-fa .fa-heart::before,
 .fp-no-fa .fa-heart-pulse::before {
   content: "♥";
@@ -2790,9 +2787,6 @@ textarea:focus {
 .google i {
   color: #ea4335;
 }
-.vk i {
-  color: #4c75a3;
-}
 .auth .primary {
   margin-top: 6px;
 }
@@ -2803,6 +2797,96 @@ textarea:focus {
   font-size: 10px;
 }
 .auth-link a {
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+/* ── LANDING ── */
+.landing {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 25px;
+}
+.landing-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+}
+.landing-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.landing-brand .logo-icon {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  background: var(--blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 48px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.landing-brand h1 {
+  font-size: 56px;
+}
+.landing-brand p {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 260px;
+  line-height: 1.5;
+}
+.landing-actions {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.landing-features {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.feature {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  text-align: left;
+}
+.feature-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+.feature-title {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.feature-desc {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.landing-footer {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 10px;
+}
+.landing-footer .legal-link {
   color: var(--blue);
   cursor: pointer;
   font-weight: 800;

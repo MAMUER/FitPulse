@@ -85,7 +85,7 @@ FitPulse использует два компонента:
 | 5 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
 | 6 | `illness` | Заболевание | Температура > 37.5°C Или HRV < 30 с признаками болезни |
 
-**Endpoint:** `POST /classify` (service на порту 8001, gateway: `POST /api/v1/ml/classify`)
+**Endpoint:** `POST /classify` (service на порту 8001, вызывается из gateway через `POST /api/v1/ml/chat`)
 
 ---
 
@@ -302,7 +302,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 
 ### Classifier
 
-**Endpoint:** `POST /classify` (service на порту 8001, gateway: `POST /api/v1/ml/classify`)
+**Endpoint:** `POST /classify` (service на порту 8001, вызывается из gateway через `POST /api/v1/ml/chat`)
 
 - **Вход:** физиологические данные
 
@@ -331,7 +331,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 
 ### Generator
 
-**Endpoint:** `POST /generate-plan` (service на порту 8002, gateway: `POST /api/v1/ml/generate-plan`)
+**Endpoint:** `POST /generate-plan` (service на порту 8002, вызывается из gateway через `POST /api/v1/ml/chat`)
 
 - **Вход:** полный профиль пользователя + контекст здоровья + история тренировок
 - **Выход:** 19-dim plan vector + metadata

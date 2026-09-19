@@ -34,7 +34,7 @@ type Server struct {
 func NewServer(port string, db DB, log *zap.Logger) *Server {
 	secret := []byte(os.Getenv("OPEN_WEARABLES_WEBHOOK_SECRET"))
 	if len(secret) == 0 {
-		log.Warn("OPEN_WEARABLES_WEBHOOK_SECRET is not set; webhook signature validation is disabled")
+		log.Fatal("OPEN_WEARABLES_WEBHOOK_SECRET is required")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

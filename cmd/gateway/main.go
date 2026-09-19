@@ -222,7 +222,7 @@ func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 		Scopes:       []string{"openid", "profile", "email"},
 		Endpoint: oauth2.Endpoint{ // nolint:G101
 			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
-			TokenURL: "https://oauth2.googleapis.com/token",
+			TokenURL:  "https://oauth2.googleapis.com/token",
 		},
 	}
 }
@@ -674,7 +674,6 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
 	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/login", g.loginHandler)
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
-	r.Get("/api/v1/auth/verify-status", g.checkVerificationStatusHandler)
 	r.Get("/api/v1/auth/google", g.googleLoginHandler)
 	r.Get("/api/v1/auth/google/callback", g.googleCallbackHandler)
 	r.Get("/health", g.healthHandler)
@@ -748,9 +747,6 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Get("/achievements", g.getAchievementsHandler)
 
 		// ML
-		r.Post("/ml/classify", g.classifyHandler)
-		r.Post("/ml/generate-plan", g.mlGenerateHandler)
-		r.Post("/ml/generate-diet", g.mlDietHandler)
 		r.Post("/ml/chat", g.mlChatHandler)
 
 		// Nutrition

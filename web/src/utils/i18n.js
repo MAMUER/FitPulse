@@ -218,7 +218,6 @@ const EN_TEXT = {
   '25 июля': 'July 25',
   'Нет аккаунта?': 'Don’t have an account?',
   Google: 'Google',
-  VK: 'VK',
   Запрос: 'Prompt',
   'Например: план на неделю': 'e.g. weekly plan',
   Отправить: 'Send',

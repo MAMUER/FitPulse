@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function Login() {
@@ -10,9 +11,9 @@ export default function Login() {
     toggleHighContrast,
     toggleLanguage,
     forgotPassword,
-    openLegal,
     go,
   } = useApp();
+  const navigate = useNavigate();
 
   return (
     <section className='auth'>
@@ -52,18 +53,18 @@ export default function Login() {
       </button>
       <div className='auth-link'>
         {t('Продолжая, вы принимаете', 'By continuing, you accept')}{' '}
-        <a className='legal-link' onClick={() => openLegal('terms')}>
+        <a className='legal-link' onClick={() => navigate('/terms')}>
           {t('Пользовательское соглашение', 'Terms of Use')}
         </a>
         ,{' '}
-        <a className='legal-link' onClick={() => openLegal('consent')}>
+        <a className='legal-link' onClick={() => navigate('/consent')}>
           {t(
             'соглашение об использовании персональных данных',
             'Personal Data Agreement'
           )}
         </a>{' '}
         {t('и', 'and')}{' '}
-        <a className='legal-link' onClick={() => openLegal('privacy')}>
+        <a className='legal-link' onClick={() => navigate('/privacy')}>
           {t('Политику конфиденциальности', 'Privacy Policy')}
         </a>
         .
@@ -71,9 +72,6 @@ export default function Login() {
       <div className='socials'>
         <button className='google' onClick={() => socialLogin('google')}>
           <i className='fab fa-google'></i> {t('Google', 'Google')}
-        </button>
-        <button className='vk' onClick={() => socialLogin('vk')}>
-          <i className='fab fa-vk'></i> {t('VK', 'VK')}
         </button>
       </div>
       <div className='auth-link' style={{ marginTop: 8 }}>

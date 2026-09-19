@@ -126,21 +126,21 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
 
 - Для GA-релиза необходимы расширенные возможности наблюдаемости.
 - Production-окружения содержат: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor.
-- Production domain: fittpulse.duckdns.org
+- Production domain: fittpulse.ru
 - Актуальные сервисы и endpoints:
-  - Portal: <https://fittpulse.duckdns.org>
-  - API: <https://fittpulse.duckdns.org:8443/api/v1/>
+  - Portal: <https://fittpulse.ru>
+  - API: <https://fittpulse.ru/api/v1/>
   - Health checks: /health, /confirm, /logout
-  - ML endpoints: /ml/classify, /ml/generate-plan
+  - ML endpoints: /api/v1/ml/chat
 
 ### 6.2 Задачи
 
 1. **ОПРЕДЕЛИТЬ SLI/SLO**:
    - Целевая доступность: 99.9% в месяц (исключая плановые работы)
-   - Целевая латентность: p95 < 2s для всех критических endpoints:
-     - /api/v1/auth/login
-     - /api/v1/biometrics
-     - /ml/generate-plan
+    - Целевая латентность: p95 < 2s для всех критических endpoints:
+      - /api/v1/auth/login
+      - /api/v1/biometrics
+      - /api/v1/ml/chat
    - Ошибочный бюджет: 0.1% в месяц
      - Отслеживается через метрики ошибок 5xx
      - Burn rate ошибочного бюджета отслеживается в Grafana
@@ -273,7 +273,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 2. **Криптографическая защита (PGP)**: сгенерировать и опубликовать PGP key fingerprint (Ed25519/Curve25519) в `SECURITY.md` и `BUG_BOUNTY_SCOPE.md` для шифрования чувствительных отчётов об уязвимостях (защита от перехвата zero-day при передаче по email).
 3. **WKD (Web Key Directory)**: опубликовать PGP-ключ через WKD для автоматического обнаружения ключа почтовыми клиентами (GnuPG, Thunderbird).
 4. **Оценка платформенной интеграции**: рассмотреть целесообразность миграции с self-hosted (GitHub Advisory + email) на HackerOne / Bugcrowd / Intigriti (включая интеграцию алертов в Slack/Telegram), если появится бюджет.
-5. **Миграция на корпоративную почту**: см. раздел замена личного email на `security@fitpulse.app` с hardware 2FA.
+5. **Миграция на корпоративную почту**: см. раздел замена личного email на `security@fittpulse.ru` с hardware 2FA.
 
 ### 10.3 Acceptance Criteria
 
@@ -296,7 +296,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 ### 11.2 Задачи
 
 1. Приобрести корпоративный домен/почтовый аккаунт для security отчётов (например, через Yandex 360 для бизнеса или Google Workspace).
-2. Выделить group alias `security@fitpulse.app` с включенным аудитом логов входа и обязательным hardware 2FA (YubiKey) для всех членов security-команды.
+2. Выделить group alias `security@fittpulse.ru` с включенным аудитом логов входа и обязательным hardware 2FA (YubiKey) для всех членов security-команды.
 3. Обновить `SECURITY.md`, `BUG_BOUNTY_SCOPE.md` с новым корпоративным контактом и удалить упоминания личных ящиков.
 4. Сгенерировать и опубликовать PGP-ключ (Ed25519/Curve25519) для корпоративного ящика, загрузить в публичные keyserver'ы.
 5. Документировать процесс доступа к ящику, ротации ключей и offboarding сотрудников.
@@ -442,7 +442,7 @@ FitPulse выходит за рамки wellness-приложения: plans г�
 ### 17.1 Контекст
 
 Текущий сервер (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) не позволяет запускать ежедневное ML-переобучение без влияния на отзывчивость приложения.
-Phase 1 покрывает базовую генерацию плана через `POST /ml/generate-plan` и классификацию состояния через `POST /ml/classify`.
+Phase 1 покрывает базовую генерацию плана и классификацию состояния через `POST /api/v1/ml/chat`.
 Ежедневная автоматическая модификация плана — это задача Phase 2, требующая отдельного планировщика/воркера и более мощной инфраструктуры.
 
 ### 17.2 Задачи
@@ -539,7 +539,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 | Managed PostgreSQL (Yandex Managed) | — | ~2 500–4 000 ₽/мес | +2 500–4 000 ₽/мес |
 | Vault (self-hosted на отдельном VPS) | — | ~1 500 ₽/мес (2 vCPU / 4 ГБ) | +1 500 ₽/мес |
 | Backup storage (S3-compatible, 100 ГБ) | — | ~300 ₽/мес | +300 ₽/мес |
-| Domain fitpulse.app (первый год) | — | ~1 500 ₽/год | +125 ₽/мес |
+| Domain fittpulse.ru (первый год) | — | ~1 500 ₽/год | +200 ₽/мес |
 | SSL-сертификат (Let's Encrypt) | — | 0 ₽/мес | 0 ₽/мес |
 | **Итого инфраструктура** | **~1 500 ₽/мес** | **~8 000–10 500 ₽/мес** | **+6 500–9 000 ₽/мес** |
 
@@ -902,11 +902,9 @@ Phase 2 считается завершённой, когда выполнены
 
 ---
 
-## 28. Полноценная двухфакторная верификация через Google (после покупки платного домена)
+## 28. Полноценная двухфакторная верификация через Google
 
 ### 28.1 Контекст
-
-На текущем домене `fittpulse.duckdns.org` (бесплатный динамический DNS, DuckDNS) Google блокирует перевод OAuth consent screen в production и окончательную branding verification. Приложение остаётся в статусе **testing** с ограничениями: 7 дней жизни токенов, вход доступен только добавленным вручную тестовым пользователям.
 
 Чтобы разблокировать полноценный вход для всех пользователей через Google OAuth 2.0 с production-статусом consent screen, требуется:
 
@@ -917,18 +915,17 @@ Phase 2 считается завершённой, когда выполнены
 
 ### 28.2 Предпосылки
 
-- Приобретён платный домен, например `fitpulse.app` (стоимость ~1 500 ₽/год, см. раздел 19.2).
 - DNS-записи домена указывают на VPS / внешний load balancer, где поднят кластер k3s.
 - В Google Cloud Console:
-  - добавлен `fitpulse.app` в **Authorized domains** для проекта `fitpulse-1780824080979`;
+  - добавлен `fittpulse.ru` в **Authorized domains** для проекта `fitpulse-1780824080979`;
   - настроен OAuth 2.0 Client ID (Web application) с authorised redirect URIs:
-    - `https://fitpulse.app/api/v1/auth/google/callback`
+    - `https://fittpulse.ru/api/v1/auth/google/callback`
   - в consent screen указаны:
-    - Homepage: `https://fitpulse.app`
-    - Privacy Policy: `https://fitpulse.app/privacy`
-    - Terms of Service: `https://fitpulse.app/terms`
+    - Homepage: `https://fittpulse.ru`
+    - Privacy Policy: `https://fittpulse.ru/privacy`
+    - Terms of Service: `https://fittpulse.ru/terms`
 - На VPS / в k8s:
-  - cert-manager выписывает TLS-сертификат для `fitpulse.app`;
+  - cert-manager выписывает TLS-сертификат для `fittpulse.ru`;
   - ingress/routes проксируют `/`, `/privacy`, `/terms` на gateway;
   - SPA на React отдаёт главную страницу и юридические страницы.
 
@@ -936,20 +933,17 @@ Phase 2 считается завершённой, когда выполнены
 
 | Этап | Задача | Срок | Приоритет |
 | --- | --- | --- | --- |
-| 1 | Приобрести домен `fitpulse.app` и направить DNS на инфраструктуру | 1 день | P0 |
-| 2 | Подготовить инфраструктуру: TLS через cert-manager, Ingress/Route для `fitpulse.app` | 2–3 дня | P0 |
+| 2 | Подготовить инфраструктуру: TLS через cert-manager, Ingress/Route для `fittpulse.ru` | 2–3 дня | P0 |
 | 3 | Обновить `SECURITY.md`, CI конфиги, deployment manifests под новый домен | 1 день | P1 |
 | 4 | В Google Cloud Console обновить authorized domains, consent screen URLs, redirect URIs | 1 день | P0 |
 | 5 | Пройти branding verification (логотип 120×120, скриншоты, описание) | 1–2 дня | P0 |
 | 6 | Перевести consent screen из testing в production | 1 день | P0 |
-| 7 | Удалить `fitpulse.duckdns.org` из authorised domains после успешной миграции | 1 день | P1 |
 
 ### 28.4 Acceptance Criteria
 
-- `https://fitpulse.app`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
+- `https://fittpulse.ru`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
 - Google OAuth consent screen находится в статусе **production**.
 - Вход через Google работает для любых пользователей без ограничения в 100 аккаунтов и без 7-дневного истечения токена.
-- Backup/fallback: при проблемах с доменом можно заminutes на `fittpulse.duckdns.org` и продолжить тестирование, не меняя код.
 
 ### 28.5 Риски и mitigation
 
@@ -958,4 +952,3 @@ Phase 2 считается завершённой, когда выполнены
 | Домен не прошёл верификацию | Средняя | Высокое | Предварительно submit в Google, подготовить все материалы (логотип, скриншоты, описание) |
 | Проблемы с DNS propagation | Средняя | Среднее | Использовать TTL 300s на время переезда, мониторить `dig`/`nslookup` |
 | Просрочение сертификата cert-manager | Низкая | Низкое | cert-manager автоматически продлевает; настроить алерты за 7 дней до истечения |
-| Утеря DuckDNS как fallback | Низкая | Среднее | Оставить DuckDNS как secondary A/AAAA до полного cutover |

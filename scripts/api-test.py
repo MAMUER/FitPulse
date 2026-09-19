@@ -308,7 +308,7 @@ def test_training(t):
 def test_ml(t):
     section("6. ML")
     ml_resp = t.test(
-        "ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200
+        "ML Chat", "POST", "/api/v1/ml/chat", token=t.token, expected=200, json={"message": "plan"}
     )
     if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
         print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")

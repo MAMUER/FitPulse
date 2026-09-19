@@ -72,7 +72,7 @@ spec:
               name: http
           env:
             - name: VITE_API_URL
-              value: "https://openwearables.fittpulse.duckdns.org"
+              value: "https://openwearables.fittpulse.ru"
           livenessProbe:
             httpGet:
               path: /

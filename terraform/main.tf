@@ -34,10 +34,3 @@ module "minio" {
   bucket_models    = "fitpulse-ml-models"
   bucket_backups   = "fitpulse-db-backups"
 }
-
-module "dns" {
-  source        = "./modules/dns"
-  domain        = var.domain
-  vps_ip        = var.vps_ip
-  duckdns_token = var.duckdns_token
-}

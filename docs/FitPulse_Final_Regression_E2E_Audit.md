@@ -168,7 +168,7 @@
 | login | button | 0 | Войти | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Продолжить как гость | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | EN | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Register | `go('register')` | **PASS** | register | |
@@ -178,7 +178,7 @@
 | login | link | 4 | Privacy Policy | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Register | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | High contrast mode | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | RU | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Соглашение | `openLegal('terms')` | **PASS** | terms | |
@@ -398,7 +398,7 @@
 | login | button | 0 | Войти | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Продолжить как гость | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | EN | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Register | `go('register')` | **PASS** | register | |
@@ -408,7 +408,7 @@
 | login | link | 4 | Privacy Policy | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Register | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | High contrast mode | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | RU | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Соглашение | `openLegal('terms')` | **PASS** | terms | |
@@ -628,7 +628,7 @@
 | login | button | 0 | Войти | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Продолжить как гость | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | EN | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Register | `go('register')` | **PASS** | register | |
@@ -638,7 +638,7 @@
 | login | link | 4 | Privacy Policy | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Register | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | High contrast mode | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | RU | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Соглашение | `openLegal('terms')` | **PASS** | terms | |
@@ -858,7 +858,7 @@
 | login | button | 0 | Войти | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Продолжить как гость | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | EN | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Register | `go('register')` | **PASS** | register | |
@@ -868,7 +868,7 @@
 | login | link | 4 | Privacy Policy | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Register | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | High contrast mode | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | RU | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Соглашение | `openLegal('terms')` | **PASS** | terms | |
@@ -1088,7 +1088,7 @@
 | login | button | 0 | Login | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Continue as guest | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | High contrast mode | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | RU | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Зарегистрироваться | `go('register')` | **PASS** | register | |
@@ -1098,7 +1098,7 @@
 | login | link | 4 | Политику конфиденциальности | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Зарегистрироваться | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | EN | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Terms | `openLegal('terms')` | **PASS** | terms | |
@@ -1318,7 +1318,7 @@
 | login | button | 0 | Login | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Continue as guest | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | High contrast mode | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | RU | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Зарегистрироваться | `go('register')` | **PASS** | register | |
@@ -1328,7 +1328,7 @@
 | login | link | 4 | Политику конфиденциальности | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Зарегистрироваться | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | EN | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Terms | `openLegal('terms')` | **PASS** | terms | |
@@ -1548,7 +1548,7 @@
 | login | button | 0 | Login | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Continue as guest | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | High contrast mode | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | RU | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Зарегистрироваться | `go('register')` | **PASS** | register | |
@@ -1558,7 +1558,7 @@
 | login | link | 4 | Политику конфиденциальности | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Зарегистрироваться | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | EN | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Terms | `openLegal('terms')` | **PASS** | terms | |
@@ -1778,7 +1778,7 @@
 | login | button | 0 | Login | `doLogin()` | **PASS** | home | |
 | login | button | 1 | Continue as guest | `continueAsGuest()` | **PASS** | home | |
 | login | button | 2 | Google | `socialLogin('google')` | **PASS** | home | |
-| login | button | 3 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | login | button | 4 | High contrast mode | `toggleHighContrast()` | **PASS** | login | |
 | login | button | 5 | RU | `toggleLanguage()` | **PASS** | login | |
 | login | link | 0 | Зарегистрироваться | `go('register')` | **PASS** | register | |
@@ -1788,7 +1788,7 @@
 | login | link | 4 | Политику конфиденциальности | `openLegal('privacy')` | **PASS** | privacy | |
 | register | button | 0 | Зарегистрироваться | `doRegister()` | **PASS** | register | |
 | register | button | 1 | Google | `socialLogin('google')` | **PASS** | home | |
-| register | button | 2 | VK | `socialLogin('vk')` | **PASS** | home | |
+
 | register | button | 3 | Режим высокой контрастности | `toggleHighContrast()` | **PASS** | register | |
 | register | button | 4 | EN | `toggleLanguage()` | **PASS** | register | |
 | register | link | 0 | Terms | `openLegal('terms')` | **PASS** | terms | |

@@ -520,42 +520,6 @@ func TestAuth_RefreshHandler_InvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestAuth_CheckVerificationStatusHandler_MissingEmail(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/verify-status", nil)
-
-	g.checkVerificationStatusHandler(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestAuth_CheckVerificationStatusHandler_Success(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/verify-status?email=test@example.com", nil)
-
-	g.checkVerificationStatusHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "email_confirmed")
-}
-
-func TestAuth_CheckVerificationStatusHandler_GRPCError(t *testing.T) {
-	g := newTestGateway()
-	g.userClient = &errorUserServiceClient{err: grpcError(codes.NotFound, "user not found")}
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/verify-status?email=nonexistent@example.com", nil)
-
-	g.checkVerificationStatusHandler(w, req)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	assert.Contains(t, w.Body.String(), "email_confirmed")
-}
-
 func TestAuth_UserTOTPEnabled_EmptyUserID(t *testing.T) {
 	g := newTestGateway()
 

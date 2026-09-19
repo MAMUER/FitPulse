@@ -335,24 +335,4 @@ func (g *gateway) listVideosHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (g *gateway) mlChatHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Message string `json:"message"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, errBadRequest, http.StatusBadRequest)
-		return
-	}
-	if req.Message == "" {
-		http.Error(w, "message обязателен", http.StatusBadRequest)
-		return
-	}
 
-	response := "Я FitPulse AI. Рекомендую начать с 20-минутной кардио-тренировки."
-	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "success",
-		"response":  response,
-		"timestamp": time.Now().Unix(),
-	})
-}

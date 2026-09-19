@@ -14,6 +14,7 @@ import {
   safeText,
 } from '../utils/helpers';
 import { t } from '../utils/i18n';
+import { backendRequest } from '../utils/backendRequest';
 
 const KEY = 'fitpulse-merged-v9';
 
@@ -38,6 +39,7 @@ const defaultState = {
     email: 'mih@example.com',
     phone: '+7 999 123 45 67',
     twoFactor: false,
+    backupCodesRemaining: 0,
     assistantStyle: 'Дружелюбный',
     devices: ['Apple Watch', 'Смарт-весы'],
     bio: 'Люблю спорт и здоровое питание 💪',
@@ -45,6 +47,8 @@ const defaultState = {
     friends: 12,
     password: '',
   },
+  twoFactorSetup: null,
+  twoFactorTempToken: null,
   messages: [
     {
       type: 'ai',
@@ -853,6 +857,7 @@ function getInitialState() {
         email: saved.email || defaultState.profile.email,
         phone: saved.phone || defaultState.profile.phone,
         twoFactor: saved.twoFactor || defaultState.profile.twoFactor,
+        backupCodesRemaining: saved.backupCodesRemaining || 0,
         devices: saved.devices || defaultState.profile.devices,
         bio: saved.bio || defaultState.profile.bio,
         status: saved.status || defaultState.profile.status,
@@ -890,6 +895,8 @@ function getInitialState() {
       chatSettings: saved.chatSettings || defaultState.chatSettings,
       chatMessages: saved.chatMessages || defaultState.chatMessages,
       storySeen: saved.storySeen || {},
+      twoFactorSetup: saved.twoFactorSetup || null,
+      twoFactorTempToken: saved.twoFactorTempToken || null,
     };
   } catch {
     return { ...defaultState };
@@ -951,6 +958,8 @@ export function AppProvider({ children }) {
           chatSettings: state.chatSettings,
           chatMessages: state.chatMessages,
           storySeen: state.storySeen,
+          twoFactorSetup: state.twoFactorSetup,
+          twoFactorTempToken: state.twoFactorTempToken,
         })
       );
     } catch {
@@ -988,23 +997,43 @@ export function AppProvider({ children }) {
     [update]
   );
 
-  const doLogin = useCallback(() => {
+  const doLogin = useCallback(async () => {
     const email = document.getElementById('loginEmail')?.value.trim();
     const pass = document.getElementById('loginPassword')?.value.trim();
     if (!email || !pass) {
       notify('Неверный email или пароль');
       return;
     }
-    update({
-      profile: { ...state.profile, email, password: pass },
-      registered: true,
-      guest: false,
-      screen: 'home',
-    });
+    try {
+      const data = await backendRequest('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password: pass }),
+      });
+      if (!data || data.status !== 'ok' || !data.access_token) {
+        notify('Неверный email или пароль');
+        return;
+      }
+      localStorage.setItem('fitpulse-access-token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
+      }
+      update({
+        profile: { ...state.profile, email, password: pass },
+        registered: true,
+        guest: false,
+        screen: 'home',
+      });
+      window.location.href = '/home';
+    } catch {
+      notify('Ошибка входа');
+    }
   }, [state.profile, update, notify]);
 
   const logout = useCallback(() => {
+    localStorage.removeItem('fitpulse-access-token');
+    localStorage.removeItem('fitpulse-refresh-token');
     update({ registered: false, guest: false, screen: 'login' });
+    window.location.href = '/';
   }, [update]);
 
   const doRegister = useCallback(() => {
@@ -1031,27 +1060,11 @@ export function AppProvider({ children }) {
       guest: false,
       registrationData: { email, password: pass, confirm, code: '' },
       profile: { ...state.profile, email },
-      screen: 'verify',
+      registered: true,
+      screen: 'login',
     });
+    notify('Регистрация успешна. Проверьте email для подтверждения.');
   }, [state.profile, update, notify]);
-
-  const doVerify = useCallback(() => {
-    const code = document.getElementById('verifyCode')?.value.trim();
-    if (code === '123456') {
-      update({
-        registered: true,
-        guest: false,
-        survey: { ...state.survey, step: 0 },
-        screen: state.surveyCompleted ? 'home' : 'survey',
-      });
-    } else {
-      notify('Неверный код');
-    }
-  }, [state.survey, state.surveyCompleted, update, notify]);
-
-  const resendCode = useCallback(() => {
-    notify('Код отправлен на почту');
-  }, [notify]);
 
   const forgotPassword = useCallback(() => {
     update({ screen: 'reset', resetStep: 0 });
@@ -1096,16 +1109,18 @@ export function AppProvider({ children }) {
 
   const continueAsGuest = useCallback(() => {
     update({ guest: true, registered: false, screen: 'home' });
+    window.location.href = '/home';
   }, [update]);
 
   const socialLogin = useCallback(
     (provider) => {
-      notify(
-        `Интеграция ${provider} требует OAuth/backend. Сейчас открыт безопасный демо-вход.`
-      );
-      update({ registered: true, screen: 'home' });
+      if (provider === 'google') {
+        window.location.href = '/api/v1/auth/google';
+        return;
+      }
+      notify(`Интеграция ${provider} не поддерживается`);
     },
-    [update, notify]
+    [notify]
   );
 
   const go = useCallback(
@@ -1181,6 +1196,120 @@ export function AppProvider({ children }) {
     )
       return;
     update({ profile: { ...state.profile, twoFactor: next } });
+  }, [state.profile, update]);
+
+  const setup2FA = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/auth/2fa/setup', {
+        method: 'POST',
+      });
+      if (data) {
+        update({
+          twoFactorSetup: {
+            qrCodeUrl: data.qr_code_url || '',
+            qrCodeBase64: data.qr_code_base64 || '',
+            secret: data.secret || '',
+            backupCodes: data.backup_codes || [],
+          },
+          screen: 'twofa-setup',
+        });
+      }
+    } catch {
+      notify('Не удалось настроить 2FA');
+    }
+  }, [update, notify]);
+
+  const confirm2FA = useCallback(
+    async (passcode, tempSecret, backupCodes) => {
+      try {
+        const data = await backendRequest('/api/v1/auth/2fa/confirm', {
+          method: 'POST',
+          body: JSON.stringify({
+            passcode,
+            temp_secret: tempSecret,
+            backup_codes: backupCodes,
+          }),
+        });
+        if (data && data.success) {
+          notify('2FA успешно настроена');
+          update({ twoFactorSetup: null, screen: 'profile' });
+        } else {
+          notify(data?.message || 'Ошибка подтверждения 2FA');
+        }
+      } catch {
+        notify('Не удалось подтвердить 2FA');
+      }
+    },
+    [update, notify]
+  );
+
+  const verify2FA = useCallback(
+    async (tempToken, passcode, isBackupCode = false) => {
+      try {
+        const data = await backendRequest('/api/v1/auth/2fa/verify', {
+          method: 'POST',
+          body: JSON.stringify({
+            temp_token: tempToken,
+            passcode,
+            is_backup_code: isBackupCode,
+          }),
+        });
+        if (data && data.access_token) {
+          localStorage.setItem('fitpulse-access-token', data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
+          }
+          update({
+            registered: true,
+            guest: false,
+            screen: 'home',
+            twoFactorTempToken: null,
+          });
+        } else {
+          notify('Неверный код 2FA');
+        }
+      } catch {
+        notify('Ошибка проверки 2FA');
+      }
+    },
+    [update, notify]
+  );
+
+  const disable2FA = useCallback(
+    async (passcode) => {
+      try {
+        const data = await backendRequest('/api/v1/auth/2fa/disable', {
+          method: 'POST',
+          body: JSON.stringify({ passcode }),
+        });
+        if (data && data.success) {
+          update({ profile: { ...state.profile, twoFactor: false } });
+          notify('2FA отключена');
+        } else {
+          notify(data?.message || 'Ошибка отключения 2FA');
+        }
+      } catch {
+        notify('Не удалось отключить 2FA');
+      }
+    },
+    [state.profile, update, notify]
+  );
+
+  const load2FAStatus = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/auth/2fa/status');
+      if (data) {
+        update({
+          profile: {
+            ...state.profile,
+            twoFactor: data.enabled,
+            backupCodesRemaining: data.backup_codes_remaining,
+          },
+        });
+      }
+    } catch {
+      // ignore
+    }
   }, [state.profile, update]);
 
   const showNotification = useCallback(() => {
@@ -2221,8 +2350,6 @@ export function AppProvider({ children }) {
       notify,
       doLogin,
       doRegister,
-      doVerify,
-      resendCode,
       forgotPassword,
       submitResetEmail,
       submitResetCode,
@@ -2237,6 +2364,11 @@ export function AppProvider({ children }) {
       toggleLanguage,
       toggleHighContrast,
       toggleTwoFactor,
+      setup2FA,
+      confirm2FA,
+      verify2FA,
+      disable2FA,
+      load2FAStatus,
       showNotification,
       drinkWater,
       changeCalendar,
@@ -2310,8 +2442,6 @@ export function AppProvider({ children }) {
       notify,
       doLogin,
       doRegister,
-      doVerify,
-      resendCode,
       forgotPassword,
       submitResetEmail,
       submitResetCode,

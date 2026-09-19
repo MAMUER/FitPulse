@@ -118,7 +118,7 @@ Dark high-contrast overrides are also defined via `[data-theme="dark"][data-high
 - Email + password fields.
 - Primary CTA: `doLogin()`.
 - Secondary: `continueAsGuest()`.
-- Social: `socialLogin('google')`, `socialLogin('vk')`.
+- Social: `socialLogin('google')`.
 - Links: register, forgot password, terms, privacy, personal data agreement.
 - Controls: theme toggle, language toggle, high-contrast toggle.
 

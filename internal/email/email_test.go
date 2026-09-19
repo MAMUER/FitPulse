@@ -27,7 +27,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	cfg := LoadConfig()
 	assert.Equal(t, "localhost", cfg.Host)
 	assert.Equal(t, 1025, cfg.Port)
-	assert.Equal(t, "noreply@fitpulse.app", cfg.From)
+	assert.Equal(t, "noreply@fittpulse.ru", cfg.From)
 	assert.True(t, cfg.UseTLS)
 	assert.Equal(t, 0, cfg.DailyLimit)
 	assert.Empty(t, cfg.SkipSendDomains)

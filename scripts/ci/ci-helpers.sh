@@ -308,22 +308,6 @@ echo '✅ Daily health check cron configured (9 AM UTC)'
 "
 }
 
-setup_duckdns() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo '-> Setting up DuckDNS auto-updater...'
-echo '${DUCKDNS_TOKEN}' | sudo tee /etc/duckdns/token > /dev/null
-sudo chmod 600 /etc/duckdns/token
-sudo mkdir -p /etc/duckdns
-"
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/duckdns-update.sh "${VPS_USER}@${VPS_HOST}:/usr/local/bin/duckdns-update.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-sudo chmod +x /usr/local/bin/duckdns-update.sh
-(sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
-sudo /usr/local/bin/duckdns-update.sh
-echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
-"
-}
-
 setup_ml_dirs() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 echo '-> Creating directories for ML storage...'
@@ -493,7 +477,6 @@ main() {
 		check_connectivity
 		deploy_health_script
 		setup_health_cron
-		setup_duckdns
 		setup_ml_dirs
 		deploy_mlflow
 		check_commits
@@ -521,7 +504,6 @@ main() {
 	show_codeql_diagnostics) show_codeql_diagnostics ;;
 	deploy_health_script) deploy_health_script ;;
 	setup_health_cron) setup_health_cron ;;
-	setup_duckdns) setup_duckdns ;;
 	setup_ml_dirs) setup_ml_dirs ;;
 	deploy_mlflow) deploy_mlflow ;;
 	check_commits) check_commits ;;

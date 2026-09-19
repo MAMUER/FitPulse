@@ -266,7 +266,7 @@ Mutable tags позволяют владельцу action'а перенапра�
   - gateway-sa, user-service-sa, biometric-service-sa, training-service-sa
   - device-aggregator-sa, classifier-sa, ml-generator-sa
   - app-service-account (для Jobs: migrate-db, seed-admin)
-  - Каждая Role ограничена `resourceNames` на конкретные secrets и configmaps (например, `app-secrets`, `app-config`, `db-migrations`, `fittpulse-duckdns-org-tls`).
+  - Каждая Role ограничена `resourceNames` на конкретные secrets и configmaps (например, `app-secrets`, `app-config`, `db-migrations`).
 - **Secrets**: JWT, API keys и TLS private keys хранятся в Kubernetes Secrets.
 - **Policy-as-Code (Kyverno)**: В кластере развёрнуты Kyverno policies (`configs/k8s/policy/`):
   - `disallow-privileged` — запрет привилегированных контейнеров (Enforce)
@@ -279,18 +279,17 @@ Mutable tags позволяют владельцу action'а перенапра�
 - **Image provenance**: Все образы подписываются cosign при пуше в main. В PR выполняется проверка сигнатуры (cosign verify). Публичный ключ хранится в GitHub Secrets (`COSIGN_PUBLIC_KEY`).
 - **Observability**: структурированное логирование (zap), Prometheus метрики, OpenTelemetry traces
 - **External dependencies**:
-  - [DuckDNS](https://www.duckdns.org/domains) — бесплатный динамический DNS для `fittpulse.duckdns.org`. Токен хранится в GitHub Secrets как `DUCKDNS_TOKEN`, используется в CI (`configs/k8s/scripts/duckdns-update.sh`) и на VPS в `/etc/duckdns/token`.
   - Telegram Bot API — уведомления в чат при деплое/инцидентах
   - Let's Encrypt / cert-manager — TLS-сертификаты для внешнего домена
   - GitHub Actions / GHCR — CI/CD и registry образов
   - [SonarCloud — fitness-platform](https://sonarcloud.io/project/settings?category=integration&id=fitness-platform) — SAST, quality gate и покрытие кода. Токен хранится в GitHub Secrets как `SONAR_TOKEN`. При проблемах с доступом проверьте права токена и существование проекта `fitness-platform` в организации `mamuer`.
   - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Google OAuth 2.0 вход (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` в GitHub Secrets).
-  - Privacy Policy: `https://fittpulse.duckdns.org/privacy`. Terms of Service: `https://fittpulse.duckdns.org/terms`.
-  - Authorized domain: `fittpulse.duckdns.org`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
+  - Privacy Policy: `https://fittpulse.ru/privacy`. Terms of Service: `https://fittpulse.ru/terms`.
+  - Authorized domain: `fittpulse.ru`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
   - [Withings Developer Dashboard](https://developer.withings.com/dashboard/) — синхронизация биометрических данных из устройств Withings (пульс, SpO2, шаги, сон, масса, активность).
-  - В текущей конфигурации указаны Callback URLs: `https://fittpulse.duckdns.org/api/v1/devices/withings/callback` и `https://fittpulse.duckdns.org/api/v1/devices/withings/webhook`; API Endpoint: `https://wbsapi.withings.net`.
+  - В текущей конфигурации указаны Callback URLs: `https://fittpulse.ru/api/v1/devices/withings/callback` и `https://fittpulse.ru/api/v1/devices/withings/webhook`; API Endpoint: `https://wbsapi.withings.net`.
   - Secrets `WITHINGS_CLIENT_ID` и `WITHINGS_CLIENT_SECRET` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
-  - При переходе на платный домен callback URLs должны быть обновлены на `https://fitpulse.app/api/v1/devices/withings/callback` и `https://fitpulse.app/api/v1/devices/withings/webhook`.
+  - Callback URLs должны быть обновлены на `https://fittpulse.ru/api/v1/devices/withings/callback` и `https://fittpulse.ru/api/v1/devices/withings/webhook`.
   - [Yandex app passwords](https://id.yandex.ru/security/app-passwords) — SMTP-провайдер — отправка писем. Secrets: `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
 - **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
 - **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.

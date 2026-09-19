@@ -5,6 +5,8 @@ import Body from './screens/Body';
 import Calendar from './screens/Calendar';
 import Chat from './screens/Chat';
 import Home from './screens/Home';
+import Integrations from './screens/Integrations';
+import Landing from './screens/Landing';
 import Legal from './screens/Legal';
 import Login from './screens/Login';
 import Nutrition from './screens/Nutrition';
@@ -12,7 +14,10 @@ import Profile from './screens/Profile';
 import Register from './screens/Register';
 import Reset from './screens/Reset';
 import Training from './screens/Training';
+import TwoFASetup from './screens/TwoFASetup';
+import TwoFAVerify from './screens/TwoFAVerify';
 import Videos from './screens/Videos';
+import Confirm from './screens/Confirm';
 
 function TabBar() {
   const { state, t, go } = useApp();
@@ -32,6 +37,11 @@ function TabBar() {
       key: 'training',
       label: t('Тренировки', 'Training'),
       icon: 'fas fa-dumbbell',
+    },
+    {
+      key: 'integrations',
+      label: t('Интеграции', 'Integrations'),
+      icon: 'fas fa-microchip',
     },
     { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
     { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
@@ -63,7 +73,8 @@ export default function App() {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/reset' element={<Reset />} />
-        <Route path='*' element={<Login />} />
+        <Route path='/' element={<Landing />} />
+        <Route path='*' element={<Landing />} />
       </Routes>
     );
   }
@@ -71,17 +82,24 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path='/' element={<Home />} />
+        <Route path='/' element={<Landing />} />
         <Route path='/home' element={<Home />} />
         <Route path='/nutrition' element={<Nutrition />} />
         <Route path='/calendar' element={<Calendar />} />
         <Route path='/training' element={<Training />} />
+        <Route path='/integrations' element={<Integrations />} />
         <Route path='/videos' element={<Videos />} />
         <Route path='/ai' element={<AI />} />
         <Route path='/body' element={<Body />} />
         <Route path='/profile' element={<Profile />} />
         <Route path='/chat' element={<Chat />} />
         <Route path='/legal' element={<Legal />} />
+        <Route path='/privacy' element={<Legal />} />
+        <Route path='/terms' element={<Legal />} />
+        <Route path='/consent' element={<Legal />} />
+        <Route path='/twofa-setup' element={<TwoFASetup />} />
+        <Route path='/twofa-verify' element={<TwoFAVerify />} />
+        <Route path='/confirm' element={<Confirm />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
       <TabBar />

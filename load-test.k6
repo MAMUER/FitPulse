@@ -4,8 +4,7 @@ import { Trend, Counter, Rate } from 'k6/metrics';
 
 // Пользовательские метрики
 const loginDuration = new Trend('login_duration');
-const biometricDuration = new Trend('biometric_duration');
-const generatePlanDuration = new Trend('generate_plan_duration');
+const mlChatDuration = new Trend('ml_chat_duration');
 const healthCheckDuration = new Trend('health_check_duration');
 const apiErrors = new Counter('api_errors_total');
 const errorRate = new Rate('errors');
@@ -109,55 +108,25 @@ export default function (data) {
     });
     sleep(0.5);
 
-    // 2. ML Классификация - 30%
+    // 2. ML Chat - 30%
     if (Math.random() < 0.3) {
-        group('ML Classification', () => {
+        group('ML Chat', () => {
             let startTime = new Date();
-            let classifyRes = http.post(`${BASE_URL}/api/v1/ml/classify`, JSON.stringify({}), {
-                headers,
-                timeout: '15s'
-            });
-            biometricDuration.add(new Date() - startTime);
-
-            const ok = classifyRes.status === 200 || classifyRes.status === 202;
-            const unavailable = [429, 500, 502, 503].includes(classifyRes.status);
-
-            if (ok || unavailable) {
-                check(classifyRes, { 'ml classify success': () => true });
-            } else {
-                apiErrors.add(1);
-                errorRate.add(1);
-                check(classifyRes, { 'ml classify error': () => false });
-            }
-        });
-        sleep(1);
-    }
-
-    // 3. Генерация плана - 30%
-    if (Math.random() < 0.3) {
-        group('ML Generate Plan', () => {
-            let startTime = new Date();
-            const plan = {
-                training_class: 'endurance_e1e2',
-                duration_weeks: 4,
-                available_days: [1, 3, 5],
-                preferences: { max_duration: 60 }
-            };
-            let planRes = http.post(`${BASE_URL}/api/v1/ml/generate-plan`, JSON.stringify(plan), {
+            let chatRes = http.post(`${BASE_URL}/api/v1/ml/chat`, JSON.stringify({message: 'plan'}), {
                 headers,
                 timeout: '30s'
             });
-            generatePlanDuration.add(new Date() - startTime);
+            mlChatDuration.add(new Date() - startTime);
 
-            const ok = planRes.status === 200 || planRes.status === 202;
-            const unavailable = [429, 500, 502, 503].includes(planRes.status);
+            const ok = chatRes.status === 200 || chatRes.status === 202;
+            const unavailable = [429, 500, 502, 503].includes(chatRes.status);
 
             if (ok || unavailable) {
-                check(planRes, { 'ml generate plan success': () => true });
+                check(chatRes, { 'ml chat success': () => true });
             } else {
                 apiErrors.add(1);
                 errorRate.add(1);
-                check(planRes, { 'ml generate plan error': () => false });
+                check(chatRes, { 'ml chat error': () => false });
             }
         });
         sleep(1);

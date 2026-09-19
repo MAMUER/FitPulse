@@ -17,7 +17,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: jaeger.fittpulse.duckdns.org
+    - host: jaeger.fittpulse.ru
       http:
         paths:
           - path: /

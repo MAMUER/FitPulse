@@ -54,9 +54,7 @@
 
 ### 5. ML
 
-- POST `/api/v1/ml/classify`
-- POST `/api/v1/ml/generate-plan`
-- POST `/api/v1/ml/generate-diet`
+- POST `/api/v1/ml/chat` — классификация состояния + генерация плана тренировок + генерация диеты
 
 ### 6. Админка
 

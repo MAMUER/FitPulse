@@ -1601,7 +1601,7 @@ func (s *userServer) AdminListInvites(ctx context.Context, req *pb.AdminListInvi
 	var invites []*pb.InviteInfo
 	baseURL := s.baseURL
 	if baseURL == "" {
-		baseURL = "https://fittpulse.duckdns.org"
+		baseURL = "https://fittpulse.ru"
 	}
 	for _, inv := range inviteCodes {
 		specialty := ""
@@ -1672,7 +1672,7 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	baseURL := s.baseURL
 	if baseURL == "" {
-		baseURL = "https://fittpulse.duckdns.org"
+		baseURL = "https://fittpulse.ru"
 	}
 	inviteURL := fmt.Sprintf("%s/register?invite=%s", baseURL, code)
 

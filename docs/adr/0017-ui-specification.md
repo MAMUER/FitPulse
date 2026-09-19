@@ -60,7 +60,7 @@ web/
 6. **Achievements**: сетка карточек достижений и список соревнований.
 7. **Diet**: карточки приёмов пищи (калории, БЖУ) + калькулятор калорий по Mifflin-St Jeor.
 8. **Admin**: панель администратора с управлением пользователями/приглашениями (только для роли admin).
-9. **ML**: classify state (6 классов) + generate plan; читается из `/ml/classify` и `/ml/generate-plan`.
+9. **ML**: классификация состояния (7 классов) + генерация плана + генерация диеты; читается из `/api/v1/ml/chat`.
 10. **Безопасность**: XSS (`textContent`), CSP nonce-based, HTTPS-only, JWT в `httpOnly` cookie (`Secure`, `SameSite=Strict`), rate-limit UI на 429.
 11. **API-слой**: `web/src/utils/api.js` централизует все REST-вызовы.
 12. **Тестирование**: Vitest + React Testing Library; Biome линтинг и форматирование.

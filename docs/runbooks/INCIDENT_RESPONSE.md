@@ -71,7 +71,7 @@ kubectl get pods -n fitness-platform-production -l app=biometric-service
 kubectl logs -f deployment/biometric-service -n fitness-platform-production | grep -i "webhook\|error\|panic"
 
 # Проверить health endpoints
-curl -k https://fittpulse.duckdns.org/health
+curl -k https://fittpulse.ru/health
 curl http://biometric-service:8085/health
 ```
 
@@ -219,7 +219,7 @@ Action Items:
 |Инструмент|URL / Путь|Назначение|
 |---|---|---|
 |Telegram|CI/CD bot + server health chat|Уведомления о инцидентах|
-|Grafana|`https://fittpulse.duckdns.org`|Дашборды и метрики|
+|Grafana|`https://fittpulse.ru`|Дашборды и метрики|
 |Kubernetes|`kubectl`|Оркестрация контейнеров|
 |CI/CD|GitHub Actions|Сканирование, сборка, деплой|
 
@@ -245,7 +245,7 @@ Action Items:
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fittpulse.ru/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
