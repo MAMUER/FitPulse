@@ -286,7 +286,7 @@ python-dotenv==1.2.2
     # via uvicorn
 python-multipart==0.0.32
     # via -r requirements.txt
-pytorch-lightning==2.6.5
+pytorch-lightning==2.6.6
     # via lightning
 pyyaml==6.0.3
     # via
