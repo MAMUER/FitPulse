@@ -196,3 +196,27 @@ func decodeDeleteProfileRequest(r *http.Request) (*deleteProfileRequest, error) 
 	}
 	return &req, nil
 }
+
+func (g *gateway) exportUserDataHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		g.log.Error(errUnauthorized, zap.String("handler", "exportUserData"))
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := g.userClient.ExportUserData(r.Context(), &userpb.ExportUserDataRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		g.log.Error("Failed to export user data", zap.Error(err))
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		g.log.Error("Failed to encode export user data response", zap.Error(err))
+	}
+}

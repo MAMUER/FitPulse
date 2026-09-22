@@ -137,6 +137,10 @@ func (m *mockUserServiceClient) DeleteProfile(ctx context.Context, req *userpb.D
 	return &userpb.DeleteProfileResponse{Status: "deleted"}, nil
 }
 
+func (m *mockUserServiceClient) ExportUserData(ctx context.Context, req *userpb.ExportUserDataRequest, opts ...grpc.CallOption) (*userpb.ExportUserDataResponse, error) {
+	return &userpb.ExportUserDataResponse{UserId: req.UserId, Email: "test@example.com"}, nil
+}
+
 func (m *mockUserServiceClient) AdminListInvites(ctx context.Context, req *userpb.AdminListInvitesRequest, opts ...grpc.CallOption) (*userpb.AdminListInvitesResponse, error) {
 	return &userpb.AdminListInvitesResponse{}, nil
 }

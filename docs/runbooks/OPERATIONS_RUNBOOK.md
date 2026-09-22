@@ -252,6 +252,82 @@ psql -h localhost -U postgres -d fitness \
 kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 ```
 
+### Восстановление из WAL-архива (PITR)
+
+```bash
+# 1. Скачать последний бэкап из S3/MinIO
+aws --endpoint-url http://minio.minio.svc.cluster.local:9000 \
+  s3 cp s3://postgres-backups/backup-fitness-LATEST.dump.enc /tmp/backup.dump.enc
+
+# 2. Расшифровать бэкап
+openssl enc -d -aes-256-cbc -salt -pbkdf2 \
+  -pass pass:"$BACKUP_KEY" \
+  -in /tmp/backup.dump.enc -out /tmp/backup.dump
+
+# 3. Скачать WAL-файлы
+mkdir -p /tmp/wal-recovery
+aws --endpoint-url http://minio.minio.svc.cluster.local:9000 \
+  s3 sync s3://postgres-wal-archive/wal/ /tmp/wal-recovery/
+
+# 4. Восстановить в clone-окружении
+initdb -D /tmp/clone_pgdata
+cp /tmp/wal-recovery/postgresql.conf /tmp/clone_pgdata/
+pg_ctl -D /tmp/clone_pgdata \
+  -o "-c restore_command='cp /tmp/wal-recovery/%f %p'" start
+
+# 5. После завершения recovery, promote к primary
+pg_ctl -D /tmp/clone_pgdata promote
+```
+
+### Ежеквартальный Recovery Drill
+
+**Цель**: Проверить, что бэкапы работают и восстановление занимает < 1 часа.
+
+**Частота**: Раз в квартал (январь, апрель, июль, октябрь)
+
+**Процедура**:
+
+1. **Подготовка** (за 1 неделю до drill):
+   - Уведомить команду о предстоящем drill
+   - Проверить наличие свежего бэкапа (< 24 часов)
+   - Проверить доступность MinIO/S3 хранилища
+   - Подготовить clone-окружение (отдельный namespace или cluster)
+
+2. **Выполнение drill**:
+   ```bash
+   # Запустить chaos test suite
+   bash scripts/chaos-test-all.sh fitness-platform-production
+   
+   # Или выполнить вручную:
+   # 1. Остановить PostgreSQL
+   kubectl scale deployment/postgres --replicas=0 -n fitness-platform-production
+   
+   # 2. Восстановить из бэкапа в clone-среде
+   bash scripts/restore-to-clone.sh s3://postgres-backups/backup-fitness-LATEST.dump.enc
+   
+   # 3. Проверить целостность данных
+   psql -h clone-postgres -U postgres -d fitness -c "SELECT COUNT(*) FROM users;"
+   
+   # 4. Замерить время восстановления (RTO)
+   # 5. Проверить RPO (потеря данных = время последнего бэкапа)
+   ```
+
+3. **Критерии успеха**:
+   - ✅ RTO < 1 часа
+   - ✅ RPO < 24 часа (с WAL-архивацией)
+   - ✅ Данные целостны (проверка по контрольным суммам)
+   - ✅ Сервис доступен после восстановления
+
+4. **Документирование**:
+   - Заполнить шаблон отчёта: `docs/compliance/ШАБЛОН_ОТЧЁТА_RECOVERY_DRILL.md`
+   - Опубликовать отчёт в репозитории (без чувствительных данных)
+   - Создать action items при обнаружении проблем
+
+5. **Action Items**:
+   - Критические: исправить в течение 1 недели
+   - Средние: исправить в течение 1 месяца
+   - Низкие: добавить в backlog
+
 ---
 
 ## Контакты и эскалация

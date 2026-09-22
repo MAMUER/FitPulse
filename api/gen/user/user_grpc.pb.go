@@ -56,6 +56,7 @@ const (
 	UserService_DeleteMenstrualCycle_FullMethodName  = "/user.UserService/DeleteMenstrualCycle"
 	UserService_GetUserClaims_FullMethodName         = "/user.UserService/GetUserClaims"
 	UserService_DeleteProfile_FullMethodName         = "/user.UserService/DeleteProfile"
+	UserService_ExportUserData_FullMethodName        = "/user.UserService/ExportUserData"
 	UserService_AdminListInvites_FullMethodName      = "/user.UserService/AdminListInvites"
 	UserService_AdminCreateInvite_FullMethodName     = "/user.UserService/AdminCreateInvite"
 	UserService_AdminRevokeInvite_FullMethodName     = "/user.UserService/AdminRevokeInvite"
@@ -105,6 +106,7 @@ type UserServiceClient interface {
 	DeleteMenstrualCycle(ctx context.Context, in *DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*DeleteMenstrualCycleResponse, error)
 	GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error)
 	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*DeleteProfileResponse, error)
+	ExportUserData(ctx context.Context, in *ExportUserDataRequest, opts ...grpc.CallOption) (*ExportUserDataResponse, error)
 	AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error)
 	AdminCreateInvite(ctx context.Context, in *AdminCreateInviteRequest, opts ...grpc.CallOption) (*AdminCreateInviteResponse, error)
 	AdminRevokeInvite(ctx context.Context, in *AdminRevokeInviteRequest, opts ...grpc.CallOption) (*AdminRevokeInviteResponse, error)
@@ -491,6 +493,16 @@ func (c *userServiceClient) DeleteProfile(ctx context.Context, in *DeleteProfile
 	return out, nil
 }
 
+func (c *userServiceClient) ExportUserData(ctx context.Context, in *ExportUserDataRequest, opts ...grpc.CallOption) (*ExportUserDataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportUserDataResponse)
+	err := c.cc.Invoke(ctx, UserService_ExportUserData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userServiceClient) AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AdminListInvitesResponse)
@@ -592,6 +604,7 @@ type UserServiceServer interface {
 	DeleteMenstrualCycle(context.Context, *DeleteMenstrualCycleRequest) (*DeleteMenstrualCycleResponse, error)
 	GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error)
 	DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error)
+	ExportUserData(context.Context, *ExportUserDataRequest) (*ExportUserDataResponse, error)
 	AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error)
 	AdminCreateInvite(context.Context, *AdminCreateInviteRequest) (*AdminCreateInviteResponse, error)
 	AdminRevokeInvite(context.Context, *AdminRevokeInviteRequest) (*AdminRevokeInviteResponse, error)
@@ -718,6 +731,9 @@ func (UnimplementedUserServiceServer) GetUserClaims(context.Context, *GetUserCla
 }
 func (UnimplementedUserServiceServer) DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteProfile not implemented")
+}
+func (UnimplementedUserServiceServer) ExportUserData(context.Context, *ExportUserDataRequest) (*ExportUserDataResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportUserData not implemented")
 }
 func (UnimplementedUserServiceServer) AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AdminListInvites not implemented")
@@ -1424,6 +1440,24 @@ func _UserService_DeleteProfile_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_ExportUserData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportUserDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ExportUserData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ExportUserData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ExportUserData(ctx, req.(*ExportUserDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UserService_AdminListInvites_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AdminListInvitesRequest)
 	if err := dec(in); err != nil {
@@ -1686,6 +1720,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteProfile",
 			Handler:    _UserService_DeleteProfile_Handler,
+		},
+		{
+			MethodName: "ExportUserData",
+			Handler:    _UserService_ExportUserData_Handler,
 		},
 		{
 			MethodName: "AdminListInvites",

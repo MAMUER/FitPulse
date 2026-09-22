@@ -437,7 +437,7 @@ logged_actions:
   - "Deployment / rollback operations"
   - "RBAC policy changes"
 
-retention: "1 год (соответствие 152-ФЗ)"
+retention: "3 года (соответствие 152-ФЗ)"
 access: "Только роль 'auditor', read-only"
 
 verification:

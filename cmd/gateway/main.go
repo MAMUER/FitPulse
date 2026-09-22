@@ -715,6 +715,7 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Get(profilePath, g.getProfileHandler)
 		r.Put(profilePath, g.updateProfileHandler)
 		r.Delete(profilePath, g.deleteProfileHandler)
+		r.Get(profilePath+"/export", g.exportUserDataHandler)
 
 		// Health features
 		r.Get("/health/conditions", g.listHealthConditionsHandler)

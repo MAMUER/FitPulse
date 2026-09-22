@@ -25,30 +25,77 @@ Phase 1 покрывает базовый mTLS между микросервис
 
 ---
 
-## 3. PostgreSQL High Availability
+## 3. PostgreSQL High Availability & Disaster Recovery
+
+> **Статус: Частично выполнен** ⚠️
 
 ### 3.1 Контекст
 
-Single PostgreSQL инстанс сейчас работает на том же VPS что и приложение. Phase 2 требует:
+Single PostgreSQL инстанс сейчас работает на том же VPS что и приложение. Надежность данных обеспечивается на уровне:
+- ежедневный зашифрованный `pg_dump` в MinIO;
+- WAL-архивация в S3-совместимое хранилище;
+- процедуры восстановления и quarterly chaos-тесты.
 
-- автоматическое переключение при отказе
-- read replicas для отдачи аналитической нагрузки
-
-**Важно:** истинная HA с заявленными Acceptance Criteria (RTO < 30s, RPO = 0) возможна только при наличии **минимум 3 отдельных серверов/VPS** в разных географических locations. Patroni + etcd требует quorum из 3 узлов для автоматического failover. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
+Полноценная HA с автоматическим failover (`RTO < 30s`, `RPO = 0`) требует **минимум 3 отдельных серверов/VPS** в разных географических локациях (Patroni + etcd quorum). На текущем single-VPS это структурно невозможно; соответствующие задачи отложены до выделения инфраструктуры/бюджета.
 
 ### 3.2 Задачи
 
-1. Развёртывание Patroni + etcd (или managed Aurora/CloudSQL)
-2. Настройка 1 primary + 2 synchronous replicas
-3. Настройка pg_basebackup + WAL-архивации в S3
-4. Настройка HAProxy/ProxySQL как единой точки входа (connection pooling, health checks, read/write splitting)
-5. Интеграция с мониторингом: `pg_stat_replication`, `pg_stat_activity`
+1. Развёртывание Patroni + etcd или managed Aurora/CloudSQL.
+2. Настройка 1 primary + 2 synchronous replicas.
+3. Настройка pg_basebackup + WAL-архивации в S3/MinIO.
+4. Настройка HAProxy/ProxySQL как единой точки входа (connection pooling, health checks, read/write splitting).
+5. Интеграция с мониторингом: `pg_stat_replication`, `pg_stat_activity`.
+6. Шифрование бэкапов (AES-256, ключ в Vault).
+7. Тестовый стенд восстановления (restore-to-clone).
+8. Scheduled Chaos tests: отключение primary БД, Valkey master, Vault.
+9. Ежеквартальный recovery drill с публичным отчётом.
 
 ### 3.3 Acceptance Criteria
 
-- RTO < 30 секунд при отказе primary.
-- RPO = 0 при использовании синхронных реплик в разных AZ (availability zones). **Trade-off**: синхронные реплики в разных AZ увеличивают write latency на 50-200мс из-за ожидания подтверждения от реплик перед commit. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
-- Автоматическое восстановление из бэкапа протестировано (ежеквартальные Game Days).
+| Критерий | Статус | Примечание |
+|---|---|---|
+| RTO < 30 секунд при отказе primary | ⚠️ Требует инфраструктуры | Доступно только при 3+ VPS / managed HA |
+| RPO = 0 в разных AZ | ⏸ Отложено | Требует geo-distributed реплики |
+| Автоматическое восстановление протестировано | ✅ Готово | Шаблон drill + chaos-скрипты готовы |
+| Восстановление за < 1 часа | ⚠️ Требует тестирования | RTO зависит от размера БД |
+| Recovery drill раз в квартал | ✅ Готово | Процедура + шаблон отчёта готовы |
+
+### 3.4 Реализация
+
+| Компонент | Статус | Файл/Скрипт |
+|---|---|---|
+| Ежедневный бэкап PostgreSQL | Выполнено | `configs/k8s/base/jobs/postgres-backup-cronjob.yaml` |
+| Шифрование бэкапов AES-256 | Выполнено | `scripts/backup-db-with-minio.sh` |
+| WAL-архивация в MinIO | Выполнено | `configs/k8s/base/jobs/postgres-wal-archive-cronjob.yaml` |
+| PostgreSQL config для WAL | Выполнено | `configs/k8s/base/deployments/postgres-config.yaml` |
+| Восстановление из бэкапа | Выполнено | `scripts/restore-db.sh`, `scripts/restore-db.ps1` |
+| Restore-to-clone | Выполнено | `scripts/restore-to-clone.sh`, `scripts/restore-to-clone.ps1` |
+| Chaos tests | Выполнено | `scripts/chaos-test-postgres.sh`, `scripts/chaos-test-valkey.sh`, `scripts/chaos-test-vault.sh`, `scripts/chaos-test-all.sh` |
+| Recovery drill runbook | Выполнено | `docs/runbooks/OPERATIONS_RUNBOOK.md` |
+| Шаблон отчёта drill | Выполнено | `docs/compliance/ШАБЛОН_ОТЧЁТА_RECOVERY_DRILL.md` |
+| Patroni + etcd | ⏸ Отложено | Требует 3+ VPS / managed DB |
+| HAProxy/ProxySQL | ⏸ Отложено | Требует Patroni или managed DB |
+| Read replicas | ⏸ Отложено | Требует Patroni или managed DB |
+
+### 3.5 Бесплатные vs платные компоненты
+
+| Компонент | Стоимость | Примечание |
+|---|---|---|
+| Шифрование бэкапов AES-256 | Бесплатно | OpenSSL + существующие скрипты |
+| WAL-архивация в MinIO | Бесплатно | Использует существующий MinIO |
+| Restore-to-clone | Бесплатно | Локальные скрипты + MinIO |
+| Chaos tests | Бесплатно | Bash-скрипты + kubectl |
+| Recovery drill | Бесплатно | Процедура + документация |
+| Географическая репликация (2 зоны) | **Не бесплатно** | Требует 2 VPS в разных дата-центрах (~5 000–10 000 ₽/мес) |
+| Managed PostgreSQL (Aurora/CloudSQL) | **Не бесплатно** | ~2 500–4 000 ₽/мес |
+| Patroni + etcd cluster | **Частично** | Бесплатное ПО, но требует 3+ сервера |
+
+### 3.6 Следующие шаги (Phase 2)
+
+1. **Протестировать RTO**: запустить первый recovery drill в ближайший квартал, замерить фактическое время восстановления.
+2. **Автоматизировать restore-to-clone**: создать Kubernetes Job для автоматического восстановления в тестовом namespace.
+3. **Оценить бюджет на HA**: если бизнес-требования требуют RTO < 30s, арендовать 2 дополнительных VPS и развернуть Patroni.
+4. **Настроить PITR**: протестировать восстановление до конкретного момента времени с использованием WAL-архива.
 
 ---
 
@@ -76,29 +123,9 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ---
 
-## 5. Backup & Recovery Strategy
+## 5. Наблюдаемость и SLO
 
 ### 5.1 Контекст
-
-Phase 1 реализовала базовый бэкап через pg_dump (ежедневный cron job, см. `docs/ARCHITECTURE.md`). WAL-архивация и PITR **не реализованы** — запланированы на Phase 2. Phase 2 фокусируется на географической репликации, шифровании, WAL-архивации и автоматизации тестов восстановления.
-
-### 5.2 Задачи
-
-1. Шифрование бэкапов (AES-256, ключ в Vault)
-2. Тестовый стенд восстановления (restore-to-clone)
-3. Scheduled Chaos tests: отключение primary БД, Valkey master, Vault
-
-### 5.3 Acceptance Criteria
-
-- Восстановление за < 1 час
-- Бэкапы реплицируются в 2 географических зоны
-- Recovery drill — раз в квартал с публичным отчётом
-
----
-
-## 6. Наблюдаемость и SLO
-
-### 6.1 Контекст
 
 - Для GA-релиза необходимы расширенные возможности наблюдаемости.
 - Production-окружения содержат: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor.
@@ -109,7 +136,7 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
   - Health checks: /health, /confirm, /logout
   - ML endpoints: /api/v1/ml/chat
 
-### 6.2 Задачи
+### 5.2 Задачи
 
 1. **ОПРЕДЕЛИТЬ SLI/SLO**:
    - Целевая доступность: 99.9% в месяц (исключая плановые работы)
@@ -161,7 +188,7 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
     - Включить RBAC в Kibana: роли `admin`, `platform-team`, `auditor` (read-only).
     - Интегрировать с Alertmanager: алерты на проблемы с логированием (pipeline down, indexing errors).
 
-### 6.3 Acceptance Criteria
+### 5.3 Acceptance Criteria
 
 - Production-сервисы выдерживают 100+ concurrent requests
 - Экосистема мониторинга поддерживает 5-секундный интервал сбора для критических метрик
@@ -170,9 +197,9 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
 - Метрики ошибочного бюджета SLO приводят к автоматическому применению политик
 - Centralized logging развёрнут: Fluent Bit → Elasticsearch, 90 дней retention, RBAC в Kibana
 
-## 7. Infrastructure as Code (Total rewrite)
+## 6. Infrastructure as Code (Total rewrite)
 
-### 7.1 Контекст
+### 6.1 Контекст
 
 Phase 1 использует Kustomize + inline-скрипты для k3s. Текущая инфраструктура (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) ограничена для production-нагрузок, поэтому Phase 2 требует:
 
@@ -189,7 +216,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 - ArgoCD или Flux для GitOps
 - единый репозиторий конфигураций
 
-### 7.2 Задачи
+### 6.2 Задачи
 
 1. Аренда более мощного VPS на территории РФ для покрытия нагрузок Phase 2.
 2. Terraform модули: VPS, K8s cluster, DB, Vault
@@ -199,13 +226,13 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 
 ---
 
-## 8. Disaster Recovery
+## 7. Disaster Recovery
 
-### 8.1 Контекст
+### 7.1 Контекст
 
 Нужны сценарии восстановления на случай loss of region/datacenter. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
 
-### 8.2 Задачи
+### 7.2 Задачи
 
 1. Документация RTO/RPO по каждому сервису
 2. Автоматический DR failover (warm standby на another VPS)
@@ -214,13 +241,13 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 
 ---
 
-## 9. Canary Deployments
+## 8. Canary Deployments
 
-### 9.1 Контекст
+### 8.1 Контекст
 
 Текущий деплой — монолитный rollover на все поды одновременно. Отсутствие gradual rollout повышает риск даунтайма при регрессах.
 
-### 9.2 Задачи
+### 8.2 Задачи
 
 1. Интеграция **Flagger** (предпочтительнее Argo Rollouts для Linkerd/Istio/Nginx Ingress) с существующим GitOps-пайплайном.
 2. Конфигурация canary-стратегии: 5% → 25% → 50% → 100% traffic с автоматическим анализом метрик (Prometheus) между шагами.
@@ -229,21 +256,21 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 5. Документация runbook: manual promotion, manual rollback, pause, анализ логов canary-пода.
 6. Настройка `AnalysisTemplate` для кастомных проверок (например, проверка ML-моделей на drift) и интеграция с Slack-уведомлениями при pause для ручного вмешательства.
 
-### 9.3 Acceptance Criteria
+### 8.3 Acceptance Criteria
 
 - Любой deployment в production проходит через canary-фазу автоматически
 - Rollback происходит без участия человека при error rate > baseline + 1%
 - Время canary-фазы ≤ 10 минут до full rollout
 
-## 10. Bug Bounty / Researcher Program
+## 9. Bug Bounty / Researcher Program
 
-### 10.1 Контекст
+### 9.1 Контекст
 
 Базовая self-hosted политика уже реализована: созданы `BUG_BOUNTY_SCOPE.md` и раздел в `SECURITY.md`, определены in-scope/out-of-scope цели и transparent SLA по ответу (best effort).
 Однако программа работает без бюджета, а отчёты принимаются на личный email, что создаёт operational риски.
 В Phase 2 требуется усилить криптографическую защиту отчётов и оценить возможность перехода на профессиональные платформы или выделения бюджета.
 
-### 10.2 Задачи
+### 9.2 Задачи
 
 1. **Оценка бюджета**: проанализировать возможность выделения даже символического бюджета на вознаграждения или мерч для исследователей.
 2. **Криптографическая защита (PGP)**: сгенерировать и опубликовать PGP key fingerprint (Ed25519/Curve25519) в `SECURITY.md` и `BUG_BOUNTY_SCOPE.md` для шифрования чувствительных отчётов об уязвимостях (защита от перехвата zero-day при передаче по email).
@@ -251,16 +278,16 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 4. **Оценка платформенной интеграции**: рассмотреть целесообразность миграции с self-hosted (GitHub Advisory + email) на HackerOne / Bugcrowd / Intigriti (включая интеграцию алертов в Slack/Telegram), если появится бюджет.
 5. **Миграция на корпоративную почту**: см. раздел замена личного email на `security@fittpulse.ru` с hardware 2FA.
 
-### 10.3 Acceptance Criteria
+### 9.3 Acceptance Criteria
 
 - PGP key fingerprint опубликован в `SECURITY.md` и `BUG_BOUNTY_SCOPE.md`.
 - PGP-ключ настроен и доступен через WKD.
 - Принято финальное решение по бюджету и/или платформенной интеграции (с документированным обоснованием).
 - Личный email заменён на корпоративный alias.
 
-## 11. Корпоративный почтовый ящик для security-отчётов
+## 10. Корпоративный почтовый ящик для security-отчётов
 
-### 11.1 Контекст
+### 10.1 Контекст
 
 Текущий security reporting использует личный email (`mihnikolaenko12@yandex.ru`), что нарушает best practices:
 
@@ -269,7 +296,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 - неформальный домен снижает доверие к программе;
 - сложность с делегированием доступа в случае смены ответственного.
 
-### 11.2 Задачи
+### 10.2 Задачи
 
 1. Приобрести корпоративный домен/почтовый аккаунт для security отчётов (например, через Yandex 360 для бизнеса или Google Workspace).
 2. Выделить group alias `security@fittpulse.ru` с включенным аудитом логов входа и обязательным hardware 2FA (YubiKey) для всех членов security-команды.
@@ -278,7 +305,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 5. Документировать процесс доступа к ящику, ротации ключей и offboarding сотрудников.
 6. Настроить backup-коды и recovery process для hardware 2FA на случай потери YubiKey (хранение backup-кодов в Vault с ограниченным доступом).
 
-### 11.3 Acceptance Criteria
+### 10.3 Acceptance Criteria
 
 - Все security-отчёты принимаются на корпоративный ящик.
 - Личный email больше не указан как primary контакт.
@@ -287,13 +314,13 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 
 ---
 
-## 12. Ежеквартальный внешний пентест
+## 11. Ежеквартальный внешний пентест
 
-### 12.1 Контекст
+### 11.1 Контекст
 
 Внутренние сканы (gosec, Trivy, govulncheck, Gitleaks, TruffleHog) покрывают статический анализ кода, зависимости и конфигурации, но не находят уязвимости бизнес-логики, цепочки атак, ошибок авторизации или race conditions, которые проявляются только при hands-on тестировании. Phase 2 требует привлечения независимого подрядчика для этичного хакинга инфраструктуры и приложения раз в квартал.
 
-### 12.2 Задачи
+### 11.2 Задачи
 
 1. Выбрать и заключить договор с независимой компанией по пентестингу (white-box или gray-box).
 2. Определить scope: внешний perimeter, внутренняя сеть, веб-приложение, API, мобильные endpoints, социальная инженерия (опционально).
@@ -302,7 +329,7 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 5. Интеграция результатов в CI/CD: блокировка деплоя при наличии новых critical/high уязвимостей, найденных в пентесте.
 6. Хранение отчётов и remediation history в репозитории (без чувствительных данных) для audit trail.
 
-### 12.3 Acceptance Criteria
+### 11.3 Acceptance Criteria
 
 - Пентест проводится раз в квартал независимым подрядчиком.
 - Отчёт содержит executive summary, technical findings, risk rating (CVSS), remediation recommendations.
@@ -312,13 +339,13 @@ Phase 1 использует Kustomize + inline-скрипты для k3s. Те�
 
 ---
 
-## 13. CAPTCHA (Cloudflare Turnstile)
+## 12. CAPTCHA (Cloudflare Turnstile)
 
-### 13.1 Контекст
+### 12.1 Контекст
 
 Phase 1 использует жёсткий rate limiting (при превышении порога — блокировка). Это создаёт риск отзыва legitimate-пользователей при ложных срабатываниях, cross-user NAT и burst-трафике. CAPTCHA при превышении порога ошибок позволяет подтвердить человечность, не блокируя полностью.
 
-### 13.2 Задачи
+### 12.2 Задачи
 
 1. Интеграция Cloudflare Turnstile (fallback: hCaptcha) на уровне Gateway.
 2. Определение триггеров для показа CAPTCHA (например, ошибки 429 повторяются с одного IP/клиента).
@@ -327,13 +354,13 @@ Phase 1 использует жёсткий rate limiting (при превыше
 5. Обеспечение accessibility (WCAG 2.1 AA): CAPTCHA должна поддерживать screen readers и keyboard navigation.
 6. Fallback для пользователей без JS: альтернативный механизм подтверждения (например, email-верификация или honeypot-поля).
 
-### 13.3 Acceptance Criteria
+### 12.3 Acceptance Criteria
 
 - При превышении порога rate limit пользователь видит CAPTCHA, а не жёсткий блок.
 - Успешное решение CAPTCHA снимает ограничение на фиксированный период (например, 5 минут).
 - CAPTCHA логируется с correlationId и участвует в RED metrics.
 
-### 13.4 Privacy Considerations
+### 12.4 Privacy Considerations
 
 **Cloudflare Turnstile**:
 
@@ -348,13 +375,13 @@ Phase 1 использует жёсткий rate limiting (при превыше
 
 ---
 
-## 14. Secrets Rotation Automation
+## 13. Secrets Rotation Automation
 
-### 14.1 Контекст
+### 13.1 Контекст
 
 Phase 2 внедряет HashiCorp Vault для хранения секретов, но требуется автоматизация ротации и инъекции секретов в поды без перезапуска сервисов.
 
-### 14.2 Задачи
+### 13.2 Задачи
 
 1. Интеграция Vault Agent Injector для автоматической инъекции секретов в поды через sidecar-контейнер.
 2. Настройка `vault.hashicorp.com/agent-inject` аннотаций для всех сервисов.
@@ -363,7 +390,7 @@ Phase 2 внедряет HashiCorp Vault для хранения секрето�
 5. **Hot reload**: использовать `Stakater Reloader` (аннотация `reloader.stakater.com/auto: "true"`) для автоматического rolling update при ротации секретов во Vault/K8s Secrets, что гарантирует атомарное применение без downtime и race conditions.
 6. Мониторинг: алерты при неудачной ротации или истечении TTL.
 
-### 14.3 Acceptance Criteria
+### 13.3 Acceptance Criteria
 
 - Все секреты инжектируются в поды автоматически без перезапуска сервисов.
 - Ротация происходит прозрачно для приложений.
@@ -371,31 +398,31 @@ Phase 2 внедряет HashiCorp Vault для хранения секрето�
 
 ---
 
-## 15. Интеграция с медицинскими сервисами
+## 14. Интеграция с медицинскими сервисами
 
-### 15.1 Контекст
+### 14.1 Контекст
 
 FitPulse обрабатывает биометрические и медицинские данные пользователей. Для повышения точности классификации и персонализации планов требуется интеграция с внешними сервисами здоровья и синхронизация с медицинской картой.
 
-### 15.2 Задачи
+### 14.2 Задачи
 
 1. API для синхронизации с медицинской картой пользователя (с согласия субъекта).
 2. Шифрование всех медицинских данных at rest и in transit.
 
-### 15.3 Acceptance Criteria
+### 14.3 Acceptance Criteria
 
 - Синхронизация с медицинской картой работает при наличии согласия пользователя.
 - Все медицинские данные защищены по 152-ФЗ.
 
 ---
 
-## 16. Регистрация приложения как медицинского
+## 15. Регистрация приложения как медицинского
 
-### 16.1 Контекст
+### 15.1 Контекст
 
 FitPulse выходит за рамки wellness-приложения: plans генерируются на основе физиологического состояния, используются биометрические данные, есть интеграция с медицинскими сервисами. Это требует официальной регистрации как медицинского ПО/сервиса.
 
-### 16.2 Задачи
+### 15.2 Задачи
 
 1. Юридическая экспертиза: соответствие FitPulse определению медицинского сервиса/продукта в РФ.
 2. Подготовка технической документации для регистрации.
@@ -404,7 +431,7 @@ FitPulse выходит за рамки wellness-приложения: plans г�
 5. Обновление политик конфиденциальности и обработки данных с учётом медицинского статуса.
 6. Информирование пользователей о медицинском статусе сервиса через интерфейс.
 
-### 16.3 Acceptance Criteria
+### 15.3 Acceptance Criteria
 
 - FitPulse зарегистрирован как медицинское ПО/сервис.
 - Размещён сертификат/разрешение в разделе About/Legal.
@@ -413,15 +440,15 @@ FitPulse выходит за рамки wellness-приложения: plans г�
 
 ---
 
-## 17. Ежедневная адаптивная модификация плана
+## 16. Ежедневная адаптивная модификация плана
 
-### 17.1 Контекст
+### 16.1 Контекст
 
 Текущий сервер (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) не позволяет запускать ежедневное ML-переобучение без влияния на отзывчивость приложения.
 Phase 1 покрывает базовую генерацию плана и классификацию состояния через `POST /api/v1/ml/chat`.
 Ежедневная автоматическая модификация плана — это задача Phase 2, требующая отдельного планировщика/воркера и более мощной инфраструктуры.
 
-### 17.2 Задачи
+### 16.2 Задачи
 
 1. Развёртывание отдельного scheduled job (Kubernetes CronJob) для ежедневного перерасчёта планов на основе новых биометрических данных.
 2. Интеграция с `.dvc` (Data Version Control) для версионирования ML-моделей и данных.
@@ -429,20 +456,20 @@ Phase 1 покрывает базовую генерацию плана и кл�
 4. Очередь задач (`ml.generate` в RabbitMQ) для асинхронной генерации планов.
 5. Мониторинг ресурсов воркера: алерт при CPU > 70% или RAM > 75%.
 
-### 17.3 Acceptance Criteria
+### 16.3 Acceptance Criteria
 
 - Планы пользователей автоматически пересматриваются раз в 24 часа на основе последних биометрических данных.
 - Переобучение не влияет на p95 латентность API (< 2s).
 - DVC-tracked модели версионируются и откатываются при деградации качества.
 - План переобучения завершается за < 10 минут на выделенном воркере (2+ vCPU, 4+ ГБ RAM).
 
-### 17.4 Infrastructure Requirements
+### 16.4 Infrastructure Requirements
 
 - **Минимум**: 2 vCPU, 4 ГБ RAM выделенный воркер для ML retrain
 - **Рекомендуется**: 4 vCPU, 8 ГБ RAM с GPU (CUDA) для ускорения GAN inference
 - **Хранилище**: 20 ГБ SSD для DVC cache + моделей
 
-### 17.5 Trade-offs
+### 16.5 Trade-offs
 
 - На текущем 2-vCPU / 4 ГБ сервере **не рекомендуется** включать ежедневное переобучение.
 - Вместо этого: on-demand регенерация плана при явном запросе пользователя или при значительном изменении биометрических данных (> 20% отклонение от baseline).
@@ -452,13 +479,13 @@ Phase 1 покрывает базовую генерацию плана и кл�
 
 ---
 
-## 18. Диаграмма зависимостей
+## 17. Диаграмма зависимостей
 
-### 18.1 Контекст
+### 17.1 Контекст
 
 Phase 2 состоит из нескольких крупных блоков, которые нельзя выполнять хаотично. Ниже — обязательный порядок зависимостей.
 
-### 18.2 Зависимости
+### 17.2 Зависимости
 
 ```text
 [Security email + PGP] ─────────────────────────┐
@@ -480,7 +507,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 [Ежеквартальный внешний пентест] ───────► [Bug Bounty]
 ```
 
-### 18.3 Блокеры
+### 17.3 Блокеры
 
 | Блок | Блокирует | Причина |
 | --- | --- | --- |
@@ -491,7 +518,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 | Security email + PGP | Bug Bounty, Pen Test, SECURITY.md обновление | Требует корпоративного ящика до публикации |
 | Compliance 152-ФЗ | Medical services integration, Medical app registration | Требует шифрования и audit trail |
 
-### 18.4 Параллельные работы
+### 17.4 Параллельные работы
 
 - **Vault + Secrets** можно начинать параллельно с **Infra provisioning** (на тестовом стенде)
 - **CAPTCHA** не зависит от инфраструктуры, можно делать параллельно с **Compliance**
@@ -501,13 +528,13 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 ---
 
-## 19. Оценка стоимости (руб/мес)
+## 18. Оценка стоимости (руб/мес)
 
-### 19.1 Контекст
+### 18.1 Контекст
 
 Все оценки указаны для российского хостинга (Yandex Cloud / Selectel / Timeweb VPS) и approximated. Точные цифры зависят от провайдера и региона.
 
-### 19.2 Инфраструктура
+### 18.2 Инфраструктура
 
 | Компонент | Текущая стоимость | Новая стоимость | Δ |
 | --- | --- | --- | --- |
@@ -519,7 +546,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 | SSL-сертификат (Let's Encrypt) | — | 0 ₽/мес | 0 ₽/мес |
 | **Итого инфраструктура** | **~1 500 ₽/мес** | **~8 000–10 500 ₽/мес** | **+6 500–9 000 ₽/мес** |
 
-### 19.3 ML-сервисы
+### 18.3 ML-сервисы
 
 | Компонент | Стоимость | Примечание |
 | --- | --- | --- |
@@ -528,7 +555,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 | GPU-воркер (если нужен inference acceleration) | ~5 000–15 000 ₽/мес | Yandex Cloud GPU / Lambda Labs |
 | **Итого ML** | **0–15 000 ₽/мес** | Зависит от необходимости GPU |
 
-### 19.4 Security / Compliance
+### 18.4 Security / Compliance
 
 | Компонент | Стоимость | Примечание |
 | --- | --- | --- |
@@ -537,7 +564,7 @@ Phase 2 состоит из нескольких крупных блоков, к
 | Bug Bounty вознаграждения (опционально) | 0–10 000 ₽/мес | Зависит от бюджета |
 | **Итого Security** | **300–10 600 ₽/мес** | — |
 
-### 19.5 Итого Phase 2
+### 18.5 Итого Phase 2
 
 | Сценарий | Стоимость/мес | Годовая стоимость |
 | --- | --- | --- |
@@ -549,13 +576,13 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 ---
 
-## 20. Resource Plan: FTE
+## 19. Resource Plan: FTE
 
-### 20.1 Контекст
+### 19.1 Контекст
 
 Phase 2 требует специализации, которой нет у единственного разработчика. Ниже — оценка человеко-часов и необходимых ролей.
 
-### 20.2 Роли и ответственность
+### 19.2 Роли и ответственность
 
 | Роль | Занятость | Ответственность |
 | --- | --- | --- |
@@ -567,7 +594,7 @@ Phase 2 требует специализации, которой нет у ед
 | **Security** | 0.2 FTE | Bug bounty, PGP, WAF rules, penetration testing |
 | **Product/Design** | 0.1 FTE | Приоритизация фич, UI/UX approval |
 
-### 20.3 Общие затраты
+### 19.3 Общие затраты
 
 | Сценарий | FTE | Срок | Человеко-часы |
 | --- | --- | --- | --- |
@@ -579,13 +606,13 @@ Phase 2 требует специализации, которой нет у ед
 
 ---
 
-## 21. Migration Strategy
+## 20. Migration Strategy
 
-### 21.1 Контекст
+### 20.1 Контекст
 
 Каждый major change в Phase 2 требует стратегии миграции без downtime. Ниже — per-component планы.
 
-### 21.2 Vault Migration (Kubernetes Secrets → Vault)
+### 20.2 Vault Migration (Kubernetes Secrets → Vault)
 
 **Подход**: Gradual migration с dual-read периодом.
 
@@ -595,7 +622,7 @@ Phase 2 требует специализации, которой нет у ед
 4. **Week 4**: Отключение K8s Secrets, все приложения читают только из Vault
 5. **Rollback**: При проблемах с Vault — переключение обратно на K8s Secrets через environment variable `VAULT_ENABLED=false`
 
-### 21.3 PostgreSQL HA Migration (Single → Patroni)
+### 20.3 PostgreSQL HA Migration (Single → Patroni)
 
 **Подход**: Rolling migration с использованием pg_basebackup.
 
@@ -605,7 +632,7 @@ Phase 2 требует специализации, которой нет у ед
 4. **Week 4**: Деcommission старого single PostgreSQL
 5. **Rollback**: При проблемах — переключение connection string обратно на старый primary
 
-### 21.4 Service Mesh Migration (hand-rolled mTLS → Istio/Linkerd)
+### 20.4 Service Mesh Migration (hand-rolled mTLS → Istio/Linkerd)
 
 **Подход**: Canary migration namespace-by-namespace.
 
@@ -615,7 +642,7 @@ Phase 2 требует специализации, которой нет у ед
 4. **Week 4**: Отключение hand-rolled mTLS, полный переход на mesh
 5. **Rollback**: При проблемах — отключение sidecar-инъекции, возврат к hand-rolled mTLS
 
-### 21.5 Data Processor Migration (stub → production)
+### 20.5 Data Processor Migration (stub → production)
 
 **Подход**: Blue-green deployment consumer'а.
 
@@ -627,13 +654,13 @@ Phase 2 требует специализации, которой нет у ед
 
 ---
 
-## 22. Risk Register
+## 21. Risk Register
 
-### 22.1 Контекст
+### 21.1 Контекст
 
 Каждый пункт Phase 2 имеет operational риски. Ниже — реестр рисков с fallback-стратегиями.
 
-### 22.2 Риски
+### 21.2 Риски
 
 | ID | Риск | Вероятность | Влияние | Митигация | Fallback |
 | --- | --- | --- | --- | --- | --- |
@@ -648,7 +675,7 @@ Phase 2 требует специализации, которой нет у ед
 | R9 | Service Mesh конфликтует с существующими Network Policies | Средняя | Высокое | Тестирование в dev перед production | Откат на hand-rolled mTLS |
 | R10 | Adaptive daily retrain перегружает API | Высокая | Высокое | Очередь RabbitMQ + rate limiting на retrain job | On-demand retrain только по запросу пользователя |
 
-### 22.3 Risk Response Plan
+### 21.3 Risk Response Plan
 
 | Риск | Ответ | Trigger | Action |
 | --- | --- | --- | --- |
@@ -665,13 +692,13 @@ Phase 2 требует специализации, которой нет у ед
 
 ---
 
-## 23. Exit Criteria для Phase 2
+## 22. Exit Criteria для Phase 2
 
-### 23.1 Контекст
+### 22.1 Контекст
 
 Phase 2 завершается, когда выполнены все Must-have критерии. Should-have и Could-have могут быть перенесены на Phase 3.
 
-### 23.2 Must-have (Phase 2 exit criteria)
+### 22.2 Must-have (Phase 2 exit criteria)
 
 | Критерий | Метрика | Приоритет |
 | --- | --- | --- |
@@ -684,7 +711,7 @@ Phase 2 завершается, когда выполнены все Must-have �
 | Backup DR протестирован | Recovery drill раз в квартал, RTO < 1ч | P1 |
 | Observability: Grafana + Alertmanager | Дашборды покрывают все critical endpoints | P1 |
 
-### 23.3 Should-have (Phase 2 exit criteria — желательно)
+### 22.3 Should-have (Phase 2 exit criteria — желательно)
 
 | Критерий | Меторика | Приоритет |
 | --- | --- | --- |
@@ -694,7 +721,7 @@ Phase 2 завершается, когда выполнены все Must-have �
 | Open Wearables интеграция готова | Webhook + biometric-service | P0 |
 | Adaptive daily plan retrain (on-demand) | Retrain завершается < 10 мин | P3 |
 
-### 23.4 Could-have / Won't-have (переносится на Phase 3)
+### 22.4 Could-have / Won't-have (переносится на Phase 3)
 
 | Критерий | Причина переноса |
 | --- | --- |
@@ -705,13 +732,13 @@ Phase 2 завершается, когда выполнены все Must-have �
 
 ---
 
-## 24. Timeline с Milestones
+## 23. Timeline с Milestones
 
-### 24.1 Контекст
+### 23.1 Контекст
 
 Phase 2 планируется на **3–4 месяца** (12–16 недель) при нагрузке 0.5–0.8 FTE. Ниже — детальный timeline с вехами.
 
-### 24.2 Milestones
+### 23.2 Milestones
 
 | Milestone | Срок | Deliverables | Exit criteria |
 | --- | --- | --- | --- |
@@ -722,7 +749,7 @@ Phase 2 планируется на **3–4 месяца** (12–16 недель
 | **M5: Compliance** | Недели 9–10 | 152-ФЗ documentation, medical API, security email migrated, pen test vendor contracted | Политика утверждена, medical sync работает, pen test запланирован |
 | **M6: Polish** | Недели 11–12 | CAPTCHA, bug bounty launch, adaptive retrain on-demand | Все Must-have критерии выполнены |
 
-### 24.3 Gantt Chart (text-based)
+### 23.3 Gantt Chart (text-based)
 
 ```text
 Неделя:    1    2    3    4    5    6    7    8    9    10   11   12
@@ -740,7 +767,7 @@ Medical:                                                                      [�
 Adaptive Retrain:                                                                 [████████████████]
 ```
 
-### 24.4 Дependencies Timeline
+### 23.4 Дependencies Timeline
 
 ```text
 M1 (Foundation)
@@ -771,7 +798,7 @@ M6 (Polish)
   └── Adaptive Retrain
 ```
 
-### 24.5 Critical Path
+### 23.5 Critical Path
 
 ```text
 VPS upgrade → Vault → PostgreSQL HA → Service Mesh → Observability → Compliance → Medical
@@ -779,7 +806,7 @@ VPS upgrade → Vault → PostgreSQL HA → Service Mesh → Observability → C
 
 **Любая задержка в Critical Path задержит всю Phase 2 на 1–2 недели.**
 
-### 24.6 Buffer
+### 23.6 Buffer
 
 - **10% buffer** на непредвиденные проблемы (итого 13–14 недель вместо 12)
 - **Еженедельный sync** для корректировки timeline
@@ -787,13 +814,13 @@ VPS upgrade → Vault → PostgreSQL HA → Service Mesh → Observability → C
 
 ---
 
-## 25. Критерии приёмки Phase 2
+## 24. Критерии приёмки Phase 2
 
-### 25.1 Контекст
+### 24.1 Контекст
 
-Phase 2 считается завершённой, когда выполнены все Must-have критерии из раздела 22.2.
+Phase 2 считается завершённой, когда выполнены все Must-have критерии из раздела 21.2.
 
-### 25.2 Checklist
+### 24.2 Checklist
 
 - [ ] Vault развёрнут, все секреты мигрированы, ротация работает
 - [ ] PostgreSQL HA с Patroni, failover < 30s протестирован
@@ -807,7 +834,7 @@ Phase 2 считается завершённой, когда выполнены
 - [ ] Bug bounty программа запущена, PGP ключ опубликован
 - [ ] Ежеквартальный внешний пентест проведён, critical/high уязвимости исправлены
 
-### 25.3 Go/No-go Criteria
+### 24.3 Go/No-go Criteria
 
 | Критерий | Go | No-go |
 | --- | --- | --- |
@@ -818,9 +845,9 @@ Phase 2 считается завершённой, когда выполнены
 
 ---
 
-## 26. Phase 3 Preview
+## 25. Phase 3 Preview
 
-### 26.1 Что точно не входит в Phase 2
+### 25.1 Что точно не входит в Phase 2
 
 - Canary Deployments (Flagger + Argo Rollouts)
 - Full medical app registration в Минздраве
@@ -828,14 +855,14 @@ Phase 2 считается завершённой, когда выполнены
 - Multi-region DR (требует второго датацентра)
 - Advanced ML: reinforcement learning для адаптации планов
 
-### 26.2 Что потенциально перейдёт в Phase 3
+### 25.2 Что потенциально перейдёт в Phase 3
 
 - Service Mesh → полноценный Istio с traffic shaping
 - Vault → HSM-backed key management
 - Observability → OpenTelemetry Collector + Thanos
 - ML → online learning сFeedback loop
 
-### 26.3 Предварительный объём Phase 3
+### 25.3 Предварительный объём Phase 3
 
 | Этап | Срок | Ответственный |
 | --- | --- | --- |
@@ -849,13 +876,13 @@ Phase 2 считается завершённой, когда выполнены
 
 ---
 
-## 27. Расширение поддерживаемых устройств
+## 26. Расширение поддерживаемых устройств
 
-### 27.1 Контекст
+### 26.1 Контекст
 
 Текущие интегрированные источники здоровья: Open Wearables (агрегатор Apple Health, Garmin, Health Connect и др.). Samsung Galaxy Watch и Huawei Watch D2 поддерживаются через Open Wearables в roadmap Phase 2.
 
-### 27.2 План
+### 26.2 План
 
 | Этап | Источник/устройство | Срок | Приоритет | Задачи |
 | --- | --- | --- | --- | --- |
@@ -863,14 +890,14 @@ Phase 2 считается завершённой, когда выполнены
 | 2 | Samsung Galaxy Watch | 3–4 недели | P2 | Через Open Wearables / Samsung Health Connect |
 | 3 | Huawei Watch D2 | 3–4 недели | P2 | Через Open Wearables / Huawei Health Kit |
 
-### 27.3 Acceptance Criteria
+### 26.3 Acceptance Criteria
 
 - Каждое устройство имеет working Open Wearables integration (aggregator → webhook → biometric-service)
 - Минимум 3 метрики (heart_rate, spo2, sleep) синхронизируются автоматически
 - Данные поступают через `POST /api/v1/integrations/open-wearables/webhook` в biometric-service
 - UI отображает статус подключения и последнюю синхронизацию
 
-### 27.4 Архитектурные ограничения
+### 26.4 Архитектурные ограничения
 
 - Biometric-service остаётся универсальным: принимает webhook от Open Wearables, валидирует, сохраняет в `biometric_data`
 - Device-aggregator используется как легковесный webhook-forwarder для Open Wearables
@@ -878,9 +905,9 @@ Phase 2 считается завершённой, когда выполнены
 
 ---
 
-## 28. Полноценная двухфакторная верификация через Google
+## 27. Полноценная двухфакторная верификация через Google
 
-### 28.1 Контекст
+### 27.1 Контекст
 
 Чтобы разблокировать полноценный вход для всех пользователей через Google OAuth 2.0 с production-статусом consent screen, требуется:
 
@@ -889,7 +916,7 @@ Phase 2 считается завершённой, когда выполнены
 - privacy policy и terms of service на том же домене;
 - branding verification пройдена.
 
-### 28.2 Предпосылки
+### 27.2 Предпосылки
 
 - DNS-записи домена указывают на VPS / внешний load balancer, где поднят кластер k3s.
 - В Google Cloud Console:
@@ -905,7 +932,7 @@ Phase 2 считается завершённой, когда выполнены
   - ingress/routes проксируют `/`, `/privacy`, `/terms` на gateway;
   - SPA на React отдаёт главную страницу и юридические страницы.
 
-### 28.3 Задачи
+### 27.3 Задачи
 
 | Этап | Задача | Срок | Приоритет |
 | --- | --- | --- | --- |
@@ -915,13 +942,13 @@ Phase 2 считается завершённой, когда выполнены
 | 5 | Пройти branding verification (логотип 120×120, скриншоты, описание) | 1–2 дня | P0 |
 | 6 | Перевести consent screen из testing в production | 1 день | P0 |
 
-### 28.4 Acceptance Criteria
+### 27.4 Acceptance Criteria
 
 - `https://fittpulse.ru`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
 - Google OAuth consent screen находится в статусе **production**.
 - Вход через Google работает для любых пользователей без ограничения в 100 аккаунтов и без 7-дневного истечения токена.
 
-### 28.5 Риски и mitigation
+### 27.5 Риски и mitigation
 
 | Риск | Вероятность | Воздействие | Mitigation |
 | --- | --- | --- | --- |

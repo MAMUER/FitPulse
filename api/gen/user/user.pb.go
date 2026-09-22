@@ -5149,6 +5149,262 @@ func (x *AdminDeleteUserResponse) GetMessage() string {
 	return ""
 }
 
+type ExportUserDataRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExportUserDataRequest) Reset() {
+	*x = ExportUserDataRequest{}
+	mi := &file_user_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportUserDataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportUserDataRequest) ProtoMessage() {}
+
+func (x *ExportUserDataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportUserDataRequest.ProtoReflect.Descriptor instead.
+func (*ExportUserDataRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *ExportUserDataRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ExportUserDataResponse struct {
+	state             protoimpl.MessageState   `protogen:"open.v1"`
+	UserId            string                   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Email             string                   `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	FullName          string                   `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	Nickname          string                   `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	ProfilePhotoUrl   string                   `protobuf:"bytes,5,opt,name=profile_photo_url,json=profilePhotoUrl,proto3" json:"profile_photo_url,omitempty"`
+	Role              string                   `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`
+	Age               int32                    `protobuf:"varint,7,opt,name=age,proto3" json:"age,omitempty"`
+	Gender            string                   `protobuf:"bytes,8,opt,name=gender,proto3" json:"gender,omitempty"`
+	HeightCm          int32                    `protobuf:"varint,9,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
+	WeightKg          float64                  `protobuf:"fixed64,10,opt,name=weight_kg,json=weightKg,proto3" json:"weight_kg,omitempty"`
+	FitnessLevel      string                   `protobuf:"bytes,11,opt,name=fitness_level,json=fitnessLevel,proto3" json:"fitness_level,omitempty"`
+	Goals             []string                 `protobuf:"bytes,12,rep,name=goals,proto3" json:"goals,omitempty"`
+	Contraindications []string                 `protobuf:"bytes,13,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
+	Nutrition         string                   `protobuf:"bytes,14,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
+	SleepHours        float32                  `protobuf:"fixed32,15,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
+	CreatedAt         string                   `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt         string                   `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	HealthConditions  []*HealthCondition       `protobuf:"bytes,18,rep,name=health_conditions,json=healthConditions,proto3" json:"health_conditions,omitempty"`
+	BodyComposition   []*BodyCompositionRecord `protobuf:"bytes,19,rep,name=body_composition,json=bodyComposition,proto3" json:"body_composition,omitempty"`
+	MenstrualCycles   []*MenstrualCycle        `protobuf:"bytes,20,rep,name=menstrual_cycles,json=menstrualCycles,proto3" json:"menstrual_cycles,omitempty"`
+	Devices           []*Device                `protobuf:"bytes,21,rep,name=devices,proto3" json:"devices,omitempty"`
+	ExportedAt        string                   `protobuf:"bytes,22,opt,name=exported_at,json=exportedAt,proto3" json:"exported_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ExportUserDataResponse) Reset() {
+	*x = ExportUserDataResponse{}
+	mi := &file_user_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportUserDataResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportUserDataResponse) ProtoMessage() {}
+
+func (x *ExportUserDataResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportUserDataResponse.ProtoReflect.Descriptor instead.
+func (*ExportUserDataResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *ExportUserDataResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetProfilePhotoUrl() string {
+	if x != nil {
+		return x.ProfilePhotoUrl
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetAge() int32 {
+	if x != nil {
+		return x.Age
+	}
+	return 0
+}
+
+func (x *ExportUserDataResponse) GetGender() string {
+	if x != nil {
+		return x.Gender
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetHeightCm() int32 {
+	if x != nil {
+		return x.HeightCm
+	}
+	return 0
+}
+
+func (x *ExportUserDataResponse) GetWeightKg() float64 {
+	if x != nil {
+		return x.WeightKg
+	}
+	return 0
+}
+
+func (x *ExportUserDataResponse) GetFitnessLevel() string {
+	if x != nil {
+		return x.FitnessLevel
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetGoals() []string {
+	if x != nil {
+		return x.Goals
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetContraindications() []string {
+	if x != nil {
+		return x.Contraindications
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetNutrition() string {
+	if x != nil {
+		return x.Nutrition
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetSleepHours() float32 {
+	if x != nil {
+		return x.SleepHours
+	}
+	return 0
+}
+
+func (x *ExportUserDataResponse) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *ExportUserDataResponse) GetHealthConditions() []*HealthCondition {
+	if x != nil {
+		return x.HealthConditions
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetBodyComposition() []*BodyCompositionRecord {
+	if x != nil {
+		return x.BodyComposition
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetMenstrualCycles() []*MenstrualCycle {
+	if x != nil {
+		return x.MenstrualCycles
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetDevices() []*Device {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
+func (x *ExportUserDataResponse) GetExportedAt() string {
+	if x != nil {
+		return x.ExportedAt
+	}
+	return ""
+}
+
 type AdminBanUserRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	RequesterUserId string                 `protobuf:"bytes,1,opt,name=requester_user_id,json=requesterUserId,proto3" json:"requester_user_id,omitempty"`
@@ -5159,7 +5415,7 @@ type AdminBanUserRequest struct {
 
 func (x *AdminBanUserRequest) Reset() {
 	*x = AdminBanUserRequest{}
-	mi := &file_user_proto_msgTypes[82]
+	mi := &file_user_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5171,7 +5427,7 @@ func (x *AdminBanUserRequest) String() string {
 func (*AdminBanUserRequest) ProtoMessage() {}
 
 func (x *AdminBanUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[82]
+	mi := &file_user_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5184,7 +5440,7 @@ func (x *AdminBanUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminBanUserRequest.ProtoReflect.Descriptor instead.
 func (*AdminBanUserRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{82}
+	return file_user_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *AdminBanUserRequest) GetRequesterUserId() string {
@@ -5211,7 +5467,7 @@ type AdminBanUserResponse struct {
 
 func (x *AdminBanUserResponse) Reset() {
 	*x = AdminBanUserResponse{}
-	mi := &file_user_proto_msgTypes[83]
+	mi := &file_user_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5223,7 +5479,7 @@ func (x *AdminBanUserResponse) String() string {
 func (*AdminBanUserResponse) ProtoMessage() {}
 
 func (x *AdminBanUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[83]
+	mi := &file_user_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5236,7 +5492,7 @@ func (x *AdminBanUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminBanUserResponse.ProtoReflect.Descriptor instead.
 func (*AdminBanUserResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{83}
+	return file_user_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *AdminBanUserResponse) GetSuccess() bool {
@@ -5263,7 +5519,7 @@ type AdminUnbanUserRequest struct {
 
 func (x *AdminUnbanUserRequest) Reset() {
 	*x = AdminUnbanUserRequest{}
-	mi := &file_user_proto_msgTypes[84]
+	mi := &file_user_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5275,7 +5531,7 @@ func (x *AdminUnbanUserRequest) String() string {
 func (*AdminUnbanUserRequest) ProtoMessage() {}
 
 func (x *AdminUnbanUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[84]
+	mi := &file_user_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5288,7 +5544,7 @@ func (x *AdminUnbanUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminUnbanUserRequest.ProtoReflect.Descriptor instead.
 func (*AdminUnbanUserRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{84}
+	return file_user_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *AdminUnbanUserRequest) GetRequesterUserId() string {
@@ -5315,7 +5571,7 @@ type AdminUnbanUserResponse struct {
 
 func (x *AdminUnbanUserResponse) Reset() {
 	*x = AdminUnbanUserResponse{}
-	mi := &file_user_proto_msgTypes[85]
+	mi := &file_user_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5327,7 +5583,7 @@ func (x *AdminUnbanUserResponse) String() string {
 func (*AdminUnbanUserResponse) ProtoMessage() {}
 
 func (x *AdminUnbanUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[85]
+	mi := &file_user_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5340,7 +5596,7 @@ func (x *AdminUnbanUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminUnbanUserResponse.ProtoReflect.Descriptor instead.
 func (*AdminUnbanUserResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{85}
+	return file_user_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *AdminUnbanUserResponse) GetSuccess() bool {
@@ -5766,7 +6022,37 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"M\n" +
 	"\x17AdminDeleteUserResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"Z\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"0\n" +
+	"\x15ExportUserDataRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa0\x06\n" +
+	"\x16ExportUserDataResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
+	"\tfull_name\x18\x03 \x01(\tR\bfullName\x12\x1a\n" +
+	"\bnickname\x18\x04 \x01(\tR\bnickname\x12*\n" +
+	"\x11profile_photo_url\x18\x05 \x01(\tR\x0fprofilePhotoUrl\x12\x12\n" +
+	"\x04role\x18\x06 \x01(\tR\x04role\x12\x10\n" +
+	"\x03age\x18\a \x01(\x05R\x03age\x12\x16\n" +
+	"\x06gender\x18\b \x01(\tR\x06gender\x12\x1b\n" +
+	"\theight_cm\x18\t \x01(\x05R\bheightCm\x12\x1b\n" +
+	"\tweight_kg\x18\n" +
+	" \x01(\x01R\bweightKg\x12#\n" +
+	"\rfitness_level\x18\v \x01(\tR\ffitnessLevel\x12\x14\n" +
+	"\x05goals\x18\f \x03(\tR\x05goals\x12,\n" +
+	"\x11contraindications\x18\r \x03(\tR\x11contraindications\x12\x1c\n" +
+	"\tnutrition\x18\x0e \x01(\tR\tnutrition\x12\x1f\n" +
+	"\vsleep_hours\x18\x0f \x01(\x02R\n" +
+	"sleepHours\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x10 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12B\n" +
+	"\x11health_conditions\x18\x12 \x03(\v2\x15.user.HealthConditionR\x10healthConditions\x12F\n" +
+	"\x10body_composition\x18\x13 \x03(\v2\x1b.user.BodyCompositionRecordR\x0fbodyComposition\x12?\n" +
+	"\x10menstrual_cycles\x18\x14 \x03(\v2\x14.user.MenstrualCycleR\x0fmenstrualCycles\x12&\n" +
+	"\adevices\x18\x15 \x03(\v2\f.user.DeviceR\adevices\x12\x1f\n" +
+	"\vexported_at\x18\x16 \x01(\tR\n" +
+	"exportedAt\"Z\n" +
 	"\x13AdminBanUserRequest\x12*\n" +
 	"\x11requester_user_id\x18\x01 \x01(\tR\x0frequesterUserId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"J\n" +
@@ -5778,7 +6064,7 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"L\n" +
 	"\x16AdminUnbanUserResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xe5\x19\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xb2\x1a\n" +
 	"\vUserService\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
 	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
@@ -5818,7 +6104,8 @@ const file_user_proto_rawDesc = "" +
 	"\x14UpdateMenstrualCycle\x12!.user.UpdateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12]\n" +
 	"\x14DeleteMenstrualCycle\x12!.user.DeleteMenstrualCycleRequest\x1a\".user.DeleteMenstrualCycleResponse\x12H\n" +
 	"\rGetUserClaims\x12\x1a.user.GetUserClaimsRequest\x1a\x1b.user.GetUserClaimsResponse\x12H\n" +
-	"\rDeleteProfile\x12\x1a.user.DeleteProfileRequest\x1a\x1b.user.DeleteProfileResponse\x12Q\n" +
+	"\rDeleteProfile\x12\x1a.user.DeleteProfileRequest\x1a\x1b.user.DeleteProfileResponse\x12K\n" +
+	"\x0eExportUserData\x12\x1b.user.ExportUserDataRequest\x1a\x1c.user.ExportUserDataResponse\x12Q\n" +
 	"\x10AdminListInvites\x12\x1d.user.AdminListInvitesRequest\x1a\x1e.user.AdminListInvitesResponse\x12T\n" +
 	"\x11AdminCreateInvite\x12\x1e.user.AdminCreateInviteRequest\x1a\x1f.user.AdminCreateInviteResponse\x12T\n" +
 	"\x11AdminRevokeInvite\x12\x1e.user.AdminRevokeInviteRequest\x1a\x1f.user.AdminRevokeInviteResponse\x12N\n" +
@@ -5838,7 +6125,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 86)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 88)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),               // 0: user.RegisterRequest
 	(*RegisterResponse)(nil),              // 1: user.RegisterResponse
@@ -5922,10 +6209,12 @@ var file_user_proto_goTypes = []any{
 	(*AdminRevokeInviteResponse)(nil),     // 79: user.AdminRevokeInviteResponse
 	(*AdminDeleteUserRequest)(nil),        // 80: user.AdminDeleteUserRequest
 	(*AdminDeleteUserResponse)(nil),       // 81: user.AdminDeleteUserResponse
-	(*AdminBanUserRequest)(nil),           // 82: user.AdminBanUserRequest
-	(*AdminBanUserResponse)(nil),          // 83: user.AdminBanUserResponse
-	(*AdminUnbanUserRequest)(nil),         // 84: user.AdminUnbanUserRequest
-	(*AdminUnbanUserResponse)(nil),        // 85: user.AdminUnbanUserResponse
+	(*ExportUserDataRequest)(nil),         // 82: user.ExportUserDataRequest
+	(*ExportUserDataResponse)(nil),        // 83: user.ExportUserDataResponse
+	(*AdminBanUserRequest)(nil),           // 84: user.AdminBanUserRequest
+	(*AdminBanUserResponse)(nil),          // 85: user.AdminBanUserResponse
+	(*AdminUnbanUserRequest)(nil),         // 86: user.AdminUnbanUserRequest
+	(*AdminUnbanUserResponse)(nil),        // 87: user.AdminUnbanUserResponse
 }
 var file_user_proto_depIdxs = []int32{
 	36, // 0: user.GetUserByEmailResponse.user:type_name -> user.UserProfile
@@ -5938,97 +6227,103 @@ var file_user_proto_depIdxs = []int32{
 	58, // 7: user.ListBodyCompositionResponse.records:type_name -> user.BodyCompositionRecord
 	62, // 8: user.ListMenstrualCyclesResponse.cycles:type_name -> user.MenstrualCycle
 	73, // 9: user.AdminListInvitesResponse.invites:type_name -> user.InviteInfo
-	0,  // 10: user.UserService.Register:input_type -> user.RegisterRequest
-	39, // 11: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
-	2,  // 12: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
-	4,  // 13: user.UserService.Login:input_type -> user.LoginRequest
-	6,  // 14: user.UserService.AuthenticateGoogle:input_type -> user.AuthenticateGoogleRequest
-	7,  // 15: user.UserService.GetProfile:input_type -> user.GetProfileRequest
-	8,  // 16: user.UserService.GetUserByEmail:input_type -> user.GetUserByEmailRequest
-	10, // 17: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
-	11, // 18: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
-	13, // 19: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
-	15, // 20: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
-	17, // 21: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
-	19, // 22: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
-	22, // 23: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
-	24, // 24: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
-	26, // 25: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
-	28, // 26: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
-	30, // 27: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
-	34, // 28: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
-	37, // 29: user.UserService.ListUsers:input_type -> user.ListUsersRequest
-	40, // 30: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
-	42, // 31: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
-	44, // 32: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
-	46, // 33: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
-	48, // 34: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
-	50, // 35: user.UserService.RefreshToken:input_type -> user.RefreshTokenRequest
-	53, // 36: user.UserService.ListHealthConditions:input_type -> user.ListHealthConditionsRequest
-	55, // 37: user.UserService.UpsertHealthCondition:input_type -> user.UpsertHealthConditionRequest
-	56, // 38: user.UserService.DeleteHealthCondition:input_type -> user.DeleteHealthConditionRequest
-	59, // 39: user.UserService.ListBodyComposition:input_type -> user.ListBodyCompositionRequest
-	61, // 40: user.UserService.CreateBodyComposition:input_type -> user.CreateBodyCompositionRequest
-	63, // 41: user.UserService.ListMenstrualCycles:input_type -> user.ListMenstrualCyclesRequest
-	65, // 42: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
-	66, // 43: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
-	67, // 44: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
-	69, // 45: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
-	71, // 46: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
-	74, // 47: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
-	76, // 48: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
-	78, // 49: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
-	80, // 50: user.UserService.AdminDeleteUser:input_type -> user.AdminDeleteUserRequest
-	82, // 51: user.UserService.AdminBanUser:input_type -> user.AdminBanUserRequest
-	84, // 52: user.UserService.AdminUnbanUser:input_type -> user.AdminUnbanUserRequest
-	1,  // 53: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 54: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 55: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 56: user.UserService.Login:output_type -> user.LoginResponse
-	5,  // 57: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
-	36, // 58: user.UserService.GetProfile:output_type -> user.UserProfile
-	36, // 59: user.UserService.GetUserByEmail:output_type -> user.UserProfile
-	36, // 60: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	12, // 61: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	14, // 62: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	16, // 63: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
-	18, // 64: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
-	20, // 65: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
-	23, // 66: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
-	25, // 67: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
-	27, // 68: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
-	29, // 69: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
-	32, // 70: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
-	35, // 71: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
-	38, // 72: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	41, // 73: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	43, // 74: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
-	45, // 75: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
-	47, // 76: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
-	49, // 77: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
-	51, // 78: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
-	54, // 79: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
-	52, // 80: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
-	57, // 81: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
-	60, // 82: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
-	58, // 83: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
-	64, // 84: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
-	62, // 85: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
-	62, // 86: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
-	68, // 87: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
-	70, // 88: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
-	72, // 89: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
-	75, // 90: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
-	77, // 91: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
-	79, // 92: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
-	81, // 93: user.UserService.AdminDeleteUser:output_type -> user.AdminDeleteUserResponse
-	83, // 94: user.UserService.AdminBanUser:output_type -> user.AdminBanUserResponse
-	85, // 95: user.UserService.AdminUnbanUser:output_type -> user.AdminUnbanUserResponse
-	53, // [53:96] is the sub-list for method output_type
-	10, // [10:53] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	52, // 10: user.ExportUserDataResponse.health_conditions:type_name -> user.HealthCondition
+	58, // 11: user.ExportUserDataResponse.body_composition:type_name -> user.BodyCompositionRecord
+	62, // 12: user.ExportUserDataResponse.menstrual_cycles:type_name -> user.MenstrualCycle
+	21, // 13: user.ExportUserDataResponse.devices:type_name -> user.Device
+	0,  // 14: user.UserService.Register:input_type -> user.RegisterRequest
+	39, // 15: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
+	2,  // 16: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
+	4,  // 17: user.UserService.Login:input_type -> user.LoginRequest
+	6,  // 18: user.UserService.AuthenticateGoogle:input_type -> user.AuthenticateGoogleRequest
+	7,  // 19: user.UserService.GetProfile:input_type -> user.GetProfileRequest
+	8,  // 20: user.UserService.GetUserByEmail:input_type -> user.GetUserByEmailRequest
+	10, // 21: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
+	11, // 22: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
+	13, // 23: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
+	15, // 24: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
+	17, // 25: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
+	19, // 26: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
+	22, // 27: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
+	24, // 28: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
+	26, // 29: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
+	28, // 30: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
+	30, // 31: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
+	34, // 32: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
+	37, // 33: user.UserService.ListUsers:input_type -> user.ListUsersRequest
+	40, // 34: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
+	42, // 35: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
+	44, // 36: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
+	46, // 37: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
+	48, // 38: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
+	50, // 39: user.UserService.RefreshToken:input_type -> user.RefreshTokenRequest
+	53, // 40: user.UserService.ListHealthConditions:input_type -> user.ListHealthConditionsRequest
+	55, // 41: user.UserService.UpsertHealthCondition:input_type -> user.UpsertHealthConditionRequest
+	56, // 42: user.UserService.DeleteHealthCondition:input_type -> user.DeleteHealthConditionRequest
+	59, // 43: user.UserService.ListBodyComposition:input_type -> user.ListBodyCompositionRequest
+	61, // 44: user.UserService.CreateBodyComposition:input_type -> user.CreateBodyCompositionRequest
+	63, // 45: user.UserService.ListMenstrualCycles:input_type -> user.ListMenstrualCyclesRequest
+	65, // 46: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
+	66, // 47: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
+	67, // 48: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
+	69, // 49: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
+	71, // 50: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
+	82, // 51: user.UserService.ExportUserData:input_type -> user.ExportUserDataRequest
+	74, // 52: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
+	76, // 53: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
+	78, // 54: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
+	80, // 55: user.UserService.AdminDeleteUser:input_type -> user.AdminDeleteUserRequest
+	84, // 56: user.UserService.AdminBanUser:input_type -> user.AdminBanUserRequest
+	86, // 57: user.UserService.AdminUnbanUser:input_type -> user.AdminUnbanUserRequest
+	1,  // 58: user.UserService.Register:output_type -> user.RegisterResponse
+	1,  // 59: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
+	3,  // 60: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
+	5,  // 61: user.UserService.Login:output_type -> user.LoginResponse
+	5,  // 62: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
+	36, // 63: user.UserService.GetProfile:output_type -> user.UserProfile
+	36, // 64: user.UserService.GetUserByEmail:output_type -> user.UserProfile
+	36, // 65: user.UserService.UpdateProfile:output_type -> user.UserProfile
+	12, // 66: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
+	14, // 67: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
+	16, // 68: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
+	18, // 69: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
+	20, // 70: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
+	23, // 71: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
+	25, // 72: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
+	27, // 73: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
+	29, // 74: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
+	32, // 75: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
+	35, // 76: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
+	38, // 77: user.UserService.ListUsers:output_type -> user.ListUsersResponse
+	41, // 78: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
+	43, // 79: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
+	45, // 80: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
+	47, // 81: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
+	49, // 82: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
+	51, // 83: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
+	54, // 84: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
+	52, // 85: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
+	57, // 86: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
+	60, // 87: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
+	58, // 88: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
+	64, // 89: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
+	62, // 90: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
+	62, // 91: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
+	68, // 92: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
+	70, // 93: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
+	72, // 94: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
+	83, // 95: user.UserService.ExportUserData:output_type -> user.ExportUserDataResponse
+	75, // 96: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
+	77, // 97: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
+	79, // 98: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
+	81, // 99: user.UserService.AdminDeleteUser:output_type -> user.AdminDeleteUserResponse
+	85, // 100: user.UserService.AdminBanUser:output_type -> user.AdminBanUserResponse
+	87, // 101: user.UserService.AdminUnbanUser:output_type -> user.AdminUnbanUserResponse
+	58, // [58:102] is the sub-list for method output_type
+	14, // [14:58] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -6043,7 +6338,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   86,
+			NumMessages:   88,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

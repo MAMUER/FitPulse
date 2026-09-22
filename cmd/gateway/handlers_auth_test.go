@@ -848,6 +848,10 @@ func (m *errorUserServiceClient) GetUserClaims(ctx context.Context, req *user.Ge
 func (m *errorUserServiceClient) DeleteProfile(ctx context.Context, req *user.DeleteProfileRequest, opts ...grpc.CallOption) (*user.DeleteProfileResponse, error) {
 	return nil, m.err
 }
+
+func (m *errorUserServiceClient) ExportUserData(ctx context.Context, req *user.ExportUserDataRequest, opts ...grpc.CallOption) (*user.ExportUserDataResponse, error) {
+	return nil, m.err
+}
 func (m *errorUserServiceClient) AdminListInvites(ctx context.Context, req *user.AdminListInvitesRequest, opts ...grpc.CallOption) (*user.AdminListInvitesResponse, error) {
 	return nil, m.err
 }
@@ -982,6 +986,10 @@ func (m *totpEnabledUserClient) DeleteMenstrualCycle(ctx context.Context, req *u
 }
 func (m *totpEnabledUserClient) DeleteProfile(ctx context.Context, req *user.DeleteProfileRequest, opts ...grpc.CallOption) (*user.DeleteProfileResponse, error) {
 	return &user.DeleteProfileResponse{Status: "deleted"}, nil
+}
+
+func (m *totpEnabledUserClient) ExportUserData(ctx context.Context, req *user.ExportUserDataRequest, opts ...grpc.CallOption) (*user.ExportUserDataResponse, error) {
+	return &user.ExportUserDataResponse{UserId: req.UserId, Email: "test@example.com"}, nil
 }
 func (m *totpEnabledUserClient) AdminListInvites(ctx context.Context, req *user.AdminListInvitesRequest, opts ...grpc.CallOption) (*user.AdminListInvitesResponse, error) {
 	return &user.AdminListInvitesResponse{}, nil

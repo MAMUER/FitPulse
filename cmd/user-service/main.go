@@ -42,6 +42,7 @@ import (
 	"github.com/MAMUER/project/internal/domain/service"
 	"github.com/MAMUER/project/internal/email"
 	grpctls "github.com/MAMUER/project/internal/grpc"
+	"github.com/MAMUER/project/internal/audit"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
@@ -80,7 +81,9 @@ type userServer struct {
 	userHealthRepo    port.UserHealthConditionRepository
 	userBodyCompRepo  port.UserBodyCompositionRepository
 	userMenstrualRepo port.UserMenstrualRepository
+	deviceRepo        port.DeviceRepository
 	log               *logger.Logger
+	auditLogger       *audit.ConsoleAuditLogger
 	tokenProvider     ports.TokenProvider
 	emailSender       email.EmailSender
 	baseURL           string
@@ -217,6 +220,13 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 		return nil, status.Error(codes.Internal, "failed to create user")
 	}
 
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIAccess, "register", "user").
+			WithUser(userID).
+			WithFields("email", "full_name", "role").
+			WithMetadata("email_hash", emailHash))
+	}
+
 	verificationToken := generateVerificationToken()
 	emailVerificationNonce, err := db.GenerateNonce()
 	if err != nil {
@@ -316,6 +326,12 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 	if !verifyPasswordArgon2id(user.PasswordHash, req.Password) {
 		s.log.Info("Invalid login attempt", zap.String("email", req.Email))
+		if s.auditLogger != nil {
+			s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAuthFailure, "login", "user").
+				WithUser(user.ID).
+				WithFields("email").
+				WithError(fmt.Errorf("invalid credentials")))
+		}
 		return nil, status.Error(codes.Unauthenticated, errInvalidCredentials)
 	}
 
@@ -323,6 +339,12 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	if err != nil {
 		s.log.Error(logFailedToGenerateJWT, zap.Error(err))
 		return nil, status.Error(codes.Internal, errFailedToGenerateJWT)
+	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAuthSuccess, "login", "user").
+			WithUser(user.ID).
+			WithFields("email"))
 	}
 
 	return &pb.LoginResponse{
@@ -480,6 +502,12 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 		UpdatedAt:       user.UpdatedAt.Format(time.RFC3339),
 	}
 
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIAccess, "get_profile", "user").
+			WithUser(user.ID).
+			WithFields("email", "full_name", "nickname", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours"))
+	}
+
 	return profile, nil
 }
 
@@ -610,6 +638,12 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	if err := s.userRepo.ReplaceUserContraindications(ctx, req.UserId, req.Contraindications); err != nil {
 		return nil, err
+	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "update_profile", "user").
+			WithUser(req.UserId).
+			WithFields("full_name", "nickname", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours", "contraindications"))
 	}
 
 	return s.GetProfile(ctx, &pb.GetProfileRequest{UserId: req.UserId})
@@ -1250,6 +1284,13 @@ func (s *userServer) UpsertHealthCondition(ctx context.Context, req *pb.UpsertHe
 		s.log.Error("Failed to upsert health condition", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "upsert_health_condition", "health_condition").
+			WithUser(req.UserId).
+			WithFields("condition_type", "condition_name", "severity", "is_active"))
+	}
+
 	return &pb.HealthCondition{
 		Id: result.ID, UserId: result.UserID, ConditionType: result.ConditionType, ConditionName: result.ConditionName,
 		Severity: result.Severity, DiagnosedAt: req.DiagnosedAt, IsActive: result.IsActive, Notes: req.Notes,
@@ -1263,6 +1304,13 @@ func (s *userServer) DeleteHealthCondition(ctx context.Context, req *pb.DeleteHe
 	if err := s.userRepo.DeleteHealthCondition(ctx, req.ConditionId, req.UserId); err != nil {
 		return nil, err
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_health_condition", "health_condition").
+			WithUser(req.UserId).
+			WithFields("condition_id"))
+	}
+
 	return &pb.DeleteHealthConditionResponse{Success: true, Message: "Health condition deleted"}, nil
 }
 
@@ -1356,6 +1404,13 @@ func (s *userServer) CreateBodyComposition(ctx context.Context, req *pb.CreateBo
 		s.log.Error("Failed to create body composition record", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "create_body_composition", "body_composition").
+			WithUser(req.UserId).
+			WithFields("weight_kg", "height_cm", "bmi", "body_fat_percentage", "muscle_mass_percentage", "bone_mass_percentage", "water_percentage", "visceral_fat_rating", "metabolic_age"))
+	}
+
 	return &pb.BodyCompositionRecord{
 		Id: result.ID, UserId: result.UserID, RecordedAt: result.RecordedAt.Format(time.RFC3339), WeightKg: result.WeightKG,
 		HeightCm: int32(result.HeightCM), Bmi: result.BMI,
@@ -1416,6 +1471,13 @@ func (s *userServer) CreateMenstrualCycle(ctx context.Context, req *pb.CreateMen
 		s.log.Error("Failed to create menstrual cycle", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "create_menstrual_cycle", "menstrual_cycle").
+			WithUser(req.UserId).
+			WithFields("cycle_start_date", "cycle_end_date", "flow_intensity", "notes", "symptoms", "moods"))
+	}
+
 	return &pb.MenstrualCycle{
 		Id: result.ID, UserId: result.UserID, CycleStartDate: result.CycleStartDate,
 		CycleEndDate: result.CycleEndDate, FlowIntensity: result.FlowIntensity,
@@ -1442,6 +1504,13 @@ func (s *userServer) UpdateMenstrualCycle(ctx context.Context, req *pb.UpdateMen
 		s.log.Error("Failed to update menstrual cycle", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "update_menstrual_cycle", "menstrual_cycle").
+			WithUser(req.UserId).
+			WithFields("cycle_id", "cycle_start_date", "cycle_end_date", "flow_intensity", "notes", "symptoms", "moods"))
+	}
+
 	return &pb.MenstrualCycle{
 		Id: result.ID, UserId: result.UserID, CycleStartDate: result.CycleStartDate,
 		CycleEndDate: result.CycleEndDate, FlowIntensity: result.FlowIntensity,
@@ -1456,6 +1525,13 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 	if err := s.userRepo.DeleteMenstrualCycle(ctx, req.CycleId, req.UserId); err != nil {
 		return nil, err
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_menstrual_cycle", "menstrual_cycle").
+			WithUser(req.UserId).
+			WithFields("cycle_id"))
+	}
+
 	return &pb.DeleteMenstrualCycleResponse{Success: true, Message: "Menstrual cycle deleted"}, nil
 }
 
@@ -1509,8 +1585,103 @@ func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileReq
 		return nil, status.Error(codes.Internal, "failed to delete profile")
 	}
 
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_profile", "user").
+			WithUser(req.UserId).
+			WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles"))
+	}
+
 	s.log.Info("Profile deleted (GDPR)", zap.String("user_id", req.UserId))
 	return &pb.DeleteProfileResponse{Status: "deleted", Message: "Profile deleted successfully"}, nil
+}
+
+func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataRequest) (*pb.ExportUserDataResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
+	}
+
+	user, err := s.userRepo.GetProfileWithPgsodium(ctx, req.UserId)
+	if err != nil {
+		if apperrors.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, errUserNotFound)
+		}
+		s.log.Error("Database error exporting user data", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, errDatabaseError)
+	}
+
+	conditions, _ := s.userHealthRepo.List(ctx, req.UserId)
+	pbConditions := make([]*pb.HealthCondition, 0, len(conditions))
+	for _, c := range conditions {
+		pbConditions = append(pbConditions, &pb.HealthCondition{
+			Id: c.ID, UserId: c.UserID, ConditionType: c.ConditionType, ConditionName: c.ConditionName,
+			Severity: c.Severity, DiagnosedAt: "", IsActive: c.IsActive, Notes: toString(c.Notes),
+		})
+	}
+
+	bodyRecords, _ := s.userBodyCompRepo.List(ctx, req.UserId, nil, nil, 1000)
+	pbBodyRecords := make([]*pb.BodyCompositionRecord, 0, len(bodyRecords))
+	for _, r := range bodyRecords {
+		pbBodyRecords = append(pbBodyRecords, &pb.BodyCompositionRecord{
+			Id: r.ID, UserId: r.UserID, RecordedAt: r.RecordedAt.Format(time.RFC3339), WeightKg: r.WeightKG,
+			HeightCm: int32(r.HeightCM), Bmi: r.BMI,
+			BodyFatPercentage: toFloat64(r.BodyFatPercentage), MuscleMassPercentage: toFloat64(r.MuscleMassPercentage),
+			BoneMassPercentage: toFloat64(r.BoneMassPercentage), WaterPercentage: toFloat64(r.WaterPercentage),
+			VisceralFatRating: int32(toFloat64(r.VisceralFatRating)), MetabolicAge: int32(toFloat64(r.MetabolicAge)),
+			Source: r.Source,
+		})
+	}
+
+	cycles, _ := s.userMenstrualRepo.ListCycles(ctx, req.UserId)
+	pbCycles := make([]*pb.MenstrualCycle, 0, len(cycles))
+	for _, c := range cycles {
+		symptoms, _ := s.userMenstrualRepo.ListSymptoms(ctx, c.ID)
+		moods, _ := s.userMenstrualRepo.ListMoods(ctx, c.ID)
+		pbCycles = append(pbCycles, &pb.MenstrualCycle{
+			Id: c.ID, UserId: c.UserID, CycleStartDate: c.CycleStartDate,
+			CycleEndDate: c.CycleEndDate, FlowIntensity: c.FlowIntensity,
+			Notes: c.Notes, Symptoms: symptoms, Moods: moods,
+			CreatedAt: c.CreatedAt.Format(time.RFC3339), UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+
+	devices, _ := s.deviceRepo.List(ctx, req.UserId)
+	pbDevices := make([]*pb.Device, 0, len(devices))
+	for _, d := range devices {
+		pbDevices = append(pbDevices, &pb.Device{
+			DeviceId: d.ID, DeviceType: d.DeviceType, DeviceName: d.DeviceName,
+		})
+	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIExport, "export_user_data", "user").
+			WithUser(req.UserId).
+			WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles", "devices"))
+	}
+
+	return &pb.ExportUserDataResponse{
+		UserId:            user.ID,
+		Email:             user.Email,
+		FullName:          user.FullName,
+		Nickname:          user.Nickname,
+		ProfilePhotoUrl:   user.ProfilePhotoURL,
+		Role:              user.Role,
+		Age:               user.Age,
+		Gender:            user.Gender,
+		HeightCm:          user.HeightCm,
+		WeightKg:          user.WeightKg,
+		FitnessLevel:      user.FitnessLevel,
+		Goals:             user.Goals,
+		Contraindications: nil,
+		Nutrition:         user.Nutrition,
+		SleepHours:        user.SleepHours,
+		CreatedAt:         user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         user.UpdatedAt.Format(time.RFC3339),
+		HealthConditions:  pbConditions,
+		BodyComposition:   pbBodyRecords,
+		MenstrualCycles:   pbCycles,
+		Devices:           pbDevices,
+		ExportedAt:        time.Now().UTC().Format(time.RFC3339),
+	}, nil
 }
 
 func (s *userServer) requireAdminRole(ctx context.Context, requesterID string) error {
@@ -1721,6 +1892,13 @@ func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUse
 		s.log.Error("Failed to delete user", zap.Error(err), zap.String("user_id", req.UserId))
 		return nil, status.Error(codes.Internal, "failed to delete user")
 	}
+
+	if s.auditLogger != nil {
+		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAdminAction, "admin_delete_user", "user").
+			WithUser(req.UserId).
+			WithActor(req.RequesterUserId))
+	}
+
 	s.log.Info("User deleted", zap.String("user_id", req.UserId))
 	return &pb.AdminDeleteUserResponse{Success: true, Message: "User deleted successfully"}, nil
 }
@@ -1758,6 +1936,7 @@ func (s *userServer) AdminUnbanUser(ctx context.Context, req *pb.AdminUnbanUserR
 type userServerConfig struct {
 	database          *sql.DB
 	log               *logger.Logger
+	auditLogger       *audit.ConsoleAuditLogger
 	tokenProvider     ports.TokenProvider
 	baseURL           string
 	googleClientID    string
@@ -1773,6 +1952,7 @@ type userServerConfig struct {
 	userHealthRepo    port.UserHealthConditionRepository
 	userBodyCompRepo  port.UserBodyCompositionRepository
 	userMenstrualRepo port.UserMenstrualRepository
+	deviceRepo        port.DeviceRepository
 }
 
 func buildUserServer(cfg userServerConfig) *userServer {
@@ -1788,7 +1968,9 @@ func buildUserServer(cfg userServerConfig) *userServer {
 		userHealthRepo:    cfg.userHealthRepo,
 		userBodyCompRepo:  cfg.userBodyCompRepo,
 		userMenstrualRepo: cfg.userMenstrualRepo,
+		deviceRepo:        cfg.deviceRepo,
 		log:               cfg.log,
+		auditLogger:       cfg.auditLogger,
 		tokenProvider:     cfg.tokenProvider,
 		emailSender:       cfg.emailSender,
 		baseURL:           cfg.baseURL,
@@ -1900,6 +2082,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 	svc := buildUserServer(userServerConfig{
 		database:          database,
 		log:               log,
+		auditLogger:       audit.NewConsoleAuditLogger(log.Logger),
 		tokenProvider:     tokenProvider,
 		baseURL:           baseURL,
 		googleClientID:    googleClientID,
@@ -1915,6 +2098,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 		userHealthRepo:    userHealthRepo,
 		userBodyCompRepo:  userBodyCompRepo,
 		userMenstrualRepo: userMenstrualRepo,
+		deviceRepo:        deviceRepo,
 	})
 	if err := ensurePgsodiumKey(ctx, database, log); err != nil {
 		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
