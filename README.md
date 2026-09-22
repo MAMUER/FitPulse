@@ -144,6 +144,16 @@ FitPulse реализует комплексные меры безопаснос
 
 ## Инфраструктура
 
+### Секреты
+
+**Static secrets** (JWT, SMTP, Google OAuth, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator**.
+
+**Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере):
+
+- Каждый сервис получает уникального PostgreSQL пользователя с TTL 1h
+- Ротация паролей автоматическая
+- Подробнее: `docs/phase2-roadmap.md` (раздел 1)
+
 ### Текущий сервер
 
 | Параметр | Значение |

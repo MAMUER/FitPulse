@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { AppProvider, useApp } from './contexts/AppContext';
@@ -49,14 +49,32 @@ const renderApp = (overrides = {}) => {
     submitResetCode: () => {},
     submitNewPassword: () => {},
     closeLegal: () => {},
+    loadProfile: () => {},
+    loadBiometrics: () => {},
+    loadTrainingPlans: () => {},
+    loadMeals: () => {},
+    loadCalendarEvents: () => {},
+    loadAchievements: () => {},
+    loadVideos: () => {},
+    loadConditions: () => {},
+    loadMenstrualCycles: () => {},
+    loadBodyComposition: () => {},
+    saveProfile: () => {},
+    addEvent: () => {},
+    deleteCalendarEvent: () => {},
+    createMeal: () => {},
+    addBiometric: () => {},
+    generatePlan: () => {},
+    completeWorkout: () => {},
+    loadProgress: () => {},
   });
 
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={[overrides.screen === 'home' ? '/home' : '/']}>
       <AppProvider>
         <App />
       </AppProvider>
-    </BrowserRouter>
+    </MemoryRouter>
   );
 };
 

@@ -1,20 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Profile() {
-  const { state, t, logout, go, toggleLanguage, toggleTheme, toggleHighContrast, load2FAStatus, setup2FA, disable2FA } = useApp();
+  const { state, t, logout, go, toggleLanguage, toggleTheme, toggleHighContrast, load2FAStatus, setup2FA, disable2FA, loadProfile, saveProfile } = useApp();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    loadProfile();
     load2FAStatus();
-  }, []);
+  }, [loadProfile, load2FAStatus]);
 
   const handleDisable = async () => {
     setLoading(true);
     await disable2FA(code);
     setCode('');
     setLoading(false);
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    const profileData = {
+      full_name: state.profile?.name || '',
+      gender: state.profile?.gender || '',
+      phone: state.profile?.phone || '',
+      bio: state.profile?.bio || '',
+      status: state.profile?.status || '',
+    };
+    await saveProfile(profileData);
+    setSaving(false);
   };
 
   return (
@@ -63,6 +78,9 @@ export default function Profile() {
               <input value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} />
             </div>
           )}
+          <button className='secondary full' onClick={handleSaveProfile} disabled={saving}>
+            {saving ? t('Сохранение...', 'Saving...') : t('Сохранить профиль', 'Save profile')}
+          </button>
           <button className='danger full' onClick={logout}>{t('Выйти', 'Logout')}</button>
           <button className='secondary full' onClick={() => go('home')}>{t('На главную', 'Go home')}</button>
         </div>

@@ -29,24 +29,24 @@ runs:
       working-directory: web
       shell: bash
     - run: |
-        mkdir -p coverage
-        go test -coverprofile=coverage/coverage.out ./...
+        mkdir -p bin
+        go test -coverprofile=bin/coverage.out ./...
         cd web && npm run test
         pwd
-        ls -la coverage || true
-        if [ -f coverage/lcov.info ]; then
+        ls -la bin || true
+        if [ -f web/coverage/lcov.info ]; then
           echo "--- original lcov head ---"
-          head -20 coverage/lcov.info || true
-          sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' coverage/lcov.info > ../coverage/lcov.info
+          head -20 web/coverage/lcov.info || true
+          sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' web/coverage/lcov.info >bin/lcov.info
           echo "--- transformed lcov head ---"
-          head -20 ../coverage/lcov.info || true
+          head -20 bin/lcov.info || true
         else
           echo "lcov.info not found in web/coverage"
         fi
-        if [ -f coverage/coverage.out ]; then
+        if [ -f bin/coverage.out ]; then
           echo "--- fixing Go coverage paths ---"
-          sed -i 's|github.com/MAMUER/project/||g' coverage/coverage.out
-          sed -i '/^api\/gen\//d' coverage/coverage.out
-          head -5 coverage/coverage.out || true
+          sed -i 's|github.com/MAMUER/project/||g' bin/coverage.out
+          sed -i '/^api\/gen\//d' bin/coverage.out
+          head -5 bin/coverage.out || true
         fi
       shell: bash

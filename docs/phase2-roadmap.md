@@ -2,32 +2,6 @@
 
 > Детализационный бэклог инфраструктуры и масштабирования.
 
-## 1. Секрет-хранилище: HashiCorp Vault
-
-### 1.1 Контекст
-
-Текущий подход — Kubernetes Secrets + CI-секреты — не покрывает требования к ротации, динамическим учётным данным и audit trail на уровне хранилища.
-
-Vault будет центральным хранилищем всех паролей, секретов (JWT_SECRET, database credentials, API keys, TLS private keys и т.д.) с автоматической ротацией **каждые 30 дней** для ключей и credentials приложений.
-
-### 1.2 Задачи
-
-1. Развёртывание Vault на отдельном инстансе (или managed)
-2. Kubernetes auth method: сервисы получают динамические credentials
-3. Автоматическая ротация PostgreSQL и RabbitMQ паролей (30 дней)
-4. Интеграция с CI/CD: `VAULT_ADDR`, `VAULT_TOKEN` через GitHub OIDC
-5. Автоматическая ротация всех секретов (JWT_SECRET, API keys, TLS keys) раз в 30 дней
-6. Бэкап Vault storage (Shamir secret shares + sealed keys)
-
-### 1.3 Acceptance Criteria
-
-- Все секреты POSTGRES_PASSWORD, JWT_SECRET и т.д. живут в Vault
-- Автоматическая ротация всех секретов (включая database credentials, JWT_SECRET, API keys, TLS keys) раз в 30 дней
-- При компрометации pod можно отозвать доступ за < 5 минут
-- Vault audit log отправляется в ELK
-
----
-
 ## 2. Service Mesh
 
 ### 2.1 Контекст
@@ -59,6 +33,8 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 - автоматическое переключение при отказе
 - read replicas для отдачи аналитической нагрузки
+
+**Важно:** истинная HA с заявленными Acceptance Criteria (RTO < 30s, RPO = 0) возможна только при наличии **минимум 3 отдельных серверов/VPS** в разных географических locations. Patroni + etcd требует quorum из 3 узлов для автоматического failover. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
 
 ### 3.2 Задачи
 
@@ -137,10 +113,10 @@ Phase 1 реализовала базовый бэкап через pg_dump (е�
 
 1. **ОПРЕДЕЛИТЬ SLI/SLO**:
    - Целевая доступность: 99.9% в месяц (исключая плановые работы)
-    - Целевая латентность: p95 < 2s для всех критических endpoints:
-      - /api/v1/auth/login
-      - /api/v1/biometrics
-      - /api/v1/ml/chat
+   - Целевая латентность: p95 < 2s для всех критических endpoints:
+     - /api/v1/auth/login
+     - /api/v1/biometrics
+     - /api/v1/ml/chat
    - Ошибочный бюджет: 0.1% в месяц
      - Отслеживается через метрики ошибок 5xx
      - Burn rate ошибочного бюджета отслеживается в Grafana

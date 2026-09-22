@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Body from './Body';
@@ -19,20 +20,25 @@ const defaultContext = {
     language: 'ru',
     height: 175,
     weight: 74.2,
+    bodyComposition: [],
   },
   t: (ru, _en) => ru,
   logWeight: vi.fn(),
   addWeight: vi.fn(),
   openMetric: vi.fn(),
   go: vi.fn(),
+  loadBodyComposition: vi.fn(),
+  saveBodyComposition: vi.fn(),
 };
 
 function renderBody() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Body />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Body />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

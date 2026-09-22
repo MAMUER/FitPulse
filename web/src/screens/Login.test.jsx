@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Login from './Login';
@@ -37,9 +38,11 @@ function renderLogin(overrides = {}) {
     state: { ...defaultState, ...overrides },
   });
   return render(
-    <AppProvider>
-      <Login />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Login />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

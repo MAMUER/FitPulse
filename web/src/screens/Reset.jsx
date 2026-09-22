@@ -1,9 +1,15 @@
+import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Reset() {
   const { state, t, submitResetEmail, submitResetCode, submitNewPassword, go } =
     useApp();
   const step = state.resetStep || 0;
+  const [code, setCode] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [sending, setSending] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   if (step === 0) {
     return (
@@ -21,8 +27,16 @@ export default function Reset() {
           <label>Email</label>
           <input id='resetEmail' type='email' placeholder='example@mail.com' />
         </div>
-        <button className='primary full' onClick={submitResetEmail}>
-          {t('Получить код', 'Get code')}
+        <button
+          className='primary full'
+          onClick={async () => {
+            setSending(true);
+            await submitResetEmail();
+            setSending(false);
+          }}
+          disabled={sending}
+        >
+          {sending ? t('Отправка...', 'Sending...') : t('Получить код', 'Get code')}
         </button>
         <button className='secondary full' onClick={() => go('login')}>
           {t('Другие варианты входа', 'Other sign-in options')}
@@ -38,8 +52,14 @@ export default function Reset() {
           <p>{state.resetEmail || ''}</p>
         </div>
         <div className='field'>
-          <label>123456</label>
-          <input id='resetCode' inputMode='numeric' maxLength={6} />
+          <label>{t('Код', 'Code')}</label>
+          <input
+            id='resetCode'
+            inputMode='numeric'
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
         </div>
         <button className='primary full' onClick={submitResetCode}>
           {t('Продолжить', 'Continue')}
@@ -57,14 +77,32 @@ export default function Reset() {
       </div>
       <div className='field'>
         <label>{t('Новый пароль', 'New password')}</label>
-        <input id='newPassword' type='password' />
+        <input
+          id='newPassword'
+          type='password'
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+        />
       </div>
       <div className='field'>
         <label>{t('Подтверждение пароля', 'Confirm password')}</label>
-        <input id='newPasswordConfirm' type='password' />
+        <input
+          id='newPasswordConfirm'
+          type='password'
+          value={confirmPass}
+          onChange={(e) => setConfirmPass(e.target.value)}
+        />
       </div>
-      <button className='primary full' onClick={submitNewPassword}>
-        {t('Сохранить', 'Save')}
+      <button
+        className='primary full'
+        onClick={async () => {
+          setResetting(true);
+          await submitNewPassword();
+          setResetting(false);
+        }}
+        disabled={resetting}
+      >
+        {resetting ? t('Сохранение...', 'Saving...') : t('Сохранить', 'Save')}
       </button>
     </section>
   );

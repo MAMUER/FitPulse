@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Calendar from './Calendar';
@@ -17,22 +18,29 @@ const defaultContext = {
     theme: 'dark',
     highContrast: false,
     language: 'ru',
-    currentMonth: new Date(),
-    selectedDays: [],
+    calendarMonthIndex: new Date().getMonth(),
+    calendarYear: new Date().getFullYear(),
+    calendarEvents: {},
+    calendarEventsList: [],
   },
   t: (ru, _en) => ru,
+  addEvent: vi.fn(),
+  deleteCalendarEvent: vi.fn(),
+  loadCalendarEvents: vi.fn(),
+  selectCalendarDay: vi.fn(),
+  closeDateModal: vi.fn(),
+  addEventToDay: vi.fn(),
   changeCalendar: vi.fn(),
-  quickAddEvent: vi.fn(),
-  openCalendarPage: vi.fn(),
-  toggleDay: vi.fn(),
 };
 
 function renderCalendar() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Calendar />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Calendar />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

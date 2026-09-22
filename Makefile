@@ -41,9 +41,9 @@ test:
 
 coverage:
 	@echo "Generating Go coverage..."
-	@mkdir -p coverage
-	@go test -short -covermode=atomic -coverprofile="coverage/coverage.out" ./...
-	@echo "Coverage report generated at coverage/coverage.out"
+	@mkdir -p $(BIN_DIR)
+	@go test -short -covermode=atomic -coverprofile="$(BIN_DIR)/coverage.out" ./...
+	@echo "Coverage report generated at $(BIN_DIR)/coverage.out"
 
 build:
 	@echo "Building Go binaries into $(BIN_DIR)/..."
@@ -126,7 +126,7 @@ help:
 	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"
 	@echo "  make pip-compile     - Compile Python requirements with pip-compile"
-	@echo "  make coverage         - Generate Go and frontend coverage reports for SonarCloud"
+	@echo "  make coverage         - Generate Go coverage report in bin/coverage.out"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"

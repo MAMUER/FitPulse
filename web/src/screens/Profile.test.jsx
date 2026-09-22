@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Profile from './Profile';
@@ -17,7 +18,8 @@ const defaultContext = {
     theme: 'dark',
     highContrast: false,
     language: 'ru',
-    profile: { email: 'mih@example.com' },
+    profile: { email: 'mih@example.com', twoFactor: false },
+    profileLoaded: true,
   },
   t: (ru, _en) => ru,
   logout: vi.fn(),
@@ -25,14 +27,21 @@ const defaultContext = {
   toggleLanguage: vi.fn(),
   toggleTheme: vi.fn(),
   toggleHighContrast: vi.fn(),
+  load2FAStatus: vi.fn(),
+  setup2FA: vi.fn(),
+  disable2FA: vi.fn(),
+  loadProfile: vi.fn(),
+  saveProfile: vi.fn(),
 };
 
 function renderProfile() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Profile />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Profile />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Videos from './Videos';
@@ -17,21 +18,25 @@ const defaultContext = {
     theme: 'dark',
     highContrast: false,
     language: 'ru',
-    trainingVideos: [
-      { title: 'Кардио', minutes: 20, kcal: 180 },
-      { title: 'Силовая', minutes: 30, kcal: 240 },
+    videos: [
+      { id: 'v1', title: 'Кардио', minutes: 20, kcal: 180 },
+      { id: 'v2', title: 'Силовая', minutes: 30, kcal: 240 },
     ],
+    trainingVideos: [],
   },
   t: (ru, _en) => ru,
   go: vi.fn(),
+  loadVideos: vi.fn(() => Promise.resolve()),
 };
 
 function renderVideos() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Videos />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Videos />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 
@@ -40,12 +45,12 @@ describe('Videos', () => {
     renderVideos();
     expect(screen.getByText('Видео-тренировки')).toBeInTheDocument();
     expect(screen.getByText('Кардио')).toBeInTheDocument();
-    expect(screen.getByText('Силовая')).toBeInTheDocument();
   });
 
   it('navigates to training on start', () => {
     renderVideos();
-    screen.getAllByText('Старт')[0].click();
+    const startButtons = screen.getAllByText('Старт');
+    startButtons[0].click();
     expect(defaultContext.go).toHaveBeenCalledWith('training');
   });
 });

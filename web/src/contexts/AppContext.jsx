@@ -51,6 +51,7 @@ const defaultState = {
   twoFactorTempToken: null,
   messages: [
     {
+      id: 'default-ai',
       type: 'ai',
       text: 'Привет! Я FitPulse AI. Могу помочь с питанием, тренировками, календарём и ответить на вопросы.',
     },
@@ -522,6 +523,21 @@ const defaultState = {
   trainingMinutes: 0,
   caloriesBurned: 0,
   lastWaterUpdate: Date.now(),
+  biometrics: [],
+  bodyComposition: [],
+  trainingPlans: [],
+  selectedPlanId: null,
+  mealsList: [],
+  calendarEventsList: [],
+  achievementsBackend: [],
+  videos: [],
+  conditions: [],
+  menstrualCycles: [],
+  profileLoaded: false,
+  aiClassification: null,
+  aiPlan: null,
+  aiDiet: null,
+  loading: {},
   lifeHacks: [
     {
       icon: 'fa-lightbulb',
@@ -885,6 +901,21 @@ function getInitialState() {
       xp: saved.xp || 0,
       trainingMinutes: saved.trainingMinutes || 0,
       caloriesBurned: saved.caloriesBurned || 0,
+      biometrics: saved.biometrics || [],
+      bodyComposition: saved.bodyComposition || [],
+      trainingPlans: saved.trainingPlans || [],
+      selectedPlanId: saved.selectedPlanId || null,
+      mealsList: saved.mealsList || [],
+      calendarEventsList: saved.calendarEventsList || [],
+      achievementsBackend: saved.achievementsBackend || [],
+      videos: saved.videos || [],
+      conditions: saved.conditions || [],
+      menstrualCycles: saved.menstrualCycles || [],
+      profileLoaded: false,
+      aiClassification: saved.aiClassification || null,
+      aiPlan: saved.aiPlan || null,
+      aiDiet: saved.aiDiet || null,
+      loading: saved.loading || {},
       survey: saved.survey || defaultState.survey,
       surveyCompleted: saved.surveyCompleted || false,
       surveyDeferred: saved.surveyDeferred || false,
@@ -948,6 +979,19 @@ export function AppProvider({ children }) {
           xp: state.xp,
           trainingMinutes: state.trainingMinutes,
           caloriesBurned: state.caloriesBurned,
+          biometrics: state.biometrics,
+          bodyComposition: state.bodyComposition,
+          trainingPlans: state.trainingPlans,
+          selectedPlanId: state.selectedPlanId,
+          mealsList: state.mealsList,
+          calendarEventsList: state.calendarEventsList,
+          achievementsBackend: state.achievementsBackend,
+          videos: state.videos,
+          conditions: state.conditions,
+          menstrualCycles: state.menstrualCycles,
+          aiClassification: state.aiClassification,
+          aiPlan: state.aiPlan,
+          aiDiet: state.aiDiet,
           survey: state.survey,
           surveyCompleted: state.surveyCompleted,
           surveyDeferred: state.surveyDeferred,
@@ -1009,7 +1053,7 @@ export function AppProvider({ children }) {
         method: 'POST',
         body: JSON.stringify({ email, password: pass }),
       });
-      if (!data || data.status !== 'ok' || !data.access_token) {
+      if (!data?.access_token || data?.status !== 'ok') {
         notify('Неверный email или пароль');
         return;
       }
@@ -1029,7 +1073,12 @@ export function AppProvider({ children }) {
     }
   }, [state.profile, update, notify]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await backendRequest('/api/v1/logout', { method: 'POST' });
+    } catch {
+      // ignore logout errors
+    }
     localStorage.removeItem('fitpulse-access-token');
     localStorage.removeItem('fitpulse-refresh-token');
     update({ registered: false, guest: false, screen: 'login' });
@@ -1066,29 +1115,38 @@ export function AppProvider({ children }) {
     notify('Регистрация успешна. Проверьте email для подтверждения.');
   }, [state.profile, update, notify]);
 
-  const forgotPassword = useCallback(() => {
+  const forgotPassword = useCallback(async () => {
     update({ screen: 'reset', resetStep: 0 });
   }, [update]);
 
-  const submitResetEmail = useCallback(() => {
+  const submitResetEmail = useCallback(async () => {
     const email = document.getElementById('resetEmail')?.value.trim();
     if (!email?.includes('@')) {
       notify('Введите корректный email');
       return;
     }
-    update({ resetEmail: email, resetStep: 1 });
+    try {
+      await backendRequest('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      update({ resetEmail: email, resetStep: 1 });
+      notify('Код отправлен на email');
+    } catch {
+      notify('Ошибка отправки кода');
+    }
   }, [update, notify]);
 
   const submitResetCode = useCallback(() => {
     const code = document.getElementById('resetCode')?.value.trim();
-    if (code !== '123456') {
-      notify('Неверный код. Для демо используйте 123456');
+    if (!code) {
+      notify('Введите код');
       return;
     }
     update({ resetStep: 2 });
   }, [update, notify]);
 
-  const submitNewPassword = useCallback(() => {
+  const submitNewPassword = useCallback(async () => {
     const pass = document.getElementById('newPassword')?.value || '';
     const confirmPass =
       document.getElementById('newPasswordConfirm')?.value || '';
@@ -1100,12 +1158,24 @@ export function AppProvider({ children }) {
       notify('Пароли не совпадают');
       return;
     }
-    update({
-      profile: { ...state.profile, password: pass },
-      screen: 'login',
-    });
-    notify('Пароль изменён. Теперь можно войти.');
-  }, [state.profile, update, notify]);
+    try {
+      await backendRequest('/api/v1/auth/reset', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: state.resetEmail,
+          code: document.getElementById('resetCode')?.value.trim(),
+          new_password: pass,
+        }),
+      });
+      update({
+        profile: { ...state.profile, password: pass },
+        screen: 'login',
+      });
+      notify('Пароль изменён. Теперь можно войти.');
+    } catch {
+      notify('Ошибка сброса пароля');
+    }
+  }, [state.profile, state.resetEmail, update, notify]);
 
   const continueAsGuest = useCallback(() => {
     update({ guest: true, registered: false, screen: 'home' });
@@ -1158,10 +1228,11 @@ export function AppProvider({ children }) {
 
   const openLegal = useCallback(
     (screen) => {
+      const defaultReturn = state.guest ? 'home' : 'login';
       update({
         legalReturnScreen:
           screen === 'privacy' || screen === 'terms'
-            ? state.legalReturnScreen || (state.guest ? 'home' : 'login')
+            ? state.legalReturnScreen || defaultReturn
             : state.screen,
         screen,
       });
@@ -1230,7 +1301,7 @@ export function AppProvider({ children }) {
             backup_codes: backupCodes,
           }),
         });
-        if (data && data.success) {
+        if (data?.success) {
           notify('2FA успешно настроена');
           update({ twoFactorSetup: null, screen: 'profile' });
         } else {
@@ -1254,9 +1325,9 @@ export function AppProvider({ children }) {
             is_backup_code: isBackupCode,
           }),
         });
-        if (data && data.access_token) {
+        if (data?.access_token) {
           localStorage.setItem('fitpulse-access-token', data.access_token);
-          if (data.refresh_token) {
+          if (data?.refresh_token) {
             localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
           }
           update({
@@ -1282,7 +1353,7 @@ export function AppProvider({ children }) {
           method: 'POST',
           body: JSON.stringify({ passcode }),
         });
-        if (data && data.success) {
+        if (data?.success) {
           update({ profile: { ...state.profile, twoFactor: false } });
           notify('2FA отключена');
         } else {
@@ -1532,13 +1603,17 @@ export function AppProvider({ children }) {
     [state.selectedWorkout, update]
   );
 
-  const startWorkout = useCallback(
-    (title) => {
-      const completed = state.completedWorkouts || [];
-      if (completed.includes(title)) {
-        notify('Эта тренировка уже отмечена как выполненная');
-        return;
-      }
+  const startWorkout = useCallback(async (title) => {
+    const completed = state.completedWorkouts || [];
+    if (completed.includes(title)) {
+      notify('Эта тренировка уже отмечена как выполненная');
+      return;
+    }
+    try {
+      await backendRequest('/api/v1/training/complete', {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: 'default', workout_id: title, rating: 5, feedback: 'Completed' }),
+      });
       const newCompleted = [...completed, title];
       const newDaily = (state.dailyCompleted || 0) + 1;
       const td = state.trainingData?.day;
@@ -1562,19 +1637,20 @@ export function AppProvider({ children }) {
           : state.trainingData,
       });
       notify(`${title}\n✓ Тренировка завершена. +40 XP`);
-    },
-    [
-      state.completedWorkouts,
-      state.dailyCompleted,
-      state.points,
-      state.xp,
-      state.trainingMinutes,
-      state.caloriesBurned,
-      state.trainingData,
-      update,
-      notify,
-    ]
-  );
+    } catch {
+      notify('Ошибка завершения тренировки');
+    }
+  }, [
+    state.completedWorkouts,
+    state.dailyCompleted,
+    state.points,
+    state.xp,
+    state.trainingMinutes,
+    state.caloriesBurned,
+    state.trainingData,
+    update,
+    notify,
+  ]);
 
   const editPlace = useCallback(
     (index) => {
@@ -1620,7 +1696,7 @@ export function AppProvider({ children }) {
       t('Название точки', 'Place name'),
       t('Новое место', 'New place')
     );
-    if (name === null || !name.trim()) return;
+    if (!name?.trim()) return;
     const icon = (
       prompt(
         t('Иконка Font Awesome', 'Font Awesome icon'),
@@ -1702,166 +1778,165 @@ export function AppProvider({ children }) {
     [update]
   );
 
-  const addEvent = useCallback(() => {
+  const addEvent = useCallback(async (eventData = {}) => {
     const day = state.selectedCalendarDay || new Date().getDate();
-    const type = document.getElementById('eventType')?.value || 'training';
-    const title =
-      document.getElementById('eventTitle')?.value.trim() ||
-      t('Новое событие', 'New event');
-    const time = document.getElementById('eventTime')?.value || '19:00';
-    const colors = {
-      training: '#6fae20',
-      food: '#f5d45d',
-      recovery: '#ff6375',
-      meeting: '#a78bfa',
-      note: '#19d8da',
-    };
-    const newEvents = { ...state.calendarEvents };
-    if (!newEvents[day]) newEvents[day] = [];
-    newEvents[day] = [
-      ...newEvents[day],
-      {
-        type,
-        title,
-        time,
-        info:
-          type === 'training'
-            ? t('Тренировка', 'Training')
-            : type === 'food'
-              ? t('Питание', 'Meal')
-              : type === 'recovery'
-                ? t('Восстановление', 'Recovery')
-                : t('Событие', 'Event'),
-        date: `${day} ${getMonthName(state.calendarMonthIndex, state.language)}`,
-        color: colors[type] || '#19d8da',
-      },
-    ];
-    update({
-      calendarEvents: newEvents,
-      showDateModal: false,
-      dateModalDate: null,
-    });
+    const type = eventData.type || document.getElementById('eventType')?.value || 'training';
+    const title = eventData.title || document.getElementById('eventTitle')?.value.trim() || t('Новое событие', 'New event');
+    const time = eventData.time || document.getElementById('eventTime')?.value || '19:00';
+    const description = eventData.description || document.getElementById('eventDescription')?.value.trim() || '';
+    const dateStr = `${state.calendarYear}-${String(state.calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    try {
+      const data = await backendRequest('/api/v1/calendar/events', {
+        method: 'POST',
+        body: JSON.stringify({ title, date: dateStr, type, description }),
+      });
+      if (data?.event) {
+        const newEvents = { ...state.calendarEvents };
+        const dateLabel = `${day} ${getMonthName(state.calendarMonthIndex, state.language)}`;
+        if (!newEvents[dateLabel]) newEvents[dateLabel] = [];
+        newEvents[dateLabel] = [
+          ...newEvents[dateLabel],
+          {
+            id: data.event.id,
+            title: data.event.title,
+            type: data.event.type,
+            info: description || type,
+            time,
+            date: dateLabel,
+            color: { training: '#6fae20', food: '#f5d45d', recovery: '#ff6375', meeting: '#a78bfa', note: '#19d8da' }[type] || '#19d8da',
+          },
+        ];
+        const newList = [...(state.calendarEventsList || []), { ...data.event, dateLabel }];
+        update({ calendarEvents: newEvents, calendarEventsList: newList, showDateModal: false, dateModalDate: null });
+      }
+    } catch {
+      notify('Ошибка добавления события');
+    }
   }, [
     state.selectedCalendarDay,
     state.calendarMonthIndex,
+    state.calendarYear,
     state.calendarEvents,
     state.language,
     update,
+    notify,
+    t,
   ]);
 
-  const deleteCalendarEvent = useCallback(
-    (key, index) => {
-      const list = state.calendarEvents[key];
-      if (!list || index < 0 || index >= list.length) return;
-      const newEvents = { ...state.calendarEvents };
-      newEvents[key] = list.filter((_, i) => i !== index);
-      if (!newEvents[key].length) delete newEvents[key];
-      update({
-        calendarEvents: newEvents,
-        showDateModal: false,
-        dateModalDate: null,
+  const updateEvent = useCallback(async (eventId, title, date, type, description) => {
+    try {
+      const data = await backendRequest(`/api/v1/calendar/events/${eventId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ title, date, type, description }),
       });
-    },
-    [state.calendarEvents, update]
-  );
+      if (data?.event) {
+        const newList = (state.calendarEventsList || []).map((e) =>
+          e.id === eventId ? { ...e, ...data.event } : e
+        );
+        update({ calendarEventsList: newList });
+        notify('Событие обновлено');
+      }
+    } catch {
+      notify('Ошибка обновления события');
+    }
+  }, [state.calendarEventsList, update, notify]);
 
-  const sendAI = useCallback(() => {
+  const deleteCalendarEvent = useCallback(async (keyOrEventId, index) => {
+    let eventId = keyOrEventId;
+    
+    if (typeof index === 'number' && typeof keyOrEventId === 'string') {
+      const list = state.calendarEvents[keyOrEventId];
+      if (!list || index < 0 || index >= list.length) return;
+      eventId = list[index].id;
+    }
+    
+    try {
+      await backendRequest(`/api/v1/calendar/events/${eventId}`, { method: 'DELETE' });
+      const newList = (state.calendarEventsList || []).filter((e) => e.id !== eventId);
+      const newEvents = { ...state.calendarEvents };
+      for (const key of Object.keys(newEvents)) {
+        newEvents[key] = newEvents[key].filter((e) => e.id !== eventId);
+        if (!newEvents[key].length) delete newEvents[key];
+      }
+      update({ calendarEvents: newEvents, calendarEventsList: newList, showDateModal: false, dateModalDate: null });
+    } catch {
+      notify('Ошибка удаления события');
+    }
+  }, [state.calendarEvents, state.calendarEventsList, update, notify]);
+
+  const sendAI = useCallback(async () => {
     const input = document.getElementById('aiInput');
     const text = input?.value.trim();
     if (!text) return;
-    const newMessages = [...state.messages, { type: 'user', text }];
+    const userMsg = { id: Date.now() + '-u', type: 'user', text };
+    const newMessages = [...state.messages, userMsg];
     update({ messages: newMessages });
     if (input) input.value = '';
-    // Simple AI response
-    setTimeout(() => {
-      let answer =
-        'Я понял запрос. Уточни, что именно нужно: меню, завтрак, обед, ужин, тренировка, календарь, вес, сон, стресс или устройства.';
-      const query = text.toLowerCase();
-      if (query.includes('меню') || query.includes('пит')) {
-        answer =
-          'Для сегодняшнего дня: завтрак --- омлет со шпинатом, обед --- индейка с киноа, ужин --- треска с овощами. Это даст около 1 680 ккал и хороший уровень белка.';
-      } else if (query.includes('завтрак')) {
-        answer =
-          'Для завтрака: омлет со шпинатом, творог с бананом или тост с авокадо. Выбери омлет для сытости надолго.';
-      } else if (query.includes('обед')) {
-        answer =
-          'Для обеда: индейка с киноа, паста с тунцом или тофу с овощами. Для формы лучше индейка с киноа.';
-      } else if (query.includes('ужин') || query.includes('лёгкий')) {
-        answer =
-          'Для лёгкого ужина: треска с овощами --- 390 ккал, 38г белка. Альтернативы: куриный боул или овощной суп.';
-      } else if (query.includes('трен')) {
-        answer =
-          'Сегодня готовность 87%. Лучший вариант: 42 минуты силовой тренировки средней интенсивности.';
-      } else if (query.includes('календар') || query.includes('событ')) {
-        answer =
-          'Я могу добавить тренировку, питание, восстановление или встречу.';
-        const d = new Date();
-        const key = getDateKey(d.getFullYear(), d.getMonth(), d.getDate());
-        const newEvents = { ...state.calendarEvents };
-        if (!newEvents[key]) newEvents[key] = [];
-        newEvents[key] = [
-          ...newEvents[key],
-          {
-            title: 'AI: силовая тренировка',
-            type: 'training',
-            date: `${d.getDate()} ${getMonthName(d.getMonth(), state.language)}`,
-            time: '18:30',
-            color: '#6fae20',
-          },
-        ];
-        update({ calendarEvents: newEvents });
-      } else if (
-        query.includes('вес') ||
-        query.includes('жир') ||
-        query.includes('мышц')
-      ) {
-        answer =
-          'Текущий вес 74.2 кг, мышцы 34.8 кг, жир 18.4%. Целевой диапазон 72--76 кг. Сохраняй силовые 3 раза в неделю и белок 120--145 г в день.';
+    try {
+      const data = await backendRequest('/api/v1/ml/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message: text }),
+      });
+      if (data) {
+        const aiMsg = {
+          id: Date.now() + '-a',
+          type: 'ai',
+          text: data.message || 'Ответ получен',
+          classification: data.classification || null,
+          plan: data.plan || null,
+          diet: data.diet || null,
+          timestamp: data.timestamp,
+        };
+        update({
+          messages: [...newMessages, aiMsg],
+          aiClassification: data.classification || null,
+          aiPlan: data.plan || null,
+          aiDiet: data.diet || null,
+        });
       }
-      update({ messages: [...state.messages, { type: 'ai', text: answer }] });
-    }, 500);
-  }, [state.messages, state.calendarEvents, state.language, update]);
+    } catch {
+      update({
+        messages: [...newMessages, { id: Date.now() + '-e', type: 'ai', text: 'Ошибка подключения к AI сервису' }],
+      });
+    }
+  }, [state.messages, update]);
 
   const quickAI = useCallback(
-    (text) => {
-      const newMessages = [...state.messages, { type: 'user', text }];
+    async (text) => {
+      const newMessages = [...state.messages, { id: Date.now() + '-u', type: 'user', text }];
       update({ messages: newMessages });
-      setTimeout(() => {
-        let answer = 'Я понял запрос.';
-        if (text.includes('меню') || text.includes('пит')) {
-          answer =
-            'Для сегодняшнего дня: завтрак --- омлет со шпинатом, обед --- индейка с киноа, ужин --- треска с овощами.';
-        } else if (text.includes('ужин')) {
-          answer =
-            'Для лёгкого ужина: треска с овощами --- 390 ккал, 38г белка.';
-        } else if (text.includes('календар')) {
-          answer = 'Добавляю тренировку в календарь на сегодня.';
-          const d = new Date();
-          const key = getDateKey(d.getFullYear(), d.getMonth(), d.getDate());
-          const newEvents = { ...state.calendarEvents };
-          if (!newEvents[key]) newEvents[key] = [];
-          newEvents[key] = [
-            ...newEvents[key],
-            {
-              title: 'AI: силовая тренировка',
-              type: 'training',
-              date: `${d.getDate()} ${getMonthName(d.getMonth(), state.language)}`,
-              time: '18:30',
-              color: '#6fae20',
-            },
-          ];
-          update({ calendarEvents: newEvents });
-        } else if (text.includes('тело') || text.includes('композ')) {
-          answer =
-            'Текущий вес 74.2 кг, мышцы 34.8 кг, жир 18.4%. Цель: сохранить силовые 3 раза в неделю.';
+      try {
+        const data = await backendRequest('/api/v1/ml/chat', {
+          method: 'POST',
+          body: JSON.stringify({ message: text }),
+        });
+        if (data) {
+          const aiMsg = {
+            id: Date.now() + '-a',
+            type: 'ai',
+            text: data.message || 'Ответ получен',
+            classification: data.classification || null,
+            plan: data.plan || null,
+            diet: data.diet || null,
+            timestamp: data.timestamp,
+          };
+          update({
+            messages: [...newMessages, aiMsg],
+            aiClassification: data.classification || null,
+            aiPlan: data.plan || null,
+            aiDiet: data.diet || null,
+          });
         }
-        update({ messages: [...state.messages, { type: 'ai', text: answer }] });
-      }, 500);
+      } catch {
+        update({
+          messages: [...newMessages, { id: Date.now() + '-e', type: 'ai', text: 'Ошибка подключения к AI сервису' }],
+        });
+      }
     },
-    [state.messages, state.calendarEvents, state.language, update]
+    [state.messages, update]
   );
 
-  const editProfile = useCallback(() => {
+  const editProfile = useCallback(async () => {
     const p = state.profile;
     const name = prompt(t('Имя', 'Name'), p.name);
     if (name === null) return;
@@ -1874,16 +1949,25 @@ export function AppProvider({ children }) {
     if (bio === null) return;
     const phone = prompt(t('Телефон', 'Phone'), p.phone || '');
     if (phone === null) return;
-    update({
-      profile: {
-        ...p,
-        name: name.trim() || p.name,
-        status: status.trim(),
-        bio: bio.trim(),
-        phone: phone.trim(),
-      },
-    });
-  }, [state.profile, update]);
+    try {
+      await backendRequest('/api/v1/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ full_name: name, gender: p.gender, phone, bio, status }),
+      });
+      update({
+        profile: {
+          ...p,
+          name: name.trim() || p.name,
+          status: status.trim(),
+          bio: bio.trim(),
+          phone: phone.trim(),
+        },
+      });
+      notify('Профиль обновлён');
+    } catch {
+      notify('Ошибка обновления профиля');
+    }
+  }, [state.profile, update, notify, t]);
 
   const changePassword = useCallback(() => {
     const oldPass = document.getElementById('oldPass')?.value || '';
@@ -2340,6 +2424,365 @@ export function AppProvider({ children }) {
     update({ selectedAchievement: null });
   }, [update]);
 
+  const loadProfile = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/profile');
+      if (data?.profile) {
+        const p = data.profile;
+        update({
+          profile: {
+            ...state.profile,
+            name: p.full_name || p.name || state.profile.name,
+            email: p.email || state.profile.email,
+            gender: p.gender || state.profile.gender,
+            phone: p.phone || state.profile.phone,
+            bio: p.bio || state.profile.bio,
+            status: p.status || state.profile.status,
+          },
+          profileLoaded: true,
+        });
+      } else {
+        update({ profileLoaded: true });
+      }
+    } catch {
+      update({ profileLoaded: true });
+    }
+  }, [state.profile, update]);
+
+  const saveProfile = useCallback(async (profileData) => {
+    try {
+      await backendRequest('/api/v1/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData),
+      });
+      notify('Профиль сохранён');
+      return true;
+    } catch {
+      notify('Ошибка сохранения профиля');
+      return false;
+    }
+  }, [notify]);
+
+  const loadBiometrics = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/biometrics');
+      if (data && Array.isArray(data.records)) {
+        update({ biometrics: data.records });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const addBiometric = useCallback(async (metricType, value, deviceType = 'manual') => {
+    try {
+      await backendRequest('/api/v1/biometrics', {
+        method: 'POST',
+        body: JSON.stringify({ metric_type: metricType, value, timestamp: new Date().toISOString(), device_type: deviceType }),
+      });
+      await loadBiometrics();
+      notify('Метрика добавлена');
+    } catch {
+      notify('Ошибка добавления метрики');
+    }
+  }, [loadBiometrics, notify]);
+
+  const loadBodyComposition = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/health/body-composition');
+      if (data && Array.isArray(data.records)) {
+        update({ bodyComposition: data.records });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const saveBodyComposition = useCallback(async (record) => {
+    try {
+      const data = await backendRequest('/api/v1/health/body-composition', {
+        method: 'POST',
+        body: JSON.stringify(record),
+      });
+      if (data?.record) {
+        const newRecords = [...(state.bodyComposition || []), data.record];
+        update({ bodyComposition: newRecords });
+      }
+      notify('Запись сохранена');
+      return true;
+    } catch {
+      notify('Ошибка сохранения');
+      return false;
+    }
+  }, [state.bodyComposition, update, notify]);
+
+  const loadTrainingPlans = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/training/plans');
+      if (Array.isArray(data?.plans)) {
+        update({ trainingPlans: data.plans });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const generatePlan = useCallback(async (params = {}) => {
+    try {
+      const data = await backendRequest('/api/v1/training/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          duration_weeks: params.durationWeeks || 4,
+          available_days: params.availableDays || [1, 3, 5],
+          class: params.class || 'endurance_basic',
+          confidence: params.confidence || 0.8,
+        }),
+      });
+      if (data) {
+        await loadTrainingPlans();
+        notify('План создан');
+        return data;
+      }
+    } catch {
+      notify('Ошибка генерации плана');
+    }
+    return null;
+  }, [loadTrainingPlans, notify]);
+
+  const getPlanDetails = useCallback(async (planId) => {
+    try {
+      const data = await backendRequest(`/api/v1/training/plans/${planId}`);
+      return data;
+    } catch {
+      notify('Ошибка загрузки плана');
+      return null;
+    }
+  }, [notify]);
+
+  const loadProgress = useCallback(async () => {
+    try {
+      await backendRequest('/api/v1/training/progress');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const completeWorkout = useCallback(async (planId, workoutId, rating = 5, feedback = '') => {
+    try {
+      await backendRequest('/api/v1/training/complete', {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: planId, workout_id: workoutId, rating, feedback }),
+      });
+    } catch {
+      notify('Ошибка завершения тренировки');
+    }
+  }, [notify]);
+
+  const loadAchievements = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/achievements');
+      if (data) {
+        const achievements = data.achievements || data.items || [];
+        update({ achievementsBackend: achievements });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const loadMeals = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/nutrition/meals');
+      if (data && Array.isArray(data.meals)) {
+        update({ mealsList: data.meals });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const createMeal = useCallback(async (name, calories, time = '') => {
+    try {
+      const data = await backendRequest('/api/v1/nutrition/meals', {
+        method: 'POST',
+        body: JSON.stringify({ name, calories, time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
+      });
+      if (data?.meal) {
+        const newMeals = [...(state.mealsList || []), data.meal];
+        update({ mealsList: newMeals });
+      }
+      notify('Блюдо добавлено');
+    } catch {
+      notify('Ошибка добавления блюда');
+    }
+  }, [state.mealsList, update, notify]);
+
+  const removeMeal = useCallback(async (mealId) => {
+    try {
+      await backendRequest(`/api/v1/nutrition/meals/${mealId}`, { method: 'DELETE' });
+      const newMeals = (state.mealsList || []).filter((m) => m.id !== mealId);
+      update({ mealsList: newMeals });
+      notify('Блюдо удалено');
+    } catch {
+      notify('Ошибка удаления блюда');
+    }
+  }, [state.mealsList, update, notify]);
+
+  const loadCalendarEvents = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/calendar/events');
+      if (Array.isArray(data?.events)) {
+        update({ calendarEventsList: data.events });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const loadVideos = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/videos');
+      if (data && Array.isArray(data.videos)) {
+        update({ videos: data.videos });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const loadConditions = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/health/conditions');
+      if (data && Array.isArray(data.conditions)) {
+        update({ conditions: data.conditions });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const createCondition = useCallback(async (conditionData) => {
+    try {
+      const data = await backendRequest('/api/v1/health/conditions', {
+        method: 'POST',
+        body: JSON.stringify(conditionData),
+      });
+      if (data?.condition) {
+        const newConditions = [...(state.conditions || []), data.condition];
+        update({ conditions: newConditions });
+      }
+      notify('Состояние добавлено');
+      return true;
+    } catch {
+      notify('Ошибка добавления состояния');
+      return false;
+    }
+  }, [state.conditions, update, notify]);
+
+  const deleteCondition = useCallback(async (conditionId) => {
+    try {
+      await backendRequest(`/api/v1/health/conditions/${conditionId}`, { method: 'DELETE' });
+      const newConditions = (state.conditions || []).filter((c) => c.id !== conditionId);
+      update({ conditions: newConditions });
+      notify('Состояние удалено');
+    } catch {
+      notify('Ошибка удаления состояния');
+    }
+  }, [state.conditions, update, notify]);
+
+  const loadMenstrualCycles = useCallback(async () => {
+    try {
+      const data = await backendRequest('/api/v1/health/menstrual-cycles');
+      if (Array.isArray(data?.cycles)) {
+        update({ menstrualCycles: data.cycles });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const createMenstrualCycle = useCallback(async (cycleData) => {
+    try {
+      const data = await backendRequest('/api/v1/health/menstrual-cycles', {
+        method: 'POST',
+        body: JSON.stringify(cycleData),
+      });
+      if (data?.cycle) {
+        const newCycles = [...(state.menstrualCycles || []), data.cycle];
+        update({ menstrualCycles: newCycles });
+      }
+      notify('Цикл добавлен');
+      return true;
+    } catch {
+      notify('Ошибка добавления цикла');
+      return false;
+    }
+  }, [state.menstrualCycles, update, notify]);
+
+  const updateMenstrualCycle = useCallback(async (cycleId, cycleData) => {
+    try {
+      const data = await backendRequest(`/api/v1/health/menstrual-cycles/${cycleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(cycleData),
+      });
+      if (data?.cycle) {
+        const newCycles = (state.menstrualCycles || []).map((c) =>
+          c.id === cycleId ? { ...c, ...data.cycle } : c
+        );
+        update({ menstrualCycles: newCycles });
+      }
+      notify('Цикл обновлён');
+      return true;
+    } catch {
+      notify('Ошибка обновления цикла');
+      return false;
+    }
+  }, [state.menstrualCycles, update, notify]);
+
+  const deleteMenstrualCycle = useCallback(async (cycleId) => {
+    try {
+      await backendRequest(`/api/v1/health/menstrual-cycles/${cycleId}`, { method: 'DELETE' });
+      const newCycles = (state.menstrualCycles || []).filter((c) => c.id !== cycleId);
+      update({ menstrualCycles: newCycles });
+      notify('Цикл удалён');
+    } catch {
+      notify('Ошибка удаления цикла');
+    }
+  }, [state.menstrualCycles, update, notify]);
+
+  const logWeight = useCallback(async (height, weight) => {
+    const newHistory = [
+      ...state.weightHistory,
+      [t('Сегодня', 'Today'), `${weight || state.weight || 70} кг`],
+    ];
+    update({ weightHistory: newHistory });
+    if (height && weight) {
+      try {
+        await backendRequest('/api/v1/health/body-composition', {
+          method: 'POST',
+          body: JSON.stringify({ height_cm: height, weight_kg: weight, recorded_at: new Date().toISOString() }),
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }, [state.weightHistory, state.weight, update, t]);
+
+  useEffect(() => {
+    if (state.registered && !state.profileLoaded) {
+      loadProfile();
+      loadBiometrics();
+      loadTrainingPlans();
+      loadMeals();
+      loadCalendarEvents();
+      loadAchievements();
+      loadVideos();
+      loadConditions();
+      loadMenstrualCycles();
+      loadBodyComposition();
+    }
+  }, [state.registered, state.profileLoaded, loadProfile, loadBiometrics, loadTrainingPlans, loadMeals, loadCalendarEvents, loadAchievements, loadVideos, loadConditions, loadMenstrualCycles, loadBodyComposition]);
+
   const value = useMemo(
     () => ({
       state,
@@ -2433,6 +2876,32 @@ export function AppProvider({ children }) {
       askAIForDay,
       closeMeal,
       closeAchievement,
+      loadProfile,
+      saveProfile,
+      loadBiometrics,
+      addBiometric,
+      loadBodyComposition,
+      saveBodyComposition,
+      loadTrainingPlans,
+      generatePlan,
+      getPlanDetails,
+      loadProgress,
+      completeWorkout,
+      loadAchievements,
+      loadMeals,
+      createMeal,
+      removeMeal,
+      loadCalendarEvents,
+      updateEvent,
+      loadVideos,
+      loadConditions,
+      createCondition,
+      deleteCondition,
+      loadMenstrualCycles,
+      createMenstrualCycle,
+      updateMenstrualCycle,
+      deleteMenstrualCycle,
+      logWeight,
     }),
     [
       state,
@@ -2517,6 +2986,32 @@ export function AppProvider({ children }) {
       uploadPhoto,
       setGoal,
       askAIForDay,
+      loadProfile,
+      saveProfile,
+      loadBiometrics,
+      addBiometric,
+      loadBodyComposition,
+      saveBodyComposition,
+      loadTrainingPlans,
+      generatePlan,
+      getPlanDetails,
+      loadProgress,
+      completeWorkout,
+      loadAchievements,
+      loadMeals,
+      createMeal,
+      removeMeal,
+      loadCalendarEvents,
+      updateEvent,
+      loadVideos,
+      loadConditions,
+      createCondition,
+      deleteCondition,
+      loadMenstrualCycles,
+      createMenstrualCycle,
+      updateMenstrualCycle,
+      deleteMenstrualCycle,
+      logWeight,
     ]
   );
 

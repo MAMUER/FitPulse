@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Reset from './Reset';
@@ -18,6 +19,7 @@ const defaultContext = {
     highContrast: false,
     language: 'ru',
     resetStep: 0,
+    resetEmail: '',
   },
   t: (ru, _en) => ru,
   submitResetEmail: vi.fn(),
@@ -30,9 +32,11 @@ const defaultContext = {
 function renderReset() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Reset />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Reset />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

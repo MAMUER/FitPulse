@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Register from './Register';
@@ -30,9 +31,11 @@ const defaultContext = {
 function renderRegister() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Register />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Register />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

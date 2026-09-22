@@ -64,10 +64,6 @@ spec:
           secret:
             secretName: app-secrets
             items:
-              - key: POSTGRES_USER
-                path: POSTGRES_USER
-              - key: POSTGRES_PASSWORD
-                path: POSTGRES_PASSWORD
               - key: POSTGRES_DB
                 path: POSTGRES_DB
               - key: RABBITMQ_URL
@@ -77,6 +73,9 @@ spec:
         - name: grpc-tls
           secret:
             secretName: grpc-server-tls
+        - name: db-credentials
+          secret:
+            secretName: training-service-db-credentials
       containers:
         - name: training-service
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
@@ -106,6 +105,9 @@ spec:
             - name: grpc-tls
               mountPath: /etc/grpc-tls
               readOnly: true
+            - name: db-credentials
+              mountPath: /etc/db-credentials
+              readOnly: true
           env:
             - name: DB_HOST
               valueFrom:
@@ -118,9 +120,9 @@ spec:
                   name: app-config
                   key: DB_PORT
             - name: POSTGRES_USER_FILE
-              value: "/etc/secrets/POSTGRES_USER"
+              value: "/etc/db-credentials/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
-              value: "/etc/secrets/POSTGRES_PASSWORD"
+              value: "/etc/db-credentials/POSTGRES_PASSWORD"
             - name: POSTGRES_DB_FILE
               value: "/etc/secrets/POSTGRES_DB"
             - name: DB_SSLMODE

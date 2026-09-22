@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Nutrition from './Nutrition';
@@ -17,12 +18,14 @@ const defaultContext = {
     theme: 'dark',
     highContrast: false,
     language: 'ru',
-    meals: [],
+    mealsList: [],
     calorieGoal: 2200,
   },
   t: (ru, _en) => ru,
-  addMeal: vi.fn(),
+  createMeal: vi.fn(),
   removeMeal: vi.fn(),
+  loadMeals: vi.fn(),
+  go: vi.fn(),
   setNutritionPeriod: vi.fn(),
   drinkWater: vi.fn(),
   nutritionSettings: vi.fn(),
@@ -35,9 +38,11 @@ const defaultContext = {
 function renderNutrition() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Nutrition />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Nutrition />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

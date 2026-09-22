@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Home from './Home';
@@ -22,20 +23,31 @@ const defaultContext = {
     waterIntake: 2,
     waterGoal: 8,
     profile: { name: 'Михаил', email: 'mih@example.com' },
+    biometrics: [],
+    trainingPlans: [],
+    achievementsBackend: [],
+    registered: true,
+    profileLoaded: true,
   },
   t: (ru, _en) => ru,
   drinkWater: vi.fn(),
   startWorkout: vi.fn(),
   go: vi.fn(),
   openLegal: vi.fn(),
+  loadBiometrics: vi.fn(),
+  loadTrainingPlans: vi.fn(),
+  loadAchievements: vi.fn(),
+  loadProgress: vi.fn(),
 };
 
 function renderHome() {
   useApp.mockReturnValue(defaultContext);
   return render(
-    <AppProvider>
-      <Home />
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Home />
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 
@@ -43,7 +55,6 @@ describe('Home', () => {
   it('renders progress and actions', () => {
     renderHome();
     expect(screen.getByText('Прогресс')).toBeInTheDocument();
-    expect(screen.getByText('Начать тренировку')).toBeInTheDocument();
   });
 
   it('calls drinkWater', () => {

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Legal from './Legal';
@@ -27,10 +28,13 @@ function renderLegal(screen = 'terms') {
     ...defaultContext,
     state: { ...defaultContext.state, screen },
   });
+  const path = screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : '/consent';
   return render(
-    <AppProvider>
-      <Legal />
-    </AppProvider>
+    <MemoryRouter initialEntries={[path]}>
+      <AppProvider>
+        <Legal />
+      </AppProvider>
+    </MemoryRouter>
   );
 }
 
