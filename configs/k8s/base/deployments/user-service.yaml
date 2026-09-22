@@ -180,6 +180,14 @@ spec:
               value: "/etc/secrets/GOOGLE_REDIRECT_URL"
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "user-service"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50051"
           livenessProbe:

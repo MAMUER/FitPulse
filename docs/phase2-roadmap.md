@@ -27,79 +27,34 @@ Phase 1 покрывает базовый mTLS между микросервис
 
 ## 3. PostgreSQL High Availability & Disaster Recovery
 
-> **Статус: Частично выполнен** ⚠️
-
 ### 3.1 Контекст
 
-Single PostgreSQL инстанс сейчас работает на том же VPS что и приложение. Надежность данных обеспечивается на уровне:
-- ежедневный зашифрованный `pg_dump` в MinIO;
-- WAL-архивация в S3-совместимое хранилище;
-- процедуры восстановления и quarterly chaos-тесты.
+Single PostgreSQL инстанс сейчас работает на том же VPS что и приложение. Phase 2 требует:
 
-Полноценная HA с автоматическим failover (`RTO < 30s`, `RPO = 0`) требует **минимум 3 отдельных серверов/VPS** в разных географических локациях (Patroni + etcd quorum). На текущем single-VPS это структурно невозможно; соответствующие задачи отложены до выделения инфраструктуры/бюджета.
+- автоматическое переключение при отказе
+- read replicas для отдачи аналитической нагрузки
+
+**Важно:** истинная HA с заявленными Acceptance Criteria (RTO < 30s, RPO = 0) возможна только при наличии **минимум 3 отдельных серверов/VPS** в разных географических locations. Patroni + etcd требует quorum из 3 узлов для автоматического failover. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
 
 ### 3.2 Задачи
 
-1. Развёртывание Patroni + etcd или managed Aurora/CloudSQL.
-2. Настройка 1 primary + 2 synchronous replicas.
-3. Настройка pg_basebackup + WAL-архивации в S3/MinIO.
-4. Настройка HAProxy/ProxySQL как единой точки входа (connection pooling, health checks, read/write splitting).
-5. Интеграция с мониторингом: `pg_stat_replication`, `pg_stat_activity`.
-6. Шифрование бэкапов (AES-256, ключ в Vault).
-7. Тестовый стенд восстановления (restore-to-clone).
-8. Scheduled Chaos tests: отключение primary БД, Valkey master, Vault.
-9. Ежеквартальный recovery drill с публичным отчётом.
+1. Развёртывание Patroni + etcd (или managed Aurora/CloudSQL)
+2. Настройка 1 primary + 2 synchronous replicas
+3. Настройка pg_basebackup + WAL-архивации в S3
+4. Настройка HAProxy/ProxySQL как единой точки входа (connection pooling, health checks, read/write splitting)
+5. Интеграция с мониторингом: `pg_stat_replication`, `pg_stat_activity`
 
 ### 3.3 Acceptance Criteria
 
-| Критерий | Статус | Примечание |
-|---|---|---|
-| RTO < 30 секунд при отказе primary | ⚠️ Требует инфраструктуры | Доступно только при 3+ VPS / managed HA |
-| RPO = 0 в разных AZ | ⏸ Отложено | Требует geo-distributed реплики |
-| Автоматическое восстановление протестировано | ✅ Готово | Шаблон drill + chaos-скрипты готовы |
-| Восстановление за < 1 часа | ⚠️ Требует тестирования | RTO зависит от размера БД |
-| Recovery drill раз в квартал | ✅ Готово | Процедура + шаблон отчёта готовы |
-
-### 3.4 Реализация
-
-| Компонент | Статус | Файл/Скрипт |
-|---|---|---|
-| Ежедневный бэкап PostgreSQL | Выполнено | `configs/k8s/base/jobs/postgres-backup-cronjob.yaml` |
-| Шифрование бэкапов AES-256 | Выполнено | `scripts/backup-db-with-minio.sh` |
-| WAL-архивация в MinIO | Выполнено | `configs/k8s/base/jobs/postgres-wal-archive-cronjob.yaml` |
-| PostgreSQL config для WAL | Выполнено | `configs/k8s/base/deployments/postgres-config.yaml` |
-| Восстановление из бэкапа | Выполнено | `scripts/restore-db.sh`, `scripts/restore-db.ps1` |
-| Restore-to-clone | Выполнено | `scripts/restore-to-clone.sh`, `scripts/restore-to-clone.ps1` |
-| Chaos tests | Выполнено | `scripts/chaos-test-postgres.sh`, `scripts/chaos-test-valkey.sh`, `scripts/chaos-test-vault.sh`, `scripts/chaos-test-all.sh` |
-| Recovery drill runbook | Выполнено | `docs/runbooks/OPERATIONS_RUNBOOK.md` |
-| Шаблон отчёта drill | Выполнено | `docs/compliance/ШАБЛОН_ОТЧЁТА_RECOVERY_DRILL.md` |
-| Patroni + etcd | ⏸ Отложено | Требует 3+ VPS / managed DB |
-| HAProxy/ProxySQL | ⏸ Отложено | Требует Patroni или managed DB |
-| Read replicas | ⏸ Отложено | Требует Patroni или managed DB |
-
-### 3.5 Бесплатные vs платные компоненты
-
-| Компонент | Стоимость | Примечание |
-|---|---|---|
-| Шифрование бэкапов AES-256 | Бесплатно | OpenSSL + существующие скрипты |
-| WAL-архивация в MinIO | Бесплатно | Использует существующий MinIO |
-| Restore-to-clone | Бесплатно | Локальные скрипты + MinIO |
-| Chaos tests | Бесплатно | Bash-скрипты + kubectl |
-| Recovery drill | Бесплатно | Процедура + документация |
-| Географическая репликация (2 зоны) | **Не бесплатно** | Требует 2 VPS в разных дата-центрах (~5 000–10 000 ₽/мес) |
-| Managed PostgreSQL (Aurora/CloudSQL) | **Не бесплатно** | ~2 500–4 000 ₽/мес |
-| Patroni + etcd cluster | **Частично** | Бесплатное ПО, но требует 3+ сервера |
-
-### 3.6 Следующие шаги (Phase 2)
-
-1. **Протестировать RTO**: запустить первый recovery drill в ближайший квартал, замерить фактическое время восстановления.
-2. **Автоматизировать restore-to-clone**: создать Kubernetes Job для автоматического восстановления в тестовом namespace.
-3. **Оценить бюджет на HA**: если бизнес-требования требуют RTO < 30s, арендовать 2 дополнительных VPS и развернуть Patroni.
-4. **Настроить PITR**: протестировать восстановление до конкретного момента времени с использованием WAL-архива.
+- RTO < 30 секунд при отказе primary.
+- RPO = 0 при использовании синхронных реплик в разных AZ (availability zones). **Trade-off**: синхронные реплики в разных AZ увеличивают write latency на 50-200мс из-за ожидания подтверждения от реплик перед commit. Синхронные реплики в пределах одного VPS не защищают от отказа хоста; для true RPO=0 требуется географическое распределение (multi-AZ/multi-region).
+- Автоматическое восстановление из бэкапа протестировано (ежеквартальные Game Days).
 
 ---
 
 ## 4. Compliance: 152-ФЗ
+
+> **Статус: Частично выполнен** ⚠️
 
 ### 4.1 Контекст
 
@@ -112,14 +67,15 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ### 4.2 Задачи
 
-1. Расширить retention ELK-логов до 3 лет для соответствия 152-ФЗ (текущий retention в `docs/ARCHITECTURE.md`: 90 дней).
-2. Подготовка документации (Политика обработки ПДн, Инструкция по работе с инцидентами, DPIA).
+- обеспечить хранение данных на территории РФ;
+- утвердить локальную политику безопасности формально.
 
 ### 4.3 Acceptance Criteria
 
-- Все персональные данные (email, biometric) шифруются в БД и в transit
-- Audit log доступен для запросов Роскомнадзора
-- Утверждена локальная политика безопасности
+| Критерий | Статус | Примечание |
+| --- | --- | --- |
+| Хранение данных на территории РФ | ⚠️ Требует реализации | Нужно разместить сервисы и БД на хосте в РФ |
+| Утверждена локальная политика безопасности | ⚠️ Требует утверждения | Документы подготовлены, требуется формальное утверждение |
 
 ---
 
@@ -127,7 +83,6 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ### 5.1 Контекст
 
-- Для GA-релиза необходимы расширенные возможности наблюдаемости.
 - Production-окружения содержат: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor.
 - Production domain: fittpulse.ru
 - Актуальные сервисы и endpoints:
@@ -135,12 +90,13 @@ Single PostgreSQL инстанс сейчас работает на том же 
   - API: <https://fittpulse.ru/api/v1/>
   - Health checks: /health, /confirm, /logout
   - ML endpoints: /api/v1/ml/chat
+- Centralized logging (ELK/Fluent Bit): см. пункт 4 (Compliance: 152-ФЗ, retention 90 дней).
 
 ### 5.2 Задачи
 
-1. **ОПРЕДЕЛИТЬ SLI/SLO**:
+1. **SLI/SLO ОПРЕДЕЛЕНИЯ**:
    - Целевая доступность: 99.9% в месяц (исключая плановые работы)
-   - Целевая латентность: p95 < 2s для всех критических endpoints:
+   - Целевая латентность: p95 < 2s для критических endpoints:
      - /api/v1/auth/login
      - /api/v1/biometrics
      - /api/v1/ml/chat
@@ -148,54 +104,54 @@ Single PostgreSQL инстанс сейчас работает на том же 
      - Отслеживается через метрики ошибок 5xx
      - Burn rate ошибочного бюджета отслеживается в Grafana
 
-2. **ИНСТРУМЕНТАЦИЯ АЛЕРТИНГА**:
-   - Настроить Alertmanager для критических алертов
-   - Интегрировать Telegram webhook для первичных уведомлений
-   - Реализовать политики эскалации для критических инцидентов
-   - Настроить retention: история алертов хранится 90 дней
+2. **ДАШБОРДЫ GRAFANA** (free tier, self-hosted):
+   - Provision дашборды через ConfigMap (`grafana-dashboard-provider`) или ansible-скрипт:
+     - **Доступность** (p99 за 7-дневное окно)
+     - **Латентность** (p50/p95/p99 процентили + трендовый анализ)
+     - **Ошибки** (HTTP 5xx rate + обнаружение всплесков)
+     - **Burn rate ошибочного бюджета** (отслеживает пополнение/восстановление)
+     - **Матрица здоровья сервисов** со статус-индикаторами
+   - RED метрики: **R**ate (запросов/сек), **E**rror rate, **D**uration (процентили латентности)
 
-3. **РАСПРЕДЕЛЁННЫЙ ТРЕЙСИНГ**:
-   - Добавить Jaeger/Zipkin sidecar-инструментацию для всех FastAPI сервисов
-   - Инструментировать gRPC вызовы в Go сервисах через OpenTelemetry
-   - Обеспечить propagation trace context во всех межсервисных вызовах
-   - Настроить sampling на уровне >=1% для захвата репрезентативного трафика
+3. **RECORDING RULES И SLO АЛЕРТЫ** (free, Prometheus-side):
+   - Добавить в `configs/k8s/base/monitoring/prometheus-configmap.yaml`:
+     - `record: job:request_error_rate` — `rate(error_total[5m]) / rate(request_total[5m])`
+     - `record: job:request_duration_p95` — `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))`
+     - `record: job:slo_error_budget_remaining` — процент оставшегося бюджета
+     - `record: job:slo_burn_rate_5m` — burn rate за 5 минут
+   - Alertmanager rules:
+     - `SLOErrorBudgetBurnRateHigh` — burn rate > 1× за 1h (warning)
+     - `SLOErrorBudgetBurned` — бюджет исчерпан (critical)
+     - `SLOLatencyBreach` — p95 > 2s за 5m (warning)
 
-4. **ДАШБОРДЫ**:
-    - Grafana дашборды:
-      - **Доступность** (p99 за 7-дневное окно)
-      - **Латентность** (p50/p95/p99 процентили + трендовый анализ)
-      - **Ошибки** (HTTP 5xx rate + обнаружение всплесков)
-      - **Burn rate ошибочного бюджета** (отслеживает пополнение/восстановление)
-      - **Матрица здоровья сервисов** со статус-индикаторами
-    - RED метрики:
-      - **R**ate (запросов/сек), **E**rror rate, **D**uration (процентили латентности)
+4. **РАСПРЕДЕЛЁННЫЙ ТРЕЙСИНГ** (частично развёрнут, требуется доработка):
+   - Jaeger all-in-one уже развёрнут в `configs/monitoring/jaeger/` (UI: jaeger.fittpulse.ru, порт 9411 Zipkin совместимость)
+   - `internal/telemetry/` содержит OpenTelemetry SDK (Go: `otelhttp`, `otelgrpc`) — требуется:
+     - Добавить OTLP exporter в сервисные deployment'ы (gateway, user-service, biometric-service и др.)
+     - Инструментировать FastAPI сервисы (Python) через `opentelemetry-instrumentation-fastapi` + `opentelemetry-exporter-otlp-proto-grpc`
+     - Настроить sampling >= 1% для production
+     - Привязать trace ID к логам через correlation ID
 
-5. **RECORDING RULES И ALERTMANAGER РОУТИНГ**:
-    - Настроить recording rules для pre-aggregated метрик (histogram quantiles, error rate, burn rate) для снижения нагрузки на Prometheus и ускорения запросов Grafana.
-    - Заменить stub webhook на полноценные маршруты: Telegram webhook для первичных уведомлений, Slack/PagerDuty для production-каналов.
-    - Настроить retention: история алертов хранится 90 дней.
+5. **ON-CALL РОТАЦИЯ** (free tier):
+   - Telegram-бот для дежурств (self-hosted, 0 ₽):
+     - Хранить график ротации в `oncall-schedule.yaml` в репозитории
+     - Бот рассылает алерты при SEV-1/SEV-2 через Telegram (Alertmanager receiver уже настроен — расширить)
+     - Команды бота: `/ack`, `/escalate`, `/status`
+     - Эскалация по цепочке: SEV-1 → on-call engineer → Tech Lead → CTO
+   - **Альтернатива (managed, free tier)**: Grafana OnCall free tier (до 5 пользователей) — рассмотреть при переходе на Grafana Cloud
 
-6. **ON-CALL РОТАЦИЯ**:
-    - Внедрить Grafana OnCall или аналогичный инструмент для управления дежурствами.
-    - Настроить графики ротации, эскалацию по цепочке (SEV-1 → on-call engineer → Tech Lead → CTO) и уведомления через Slack/Telegram/PagerDuty.
-    - Интегрировать с Alertmanager: автоматическое создание инцидентов, acknowledgement, post-incident review tracking.
-    - Настроить handoff-процедуры при смене дежурного.
-
-7. **CENTRALIZED LOGGING (ELK Stack)**:
-    - Развернуть Elasticsearch 8 + Logstash + Kibana на отдельном наборе подов или managed-сервисе.
-    - Настроить Fluent Bit на отправку JSON-логов вместо stdout: добавить Elasticsearch output plugin.
-    - Настроить retention: 90 дней горячего индекса, архив в S3 для compliance (152-ФЗ).
-    - Включить RBAC в Kibana: роли `admin`, `platform-team`, `auditor` (read-only).
-    - Интегрировать с Alertmanager: алерты на проблемы с логированием (pipeline down, indexing errors).
+6. **SLO ОТЧЁТНОСТЬ** (free):
+   - Grafana plugin "SLO" или встроенный multi-stat с `job:slo_error_budget_remaining`
+   - Ежемесячный отчёт: error budget consumption, burn rate, top-5 sources ошибок
 
 ### 5.3 Acceptance Criteria
 
-- Production-сервисы выдерживают 100+ concurrent requests
-- Экосистема мониторинга поддерживает 5-секундный интервал сбора для критических метрик
-- Все критические условия ошибок вызывают алерты в течение 30 секунд
-- Набор дашбордов покрывает все требуемые метрики с визуализациями для алертов
+- Все critical endpoints покрыты RED/SLO дашбордами в Grafana
+- Burn rate алерты срабатывают при превышении порога в течение 30 секунд
+- Jaeger UI доступен и принимает трейсы от всех сервисов (trace ID коррелируется с логами)
+- On-call бот доставляет алерты SEV-1/SEV-2 в Telegram в течение 1 минуты
 - Метрики ошибочного бюджета SLO приводят к автоматическому применению политик
-- Centralized logging развёрнут: Fluent Bit → Elasticsearch, 90 дней retention, RBAC в Kibana
+- Retention Prometheus: 15 дней (hot); retention Alertmanager: 90 дней (см. раздел 4 для централизованного логирования)
 
 ## 6. Infrastructure as Code (Total rewrite)
 

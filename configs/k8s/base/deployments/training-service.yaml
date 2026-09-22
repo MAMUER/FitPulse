@@ -148,6 +148,14 @@ spec:
                   key: ML_GENERATOR_PORT
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50053"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "training-service"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
           livenessProbe:
             grpc:
               port: 50053

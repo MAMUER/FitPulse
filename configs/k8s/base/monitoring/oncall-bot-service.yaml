@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oncall-bot
+  namespace: monitoring
+  labels:
+    app: oncall-bot
+    component: oncall
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: oncall-bot

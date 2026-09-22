@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oncall-schedule
+  namespace: monitoring
+  labels:
+    app: oncall-bot
+    component: oncall
+data:
+  oncall-schedule.yaml: |
+    schedule:
+      - week: 1
+        engineer: "@ivan"
+        tech_lead: "@alex"
+        cto: "@maria"
+      - week: 2
+        engineer: "@alex"
+        tech_lead: "@maria"
+        cto: "@ivan"
+      - week: 3
+        engineer: "@maria"
+        tech_lead: "@ivan"
+        cto: "@alex"
+      - week: 4
+        engineer: "@petr"
+        tech_lead: "@alex"
+        cto: "@ivan"
+  escalation-policy: |
+    sev1:
+      - oncall-engineer
+      - tech-lead
+      - cto
+    sev2:
+      - oncall-engineer
+      - tech-lead
+    timeout:
+      ack: 300
+      escalate: 600

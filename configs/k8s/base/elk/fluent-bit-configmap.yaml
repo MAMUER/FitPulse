@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: elk
+  labels:
+    app: fluent-bit
+    component: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        5
+        Daemon       Off
+        Log_Level    info
+        Parsers_File parsers.conf
+        Plugins_File plugins.conf
+
+    [INPUT]
+        Name              tail
+        Tag               fitpulse.*
+        Path              /var/log/containers/*.log
+        Exclude_Path      /var/log/containers/fluent-bit-*
+        Parser            docker
+        DB                /var/log/flb_db/fluent-bit.db
+        Refresh_Interval  5
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+        Buffer_Max_Size   1MB
+
+    [FILTER]
+        Name                record_modifier
+        Match               *
+        Record              hostname ${HOSTNAME}
+
+    [FILTER]
+        Name                grep
+        Match               *
+        Regex               log ^\{.*\}$
+
+    [OUTPUT]
+        Name            http
+        Match           *
+        Host            logstash.elk.svc.cluster.local
+        Port            5044
+        URI             /
+        Format          json
+        Buffer_Size     1MB
+        Retry_Limit     False
+        Compress        gzip
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+  plugins.conf: |
+    [PLUGINS]
+        @module = "fluent-plugin-record-modifier"
+        @module = "fluent-plugin-grep"

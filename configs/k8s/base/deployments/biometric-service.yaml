@@ -158,6 +158,14 @@ spec:
               value: "0.0.0.0:50052"
             - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
               value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "biometric-service"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
           livenessProbe:
             grpc:
               port: 50052
