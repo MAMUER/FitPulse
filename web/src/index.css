@@ -1,5 +1,3 @@
-@import url("/static/fonts/fonts.css");
-
 /* ── LOCAL ICON FALLBACK ── */
 .fp-no-fa i.fas::before,
 .fp-no-fa i.fab::before {
