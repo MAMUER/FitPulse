@@ -1,0 +1,76 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python cmd/ml_generator/prepare_data.py
+    deps:
+    - path: cmd/ml_generator/prepare_data.py
+      hash: md5
+      md5: 3d98cbf9cc3cb6b599a2191b89c203b1
+      size: 97
+    - path: datasets/raw/
+      hash: md5
+      md5: 6ffbaaad7b4ac6e1afabed19a80b2560.dir
+      size: 0
+      nfiles: 1
+    outs:
+    - path: datasets/processed/
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+  train:
+    cmd: python cmd/ml_generator/train.py
+    deps:
+    - path: cmd/ml_generator/train.py
+      hash: md5
+      md5: 088c7eafb2d49939c95391aaa088009e
+      size: 441
+    - path: datasets/processed/
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    params:
+      params.yaml:
+        train.batch_size: 32
+        train.epochs: 10
+        train.learning_rate: 0.001
+        train.model_type: diffusion
+    outs:
+    - path: metrics/train_metrics.json
+      hash: md5
+      md5: aeb7e55656434117bd342320b58a8d04
+      size: 13
+    - path: metrics/val_metrics.json
+      hash: md5
+      md5: 844038f9100f540fbf433c565a84e4ee
+      size: 13
+    - path: models/generator.onnx
+      hash: md5
+      md5: 6a99c575ab87f8c7d1ed1e52e7e349ce
+      size: 11
+    - path: models/tokenizer.json
+      hash: md5
+      md5: 99914b932bd37a50b983c5e7c90ae93b
+      size: 2
+  evaluate:
+    cmd: python cmd/ml_generator/evaluate.py
+    deps:
+    - path: cmd/ml_generator/evaluate.py
+      hash: md5
+      md5: 8f59d1add0a13a9f786f2cdf27921749
+      size: 188
+    - path: datasets/processed/
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    - path: models/generator.onnx
+      hash: md5
+      md5: 6a99c575ab87f8c7d1ed1e52e7e349ce
+      size: 11
+    outs:
+    - path: metrics/test_metrics.json
+      hash: md5
+      md5: d8556de1ab9a67ba29638420936ab7e1
+      size: 17
