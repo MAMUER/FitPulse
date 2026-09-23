@@ -28,3 +28,15 @@ func LogTraceFromContext(ctx context.Context, log *logger.Logger) {
 		log.Info("gRPC tracing", zap.String("trace_id", span.SpanContext().TraceID().String()))
 	}
 }
+
+// GRPCMiddleware injects trace ID from gRPC context into logger context so that
+// downstream handlers can use logger.FromContext and get correlationId in logs.
+func GRPCMiddleware(log *logger.Logger) func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+			traceID := span.SpanContext().TraceID().String()
+			ctx = logger.WithTraceID(ctx, traceID)
+		}
+		return handler(ctx, req)
+	}
+}

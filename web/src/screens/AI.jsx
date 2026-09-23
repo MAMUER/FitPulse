@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function AI() {
@@ -27,9 +27,7 @@ export default function AI() {
     return (
       <div className='ai-block'>
         <div className='ai-block-title'>{title}</div>
-        <pre className='ai-block-pre'>
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <pre className='ai-block-pre'>{JSON.stringify(data, null, 2)}</pre>
       </div>
     );
   };
@@ -53,7 +51,10 @@ export default function AI() {
                 <div>{m.text}</div>
                 {m.classification && (
                   <div className='ai-meta'>
-                    {renderJSON(m.classification, t('Классификация', 'Classification'))}
+                    {renderJSON(
+                      m.classification,
+                      t('Классификация', 'Classification')
+                    )}
                   </div>
                 )}
                 {m.plan && (
@@ -69,7 +70,7 @@ export default function AI() {
               </div>
             ))}
           </div>
-          {classification && !messages.some(m => m.classification) && (
+          {classification && !messages.some((m) => m.classification) && (
             <div className='ai-summary'>
               {renderJSON(classification, t('Классификация', 'Classification'))}
               {renderJSON(plan, t('План', 'Plan'))}

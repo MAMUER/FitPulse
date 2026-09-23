@@ -192,6 +192,23 @@ updates:
     commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
     labels: ["dependencies", "docker", "classifier"]
     assignees: ["MAMUER"]
+     registries: ["ghcr"]
+
+  - package-ecosystem: "docker"
+    directory: "/cmd/data-processor"
+    schedule:
+      {
+        interval: "weekly",
+        day: "monday",
+        time: "08:00",
+        timezone: "Europe/Moscow",
+      }
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/data-processor)", include: "scope" }
+    labels: ["dependencies", "docker", "data-processor"]
+    assignees: ["MAMUER"]
     registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════

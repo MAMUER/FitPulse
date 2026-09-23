@@ -35,9 +35,9 @@ async function refreshAccessToken() {
       return false;
     }
     const data = await res.json();
-    if (data && data.access_token) {
+    if (data?.access_token) {
       localStorage.setItem('fitpulse-access-token', data.access_token);
-      if (data.refresh_token) {
+      if (data?.refresh_token) {
         localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
       }
       return true;

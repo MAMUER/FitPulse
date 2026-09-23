@@ -41,846 +41,1549 @@ import (
 )
 
 type gateway struct {
-	userClient      userpb.UserServiceClient
-	userConn        *grpc.ClientConn
-	biometricAddr   string
+	userClient userpb.UserServiceClient
+
+	userConn *grpc.ClientConn
+
+	biometricAddr string
+
 	biometricClient biometricpb.BiometricServiceClient
-	trainingAddr    string
-	trainingClient  trainingpb.TrainingServiceClient
-	classifierURL   string
-	mlGeneratorURL  string
-	log             *logger.Logger
-	tokenProvider   ports.TokenProvider
-	sessionStore    *cache.SessionStore
-	valkeyDB        *redis.Client
-	rmqCh           *amqp.Channel
-	mlAsync         bool
+
+	trainingAddr string
+
+	trainingClient trainingpb.TrainingServiceClient
+
+	classifierURL string
+
+	mlGeneratorURL string
+
+	log *logger.Logger
+
+	tokenProvider ports.TokenProvider
+
+	sessionStore *cache.SessionStore
+
+	valkeyDB *redis.Client
+
+	rmqCh *amqp.Channel
+
+	mlAsync bool
+
 	requestDuration *prometheus.HistogramVec
-	requestTotal    *prometheus.CounterVec
-	errorTotal      *prometheus.CounterVec
+
+	requestTotal *prometheus.CounterVec
+
+	errorTotal *prometheus.CounterVec
 
 	googleOAuthConfig *oauth2.Config
 
-	biometricMu      sync.Mutex
-	trainingMu       sync.Mutex
+	biometricMu sync.Mutex
+
+	trainingMu sync.Mutex
+
 	totpRateLimiters sync.Map
 
 	biometricWebhookProxy *httputil.ReverseProxy
+
+	captchaProvider CaptchaProvider
+
+	captchaSiteKey string
 }
 
 func main() {
+
 	log := logger.New("gateway")
+
 	defer func() {
+
 		if syncErr := log.Sync(); syncErr != nil {
+
 			fmt.Fprintf(os.Stderr, "Failed to sync logger: %v\n", syncErr)
+
 		}
+
 	}()
 
 	shutdownTraces := telemetry.InitTracer()
+
 	defer func() {
+
 		if err := shutdownTraces(context.Background()); err != nil {
+
 			log.Warn("Failed to shutdown traces", zap.Error(err))
+
 		}
+
 	}()
 
 	config.InitViper("gateway")
+
 	_ = config.GetViper()
 
 	ctx := context.Background()
+
 	metrics := newGatewayMetrics()
+
 	cfg := loadGatewayConfig(log)
 
 	g, err := initGateway(ctx, log, cfg, metrics)
+
 	if err != nil {
+
 		log.Fatal("Failed to initialize gateway", zap.Error(err))
+
 	}
 
 	mainRouter := g.registerRoutes()
+
 	mainRouterHandler := telemetry.HTTPMiddleware(log)(mainRouter)
+
 	startGatewayServers(log, cfg, mainRouterHandler)
+
 }
 
 func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics) (*gateway, error) {
+
 	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
+
 	const valkeyMaxRetries = 10
+
 	const valkeyRetryDelay = 3 * time.Second
 
 	mlAsync := cfg.mlAsync
+
 	var asyncRDB *redis.Client
+
 	if mlAsync {
+
 		var valkeyConnected bool
+
 		asyncRDB, valkeyConnected = connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 1, valkeyMaxRetries, valkeyRetryDelay)
+
 		if !valkeyConnected {
+
 			mlAsync = false
+
 		}
+
 	}
 
 	rmqCh, rmqClose, rabbitMQConnected := connectRabbitMQ(log, cfg.rabbitmqURL, mlAsync)
+
 	if !rabbitMQConnected {
+
 		mlAsync = false
+
 		if asyncRDB != nil {
+
 			if closeErr := asyncRDB.Close(); closeErr != nil {
+
 				log.Warn("Failed to close async Valkey client", zap.Error(closeErr))
+
 			}
+
 		}
+
 	}
+
 	if rmqClose != nil {
+
 		defer rmqClose()
+
 	}
 
 	valkeyDB, valkeyConnected := connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 0, valkeyMaxRetries, valkeyRetryDelay)
+
 	var sessionStore *cache.SessionStore
+
 	if valkeyConnected {
+
 		sessionStore = cache.NewSessionStoreFromRedis(valkeyDB)
+
 	}
 
 	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
+
 	defer func() {
+
 		if closeErr := userConn.Close(); closeErr != nil {
+
 			log.Error("Failed to close user service connection", zap.Error(closeErr))
+
 		}
+
 	}()
 
 	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+
 	if jwtPrivateKeyPEM == "" {
+
 		return nil, errors.New("JWT_PRIVATE_KEY_PEM environment variable is required")
+
 	}
+
 	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+
 	if jwtPublicKeyPEM == "" {
+
 		return nil, errors.New("JWT_PUBLIC_KEY_PEM environment variable is required")
+
 	}
 
 	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
 
+	captchaProvider, captchaSiteKey, err := loadCaptchaProvider(log.Logger)
+
+	if err != nil {
+
+		log.Warn("CAPTCHA provider not configured", zap.Error(err))
+
+	}
+
 	g := buildGateway(gatewayBuildOptions{
-		log:           log,
-		cfg:           cfg,
-		metrics:       metrics,
-		sessionStore:  sessionStore,
-		valkeyDB:      valkeyDB,
-		rmqCh:         rmqCh,
-		userClient:    userClient,
-		mlAsync:       mlAsync,
+
+		log: log,
+
+		cfg: cfg,
+
+		metrics: metrics,
+
+		sessionStore: sessionStore,
+
+		valkeyDB: valkeyDB,
+
+		rmqCh: rmqCh,
+
+		userClient: userClient,
+
+		mlAsync: mlAsync,
+
 		tokenProvider: tokenProvider,
+
+		captchaProvider: captchaProvider,
+
+		captchaSiteKey: captchaSiteKey,
 	})
+
 	return g, nil
+
 }
 
 func loadGatewayConfig(log *logger.Logger) gatewayConfig {
+
 	cfg := gatewayConfig{
-		port:                 config.GetEnv("GATEWAY_PORT", "8080"),
-		userServiceAddr:      config.GetEnv("USER_SERVICE_ADDR", "localhost:50051"),
+
+		port: config.GetEnv("GATEWAY_PORT", "8080"),
+
+		userServiceAddr: config.GetEnv("USER_SERVICE_ADDR", "localhost:50051"),
+
 		biometricServiceAddr: config.GetEnv("BIOMETRIC_SERVICE_ADDR", "localhost:50052"),
-		trainingServiceAddr:  config.GetEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
-		classifierURL:        config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
-		mlGeneratorURL:       config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
-		mlAsync:              config.GetEnv("ML_ASYNC", "false") == "true",
-		valkeyAddr:           valkeyAddress(),
-		appBaseURL:           config.GetEnv("APP_BASE_URL"),
-		googleClientID:       config.GetEnv("GOOGLE_CLIENT_ID"),
-		googleClientSecret:   config.GetEnv("GOOGLE_CLIENT_SECRET"),
+
+		trainingServiceAddr: config.GetEnv("TRAINING_SERVICE_ADDR", "localhost:50053"),
+
+		classifierURL: config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
+
+		mlGeneratorURL: config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
+
+		mlAsync: config.GetEnv("ML_ASYNC", "false") == "true",
+
+		valkeyAddr: valkeyAddress(),
+
+		appBaseURL: config.GetEnv("APP_BASE_URL"),
+
+		googleClientID: config.GetEnv("GOOGLE_CLIENT_ID"),
+
+		googleClientSecret: config.GetEnv("GOOGLE_CLIENT_SECRET"),
 	}
 
 	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
+
 		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
+
 	}
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
+
 	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
+
 	return cfg
+
 }
 
 func extractPublicHost(appBaseURL string) string {
+
 	if appBaseURL == "" {
+
 		return ""
+
 	}
+
 	parsedAppURL, err := url.Parse(appBaseURL)
+
 	if err != nil {
+
 		return ""
+
 	}
+
 	return parsedAppURL.Host
+
 }
 
 func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
+
 	if cfg.googleClientID == "" || cfg.googleClientSecret == "" {
+
 		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
+
 		return nil
+
 	}
 
 	redirectURL := config.GetEnv("GOOGLE_REDIRECT_URL")
+
 	if redirectURL == "" && cfg.appBaseURL != "" {
+
 		redirectURL = cfg.appBaseURL + "/api/v1/auth/google/callback"
+
 	}
 
 	log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
+
 	return &oauth2.Config{
-		ClientID:     cfg.googleClientID,
+
+		ClientID: cfg.googleClientID,
+
 		ClientSecret: cfg.googleClientSecret,
-		RedirectURL:  redirectURL,
-		Scopes:       []string{"openid", "profile", "email"},
+
+		RedirectURL: redirectURL,
+
+		Scopes: []string{"openid", "profile", "email"},
+
 		Endpoint: oauth2.Endpoint{ // nolint:G101
-			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
-			TokenURL:  "https://oauth2.googleapis.com/token",
+
+			AuthURL: "https://accounts.google.com/o/oauth2/auth",
+
+			TokenURL: "https://oauth2.googleapis.com/token",
 		},
 	}
+
 }
 
 func valkeyAddress() string {
+
 	valkeyHost := config.GetEnv("VALKEY_HOST", "valkey")
+
 	return valkeyHost + ":6379"
+
 }
 
 type gatewayMetrics struct {
 	requestDuration *prometheus.HistogramVec
-	requestTotal    *prometheus.CounterVec
-	errorTotal      *prometheus.CounterVec
+
+	requestTotal *prometheus.CounterVec
+
+	errorTotal *prometheus.CounterVec
 }
 
 type gatewayConfig struct {
-	port                 string
-	userServiceAddr      string
+	port string
+
+	userServiceAddr string
+
 	biometricServiceAddr string
-	trainingServiceAddr  string
-	classifierURL        string
-	mlGeneratorURL       string
-	rabbitmqURL          string
-	valkeyAddr           string
-	appBaseURL           string
-	publicHost           string
-	googleClientID       string
-	googleClientSecret   string
-	mlAsync              bool
-	googleOAuthConfig    *oauth2.Config
+
+	trainingServiceAddr string
+
+	classifierURL string
+
+	mlGeneratorURL string
+
+	rabbitmqURL string
+
+	valkeyAddr string
+
+	appBaseURL string
+
+	publicHost string
+
+	googleClientID string
+
+	googleClientSecret string
+
+	mlAsync bool
+
+	googleOAuthConfig *oauth2.Config
 }
 
 type gatewayTLSConfig struct {
 	available bool
-	certFile  string
-	keyFile   string
+
+	certFile string
+
+	keyFile string
 }
 
 func newGatewayMetrics() gatewayMetrics {
+
 	metrics := gatewayMetrics{
+
 		requestDuration: prometheus.NewHistogramVec(
+
 			prometheus.HistogramOpts{
-				Name:    "request_duration_seconds",
-				Help:    "Duration of HTTP requests",
+
+				Name: "request_duration_seconds",
+
+				Help: "Duration of HTTP requests",
+
 				Buckets: prometheus.DefBuckets,
 			},
+
 			[]string{"service", "endpoint", "method", "status"},
 		),
+
 		requestTotal: prometheus.NewCounterVec(
+
 			prometheus.CounterOpts{
+
 				Name: "request_total",
+
 				Help: "Total number of HTTP requests",
 			},
+
 			[]string{"service", "endpoint", "method"},
 		),
+
 		errorTotal: prometheus.NewCounterVec(
+
 			prometheus.CounterOpts{
+
 				Name: "error_total",
+
 				Help: "Total number of errors",
 			},
+
 			[]string{"service", "error_code", "endpoint"},
 		),
 	}
 
 	prometheus.MustRegister(metrics.requestDuration, metrics.requestTotal, metrics.errorTotal)
+
 	return metrics
+
 }
 
 func validateMLGeneratorURL(mlGeneratorURL string) error {
+
 	parsedURL, err := url.Parse(mlGeneratorURL)
+
 	if err != nil {
+
 		return fmt.Errorf("parse ml generator url: %w", err)
+
 	}
 
 	allowedHosts := map[string]bool{
+
 		"ml-generator:8002": true,
-		"ml-generator":      true,
-		"generator:8002":    true,
-		"generator":         true,
-		"localhost:8002":    true,
-		"localhost:8001":    true,
-		"localhost":         true,
+
+		"ml-generator": true,
+
+		"generator:8002": true,
+
+		"generator": true,
+
+		"localhost:8002": true,
+
+		"localhost:8001": true,
+
+		"localhost": true,
 	}
+
 	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
+
 		return fmt.Errorf("host %q is not allowed", parsedURL.Host)
+
 	}
+
 	return nil
+
 }
 
 func connectValkey(ctx context.Context, log *logger.Logger, valkeyAddr, password string, dbNum, maxRetries int, retryDelay time.Duration) (*redis.Client, bool) {
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     valkeyAddr,
+
+		Addr: valkeyAddr,
+
 		Password: password,
-		DB:       dbNum,
+
+		DB: dbNum,
 	})
+
 	connected := waitForValkey(ctx, log, rdb, valkeyAddr, maxRetries, retryDelay)
+
 	if !connected {
+
 		if closeErr := rdb.Close(); closeErr != nil {
+
 			log.Warn("Failed to close Valkey client", zap.Error(closeErr))
+
 		}
+
 		return nil, false
+
 	}
+
 	return rdb, true
+
 }
 
 func waitForValkey(ctx context.Context, log *logger.Logger, rdb *redis.Client, valkeyAddr string, maxRetries int, retryDelay time.Duration) bool {
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+
 		pingErr := rdb.Ping(ctx).Err()
+
 		if pingErr == nil {
+
 			log.Info("Valkey connected", zap.String("addr", valkeyAddr), zap.Int("attempt", attempt))
+
 			return true
+
 		}
 
 		if attempt < maxRetries {
+
 			log.Warn("Valkey unavailable, retrying",
+
 				zap.Int("attempt", attempt),
+
 				zap.Int("max_retries", maxRetries),
+
 				zap.Duration("retry_delay", retryDelay),
+
 				zap.Error(pingErr))
+
 			time.Sleep(retryDelay)
+
 			continue
+
 		}
 
 		log.Warn("Valkey unavailable after all retries",
+
 			zap.Int("attempts", maxRetries),
+
 			zap.Error(pingErr))
+
 	}
+
 	return false
+
 }
 
 func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amqp.Channel, func(), bool) {
+
 	if !mlAsync {
+
 		return nil, nil, false
+
 	}
 
 	var rmqConn *amqp.Connection
+
 	var err error
+
 	for attempt := 1; attempt <= 5; attempt++ {
+
 		rmqConn, err = dialRabbitMQ(rabbitmqURL)
+
 		if err == nil {
+
 			break
+
 		}
+
 		log.Warn("RabbitMQ connection attempt failed",
+
 			zap.Int("attempt", attempt),
+
 			zap.Int("max_attempts", 5),
+
 			zap.Error(err))
+
 		if attempt < 5 {
+
 			wait := time.Duration(attempt*2) * time.Second
+
 			log.Info("Waiting before RabbitMQ retry", zap.Duration("wait", wait))
+
 			time.Sleep(wait)
+
 		}
+
 	}
+
 	if err != nil {
+
 		log.Warn("RabbitMQ unavailable after retries, async ML mode disabled", zap.Error(err))
+
 		return nil, nil, false
+
 	}
 
 	rmqCh, err := rmqConn.Channel()
+
 	if err != nil {
+
 		log.Warn("Failed to create RabbitMQ channel, async ML mode disabled", zap.Error(err))
+
 		if closeErr := rmqConn.Close(); closeErr != nil {
+
 			log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
+
 		}
+
 		return nil, nil, false
+
 	}
 
 	_, _ = rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil)
+
 	_, _ = rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil)
+
 	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", maskRabbitMQURL(rabbitmqURL)))
 
 	return rmqCh, func() {
+
 		if closeErr := rmqConn.Close(); closeErr != nil {
+
 			log.Warn("Failed to close RabbitMQ connection", zap.Error(closeErr))
+
 		}
+
 	}, true
+
 }
 
 func dialRabbitMQ(rabbitmqURL string) (*amqp.Connection, error) {
+
 	if strings.HasPrefix(rabbitmqURL, "amqps://") {
+
 		tlsConfig := &tls.Config{
+
 			MinVersion: tls.VersionTLS13,
 		}
+
 		return amqp.DialTLS(rabbitmqURL, tlsConfig)
+
 	}
+
 	if strings.HasPrefix(rabbitmqURL, "amqp://") {
+
 		return nil, errors.New("insecure amqp:// connection to RabbitMQ is not allowed; use amqps://")
+
 	}
+
 	return amqp.Dial(rabbitmqURL)
+
 }
 
 func maskRabbitMQURL(rawURL string) string {
+
 	parsed, err := url.Parse(rawURL)
+
 	if err != nil {
+
 		return "<invalid-url>"
+
 	}
+
 	if parsed.User != nil {
+
 		parsed.User = url.UserPassword(parsed.User.Username(), "***")
+
 	}
+
 	return parsed.String()
+
 }
 
 func connectUserService(_ context.Context, log *logger.Logger, userServiceAddr string) (*grpc.ClientConn, userpb.UserServiceClient) {
+
 	opts := []grpc.DialOption{
+
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)),
+
 		grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(log)),
 	}
+
 	userConn, err := grpctls.NewClient(userServiceAddr, opts...)
+
 	if err != nil {
+
 		log.Fatal("Failed to connect to user service", zap.Error(err))
+
 	}
 
 	return userConn, userpb.NewUserServiceClient(userConn)
+
 }
 
 type gatewayBuildOptions struct {
-	log           *logger.Logger
-	cfg           gatewayConfig
-	metrics       gatewayMetrics
-	sessionStore  *cache.SessionStore
-	valkeyDB      *redis.Client
-	rmqCh         *amqp.Channel
-	userClient    userpb.UserServiceClient
-	mlAsync       bool
+	log *logger.Logger
+
+	cfg gatewayConfig
+
+	metrics gatewayMetrics
+
+	sessionStore *cache.SessionStore
+
+	valkeyDB *redis.Client
+
+	rmqCh *amqp.Channel
+
+	userClient userpb.UserServiceClient
+
+	mlAsync bool
+
 	tokenProvider ports.TokenProvider
+
+	captchaProvider CaptchaProvider
+
+	captchaSiteKey string
 }
 
 func buildGateway(opts gatewayBuildOptions) *gateway {
+
 	g := &gateway{
-		userClient:        opts.userClient,
-		biometricAddr:     opts.cfg.biometricServiceAddr,
-		trainingAddr:      opts.cfg.trainingServiceAddr,
-		classifierURL:     opts.cfg.classifierURL,
-		mlGeneratorURL:    opts.cfg.mlGeneratorURL,
-		log:               opts.log,
-		tokenProvider:     opts.tokenProvider,
-		sessionStore:      opts.sessionStore,
-		valkeyDB:          opts.valkeyDB,
-		rmqCh:             opts.rmqCh,
-		mlAsync:           opts.mlAsync,
-		requestDuration:   opts.metrics.requestDuration,
-		requestTotal:      opts.metrics.requestTotal,
-		errorTotal:        opts.metrics.errorTotal,
+
+		userClient: opts.userClient,
+
+		biometricAddr: opts.cfg.biometricServiceAddr,
+
+		trainingAddr: opts.cfg.trainingServiceAddr,
+
+		classifierURL: opts.cfg.classifierURL,
+
+		mlGeneratorURL: opts.cfg.mlGeneratorURL,
+
+		log: opts.log,
+
+		tokenProvider: opts.tokenProvider,
+
+		sessionStore: opts.sessionStore,
+
+		valkeyDB: opts.valkeyDB,
+
+		rmqCh: opts.rmqCh,
+
+		mlAsync: opts.mlAsync,
+
+		requestDuration: opts.metrics.requestDuration,
+
+		requestTotal: opts.metrics.requestTotal,
+
+		errorTotal: opts.metrics.errorTotal,
+
 		googleOAuthConfig: opts.cfg.googleOAuthConfig,
+
+		captchaProvider: opts.captchaProvider,
+
+		captchaSiteKey: opts.captchaSiteKey,
 	}
 
 	biometricWebhookTarget, _ := url.Parse("http://biometric-service:8085")
+
 	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(biometricWebhookTarget)
+
 	g.biometricWebhookProxy.Rewrite = func(req *httputil.ProxyRequest) {
+
 		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
+
 	}
 
 	return g
+
 }
 
 func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.Handler) {
+
 	tlsCfg := detectTLSMode(log, cfg)
+
 	httpsSrv := &http.Server{
-		Addr:              ":8443",
-		Handler:           mainRouter,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+
+		Addr: ":8443",
+
+		Handler: mainRouter,
+
+		ReadTimeout: 15 * time.Second,
+
+		WriteTimeout: 30 * time.Second,
+
+		IdleTimeout: 60 * time.Second,
+
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
 	httpHandler := mainRouter
+
 	if tlsCfg.available {
+
 		httpHandler = buildHTTPRedirectHandler(log.Logger, cfg.publicHost, cfg.port)
+
 	} else {
+
 		log.Info("TLS is not available, serving application directly over HTTP")
+
 	}
 
 	httpSrv := &http.Server{
-		Addr:              ":" + cfg.port,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
+
+		Addr: ":" + cfg.port,
+
+		ReadTimeout: 15 * time.Second,
+
+		WriteTimeout: 30 * time.Second,
+
 		ReadHeaderTimeout: 15 * time.Second,
-		Handler:           httpHandler,
+
+		Handler: httpHandler,
 	}
 
 	go func() {
+
 		log.Info("HTTP server starting", zap.String("port", cfg.port), zap.Bool("redirect_to_https", tlsCfg.available))
+
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+
 			log.Error("HTTP server failed", zap.Error(err))
+
 		}
+
 	}()
 
 	if tlsCfg.available {
+
 		go func() {
+
 			log.Info("HTTPS server starting",
+
 				zap.String("port", "8443"),
+
 				zap.String("cert", tlsCfg.certFile),
+
 				zap.String("classifier", cfg.classifierURL),
+
 				zap.String("ml_generator", cfg.mlGeneratorURL))
+
 			httpsSrv.TLSConfig = &tls.Config{
+
 				MinVersion: tls.VersionTLS13,
+
 				MaxVersion: tls.VersionTLS13,
 			}
+
 			if err := httpsSrv.ListenAndServeTLS(tlsCfg.certFile, tlsCfg.keyFile); err != nil && err != http.ErrServerClosed {
+
 				log.Fatal("Failed to start HTTPS server", zap.Error(err))
+
 			}
+
 		}()
+
 	}
 
 	quit := make(chan os.Signal, 1)
+
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 	<-quit
+
 	log.Info("Shutting down servers...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 	defer cancel()
 
 	_ = httpSrv.Shutdown(ctx)
+
 	if tlsCfg.available {
+
 		_ = httpsSrv.Shutdown(ctx)
+
 	}
+
 	log.Info("Servers stopped")
+
 }
 
 func detectTLSMode(log *logger.Logger, _ gatewayConfig) gatewayTLSConfig {
+
 	mode := gatewayTLSConfig{
+
 		certFile: os.Getenv("TLS_CERT_FILE"),
-		keyFile:  os.Getenv("TLS_KEY_FILE"),
+
+		keyFile: os.Getenv("TLS_KEY_FILE"),
 	}
+
 	if mode.certFile == "" || mode.keyFile == "" {
+
 		return mode
+
 	}
 
 	if _, err := os.Stat(filepath.Clean(mode.certFile)); err != nil {
+
 		log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
+
 			zap.String("cert_file", mode.certFile), zap.Error(err))
+
 		return gatewayTLSConfig{}
+
 	}
+
 	if _, err := os.Stat(filepath.Clean(mode.keyFile)); err != nil {
+
 		log.Warn("TLS key file not found, falling back to HTTP-only mode",
+
 			zap.String("key_file", mode.keyFile), zap.Error(err))
+
 		return gatewayTLSConfig{}
+
 	}
 
 	mode.available = true
+
 	return mode
+
 }
 
 func buildHTTPRedirectHandler(log *zap.Logger, publicHost, port string) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		if r.URL.Path == "/health" {
+
 			w.Header().Set("Content-Type", "application/json")
+
 			w.WriteHeader(http.StatusOK)
+
 			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`))
+
 			return
+
 		}
 
 		host, err := resolveRedirectHost(publicHost, r)
+
 		if err != nil {
+
 			log.Error("Failed to resolve redirect host", zap.Error(err), zap.String("path", sanitize.LogString(r.URL.Path)))
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
+
 		}
 
 		if err := validateRequestURI(r); err != nil {
+
 			log.Error("Invalid request URI", zap.Error(err), zap.String("path", sanitize.LogString(r.URL.Path)))
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
+
 		}
 
 		redirectURL := buildRedirectURL(host, port, r)
+
 		if err := validateRedirectTarget(redirectURL, host); err != nil {
+
 			log.Error("Invalid redirect target", zap.Error(err), zap.String("path", sanitize.LogString(r.URL.Path)))
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
+
 		}
 
 		target := redirectURL.String()
+
 		w.Header().Set("Location", target)
+
 		w.WriteHeader(http.StatusMovedPermanently)
+
 	})
+
 }
 
 func resolveRedirectHost(publicHost string, _ *http.Request) (string, error) {
+
 	host := publicHost
+
 	if host == "" {
+
 		return "", errors.New("invalid host")
+
 	}
+
 	return host, nil
+
 }
 
 func validateRequestURI(r *http.Request) error {
+
 	requestURI := r.URL.RequestURI()
+
 	if strings.HasPrefix(requestURI, "//") || strings.HasPrefix(requestURI, "\\") {
+
 		return errors.New("invalid request URI")
+
 	}
+
 	return nil
+
 }
 
 func buildRedirectURL(host, port string, r *http.Request) *url.URL {
+
 	redirectURL := &url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Fragment: r.URL.Fragment}
+
 	if port != "" && port != "80" && port != "443" {
+
 		redirectURL.Host = host + ":8443"
+
 	}
+
 	return redirectURL
+
 }
 
 func validateRedirectTarget(redirectURL *url.URL, host string) error {
+
 	target := redirectURL.String()
+
 	parsed, err := url.Parse(target)
+
 	if err != nil {
+
 		return errors.New("invalid redirect target")
+
 	}
+
 	if parsed.Scheme != "https" || parsed.Hostname() != host {
+
 		return errors.New("invalid redirect target")
+
 	}
+
 	return nil
+
 }
 
 // registerRoutes registers all HTTP routes on the router
+
 func (g *gateway) registerRoutes() *chi.Mux {
+
 	r := chi.NewRouter()
 
 	// ========== Security middleware (applied to ALL routes) ==========
+
 	r.Use(middleware.RemoveServerHeader)
+
 	r.Use(middleware.ErrorPages)
+
 	r.Use(middleware.SecurityHeaders)
+
 	r.Use(middleware.HTMLNonceInject)
+
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
+
 	r.Use(middleware.RateLimit(g.log.Logger))
+
 	r.Use(middleware.RequestID)
+
 	r.Use(middleware.LoggingMiddleware(g.log.Logger, g.requestDuration, g.requestTotal, g.errorTotal))
+
 	r.Use(middleware.CorrelationIDHTTP)
 
 	authMiddleware := middleware.AuthMiddleware(g.tokenProvider.PublicKeyPEM(), g.log.Logger)
 
 	g.registerPublicRoutes(r)
+
 	g.registerProtectedRoutes(r, authMiddleware)
 
 	// ========== Static files ==========
+
 	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/dist/static/")))
+
 	fsRoot := http.FileServer(http.Dir("./web/dist/"))
+
 	r.Get("/static/*", fsStatic.ServeHTTP)
+
 	r.Get("/*", fsRoot.ServeHTTP)
 
 	return r
+
 }
 
 // registerPublicRoutes registers routes that do not require authentication.
+
 func (g *gateway) registerPublicRoutes(r chi.Router) {
+
 	// ========== Public routes (без авторизации) ==========
+
 	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/register", g.registerHandler)
+
 	r.Post("/api/v1/register/invite", g.registerWithInviteHandler)
+
 	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
+
 	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/login", g.loginHandler)
+
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
+
 	r.Get("/api/v1/auth/google", g.googleLoginHandler)
+
 	r.Get("/api/v1/auth/google/callback", g.googleCallbackHandler)
+
 	r.Get("/health", g.healthHandler)
+
 	// Metrics endpoint
+
 	r.Method("GET", "/metrics", promhttp.Handler())
 
 	// JWKS endpoint for JWT public key distribution
+
 	r.Get("/.well-known/jwks.json", g.jwksHandler)
 
 	// CSP violation reports (browser Reporting API / report-uri) -> ELK
+
 	r.Post("/api/security/csp-report", g.cspReportHandler)
 
 	// Email confirmation page
+
 	r.Get("/confirm", g.emailConfirmPageHandler)
 
 	// 2FA TOTP verify (public route - uses temp_token)
+
 	r.Post("/api/v1/auth/2fa/verify", g.verifyTOTPHandler)
 
 	// Refresh token (public - uses opaque refresh token)
+
 	r.Post("/api/v1/auth/refresh", g.refreshHandler)
 
 	// Open Wearables webhook (public - Open Wearables sends this)
+
 	r.Post("/api/v1/integrations/open-wearables/webhook", g.proxyToBiometricWebhook)
 
 	// Password reset (public)
+
 	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/auth/forgot-password", g.forgotPasswordHandler)
+
 	r.Post("/api/v1/auth/reset", g.resetPasswordHandler)
+
+	// CAPTCHA verification (public)
+
+	if g.captchaProvider != nil {
+
+		r.Post("/api/v1/captcha/verify", g.captchaVerifyHandler)
+
+	}
+
 }
 
 // registerProtectedRoutes registers routes under /api/v1 that require authentication.
+
 const profilePath = "/profile"
 
 func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+
 	r.Route("/api/v1", func(r chi.Router) {
+
 		r.Use(authMiddleware)
+
 		r.Use(middleware.UserRateLimit(g.log.Logger))
 
 		// Profile
+
 		r.Get(profilePath, g.getProfileHandler)
+
 		r.Put(profilePath, g.updateProfileHandler)
+
 		r.Delete(profilePath, g.deleteProfileHandler)
+
 		r.Get(profilePath+"/export", g.exportUserDataHandler)
 
 		// Health features
+
 		r.Get("/health/conditions", g.listHealthConditionsHandler)
+
 		r.Post("/health/conditions", g.upsertHealthConditionHandler)
+
 		r.Delete("/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
+
 		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+
 		r.Post("/health/body-composition", g.createBodyCompositionHandler)
+
 		r.Get("/health/menstrual-cycles", g.listMenstrualCyclesHandler)
+
 		r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
+
 		r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
+
 		r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
 
 		// 2FA TOTP (protected routes - require auth)
+
 		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
+
 		r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
+
 		r.Get("/auth/2fa/status", g.totpStatusHandler)
+
 		r.Post("/auth/2fa/disable", g.disableTOTPHandler)
+
 		r.Post("/auth/critical-session", g.criticalSessionHandler)
 
 		// Biometrics
+
 		r.Post("/biometrics", g.addBiometricRecordHandler)
+
 		r.Get("/biometrics", g.getBiometricRecordsHandler)
 
 		// Training
+
 		r.Get("/training/plans", g.listPlansHandler)
+
 		r.Post("/training/generate", g.generatePlanHandler)
+
 		r.Get("/training/plans/{plan_id}", g.getPlanHandler)
+
 		r.Get("/training/progress", g.getProgressHandler)
+
 		r.Post("/training/complete", g.completeWorkoutHandler)
+
 		r.Get("/achievements", g.getAchievementsHandler)
 
 		// ML
+
 		r.Post("/ml/chat", g.mlChatHandler)
 
 		// Nutrition
+
 		r.Get("/nutrition/meals", g.listMealsHandler)
+
 		r.Post("/nutrition/meals", g.createMealHandler)
+
 		r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
 
 		// Calendar
+
 		r.Get("/calendar/events", g.listCalendarEventsHandler)
+
 		r.Post("/calendar/events", g.createCalendarEventHandler)
+
 		r.Put("/calendar/events/{event_id}", g.updateCalendarEventHandler)
+
 		r.Delete("/calendar/events/{event_id}", g.deleteCalendarEventHandler)
 
 		// Videos
+
 		r.Get("/videos", g.listVideosHandler)
 
 		// Body composition
+
 		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+
 		r.Post("/health/body-composition", g.createBodyCompositionHandler)
 
 		// Logout
+
 		r.Post("/logout", g.logoutHandler)
 
 		// Open Wearables integration management (requires auth)
+
 		r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+
 		r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
+
 			r.Post("/disconnect", func(w http.ResponseWriter, r *http.Request) {
+
 				source := chi.URLParam(r, "source")
+
 				q := r.URL.Query()
+
 				q.Set("source", source)
+
 				r.URL.RawQuery = q.Encode()
+
 				g.proxyToBiometricWithUser(w, r)
+
 			})
+
 		})
+
 	})
+
 }
 
 // ===================== Lazy Client Getters (Advanced Decoupling) =====================
 
 func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, error) {
+
 	g.biometricMu.Lock()
+
 	defer g.biometricMu.Unlock()
 
 	if g.biometricClient != nil {
+
 		return g.biometricClient, nil
+
 	}
 
 	if g.biometricAddr == "" {
+
 		return nil, errors.New("biometric service address not configured")
+
 	}
 
 	var dialOpts []grpc.DialOption
+
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true), grpc.MaxCallRecvMsgSize(10<<20)))
+
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(g.log)))
+
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()))
+
 	conn, err := grpctls.NewClient(g.biometricAddr, dialOpts...)
+
 	if err != nil {
+
 		g.log.Warn("Failed to create biometric client on demand", zap.Error(err))
+
 		return nil, errors.New("create biometric client: " + err.Error())
+
 	}
+
 	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
+
 	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
+
 	return g.biometricClient, nil
+
 }
 
 func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) {
+
 	g.trainingMu.Lock()
+
 	defer g.trainingMu.Unlock()
 
 	if g.trainingClient != nil {
+
 		return g.trainingClient, nil
+
 	}
 
 	if g.trainingAddr == "" {
+
 		return nil, errors.New("training service address not configured")
+
 	}
 
 	var dialOpts []grpc.DialOption
+
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true)))
+
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(g.log)))
+
 	conn, err := grpctls.NewClient(g.trainingAddr, dialOpts...)
+
 	if err != nil {
+
 		g.log.Warn("Failed to create training client on demand", zap.Error(err))
+
 		return nil, errors.New("create training client: " + err.Error())
+
 	}
 
 	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)
+
 	g.log.Info("Training client initialized on first use", zap.String("addr", g.trainingAddr))
+
 	return g.trainingClient, nil
+
 }
 
 // @Summary      Open Wearables webhook proxy
+
 // @Description  Proxies incoming Open Wearables webhook requests to the biometric service
+
 // @Tags         Integrations
+
 // @Accept       json
+
 // @Produce      json
+
 // @Success      200  {object}  map[string]interface{}
+
 // @Failure      400  {object}  map[string]interface{}
+
 // @Failure      401  {object}  map[string]interface{}
+
 // @Failure      404  {object}  map[string]interface{}
+
 // @Failure      500  {object}  map[string]interface{}
+
 // @Failure      503  {object}  map[string]interface{}
+
 // @Router       /api/v1/integrations/open-wearables/webhook [post]
 
 func (g *gateway) proxyToBiometricWebhook(w http.ResponseWriter, r *http.Request) {
+
 	g.biometricWebhookProxy.ServeHTTP(w, r)
+
 }
 
 // @Summary      JWKS endpoint
+
 // @Description  Returns JSON Web Key Set for JWT verification
+
 // @Tags         Auth
+
 // @Produce      json
+
 // @Success      200  {object}  map[string]interface{}
+
 // @Failure      500  {object}  map[string]interface{}
+
 // @Router       /.well-known/jwks.json [get]
 
 func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
+
 	publicKeyPEM := g.tokenProvider.PublicKeyPEM()
+
 	if publicKeyPEM == "" {
+
 		g.log.Error("JWT public key not configured", zap.String("path", sanitize.LogString(r.URL.Path)))
+
 		http.Error(w, "JWT public key not configured", http.StatusInternalServerError)
+
 		return
+
 	}
 
 	body, err := g.tokenProvider.PublicKeyPEMToJWKS(publicKeyPEM)
+
 	if err != nil {
+
 		g.log.Error("Failed to build JWKS", zap.Error(err))
+
 		http.Error(w, "failed to build JWKS", http.StatusInternalServerError)
+
 		return
+
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
 	w.Header().Set("Cache-Control", "public, max-age=3600")
+
 	w.WriteHeader(http.StatusOK)
+
 	_, _ = w.Write(body)
+
+}
+
+// @Summary      CAPTCHA verification
+
+// @Description  Verifies Cloudflare Turnstile / hCaptcha token
+
+// @Tags         Security
+
+// @Produce      json
+
+// @Param        X-Captcha-Token header string true "CAPTCHA response token"
+
+// @Success      200  {object}  map[string]interface{}
+
+// @Failure      400  {object}  map[string]interface{}
+
+// @Router       /api/v1/captcha/verify [post]
+
+func (g *gateway) captchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
+
+	if g.captchaProvider == nil {
+
+		g.log.Warn("CAPTCHA verification attempted but provider not configured")
+
+		http.Error(w, "CAPTCHA not configured", http.StatusServiceUnavailable)
+
+		return
+
+	}
+
+	token := r.Header.Get("X-Captcha-Token")
+
+	if token == "" {
+
+		g.log.Warn("CAPTCHA token missing")
+
+		http.Error(w, "CAPTCHA token required", http.StatusBadRequest)
+
+		return
+
+	}
+
+	clientIP := getClientIP(r)
+
+	valid, err := g.captchaProvider.Verify(token, clientIP)
+
+	if err != nil {
+
+		g.log.Error("CAPTCHA verification failed", zap.Error(err))
+
+		http.Error(w, "CAPTCHA verification failed", http.StatusBadRequest)
+
+		return
+
+	}
+
+	if !valid {
+
+		g.log.Warn("CAPTCHA token invalid", zap.String("ip", sanitize.LogString(clientIP)))
+
+		http.Error(w, "Invalid CAPTCHA token", http.StatusBadRequest)
+
+		return
+
+	}
+
+	// Reset rate limiters for this IP after successful CAPTCHA
+
+	resetRateLimersForIP(clientIP)
+
+	g.log.Info("CAPTCHA verified, rate limit reset", zap.String("ip", sanitize.LogString(clientIP)))
+
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+
+	_, _ = w.Write([]byte(`{"success": true}`))
+
+}
+
+// resetRateLimersForIP removes rate limit entries for the given IP.
+
+func resetRateLimersForIP(ip string) {
+
+	middleware.ResetRateLimiterForIP(ip)
+
 }

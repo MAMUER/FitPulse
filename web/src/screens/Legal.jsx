@@ -138,19 +138,29 @@ export default function Legal() {
   const { t, backFromLegal } = useApp();
   const { pathname } = useLocation();
 
-  const kind = pathname.includes('privacy') ? 'privacy' : pathname.includes('terms') ? 'terms' : 'consent';
+  const kind = pathname.includes('privacy')
+    ? 'privacy'
+    : pathname.includes('terms')
+      ? 'terms'
+      : 'consent';
   const title =
     kind === 'terms'
       ? t('Пользовательское соглашение', 'Terms of Use')
       : kind === 'consent'
-        ? t('Соглашение об использовании персональных данных', 'Personal Data Agreement')
+        ? t(
+            'Соглашение об использовании персональных данных',
+            'Personal Data Agreement'
+          )
         : t('Политика конфиденциальности', 'Privacy Policy');
 
   const body =
     kind === 'terms'
       ? TERMS
       : kind === 'consent'
-        ? t('Согласие на обработку персональных данных.', 'Personal Data Processing Consent.')
+        ? t(
+            'Согласие на обработку персональных данных.',
+            'Personal Data Processing Consent.'
+          )
         : PRIVACY;
 
   return (
@@ -160,7 +170,11 @@ export default function Legal() {
           <div className='panel-title'>{title}</div>
         </div>
         <div className='panel-body'>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}>{body}</pre>
+          <pre
+            style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}
+          >
+            {body}
+          </pre>
           <button className='secondary full' onClick={backFromLegal}>
             {t('Назад', 'Back')}
           </button>

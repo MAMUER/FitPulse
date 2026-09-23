@@ -23,12 +23,12 @@ export default function Confirm() {
       .then((data) => {
         if (data && data.status === 'ok') {
           setStatus('success');
-          setMessage(
-            t('Email подтверждён', 'Email confirmed')
-          );
+          setMessage(t('Email подтверждён', 'Email confirmed'));
         } else {
           setStatus('error');
-          setMessage(data?.message || t('Ошибка подтверждения', 'Confirmation error'));
+          setMessage(
+            data?.message || t('Ошибка подтверждения', 'Confirmation error')
+          );
         }
       })
       .catch(() => {

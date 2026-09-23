@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Reset() {
@@ -36,7 +36,9 @@ export default function Reset() {
           }}
           disabled={sending}
         >
-          {sending ? t('Отправка...', 'Sending...') : t('Получить код', 'Get code')}
+          {sending
+            ? t('Отправка...', 'Sending...')
+            : t('Получить код', 'Get code')}
         </button>
         <button className='secondary full' onClick={() => go('login')}>
           {t('Другие варианты входа', 'Other sign-in options')}

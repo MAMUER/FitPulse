@@ -28,7 +28,12 @@ function renderLegal(screen = 'terms') {
     ...defaultContext,
     state: { ...defaultContext.state, screen },
   });
-  const path = screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : '/consent';
+  const path =
+    screen === 'privacy'
+      ? '/privacy'
+      : screen === 'terms'
+        ? '/terms'
+        : '/consent';
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AppProvider>

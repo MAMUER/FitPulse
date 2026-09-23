@@ -3,9 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function Home() {
-  const { state, t, drinkWater, startWorkout, go, loadBiometrics, loadTrainingPlans, loadAchievements, loadProgress } = useApp();
+  const {
+    state,
+    t,
+    drinkWater,
+    startWorkout,
+    go,
+    loadBiometrics,
+    loadTrainingPlans,
+    loadAchievements,
+    loadProgress,
+  } = useApp();
   const navigate = useNavigate();
-  const [biometricsLoaded, setBiometricsLoaded] = useState(false);
+  const [_biometricsLoaded, setBiometricsLoaded] = useState(false);
 
   useEffect(() => {
     loadBiometrics();
@@ -65,7 +75,9 @@ export default function Home() {
           {latestTemp && (
             <div className='metric'>
               <div className='metric-val'>{latestTemp.value}°</div>
-              <div className='metric-label'>{t('Температура', 'Temperature')}</div>
+              <div className='metric-label'>
+                {t('Температура', 'Temperature')}
+              </div>
             </div>
           )}
         </div>

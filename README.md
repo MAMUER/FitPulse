@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/MAMUER/fitpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/MAMUER/fitpulse/actions)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36+-326CE5.svg)](https://kubernetes.io/)
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
-[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8.svg)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.14+-3776AB.svg)](https://www.python.org/)
 [![Node Version](https://img.shields.io/badge/Node-24+-339933.svg)](https://nodejs.org/)
 [![React Version](https://img.shields.io/badge/React-19.2+-61DAFB.svg)](https://react.dev/)
@@ -84,7 +84,6 @@ FitPulse реализует комплексные меры безопаснос
 | GET | `/api/v1/auth/google/callback` | Google OAuth callback |
 | POST | `/api/v1/auth/2fa/verify` | Проверка TOTP после логина |
 | POST | `/api/v1/auth/refresh` | Ротация refresh token |
-| POST | `/api/v1/devices/withings/webhook` | Webhook для Withings |
 | GET | `/.well-known/jwks.json` | JWKS endpoint для JWT публичного ключа |
 | GET | `/health` | Health check |
 | GET | `/confirm` | Страница подтверждения email |
@@ -146,13 +145,13 @@ FitPulse реализует комплексные меры безопаснос
 
 ### Секреты
 
-**Static secrets** (JWT, SMTP, Google OAuth, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator**.
+**Static secrets** (JWT, SMTP, Google OAuth, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator** (`configs/k8s/base/external-secrets/`).
 
-**Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере):
+**Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере, `configs/k8s/base/vault/`):
 
 - Каждый сервис получает уникального PostgreSQL пользователя с TTL 1h
 - Ротация паролей автоматическая
-- Подробнее: `docs/phase2-roadmap.md` (раздел 1)
+- Vault развёрнут в текущей инфраструктуре
 
 ### Текущий сервер
 
@@ -176,6 +175,13 @@ docker compose up --build
 
 - **Gateway**: <http://localhost:8080>
 - **Frontend**: <http://localhost:5173>
+- **User Service**: gRPC `localhost:50051`
+- **Biometric Service**: gRPC `localhost:50052`, HTTP `localhost:8085`
+- **Training Service**: gRPC `localhost:50053`
+- **Classifier**: <http://localhost:8001>
+- **Device Aggregator**: <http://localhost:8083>
+- **Data Processor**: <http://localhost:8084>
+- **ML Generator**: <http://localhost:8002>
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
 - **RabbitMQ**: localhost:5672 (AMQPS), Management UI: <http://localhost:15672>

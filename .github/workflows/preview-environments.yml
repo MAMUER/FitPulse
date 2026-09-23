@@ -32,7 +32,7 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
 
-          for service in gateway user-service biometric-service training-service classifier; do
+          for service in gateway user-service biometric-service training-service classifier device-aggregator data-processor ml-generator; do
             docker build -t "ghcr.io/mamuer/project/${service}:${IMAGE_TAG}" \
               --build-arg SERVICE_NAME=${service} \
               -f "cmd/${service}/Dockerfile" .
@@ -74,7 +74,7 @@ jobs:
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
 
           cd configs/k8s/base
-          for svc in gateway user-service biometric-service training-service classifier; do
+           for svc in gateway user-service biometric-service training-service classifier device-aggregator data-processor ml-generator; do
             kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:${IMAGE_TAG}" || true
           done
 

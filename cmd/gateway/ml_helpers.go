@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	"github.com/MAMUER/project/internal/middleware"
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/middleware"
 )
 
 func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[string]interface{}, error) {
@@ -229,10 +229,10 @@ func buildPlanGenerationPayload(profile *userpb.UserProfile, classification map[
 	confidence, _ := classification["confidence"].(float64)
 
 	userProfile := map[string]interface{}{
-		"age":             profile.Age,
-		"gender":          profile.Gender,
-		"fitness_level":   profile.FitnessLevel,
-		"goals":           profile.Goals,
+		"age":               profile.Age,
+		"gender":            profile.Gender,
+		"fitness_level":     profile.FitnessLevel,
+		"goals":             profile.Goals,
 		"contraindications": profile.Contraindications,
 	}
 	if profile.WeightKg != 0 {
@@ -290,7 +290,7 @@ func buildPlanGenerationPayload(profile *userpb.UserProfile, classification map[
 		"training_history": trainingHistory,
 		"preferences":      preferences,
 		"constraints": map[string]interface{}{
-			"duration_weeks":      4,
+			"duration_weeks":        4,
 			"max_sessions_per_week": 4,
 		},
 	}
@@ -316,18 +316,18 @@ func buildDietGenerationPayload(profile *userpb.UserProfile, classification map[
 	}
 
 	return map[string]interface{}{
-		"user_id":          profile.UserId,
-		"age":              profile.Age,
-		"gender":           profile.Gender,
-		"weight_kg":        70.0,
-		"height_cm":        170.0,
-		"fitness_level":    profile.FitnessLevel,
-		"goals":            goals,
-		"diet_type":        "balanced",
-		"meals_count":      4,
-		"allergies":        []string{},
+		"user_id":           profile.UserId,
+		"age":               profile.Age,
+		"gender":            profile.Gender,
+		"weight_kg":         70.0,
+		"height_cm":         170.0,
+		"fitness_level":     profile.FitnessLevel,
+		"goals":             goals,
+		"diet_type":         "balanced",
+		"meals_count":       4,
+		"allergies":         []string{},
 		"contraindications": profile.Contraindications,
-		"training_goal":    trainingGoal,
+		"training_goal":     trainingGoal,
 	}
 }
 
@@ -409,12 +409,12 @@ func (g *gateway) mlChatHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(dietBodyBytes, &diet)
 
 	response := map[string]interface{}{
-		"status":        "success",
-		"message":       req.Message,
+		"status":         "success",
+		"message":        req.Message,
 		"classification": classification,
-		"plan":          plan,
-		"diet":          diet,
-		"timestamp":     time.Now().Unix(),
+		"plan":           plan,
+		"diet":           diet,
+		"timestamp":      time.Now().Unix(),
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)

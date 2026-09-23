@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Training() {
@@ -10,7 +10,6 @@ export default function Training() {
     loadTrainingPlans,
     generatePlan,
     getPlanDetails,
-    completeWorkout,
   } = useApp();
   const [tab, setTab] = useState('plans');
   const [generating, setGenerating] = useState(false);
@@ -22,7 +21,12 @@ export default function Training() {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    await generatePlan({ durationWeeks: 4, availableDays: [1, 3, 5], class: 'endurance_basic', confidence: 0.8 });
+    await generatePlan({
+      durationWeeks: 4,
+      availableDays: [1, 3, 5],
+      class: 'endurance_basic',
+      confidence: 0.8,
+    });
     setGenerating(false);
     setTab('plans');
   };
@@ -55,7 +59,9 @@ export default function Training() {
                 onClick={handleGenerate}
                 disabled={generating}
               >
-                {generating ? t('Генерация...', 'Generating...') : t('Создать план', 'Generate plan')}
+                {generating
+                  ? t('Генерация...', 'Generating...')
+                  : t('Создать план', 'Generate plan')}
               </button>
               {plans.length === 0 ? (
                 <div className='muted'>{t('Нет планов', 'No plans')}</div>
@@ -64,9 +70,14 @@ export default function Training() {
                   {plans.map((plan) => (
                     <div key={plan.plan_id} className='list-row plan-row'>
                       <div>
-                        <div className='list-title'>{plan.plan_data?.name || plan.plan_id}</div>
+                        <div className='list-title'>
+                          {plan.plan_data?.name || plan.plan_id}
+                        </div>
                         <div className='muted'>
-                          {plan.training_goal || plan.plan_data?.training_goal || ''} · {plan.duration_weeks || 4} {t('недель', 'weeks')}
+                          {plan.training_goal ||
+                            plan.plan_data?.training_goal ||
+                            ''}{' '}
+                          · {plan.duration_weeks || 4} {t('недель', 'weeks')}
                         </div>
                       </div>
                       <button
@@ -83,7 +94,10 @@ export default function Training() {
           )}
           {tab === 'start' && (
             <>
-              <button className='primary full' onClick={() => startWorkout('Тренировка')}>
+              <button
+                className='primary full'
+                onClick={() => startWorkout('Тренировка')}
+              >
                 {t('Начать тренировку', 'Start workout')}
               </button>
               <button className='secondary full' onClick={() => go('home')}>

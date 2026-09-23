@@ -69,7 +69,9 @@ export default function Integrations() {
             providers.map((provider) => (
               <div className='list-row' key={provider.source}>
                 <div>
-                  <div className='list-title'>{provider.source_name || provider.source}</div>
+                  <div className='list-title'>
+                    {provider.source_name || provider.source}
+                  </div>
                   <div className='muted'>
                     {provider.connected
                       ? t('Подключено', 'Connected')

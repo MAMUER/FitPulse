@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Achievements() {
@@ -9,9 +9,10 @@ export default function Achievements() {
     loadAchievements().then(() => setLoading(false));
   }, [loadAchievements]);
 
-  const achievements = state.achievementsBackend && state.achievementsBackend.length > 0
-    ? state.achievementsBackend
-    : state.achievements || [];
+  const achievements =
+    state.achievementsBackend && state.achievementsBackend.length > 0
+      ? state.achievementsBackend
+      : state.achievements || [];
 
   return (
     <section className='achievements'>
@@ -26,7 +27,9 @@ export default function Achievements() {
           {loading ? (
             <div className='muted'>{t('Загрузка...', 'Loading...')}</div>
           ) : achievements.length === 0 ? (
-            <div className='muted'>{t('Нет достижений', 'No achievements')}</div>
+            <div className='muted'>
+              {t('Нет достижений', 'No achievements')}
+            </div>
           ) : (
             <div className='achievements-grid'>
               {achievements.map((ach, i) => (
@@ -38,7 +41,9 @@ export default function Achievements() {
                     <i className={`fas ${ach.icon || 'fa-trophy'}`}></i>
                   </div>
                   <div className='achievement-name'>{ach.name}</div>
-                  <div className='achievement-desc'>{ach.desc || ach.description || ''}</div>
+                  <div className='achievement-desc'>
+                    {ach.desc || ach.description || ''}
+                  </div>
                 </div>
               ))}
             </div>

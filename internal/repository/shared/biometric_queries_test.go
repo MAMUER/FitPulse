@@ -78,10 +78,10 @@ func TestScanBiometricRows(t *testing.T) {
 }
 
 type mockBiometricRows struct {
-	records   []*entity.BiometricRecord
-	idx       int
-	scanErr   error
-	iterErr   error
+	records []*entity.BiometricRecord
+	idx     int
+	scanErr error
+	iterErr error
 }
 
 func newMockBiometricRows(records []*entity.BiometricRecord) *mockBiometricRows {

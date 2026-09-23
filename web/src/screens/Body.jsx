@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Body() {
@@ -42,8 +42,7 @@ export default function Body() {
         <div className='panel-head'>
           <div className='panel-title'>{t('Профиль тела', 'Body profile')}</div>
           <div className='panel-sub'>
-            {height ? `${height} см` : '—'} ·{' '}
-            {weight ? `${weight} кг` : '—'}
+            {height ? `${height} см` : '—'} · {weight ? `${weight} кг` : '—'}
           </div>
         </div>
         <div className='panel-body'>
@@ -126,7 +125,9 @@ export default function Body() {
                     {r.weight_kg} кг · ИМТ {r.bmi}
                   </div>
                   <div className='muted'>
-                    {r.recorded_at ? new Date(r.recorded_at).toLocaleDateString() : ''}
+                    {r.recorded_at
+                      ? new Date(r.recorded_at).toLocaleDateString()
+                      : ''}
                   </div>
                 </div>
               </div>

@@ -117,8 +117,33 @@ spec:
               value: "gateway"
             - name: OTEL_TRACES_SAMPLER
               value: "traceidratio"
-            - name: OTEL_TRACES_SAMPLER_ARG
-              value: "0.01"
+             - name: OTEL_TRACES_SAMPLER_ARG
+               value: "0.01"
+             - name: CAPTCHA_PROVIDER
+               valueFrom:
+                 configMapKeyRef:
+                   name: captcha-config
+                   key: CAPTCHA_PROVIDER
+             - name: CLOUDFLARE_TURNSTILE_SITE_KEY
+               valueFrom:
+                 configMapKeyRef:
+                   name: captcha-config
+                   key: CLOUDFLARE_TURNSTILE_SITE_KEY
+             - name: CLOUDFLARE_TURNSTILE_SECRET_KEY
+               valueFrom:
+                 secretKeyRef:
+                   name: captcha-secrets
+                   key: CLOUDFLARE_TURNSTILE_SECRET_KEY
+             - name: HCAPTCHA_SITE_KEY
+               valueFrom:
+                 configMapKeyRef:
+                   name: captcha-config
+                   key: HCAPTCHA_SITE_KEY
+             - name: HCAPTCHA_SECRET_KEY
+               valueFrom:
+                 secretKeyRef:
+                   name: captcha-secrets
+                   key: HCAPTCHA_SECRET_KEY
           livenessProbe:
             httpGet:
               path: /health

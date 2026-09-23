@@ -4,6 +4,7 @@ import AI from './screens/AI';
 import Body from './screens/Body';
 import Calendar from './screens/Calendar';
 import Chat from './screens/Chat';
+import Confirm from './screens/Confirm';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
 import Landing from './screens/Landing';
@@ -17,7 +18,6 @@ import Training from './screens/Training';
 import TwoFASetup from './screens/TwoFASetup';
 import TwoFAVerify from './screens/TwoFAVerify';
 import Videos from './screens/Videos';
-import Confirm from './screens/Confirm';
 
 function TabBar() {
   const { state, t, go } = useApp();

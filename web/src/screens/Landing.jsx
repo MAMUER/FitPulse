@@ -11,7 +11,12 @@ export default function Landing() {
         <div className='landing-brand'>
           <div className='logo-icon'>FP</div>
           <h1>FitPulse</h1>
-          <p>{t('Open fitness & health platform', 'Open fitness & health platform')}</p>
+          <p>
+            {t(
+              'Open fitness & health platform',
+              'Open fitness & health platform'
+            )}
+          </p>
         </div>
         <div className='landing-actions'>
           {state.registered ? (
@@ -20,10 +25,16 @@ export default function Landing() {
             </button>
           ) : (
             <>
-              <button className='primary full' onClick={() => navigate('/login')}>
+              <button
+                className='primary full'
+                onClick={() => navigate('/login')}
+              >
                 {t('Sign in', 'Sign in')}
               </button>
-              <button className='secondary full' onClick={() => navigate('/register')}>
+              <button
+                className='secondary full'
+                onClick={() => navigate('/register')}
+              >
                 {t('Create account', 'Create account')}
               </button>
             </>
@@ -33,23 +44,36 @@ export default function Landing() {
       <div className='landing-features'>
         <div className='feature'>
           <div className='feature-icon'>📊</div>
-          <div className='feature-title'>{t('Health tracking', 'Health tracking')}</div>
+          <div className='feature-title'>
+            {t('Health tracking', 'Health tracking')}
+          </div>
           <div className='feature-desc'>
-            {t('Track heart rate, SpO2, steps, calories, sleep and more', 'Track heart rate, SpO2, steps, calories, sleep and more')}
+            {t(
+              'Track heart rate, SpO2, steps, calories, sleep and more',
+              'Track heart rate, SpO2, steps, calories, sleep and more'
+            )}
           </div>
         </div>
         <div className='feature'>
           <div className='feature-icon'>🤖</div>
           <div className='feature-title'>AI</div>
           <div className='feature-desc'>
-            {t('Get personalized recommendations based on your data', 'Get personalized recommendations based on your data')}
+            {t(
+              'Get personalized recommendations based on your data',
+              'Get personalized recommendations based on your data'
+            )}
           </div>
         </div>
         <div className='feature'>
           <div className='feature-icon'>⌚</div>
-          <div className='feature-title'>{t('Device integrations', 'Device integrations')}</div>
+          <div className='feature-title'>
+            {t('Device integrations', 'Device integrations')}
+          </div>
           <div className='feature-desc'>
-            {t('Connect wearables and health services via Open Wearables', 'Connect wearables and health services via Open Wearables')}
+            {t(
+              'Connect wearables and health services via Open Wearables',
+              'Connect wearables and health services via Open Wearables'
+            )}
           </div>
         </div>
       </div>

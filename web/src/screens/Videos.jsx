@@ -8,9 +8,10 @@ export default function Videos() {
     loadVideos();
   }, [loadVideos]);
 
-  const videos = state.videos && state.videos.length > 0
-    ? state.videos
-    : state.trainingVideos || [];
+  const videos =
+    state.videos && state.videos.length > 0
+      ? state.videos
+      : state.trainingVideos || [];
 
   return (
     <section className='videos'>
@@ -29,7 +30,8 @@ export default function Videos() {
                 <div>
                   <div className='list-title'>{v.title}</div>
                   <div className='muted'>
-                    {v.minutes || v.duration || ''} {t('мин', 'min')} · {v.kcal || v.calories || 0} {t('ккал', 'kcal')}
+                    {v.minutes || v.duration || ''} {t('мин', 'min')} ·{' '}
+                    {v.kcal || v.calories || 0} {t('ккал', 'kcal')}
                   </div>
                 </div>
                 <button className='primary' onClick={() => go('training')}>

@@ -43,3 +43,9 @@ pillow>=12.3.0
 nltk @ git+https://github.com/nltk/nltk.git@70d34158700f0624a7e31af606232effb4465566
 ujson>=6.0.0
 idna>=3.15
+
+# Observability (OpenTelemetry tracing)
+opentelemetry-api>=1.44.0
+opentelemetry-sdk>=1.44.0
+opentelemetry-exporter-otlp-proto-grpc>=1.44.0
+opentelemetry-instrumentation-fastapi>=0.52.0

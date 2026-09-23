@@ -15,61 +15,318 @@ data:
         type: file
         options:
           path: /etc/grafana/provisioning/dashboards/json
-  slo-overview.json: |
-    {
-      "dashboard": {
-        "title": "SLO Overview",
-        "tags": ["slo", "fittpulse"],
-        "timezone": "utc",
-        "panels": [
-          {
-            "id": 1,
-            "title": "Error Budget Remaining",
-            "type": "gauge",
-            "targets": [
-              {
-                "expr": "job:slo_error_budget_remaining",
-                "legendFormat": "{{ job }}"
-              }
-            ],
-            "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
-          },
-          {
-            "id": 2,
-            "title": "Burn Rate (5m)",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "job:slo_burn_rate_5m",
-                "legendFormat": "{{ job }}"
-              }
-            ],
-            "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
-          },
-          {
-            "id": 3,
-            "title": "P95 Latency",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-                "legendFormat": "{{ job }}"
-              }
-            ],
-            "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
-          },
-          {
-            "id": 4,
-            "title": "Error Rate",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "rate(error_total[5m]) / rate(request_total[5m])",
-                "legendFormat": "{{ job }}"
-              }
-            ],
-            "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
-          }
-        ]
-      }
-    }
+   slo-overview.json: |
+     {
+       "dashboard": {
+         "title": "SLO Overview",
+         "tags": ["slo", "fittpulse"],
+         "timezone": "utc",
+         "refresh": "1m",
+         "time": { "from": "now-7d", "to": "now" },
+         "panels": [
+           {
+             "id": 1,
+             "title": "Error Budget Remaining (%)",
+             "type": "gauge",
+             "targets": [
+               {
+                 "expr": "job:slo_error_budget_remaining",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": {
+                 "color": { "mode": "thresholds" },
+                 "thresholds": {
+                   "mode": "absolute",
+                   "steps": [
+                     { "color": "red", "value": 0 },
+                     { "color": "yellow", "value": 20 },
+                     { "color": "green", "value": 50 }
+                   ]
+                 },
+                 "unit": "percent"
+               }
+             },
+             "gridPos": { "x": 0, "y": 0, "w": 6, "h": 6 }
+           },
+           {
+             "id": 2,
+             "title": "Burn Rate (5m)",
+             "type": "graph",
+             "targets": [
+               {
+                 "expr": "job:slo_burn_rate_5m",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }
+             },
+             "gridPos": { "x": 6, "y": 0, "w": 6, "h": 6 }
+           },
+           {
+             "id": 3,
+             "title": "Burn Rate Alert (1h)",
+             "type": "graph",
+             "targets": [
+               {
+                 "expr": "job:slo_burn_rate_1h",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }
+             },
+             "gridPos": { "x": 12, "y": 0, "w": 6, "h": 6 }
+           },
+           {
+             "id": 4,
+             "title": "Error Budget Burned (%)",
+             "type": "stat",
+             "targets": [
+               {
+                 "expr": "100 - job:slo_error_budget_remaining",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": {
+                 "color": { "mode": "thresholds" },
+                 "thresholds": {
+                   "mode": "absolute",
+                   "steps": [
+                     { "color": "green", "value": 0 },
+                     { "color": "yellow", "value": 50 },
+                     { "color": "red", "value": 90 }
+                   ]
+                 },
+                 "unit": "percent"
+               }
+             },
+             "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 }
+           },
+           {
+             "collapsed": false,
+             "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+             "id": 100,
+             "title": "📊 Latency (Critical Endpoints)",
+             "type": "row"
+           },
+           {
+             "id": 5,
+             "title": "P50 Latency",
+             "type": "timeseries",
+             "targets": [
+               {
+                 "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m]))",
+                 "legendFormat": "{{ job }} p50"
+               }
+             ],
+             "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" } },
+             "gridPos": { "x": 0, "y": 7, "w": 8, "h": 8 }
+           },
+           {
+             "id": 6,
+             "title": "P95 Latency (SLO: < 2s)",
+             "type": "timeseries",
+             "targets": [
+               {
+                 "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m]))",
+                 "legendFormat": "{{ job }} p95"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" },
+               "overrides": [
+                 {
+                   "matcher": { "id": "byName", "options": "{{ job }} p95" },
+                   "properties": [
+                     {
+                       "id": "thresholds",
+                       "value": {
+                         "mode": "absolute",
+                         "steps": [
+                           { "color": "green", "value": 0 },
+                           { "color": "yellow", "value": 1.5 },
+                           { "color": "red", "value": 2 }
+                         ]
+                       }
+                     }
+                   ]
+                 }
+               ]
+             },
+             "gridPos": { "x": 8, "y": 7, "w": 8, "h": 8 }
+           },
+           {
+             "id": 7,
+             "title": "P99 Latency (7-day window)",
+             "type": "timeseries",
+             "targets": [
+               {
+                 "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m]))",
+                 "legendFormat": "{{ job }} p99"
+               }
+             ],
+             "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" } },
+             "gridPos": { "x": 16, "y": 7, "w": 8, "h": 8 }
+           },
+           {
+             "collapsed": false,
+             "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+             "id": 101,
+             "title": "🚨 Errors & RED Metrics",
+             "type": "row"
+           },
+           {
+             "id": 8,
+             "title": "HTTP 5xx Error Rate",
+             "type": "timeseries",
+             "targets": [
+               {
+                 "expr": "sum(rate(http_requests_total{namespace=\"$namespace\", status=~\"5..\"}[5m])) by (job)",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" }
+             },
+             "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 }
+           },
+           {
+             "id": 9,
+             "title": "Error Rate % (SLO: < 0.1%)",
+             "type": "timeseries",
+             "targets": [
+               {
+                 "expr": "job:request_error_rate",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": { "color": { "mode": "palette-classic" }, "unit": "percentunit" },
+               "overrides": [
+                 {
+                   "matcher": { "id": "byName", "options": "{{ job }}" },
+                   "properties": [
+                     {
+                       "id": "thresholds",
+                       "value": {
+                         "mode": "absolute",
+                         "steps": [
+                           { "color": "green", "value": 0 },
+                           { "color": "yellow", "value": 0.0005 },
+                           { "color": "red", "value": 0.001 }
+                         ]
+                       }
+                     }
+                   ]
+                 }
+               ]
+             },
+             "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 }
+           },
+           {
+             "id": 10,
+             "title": "RED Matrix: Rate (req/s)",
+             "type": "heatmap",
+             "targets": [
+               {
+                 "expr": "sum(rate(http_requests_total{namespace=\"$namespace\"}[5m])) by (job, le)",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "dataFormat": "tsbuckets",
+             "fieldConfig": {
+               "defaults": {
+                 "color": { "mode": "spectrum" },
+                 "unit": "reqps"
+               }
+             },
+             "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 }
+           },
+           {
+             "collapsed": false,
+             "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+             "id": 102,
+             "title": "🏥 Service Health Matrix",
+             "type": "row"
+           },
+           {
+             "id": 11,
+             "title": "Service Health (7d availability)",
+             "type": "stat",
+             "targets": [
+               {
+                 "expr": "avg_over_time((1 - (sum(rate(http_requests_total{namespace=\"$namespace\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"$namespace\"}[5m]))))[7d:1m])",
+                 "legendFormat": "{{ job }}"
+               }
+             ],
+             "fieldConfig": {
+               "defaults": {
+                 "color": { "mode": "thresholds" },
+                 "mappings": [
+                   { "type": "value", "value": "0", "color": "red", "text": "DOWN" },
+                   { "type": "value", "value": "0.999", "color": "yellow", "text": "DEGRADED" },
+                   { "type": "value", "value": "1", "color": "green", "text": "HEALTHY" }
+                 ],
+                 "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 0.999 }, { "color": "green", "value": 1 }] },
+                 "unit": "percentunit",
+                 "min": 0.999,
+                 "max": 1
+               }
+             },
+             "options": {
+               "colorMode": "background",
+               "graphMode": "none",
+               "justifyMode": "auto",
+               "orientation": "auto",
+               "reduceOptions": { "calcs": ["lastNotNull"] },
+               "textMode": "value_and_name"
+             },
+             "gridPos": { "x": 0, "y": 25, "w": 24, "h": 10 }
+           }
+         ],
+         "schemaVersion": 39,
+         "style": "dark",
+         "tags": ["slo", "fitness", "kubernetes", "microservices"],
+         "templating": {
+           "list": [
+             {
+               "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+               "hide": 0,
+               "includeAll": false,
+               "name": "datasource",
+               "options": [],
+               "query": "prometheus",
+               "refresh": 1,
+               "regex": "",
+               "skipUrlSync": false,
+               "type": "datasource"
+             },
+             {
+               "current": { "selected": false, "text": "fitness-platform-production", "value": "fitness-platform-production" },
+               "datasource": { "type": "prometheus", "uid": "${datasource}" },
+               "definition": "label_values(kube_pod_info, namespace)",
+               "hide": 0,
+               "includeAll": false,
+               "name": "namespace",
+               "options": [],
+               "query": { "query": "label_values(kube_pod_info, namespace)", "refId": "StandardVariableQuery" },
+               "refresh": 1,
+               "regex": "",
+               "skipUrlSync": false,
+               "sort": 0,
+               "type": "query"
+             }
+           ]
+         },
+         "time": { "from": "now-7d", "to": "now" },
+         "timepicker": {},
+         "timezone": "",
+         "title": "SLO Overview",
+         "uid": "slo-overview",
+         "version": 2
+       }
+     }

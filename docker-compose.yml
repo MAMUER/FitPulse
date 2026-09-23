@@ -274,12 +274,27 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=15d"
 
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./configs/monitoring/grafana:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build:
       context: ./web
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "5173:3000"
     environment:
       VITE_API_URL: http://localhost:8080
 
@@ -288,3 +303,4 @@ volumes:
   valkey_data:
   rabbitmq_data:
   prometheus_data:
+  grafana_data:

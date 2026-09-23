@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { AppProvider, useApp } from './contexts/AppContext';
@@ -70,7 +70,9 @@ const renderApp = (overrides = {}) => {
   });
 
   return render(
-    <MemoryRouter initialEntries={[overrides.screen === 'home' ? '/home' : '/']}>
+    <MemoryRouter
+      initialEntries={[overrides.screen === 'home' ? '/home' : '/']}
+    >
       <AppProvider>
         <App />
       </AppProvider>

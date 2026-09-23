@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useApp } from '../contexts/AppContext';
 import {
   addDays,
   endOfMonth,
@@ -10,10 +11,10 @@ import {
   startOfMonth,
   startOfWeek,
 } from '../utils/helpers';
-import { useApp } from '../contexts/AppContext';
 
 export default function Calendar() {
-  const { state, t, addEvent, deleteCalendarEvent, loadCalendarEvents } = useApp();
+  const { state, t, addEvent, deleteCalendarEvent, loadCalendarEvents } =
+    useApp();
   const [currentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
   const [eventTitle, setEventTitle] = useState('');
@@ -108,11 +109,13 @@ export default function Calendar() {
             {days.map((d) => {
               const inMonth = isSameMonth(d, monthStart);
               const isSelected = selectedDay && isSameDay(d, selectedDay);
-              const dayEvents = eventsList.filter((e) => e.date === format(d, 'yyyy-MM-dd'));
+              const dayEvents = eventsList.filter(
+                (e) => e.date === format(d, 'yyyy-MM-dd')
+              );
               return (
                 <button
                   key={d.getTime()}
-                  type="button"
+                  type='button'
                   className={
                     'cal-cell' +
                     (inMonth ? '' : ' muted') +
@@ -128,7 +131,9 @@ export default function Calendar() {
                         <span
                           key={ev.id}
                           className='cal-dot'
-                          style={{ background: typeColors[ev.type] || '#19d8da' }}
+                          style={{
+                            background: typeColors[ev.type] || '#19d8da',
+                          }}
                         />
                       ))}
                     </span>
@@ -147,7 +152,9 @@ export default function Calendar() {
                   className='primary'
                   onClick={() => setShowForm(!showForm)}
                 >
-                  {showForm ? t('Отмена', 'Cancel') : t('Добавить событие', 'Add event')}
+                  {showForm
+                    ? t('Отмена', 'Cancel')
+                    : t('Добавить событие', 'Add event')}
                 </button>
               </>
             ) : (
@@ -166,9 +173,14 @@ export default function Calendar() {
               </div>
               <div className='field'>
                 <label>{t('Тип', 'Type')}</label>
-                <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                <select
+                  value={eventType}
+                  onChange={(e) => setEventType(e.target.value)}
+                >
                   {Object.entries(typeLabels).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -200,7 +212,8 @@ export default function Calendar() {
                   <div>
                     <div className='list-title'>{ev.title}</div>
                     <div className='muted'>
-                      {typeLabels[ev.type] || ev.type} · {ev.time || ''} · {ev.description || ''}
+                      {typeLabels[ev.type] || ev.type} · {ev.time || ''} ·{' '}
+                      {ev.description || ''}
                     </div>
                   </div>
                   <button

@@ -42,35 +42,35 @@ type authRateLimiter struct {
 }
 
 // Package-level singletons initialized at startup
-var rateLimiterInstance = &rateLimiter{}
+var RateLimiterInstance = &rateLimiter{}
 
-var userRateLimiterInstance = &userRateLimiter{}
+var UserRateLimiterInstance = &userRateLimiter{}
 
-var authRateLimiterInstance = &authRateLimiter{}
+var AuthRateLimiterInstance = &authRateLimiter{}
 
 func init() {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			rateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+			RateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
 				v := value.(*visitor)
 				if time.Since(v.lastSeen) > 10*time.Minute {
-					rateLimiterInstance.visitors.Delete(key)
+					RateLimiterInstance.visitors.Delete(key)
 				}
 				return true
 			})
-			userRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+			UserRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
 				v := value.(*userVisitor)
 				if time.Since(v.lastSeen) > 10*time.Minute {
-					userRateLimiterInstance.visitors.Delete(key)
+					UserRateLimiterInstance.visitors.Delete(key)
 				}
 				return true
 			})
-			authRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+			AuthRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
 				v := value.(*authVisitor)
 				if time.Since(v.lastSeen) > 10*time.Minute {
-					authRateLimiterInstance.visitors.Delete(key)
+					AuthRateLimiterInstance.visitors.Delete(key)
 				}
 				return true
 			})
@@ -79,18 +79,29 @@ func init() {
 }
 
 func resetRateLimiters() {
-	rateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
-		rateLimiterInstance.visitors.Delete(key)
+	RateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		RateLimiterInstance.visitors.Delete(key)
 		return true
 	})
-	userRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
-		userRateLimiterInstance.visitors.Delete(key)
+	UserRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		UserRateLimiterInstance.visitors.Delete(key)
 		return true
 	})
-	authRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
-		authRateLimiterInstance.visitors.Delete(key)
+	AuthRateLimiterInstance.visitors.Range(func(key, value interface{}) bool {
+		AuthRateLimiterInstance.visitors.Delete(key)
 		return true
 	})
+}
+
+// ResetRateLimiterForIP removes rate limit entries for the given IP.
+func ResetRateLimiterForIP(ip string) {
+	RateLimiterInstance.visitors.Delete(ip)
+	AuthRateLimiterInstance.visitors.Delete(ip)
+}
+
+// ResetUserRateLimiterForID removes rate limit entries for the given user ID.
+func ResetUserRateLimiterForID(userID string) {
+	UserRateLimiterInstance.visitors.Delete(userID)
 }
 
 // AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5)
@@ -102,16 +113,17 @@ func AuthRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 				return
 			}
 			ip := getClientIP(r)
-			v, ok := authRateLimiterInstance.visitors.Load(ip)
+			v, ok := AuthRateLimiterInstance.visitors.Load(ip)
 			if !ok {
 				limiter := rate.NewLimiter(5.0/60.0, 5)
-				authRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
-				v, _ = authRateLimiterInstance.visitors.Load(ip)
+				AuthRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = AuthRateLimiterInstance.visitors.Load(ip)
 			}
 			av := v.(*authVisitor)
 			av.lastSeen = time.Now()
 			if !av.limiter.Allow() {
 				log.Warn("Auth rate limit exceeded", zap.String("path", sanitize.LogString(r.URL.Path)), zap.String("ip", sanitize.LogString(ip)))
+				w.Header().Set("X-Captcha-Required", "true")
 				http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
 				return
 			}
@@ -129,16 +141,17 @@ func RateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 				return
 			}
 			ip := getClientIP(r)
-			v, ok := rateLimiterInstance.visitors.Load(ip)
+			v, ok := RateLimiterInstance.visitors.Load(ip)
 			if !ok {
 				limiter := rate.NewLimiter(10, 50)
-				rateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
-				v, _ = rateLimiterInstance.visitors.Load(ip)
+				RateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = RateLimiterInstance.visitors.Load(ip)
 			}
 			vis := v.(*visitor)
 			vis.lastSeen = time.Now()
 			if !vis.limiter.Allow() {
 				log.Warn("Rate limit exceeded", zap.String("path", sanitize.LogString(r.URL.Path)), zap.String("ip", sanitize.LogString(ip)))
+				w.Header().Set("X-Captcha-Required", "true")
 				http.Error(w, "Превышен лимит запросов", http.StatusTooManyRequests)
 				return
 			}
@@ -160,11 +173,11 @@ func UserRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			v, ok := userRateLimiterInstance.visitors.Load(userID)
+			v, ok := UserRateLimiterInstance.visitors.Load(userID)
 			if !ok {
 				limiter := rate.NewLimiter(100, 200)
-				userRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
-				v, _ = userRateLimiterInstance.visitors.Load(userID)
+				UserRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
+				v, _ = UserRateLimiterInstance.visitors.Load(userID)
 			}
 			vis := v.(*userVisitor)
 			vis.lastSeen = time.Now()

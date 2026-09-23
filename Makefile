@@ -1,12 +1,12 @@
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag tf-init tf-plan tf-apply tf-fmt
+BIN_DIR := bin
+GO_VERSION := 1.27.0
+
 imports:
 	@echo "Updating Go imports with gci..."
 	@go install github.com/daixiang0/gci@v0.14.0
 	@gci write -s standard -s default -s 'prefix(github.com/MAMUER/project)' --skip-generated --skip-vendor cmd internal || echo "gci failed, continuing without import reorganization"
 	@echo "Imports step finished."
-
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag tf-init tf-plan tf-apply tf-fmt
-BIN_DIR := bin
-GO_VERSION := 1.27.0
 
 tidy:
 	@echo "Tidying Go modules..."

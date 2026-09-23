@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { backendRequest } from '../utils/backendRequest';
 import {
   formatRelativeDate,
   getDateKey,
@@ -14,7 +15,6 @@ import {
   safeText,
 } from '../utils/helpers';
 import { t } from '../utils/i18n';
-import { backendRequest } from '../utils/backendRequest';
 
 const KEY = 'fitpulse-merged-v9';
 
@@ -1603,54 +1603,62 @@ export function AppProvider({ children }) {
     [state.selectedWorkout, update]
   );
 
-  const startWorkout = useCallback(async (title) => {
-    const completed = state.completedWorkouts || [];
-    if (completed.includes(title)) {
-      notify('Эта тренировка уже отмечена как выполненная');
-      return;
-    }
-    try {
-      await backendRequest('/api/v1/training/complete', {
-        method: 'POST',
-        body: JSON.stringify({ plan_id: 'default', workout_id: title, rating: 5, feedback: 'Completed' }),
-      });
-      const newCompleted = [...completed, title];
-      const newDaily = (state.dailyCompleted || 0) + 1;
-      const td = state.trainingData?.day;
-      const newTrainingData = td
-        ? {
-            ...td,
-            completed: Math.min(td.goal || 3, (td.completed || 0) + 1),
-            minutes: (td.minutes || 0) + 42,
-            calories: (td.calories || 0) + 420,
-          }
-        : td;
-      update({
-        completedWorkouts: newCompleted,
-        dailyCompleted: newDaily,
-        points: (state.points || 0) + 40,
-        xp: (state.xp || 0) + 40,
-        trainingMinutes: (state.trainingMinutes || 0) + 42,
-        caloriesBurned: (state.caloriesBurned || 0) + 420,
-        trainingData: newTrainingData
-          ? { ...state.trainingData, day: newTrainingData }
-          : state.trainingData,
-      });
-      notify(`${title}\n✓ Тренировка завершена. +40 XP`);
-    } catch {
-      notify('Ошибка завершения тренировки');
-    }
-  }, [
-    state.completedWorkouts,
-    state.dailyCompleted,
-    state.points,
-    state.xp,
-    state.trainingMinutes,
-    state.caloriesBurned,
-    state.trainingData,
-    update,
-    notify,
-  ]);
+  const startWorkout = useCallback(
+    async (title) => {
+      const completed = state.completedWorkouts || [];
+      if (completed.includes(title)) {
+        notify('Эта тренировка уже отмечена как выполненная');
+        return;
+      }
+      try {
+        await backendRequest('/api/v1/training/complete', {
+          method: 'POST',
+          body: JSON.stringify({
+            plan_id: 'default',
+            workout_id: title,
+            rating: 5,
+            feedback: 'Completed',
+          }),
+        });
+        const newCompleted = [...completed, title];
+        const newDaily = (state.dailyCompleted || 0) + 1;
+        const td = state.trainingData?.day;
+        const newTrainingData = td
+          ? {
+              ...td,
+              completed: Math.min(td.goal || 3, (td.completed || 0) + 1),
+              minutes: (td.minutes || 0) + 42,
+              calories: (td.calories || 0) + 420,
+            }
+          : td;
+        update({
+          completedWorkouts: newCompleted,
+          dailyCompleted: newDaily,
+          points: (state.points || 0) + 40,
+          xp: (state.xp || 0) + 40,
+          trainingMinutes: (state.trainingMinutes || 0) + 42,
+          caloriesBurned: (state.caloriesBurned || 0) + 420,
+          trainingData: newTrainingData
+            ? { ...state.trainingData, day: newTrainingData }
+            : state.trainingData,
+        });
+        notify(`${title}\n✓ Тренировка завершена. +40 XP`);
+      } catch {
+        notify('Ошибка завершения тренировки');
+      }
+    },
+    [
+      state.completedWorkouts,
+      state.dailyCompleted,
+      state.points,
+      state.xp,
+      state.trainingMinutes,
+      state.caloriesBurned,
+      state.trainingData,
+      update,
+      notify,
+    ]
+  );
 
   const editPlace = useCallback(
     (index) => {
@@ -1778,97 +1786,145 @@ export function AppProvider({ children }) {
     [update]
   );
 
-  const addEvent = useCallback(async (eventData = {}) => {
-    const day = state.selectedCalendarDay || new Date().getDate();
-    const type = eventData.type || document.getElementById('eventType')?.value || 'training';
-    const title = eventData.title || document.getElementById('eventTitle')?.value.trim() || t('Новое событие', 'New event');
-    const time = eventData.time || document.getElementById('eventTime')?.value || '19:00';
-    const description = eventData.description || document.getElementById('eventDescription')?.value.trim() || '';
-    const dateStr = `${state.calendarYear}-${String(state.calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    try {
-      const data = await backendRequest('/api/v1/calendar/events', {
-        method: 'POST',
-        body: JSON.stringify({ title, date: dateStr, type, description }),
-      });
-      if (data?.event) {
-        const newEvents = { ...state.calendarEvents };
-        const dateLabel = `${day} ${getMonthName(state.calendarMonthIndex, state.language)}`;
-        if (!newEvents[dateLabel]) newEvents[dateLabel] = [];
-        newEvents[dateLabel] = [
-          ...newEvents[dateLabel],
+  const addEvent = useCallback(
+    async (eventData = {}) => {
+      const day = state.selectedCalendarDay || new Date().getDate();
+      const type =
+        eventData.type ||
+        document.getElementById('eventType')?.value ||
+        'training';
+      const title =
+        eventData.title ||
+        document.getElementById('eventTitle')?.value.trim() ||
+        t('Новое событие', 'New event');
+      const time =
+        eventData.time ||
+        document.getElementById('eventTime')?.value ||
+        '19:00';
+      const description =
+        eventData.description ||
+        document.getElementById('eventDescription')?.value.trim() ||
+        '';
+      const dateStr = `${state.calendarYear}-${String(state.calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      try {
+        const data = await backendRequest('/api/v1/calendar/events', {
+          method: 'POST',
+          body: JSON.stringify({ title, date: dateStr, type, description }),
+        });
+        if (data?.event) {
+          const newEvents = { ...state.calendarEvents };
+          const dateLabel = `${day} ${getMonthName(state.calendarMonthIndex, state.language)}`;
+          if (!newEvents[dateLabel]) newEvents[dateLabel] = [];
+          newEvents[dateLabel] = [
+            ...newEvents[dateLabel],
+            {
+              id: data.event.id,
+              title: data.event.title,
+              type: data.event.type,
+              info: description || type,
+              time,
+              date: dateLabel,
+              color:
+                {
+                  training: '#6fae20',
+                  food: '#f5d45d',
+                  recovery: '#ff6375',
+                  meeting: '#a78bfa',
+                  note: '#19d8da',
+                }[type] || '#19d8da',
+            },
+          ];
+          const newList = [
+            ...(state.calendarEventsList || []),
+            { ...data.event, dateLabel },
+          ];
+          update({
+            calendarEvents: newEvents,
+            calendarEventsList: newList,
+            showDateModal: false,
+            dateModalDate: null,
+          });
+        }
+      } catch {
+        notify('Ошибка добавления события');
+      }
+    },
+    [
+      state.selectedCalendarDay,
+      state.calendarMonthIndex,
+      state.calendarYear,
+      state.calendarEvents,
+      state.language,
+      update,
+      notify,
+      t,
+    ]
+  );
+
+  const updateEvent = useCallback(
+    async (eventId, title, date, type, description) => {
+      try {
+        const data = await backendRequest(
+          `/api/v1/calendar/events/${eventId}`,
           {
-            id: data.event.id,
-            title: data.event.title,
-            type: data.event.type,
-            info: description || type,
-            time,
-            date: dateLabel,
-            color: { training: '#6fae20', food: '#f5d45d', recovery: '#ff6375', meeting: '#a78bfa', note: '#19d8da' }[type] || '#19d8da',
-          },
-        ];
-        const newList = [...(state.calendarEventsList || []), { ...data.event, dateLabel }];
-        update({ calendarEvents: newEvents, calendarEventsList: newList, showDateModal: false, dateModalDate: null });
-      }
-    } catch {
-      notify('Ошибка добавления события');
-    }
-  }, [
-    state.selectedCalendarDay,
-    state.calendarMonthIndex,
-    state.calendarYear,
-    state.calendarEvents,
-    state.language,
-    update,
-    notify,
-    t,
-  ]);
-
-  const updateEvent = useCallback(async (eventId, title, date, type, description) => {
-    try {
-      const data = await backendRequest(`/api/v1/calendar/events/${eventId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ title, date, type, description }),
-      });
-      if (data?.event) {
-        const newList = (state.calendarEventsList || []).map((e) =>
-          e.id === eventId ? { ...e, ...data.event } : e
+            method: 'PUT',
+            body: JSON.stringify({ title, date, type, description }),
+          }
         );
-        update({ calendarEventsList: newList });
-        notify('Событие обновлено');
+        if (data?.event) {
+          const newList = (state.calendarEventsList || []).map((e) =>
+            e.id === eventId ? { ...e, ...data.event } : e
+          );
+          update({ calendarEventsList: newList });
+          notify('Событие обновлено');
+        }
+      } catch {
+        notify('Ошибка обновления события');
       }
-    } catch {
-      notify('Ошибка обновления события');
-    }
-  }, [state.calendarEventsList, update, notify]);
+    },
+    [state.calendarEventsList, update, notify]
+  );
 
-  const deleteCalendarEvent = useCallback(async (keyOrEventId, index) => {
-    let eventId = keyOrEventId;
-    
-    if (typeof index === 'number' && typeof keyOrEventId === 'string') {
-      const list = state.calendarEvents[keyOrEventId];
-      if (!list || index < 0 || index >= list.length) return;
-      eventId = list[index].id;
-    }
-    
-    try {
-      await backendRequest(`/api/v1/calendar/events/${eventId}`, { method: 'DELETE' });
-      const newList = (state.calendarEventsList || []).filter((e) => e.id !== eventId);
-      const newEvents = { ...state.calendarEvents };
-      for (const key of Object.keys(newEvents)) {
-        newEvents[key] = newEvents[key].filter((e) => e.id !== eventId);
-        if (!newEvents[key].length) delete newEvents[key];
+  const deleteCalendarEvent = useCallback(
+    async (keyOrEventId, index) => {
+      let eventId = keyOrEventId;
+
+      if (typeof index === 'number' && typeof keyOrEventId === 'string') {
+        const list = state.calendarEvents[keyOrEventId];
+        if (!list || index < 0 || index >= list.length) return;
+        eventId = list[index].id;
       }
-      update({ calendarEvents: newEvents, calendarEventsList: newList, showDateModal: false, dateModalDate: null });
-    } catch {
-      notify('Ошибка удаления события');
-    }
-  }, [state.calendarEvents, state.calendarEventsList, update, notify]);
+
+      try {
+        await backendRequest(`/api/v1/calendar/events/${eventId}`, {
+          method: 'DELETE',
+        });
+        const newList = (state.calendarEventsList || []).filter(
+          (e) => e.id !== eventId
+        );
+        const newEvents = { ...state.calendarEvents };
+        for (const key of Object.keys(newEvents)) {
+          newEvents[key] = newEvents[key].filter((e) => e.id !== eventId);
+          if (!newEvents[key].length) delete newEvents[key];
+        }
+        update({
+          calendarEvents: newEvents,
+          calendarEventsList: newList,
+          showDateModal: false,
+          dateModalDate: null,
+        });
+      } catch {
+        notify('Ошибка удаления события');
+      }
+    },
+    [state.calendarEvents, state.calendarEventsList, update, notify]
+  );
 
   const sendAI = useCallback(async () => {
     const input = document.getElementById('aiInput');
     const text = input?.value.trim();
     if (!text) return;
-    const userMsg = { id: Date.now() + '-u', type: 'user', text };
+    const userMsg = { id: `${Date.now()}-u`, type: 'user', text };
     const newMessages = [...state.messages, userMsg];
     update({ messages: newMessages });
     if (input) input.value = '';
@@ -1879,7 +1935,7 @@ export function AppProvider({ children }) {
       });
       if (data) {
         const aiMsg = {
-          id: Date.now() + '-a',
+          id: `${Date.now()}-a`,
           type: 'ai',
           text: data.message || 'Ответ получен',
           classification: data.classification || null,
@@ -1896,14 +1952,24 @@ export function AppProvider({ children }) {
       }
     } catch {
       update({
-        messages: [...newMessages, { id: Date.now() + '-e', type: 'ai', text: 'Ошибка подключения к AI сервису' }],
+        messages: [
+          ...newMessages,
+          {
+            id: `${Date.now()}-e`,
+            type: 'ai',
+            text: 'Ошибка подключения к AI сервису',
+          },
+        ],
       });
     }
   }, [state.messages, update]);
 
   const quickAI = useCallback(
     async (text) => {
-      const newMessages = [...state.messages, { id: Date.now() + '-u', type: 'user', text }];
+      const newMessages = [
+        ...state.messages,
+        { id: `${Date.now()}-u`, type: 'user', text },
+      ];
       update({ messages: newMessages });
       try {
         const data = await backendRequest('/api/v1/ml/chat', {
@@ -1912,7 +1978,7 @@ export function AppProvider({ children }) {
         });
         if (data) {
           const aiMsg = {
-            id: Date.now() + '-a',
+            id: `${Date.now()}-a`,
             type: 'ai',
             text: data.message || 'Ответ получен',
             classification: data.classification || null,
@@ -1929,7 +1995,14 @@ export function AppProvider({ children }) {
         }
       } catch {
         update({
-          messages: [...newMessages, { id: Date.now() + '-e', type: 'ai', text: 'Ошибка подключения к AI сервису' }],
+          messages: [
+            ...newMessages,
+            {
+              id: `${Date.now()}-e`,
+              type: 'ai',
+              text: 'Ошибка подключения к AI сервису',
+            },
+          ],
         });
       }
     },
@@ -1952,7 +2025,13 @@ export function AppProvider({ children }) {
     try {
       await backendRequest('/api/v1/profile', {
         method: 'PUT',
-        body: JSON.stringify({ full_name: name, gender: p.gender, phone, bio, status }),
+        body: JSON.stringify({
+          full_name: name,
+          gender: p.gender,
+          phone,
+          bio,
+          status,
+        }),
       });
       update({
         profile: {
@@ -2449,19 +2528,22 @@ export function AppProvider({ children }) {
     }
   }, [state.profile, update]);
 
-  const saveProfile = useCallback(async (profileData) => {
-    try {
-      await backendRequest('/api/v1/profile', {
-        method: 'PUT',
-        body: JSON.stringify(profileData),
-      });
-      notify('Профиль сохранён');
-      return true;
-    } catch {
-      notify('Ошибка сохранения профиля');
-      return false;
-    }
-  }, [notify]);
+  const saveProfile = useCallback(
+    async (profileData) => {
+      try {
+        await backendRequest('/api/v1/profile', {
+          method: 'PUT',
+          body: JSON.stringify(profileData),
+        });
+        notify('Профиль сохранён');
+        return true;
+      } catch {
+        notify('Ошибка сохранения профиля');
+        return false;
+      }
+    },
+    [notify]
+  );
 
   const loadBiometrics = useCallback(async () => {
     try {
@@ -2474,18 +2556,26 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const addBiometric = useCallback(async (metricType, value, deviceType = 'manual') => {
-    try {
-      await backendRequest('/api/v1/biometrics', {
-        method: 'POST',
-        body: JSON.stringify({ metric_type: metricType, value, timestamp: new Date().toISOString(), device_type: deviceType }),
-      });
-      await loadBiometrics();
-      notify('Метрика добавлена');
-    } catch {
-      notify('Ошибка добавления метрики');
-    }
-  }, [loadBiometrics, notify]);
+  const addBiometric = useCallback(
+    async (metricType, value, deviceType = 'manual') => {
+      try {
+        await backendRequest('/api/v1/biometrics', {
+          method: 'POST',
+          body: JSON.stringify({
+            metric_type: metricType,
+            value,
+            timestamp: new Date().toISOString(),
+            device_type: deviceType,
+          }),
+        });
+        await loadBiometrics();
+        notify('Метрика добавлена');
+      } catch {
+        notify('Ошибка добавления метрики');
+      }
+    },
+    [loadBiometrics, notify]
+  );
 
   const loadBodyComposition = useCallback(async () => {
     try {
@@ -2498,23 +2588,26 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const saveBodyComposition = useCallback(async (record) => {
-    try {
-      const data = await backendRequest('/api/v1/health/body-composition', {
-        method: 'POST',
-        body: JSON.stringify(record),
-      });
-      if (data?.record) {
-        const newRecords = [...(state.bodyComposition || []), data.record];
-        update({ bodyComposition: newRecords });
+  const saveBodyComposition = useCallback(
+    async (record) => {
+      try {
+        const data = await backendRequest('/api/v1/health/body-composition', {
+          method: 'POST',
+          body: JSON.stringify(record),
+        });
+        if (data?.record) {
+          const newRecords = [...(state.bodyComposition || []), data.record];
+          update({ bodyComposition: newRecords });
+        }
+        notify('Запись сохранена');
+        return true;
+      } catch {
+        notify('Ошибка сохранения');
+        return false;
       }
-      notify('Запись сохранена');
-      return true;
-    } catch {
-      notify('Ошибка сохранения');
-      return false;
-    }
-  }, [state.bodyComposition, update, notify]);
+    },
+    [state.bodyComposition, update, notify]
+  );
 
   const loadTrainingPlans = useCallback(async () => {
     try {
@@ -2527,37 +2620,43 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const generatePlan = useCallback(async (params = {}) => {
-    try {
-      const data = await backendRequest('/api/v1/training/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          duration_weeks: params.durationWeeks || 4,
-          available_days: params.availableDays || [1, 3, 5],
-          class: params.class || 'endurance_basic',
-          confidence: params.confidence || 0.8,
-        }),
-      });
-      if (data) {
-        await loadTrainingPlans();
-        notify('План создан');
-        return data;
+  const generatePlan = useCallback(
+    async (params = {}) => {
+      try {
+        const data = await backendRequest('/api/v1/training/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            duration_weeks: params.durationWeeks || 4,
+            available_days: params.availableDays || [1, 3, 5],
+            class: params.class || 'endurance_basic',
+            confidence: params.confidence || 0.8,
+          }),
+        });
+        if (data) {
+          await loadTrainingPlans();
+          notify('План создан');
+          return data;
+        }
+      } catch {
+        notify('Ошибка генерации плана');
       }
-    } catch {
-      notify('Ошибка генерации плана');
-    }
-    return null;
-  }, [loadTrainingPlans, notify]);
-
-  const getPlanDetails = useCallback(async (planId) => {
-    try {
-      const data = await backendRequest(`/api/v1/training/plans/${planId}`);
-      return data;
-    } catch {
-      notify('Ошибка загрузки плана');
       return null;
-    }
-  }, [notify]);
+    },
+    [loadTrainingPlans, notify]
+  );
+
+  const getPlanDetails = useCallback(
+    async (planId) => {
+      try {
+        const data = await backendRequest(`/api/v1/training/plans/${planId}`);
+        return data;
+      } catch {
+        notify('Ошибка загрузки плана');
+        return null;
+      }
+    },
+    [notify]
+  );
 
   const loadProgress = useCallback(async () => {
     try {
@@ -2567,16 +2666,24 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  const completeWorkout = useCallback(async (planId, workoutId, rating = 5, feedback = '') => {
-    try {
-      await backendRequest('/api/v1/training/complete', {
-        method: 'POST',
-        body: JSON.stringify({ plan_id: planId, workout_id: workoutId, rating, feedback }),
-      });
-    } catch {
-      notify('Ошибка завершения тренировки');
-    }
-  }, [notify]);
+  const completeWorkout = useCallback(
+    async (planId, workoutId, rating = 5, feedback = '') => {
+      try {
+        await backendRequest('/api/v1/training/complete', {
+          method: 'POST',
+          body: JSON.stringify({
+            plan_id: planId,
+            workout_id: workoutId,
+            rating,
+            feedback,
+          }),
+        });
+      } catch {
+        notify('Ошибка завершения тренировки');
+      }
+    },
+    [notify]
+  );
 
   const loadAchievements = useCallback(async () => {
     try {
@@ -2601,32 +2708,49 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const createMeal = useCallback(async (name, calories, time = '') => {
-    try {
-      const data = await backendRequest('/api/v1/nutrition/meals', {
-        method: 'POST',
-        body: JSON.stringify({ name, calories, time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
-      });
-      if (data?.meal) {
-        const newMeals = [...(state.mealsList || []), data.meal];
-        update({ mealsList: newMeals });
+  const createMeal = useCallback(
+    async (name, calories, time = '') => {
+      try {
+        const data = await backendRequest('/api/v1/nutrition/meals', {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            calories,
+            time:
+              time ||
+              new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+          }),
+        });
+        if (data?.meal) {
+          const newMeals = [...(state.mealsList || []), data.meal];
+          update({ mealsList: newMeals });
+        }
+        notify('Блюдо добавлено');
+      } catch {
+        notify('Ошибка добавления блюда');
       }
-      notify('Блюдо добавлено');
-    } catch {
-      notify('Ошибка добавления блюда');
-    }
-  }, [state.mealsList, update, notify]);
+    },
+    [state.mealsList, update, notify]
+  );
 
-  const removeMeal = useCallback(async (mealId) => {
-    try {
-      await backendRequest(`/api/v1/nutrition/meals/${mealId}`, { method: 'DELETE' });
-      const newMeals = (state.mealsList || []).filter((m) => m.id !== mealId);
-      update({ mealsList: newMeals });
-      notify('Блюдо удалено');
-    } catch {
-      notify('Ошибка удаления блюда');
-    }
-  }, [state.mealsList, update, notify]);
+  const removeMeal = useCallback(
+    async (mealId) => {
+      try {
+        await backendRequest(`/api/v1/nutrition/meals/${mealId}`, {
+          method: 'DELETE',
+        });
+        const newMeals = (state.mealsList || []).filter((m) => m.id !== mealId);
+        update({ mealsList: newMeals });
+        notify('Блюдо удалено');
+      } catch {
+        notify('Ошибка удаления блюда');
+      }
+    },
+    [state.mealsList, update, notify]
+  );
 
   const loadCalendarEvents = useCallback(async () => {
     try {
@@ -2661,34 +2785,44 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const createCondition = useCallback(async (conditionData) => {
-    try {
-      const data = await backendRequest('/api/v1/health/conditions', {
-        method: 'POST',
-        body: JSON.stringify(conditionData),
-      });
-      if (data?.condition) {
-        const newConditions = [...(state.conditions || []), data.condition];
-        update({ conditions: newConditions });
+  const createCondition = useCallback(
+    async (conditionData) => {
+      try {
+        const data = await backendRequest('/api/v1/health/conditions', {
+          method: 'POST',
+          body: JSON.stringify(conditionData),
+        });
+        if (data?.condition) {
+          const newConditions = [...(state.conditions || []), data.condition];
+          update({ conditions: newConditions });
+        }
+        notify('Состояние добавлено');
+        return true;
+      } catch {
+        notify('Ошибка добавления состояния');
+        return false;
       }
-      notify('Состояние добавлено');
-      return true;
-    } catch {
-      notify('Ошибка добавления состояния');
-      return false;
-    }
-  }, [state.conditions, update, notify]);
+    },
+    [state.conditions, update, notify]
+  );
 
-  const deleteCondition = useCallback(async (conditionId) => {
-    try {
-      await backendRequest(`/api/v1/health/conditions/${conditionId}`, { method: 'DELETE' });
-      const newConditions = (state.conditions || []).filter((c) => c.id !== conditionId);
-      update({ conditions: newConditions });
-      notify('Состояние удалено');
-    } catch {
-      notify('Ошибка удаления состояния');
-    }
-  }, [state.conditions, update, notify]);
+  const deleteCondition = useCallback(
+    async (conditionId) => {
+      try {
+        await backendRequest(`/api/v1/health/conditions/${conditionId}`, {
+          method: 'DELETE',
+        });
+        const newConditions = (state.conditions || []).filter(
+          (c) => c.id !== conditionId
+        );
+        update({ conditions: newConditions });
+        notify('Состояние удалено');
+      } catch {
+        notify('Ошибка удаления состояния');
+      }
+    },
+    [state.conditions, update, notify]
+  );
 
   const loadMenstrualCycles = useCallback(async () => {
     try {
@@ -2701,72 +2835,95 @@ export function AppProvider({ children }) {
     }
   }, [update]);
 
-  const createMenstrualCycle = useCallback(async (cycleData) => {
-    try {
-      const data = await backendRequest('/api/v1/health/menstrual-cycles', {
-        method: 'POST',
-        body: JSON.stringify(cycleData),
-      });
-      if (data?.cycle) {
-        const newCycles = [...(state.menstrualCycles || []), data.cycle];
-        update({ menstrualCycles: newCycles });
+  const createMenstrualCycle = useCallback(
+    async (cycleData) => {
+      try {
+        const data = await backendRequest('/api/v1/health/menstrual-cycles', {
+          method: 'POST',
+          body: JSON.stringify(cycleData),
+        });
+        if (data?.cycle) {
+          const newCycles = [...(state.menstrualCycles || []), data.cycle];
+          update({ menstrualCycles: newCycles });
+        }
+        notify('Цикл добавлен');
+        return true;
+      } catch {
+        notify('Ошибка добавления цикла');
+        return false;
       }
-      notify('Цикл добавлен');
-      return true;
-    } catch {
-      notify('Ошибка добавления цикла');
-      return false;
-    }
-  }, [state.menstrualCycles, update, notify]);
+    },
+    [state.menstrualCycles, update, notify]
+  );
 
-  const updateMenstrualCycle = useCallback(async (cycleId, cycleData) => {
-    try {
-      const data = await backendRequest(`/api/v1/health/menstrual-cycles/${cycleId}`, {
-        method: 'PUT',
-        body: JSON.stringify(cycleData),
-      });
-      if (data?.cycle) {
-        const newCycles = (state.menstrualCycles || []).map((c) =>
-          c.id === cycleId ? { ...c, ...data.cycle } : c
+  const updateMenstrualCycle = useCallback(
+    async (cycleId, cycleData) => {
+      try {
+        const data = await backendRequest(
+          `/api/v1/health/menstrual-cycles/${cycleId}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(cycleData),
+          }
+        );
+        if (data?.cycle) {
+          const newCycles = (state.menstrualCycles || []).map((c) =>
+            c.id === cycleId ? { ...c, ...data.cycle } : c
+          );
+          update({ menstrualCycles: newCycles });
+        }
+        notify('Цикл обновлён');
+        return true;
+      } catch {
+        notify('Ошибка обновления цикла');
+        return false;
+      }
+    },
+    [state.menstrualCycles, update, notify]
+  );
+
+  const deleteMenstrualCycle = useCallback(
+    async (cycleId) => {
+      try {
+        await backendRequest(`/api/v1/health/menstrual-cycles/${cycleId}`, {
+          method: 'DELETE',
+        });
+        const newCycles = (state.menstrualCycles || []).filter(
+          (c) => c.id !== cycleId
         );
         update({ menstrualCycles: newCycles });
-      }
-      notify('Цикл обновлён');
-      return true;
-    } catch {
-      notify('Ошибка обновления цикла');
-      return false;
-    }
-  }, [state.menstrualCycles, update, notify]);
-
-  const deleteMenstrualCycle = useCallback(async (cycleId) => {
-    try {
-      await backendRequest(`/api/v1/health/menstrual-cycles/${cycleId}`, { method: 'DELETE' });
-      const newCycles = (state.menstrualCycles || []).filter((c) => c.id !== cycleId);
-      update({ menstrualCycles: newCycles });
-      notify('Цикл удалён');
-    } catch {
-      notify('Ошибка удаления цикла');
-    }
-  }, [state.menstrualCycles, update, notify]);
-
-  const logWeight = useCallback(async (height, weight) => {
-    const newHistory = [
-      ...state.weightHistory,
-      [t('Сегодня', 'Today'), `${weight || state.weight || 70} кг`],
-    ];
-    update({ weightHistory: newHistory });
-    if (height && weight) {
-      try {
-        await backendRequest('/api/v1/health/body-composition', {
-          method: 'POST',
-          body: JSON.stringify({ height_cm: height, weight_kg: weight, recorded_at: new Date().toISOString() }),
-        });
+        notify('Цикл удалён');
       } catch {
-        // ignore
+        notify('Ошибка удаления цикла');
       }
-    }
-  }, [state.weightHistory, state.weight, update, t]);
+    },
+    [state.menstrualCycles, update, notify]
+  );
+
+  const logWeight = useCallback(
+    async (height, weight) => {
+      const newHistory = [
+        ...state.weightHistory,
+        [t('Сегодня', 'Today'), `${weight || state.weight || 70} кг`],
+      ];
+      update({ weightHistory: newHistory });
+      if (height && weight) {
+        try {
+          await backendRequest('/api/v1/health/body-composition', {
+            method: 'POST',
+            body: JSON.stringify({
+              height_cm: height,
+              weight_kg: weight,
+              recorded_at: new Date().toISOString(),
+            }),
+          });
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [state.weightHistory, state.weight, update, t]
+  );
 
   useEffect(() => {
     if (state.registered && !state.profileLoaded) {
@@ -2781,7 +2938,20 @@ export function AppProvider({ children }) {
       loadMenstrualCycles();
       loadBodyComposition();
     }
-  }, [state.registered, state.profileLoaded, loadProfile, loadBiometrics, loadTrainingPlans, loadMeals, loadCalendarEvents, loadAchievements, loadVideos, loadConditions, loadMenstrualCycles, loadBodyComposition]);
+  }, [
+    state.registered,
+    state.profileLoaded,
+    loadProfile,
+    loadBiometrics,
+    loadTrainingPlans,
+    loadMeals,
+    loadCalendarEvents,
+    loadAchievements,
+    loadVideos,
+    loadConditions,
+    loadMenstrualCycles,
+    loadBodyComposition,
+  ]);
 
   const value = useMemo(
     () => ({

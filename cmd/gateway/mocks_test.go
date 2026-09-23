@@ -27,10 +27,12 @@ import (
 // ========== Mock Biometric Client ==========
 
 type mockBiometricClient struct {
-	records map[string]*biometricpb.BiometricRecord
-	latest  *biometricpb.BiometricRecord
-	addErr  error
-	getErr  error
+	records       map[string]*biometricpb.BiometricRecord
+	latest        *biometricpb.BiometricRecord
+	sources       []*biometricpb.SourceInfo
+	addErr        error
+	getErr        error
+	getSourcesErr error
 }
 
 func newMockBiometricClient() *mockBiometricClient {
@@ -97,6 +99,13 @@ func (m *mockBiometricClient) BatchAddRecords(ctx context.Context, req *biometri
 
 func (m *mockBiometricClient) DeleteRecord(ctx context.Context, req *biometricpb.DeleteRecordRequest, opts ...grpc.CallOption) (*biometricpb.DeleteRecordResponse, error) {
 	return &biometricpb.DeleteRecordResponse{Deleted: true}, nil
+}
+
+func (m *mockBiometricClient) GetSources(ctx context.Context, req *biometricpb.GetSourcesRequest, opts ...grpc.CallOption) (*biometricpb.GetSourcesResponse, error) {
+	if m.getSourcesErr != nil {
+		return nil, m.getSourcesErr
+	}
+	return &biometricpb.GetSourcesResponse{Sources: m.sources}, nil
 }
 
 // ========== Mock Training Client ==========

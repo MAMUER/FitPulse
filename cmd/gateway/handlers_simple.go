@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -231,8 +232,8 @@ func (g *gateway) listCalendarEventsHandler(w http.ResponseWriter, r *http.Reque
 	events := globalStore.getEvents(userID)
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"events":  events,
+		"status": "success",
+		"events": events,
 	})
 }
 
@@ -334,5 +335,3 @@ func (g *gateway) listVideosHandler(w http.ResponseWriter, r *http.Request) {
 		"videos": videos,
 	})
 }
-
-

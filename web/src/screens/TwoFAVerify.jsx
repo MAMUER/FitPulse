@@ -6,7 +6,8 @@ export default function TwoFAVerify() {
   const [passcode, setPasscode] = useState('');
   const [backup, setBackup] = useState(false);
   const [loading, setLoading] = useState(false);
-  const tempToken = new URLSearchParams(window.location.search).get('temp_token') || '';
+  const tempToken =
+    new URLSearchParams(window.location.search).get('temp_token') || '';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -19,8 +20,12 @@ export default function TwoFAVerify() {
     <section className='twofa'>
       <div className='panel'>
         <div className='panel-head'>
-          <div className='panel-title'>{t('Двухфакторная аутентификация', 'Two-Factor Authentication')}</div>
-          <div className='panel-sub'>{t('Введите код из приложения', 'Enter code from app')}</div>
+          <div className='panel-title'>
+            {t('Двухфакторная аутентификация', 'Two-Factor Authentication')}
+          </div>
+          <div className='panel-sub'>
+            {t('Введите код из приложения', 'Enter code from app')}
+          </div>
         </div>
         <div className='panel-body'>
           <form onSubmit={submit}>
@@ -43,8 +48,14 @@ export default function TwoFAVerify() {
                 {t('Это резервный код', 'This is a backup code')}
               </label>
             </div>
-            <button className='primary full' type='submit' disabled={loading || !passcode}>
-              {loading ? t('Проверка...', 'Verifying...') : t('Подтвердить', 'Verify')}
+            <button
+              className='primary full'
+              type='submit'
+              disabled={loading || !passcode}
+            >
+              {loading
+                ? t('Проверка...', 'Verifying...')
+                : t('Подтвердить', 'Verify')}
             </button>
           </form>
         </div>

@@ -87,17 +87,16 @@
 - **Rate limiting**: per-IP (10 r/s, burst 50), per-user (100 r/s, burst 200), sliding window; для auth endpoints отдельно: 5 attempts/minute per IP для `/login` и `/register` для защиты от brute-force атак (OWASP Authentication Cheat Sheet).
 - **Маскировка версий**: NGINX `server_tokens off`, удаление заголовков Server/X-Powered-By
 - **Обработка ошибок**: кастомные HTML-страницы, замена 403 на 404
+- **CAPTCHA (Cloudflare Turnstile)**: при превышении порога rate limit пользователь видит CAPTCHA вместо жёсткого блокирования. Успешное решение снимает rate-limit-блокировку для IP (полный сброс счётчика). Логируется с `correlationId` и участвует в RED metrics. Реализовано в `cmd/gateway/captcha.go`, манифесты в `configs/k8s/base/captcha/`.
 
 ### Безопасность данных
 
 **At rest:**
 
 - PostgreSQL: `pgsodium` (libsodium).
-  Детерминированный AEAD `crypto_aead_det_encrypt` применяется только для полей, где требуется точный lookup без расшифровки (токены верификации).
-  Для PII (email, full_name, nickname) используется рандомизированное шифрование + blind index (HMAC-индекс для поиска).
+  Для PII (email, full_name, nickname) используется рандомизированный AEAD `pgsodium.crypto_aead_aegis256_encrypt` + blind index (HMAC-индекс для поиск).
   Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`).
-  TOTP-секреты и refresh-токены носимых устройств — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`).
-  Реализовано в `cmd/user-service/main.go`, `cmd/device-aggregator/main.go`, `internal/db/pgsodium.go`; схема — `db/migrations/V1__full_schema.sql`; образ БД заменён на `pgsodium/pgsodium:pg18`.
+  TOTP-секреты и refresh-токены — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`), используется только в `cmd/user-service/main.go`; схема — `db/migrations/V1__full_schema.sql`; образ БД — `ghcr.io/mamuer/project/postgres-pgsodium:pg18`.
 - Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
 - Резервные копии: AES-256
 
@@ -286,10 +285,6 @@ Mutable tags позволяют владельцу action'а перенапра�
   - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Google OAuth 2.0 вход (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` в GitHub Secrets).
   - Privacy Policy: `https://fittpulse.ru/privacy`. Terms of Service: `https://fittpulse.ru/terms`.
   - Authorized domain: `fittpulse.ru`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
-  - [Withings Developer Dashboard](https://developer.withings.com/dashboard/) — синхронизация биометрических данных из устройств Withings (пульс, SpO2, шаги, сон, масса, активность).
-  - В текущей конфигурации указаны Callback URLs: `https://fittpulse.ru/api/v1/devices/withings/callback` и `https://fittpulse.ru/api/v1/devices/withings/webhook`; API Endpoint: `https://wbsapi.withings.net`.
-  - Secrets `WITHINGS_CLIENT_ID` и `WITHINGS_CLIENT_SECRET` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
-  - Callback URLs должны быть обновлены на `https://fittpulse.ru/api/v1/devices/withings/callback` и `https://fittpulse.ru/api/v1/devices/withings/webhook`.
   - [Yandex app passwords](https://id.yandex.ru/security/app-passwords) — SMTP-провайдер — отправка писем. Secrets: `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
 - **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
 - **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.
@@ -405,6 +400,53 @@ FitPulse — бесплатный open-source проект без бюджета
 
 Подробности: scope, severity tiers, правила disclosure — в файле [BUG_BOUNTY_SCOPE.md](BUG_BOUNTY_SCOPE.md).
 
+## PGP Encryption
+
+Для защиты чувствительных отчётов об уязвимостях при передаче по email используйте PGP-шифрование.
+
+**PGP fingerprint**: `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEarNy8RYJKwYBBAHaRw8BAQdALnbfkcW/gpHJIdFDIhl1RsZzRbPmohRMllrT
++82BRm60LUZpdFB1bHNlIFNlY3VyaXR5IDxtaWhuaWtvbGFlbmtvMTJAeWFuZGV4
+LnJ1PoiWBBMWCgA+FiEE9M/2lOiJ2v5TztiQds+nIny3PfAFAmqzcvECGyMFCQHh
+M4AFCwkIBwIGFQoJCAsCBBYCAwECHgECF4AACgkQds+nIny3PfAcSQEAq8DVtDUL
+S5hBXHrX4CyqAei6Oemb68zuSR+xdPj1tE8BAPkdZ+eUBswjX+3pYimGXwutYeSj
+KB2kZNQaaRr4/jwD
+=vO9G
+-----END PGP PUBLIC KEY BLOCK-----`  
+**Public key server**: `hkps://keys.openpgp.org`  
+**WKD endpoint**: `<https://fittpulse.ru/.well-known/openpgpkey/hu/`>
+
+### Как отправить encrypted report
+
+1. Скачайте наш публичный PGP-ключ:
+
+   ```bash
+   gpg --keyserver hkps://keys.openpgp.org --recv-keys 76CFA7227CB73DF0
+   ```
+
+2. Зашифруйте отчёт:
+
+   ```bash
+   gpg --encrypt --armor --recipient 76CFA7227CB73DF0 report.txt
+   ```
+
+3. Отправьте зашифрованный файл на `mihnikolaenko12@yandex.ru` (после миграции) или текущий контактный email.
+
+### Генерация ключа (для maintainers)
+
+```bash
+# Ed25519 signing key + Curve25519 encryption subkey
+gpg --full-generate-key
+# Выберите: (9) ECC и ECC
+# Curve: (4) Curve25519
+# Ключ действителен: 1y (рекомендуется ротация раз в год)
+```
+
+См. `scripts/pgp-setup.sh` для автоматизированной настройки.
+
+---
+
 ## Контакты
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)
@@ -412,4 +454,4 @@ FitPulse — бесплатный open-source проект без бюджета
 
 ---
 
-### Последнее обновление: 2026-08-04
+### Последнее обновление: 2026-09-23

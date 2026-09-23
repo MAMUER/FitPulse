@@ -43,18 +43,18 @@ func (f FieldMask) MarshalJSON() ([]byte, error) {
 
 // Event represents a single audit log entry.
 type Event struct {
-	Timestamp time.Time `json:"timestamp"`
-	Service   string    `json:"service"`
-	EventType EventType  `json:"event_type"`
-	UserID    string    `json:"user_id,omitempty"`
-	ActorID   string    `json:"actor_id,omitempty"`
-	Action    string    `json:"action"`
-	Resource  string    `json:"resource"`
-	Fields    FieldMask `json:"fields,omitempty"`
-	Success   bool      `json:"success"`
-	Error     string    `json:"error,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	CorrelationID string `json:"correlation_id,omitempty"`
+	Timestamp     time.Time              `json:"timestamp"`
+	Service       string                 `json:"service"`
+	EventType     EventType              `json:"event_type"`
+	UserID        string                 `json:"user_id,omitempty"`
+	ActorID       string                 `json:"actor_id,omitempty"`
+	Action        string                 `json:"action"`
+	Resource      string                 `json:"resource"`
+	Fields        FieldMask              `json:"fields,omitempty"`
+	Success       bool                   `json:"success"`
+	Error         string                 `json:"error,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
 }
 
 // Logger abstracts audit log persistence.
