@@ -39,34 +39,34 @@ export default function Login() {
       </button>
       <div className='auth-link'>
         {t('Нет аккаунта?', "Don't have an account?")}{' '}
-        <a onClick={() => go('register')}>
+        <button onClick={() => go('register')}>
           {t('Зарегистрироваться', 'Register')}
-        </a>
+        </button>
       </div>
       <div className='auth-link'>
-        <a onClick={forgotPassword}>
+        <button onClick={forgotPassword}>
           {t('Забыли пароль?', 'Forgot password?')}
-        </a>
+        </button>
       </div>
       <button className='secondary full' onClick={continueAsGuest}>
         {t('Продолжить как гость', 'Continue as guest')}
       </button>
       <div className='auth-link'>
         {t('Продолжая, вы принимаете', 'By continuing, you accept')}{' '}
-        <a className='legal-link' onClick={() => navigate('/terms')}>
+        <button className='legal-link' onClick={() => navigate('/terms')}>
           {t('Пользовательское соглашение', 'Terms of Use')}
-        </a>
+        </button>
         ,{' '}
-        <a className='legal-link' onClick={() => navigate('/consent')}>
+        <button className='legal-link' onClick={() => navigate('/consent')}>
           {t(
             'соглашение об использовании персональных данных',
             'Personal Data Agreement'
           )}
-        </a>{' '}
+        </button>{' '}
         {t('и', 'and')}{' '}
-        <a className='legal-link' onClick={() => navigate('/privacy')}>
+        <button className='legal-link' onClick={() => navigate('/privacy')}>
           {t('Политику конфиденциальности', 'Privacy Policy')}
-        </a>
+        </button>{' '}
         .
       </div>
       <div className='socials'>

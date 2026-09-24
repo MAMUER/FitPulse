@@ -43,17 +43,17 @@ export default function Register() {
             'Я согласен(на) с Пользовательским соглашением и Политикой конфиденциальности.',
             'I agree to the Terms of Use and Privacy Policy.'
           )}{' '}
-          <a className='legal-link' onClick={() => navigate('/terms')}>
+          <button className='legal-link' onClick={() => navigate('/terms')}>
             {t('Соглашение', 'Terms')}
-          </a>{' '}
+          </button>{' '}
           ·{' '}
-          <a className='legal-link' onClick={() => navigate('/consent')}>
+          <button className='legal-link' onClick={() => navigate('/consent')}>
             {t('Персональные данные', 'Personal Data')}
-          </a>{' '}
+          </button>{' '}
           ·{' '}
-          <a className='legal-link' onClick={() => navigate('/privacy')}>
+          <button className='legal-link' onClick={() => navigate('/privacy')}>
             {t('Политика', 'Privacy')}
-          </a>
+          </button>
         </span>
       </label>
       <button className='primary full' onClick={doRegister}>
@@ -61,7 +61,7 @@ export default function Register() {
       </button>
       <div className='auth-link'>
         {t('Уже есть аккаунт?', 'Already have an account?')}{' '}
-        <a onClick={() => go('login')}>{t('Войти', 'Login')}</a>
+        <button onClick={() => go('login')}>{t('Войти', 'Login')}</button>
       </div>
       <div className='socials'>
         <button className='google' onClick={() => socialLogin('google')}>

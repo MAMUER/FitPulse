@@ -138,30 +138,38 @@ export default function Legal() {
   const { t, backFromLegal } = useApp();
   const { pathname } = useLocation();
 
-  const kind = pathname.includes('privacy')
-    ? 'privacy'
-    : pathname.includes('terms')
-      ? 'terms'
-      : 'consent';
-  const title =
-    kind === 'terms'
-      ? t('Пользовательское соглашение', 'Terms of Use')
-      : kind === 'consent'
-        ? t(
-            'Соглашение об использовании персональных данных',
-            'Personal Data Agreement'
-          )
-        : t('Политика конфиденциальности', 'Privacy Policy');
+  let kind;
+  if (pathname.includes('privacy')) {
+    kind = 'privacy';
+  } else if (pathname.includes('terms')) {
+    kind = 'terms';
+  } else {
+    kind = 'consent';
+  }
 
-  const body =
-    kind === 'terms'
-      ? TERMS
-      : kind === 'consent'
-        ? t(
-            'Согласие на обработку персональных данных.',
-            'Personal Data Processing Consent.'
-          )
-        : PRIVACY;
+  let title;
+  if (kind === 'terms') {
+    title = t('Пользовательское соглашение', 'Terms of Use');
+  } else if (kind === 'consent') {
+    title = t(
+      'Соглашение об использовании персональных данных',
+      'Personal Data Agreement'
+    );
+  } else {
+    title = t('Политика конфиденциальности', 'Privacy Policy');
+  }
+
+  let body;
+  if (kind === 'terms') {
+    body = TERMS;
+  } else if (kind === 'consent') {
+    body = t(
+      'Согласие на обработку персональных данных.',
+      'Personal Data Processing Consent.'
+    );
+  } else {
+    body = PRIVACY;
+  }
 
   return (
     <section className='legal'>

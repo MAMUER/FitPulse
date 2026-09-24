@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useApp } from './contexts/AppContext';
-import AI from './screens/AI';
+import Ai from './screens/AI';
 import Body from './screens/Body';
 import Calendar from './screens/Calendar';
 import Chat from './screens/Chat';
@@ -89,7 +89,7 @@ export default function App() {
         <Route path='/training' element={<Training />} />
         <Route path='/integrations' element={<Integrations />} />
         <Route path='/videos' element={<Videos />} />
-        <Route path='/ai' element={<AI />} />
+        <Route path='/ai' element={<Ai />} />
         <Route path='/body' element={<Body />} />
         <Route path='/profile' element={<Profile />} />
         <Route path='/chat' element={<Chat />} />

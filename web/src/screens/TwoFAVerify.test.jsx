@@ -37,7 +37,9 @@ function renderTwoFAVerify() {
 describe('TwoFAVerify', () => {
   it('renders 2FA verify screen', () => {
     renderTwoFAVerify();
-    expect(screen.getByText('Двухфакторная аутентификация')).toBeInTheDocument();
+    expect(
+      screen.getByText('Двухфакторная аутентификация')
+    ).toBeInTheDocument();
   });
 
   it('renders code input and checkbox', () => {

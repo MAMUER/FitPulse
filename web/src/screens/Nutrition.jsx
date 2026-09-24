@@ -6,7 +6,6 @@ export default function Nutrition() {
   const [mealName, setMealName] = useState('');
   const [mealCalories, setMealCalories] = useState('');
   const [mealTime, setMealTime] = useState('');
-  const [_mealSlot, _setMealSlot] = useState('breakfast');
   const meals = state.mealsList || [];
   const total = meals.reduce((s, m) => s + (m.calories || 0), 0);
 
@@ -16,7 +15,7 @@ export default function Nutrition() {
 
   const handleAdd = async () => {
     const name = mealName.trim() || 'Блюдо';
-    const calories = parseInt(mealCalories, 10) || 0;
+    const calories = Number.parseInt(mealCalories, 10) || 0;
     const time =
       mealTime ||
       new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

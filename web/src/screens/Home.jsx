@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
@@ -15,14 +15,12 @@ export default function Home() {
     loadProgress,
   } = useApp();
   const navigate = useNavigate();
-  const [_biometricsLoaded, setBiometricsLoaded] = useState(false);
 
   useEffect(() => {
     loadBiometrics();
     loadTrainingPlans();
     loadAchievements();
     loadProgress();
-    setBiometricsLoaded(true);
   }, [loadBiometrics, loadTrainingPlans, loadAchievements, loadProgress]);
 
   const biometrics = state.biometrics || [];
@@ -45,9 +43,9 @@ export default function Home() {
               {bmi ? `ИМТ ${bmi}` : 'ИМТ —'}
             </div>
           </div>
-          <a className='link' onClick={() => go('body')}>
+          <button className='link' onClick={() => go('body')}>
             {t('Профиль тела', 'Body profile')}
-          </a>
+          </button>
         </div>
         <div className='panel-body'>
           <div className='metric'>
@@ -123,9 +121,9 @@ export default function Home() {
               {t('Персональные рекомендации', 'Personal recommendations')}
             </div>
           </div>
-          <a className='link' onClick={() => navigate('/consent')}>
+          <button className='link' onClick={() => navigate('/consent')}>
             {t('Политика', 'Policy')}
-          </a>
+          </button>
         </div>
       </div>
     </section>

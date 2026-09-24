@@ -4,9 +4,9 @@ import { useApp } from '../contexts/AppContext';
 export default function TwoFASetup() {
   const { confirm2FA, t } = useApp();
   const [passcode, setPasscode] = useState('');
-  const [backupCodes, _setBackupCodes] = useState([]);
+  const [backupCodes] = useState([]);
   const [secret, setSecret] = useState('');
-  const [qrCodeBase64, _setQrCodeBase64] = useState('');
+  const [qrCodeBase64] = useState('');
   const [loading, setLoading] = useState(false);
 
   const start = async () => {

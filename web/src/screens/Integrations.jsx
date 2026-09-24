@@ -49,6 +49,65 @@ export default function Integrations() {
     }
   };
 
+  const getButtonLabel = (isProcessing, isConnected) => {
+    if (isProcessing) {
+      return t('Обработка...', 'Processing...');
+    }
+    if (isConnected) {
+      return t('Отключить', 'Disconnect');
+    }
+    return t('Подключить', 'Connect');
+  };
+
+  const getStatusText = (isConnected) => {
+    return isConnected
+      ? t('Подключено', 'Connected')
+      : t('Не подключено', 'Not connected');
+  };
+
+  const getTimestamp = (connectedAt) => {
+    return connectedAt ? ` · ${new Date(connectedAt).toLocaleString()}` : '';
+  };
+
+  const renderProvider = (provider) => {
+    const isConnected = provider.connected;
+    const isProcessing = actionLoading === provider.source;
+    return (
+      <div className='list-row' key={provider.source}>
+        <div>
+          <div className='list-title'>
+            {provider.source_name || provider.source}
+          </div>
+          <div className='muted'>
+            {getStatusText(isConnected)}
+            {getTimestamp(provider.connected_at)}
+          </div>
+        </div>
+        <button
+          className={isConnected ? 'danger' : 'primary'}
+          disabled={isProcessing}
+          onClick={() => toggle(provider.source)}
+        >
+          {getButtonLabel(isProcessing, isConnected)}
+        </button>
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return <div className='muted'>{t('Загрузка...', 'Loading...')}</div>;
+    }
+    if (providers.length === 0) {
+      return (
+        <div className='muted'>
+          {t('Нет доступных интеграций', 'No integrations')}
+        </div>
+      );
+    }
+    return <>{providers.map(renderProvider)}</>;
+  };
+
   return (
     <section className='integrations'>
       <div className='panel'>
@@ -58,44 +117,7 @@ export default function Integrations() {
             {t('Устройства и сервисы', 'Devices & services')}
           </div>
         </div>
-        <div className='panel-body'>
-          {loading ? (
-            <div className='muted'>{t('Загрузка...', 'Loading...')}</div>
-          ) : providers.length === 0 ? (
-            <div className='muted'>
-              {t('Нет доступных интеграций', 'No integrations')}
-            </div>
-          ) : (
-            providers.map((provider) => (
-              <div className='list-row' key={provider.source}>
-                <div>
-                  <div className='list-title'>
-                    {provider.source_name || provider.source}
-                  </div>
-                  <div className='muted'>
-                    {provider.connected
-                      ? t('Подключено', 'Connected')
-                      : t('Не подключено', 'Not connected')}
-                    {provider.connected_at
-                      ? ` · ${new Date(provider.connected_at).toLocaleString()}`
-                      : ''}
-                  </div>
-                </div>
-                <button
-                  className={provider.connected ? 'danger' : 'primary'}
-                  disabled={actionLoading === provider.source}
-                  onClick={() => toggle(provider.source)}
-                >
-                  {actionLoading === provider.source
-                    ? t('Обработка...', 'Processing...')
-                    : provider.connected
-                      ? t('Отключить', 'Disconnect')
-                      : t('Подключить', 'Connect')}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+        <div className='panel-body'>{renderContent()}</div>
       </div>
     </section>
   );

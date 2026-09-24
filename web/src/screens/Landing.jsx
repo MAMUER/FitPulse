@@ -78,13 +78,13 @@ export default function Landing() {
         </div>
       </div>
       <div className='landing-footer'>
-        <a className='legal-link' onClick={() => navigate('/privacy')}>
+        <button className='legal-link' onClick={() => navigate('/privacy')}>
           {t('Privacy Policy', 'Privacy Policy')}
-        </a>
+        </button>
         <span> · </span>
-        <a className='legal-link' onClick={() => navigate('/terms')}>
+        <button className='legal-link' onClick={() => navigate('/terms')}>
           {t('Terms of Service', 'Terms of Service')}
-        </a>
+        </button>
       </div>
     </section>
   );

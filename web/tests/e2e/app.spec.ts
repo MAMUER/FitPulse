@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const CONFIGS = [
   { name: 'RU Light Normal', lang: 'ru', theme: 'light', highContrast: false },
@@ -11,22 +11,96 @@ const CONFIGS = [
   { name: 'EN Dark HC', lang: 'en', theme: 'dark', highContrast: true },
 ];
 
-async function setupConfig(page, config) {
+async function setupConfig(page: Page, config: typeof CONFIGS[number]) {
   await page.goto('/');
-  await page.evaluate((c) => {
-    localStorage.setItem('fitpulse-merged-v9', JSON.stringify({
-      screen: 'login',
-      theme: c.theme,
-      highContrast: c.highContrast,
-      language: c.lang,
-    }));
-  }, config);
+  await page.evaluate(
+    (c: { theme: string; highContrast: boolean; lang: string }) => {
+      localStorage.setItem('fitpulse-merged-v9', JSON.stringify({
+        screen: 'login',
+        theme: c.theme,
+        highContrast: c.highContrast,
+        language: c.lang,
+      }));
+    },
+    config
+  );
   await page.reload();
-  await page.waitForTimeout(600);
+  await page.waitForLoadState('networkidle');
 }
 
-function getText(key) {
-  const map = {
+type LangKey = keyof typeof CONFIGS[number]['lang'];
+
+type TranslationKeys = {
+  ru: {
+    login: string;
+    register: string;
+    home: string;
+    nutrition: string;
+    calendar: string;
+    training: string;
+    ai: string;
+    profile: string;
+    chat: string;
+    guest: string;
+    terms: string;
+    privacy: string;
+    consent: string;
+    forgot: string;
+    highContrast: string;
+    startWorkout: string;
+    water: string;
+    body: string;
+    videos: string;
+    aiAdvisor: string;
+    logout: string;
+    theme: string;
+    language: string;
+    deleteAccount: string;
+    changePassword: string;
+    devices: string;
+    restrictions: string;
+    chatSettings: string;
+    nutritionSettings: string;
+    searchFriends: string;
+  };
+  en: {
+    login: string;
+    register: string;
+    home: string;
+    nutrition: string;
+    calendar: string;
+    training: string;
+    ai: string;
+    profile: string;
+    chat: string;
+    guest: string;
+    terms: string;
+    privacy: string;
+    consent: string;
+    forgot: string;
+    highContrast: string;
+    startWorkout: string;
+    water: string;
+    body: string;
+    videos: string;
+    aiAdvisor: string;
+    logout: string;
+    theme: string;
+    language: string;
+    deleteAccount: string;
+    changePassword: string;
+    devices: string;
+    restrictions: string;
+    chatSettings: string;
+    nutritionSettings: string;
+    searchFriends: string;
+  };
+};
+
+type TextKey = keyof TranslationKeys['ru'];
+
+function getText(key: TextKey, config: typeof CONFIGS[number]) {
+  const map: Record<string, Record<TextKey, string>> = {
     ru: {
       login: 'Войти',
       register: 'Зарегистрироваться',
@@ -102,99 +176,99 @@ for (const config of CONFIGS) {
     });
 
     test('login screen renders and navigates to register', async ({ page }) => {
-      await expect(page.locator(`text=${getText('login')}`)).toBeVisible();
-      await page.locator(`text=${getText('register')}`).click();
-      await expect(page.locator(`text=${getText('register')}`)).toBeVisible();
+      await expect(page.locator(`text=${getText('login', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('register', config)}`).click();
+      await expect(page.locator(`text=${getText('register', config)}`)).toBeVisible();
     });
 
     test('login navigates to legal pages', async ({ page }) => {
-      await page.locator(`text=${getText('terms')}`).click();
-      await expect(page.locator(`text=${getText('terms')}`)).toBeVisible();
-      await page.locator(`text=${getText('privacy')}`).click();
-      await expect(page.locator(`text=${getText('privacy')}`).last).toBeVisible();
+      await page.locator(`text=${getText('terms', config)}`).click();
+      await expect(page.locator(`text=${getText('terms', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('privacy', config)}`).click();
+      await expect(page.locator(`text=${getText('privacy', config)}`).last()).toBeVisible();
     });
 
     test('guest flow reaches home', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await expect(page.locator(`text=${getText('home')}`)).toBeVisible();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await expect(page.locator(`text=${getText('home', config)}`)).toBeVisible();
     });
 
     test('home navigates to main screens', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
-      await page.locator(`text=${getText('nutrition')}`).click();
-      await expect(page.locator(`text=${getText('nutrition')}`)).toBeVisible();
-      await page.locator(`text=${getText('calendar')}`).click();
-      await expect(page.locator(`text=${getText('calendar')}`)).toBeVisible();
-      await page.locator(`text=${getText('training')}`).click();
-      await expect(page.locator(`text=${getText('training')}`)).toBeVisible();
-      await page.locator(`text=${getText('ai')}`).click();
-      await expect(page.locator(`text=${getText('ai')}`)).toBeVisible();
-      await page.locator(`text=${getText('profile')}`).click();
-      await expect(page.locator(`text=${getText('profile')}`)).toBeVisible();
-      await page.locator(`text=${getText('chat')}`).click();
-      await expect(page.locator(`text=${getText('chat')}`)).toBeVisible();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
+      await page.locator(`text=${getText('nutrition', config)}`).click();
+      await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('calendar', config)}`).click();
+      await expect(page.locator(`text=${getText('calendar', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('training', config)}`).click();
+      await expect(page.locator(`text=${getText('training', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('ai', config)}`).click();
+      await expect(page.locator(`text=${getText('ai', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('profile', config)}`).click();
+      await expect(page.locator(`text=${getText('profile', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('chat', config)}`).click();
+      await expect(page.locator(`text=${getText('chat', config)}`)).toBeVisible();
     });
 
     test('profile actions are accessible', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
-      await page.locator(`text=${getText('profile')}`).click();
-      await expect(page.locator(`text=${getText('logout')}`)).toBeVisible();
-      await expect(page.locator(`text=${getText('changePassword')}`)).toBeVisible();
-      await expect(page.locator(`text=${getText('deleteAccount')}`)).toBeVisible();
-      await expect(page.locator(`text=${getText('theme')}`)).toBeVisible();
-      await expect(page.locator(`text=${getText('language')}`)).toBeVisible();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
+      await page.locator(`text=${getText('profile', config)}`).click();
+      await expect(page.locator(`text=${getText('logout', config)}`)).toBeVisible();
+      await expect(page.locator(`text=${getText('changePassword', config)}`)).toBeVisible();
+      await expect(page.locator(`text=${getText('deleteAccount', config)}`)).toBeVisible();
+      await expect(page.locator(`text=${getText('theme', config)}`)).toBeVisible();
+      await expect(page.locator(`text=${getText('language', config)}`)).toBeVisible();
     });
 
     test('training quick add and navigation', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
-      await page.locator(`text=${getText('training')}`).click();
-      await expect(page.locator(`text=${getText('training')}`)).toBeVisible();
-      await page.locator(`text=${getText('startWorkout')}`).first.click();
-      await expect(page.locator(`text=${getText('startWorkout')}`)).toBeVisible();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
+      await page.locator(`text=${getText('training', config)}`).click();
+      await expect(page.locator(`text=${getText('training', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('startWorkout', config)}`).first().click();
+      await expect(page.locator(`text=${getText('startWorkout', config)}`)).toBeVisible();
     });
 
     test('chat screen renders and opens settings', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
-      await page.locator(`text=${getText('chat')}`).click();
-      await expect(page.locator(`text=${getText('chat')}`)).toBeVisible();
-      await page.locator(`text=${getText('chatSettings')}`).click();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
+      await page.locator(`text=${getText('chat', config)}`).click();
+      await expect(page.locator(`text=${getText('chat', config)}`)).toBeVisible();
+      await page.locator(`text=${getText('chatSettings', config)}`).click();
       await expect(page.getByText(/chat settings/i)).toBeVisible();
     });
 
     test('nutrition period tabs exist', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
-      await page.locator(`text=${getText('nutrition')}`).click();
-      await expect(page.locator(`text=${getText('nutrition')}`)).toBeVisible();
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
+      await page.locator(`text=${getText('nutrition', config)}`).click();
+      await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
     });
 
     test('high contrast toggle works', async ({ page }) => {
-      await page.locator(`text=${getText('highContrast')}`).click();
-      await page.waitForTimeout(300);
+      await page.locator(`text=${getText('highContrast', config)}`).click();
+      await page.waitForLoadState('networkidle');
       const html = page.locator('html');
       await expect(html).toHaveAttribute('data-highcontrast', /on|off/);
     });
 
     test('theme toggle works', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
       const initial = await page.locator('html').getAttribute('data-theme');
-      await page.locator(`text=${getText('theme')}`).click();
-      await page.waitForTimeout(300);
+      await page.locator(`text=${getText('theme', config)}`).click();
+      await page.waitForLoadState('networkidle');
       const after = await page.locator('html').getAttribute('data-theme');
       expect([initial, after].sort()).toEqual(['dark', 'light']);
     });
 
     test('language toggle switches labels', async ({ page }) => {
-      await page.locator(`text=${getText('guest')}`).click();
-      await page.waitForTimeout(300);
+      await page.locator(`text=${getText('guest', config)}`).click();
+      await page.waitForLoadState('networkidle');
       const before = await page.locator('html').getAttribute('lang');
-      await page.locator(`text=${getText('language')}`).click();
-      await page.waitForTimeout(300);
+      await page.locator(`text=${getText('language', config)}`).click();
+      await page.waitForLoadState('networkidle');
       const after = await page.locator('html').getAttribute('lang');
       expect([before, after].sort()).toEqual(['en', 'ru']);
     });

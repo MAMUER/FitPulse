@@ -10,6 +10,15 @@ export default function Confirm() {
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
 
+  let statusText;
+  if (status === 'loading') {
+    statusText = t('Подтверждение...', 'Confirming...');
+  } else if (status === 'success') {
+    statusText = t('Email подтверждён', 'Email confirmed');
+  } else {
+    statusText = t('Ошибка подтверждения', 'Confirmation error');
+  }
+
   useEffect(() => {
     if (!token) {
       setStatus('error');
@@ -21,7 +30,7 @@ export default function Confirm() {
       body: JSON.stringify({ token }),
     })
       .then((data) => {
-        if (data && data.status === 'ok') {
+        if (data?.status === 'ok') {
           setStatus('success');
           setMessage(t('Email подтверждён', 'Email confirmed'));
         } else {
@@ -41,13 +50,7 @@ export default function Confirm() {
     <section className='auth'>
       <div className='auth-brand'>
         <h1>FitPulse</h1>
-        <p>
-          {status === 'loading'
-            ? t('Подтверждение...', 'Confirming...')
-            : status === 'success'
-              ? t('Email подтверждён', 'Email confirmed')
-              : t('Ошибка подтверждения', 'Confirmation error')}
-        </p>
+        <p>{statusText}</p>
         {message && <p>{message}</p>}
       </div>
     </section>

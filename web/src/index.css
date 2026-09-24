@@ -296,18 +296,6 @@
 [data-highcontrast="on"] .readiness {
   border-color: #fff !important;
 }
-[data-highcontrast="on"] .status.good {
-  background: #00ff00;
-  color: #000;
-}
-[data-highcontrast="on"] .status.low {
-  background: #00ffff;
-  color: #000;
-}
-[data-highcontrast="on"] .status.high {
-  background: #ffaa00;
-  color: #000;
-}
 [data-highcontrast="on"] .card,
 [data-highcontrast="on"] button,
 [data-highcontrast="on"] input,
@@ -409,6 +397,20 @@
 }
 .fp-story-card {
   scroll-snap-align: start;
+  width: 108px;
+  height: 132px;
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  padding: 11px;
+  color: #fff;
+  border-radius: 17px;
+  background-position: center;
+  background-size: cover;
+  cursor: pointer;
 }
 .fp-story-viewer,
 .fp-story-view {
@@ -417,6 +419,7 @@
 }
 .fp-story-progress i.active {
   transform: scaleY(1.15);
+  background: #fff;
 }
 .fp-story-hint {
   position: absolute;
@@ -516,9 +519,6 @@ img {
   border: 2px solid var(--blue);
   border-radius: inherit;
   pointer-events: none;
-}
-.fp-story-card {
-  position: relative;
 }
 .fp-story-seen-dot {
   position: absolute;
@@ -858,11 +858,11 @@ h3,
 .section h3 {
   font-size: 21px;
 }
-.section a {
+.section a,
+.section button {
   color: var(--blue);
   cursor: pointer;
   font-size: 10px;
-  font-weight: 800;
 }
 .card {
   padding: 15px;
@@ -1339,15 +1339,15 @@ h3,
   gap: 9px;
   margin-top: 12px;
   padding: 12px;
-  color: #ffdc91;
+  color: #b87a00;
   border: 1px solid #ffc85740;
   border-radius: 13px;
-  background: #ffc85714;
+  background: transparent;
   font-size: 9px;
   line-height: 1.45;
 }
 .warning i {
-  color: var(--orange);
+  color: #e0a400;
 }
 
 .ai-suggestions {
@@ -2218,28 +2218,6 @@ h3,
   position: relative;
   margin-top: 8px;
 }
-.fp-story-strip {
-  display: flex;
-  gap: 9px;
-  overflow: hidden;
-  scroll-behavior: smooth;
-}
-.fp-story-card {
-  width: 108px;
-  height: 132px;
-  flex: 0 0 auto;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  overflow: hidden;
-  padding: 11px;
-  color: #fff;
-  border-radius: 17px;
-  background-position: center;
-  background-size: cover;
-  cursor: pointer;
-}
 .fp-story-card::after {
   content: "";
   position: absolute;
@@ -2332,9 +2310,6 @@ h3,
   border-radius: 4px;
   background: #ffffff66;
 }
-.fp-story-progress i.active {
-  background: #fff;
-}
 .fp-story-close,
 .fp-story-view-arrow {
   position: absolute;
@@ -2402,6 +2377,10 @@ h3,
   overflow-y: auto;
   padding: 24px 17px 35px;
   background: var(--bg);
+  overscroll-behavior: contain;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 20px 60px rgba(0, 0, 0, 0.35);
 }
 .fp-calendar-page .fp-calendar-head {
   display: flex;
@@ -2466,6 +2445,7 @@ h3,
   border: 1px solid var(--line);
   border-radius: 13px;
   background: var(--card);
+  min-width: 0;
 }
 .fp-event-color {
   width: 9px;
@@ -2476,6 +2456,7 @@ h3,
 .fp-event-content {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .fp-event-content strong,
 .fp-event-content small {
@@ -2513,19 +2494,23 @@ h3,
 .fp-profile-modal {
   position: fixed;
   inset: 0;
-  z-index: 110;
+  z-index: 10050;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   background: #000b;
   backdrop-filter: blur(6px);
 }
 .fp-profile-box {
-  width: 100%;
-  max-height: 84%;
-  overflow-y: auto;
-  padding: 20px;
-  border-radius: 24px 24px 0 0;
+  width: min(420px, 94vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
   background: var(--card);
+  box-shadow: 0 0 35px #000;
 }
 .fp-profile-head {
   display: flex;
@@ -2611,6 +2596,8 @@ textarea:focus {
   box-shadow: 0 0 0 3px #19d8da33;
 }
 .form-card {
+  display: grid;
+  gap: 7px;
   margin-top: 14px;
 }
 .form-row {
@@ -2638,6 +2625,7 @@ textarea:focus {
   border-radius: 14px;
   background: var(--card);
   transition: var(--transition);
+  cursor: pointer;
 }
 .setting:hover {
   border-color: var(--blue);
@@ -2794,7 +2782,8 @@ textarea:focus {
   color: var(--muted);
   font-size: 10px;
 }
-.auth-link a {
+.auth-link a,
+.auth-link button {
   color: var(--blue);
   cursor: pointer;
   font-weight: 800;
@@ -3313,46 +3302,14 @@ textarea:focus {
 }
 
 .auth-link a,
-.section a {
+.auth-link button,
+.section a,
+.section button {
   cursor: pointer;
-}
-.fp-calendar-page {
-  overscroll-behavior: contain;
-  box-shadow:
-    0 0 0 1px var(--line),
-    0 20px 60px rgba(0, 0, 0, 0.35);
-}
-.form-card {
-  display: grid;
-  gap: 7px;
-  margin-top: 10px;
 }
 .form-card label {
   color: var(--muted);
   font-size: 9px;
-}
-.setting {
-  cursor: pointer;
-}
-.fp-profile-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: #000b;
-}
-.fp-profile-box {
-  width: min(420px, 94vw);
-  max-height: 85vh;
-  overflow: auto;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: var(--card);
-  box-shadow: 0 0 35px #000;
 }
 .fp-profile-box small {
   line-height: 1.4;
@@ -3369,12 +3326,6 @@ textarea:focus {
 }
 
 /* Final interaction cleanup */
-a:not([href]) {
-  cursor: pointer;
-}
-.fp-profile-modal {
-  z-index: 10050;
-}
 .fp-profile-box .setting {
   cursor: pointer;
 }
@@ -3400,9 +3351,6 @@ a:not([href]) {
   position: absolute;
   inset: 0;
 }
-button {
-  -webkit-tap-highlight-color: transparent;
-}
 
 /* FINAL ACCESSIBILITY / UX CLEANUP */
 button,
@@ -3411,13 +3359,6 @@ input,
 select,
 textarea {
   font: inherit;
-}
-button {
-  cursor: pointer;
-}
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 .card.metric {
   appearance: none;
@@ -3452,12 +3393,6 @@ button:focus-visible {
 .fp-calendar-toolbar .secondary.active {
   border-color: var(--blue);
   color: var(--blue);
-}
-.fp-event {
-  min-width: 0;
-}
-.fp-event-content {
-  overflow: hidden;
 }
 .fp-event-content strong {
   overflow: hidden;

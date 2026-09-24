@@ -24,7 +24,7 @@ export default function Reset() {
           </p>
         </div>
         <div className='field'>
-          <label>Email</label>
+          <label htmlFor='resetEmail'>Email</label>
           <input id='resetEmail' type='email' placeholder='example@mail.com' />
         </div>
         <button

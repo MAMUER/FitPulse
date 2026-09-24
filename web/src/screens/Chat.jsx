@@ -17,7 +17,7 @@ export default function Chat() {
           <div className='chat'>
             {history.map((m, i) => (
               <div
-                key={i}
+                key={m.id || i}
                 className={`msg ${m.role === 'user' ? 'user' : 'bot'}`}
               >
                 <div>{m.text}</div>

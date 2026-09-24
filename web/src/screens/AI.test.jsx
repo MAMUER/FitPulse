@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
-import AI from './AI';
+import Ai from './AI';
 
 vi.mock('../contexts/AppContext', async () => {
   const actual = await vi.importActual('../contexts/AppContext');
@@ -30,7 +30,7 @@ function renderAI() {
   useApp.mockReturnValue(defaultContext);
   return render(
     <AppProvider>
-      <AI />
+      <Ai />
     </AppProvider>
   );
 }

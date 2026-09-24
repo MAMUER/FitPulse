@@ -14,6 +14,34 @@ export default function Achievements() {
       ? state.achievementsBackend
       : state.achievements || [];
 
+  let content;
+  if (loading) {
+    content = <div className='muted'>{t('Загрузка...', 'Loading...')}</div>;
+  } else if (achievements.length === 0) {
+    content = (
+      <div className='muted'>{t('Нет достижений', 'No achievements')}</div>
+    );
+  } else {
+    content = (
+      <div className='achievements-grid'>
+        {achievements.map((ach, i) => (
+          <div
+            key={ach.id || ach.name || i}
+            className={`achievement-card ${ach.done || ach.achieved ? 'done' : ''}`}
+          >
+            <div className='achievement-icon'>
+              <i className={`fas ${ach.icon || 'fa-trophy'}`}></i>
+            </div>
+            <div className='achievement-name'>{ach.name}</div>
+            <div className='achievement-desc'>
+              {ach.desc || ach.description || ''}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <section className='achievements'>
       <div className='panel'>
@@ -23,32 +51,7 @@ export default function Achievements() {
             {t('Назад', 'Back')}
           </button>
         </div>
-        <div className='panel-body'>
-          {loading ? (
-            <div className='muted'>{t('Загрузка...', 'Loading...')}</div>
-          ) : achievements.length === 0 ? (
-            <div className='muted'>
-              {t('Нет достижений', 'No achievements')}
-            </div>
-          ) : (
-            <div className='achievements-grid'>
-              {achievements.map((ach, i) => (
-                <div
-                  key={ach.id || ach.name || i}
-                  className={`achievement-card ${ach.done || ach.achieved ? 'done' : ''}`}
-                >
-                  <div className='achievement-icon'>
-                    <i className={`fas ${ach.icon || 'fa-trophy'}`}></i>
-                  </div>
-                  <div className='achievement-name'>{ach.name}</div>
-                  <div className='achievement-desc'>
-                    {ach.desc || ach.description || ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <div className='panel-body'>{content}</div>
       </div>
     </section>
   );

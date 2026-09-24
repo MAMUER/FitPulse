@@ -26,9 +26,9 @@ export default function Body() {
       height_cm: height,
       weight_kg: weight,
       bmi: bmi || 0,
-      body_fat_percentage: bodyFat ? parseFloat(bodyFat) : 0,
-      muscle_mass_percentage: muscle ? parseFloat(muscle) : 0,
-      water_percentage: water ? parseFloat(water) : 0,
+      body_fat_percentage: bodyFat ? Number.parseFloat(bodyFat) : 0,
+      muscle_mass_percentage: muscle ? Number.parseFloat(muscle) : 0,
+      water_percentage: water ? Number.parseFloat(water) : 0,
       recorded_at: new Date().toISOString(),
       source: 'manual',
     };
@@ -94,7 +94,7 @@ export default function Body() {
               placeholder='50'
             />
           </div>
-          {bmi && (
+          {bmi !== null && (
             <div className='metric'>
               <div className='metric-val'>{bmi}</div>
               <div className='metric-label'>{t('ИМТ', 'BMI')}</div>
@@ -119,7 +119,7 @@ export default function Body() {
           </div>
           <div className='panel-body'>
             {records.map((r, i) => (
-              <div key={i} className='list-row'>
+              <div key={r.recorded_at || r.id || i} className='list-row'>
                 <div>
                   <div className='list-title'>
                     {r.weight_kg} кг · ИМТ {r.bmi}

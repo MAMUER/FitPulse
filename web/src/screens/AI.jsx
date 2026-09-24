@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-export default function AI() {
+export default function Ai() {
   const { state, t, sendAI, go } = useApp();
   const [input, setInput] = useState('');
   const messages = state.messages || [];
