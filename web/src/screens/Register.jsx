@@ -25,15 +25,17 @@ export default function Register() {
         <p>{t('Создайте аккаунт', 'Create an account')}</p>
       </div>
       <div className='field'>
-        <label>{t('Электронная почта', 'Email')}</label>
+        <label htmlFor='regEmail'>{t('Электронная почта', 'Email')}</label>
         <input id='regEmail' type='email' placeholder='example@mail.com' />
       </div>
       <div className='field'>
-        <label>{t('Пароль', 'Password')}</label>
+        <label htmlFor='regPassword'>{t('Пароль', 'Password')}</label>
         <input id='regPassword' type='password' placeholder='••••••••' />
       </div>
       <div className='field'>
-        <label>{t('Подтверждение пароля', 'Confirm password')}</label>
+        <label htmlFor='regConfirm'>
+          {t('Подтверждение пароля', 'Confirm password')}
+        </label>
         <input id='regConfirm' type='password' placeholder='••••••••' />
       </div>
       <label className='consent-row'>
@@ -43,33 +45,52 @@ export default function Register() {
             'Я согласен(на) с Пользовательским соглашением и Политикой конфиденциальности.',
             'I agree to the Terms of Use and Privacy Policy.'
           )}{' '}
-          <button className='legal-link' onClick={() => navigate('/terms')}>
+          <button
+            type='button'
+            className='legal-link'
+            onClick={() => navigate('/terms')}
+          >
             {t('Соглашение', 'Terms')}
           </button>{' '}
           ·{' '}
-          <button className='legal-link' onClick={() => navigate('/consent')}>
+          <button
+            type='button'
+            className='legal-link'
+            onClick={() => navigate('/consent')}
+          >
             {t('Персональные данные', 'Personal Data')}
           </button>{' '}
           ·{' '}
-          <button className='legal-link' onClick={() => navigate('/privacy')}>
+          <button
+            type='button'
+            className='legal-link'
+            onClick={() => navigate('/privacy')}
+          >
             {t('Политика', 'Privacy')}
           </button>
         </span>
       </label>
-      <button className='primary full' onClick={doRegister}>
+      <button type='button' className='primary full' onClick={doRegister}>
         {t('Зарегистрироваться', 'Register')}
       </button>
       <div className='auth-link'>
         {t('Уже есть аккаунт?', 'Already have an account?')}{' '}
-        <button onClick={() => go('login')}>{t('Войти', 'Login')}</button>
+        <button type='button' onClick={() => go('login')}>
+          {t('Войти', 'Login')}
+        </button>
       </div>
       <div className='socials'>
-        <button className='google' onClick={() => socialLogin('google')}>
+        <button
+          type='button'
+          className='google'
+          onClick={() => socialLogin('google')}
+        >
           <i className='fab fa-google'></i> {t('Google', 'Google')}
         </button>
       </div>
       <div className='auth-link' style={{ marginTop: 8 }}>
         <button
+          type='button'
           className='secondary auth-control'
           onClick={toggleHighContrast}
           style={{ fontSize: 9 }}
@@ -78,6 +99,7 @@ export default function Register() {
           {t('Режим высокой контрастности', 'High contrast mode')}
         </button>
         <button
+          type='button'
           className='secondary auth-control lang-control'
           onClick={toggleLanguage}
           style={{ fontSize: 9, marginLeft: 6 }}

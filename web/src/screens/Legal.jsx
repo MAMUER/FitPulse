@@ -183,7 +183,11 @@ export default function Legal() {
           >
             {body}
           </pre>
-          <button className='secondary full' onClick={backFromLegal}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={backFromLegal}
+          >
             {t('Назад', 'Back')}
           </button>
         </div>

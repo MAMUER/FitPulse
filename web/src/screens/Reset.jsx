@@ -7,9 +7,9 @@ export default function Reset() {
   const step = state.resetStep || 0;
   const [code, setCode] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
+  const [_confirmPass, _setConfirmPass] = useState('');
   const [sending, setSending] = useState(false);
-  const [resetting, setResetting] = useState(false);
+  const [resetting, _setResetting] = useState(false);
 
   if (step === 0) {
     return (
@@ -28,6 +28,7 @@ export default function Reset() {
           <input id='resetEmail' type='email' placeholder='example@mail.com' />
         </div>
         <button
+          type='button'
           className='primary full'
           onClick={async () => {
             setSending(true);
@@ -40,7 +41,11 @@ export default function Reset() {
             ? t('Отправка...', 'Sending...')
             : t('Получить код', 'Get code')}
         </button>
-        <button className='secondary full' onClick={() => go('login')}>
+        <button
+          type='button'
+          className='secondary full'
+          onClick={() => go('login')}
+        >
           {t('Другие варианты входа', 'Other sign-in options')}
         </button>
       </section>
@@ -54,7 +59,7 @@ export default function Reset() {
           <p>{state.resetEmail || ''}</p>
         </div>
         <div className='field'>
-          <label>{t('Код', 'Code')}</label>
+          <label htmlFor='resetCode'>{t('Код', 'Code')}</label>
           <input
             id='resetCode'
             inputMode='numeric'
@@ -63,10 +68,18 @@ export default function Reset() {
             onChange={(e) => setCode(e.target.value)}
           />
         </div>
-        <button className='primary full' onClick={submitResetCode}>
+        <button
+          type='button'
+          className='primary full'
+          onClick={submitResetCode}
+        >
           {t('Продолжить', 'Continue')}
         </button>
-        <button className='secondary full' onClick={() => go('login')}>
+        <button
+          type='button'
+          className='secondary full'
+          onClick={() => go('login')}
+        >
           {t('Назад', 'Back')}
         </button>
       </section>
@@ -78,7 +91,7 @@ export default function Reset() {
         <h1>{t('Новый пароль', 'New password')}</h1>
       </div>
       <div className='field'>
-        <label>{t('Новый пароль', 'New password')}</label>
+        <label htmlFor='newPassword'>{t('Новый пароль', 'New password')}</label>
         <input
           id='newPassword'
           type='password'
@@ -87,21 +100,20 @@ export default function Reset() {
         />
       </div>
       <div className='field'>
-        <label>{t('Подтверждение пароля', 'Confirm password')}</label>
+        <label htmlFor='newPasswordConfirm'>
+          {t('Подтверждение пароля', 'Confirm password')}
+        </label>
         <input
           id='newPasswordConfirm'
           type='password'
-          value={confirmPass}
-          onChange={(e) => setConfirmPass(e.target.value)}
+          value={newPassConfirm}
+          onChange={(e) => setNewPassConfirm(e.target.value)}
         />
       </div>
       <button
+        type='button'
         className='primary full'
-        onClick={async () => {
-          setResetting(true);
-          await submitNewPassword();
-          setResetting(false);
-        }}
+        onClick={submitNewPassword}
         disabled={resetting}
       >
         {resetting ? t('Сохранение...', 'Saving...') : t('Сохранить', 'Save')}

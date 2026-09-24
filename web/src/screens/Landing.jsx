@@ -20,18 +20,24 @@ export default function Landing() {
         </div>
         <div className='landing-actions'>
           {state.registered ? (
-            <button className='primary full' onClick={() => navigate('/home')}>
+            <button
+              type='button'
+              className='primary full'
+              onClick={() => navigate('/home')}
+            >
               {t('Open app', 'Open app')}
             </button>
           ) : (
             <>
               <button
+                type='button'
                 className='primary full'
                 onClick={() => navigate('/login')}
               >
                 {t('Sign in', 'Sign in')}
               </button>
               <button
+                type='button'
                 className='secondary full'
                 onClick={() => navigate('/register')}
               >
@@ -78,11 +84,19 @@ export default function Landing() {
         </div>
       </div>
       <div className='landing-footer'>
-        <button className='legal-link' onClick={() => navigate('/privacy')}>
+        <button
+          type='button'
+          className='legal-link'
+          onClick={() => navigate('/privacy')}
+        >
           {t('Privacy Policy', 'Privacy Policy')}
         </button>
         <span> · </span>
-        <button className='legal-link' onClick={() => navigate('/terms')}>
+        <button
+          type='button'
+          className='legal-link'
+          onClick={() => navigate('/terms')}
+        >
           {t('Terms of Service', 'Terms of Service')}
         </button>
       </div>

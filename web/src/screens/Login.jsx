@@ -27,55 +27,76 @@ export default function Login() {
         <p>{t('С возвращением', 'Welcome back')}</p>
       </div>
       <div className='field'>
-        <label>{t('Электронная почта', 'Email')}</label>
+        <label htmlFor='loginEmail'>{t('Электронная почта', 'Email')}</label>
         <input id='loginEmail' type='email' defaultValue='mih@example.com' />
       </div>
       <div className='field'>
-        <label>{t('Пароль', 'Password')}</label>
+        <label htmlFor='loginPassword'>{t('Пароль', 'Password')}</label>
         <input id='loginPassword' type='password' defaultValue='password' />
       </div>
-      <button className='primary full' onClick={doLogin}>
+      <button type='button' className='primary full' onClick={doLogin}>
         {t('Войти', 'Login')}
       </button>
       <div className='auth-link'>
         {t('Нет аккаунта?', "Don't have an account?")}{' '}
-        <button onClick={() => go('register')}>
+        <button type='button' onClick={() => go('register')}>
           {t('Зарегистрироваться', 'Register')}
         </button>
       </div>
       <div className='auth-link'>
-        <button onClick={forgotPassword}>
+        <button type='button' onClick={forgotPassword}>
           {t('Забыли пароль?', 'Forgot password?')}
         </button>
       </div>
-      <button className='secondary full' onClick={continueAsGuest}>
+      <button
+        type='button'
+        className='secondary full'
+        onClick={continueAsGuest}
+      >
         {t('Продолжить как гость', 'Continue as guest')}
       </button>
       <div className='auth-link'>
         {t('Продолжая, вы принимаете', 'By continuing, you accept')}{' '}
-        <button className='legal-link' onClick={() => navigate('/terms')}>
+        <button
+          type='button'
+          className='legal-link'
+          onClick={() => navigate('/terms')}
+        >
           {t('Пользовательское соглашение', 'Terms of Use')}
         </button>
         ,{' '}
-        <button className='legal-link' onClick={() => navigate('/consent')}>
+        <button
+          type='button'
+          className='legal-link'
+          onClick={() => navigate('/consent')}
+        >
           {t(
             'соглашение об использовании персональных данных',
             'Personal Data Agreement'
           )}
         </button>{' '}
         {t('и', 'and')}{' '}
-        <button className='legal-link' onClick={() => navigate('/privacy')}>
+        <button
+          type='button'
+          className='legal-link'
+          onClick={() => navigate('/privacy')}
+        >
           {t('Политику конфиденциальности', 'Privacy Policy')}
         </button>{' '}
         .
       </div>
       <div className='socials'>
-        <button className='google' onClick={() => socialLogin('google')}>
+        <button
+          type='button'
+          className='google'
+          onClick={() => socialLogin('google')}
+        >
           <i className='fab fa-google'></i> {t('Google', 'Google')}
         </button>
       </div>
       <div className='auth-link' style={{ marginTop: 8 }}>
         <button
+          type='button'
           className='secondary auth-control'
           onClick={toggleHighContrast}
           style={{ fontSize: 9 }}
@@ -84,6 +105,7 @@ export default function Login() {
           {t('Режим высокой контрастности', 'High contrast mode')}
         </button>
         <button
+          type='button'
           className='secondary auth-control lang-control'
           onClick={toggleLanguage}
           style={{ fontSize: 9, marginLeft: 6 }}

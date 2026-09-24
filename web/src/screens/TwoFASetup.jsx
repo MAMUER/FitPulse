@@ -33,22 +33,27 @@ export default function TwoFASetup() {
             />
           )}
           <div className='field'>
-            <label>{t('Секрет', 'Secret')}</label>
+            <label htmlFor='secret'>{t('Секрет', 'Secret')}</label>
             <input
+              id='secret'
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
               readOnly
             />
           </div>
           <div className='field'>
-            <label>{t('Код подтверждения', 'Confirmation code')}</label>
+            <label htmlFor='passcode'>
+              {t('Код подтверждения', 'Confirmation code')}
+            </label>
             <input
+              id='passcode'
               value={passcode}
               onChange={(e) => setPasscode(e.target.value)}
               maxLength={6}
             />
           </div>
           <button
+            type='button'
             className='primary full'
             onClick={start}
             disabled={loading || !passcode}

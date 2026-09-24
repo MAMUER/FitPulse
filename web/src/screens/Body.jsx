@@ -47,7 +47,7 @@ export default function Body() {
         </div>
         <div className='panel-body'>
           <div className='field'>
-            <label>{t('Рост, см', 'Height, cm')}</label>
+            <label htmlFor='height'>{t('Рост, см', 'Height, cm')}</label>
             <input
               id='height'
               type='number'
@@ -56,7 +56,7 @@ export default function Body() {
             />
           </div>
           <div className='field'>
-            <label>{t('Вес, кг', 'Weight, kg')}</label>
+            <label htmlFor='weight'>{t('Вес, кг', 'Weight, kg')}</label>
             <input
               id='weight'
               type='number'
@@ -65,7 +65,7 @@ export default function Body() {
             />
           </div>
           <div className='field'>
-            <label>{t('Жир, %', 'Body fat, %')}</label>
+            <label htmlFor='bodyFat'>{t('Жир, %', 'Body fat, %')}</label>
             <input
               id='bodyFat'
               type='number'
@@ -75,7 +75,7 @@ export default function Body() {
             />
           </div>
           <div className='field'>
-            <label>{t('Мышцы, %', 'Muscle, %')}</label>
+            <label htmlFor='muscle'>{t('Мышцы, %', 'Muscle, %')}</label>
             <input
               id='muscle'
               type='number'
@@ -85,7 +85,7 @@ export default function Body() {
             />
           </div>
           <div className='field'>
-            <label>{t('Вода, %', 'Water, %')}</label>
+            <label htmlFor='water'>{t('Вода, %', 'Water, %')}</label>
             <input
               id='water'
               type='number'
@@ -101,13 +101,18 @@ export default function Body() {
             </div>
           )}
           <button
+            type='button'
             className='primary full'
             onClick={handleSave}
             disabled={saving}
           >
             {saving ? t('Сохранение...', 'Saving...') : t('Сохранить', 'Save')}
           </button>
-          <button className='secondary full' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('home')}
+          >
             {t('На главную', 'Go home')}
           </button>
         </div>

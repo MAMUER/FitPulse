@@ -51,6 +51,7 @@ function TabBar() {
     <nav className='tab-bar'>
       {tabs.map((tab) => (
         <button
+          type='button'
           key={tab.key}
           className={`tab${state.screen === tab.key ? ' active' : ''}`}
           onClick={() => go(tab.key)}
@@ -73,8 +74,8 @@ export default function App() {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/reset' element={<Reset />} />
-        <Route path='/' element={<Landing />} />
-        <Route path='*' element={<Landing />} />
+        <Route path='/' element={<Navigate to='/login' replace />} />
+        <Route path='*' element={<Navigate to='/login' replace />} />
       </Routes>
     );
   }

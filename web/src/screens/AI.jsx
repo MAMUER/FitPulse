@@ -37,7 +37,11 @@ export default function Ai() {
       <div className='panel'>
         <div className='panel-head'>
           <div className='panel-title'>{t('AI-советник', 'AI Advisor')}</div>
-          <button className='secondary' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary'
+            onClick={() => go('home')}
+          >
             {t('Назад', 'Back')}
           </button>
         </div>
@@ -78,7 +82,7 @@ export default function Ai() {
             </div>
           )}
           <div className='field'>
-            <label>{t('Запрос', 'Prompt')}</label>
+            <label htmlFor='aiInput'>{t('Запрос', 'Prompt')}</label>
             <input
               id='aiInput'
               value={input}
@@ -87,7 +91,7 @@ export default function Ai() {
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             />
           </div>
-          <button className='primary full' onClick={handleSend}>
+          <button type='button' className='primary full' onClick={handleSend}>
             {t('Отправить', 'Send')}
           </button>
         </div>

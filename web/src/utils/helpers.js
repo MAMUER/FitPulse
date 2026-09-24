@@ -1,40 +1,7 @@
-const MONTHS_RU = [
-  'Январь',
-  'Февраль',
-  'Март',
-  'Апрель',
-  'Май',
-  'Июнь',
-  'Июль',
-  'Август',
-  'Сентябрь',
-  'Октябрь',
-  'Ноябрь',
-  'Декабрь',
-];
-const MONTHS_EN = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 const MIN_YEAR = 2025;
 const MIN_MONTH = 7;
 const WEEK_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const WEEK_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-export function getMonthName(index, language = 'ru') {
-  const months = language === 'en' ? MONTHS_EN : MONTHS_RU;
-  return months[index] || '';
-}
 
 export function getWeekDays(language = 'ru') {
   return language === 'en' ? WEEK_EN : WEEK_RU;
@@ -155,6 +122,8 @@ export function isSameMonth(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
 
+import { getMonthName } from './i18n';
+
 export function format(date, fmt, locale = 'ru') {
   const map = {
     d: String(date.getDate()),
@@ -169,4 +138,4 @@ export function format(date, fmt, locale = 'ru') {
   return out;
 }
 
-export { MIN_MONTH, MIN_YEAR, MONTHS_EN, MONTHS_RU };
+export { MIN_MONTH, MIN_YEAR };

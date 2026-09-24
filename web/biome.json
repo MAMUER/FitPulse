@@ -56,8 +56,8 @@
       },
       "a11y": {
         "useValidAnchor": "off",
-        "noLabelWithoutControl": "off",
-        "useButtonType": "off",
+        "noLabelWithoutControl": "error",
+        "useButtonType": "error",
         "noStaticElementInteractions": "off",
         "useKeyWithClickEvents": "off",
         "noSvgWithoutTitle": "off"
@@ -82,8 +82,7 @@
       "!**/static",
       "!**/coverage",
       "!**/*.min.js",
-      "!**/*.bundle.js",
-      "!**/*.css"
+      "!**/*.bundle.js"
     ]
   }
 }

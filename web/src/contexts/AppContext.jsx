@@ -10,11 +10,10 @@ import { backendRequest } from '../utils/backendRequest';
 import {
   formatRelativeDate,
   getDateKey,
-  getMonthName,
   isDateAllowed,
   safeText,
 } from '../utils/helpers';
-import { t } from '../utils/i18n';
+import { getMonthName, t } from '../utils/i18n';
 
 const KEY = 'fitpulse-merged-v9';
 

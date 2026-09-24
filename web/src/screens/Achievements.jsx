@@ -47,7 +47,11 @@ export default function Achievements() {
       <div className='panel'>
         <div className='panel-head'>
           <div className='panel-title'>{t('Достижения', 'Achievements')}</div>
-          <button className='secondary' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary'
+            onClick={() => go('home')}
+          >
             {t('Назад', 'Back')}
           </button>
         </div>

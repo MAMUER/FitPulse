@@ -60,7 +60,11 @@ export default function Profile() {
                 {state.language === 'ru' ? 'RU' : 'EN'}
               </div>
             </div>
-            <button className='secondary' onClick={toggleLanguage}>
+            <button
+              type='button'
+              className='secondary'
+              onClick={toggleLanguage}
+            >
               {t('Сменить', 'Switch')}
             </button>
           </div>
@@ -69,7 +73,7 @@ export default function Profile() {
               <div className='list-title'>{t('Тема', 'Theme')}</div>
               <div className='muted'>{state.theme}</div>
             </div>
-            <button className='secondary' onClick={toggleTheme}>
+            <button type='button' className='secondary' onClick={toggleTheme}>
               {t('Сменить', 'Switch')}
             </button>
           </div>
@@ -80,7 +84,11 @@ export default function Profile() {
               </div>
               <div className='muted'>{state.highContrast ? 'ON' : 'OFF'}</div>
             </div>
-            <button className='secondary' onClick={toggleHighContrast}>
+            <button
+              type='button'
+              className='secondary'
+              onClick={toggleHighContrast}
+            >
               {t('Сменить', 'Switch')}
             </button>
           </div>
@@ -94,11 +102,12 @@ export default function Profile() {
               </div>
             </div>
             {!state.profile?.twoFactor ? (
-              <button className='primary' onClick={setup2FA}>
+              <button type='button' className='primary' onClick={setup2FA}>
                 {t('Включить', 'Enable')}
               </button>
             ) : (
               <button
+                type='button'
                 className='danger'
                 onClick={handleDisable}
                 disabled={loading}
@@ -111,8 +120,11 @@ export default function Profile() {
           </div>
           {state.profile?.twoFactor && (
             <div className='field'>
-              <label>{t('Код для отключения', 'Code to disable')}</label>
+              <label htmlFor='disableCode'>
+                {t('Код для отключения', 'Code to disable')}
+              </label>
               <input
+                id='disableCode'
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 maxLength={6}
@@ -120,6 +132,7 @@ export default function Profile() {
             </div>
           )}
           <button
+            type='button'
             className='secondary full'
             onClick={handleSaveProfile}
             disabled={saving}
@@ -128,10 +141,14 @@ export default function Profile() {
               ? t('Сохранение...', 'Saving...')
               : t('Сохранить профиль', 'Save profile')}
           </button>
-          <button className='danger full' onClick={logout}>
+          <button type='button' className='danger full' onClick={logout}>
             {t('Выйти', 'Logout')}
           </button>
-          <button className='secondary full' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('home')}
+          >
             {t('На главную', 'Go home')}
           </button>
         </div>

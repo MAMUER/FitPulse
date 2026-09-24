@@ -84,6 +84,7 @@ export default function Integrations() {
           </div>
         </div>
         <button
+          type='button'
           className={isConnected ? 'danger' : 'primary'}
           disabled={isProcessing}
           onClick={() => toggle(provider.source)}

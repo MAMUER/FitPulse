@@ -34,7 +34,11 @@ export default function Videos() {
                     {v.kcal || v.calories || 0} {t('ккал', 'kcal')}
                   </div>
                 </div>
-                <button className='primary' onClick={() => go('training')}>
+                <button
+                  type='button'
+                  className='primary'
+                  onClick={() => go('training')}
+                >
                   {t('Старт', 'Start')}
                 </button>
               </div>

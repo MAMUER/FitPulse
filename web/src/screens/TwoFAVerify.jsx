@@ -30,8 +30,9 @@ export default function TwoFAVerify() {
         <div className='panel-body'>
           <form onSubmit={submit}>
             <div className='field'>
-              <label>{t('Код', 'Code')}</label>
+              <label htmlFor='passcode'>{t('Код', 'Code')}</label>
               <input
+                id='passcode'
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 placeholder='123456'

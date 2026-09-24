@@ -51,6 +51,7 @@ export default function Nutrition() {
                   </div>
                 </div>
                 <button
+                  type='button'
                   className='secondary'
                   onClick={() => handleRemove(m.id)}
                 >
@@ -61,16 +62,18 @@ export default function Nutrition() {
           )}
           <div className='add-meal-form'>
             <div className='field'>
-              <label>{t('Название', 'Name')}</label>
+              <label htmlFor='mealName'>{t('Название', 'Name')}</label>
               <input
+                id='mealName'
                 value={mealName}
                 onChange={(e) => setMealName(e.target.value)}
                 placeholder={t('Например: Овсянка', 'e.g. Oatmeal')}
               />
             </div>
             <div className='field'>
-              <label>{t('Калории', 'Calories')}</label>
+              <label htmlFor='mealCalories'>{t('Калории', 'Calories')}</label>
               <input
+                id='mealCalories'
                 type='number'
                 value={mealCalories}
                 onChange={(e) => setMealCalories(e.target.value)}
@@ -78,18 +81,23 @@ export default function Nutrition() {
               />
             </div>
             <div className='field'>
-              <label>{t('Время', 'Time')}</label>
+              <label htmlFor='mealTime'>{t('Время', 'Time')}</label>
               <input
+                id='mealTime'
                 type='time'
                 value={mealTime}
                 onChange={(e) => setMealTime(e.target.value)}
               />
             </div>
-            <button className='primary full' onClick={handleAdd}>
+            <button type='button' className='primary full' onClick={handleAdd}>
               {t('Добавить блюдо', 'Add meal')}
             </button>
           </div>
-          <button className='secondary full' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('home')}
+          >
             {t('На главную', 'Go home')}
           </button>
         </div>

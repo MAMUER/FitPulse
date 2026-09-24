@@ -25,7 +25,7 @@ export default function Chat() {
             ))}
           </div>
           <div className='field'>
-            <label>{t('Сообщение', 'Message')}</label>
+            <label htmlFor='chatInput'>{t('Сообщение', 'Message')}</label>
             <input
               id='chatInput'
               value={text}
@@ -33,7 +33,7 @@ export default function Chat() {
               placeholder={t('Напишите сообщение...', 'Write a message...')}
             />
           </div>
-          <button className='primary full' onClick={sendChat}>
+          <button type='button' className='primary full' onClick={sendChat}>
             {t('Отправить', 'Send')}
           </button>
         </div>

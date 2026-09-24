@@ -38,12 +38,14 @@ export default function Training() {
           <div className='panel-title'>{t('Тренировки', 'Workouts')}</div>
           <div className='tabs'>
             <button
+              type='button'
               className={`tab-btn ${tab === 'plans' ? 'active' : ''}`}
               onClick={() => setTab('plans')}
             >
               {t('Планы', 'Plans')}
             </button>
             <button
+              type='button'
               className={`tab-btn ${tab === 'start' ? 'active' : ''}`}
               onClick={() => setTab('start')}
             >
@@ -55,6 +57,7 @@ export default function Training() {
           {tab === 'plans' && (
             <>
               <button
+                type='button'
                 className='primary full'
                 onClick={handleGenerate}
                 disabled={generating}
@@ -81,6 +84,7 @@ export default function Training() {
                         </div>
                       </div>
                       <button
+                        type='button'
                         className='secondary'
                         onClick={() => getPlanDetails(plan.plan_id)}
                       >
@@ -95,12 +99,17 @@ export default function Training() {
           {tab === 'start' && (
             <>
               <button
+                type='button'
                 className='primary full'
                 onClick={() => startWorkout('Тренировка')}
               >
                 {t('Начать тренировку', 'Start workout')}
               </button>
-              <button className='secondary full' onClick={() => go('home')}>
+              <button
+                type='button'
+                className='secondary full'
+                onClick={() => go('home')}
+              >
                 {t('На главную', 'Go home')}
               </button>
             </>

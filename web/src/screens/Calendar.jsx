@@ -149,6 +149,7 @@ export default function Calendar() {
                   {format(selectedDay, 'd MMMM yyyy', state.language)}
                 </div>
                 <button
+                  type='button'
                   className='primary'
                   onClick={() => setShowForm(!showForm)}
                 >
@@ -164,16 +165,18 @@ export default function Calendar() {
           {showForm && selectedDay && (
             <div className='event-form'>
               <div className='field'>
-                <label>{t('Название', 'Title')}</label>
+                <label htmlFor='eventTitle'>{t('Название', 'Title')}</label>
                 <input
+                  id='eventTitle'
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
                   placeholder={t('Название события', 'Event title')}
                 />
               </div>
               <div className='field'>
-                <label>{t('Тип', 'Type')}</label>
+                <label htmlFor='eventType'>{t('Тип', 'Type')}</label>
                 <select
+                  id='eventType'
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
                 >
@@ -185,22 +188,30 @@ export default function Calendar() {
                 </select>
               </div>
               <div className='field'>
-                <label>{t('Время', 'Time')}</label>
+                <label htmlFor='eventTime'>{t('Время', 'Time')}</label>
                 <input
+                  id='eventTime'
                   type='time'
                   value={eventTime}
                   onChange={(e) => setEventTime(e.target.value)}
                 />
               </div>
               <div className='field'>
-                <label>{t('Описание', 'Description')}</label>
+                <label htmlFor='eventDesc'>
+                  {t('Описание', 'Description')}
+                </label>
                 <input
+                  id='eventDesc'
                   value={eventDesc}
                   onChange={(e) => setEventDesc(e.target.value)}
                   placeholder={t('Описание события', 'Event description')}
                 />
               </div>
-              <button className='primary full' onClick={handleAddEvent}>
+              <button
+                type='button'
+                className='primary full'
+                onClick={handleAddEvent}
+              >
                 {t('Добавить', 'Add')}
               </button>
             </div>
@@ -217,6 +228,7 @@ export default function Calendar() {
                     </div>
                   </div>
                   <button
+                    type='button'
                     className='danger'
                     onClick={() => handleDeleteEvent(ev.id)}
                   >

@@ -43,7 +43,7 @@ export default function Home() {
               {bmi ? `ИМТ ${bmi}` : 'ИМТ —'}
             </div>
           </div>
-          <button className='link' onClick={() => go('body')}>
+          <button type='button' className='link' onClick={() => go('body')}>
             {t('Профиль тела', 'Body profile')}
           </button>
         </div>
@@ -54,7 +54,7 @@ export default function Home() {
               <span className='muted'> / {state.waterGoal || 2000}</span>
             </div>
             <div className='metric-label'>{t('Вода, мл', 'Water, ml')}</div>
-            <button className='primary full' onClick={drinkWater}>
+            <button type='button' className='primary full' onClick={drinkWater}>
               +250 {t('мл', 'ml')}
             </button>
           </div>
@@ -85,10 +85,14 @@ export default function Home() {
           <div className='panel-title'>{t('Тренировки', 'Workouts')}</div>
         </div>
         <div className='panel-body'>
-          <button className='primary full' onClick={startWorkout}>
+          <button type='button' className='primary full' onClick={startWorkout}>
             {t('Начать тренировку', 'Start workout')}
           </button>
-          <button className='secondary full' onClick={() => go('training')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('training')}
+          >
             {t('Планы тренировок', 'Training plans')}
           </button>
         </div>
@@ -105,10 +109,18 @@ export default function Home() {
           </div>
         </div>
         <div className='panel-body'>
-          <button className='secondary full' onClick={() => go('videos')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('videos')}
+          >
             {t('Видео-тренировки', 'Video workouts')}
           </button>
-          <button className='secondary full' onClick={() => go('ai')}>
+          <button
+            type='button'
+            className='secondary full'
+            onClick={() => go('ai')}
+          >
             {t('AI-советник', 'AI Advisor')}
           </button>
         </div>
@@ -121,7 +133,11 @@ export default function Home() {
               {t('Персональные рекомендации', 'Personal recommendations')}
             </div>
           </div>
-          <button className='link' onClick={() => navigate('/consent')}>
+          <button
+            type='button'
+            className='link'
+            onClick={() => navigate('/consent')}
+          >
             {t('Политика', 'Policy')}
           </button>
         </div>
