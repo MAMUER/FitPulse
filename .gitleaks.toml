@@ -4,4 +4,35 @@ title = "FitPulse Gitleaks Configuration"
 paths = [
   '''\.test\.(js|jsx)$''',
   '''_test\.go$''',
+  '''^/docs/''',
 ]
+
+[[rules]]
+id = "custom-jwt-secret"
+description = "Detect JWT secret keys in config files"
+regex = '''(?i)jwt[_-]?secret\s*[:=]\s*['"]([a-zA-Z0-9+/]{32,}={0,2})['"]'''
+tags = ["jwt", "secret"]
+
+[[rules]]
+id = "custom-google-oauth-secret"
+description = "Detect Google OAuth client secret"
+regex = '''(?i)google[_-]?client[_-]?secret\s*[:=]\s*['"]([a-zA-Z0-9+/]{20,}={0,2})['"]'''
+tags = ["oauth", "google", "secret"]
+
+[[rules]]
+id = "custom-smtp-password"
+description = "Detect SMTP password in config files"
+regex = '''(?i)smtp[_-]?password\s*[:=]\s*['"]([a-zA-Z0-9+/]{8,}={0,2})['"]'''
+tags = ["smtp", "email", "secret"]
+
+[[rules]]
+id = "custom-database-password"
+description = "Detect database password in connection strings"
+regex = '''(?i)(postgres|mysql|mongodb):\/\/[^:]+:([^@]+)@'''
+tags = ["database", "connection-string"]
+
+[[rules]]
+id = "custom-api-key"
+description = "Detect generic API keys in Go and JS files"
+regex = '''(?i)api[_-]?key\s*[:=]\s*['"]([a-zA-Z0-9]{32,})['"]'''
+tags = ["api", "key"]

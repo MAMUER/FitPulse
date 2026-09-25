@@ -195,7 +195,9 @@
   content: "▦";
 }
 
-/* ── ROOT ── */
+/* ═══════════════════════════════════════════
+   ROOT & THEME VARIABLES
+   ═══════════════════════════════════════════ */
 :root {
   --bg: #050b08;
   --card: #0d1b14;
@@ -432,6 +434,9 @@
   pointer-events: none;
 }
 
+/* ═══════════════════════════════════════════
+   BASE STYLES & RESET
+   ═══════════════════════════════════════════ */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -618,7 +623,9 @@ h3,
   }
 }
 
-/* ── SPLASH ── */
+/* ═══════════════════════════════════════════
+   SPLASH SCREEN
+   ═══════════════════════════════════════════ */
 .splash {
   position: absolute;
   inset: 0;
@@ -763,7 +770,9 @@ h3,
   }
 }
 
-/* ── SIDE LOGO (glow only) ── */
+/* ═══════════════════════════════════════════
+   SIDE LOGO & NOTIFICATIONS
+   ═══════════════════════════════════════════ */
 .side-logo {
   position: absolute;
   z-index: 10;
@@ -809,7 +818,9 @@ h3,
   box-shadow: 0 0 8px var(--red);
 }
 
-/* ── COMMON ── */
+/* ═══════════════════════════════════════════
+   COMMON COMPONENTS
+   ═══════════════════════════════════════════ */
 .topbar,
 .between,
 .row {
@@ -921,7 +932,9 @@ h3,
   object-fit: cover;
 }
 
-/* ── HERO ── */
+/* ═══════════════════════════════════════════
+   HERO & READINESS
+   ═══════════════════════════════════════════ */
 .hero {
   min-height: 188px;
   position: relative;
@@ -982,7 +995,9 @@ h3,
   }
 }
 
-/* ── METRICS ── */
+/* ═══════════════════════════════════════════
+   METRICS & CIRCLE STATS
+   ═══════════════════════════════════════════ */
 .metrics,
 .grid-2,
 .grid-4 {
@@ -1058,7 +1073,9 @@ h3,
   font-size: 8px;
 }
 
-/* ── CALENDAR ── */
+/* ═══════════════════════════════════════════
+   CALENDAR
+   ═══════════════════════════════════════════ */
 .week {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1154,7 +1171,9 @@ h3,
   font-size: 8px;
 }
 
-/* ── CHARTS ── */
+/* ═══════════════════════════════════════════
+   CHARTS & LEGEND
+   ═══════════════════════════════════════════ */
 .activity-chart,
 .macro-chart {
   width: 142px;
@@ -1186,7 +1205,9 @@ h3,
   margin-right: 4px;
 }
 
-/* ── NUTRITION ── */
+/* ═══════════════════════════════════════════
+   NUTRITION & MEAL PLANNING
+   ═══════════════════════════════════════════ */
 .date-card {
   display: flex;
   align-items: center;
@@ -1391,7 +1412,9 @@ h3,
   white-space: nowrap;
 }
 
-/* ── WATER TRACKER ── */
+/* ═══════════════════════════════════════════
+   WATER TRACKER
+   ═══════════════════════════════════════════ */
 .water-tracker {
   display: flex;
   align-items: center;
@@ -1455,7 +1478,9 @@ h3,
   color: #07100d;
 }
 
-/* ── BODY / SILHOUETTE ── */
+/* ═══════════════════════════════════════════
+   BODY VISUAL & SILHOUETTE
+   ═══════════════════════════════════════════ */
 .body-visual {
   min-height: 320px;
   position: relative;
@@ -1597,7 +1622,9 @@ h3,
   font-size: 8px;
 }
 
-/* ── WORKOUT ── */
+/* ═══════════════════════════════════════════
+   WORKOUT & EXERCISES
+   ═══════════════════════════════════════════ */
 .workout-card {
   position: relative;
   margin-bottom: 10px;
@@ -1683,7 +1710,9 @@ h3,
   font-size: 8px;
 }
 
-/* ── VIDEO ── */
+/* ═══════════════════════════════════════════
+   VIDEO CARDS & EQUIPMENT
+   ═══════════════════════════════════════════ */
 .video-card {
   height: 165px;
   position: relative;
@@ -1756,7 +1785,9 @@ h3,
   font-size: 9px;
 }
 
-/* ── MAP ── */
+/* ═══════════════════════════════════════════
+   MAP & PLACES
+   ═══════════════════════════════════════════ */
 .place-map {
   min-height: 200px;
   position: relative;
@@ -1842,7 +1873,9 @@ h3,
   background: var(--blue);
 }
 
-/* ── AI ── */
+/* ═══════════════════════════════════════════
+   AI CHAT
+   ═══════════════════════════════════════════ */
 .ai-head {
   display: flex;
   align-items: center;
@@ -1924,7 +1957,9 @@ h3,
   place-items: center;
 }
 
-/* ── PROFILE ── */
+/* ═══════════════════════════════════════════
+   PROFILE
+   ═══════════════════════════════════════════ */
 .profile-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -2010,7 +2045,9 @@ h3,
   min-width: 70px;
 }
 
-/* ── FRIENDS & ONLINE ── */
+/* ═══════════════════════════════════════════
+   FRIENDS & ONLINE STATUS
+   ═══════════════════════════════════════════ */
 .friends-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2125,7 +2162,9 @@ h3,
   border-width: 2px;
 }
 
-/* ── LEVEL & ACHIEVEMENTS ── */
+/* ═══════════════════════════════════════════
+   LEVEL & ACHIEVEMENTS
+   ═══════════════════════════════════════════ */
 .fp-level-card {
   padding: 15px;
   border: 1px solid var(--gold);
@@ -2213,7 +2252,9 @@ h3,
   font-size: 7px;
 }
 
-/* ── STORY CAROUSEL ── */
+/* ═══════════════════════════════════════════
+   STORY CAROUSEL
+   ═══════════════════════════════════════════ */
 .fp-story-carousel {
   position: relative;
   margin-top: 8px;
@@ -2249,7 +2290,9 @@ h3,
   right: 3px;
 }
 
-/* ── STORY VIEWER ── */
+/* ═══════════════════════════════════════════
+   STORY VIEWER
+   ═══════════════════════════════════════════ */
 .fp-story-viewer {
   position: fixed;
   inset: 0;
@@ -2338,7 +2381,9 @@ h3,
   right: 10px;
 }
 
-/* ── STICKERS ── */
+/* ═══════════════════════════════════════════
+   STICKERS
+   ═══════════════════════════════════════════ */
 .fp-stickers {
   display: none;
   grid-template-columns: repeat(5, 1fr);
@@ -2365,7 +2410,9 @@ h3,
   transform: scale(1.1);
 }
 
-/* ── CALENDAR PAGE ── */
+/* ═══════════════════════════════════════════
+   CALENDAR PAGE (FULLSCREEN)
+   ═══════════════════════════════════════════ */
 .fp-calendar-page {
   position: fixed;
   top: 0;
@@ -2468,7 +2515,9 @@ h3,
   font-size: 9px;
 }
 
-/* ── INSTRUCTIONS ── */
+/* ═══════════════════════════════════════════
+   INSTRUCTIONS
+   ═══════════════════════════════════════════ */
 .fp-instructions {
   margin-top: 12px;
   padding: 14px;
@@ -2490,7 +2539,9 @@ h3,
   line-height: 1.5;
 }
 
-/* ── FRIEND PROFILE MODAL ── */
+/* ═══════════════════════════════════════════
+   FRIEND PROFILE MODAL
+   ═══════════════════════════════════════════ */
 .fp-profile-modal {
   position: fixed;
   inset: 0;
@@ -2531,7 +2582,9 @@ h3,
   line-height: 1.55;
 }
 
-/* ── HACK ── */
+/* ═══════════════════════════════════════════
+   HACK / TIPS SECTION
+   ═══════════════════════════════════════════ */
 .fp-hack {
   position: relative;
   min-height: 92px;
@@ -2568,7 +2621,9 @@ h3,
   place-items: center;
 }
 
-/* ── FORMS ── */
+/* ═══════════════════════════════════════════
+   FORMS & SETTINGS
+   ═══════════════════════════════════════════ */
 label {
   display: block;
   margin-top: 10px;
@@ -2678,7 +2733,9 @@ textarea:focus {
   left: 20px;
 }
 
-/* ── BOTTOM NAV ── */
+/* ═══════════════════════════════════════════
+   BOTTOM NAVIGATION
+   ═══════════════════════════════════════════ */
 .bottom-nav {
   position: absolute;
   right: 0;
@@ -2715,7 +2772,9 @@ textarea:focus {
   text-shadow: 0 0 10px #19d8daaa;
 }
 
-/* ── AUTH ── */
+/* ═══════════════════════════════════════════
+   AUTHENTICATION
+   ═══════════════════════════════════════════ */
 .auth {
   height: 100%;
   display: flex;
@@ -2789,7 +2848,9 @@ textarea:focus {
   font-weight: 800;
 }
 
-/* ── LANDING ── */
+/* ═══════════════════════════════════════════
+   LANDING PAGE
+   ═══════════════════════════════════════════ */
 .landing {
   height: 100%;
   display: flex;
@@ -2879,7 +2940,9 @@ textarea:focus {
   font-weight: 800;
 }
 
-/* ── SURVEY ── */
+/* ═══════════════════════════════════════════
+   SURVEY / ONBOARDING
+   ═══════════════════════════════════════════ */
 .survey-options {
   display: grid;
   gap: 7px;
@@ -2929,7 +2992,9 @@ textarea:focus {
   background: var(--blue);
 }
 
-/* ── CHAT ── */
+/* ═══════════════════════════════════════════
+   CHAT LIST
+   ═══════════════════════════════════════════ */
 .chat-list {
   display: flex;
   flex-direction: column;
@@ -3033,7 +3098,9 @@ textarea:focus {
   display: block;
 }
 
-/* ── VIDEO MODAL ── */
+/* ═══════════════════════════════════════════
+   VIDEO MODAL
+   ═══════════════════════════════════════════ */
 .fp-video-modal {
   position: fixed;
   inset: 0;
@@ -3087,7 +3154,9 @@ textarea:focus {
   font-size: 8px;
 }
 
-/* ── NUTRITION & TRAINING PANELS ── */
+/* ═══════════════════════════════════════════
+   NUTRITION & TRAINING PANELS
+   ═══════════════════════════════════════════ */
 .fp-nutrition-panel,
 .fp-training-panel {
   margin-top: 12px;
@@ -3200,7 +3269,9 @@ textarea:focus {
   font-size: 8px;
 }
 
-/* ── BMI CIRCLE ── */
+/* ═══════════════════════════════════════════
+   BMI CIRCLE
+   ═══════════════════════════════════════════ */
 .fp-bmi-circle {
   width: 190px;
   height: 190px;
@@ -3255,7 +3326,9 @@ textarea:focus {
   border-radius: 50%;
 }
 
-/* ── RESPONSIVE ── */
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
 @media (max-width: 460px) {
   #app {
     width: 100%;
@@ -3264,6 +3337,9 @@ textarea:focus {
   }
 }
 
+/* ═══════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════ */
 .muted {
   color: var(--muted);
 }
@@ -3352,7 +3428,9 @@ textarea:focus {
   inset: 0;
 }
 
-/* FINAL ACCESSIBILITY / UX CLEANUP */
+/* ═══════════════════════════════════════════
+   FINAL ACCESSIBILITY / UX CLEANUP
+   ═══════════════════════════════════════════ */
 button,
 [role="button"],
 input,

@@ -323,6 +323,18 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 ### Policy-as-Code
 
+В проекте применяются следующие политики как код:
+
+| Инструмент | Назначение | Статус |
+| --- | --- | --- |
+| **Kyverno** (`configs/k8s/policy/`) | Cluster-side enforce: disallow privileged containers, require readOnlyRootFilesystem, require runAsNonRoot, require resource limits. Deploy вместе с приложением. | Enforce / Audit |
+| **OPA Gatekeeper** | Дополнительные ограничения на ingress, secrets, container security contexts. | Audit |
+| **Checkov** | IaC security scanner для Terraform/K8s/CI. Запускается при каждом push/PR. | CI |
+| **Kubescape** | CIS Benchmark + security controls для Kubernetes manifests. Запускается в CI на `configs/k8s/base/`. | CI |
+| **Trivy (config)** | Misconfigurations в Kubernetes manifests (`configs/k8s/`). Запускается при каждом push/PR. | CI |
+
+Принятые исключения для Policy-as-Code сканеров документированы в `.trivyignore`, `.checkov.yaml` и `.kubescapeignore`.
+
 ### Kubernetes Security
 
 | Контроль | Назначение |

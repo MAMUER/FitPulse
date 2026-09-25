@@ -10,7 +10,7 @@ const apiErrors = new Counter('api_errors_total');
 const errorRate = new Rate('errors');
 
 export const options = {
-    insecureSkipTLSVerify: true,
+    insecureSkipTLSVerify: __ENV.INSECURE_SKIP_TLS_VERIFY === 'true',
     stages: [
         { duration: '30s', target: 20 },
         { duration: '1m', target: 50 },
