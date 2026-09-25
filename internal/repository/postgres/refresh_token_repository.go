@@ -10,14 +10,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type RefreshTokenRepository interface {
-	GetValid(ctx context.Context, token string) (*port.RefreshToken, error)
-
-	Create(ctx context.Context, rt *port.RefreshToken) error
-
-	MarkUsed(ctx context.Context, token string) error
-}
-
 type refreshTokenRepository struct {
 	db *sql.DB
 }

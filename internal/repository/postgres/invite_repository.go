@@ -10,20 +10,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type InviteCodeRepository interface {
-	List(ctx context.Context, page, pageSize int) ([]*port.InviteCode, int, error)
-
-	Create(ctx context.Context, invite *port.InviteCode) error
-
-	Revoke(ctx context.Context, code string) error
-
-	Validate(ctx context.Context, code string) (*port.InviteCode, error)
-
-	ValidateInviteCodeUse(ctx context.Context, code string) (bool, string, string, string, error)
-
-	LogInviteCodeUse(ctx context.Context, code, userID string) error
-}
-
 type inviteCodeRepository struct {
 	db *sql.DB
 }

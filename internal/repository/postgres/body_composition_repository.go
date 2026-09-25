@@ -11,12 +11,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type UserBodyCompositionRepository interface {
-	List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*port.UserBodyComposition, error)
-
-	Create(ctx context.Context, bc *port.UserBodyComposition) (*port.UserBodyComposition, error)
-}
-
 type userBodyCompositionRepository struct {
 	db *sql.DB
 }

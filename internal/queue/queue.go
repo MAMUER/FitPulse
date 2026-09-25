@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
@@ -86,6 +87,8 @@ func WithConsumerPriority(priority string) ConsumerOption {
 	}
 }
 
+const defaultReconnectBackoff = 2 * time.Second
+
 func ensureLogger(log *logger.Logger) *logger.Logger {
 	if log == nil {
 		return logger.New("queue")
@@ -95,24 +98,28 @@ func ensureLogger(log *logger.Logger) *logger.Logger {
 
 // rabbitPublisher — реализация Publisher
 type rabbitPublisher struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
-	queue   string
-	log     *logger.Logger
-	metrics *QueueMetrics
-	mu      sync.RWMutex
-	closed  bool
+	conn             *amqp.Connection
+	channel          *amqp.Channel
+	queue            string
+	log              *logger.Logger
+	metrics          *QueueMetrics
+	mu               sync.RWMutex
+	closed           bool
+	url              string
+	reconnectBackoff time.Duration
 }
 
 // rabbitConsumer — реализация Consumer
 type rabbitConsumer struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
-	queue   string
-	msgs    <-chan amqp.Delivery
-	log     *logger.Logger
-	mu      sync.RWMutex
-	closed  bool
+	conn             *amqp.Connection
+	channel          *amqp.Channel
+	queue            string
+	msgs             <-chan amqp.Delivery
+	log              *logger.Logger
+	mu               sync.RWMutex
+	closed           bool
+	url              string
+	reconnectBackoff time.Duration
 }
 
 func dialAndDeclare(url, queueName string) (*amqp.Connection, *amqp.Channel, error) {
@@ -151,12 +158,70 @@ func NewPublisher(url, queueName string, log *logger.Logger, opts ...PublisherOp
 	}
 
 	return &rabbitPublisher{
-		conn:    conn,
-		channel: ch,
-		queue:   queueName,
-		log:     log,
-		metrics: registerQueueMetrics(queueName, o.priority),
+		conn:             conn,
+		channel:          ch,
+		queue:            queueName,
+		log:              log,
+		metrics:          registerQueueMetrics(queueName, o.priority),
+		url:              url,
+		reconnectBackoff: defaultReconnectBackoff,
 	}, nil
+}
+
+func (p *rabbitPublisher) reconnect() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return errors.New("publisher is closed")
+	}
+
+	closeResourcesKeepClosedFlag(&p.mu, p.conn, p.channel)
+
+	conn, ch, err := dialAndDeclare(p.url, p.queue)
+	if err != nil {
+		return fmt.Errorf("failed to reconnect publisher: %w", err)
+	}
+
+	p.conn = conn
+	p.channel = ch
+	p.log.Info("publisher reconnected", zap.String("queue", p.queue))
+	return nil
+}
+
+func (c *rabbitConsumer) reconnect() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return errors.New("consumer is closed")
+	}
+
+	closeResourcesKeepClosedFlag(&c.mu, c.conn, c.channel)
+
+	conn, ch, err := dialAndDeclare(c.url, c.queue)
+	if err != nil {
+		return fmt.Errorf("failed to reconnect consumer: %w", err)
+	}
+
+	if qosErr := ch.Qos(1, 0, false); qosErr != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return fmt.Errorf("failed to set QoS on reconnect: %w", qosErr)
+	}
+
+	msgs, err := ch.Consume(c.queue, "", false, false, false, false, nil)
+	if err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return fmt.Errorf("failed to consume on reconnect: %w", err)
+	}
+
+	c.conn = conn
+	c.channel = ch
+	c.msgs = msgs
+	c.log.Info("consumer reconnected", zap.String("queue", c.queue))
+	return nil
 }
 
 func (p *rabbitPublisher) Publish(ctx context.Context, event interface{}) error {
@@ -182,7 +247,23 @@ func (p *rabbitPublisher) Publish(ctx context.Context, event interface{}) error 
 
 	if err != nil {
 		queueMessagesTotal.WithLabelValues(p.queue, "publish_error").Inc()
-		return fmt.Errorf("failed to publish: %w", err)
+		if isClosedError(err) {
+			if reconnectErr := p.reconnect(); reconnectErr == nil {
+				p.mu.RLock()
+				ch = p.channel
+				p.mu.RUnlock()
+				if ch != nil {
+					err = ch.PublishWithContext(ctx, "", p.queue, false, false, amqp.Publishing{
+						ContentType:  "application/json",
+						Body:         body,
+						DeliveryMode: amqp.Persistent,
+					})
+				}
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("failed to publish: %w", err)
+		}
 	}
 
 	queueMessagesTotal.WithLabelValues(p.queue, "success").Inc()
@@ -196,7 +277,9 @@ func (p *rabbitPublisher) Ping() error {
 		return errors.New("publisher is closed")
 	}
 	if p.conn.IsClosed() {
-		return errors.New("connection is closed")
+		if err := p.reconnect(); err != nil {
+			return fmt.Errorf("publisher ping failed: reconnect error: %w", err)
+		}
 	}
 	return nil
 }
@@ -236,6 +319,17 @@ func closeResources(mu *sync.RWMutex, closed *bool, conn *amqp.Connection, chann
 	return nil
 }
 
+func closeResourcesKeepClosedFlag(mu *sync.RWMutex, conn *amqp.Connection, channel *amqp.Channel) {
+	mu.Lock()
+	defer mu.Unlock()
+	if channel != nil {
+		_ = channel.Close()
+	}
+	if conn != nil {
+		_ = conn.Close()
+	}
+}
+
 // NewConsumer создаёт нового потребителя
 func NewConsumer(url, queueName string, log *logger.Logger, opts ...ConsumerOption) (Consumer, error) {
 	log = ensureLogger(log)
@@ -264,24 +358,65 @@ func NewConsumer(url, queueName string, log *logger.Logger, opts ...ConsumerOpti
 	}
 
 	return &rabbitConsumer{
-		conn:    conn,
-		channel: ch,
-		queue:   queueName,
-		msgs:    msgs,
-		log:     log,
+		conn:             conn,
+		channel:          ch,
+		queue:            queueName,
+		msgs:             msgs,
+		log:              log,
+		url:              url,
+		reconnectBackoff: defaultReconnectBackoff,
 	}, nil
 }
 
 func (c *rabbitConsumer) Messages() <-chan amqp.Delivery {
+	c.mu.RLock()
+	if c.msgs == nil {
+		c.mu.RUnlock()
+		return nil
+	}
+	c.mu.RUnlock()
+
+	if c.channel != nil && c.channel.IsClosed() {
+		go func() {
+			if err := c.reconnect(); err != nil {
+				c.log.Error("failed to reconnect consumer", zap.Error(err))
+			}
+		}()
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.msgs
 }
 
 func (c *rabbitConsumer) Ack(tag uint64, multiple bool) error {
-	return c.channel.Ack(tag, multiple)
+	c.mu.RLock()
+	if c.closed || c.channel == nil {
+		c.mu.RUnlock()
+		return errors.New("consumer is closed")
+	}
+	ch := c.channel
+	c.mu.RUnlock()
+
+	if ch.IsClosed() {
+		return errors.New("consumer channel is closed")
+	}
+	return ch.Ack(tag, multiple)
 }
 
 func (c *rabbitConsumer) Nack(tag uint64, multiple, requeue bool) error {
-	return c.channel.Nack(tag, multiple, requeue)
+	c.mu.RLock()
+	if c.closed || c.channel == nil {
+		c.mu.RUnlock()
+		return errors.New("consumer is closed")
+	}
+	ch := c.channel
+	c.mu.RUnlock()
+
+	if ch.IsClosed() {
+		return errors.New("consumer channel is closed")
+	}
+	return ch.Nack(tag, multiple, requeue)
 }
 
 func isClosedError(err error) bool {

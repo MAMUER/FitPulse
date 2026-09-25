@@ -11,18 +11,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type EmailVerificationRepository interface {
-	Create(ctx context.Context, ev *port.EmailVerification) error
-
-	GetValidToken(ctx context.Context, token string) (*port.EmailVerification, error)
-
-	GetByUserID(ctx context.Context, userID string) (*port.EmailVerification, error)
-
-	MarkUsed(ctx context.Context, token string) error
-
-	MarkUserEmailVerified(ctx context.Context, userID string) error
-}
-
 type emailVerificationRepository struct {
 	db *sql.DB
 }

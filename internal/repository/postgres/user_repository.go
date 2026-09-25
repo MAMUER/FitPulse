@@ -305,16 +305,6 @@ func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 
 }
 
-type InviteRepository interface {
-	Create(ctx context.Context, invite *port.Invite) error
-
-	GetByCode(ctx context.Context, code string) (*port.Invite, error)
-
-	List(ctx context.Context, page, pageSize int) ([]*port.Invite, int, error)
-
-	Revoke(ctx context.Context, code string) error
-}
-
 type inviteRepository struct {
 	db *sql.DB
 }
@@ -458,14 +448,6 @@ func (r *inviteRepository) Revoke(ctx context.Context, code string) error {
 
 }
 
-type HealthConditionRepository interface {
-	Create(ctx context.Context, condition *entity.HealthCondition) (*entity.HealthCondition, error)
-
-	List(ctx context.Context, userID, conditionType string) ([]*entity.HealthCondition, error)
-
-	Delete(ctx context.Context, id string) error
-}
-
 type healthConditionRepository struct {
 	db *sql.DB
 }
@@ -580,12 +562,6 @@ func (r *healthConditionRepository) Delete(ctx context.Context, id string) error
 
 }
 
-type BodyCompositionRepository interface {
-	Create(ctx context.Context, bc *entity.BodyComposition) (*entity.BodyComposition, error)
-
-	List(ctx context.Context, userID string, from, to *time.Time, limit int) ([]*entity.BodyComposition, error)
-}
-
 type bodyCompositionRepository struct {
 	db *sql.DB
 }
@@ -677,16 +653,6 @@ func (r *bodyCompositionRepository) List(ctx context.Context, userID string, fro
 
 	return records, nil
 
-}
-
-type MenstrualCycleRepository interface {
-	Create(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error)
-
-	List(ctx context.Context, userID string) ([]*entity.MenstrualCycle, error)
-
-	Update(ctx context.Context, cycle *entity.MenstrualCycle) (*entity.MenstrualCycle, error)
-
-	Delete(ctx context.Context, id string) error
 }
 
 type menstrualCycleRepository struct {
@@ -813,12 +779,6 @@ func (r *menstrualCycleRepository) Delete(ctx context.Context, id string) error 
 
 }
 
-type AchievementRepository interface {
-	Create(ctx context.Context, achievement *entity.Achievement) (*entity.Achievement, error)
-
-	List(ctx context.Context, userID string) ([]*entity.Achievement, error)
-}
-
 type achievementRepository struct {
 	db *sql.DB
 }
@@ -878,14 +838,6 @@ func (r *achievementRepository) List(ctx context.Context, userID string) ([]*ent
 
 	return shared.ScanAchievements(rows)
 
-}
-
-type DeviceRepository interface {
-	List(ctx context.Context, userID string) ([]*entity.Device, error)
-
-	Create(ctx context.Context, device *entity.Device) (*entity.Device, error)
-
-	Delete(ctx context.Context, userID, deviceID string) error
 }
 
 type deviceRepository struct {

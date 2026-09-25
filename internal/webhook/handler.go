@@ -24,17 +24,13 @@ const msgMethodNotAllowed = "method not allowed"
 // Server represents the Open Wearables webhook server
 
 type Server struct {
-	port string
-
-	db DB
-
-	log *zap.Logger
-
-	secret []byte
-
-	server *http.Server
-
+	port     string
+	db       DB
+	log      *zap.Logger
+	secret   []byte
+	server   *http.Server
 	shutdown context.CancelFunc
+	ctx      context.Context
 }
 
 // NewServer creates a new webhook server
@@ -50,18 +46,20 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	s := &Server{
 
-		port: port,
+		port:     port,
 
-		db: db,
+		db:       db,
 
-		log: log.Named("webhook"),
+		log:      log.Named("webhook"),
 
-		secret: secret,
+		secret:   secret,
 
 		shutdown: cancel,
+
+		ctx:      ctx,
+
 	}
 
 	mux := http.NewServeMux()
@@ -110,6 +108,14 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 // Start starts the webhook server
 
 func (s *Server) Start() {
+
+	if s.server == nil {
+
+		s.log.Error("Webhook server is not initialized")
+
+		return
+
+	}
 
 	go func() {
 

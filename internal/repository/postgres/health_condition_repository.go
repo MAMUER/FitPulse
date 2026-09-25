@@ -10,14 +10,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type UserHealthConditionRepository interface {
-	List(ctx context.Context, userID string) ([]*port.UserHealthCondition, error)
-
-	Upsert(ctx context.Context, condition *port.UserHealthCondition) (*port.UserHealthCondition, error)
-
-	Delete(ctx context.Context, id, userID string) error
-}
-
 type userHealthConditionRepository struct {
 	db *sql.DB
 }
