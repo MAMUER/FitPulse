@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
+import MetricCard from '../components/MetricCard';
+import ListItem from '../components/ListItem';
 
 export default function Body() {
   const { state, t, go, loadBodyComposition, saveBodyComposition } = useApp();
@@ -38,13 +41,14 @@ export default function Body() {
 
   return (
     <section className='body'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Профиль тела', 'Body profile')}</div>
-          <div className='panel-sub'>
-            {height ? `${height} см` : '—'} · {weight ? `${weight} кг` : '—'}
-          </div>
-        </div>
+      <Panel
+        title={t('Профиль тела', 'Body profile')}
+        subtitle={
+          height && weight
+            ? `${height} см · ${weight} кг`
+            : '—'
+        }
+      >
         <div className='panel-body'>
           <div className='field'>
             <label htmlFor='height'>{t('Рост, см', 'Height, cm')}</label>
@@ -95,10 +99,7 @@ export default function Body() {
             />
           </div>
           {bmi !== null && (
-            <div className='metric'>
-              <div className='metric-val'>{bmi}</div>
-              <div className='metric-label'>{t('ИМТ', 'BMI')}</div>
-            </div>
+            <MetricCard value={bmi} label={t('ИМТ', 'BMI')} />
           )}
           <button
             type='button'
@@ -116,29 +117,23 @@ export default function Body() {
             {t('На главную', 'Go home')}
           </button>
         </div>
-      </div>
+      </Panel>
       {records.length > 0 && (
-        <div className='panel'>
-          <div className='panel-head'>
-            <div className='panel-title'>{t('История', 'History')}</div>
-          </div>
+        <Panel title={t('История', 'History')}>
           <div className='panel-body'>
             {records.map((r, i) => (
-              <div key={r.recorded_at || r.id || i} className='list-row'>
-                <div>
-                  <div className='list-title'>
-                    {r.weight_kg} кг · ИМТ {r.bmi}
-                  </div>
-                  <div className='muted'>
-                    {r.recorded_at
-                      ? new Date(r.recorded_at).toLocaleDateString()
-                      : ''}
-                  </div>
-                </div>
-              </div>
+              <ListItem
+                key={r.recorded_at || r.id || i}
+                title={`${r.weight_kg} кг · ИМТ ${r.bmi}`}
+                subtitle={
+                  r.recorded_at
+                    ? new Date(r.recorded_at).toLocaleDateString()
+                    : ''
+                }
+              />
             ))}
           </div>
-        </div>
+        </Panel>
       )}
     </section>
   );

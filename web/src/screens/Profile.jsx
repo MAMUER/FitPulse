@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import Panel from '../components/Panel';
+import ListItem from '../components/ListItem';
 import { useApp } from '../contexts/AppContext';
 
 export default function Profile() {
@@ -47,77 +48,60 @@ export default function Profile() {
 
   return (
     <section className='profile'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Профиль', 'Profile')}</div>
-          <div className='panel-sub'>{state.profile?.email || ''}</div>
-        </div>
+      <Panel
+        title={t('Профиль', 'Profile')}
+        subtitle={state.profile?.email || ''}
+      >
         <div className='panel-body'>
-          <div className='list-row'>
-            <div>
-              <div className='list-title'>{t('Язык', 'Language')}</div>
-              <div className='muted'>
-                {state.language === 'ru' ? 'RU' : 'EN'}
-              </div>
-            </div>
-            <button
-              type='button'
-              className='secondary'
-              onClick={toggleLanguage}
-            >
-              {t('Сменить', 'Switch')}
-            </button>
-          </div>
-          <div className='list-row'>
-            <div>
-              <div className='list-title'>{t('Тема', 'Theme')}</div>
-              <div className='muted'>{state.theme}</div>
-            </div>
-            <button type='button' className='secondary' onClick={toggleTheme}>
-              {t('Сменить', 'Switch')}
-            </button>
-          </div>
-          <div className='list-row'>
-            <div>
-              <div className='list-title'>
-                {t('Высокая контрастность', 'High contrast')}
-              </div>
-              <div className='muted'>{state.highContrast ? 'ON' : 'OFF'}</div>
-            </div>
-            <button
-              type='button'
-              className='secondary'
-              onClick={toggleHighContrast}
-            >
-              {t('Сменить', 'Switch')}
-            </button>
-          </div>
-          <div className='list-row'>
-            <div>
-              <div className='list-title'>
-                {t('Двухфакторная аутентификация', 'Two-Factor Authentication')}
-              </div>
-              <div className='muted'>
-                {state.profile?.twoFactor ? 'ON' : 'OFF'}
-              </div>
-            </div>
-            {!state.profile?.twoFactor ? (
-              <button type='button' className='primary' onClick={setup2FA}>
-                {t('Включить', 'Enable')}
+          <ListItem
+            title={t('Язык', 'Language')}
+            subtitle={state.language === 'ru' ? 'RU' : 'EN'}
+            right={
+              <button type='button' className='secondary' onClick={toggleLanguage}>
+                {t('Сменить', 'Switch')}
               </button>
-            ) : (
-              <button
-                type='button'
-                className='danger'
-                onClick={handleDisable}
-                disabled={loading}
-              >
-                {loading
-                  ? t('Отключение...', 'Disabling...')
-                  : t('Отключить', 'Disable')}
+            }
+          />
+          <ListItem
+            title={t('Тема', 'Theme')}
+            subtitle={state.theme}
+            right={
+              <button type='button' className='secondary' onClick={toggleTheme}>
+                {t('Сменить', 'Switch')}
               </button>
-            )}
-          </div>
+            }
+          />
+          <ListItem
+            title={t('Высокая контрастность', 'High contrast')}
+            subtitle={state.highContrast ? 'ON' : 'OFF'}
+            right={
+              <button type='button' className='secondary' onClick={toggleHighContrast}>
+                {t('Сменить', 'Switch')}
+              </button>
+            }
+          />
+          <ListItem
+            title={t('Двухфакторная аутентификация', 'Two-Factor Authentication')}
+            subtitle={state.profile?.twoFactor ? 'ON' : 'OFF'}
+            right={
+              !state.profile?.twoFactor ? (
+                <button type='button' className='primary' onClick={setup2FA}>
+                  {t('Включить', 'Enable')}
+                </button>
+              ) : (
+                <button
+                  type='button'
+                  className='danger'
+                  onClick={handleDisable}
+                  disabled={loading}
+                >
+                  {loading
+                    ? t('Отключение...', 'Disabling...')
+                    : t('Отключить', 'Disable')}
+                </button>
+              )
+            }
+          />
           {state.profile?.twoFactor && (
             <div className='field'>
               <label htmlFor='disableCode'>
@@ -152,7 +136,7 @@ export default function Profile() {
             {t('На главную', 'Go home')}
           </button>
         </div>
-      </div>
+      </Panel>
     </section>
   );
 }

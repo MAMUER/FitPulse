@@ -1,12 +1,12 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from telegram.constants import ParseMode
+from fastapi import FastAPI, Request, HTTPException  # type: ignore
+from fastapi.responses import JSONResponse  # type: ignore
+from telegram import Update  # type: ignore
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes  # type: ignore
+from telegram.constants import ParseMode  # type: ignore
 import os
-import yaml
+import yaml  # type: ignore
 import logging
-import requests
+import requests  # type: ignore
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -90,7 +90,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        response = requests.get(f"{ALERTMANAGER_URL}/api/v2/alerts", timeout=5)
+        response = requests.get(  # noqa: S7499
+            f"{ALERTMANAGER_URL}/api/v2/alerts", timeout=5
+        )
         response.raise_for_status()
         alerts = response.json()
     except Exception as e:
@@ -146,7 +148,7 @@ async def alertmanager_webhook(request: Request):
         emoji = _severity_emoji(severity)
         message = f"{emoji} <b>{alertname}</b>\nSeverity: {severity}\nSummary: {summary}\nDescription: {description}"
         try:
-            requests.post(
+            requests.post(  # noqa: S7499
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json={
                     "chat_id": TELEGRAM_CHAT_ID,
@@ -155,8 +157,8 @@ async def alertmanager_webhook(request: Request):
                 },
                 timeout=5,
             )
-        except Exception as e:
-            logger.error("Failed to send Telegram alert", extra={"error": str(e)})
+        except Exception:
+            logger.exception("Failed to send Telegram alert")
     return {"status": "ok"}
 
 

@@ -7,9 +7,9 @@ export default function Reset() {
   const step = state.resetStep || 0;
   const [code, setCode] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [_confirmPass, _setConfirmPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   const [sending, setSending] = useState(false);
-  const [resetting, _setResetting] = useState(false);
+  const [resetting] = useState(false);
 
   if (step === 0) {
     return (
@@ -106,8 +106,8 @@ export default function Reset() {
         <input
           id='newPasswordConfirm'
           type='password'
-          value={newPassConfirm}
-          onChange={(e) => setNewPassConfirm(e.target.value)}
+          value={confirmPass}
+          onChange={(e) => setConfirmPass(e.target.value)}
         />
       </div>
       <button

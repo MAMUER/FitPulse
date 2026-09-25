@@ -57,16 +57,6 @@ build_open_wearables() {
 	echo "Open Wearables images pushed"
 }
 
-build_artifacts() {
-	mkdir -p bin
-	GOMAXPROCS=$(nproc)
-	export GOMAXPROCS
-	for svc in user-service biometric-service training-service gateway device-aggregator; do
-		go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
-	done
-	wait
-}
-
 build_go_binaries() {
 	set -euo pipefail
 	mkdir -p bin
@@ -99,13 +89,12 @@ main() {
 		build_ml_images
 		build_crs_updater
 		build_open_wearables
-		build_artifacts
+		build_go_binaries
 		;;
 	build_go_services) build_go_services ;;
 	build_ml_images) build_ml_images ;;
 	build_crs_updater) build_crs_updater ;;
 	build_open_wearables) build_open_wearables ;;
-	build_artifacts) build_artifacts ;;
 	build_go_binaries) build_go_binaries ;;
 	*)
 		echo "Unknown function: $cmd"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
 
 export default function Ai() {
   const { state, t, sendAI, go } = useApp();
@@ -34,17 +35,14 @@ export default function Ai() {
 
   return (
     <section className='ai'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('AI-советник', 'AI Advisor')}</div>
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => go('home')}
-          >
+      <Panel
+        title={t('AI-советник', 'AI Advisor')}
+        right={
+          <button type='button' className='secondary' onClick={() => go('home')}>
             {t('Назад', 'Back')}
           </button>
-        </div>
+        }
+      >
         <div className='panel-body'>
           <div className='chat' ref={chatRef}>
             {messages.map((m) => (
@@ -95,7 +93,7 @@ export default function Ai() {
             {t('Отправить', 'Send')}
           </button>
         </div>
-      </div>
+      </Panel>
     </section>
   );
 }

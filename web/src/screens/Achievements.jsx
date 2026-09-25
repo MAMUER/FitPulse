@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
+import EmptyState from '../components/EmptyState';
 
 export default function Achievements() {
   const { state, t, go, loadAchievements } = useApp();
@@ -16,10 +18,10 @@ export default function Achievements() {
 
   let content;
   if (loading) {
-    content = <div className='muted'>{t('Загрузка...', 'Loading...')}</div>;
+    content = <EmptyState text={t('Загрузка...', 'Loading...')} />;
   } else if (achievements.length === 0) {
     content = (
-      <div className='muted'>{t('Нет достижений', 'No achievements')}</div>
+      <EmptyState text={t('Нет достижений', 'No achievements')} />
     );
   } else {
     content = (
@@ -44,19 +46,16 @@ export default function Achievements() {
 
   return (
     <section className='achievements'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Достижения', 'Achievements')}</div>
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => go('home')}
-          >
+      <Panel
+        title={t('Достижения', 'Achievements')}
+        right={
+          <button type='button' className='secondary' onClick={() => go('home')}>
             {t('Назад', 'Back')}
           </button>
-        </div>
+        }
+      >
         <div className='panel-body'>{content}</div>
-      </div>
+      </Panel>
     </section>
   );
 }

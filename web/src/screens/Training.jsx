@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
+import ListItem from '../components/ListItem';
+import EmptyState from '../components/EmptyState';
 
 export default function Training() {
   const {
@@ -33,9 +36,9 @@ export default function Training() {
 
   return (
     <section className='training'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Тренировки', 'Workouts')}</div>
+      <Panel
+        title={t('Тренировки', 'Workouts')}
+        right={
           <div className='tabs'>
             <button
               type='button'
@@ -52,7 +55,8 @@ export default function Training() {
               {t('Таймер', 'Timer')}
             </button>
           </div>
-        </div>
+        }
+      >
         <div className='panel-body'>
           {tab === 'plans' && (
             <>
@@ -67,30 +71,28 @@ export default function Training() {
                   : t('Создать план', 'Generate plan')}
               </button>
               {plans.length === 0 ? (
-                <div className='muted'>{t('Нет планов', 'No plans')}</div>
+                <EmptyState text={t('Нет планов', 'No plans')} />
               ) : (
                 <div className='plans-list'>
                   {plans.map((plan) => (
-                    <div key={plan.plan_id} className='list-row plan-row'>
-                      <div>
-                        <div className='list-title'>
-                          {plan.plan_data?.name || plan.plan_id}
-                        </div>
-                        <div className='muted'>
-                          {plan.training_goal ||
-                            plan.plan_data?.training_goal ||
-                            ''}{' '}
-                          · {plan.duration_weeks || 4} {t('недель', 'weeks')}
-                        </div>
-                      </div>
-                      <button
-                        type='button'
-                        className='secondary'
-                        onClick={() => getPlanDetails(plan.plan_id)}
-                      >
-                        {t('Подробнее', 'Details')}
-                      </button>
-                    </div>
+                    <ListItem
+                      key={plan.plan_id}
+                      title={plan.plan_data?.name || plan.plan_id}
+                      subtitle={
+                        plan.training_goal ||
+                        plan.plan_data?.training_goal ||
+                        ''
+                      }
+                      right={
+                        <button
+                          type='button'
+                          className='secondary'
+                          onClick={() => getPlanDetails(plan.plan_id)}
+                        >
+                          {t('Подробнее', 'Details')}
+                        </button>
+                      }
+                    />
                   ))}
                 </div>
               )}
@@ -115,7 +117,7 @@ export default function Training() {
             </>
           )}
         </div>
-      </div>
+      </Panel>
     </section>
   );
 }

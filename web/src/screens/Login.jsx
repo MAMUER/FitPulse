@@ -1,31 +1,18 @@
-import { useNavigate } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 import { useApp } from '../contexts/AppContext';
 
 export default function Login() {
   const {
-    state,
     t,
     doLogin,
     continueAsGuest,
     socialLogin,
-    toggleHighContrast,
-    toggleLanguage,
     forgotPassword,
     go,
   } = useApp();
-  const navigate = useNavigate();
 
   return (
-    <section className='auth'>
-      <div className='auth-brand'>
-        <img
-          className='splash-logo'
-          src='https://uploads.onecompiler.io/44temhxkf/1785230799105/fit%20pulse.jpg'
-          alt='FitPulse'
-        />
-        <h1>FitPulse</h1>
-        <p>{t('С возвращением', 'Welcome back')}</p>
-      </div>
+    <AuthLayout>
       <div className='field'>
         <label htmlFor='loginEmail'>{t('Электронная почта', 'Email')}</label>
         <input id='loginEmail' type='email' defaultValue='mih@example.com' />
@@ -60,7 +47,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => navigate('/terms')}
+          onClick={() => go('legal', 'terms')}
         >
           {t('Пользовательское соглашение', 'Terms of Use')}
         </button>
@@ -68,7 +55,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => navigate('/consent')}
+          onClick={() => go('legal', 'consent')}
         >
           {t(
             'соглашение об использовании персональных данных',
@@ -79,7 +66,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => navigate('/privacy')}
+          onClick={() => go('legal', 'privacy')}
         >
           {t('Политику конфиденциальности', 'Privacy Policy')}
         </button>{' '}
@@ -94,26 +81,6 @@ export default function Login() {
           <i className='fab fa-google'></i> {t('Google', 'Google')}
         </button>
       </div>
-      <div className='auth-link' style={{ marginTop: 8 }}>
-        <button
-          type='button'
-          className='secondary auth-control'
-          onClick={toggleHighContrast}
-          style={{ fontSize: 9 }}
-        >
-          <i className='fas fa-eye'></i>{' '}
-          {t('Режим высокой контрастности', 'High contrast mode')}
-        </button>
-        <button
-          type='button'
-          className='secondary auth-control lang-control'
-          onClick={toggleLanguage}
-          style={{ fontSize: 9, marginLeft: 6 }}
-        >
-          <i className='fas fa-globe'></i>{' '}
-          {state.language === 'ru' ? 'EN' : 'RU'}
-        </button>
-      </div>
-    </section>
+    </AuthLayout>
   );
 }

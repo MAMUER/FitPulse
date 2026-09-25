@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
+import ListItem from '../components/ListItem';
+import EmptyState from '../components/EmptyState';
 
 export default function Nutrition() {
   const { state, t, go, loadMeals, createMeal, removeMeal } = useApp();
@@ -31,33 +34,29 @@ export default function Nutrition() {
 
   return (
     <section className='nutrition'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Питание', 'Nutrition')}</div>
-          <div className='panel-sub'>
-            {t('Калории', 'Calories')}: {total} / {state.calorieGoal || 2200}
-          </div>
-        </div>
+      <Panel
+        title={t('Питание', 'Nutrition')}
+        subtitle={`${t('Калории', 'Calories')}: ${total} / ${state.calorieGoal || 2200}`}
+      >
         <div className='panel-body'>
           {meals.length === 0 ? (
-            <div className='muted'>{t('Нет блюд', 'No meals')}</div>
+            <EmptyState text={t('Нет блюд', 'No meals')} />
           ) : (
             meals.map((m, i) => (
-              <div key={m.id || i} className='list-row'>
-                <div>
-                  <div className='list-title'>{m.name}</div>
-                  <div className='muted'>
-                    {m.calories} {t('ккал', 'kcal')} · {m.time || ''}
-                  </div>
-                </div>
-                <button
-                  type='button'
-                  className='secondary'
-                  onClick={() => handleRemove(m.id)}
-                >
-                  {t('Удалить', 'Remove')}
-                </button>
-              </div>
+              <ListItem
+                key={m.id || i}
+                title={m.name}
+                subtitle={`${m.calories} ${t('ккал', 'kcal')} · ${m.time || ''}`}
+                right={
+                  <button
+                    type='button'
+                    className='secondary'
+                    onClick={() => handleRemove(m.id)}
+                  >
+                    {t('Удалить', 'Remove')}
+                  </button>
+                }
+              />
             ))
           )}
           <div className='add-meal-form'>
@@ -101,7 +100,7 @@ export default function Nutrition() {
             {t('На главную', 'Go home')}
           </button>
         </div>
-      </div>
+      </Panel>
     </section>
   );
 }

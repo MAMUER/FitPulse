@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import Panel from '../components/Panel';
+import ListItem from '../components/ListItem';
+import EmptyState from '../components/EmptyState';
 
 export default function Integrations() {
   const { notify, t, loadIntegrationProviders, disconnectIntegration } = useApp();
@@ -42,77 +45,71 @@ export default function Integrations() {
     }
   };
 
-  const getButtonLabel = (isProcessing, isConnected) => {
-    if (isProcessing) {
-      return t('Обработка...', 'Processing...');
-    }
-    if (isConnected) {
-      return t('Отключить', 'Disconnect');
-    }
-    return t('Подключить', 'Connect');
-  };
-
-  const getStatusText = (isConnected) => {
-    return isConnected
-      ? t('Подключено', 'Connected')
-      : t('Не подключено', 'Not connected');
-  };
-
-  const getTimestamp = (connectedAt) => {
-    return connectedAt ? ` · ${new Date(connectedAt).toLocaleString()}` : '';
-  };
-
-  const renderProvider = (provider) => {
-    const isConnected = provider.connected;
-    const isProcessing = actionLoading === provider.source;
-    return (
-      <div className='list-row' key={provider.source}>
-        <div>
-          <div className='list-title'>
-            {provider.source_name || provider.source}
-          </div>
-          <div className='muted'>
-            {getStatusText(isConnected)}
-            {getTimestamp(provider.connected_at)}
-          </div>
-        </div>
-        <button
-          type='button'
-          className={isConnected ? 'danger' : 'primary'}
-          disabled={isProcessing}
-          onClick={() => toggle(provider.source)}
-        >
-          {getButtonLabel(isProcessing, isConnected)}
-        </button>
-      </div>
-    );
-  };
-
-  const renderContent = () => {
+  const renderIntegrations = () => {
     if (loading) {
-      return <div className='muted'>{t('Загрузка...', 'Loading...')}</div>;
+      return <EmptyState text={t('Загрузка...', 'Loading...')} />;
     }
     if (providers.length === 0) {
       return (
-        <div className='muted'>
-          {t('Нет доступных интеграций', 'No integrations')}
-        </div>
+        <EmptyState
+          text={t('Нет доступных интеграций', 'No integrations')}
+        />
       );
     }
-    return <>{providers.map(renderProvider)}</>;
+      return (
+        <>
+          {providers.map((provider) => {
+            const isConnected = provider.connected;
+            const isProcessing = actionLoading === provider.source;
+            const statusText = isConnected
+              ? t('Подключено', 'Connected')
+              : t('Не подключено', 'Not connected');
+
+            let buttonLabel;
+            if (isProcessing) {
+              buttonLabel = t('Обработка...', 'Processing...');
+            } else if (isConnected) {
+              buttonLabel = t('Отключить', 'Disconnect');
+            } else {
+              buttonLabel = t('Подключить', 'Connect');
+            }
+
+            const subtitle =
+              statusText +
+              (provider.connected_at
+                ? ` · ${new Date(provider.connected_at).toLocaleString()}`
+                : '');
+
+            return (
+              <ListItem
+                key={provider.source}
+                title={provider.source_name || provider.source}
+                subtitle={subtitle}
+                right={
+                  <button
+                    type='button'
+                    className={isConnected ? 'danger' : 'primary'}
+                    disabled={isProcessing}
+                    onClick={() => toggle(provider.source)}
+                  >
+                    {buttonLabel}
+                  </button>
+                }
+              />
+            );
+          })}
+        </>
+      );
   };
 
   return (
     <section className='integrations'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Интеграции', 'Integrations')}</div>
-          <div className='panel-sub'>
-            {t('Устройства и сервисы', 'Devices & services')}
-          </div>
-        </div>
-        <div className='panel-body'>{renderContent()}</div>
-      </div>
+      <Panel
+        title={t('Интеграции', 'Integrations')}
+        subtitle={t('Устройства и сервисы', 'Devices & services')}
+      >
+        <div className='panel-body'>{renderIntegrations()}</div>
+      </Panel>
     </section>
   );
 }

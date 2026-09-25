@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
+import Panel from '../components/Panel';
+
 export default function Home() {
   const {
     state,
@@ -32,21 +34,20 @@ export default function Home() {
       ? +(state.weight / (state.height / 100) ** 2).toFixed(1)
       : null;
 
+  const bmiText = bmi ? `ИМТ ${bmi}` : 'ИМТ —';
+  const weightSubtitle = state.weight ? `${state.weight} кг · ${bmiText}` : '—';
+
   return (
     <section className='home'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div>
-            <div className='panel-title'>{t('Прогресс', 'Progress')}</div>
-            <div className='panel-sub'>
-              {state.weight ? `${state.weight} кг` : '—'} ·{' '}
-              {bmi ? `ИМТ ${bmi}` : 'ИМТ —'}
-            </div>
-          </div>
+      <Panel
+        title={t('Прогресс', 'Progress')}
+        subtitle={weightSubtitle}
+        right={
           <button type='button' className='link' onClick={() => go('body')}>
             {t('Профиль тела', 'Body profile')}
           </button>
-        </div>
+        }
+      >
         <div className='panel-body'>
           <div className='metric'>
             <div className='metric-val'>
@@ -79,11 +80,8 @@ export default function Home() {
             </div>
           )}
         </div>
-      </div>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>{t('Тренировки', 'Workouts')}</div>
-        </div>
+      </Panel>
+      <Panel title={t('Тренировки', 'Workouts')}>
         <div className='panel-body'>
           <button type='button' className='primary full' onClick={startWorkout}>
             {t('Начать тренировку', 'Start workout')}
@@ -96,18 +94,11 @@ export default function Home() {
             {t('Планы тренировок', 'Training plans')}
           </button>
         </div>
-      </div>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div>
-            <div className='panel-title'>
-              {t('Рекомендации', 'Recommendations')}
-            </div>
-            <div className='panel-sub'>
-              {t('На основе ваших данных', 'Based on your data')}
-            </div>
-          </div>
-        </div>
+      </Panel>
+      <Panel
+        title={t('Рекомендации', 'Recommendations')}
+        subtitle={t('На основе ваших данных', 'Based on your data')}
+      >
         <div className='panel-body'>
           <button
             type='button'
@@ -124,24 +115,16 @@ export default function Home() {
             {t('AI-советник', 'AI Advisor')}
           </button>
         </div>
-      </div>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div>
-            <div className='panel-title'>{t('Цели', 'Goals')}</div>
-            <div className='panel-sub'>
-              {t('Персональные рекомендации', 'Personal recommendations')}
-            </div>
-          </div>
-          <button
-            type='button'
-            className='link'
-            onClick={() => navigate('/consent')}
-          >
+      </Panel>
+      <Panel
+        title={t('Цели', 'Goals')}
+        subtitle={t('Персональные рекомендации', 'Personal recommendations')}
+        right={
+          <button type='button' className='link' onClick={() => navigate('/consent')}>
             {t('Политика', 'Policy')}
           </button>
-        </div>
-      </div>
+        }
+      />
     </section>
   );
 }

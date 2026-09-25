@@ -10,7 +10,7 @@
 
 | Layer | Component | License | Cost | Card Required? |
 | ------- | ----------- | --------- | ------ | ---------------- |
-| **IaC** | Terraform OSS | BSL-1.1 | Free | ❌ No |
+| **IaC** | Kubernetes manifests | — | Free | ❌ No |
 | **State Backend** | MinIO (S3-compatible) | AGPL-3.0 | Free | ❌ No |
 | **VPS** | Existing VPS (k3s already running) | — | Already paid | ❌ No |
 | **Kubernetes** | k3s | Apache-2.0 | Free | ❌ No |
@@ -109,7 +109,7 @@ Kubernetes Secret `app-secrets`
 
 ### HCLOUD_TOKEN — NOT NEEDED ANYMORE
 
-Terraform no longer provisions VPS. It manages only existing k3s resources.
+VPS is already provisioned. No Terraform-managed VPS provisioning is used.
 
 ### MINIO_ACCESS_KEY / MINIO_SECRET_KEY
 
@@ -155,9 +155,7 @@ scp root@<VPS_IP>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 # Update server IP
 sed -i 's/127.0.0.1/<VPS_IP>/g' ~/.kube/config
 # Base64 encode for GitHub Secrets
-cat ~/.kube/config | base64 -w 0  # Linux/macOS
-# Or on Windows PowerShell:
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\.kube\config"))
+cat ~/.kube/config | base64 -w 0
 
 # Add to GitHub Secrets:
 # KUBECONFIG_DATA → base64-encoded kubeconfig content
@@ -180,15 +178,15 @@ cat ~/.kube/config | base64 -w 0  # Linux/macOS
 
 ---
 
-## Terraform — New Architecture (No VPS Provisioning)
+## Kubernetes Manifests — Direct Deployment (No Terraform)
 
 ### What Changed
 
-- ❌ Removed: Hetzner/DigitalOcean/Vultr VPS provisioning
-- ❌ Removed: k3s bootstrap via remote-exec
-- ✅ Added: Connect to existing k3s via kubeconfig
+- ❌ Removed: Terraform-based VPS provisioning
+- ❌ Removed: Terraform modules for k8s/db/vault/vps
+- ✅ Added: Direct kubectl apply of manifests
 - ✅ Added: Deploy MinIO on existing k3s
-- ✅ Added: Manage DNS records
+- ✅ Added: Manage DNS records via Cloudflare
 - ✅ Added: PostgreSQL External Secrets backend
 
 ---
@@ -205,11 +203,7 @@ kubectl apply -f db/migrations/V5__external_secrets_seed.sql
 ### Step 2: Create PostgreSQL user
 
 ```bash
-# Linux/macOS
 psql -h postgres-service -U postgres -f scripts/ci/setup-external-secrets-db.sh
-
-# Windows PowerShell
-.\scripts\ci\setup-external-secrets-db.ps1 -PostgresHost postgres-service -PostgresUser postgres -ExternalSecretsPassword <generated_password>
 ```
 
 ### Step 3: Update External Secrets Operator
@@ -245,7 +239,6 @@ kubectl get secret app-secrets -n fitness-platform-production
 | Component | Monthly Cost | Card Required? |
 | ----------- | ------------- | ---------------- |
 | Existing VPS (k3s) | €4 | Already paid |
-| Terraform OSS | €0 | ❌ No |
 | MinIO | €0 | ❌ No |
 | PostgreSQL | €0 | ❌ No |
 | DuckDNS | €0 | ❌ No |

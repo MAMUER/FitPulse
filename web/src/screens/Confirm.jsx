@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function Confirm() {
-  const { t, notify, confirmEmail } = useApp();
+  const { t, confirmEmail } = useApp();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
   const [status, setStatus] = useState('loading');
