@@ -21,6 +21,8 @@ const defaultContext = {
   },
   t: (ru, _en) => ru,
   notify: vi.fn(),
+  loadIntegrationProviders: vi.fn().mockResolvedValue([]),
+  disconnectIntegration: vi.fn(),
 };
 
 function renderIntegrations(overrides = {}) {

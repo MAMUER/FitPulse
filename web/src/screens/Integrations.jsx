@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { backendRequest } from '../utils/backendRequest';
 
 export default function Integrations() {
-  const { notify, t } = useApp();
+  const { notify, t, loadIntegrationProviders, disconnectIntegration } = useApp();
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -11,12 +10,8 @@ export default function Integrations() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await backendRequest('/api/v1/integrations/providers');
-      if (data && Array.isArray(data.providers)) {
-        setProviders(data.providers);
-      } else {
-        setProviders([]);
-      }
+      const data = await loadIntegrationProviders();
+      setProviders(data);
     } catch {
       setProviders([]);
     } finally {
@@ -26,14 +21,12 @@ export default function Integrations() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [loadIntegrationProviders]);
 
   const toggle = async (source) => {
     setActionLoading(source);
     try {
-      await backendRequest(`/api/v1/integrations/${source}/disconnect`, {
-        method: 'POST',
-      });
+      await disconnectIntegration(source);
       setProviders((prev) =>
         prev.map((p) =>
           p.source === source

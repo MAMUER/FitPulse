@@ -35,7 +35,7 @@ export default function Login() {
         <input id='loginPassword' type='password' defaultValue='password' />
       </div>
       <button type='button' className='primary full' onClick={doLogin}>
-        {t('Войти', 'Login')}
+        {t('Войти', 'Sign in')}
       </button>
       <div className='auth-link'>
         {t('Нет аккаунта?', "Don't have an account?")}{' '}

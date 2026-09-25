@@ -76,7 +76,7 @@ export default function Register() {
       <div className='auth-link'>
         {t('Уже есть аккаунт?', 'Already have an account?')}{' '}
         <button type='button' onClick={() => go('login')}>
-          {t('Войти', 'Login')}
+          {t('Войти', 'Sign in')}
         </button>
       </div>
       <div className='socials'>

@@ -1,9 +1,21 @@
+import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Chat() {
-  const { state, t, sendChat, setChat } = useApp();
-  const history = state.chatHistory || [];
-  const text = state.chatText || '';
+  const { state, t, sendChat } = useApp();
+  const [text, setText] = useState('');
+  const history = state.chatMessages || [];
+
+  useEffect(() => {
+    const input = document.getElementById('chatInput');
+    if (input) input.value = text;
+  }, [text]);
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    sendChat();
+    setText('');
+  };
 
   return (
     <section className='chat'>
@@ -18,7 +30,7 @@ export default function Chat() {
             {history.map((m, i) => (
               <div
                 key={m.id || i}
-                className={`msg ${m.role === 'user' ? 'user' : 'bot'}`}
+                className={`msg ${m.sent ? 'user' : 'bot'}`}
               >
                 <div>{m.text}</div>
               </div>
@@ -29,11 +41,11 @@ export default function Chat() {
             <input
               id='chatInput'
               value={text}
-              onChange={(e) => setChat(e.target.value)}
+              onChange={(e) => setText(e.target.value)}
               placeholder={t('Напишите сообщение...', 'Write a message...')}
             />
           </div>
-          <button type='button' className='primary full' onClick={sendChat}>
+          <button type='button' className='primary full' onClick={handleSend}>
             {t('Отправить', 'Send')}
           </button>
         </div>

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { backendRequest } from '../utils/backendRequest';
 
 export default function Confirm() {
-  const { t, notify } = useApp();
+  const { t, notify, confirmEmail } = useApp();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
   const [status, setStatus] = useState('loading');
@@ -25,10 +24,7 @@ export default function Confirm() {
       setMessage(t('Токен не указан', 'Token is missing'));
       return;
     }
-    backendRequest('/api/v1/auth/confirm', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    })
+    confirmEmail(token)
       .then((data) => {
         if (data?.status === 'ok') {
           setStatus('success');
@@ -44,7 +40,7 @@ export default function Confirm() {
         setStatus('error');
         setMessage(t('Ошибка подтверждения', 'Confirmation error'));
       });
-  }, [token, t, notify]);
+  }, [token, t, confirmEmail]);
 
   return (
     <section className='auth'>
