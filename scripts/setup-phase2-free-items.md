@@ -153,50 +153,10 @@ dvc push
 
 **DO NOT commit DVC remote credentials to git.** Use environment variables or Vault.
 
-## 4. Terraform Setup (Preparation Only)
-
-### Prerequisites
-
-- Terraform >= 1.5.0
-- Cloud provider CLI (yc, aws, etc.)
-- SSH key pair
-- S3-compatible backend (MinIO)
-
-### Step 1: Configure backend
-
-```bash
-cd terraform
-terraform init
-```
-
-### Step 2: Set variables
-
-```bash
-# Create terraform.tfvars (DO NOT commit)
-cat > terraform.tfvars <<EOF
-yandex_cloud_token = "your-yandex-token"
-ssh_public_key     = "ssh-rsa AAAA..."
-k3s_token          = "your-k3s-token"
-postgres_user      = "fitpulse"
-postgres_password  = "your-password"
-vault_root_token   = "your-vault-token"
-EOF
-```
-
-**DO NOT commit `terraform.tfvars` to git.** Add to `.gitignore`.
-
-### Step 3: Plan and apply (when ready)
-
-```bash
-terraform plan
-terraform apply
-```
-
-## Security Checklist
+## 4. Security Checklist
 
 - [ ] PGP private key stored in hardware token or encrypted backup
 - [ ] Cloudflare Turnstile Secret Key in Vault, NOT in git
-- [ ] Terraform variables in `.gitignore`, not in git
 - [ ] DVC remote credentials in environment variables or Vault
 - [ ] No secrets in ConfigMaps
 - [ ] GitHub Secrets used for CI/CD

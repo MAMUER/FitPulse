@@ -47,7 +47,7 @@
 │  │  k3s cluster (1 node, production)                         │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  MinIO (S3-compatible)                              │  │  │
-│  │  │  - Bucket: fitpulse-terraform-state                 │  │  │
+│  │  │  - Bucket: fitpulse-minio-state                  │  │  │
 │  │  │  - Bucket: fitpulse-ml-models                       │  │  │
 │  │  │  - Bucket: fitpulse-db-backups                      │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
@@ -191,30 +191,6 @@ cat ~/.kube/config | base64 -w 0  # Linux/macOS
 - ✅ Added: Manage DNS records
 - ✅ Added: PostgreSQL External Secrets backend
 
-### Directory Structure
-
-```text
-terraform/
-├── backend.tf                 # MinIO S3 backend (configure after MinIO deployed)
-├── main.tf                    # k8s provider + modules
-├── variables.tf               # kubeconfig, MinIO, DNS vars
-├── outputs.tf                 # MinIO endpoint, URLs
-├── modules/
-│   ├── minio/                 # Deploy MinIO on k3s
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── dns/                   # DuckDNS / Cloudflare
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
-└── environments/
-    ├── staging/
-    │   └── main.tf
-    └── production/
-        └── main.tf
-```
-
 ---
 
 ## Secrets Migration from AWS to PostgreSQL
@@ -262,53 +238,6 @@ kubectl get secret app-secrets -n fitness-platform-production
 
 ---
 
-## CI/CD Integration
-
-```yaml
-# .github/workflows/terraform.yml
-name: Terraform
-on:
-  pull_request:
-    paths: ['terraform/**']
-  push:
-    branches: [main]
-    paths: ['terraform/**']
-
-jobs:
-  terraform:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.0
-      
-      - name: Terraform Format
-        run: terraform fmt -check -recursive
-      
-      - name: Terraform Init
-        run: terraform init
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-      
-      - name: Terraform Plan
-        run: terraform plan -var-file="environments/${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}.tfvars"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-      
-      - name: Terraform Apply (main only)
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve -var-file="environments/production.tfvars"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
-```
-
 ---
 
 ## Cost Breakdown (100% Free Stack)
@@ -335,16 +264,3 @@ jobs:
 3. Deploy `postgres-secretstore.yaml`
 4. Test secret sync
 5. Decommission AWS SecretStore
-
-### Phase 2: Terraform on Existing k3s (2-3 days)
-
-1. Deploy MinIO on k3s via kubectl
-2. Configure Terraform backend to use MinIO
-3. Run `terraform init` + `terraform plan`
-4. Test state locking
-
-### Phase 3: DNS + Full IaC (1 week)
-
-1. Add DNS module (Cloudflare or DuckDNS)
-2. Migrate existing bash scripts to Terraform
-3. Add CI/CD integration

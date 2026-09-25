@@ -1,4 +1,4 @@
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag tf-init tf-plan tf-apply tf-fmt
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
 BIN_DIR := bin
 GO_VERSION := 1.27.0
 
@@ -95,22 +95,9 @@ frontend-test:
 	@echo "Frontend tests complete."
 
 frontend-build:
-	@echo "Building frontend..."
-	@npm --prefix web run build
-	@echo "Frontend build complete."
-
-tf-init:
-	cd terraform && terraform init
-
-tf-fmt:
-	cd terraform && terraform fmt -check -recursive
-
-tf-plan:
-	cd terraform && terraform plan -var-file="production.tfvars"
-
-tf-apply:
-	cd terraform && terraform apply -var-file="production.tfvars"
-
+ 	@echo "Building frontend..."
+ 	@npm --prefix web run build
+ 	@echo "Frontend build complete."
 
 help:
 	@echo "Available commands:"

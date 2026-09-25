@@ -63,11 +63,11 @@
         "noSvgWithoutTitle": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "off",
+        "useExhaustiveDependencies": "error",
         "noInvalidUseBeforeDeclaration": "off"
       },
       "security": {
-        "noDangerouslySetInnerHtml": "off"
+        "noDangerouslySetInnerHtml": "warn"
       },
       "complexity": {
         "noImportantStyles": "off"

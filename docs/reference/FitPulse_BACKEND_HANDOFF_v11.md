@@ -95,7 +95,7 @@
 
 ### Инфраструктура
 
-- [ ] Проверить актуальность `terraform/`, `configs/k8s/`, `.github/workflows/ci.yml`, `docker-compose.yml`.
+- [ ] Проверить актуальность `configs/k8s/`, `.github/workflows/ci.yml`, `docker-compose.yml`.
 - [ ] Проверить Dependabot, Alertmanager, мониторинг.
 
 ## Актуальное состояние фронтенда
