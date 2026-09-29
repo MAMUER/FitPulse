@@ -26,7 +26,7 @@ plotly>=5.10.0,<6
 # Inference optimization
 onnxruntime>=1.29.0
 optimum>=2.3.0
-onnxscript>=0.7.1
+onnxscript>=0.7.2
 onnx>=1.22.0
 
 # Async messaging
