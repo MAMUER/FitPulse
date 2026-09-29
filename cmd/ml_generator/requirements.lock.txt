@@ -208,7 +208,7 @@ onnx-ir==1.0.0
     # via onnxscript
 onnxruntime==1.29.0
     # via -r requirements.txt
-onnxscript==0.7.1
+onnxscript==0.7.2
     # via -r requirements.txt
 opentelemetry-api==1.44.0
     # via wandb
