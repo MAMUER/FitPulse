@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/MAMUER/project/internal/apperrors"
+	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
@@ -34,11 +35,13 @@ func TestRefreshTokenRepository_GetValid_Success(t *testing.T) {
 
 	now := time.Now()
 
-	rows := sqlmock.NewRows([]string{"id", "user_id", "token", "used", "expires_at", "created_at"}).
+	tokenHash := db.BlindIndex("token-1")
+
+	rows := sqlmock.NewRows([]string{"id", "user_id", "token", "revoked", "expires_at", "created_at"}).
 		AddRow("rt-1", "user-1", "token-1", false, now.Add(24*time.Hour), now)
 
 	mock.ExpectQuery("SELECT id").
-		WithArgs("token-1").
+		WithArgs(tokenHash).
 		WillReturnRows(rows)
 
 	result, err := repo.GetValid(ctx, "token-1")
@@ -61,8 +64,10 @@ func TestRefreshTokenRepository_GetValid_NotFound(t *testing.T) {
 
 	ctx := context.Background()
 
+	tokenHash := db.BlindIndex("token-1")
+
 	mock.ExpectQuery("SELECT id").
-		WithArgs("token-1").
+		WithArgs(tokenHash).
 		WillReturnError(sql.ErrNoRows)
 
 	result, err := repo.GetValid(ctx, "token-1")
@@ -112,8 +117,10 @@ func TestRefreshTokenRepository_Create_Success(t *testing.T) {
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 
+	tokenHash := db.BlindIndex("token-1")
+
 	mock.ExpectExec("INSERT INTO refresh_tokens").
-		WithArgs("user-1", "token-1", rt.ExpiresAt).
+		WithArgs(tokenHash, "token-1", sqlmock.AnyArg(), "user-1", rt.ExpiresAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Create(ctx, rt)
@@ -148,8 +155,10 @@ func TestRefreshTokenRepository_MarkUsed_Success(t *testing.T) {
 
 	ctx := context.Background()
 
+	tokenHash := db.BlindIndex("token-1")
+
 	mock.ExpectExec("UPDATE refresh_tokens").
-		WithArgs("token-1").
+		WithArgs(tokenHash).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.MarkUsed(ctx, "token-1")

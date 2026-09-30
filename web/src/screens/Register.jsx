@@ -57,6 +57,21 @@ export default function Register() {
           </button>
         </span>
       </label>
+      <label className='consent-row'>
+        <input id='regConsentSpecial' type='checkbox' />{' '}
+        <span>
+          {t(
+            'Я даю согласие на обработку специальных категорий персональных данных (сведения о здоровье, менструальном цикле) в соответствии с Политикой конфиденциальности.',
+            'I consent to the processing of special categories of personal data (health information, menstrual cycle) in accordance with the Privacy Policy.'
+          )}
+        </span>
+      </label>
+      <p className='medical-disclaimer'>
+        {t(
+          'Это не медицинский совет. При заболеваниях или травмах consult врача.',
+          'This is not medical advice. Consult a doctor if you have medical conditions or injuries.'
+        )}
+      </p>
       <button type='button' className='primary full' onClick={doRegister}>
         {t('Зарегистрироваться', 'Register')}
       </button>

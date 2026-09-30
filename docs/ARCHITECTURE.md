@@ -15,9 +15,11 @@
 │   ├── gateway/                      # HTTP/gRPC gateway
 │   ├── user-service/                 # Users, auth, profile
 │   ├── biometric-service/            # Biometric data ingestion + Open Wearables webhook
-│   ├── classifier/                   # Classifier service
-│   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
-│   └── data-processor/               # Background data processing (in repo, not deployed standalone)
+│   ├── classifier/                   # Classifier service (rule-based, Phase 1)
+│   ├── ml_generator/                 # ML plan generator service (Python/FastAPI, Phase 1 production)
+│   ├── data-processor/               # Background data processing (RabbitMQ consumer, Phase 1 production)
+│   ├── device-aggregator/            # Open Wearables webhook-forwarder (Phase 1 production)
+│   └── admin-cli/                    # CLI tool for administration (Vault, PostgreSQL, invites)
 ├── configs/
 │   └── k8s/
 │       ├── base/

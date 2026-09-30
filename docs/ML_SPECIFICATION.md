@@ -1,11 +1,15 @@
 # FitPulse — ML/GAN Спецификация
 
+> **Status:** This document describes the ML architecture of FitPulse.
+> **Phase 1 (production):** Rule-based classifier (Go) + Conditional Diffusion Model (DDPM) for plan generation (Python/FastAPI). DVC pipeline initialized.
+> **Phase 2:** Daily adaptive plan retrain, model versioning, canary rollout.
+
 ## Обзор
 
 FitPulse использует два компонента:
 
-1. **Classifier** — правила-на-основе классификация состояния пользователя, реализованная на Go. Работает только с биометрическими данными с носимых устройств.
-2. **Generator (Conditional Diffusion Model)** — генерация индивидуальных тренировочных планов с учётом полного профиля пользователя. Реализован на Python (PyTorch + Lightning, inference через ONNX Runtime).
+1. **Classifier** — правила-на-основе классификация состояния пользователя, реализованная на Go. Работает только с биометрическими данными с носимых устройств. **Phase 1 production.**
+2. **Generator (Conditional Diffusion Model)** — генерация индивидуальных тренировочных планов с учётом полного профиля пользователя. Реализован на Python (PyTorch + Lightning, inference через ONNX Runtime). **Phase 1 production.**
 
 Генерация плана использует 3-tier fallback:
 

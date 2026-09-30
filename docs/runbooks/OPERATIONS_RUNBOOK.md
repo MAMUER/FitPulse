@@ -134,23 +134,29 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 
 1. **Проверить логи job'ы бэкапа**
 
-   ```bash
-   kubectl get pods -n fitness-platform-production -l job-name=backup
-   kubectl logs -f backup-job -n fitness-platform-production
-   ```
+    ```bash
+    kubectl get pods -n fitness-platform-production -l job-name=backup
+    kubectl logs -f backup-job -n fitness-platform-production
+    ```
 
-2. **Проверить свободное место**
+2. **Проверить доступность MinIO**
 
-   ```bash
-   df -h /var/lib/postgresql/data
-   ```
+    ```bash
+    curl -s http://minio.minio.svc.cluster.local:9000/minio/health/ready
+    ```
 
 3. **Запустить бэкап вручную**
 
-   ```bash
-   kubectl exec -n fitness-platform-production postgres-0 -- \
-     pg_dump -U postgres -d fitness -F c > /tmp/fitness-manual-$(date +%Y%m%d_%H%M%S).dump
-   ```
+    ```bash
+    # Скрипт бэкапа с MinIO backend
+    bash scripts/backup-db-with-minio.sh
+    ```
+
+4. **Проверить, что бэкап попал в MinIO**
+
+    ```bash
+    curl -s http://minio.minio.svc.cluster.local:9000/minio/mybucket/ -u "$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY"
+    ```
 
 ---
 
@@ -234,7 +240,7 @@ Password: ${GRAFANA_ADMIN_PASSWORD}
 
 ## Восстановление данных
 
-### PostgreSQL: восстановление из pg_dump
+### PostgreSQL: восстановление из бэкапа (MinIO)
 
 ```bash
 # 1. Остановить текущий инстанс PostgreSQL
@@ -252,22 +258,24 @@ psql -h localhost -U postgres -d fitness \
 kubectl scale deployment/postgres --replicas=1 -n fitness-platform-production
 ```
 
-### Восстановление из WAL-архива (PITR)
+### Восстановление из WAL-архива (PITR, MinIO)
 
 ```bash
-# 1. Скачать последний бэкап из S3/MinIO
-aws --endpoint-url http://minio.minio.svc.cluster.local:9000 \
-  s3 cp s3://postgres-backups/backup-fitness-LATEST.dump.enc /tmp/backup.dump.enc
+# 1. Скачать последний бэкап из MinIO
+curl -s http://minio.minio.svc.cluster.local:9000/minio/mybucket/backup-fitness-LATEST.dump.enc \
+  -u "$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY" -o /tmp/backup.dump.enc
 
 # 2. Расшифровать бэкап
 openssl enc -d -aes-256-cbc -salt -pbkdf2 \
   -pass pass:"$BACKUP_KEY" \
   -in /tmp/backup.dump.enc -out /tmp/backup.dump
 
-# 3. Скачать WAL-файлы
+# 3. Скачать WAL-файлы из MinIO
 mkdir -p /tmp/wal-recovery
-aws --endpoint-url http://minio.minio.svc.cluster.local:9000 \
-  s3 sync s3://postgres-wal-archive/wal/ /tmp/wal-recovery/
+curl -s http://minio.minio.svc.cluster.local:9000/minio/mybucket/wal/ -u "$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY" \
+  | grep -o 'href="[^"]*"' | cut -d'"' -f2 | while read wal; do
+    curl -s "http://minio.minio.svc.cluster.local:9000${wal}" -o "/tmp/wal-recovery/$(basename $wal)"
+  done
 
 # 4. Восстановить в clone-окружении
 initdb -D /tmp/clone_pgdata
@@ -289,32 +297,33 @@ pg_ctl -D /tmp/clone_pgdata promote
 
 1. **Подготовка** (за 1 неделю до drill):
    - Уведомить команду о предстоящем drill
-   - Проверить наличие свежего бэкапа (< 24 часов)
-   - Проверить доступность MinIO/S3 хранилища
+   - Проверить наличие свежего бэкапа (< 24 часов) в MinIO
+   - Проверить доступность MinIO (`curl -s http://minio.minio.svc.cluster.local:9000/minio/health/ready`)
    - Подготовить clone-окружение (отдельный namespace или cluster)
 
 2. **Выполнение drill**:
-   ```bash
-   # Запустить chaos test suite
-   bash scripts/chaos-test-all.sh fitness-platform-production
-   
-   # Или выполнить вручную:
-   # 1. Остановить PostgreSQL
-   kubectl scale deployment/postgres --replicas=0 -n fitness-platform-production
-   
-   # 2. Восстановить из бэкапа в clone-среде
-   bash scripts/restore-to-clone.sh s3://postgres-backups/backup-fitness-LATEST.dump.enc
-   
-   # 3. Проверить целостность данных
-   psql -h clone-postgres -U postgres -d fitness -c "SELECT COUNT(*) FROM users;"
-   
-   # 4. Замерить время восстановления (RTO)
-   # 5. Проверить RPO (потеря данных = время последнего бэкапа)
-   ```
+
+    ```bash
+    # Запустить chaos test suite
+    bash scripts/chaos-test-all.sh fitness-platform-production
+    
+    # Или выполнить вручную:
+    # 1. Остановить PostgreSQL
+    kubectl scale deployment/postgres --replicas=0 -n fitness-platform-production
+    
+    # 2. Восстановить из бэкапа в clone-среде
+    bash scripts/restore-to-clone.sh minio://mybucket/backup-fitness-LATEST.dump.enc
+    
+    # 3. Проверить целостность данных
+    psql -h clone-postgres -U postgres -d fitness -c "SELECT COUNT(*) FROM users;"
+    
+    # 4. Замерить время восстановления (RTO)
+    # 5. Проверить RPO (потеря данных = время последнего бэкапа)
+    ```
 
 3. **Критерии успеха**:
    - ✅ RTO < 1 часа
-   - ✅ RPO < 24 часа (с WAL-архивацией)
+   - ✅ RPO < 24 часа (с WAL-архивацией в MinIO)
    - ✅ Данные целостны (проверка по контрольным суммам)
    - ✅ Сервис доступен после восстановления
 
@@ -332,12 +341,14 @@ pg_ctl -D /tmp/clone_pgdata promote
 
 ## Контакты и эскалация
 
-- **Tech Lead**: [tech-lead@fittpulse.ru](mailto:tech-lead@fittpulse.ru)
-- **CTO**: [cto@fittpulse.ru](mailto:cto@fittpulse.ru) (только SEV-1, эскалация после 15 мин)
+- **Tech Lead**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru)
+- **CTO**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru) (только SEV-1, эскалация после 15 мин)
 
 ---
 
 ## Справочник сервисов
+
+> Канонический список сервисов и endpoints: см. `INCIDENT_RESPONSE.md` → «Работа с новыми сервисами».
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
@@ -346,6 +357,28 @@ pg_ctl -D /tmp/clone_pgdata promote
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
 |ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
+|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8084/health`|`kubectl logs -f deployment=device-aggregator`|
+|Data Processor|`app=data-processor`|gRPC health|`kubectl logs -f deployment/data-processor`|
+|Admin CLI|`app=admin-cli`|CLI tool (no HTTP health)|N/A (client-side)|
+|Valkey|`app=valkey`|`http://valkey:6379/health` или `redis-cli ping`|`kubectl logs -f deployment/valkey`|
+|RabbitMQ|`app=rabbitmq`|`http://rabbitmq:15672/health`|`kubectl logs -f statefulset/rabbitmq`|
+
+---
+
+## Quarterly Access Review
+
+Процедура quarterly access review описана в отдельном runbook: `docs/runbooks/QUARTERLY_ACCESS_REVIEW.md`.
+
+Проверяйте доступы к:
+
+- Kubernetes RBAC (ServiceAccounts, Roles, RoleBindings)
+- PostgreSQL roles
+- Vault policies и токены
+- GitHub collaborators
+- CI/CD secrets
+- Grafana/Alertmanager/Prometheus
+- Valkey (ключи, TTL)
+- RabbitMQ (пользователи, очереди)
 
 ---
 

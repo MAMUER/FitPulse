@@ -9,21 +9,22 @@
 ## Stack Components (All Free, No Card Required)
 
 | Layer | Component | License | Cost | Card Required? |
-| ------- | ----------- | --------- | ------ | ---------------- |
+| --- | --- | --- | --- | --- |
 | **IaC** | Kubernetes manifests | — | Free | ❌ No |
-| **State Backend** | MinIO (S3-compatible) | AGPL-3.0 | Free | ❌ No |
 | **VPS** | Existing VPS (k3s already running) | — | Already paid | ❌ No |
 | **Kubernetes** | k3s | Apache-2.0 | Free | ❌ No |
-| **Secrets** | External Secrets Operator + PostgreSQL | Apache-2.0 | Free | ❌ No |
+| **Secrets** | Vault + External Secrets Operator | Apache-2.0 / BUSL-2.0 | Free | ❌ No |
 | **DNS** | DuckDNS / Cloudflare | — | Free | ❌ No |
 | **CI/CD** | GitHub Actions | — | Free tier | ❌ No |
 | **Monitoring** | Prometheus + Grafana + Alertmanager | Apache-2.0 | Free | ❌ No |
-| **Logging** | Loki + Fluent Bit | AGPL-3.0 / MIT | Free | ❌ No |
 | **Tracing** | Jaeger + OpenTelemetry | Apache-2.0 | Free | ❌ No |
 | **Database** | PostgreSQL 18 + pgsodium | PostgreSQL License | Free | ❌ No |
 | **Cache** | Valkey (Redis fork) | BSD-3-Clause | Free | ❌ No |
 | **MQ** | RabbitMQ | MPL-2.0 | Free | ❌ No |
 | **Container** | Docker / BuildKit | Apache-2.0 | Free | ❌ No |
+| **TLS** | cert-manager + Let's Encrypt | Apache-2.0 | Free | ❌ No |
+| **WAF** | Ingress NGINX + ModSecurity CRS v4 | Apache-2.0 | Free | ❌ No |
+| **Backup** | MinIO (S3-compatible) | AGPL-3.0 | Free | ❌ No |
 
 ---
 
@@ -33,23 +34,25 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        INTERNET / USERS                         │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS
-                             ▼
+                              │ HTTPS
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  DuckDNS / Cloudflare (free DNS, no card required)              │
-│  fittpulse.ru → <VPS_IP>                              │
+│  fittpulse.ru → <VPS_IP>                                       │
 └────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Existing VPS (k3s already running)                             │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  k3s cluster (1 node, production)                         │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  MinIO (S3-compatible)                              │  │  │
-│  │  │  - Bucket: fitpulse-minio-state                  │  │  │
-│  │  │  - Bucket: fitpulse-ml-models                       │  │  │
 │  │  │  - Bucket: fitpulse-db-backups                      │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │  Vault                                              │  │  │
+│  │  │  - SecretStore для External Secrets Operator        │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  PostgreSQL 18 + pgsodium                           │  │  │
@@ -67,16 +70,16 @@
 │  │  │  (gRPC)      │  │  (HTTP)      │  │  (Python/FastAPI)│ │  │
 │  │  └──────────────┘  └──────────────┘  └────────────────┘ │  │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐ │  │
-│  │  │ Device Aggr  │  │ Open Wearables│  │ Valkey         │ │  │
-│  │  │  (HTTP)      │  │  Frontend     │  │  (Cache/Session)│ │  │
+│  │  │ Device Aggr  │  │ Admin CLI    │  │ Valkey         │ │  │
+│  │  │  (HTTP)      │  │  (CLI)       │  │  (Cache/Session)│ │  │
 │  │  └──────────────┘  └──────────────┘  └────────────────┘ │  │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐ │  │
 │  │  │ RabbitMQ     │  │ Prometheus   │  │ Grafana        │ │  │
 │  │  │  (Queue)     │  │  (Metrics)   │  │  (Dashboards)  │ │  │
 │  │  └──────────────┘  └──────────────┘  └────────────────┘ │  │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐ │  │
-│  │  │ Alertmanager │  │ Loki         │  │ Jaeger         │ │  │
-│  │  │  (Alerts)    │  │  (Logs)      │  │  (Traces)      │ │  │
+│  │  │ Alertmanager │  │ Jaeger       │  │ cert-manager   │ │  │
+│  │  │  (Alerts)    │  │  (Traces)    │  │  (TLS)         │ │  │
 │  │  └──────────────┘  └──────────────┘  └────────────────┘ │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
@@ -88,18 +91,19 @@
 
 ### Current State
 
-- External Secrets Operator already deployed
-- AWS Secrets Manager is current backend (paywalled after first year)
+- Vault deployed в `configs/k8s/base/vault/`
+- External Secrets Operator deployed, использует PostgreSQL backend (таблица `external_secrets`)
+- Секреты синхронизируются из Vault → External Secrets → Kubernetes Secret `app-secrets`
 
-### Target State (100% free)
+### Flow
 
 ```text
-PostgreSQL table `external_secrets`
-        ↓
+Vault (SecretStore)
+         ↓
 External Secrets Operator (PostgreSQL provider)
-        ↓
+         ↓
 Kubernetes Secret `app-secrets`
-        ↓
+         ↓
 Приложения (env vars from mounted secret)
 ```
 
@@ -107,9 +111,14 @@ Kubernetes Secret `app-secrets`
 
 ## How to Get Each Secret (No Credit Card Required)
 
-### HCLOUD_TOKEN — NOT NEEDED ANYMORE
+### Vault Root Token / Unseal Key
 
-VPS is already provisioned. No Terraform-managed VPS provisioning is used.
+**Source:** Генерируется при первом запуске Vault.
+
+```bash
+# Vault уже развёрнут. Храните unseal key и root token в безопасном месте.
+# Не храните в репозитории.
+```
 
 ### MINIO_ACCESS_KEY / MINIO_SECRET_KEY
 
@@ -124,9 +133,10 @@ openssl rand -base64 24   # SECRET_KEY
 MINIO_ACCESS_KEY="fitpulse-admin"
 MINIO_SECRET_KEY="REPLACE_WITH_REAL_MINIO_SECRET_KEY"
 
-# Add to GitHub Secrets:
-# MINIO_ACCESS_KEY → generated value
-# MINIO_SECRET_KEY → generated value
+# Add to Vault:
+vault kv put secret/minio \
+  access_key="$MINIO_ACCESS_KEY" \
+  secret_key="$MINIO_SECRET_KEY"
 ```
 
 ### EXTERNAL_SECRETS_DB_PASSWORD
@@ -141,8 +151,9 @@ openssl rand -base64 32
 psql -h postgres-service -U postgres -f scripts/ci/setup-external-secrets-db.sh
 # Replace REPLACE_WITH_REAL_PASSWORD in the script with generated value
 
-# Add to GitHub Secrets:
-# EXTERNAL_SECRETS_DB_PASSWORD → generated value
+# Add to Vault:
+vault kv put secret/external-secrets \
+  db_password="<generated-password>"
 ```
 
 ### KUBECONFIG_DATA
@@ -172,8 +183,8 @@ cat ~/.kube/config | base64 -w 0
 # 4. Use template "Edit zone DNS"
 # 5. Select your domain
 # 6. Create token
-# 7. Add to GitHub Secrets:
-#    CLOUDFLARE_API_TOKEN → token value
+# 7. Add to Vault:
+vault kv put secret/cloudflare api_token="<token>"
 ```
 
 ---
@@ -183,47 +194,18 @@ cat ~/.kube/config | base64 -w 0
 ### What Changed
 
 - ❌ Removed: Terraform-based VPS provisioning
-- ❌ Removed: Terraform modules for k8s/db/vault/vps
-- ✅ Added: Direct kubectl apply of manifests
-- ✅ Added: Deploy MinIO on existing k3s
-- ✅ Added: Manage DNS records via Cloudflare
-- ✅ Added: PostgreSQL External Secrets backend
-
----
-
-## Secrets Migration from AWS to PostgreSQL
-
-### Step 1: Apply migrations
-
-```bash
-kubectl apply -f db/migrations/V4__external_secrets_schema.sql
-kubectl apply -f db/migrations/V5__external_secrets_seed.sql
-```
-
-### Step 2: Create PostgreSQL user
-
-```bash
-psql -h postgres-service -U postgres -f scripts/ci/setup-external-secrets-db.sh
-```
-
-### Step 3: Update External Secrets Operator
-
-```bash
-# Deploy new ClusterSecretStore (PostgreSQL backend)
-kubectl apply -f configs/k8s/base/external-secrets/postgres-secretstore.yaml
-kubectl apply -f configs/k8s/base/external-secrets/db-credentials-secret.yaml
-
-# Verify sync
-kubectl get externalsecret -n fitness-platform-production
-kubectl get secret app-secrets -n fitness-platform-production
-```
+- ❌ Removed: AWS Secrets Manager
+- ✅ Added: Vault + External Secrets Operator
+- ✅ Added: cert-manager для TLS
+- ✅ Added: MinIO для бэкапов
+- ✅ Added: WAF (Ingress NGINX + ModSecurity CRS v4)
 
 ---
 
 ## GitHub Secrets — Full List (No Card Required)
 
 | Secret Name | Value | Source | Card Required? |
-| ------------- | ------- | -------- | ---------------- |
+| --- | --- | --- | --- |
 | `KUBECONFIG_DATA` | base64 kubeconfig | Existing k3s cluster | ❌ No |
 | `MINIO_ACCESS_KEY` | MinIO root user | You generate | ❌ No |
 | `MINIO_SECRET_KEY` | MinIO root password | You generate | ❌ No |
@@ -232,12 +214,10 @@ kubectl get secret app-secrets -n fitness-platform-production
 
 ---
 
----
-
 ## Cost Breakdown (100% Free Stack)
 
 | Component | Monthly Cost | Card Required? |
-| ----------- | ------------- | ---------------- |
+| --- | --- | --- |
 | Existing VPS (k3s) | €4 | Already paid |
 | MinIO | €0 | ❌ No |
 | PostgreSQL | €0 | ❌ No |
@@ -248,12 +228,11 @@ kubectl get secret app-secrets -n fitness-platform-production
 
 ---
 
-## Implementation Priority
+## Implementation Notes
 
-### Phase 1: Free Secrets Backend (1-2 days)
-
-1. Apply V4 + V5 migrations
-2. Create `external_secrets` PostgreSQL user
-3. Deploy `postgres-secretstore.yaml`
-4. Test secret sync
-5. Decommission AWS SecretStore
+- Все секреты хранятся в Vault, синхронизируются через External Secrets Operator
+- MinIO используется для бэкапов PostgreSQL (ежедневно через CronJob)
+- cert-manager автоматически выписывает TLS-сертификаты через Let's Encrypt
+- WAF (ModSecurity CRS v4) защищает от OWASP Top 10
+- Valkey используется для сессий, rate limiting, TOTP cache
+- RabbitMQ используется для очередей биометрических событий с DLQ

@@ -5,6 +5,7 @@ import Body from './screens/Body';
 import Calendar from './screens/Calendar';
 import Chat from './screens/Chat';
 import Confirm from './screens/Confirm';
+import CookieConsent from './components/CookieConsent';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
 import Landing from './screens/Landing';
@@ -103,6 +104,7 @@ export default function App() {
         <Route path='/confirm' element={<Confirm />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
+      <CookieConsent />
       <TabBar />
     </>
   );

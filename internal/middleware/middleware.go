@@ -41,19 +41,24 @@ func RequestID(next http.Handler) http.Handler {
 func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var token string
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				log.Debug("Missing authorization header", zap.String("path", sanitizeLogValue(r.URL.Path)))
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+					token = parts[1]
+				}
+			}
+			if token == "" {
+				if cookie, err := r.Cookie("fitpulse-access-token"); err == nil {
+					token = cookie.Value
+				}
+			}
+			if token == "" {
+				log.Debug("Missing authorization header and access token cookie", zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				log.Debug("Invalid authorization format")
-				http.Error(w, msgNotFound, http.StatusNotFound)
-				return
-			}
-			token := parts[1]
 			claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
 				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))

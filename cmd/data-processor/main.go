@@ -144,6 +144,9 @@ func run(ctx context.Context, log *logger.Logger) error {
 	}
 	defer func() { _ = consumer.Close() }()
 
+	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), "biometric_events")
+	defer stopDepthReporter()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {

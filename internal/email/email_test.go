@@ -38,7 +38,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 
 	assert.Equal(t, 1025, cfg.Port)
 
-	assert.Equal(t, "noreply@fittpulse.ru", cfg.From)
+	assert.Equal(t, "mihnikolaenko12@yandex.ru", cfg.From)
 
 	assert.True(t, cfg.UseTLS)
 

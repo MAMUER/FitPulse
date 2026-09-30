@@ -462,3 +462,9 @@ func StartDepthReporter(ctx context.Context, ch *amqp.Channel, queueName string,
 
 	return func() { close(done) }
 }
+
+func (c *rabbitConsumer) Channel() *amqp.Channel {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.channel
+}

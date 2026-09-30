@@ -217,7 +217,18 @@ func TestLoginHandler_Success(t *testing.T) {
 	g.loginHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "access_token")
+
+	cookies := w.Result().Cookies()
+	var accessCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == "fitpulse-access-token" {
+			accessCookie = c
+			break
+		}
+	}
+	assert.NotNil(t, accessCookie, "fitpulse-access-token cookie should be set")
+	assert.True(t, accessCookie.HttpOnly)
+	assert.Equal(t, http.SameSiteStrictMode, accessCookie.SameSite)
 }
 
 func TestLoginHandler_InvalidJSON(t *testing.T) {

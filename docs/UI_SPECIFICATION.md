@@ -243,6 +243,44 @@ Dark high-contrast overrides are also defined via `[data-theme="dark"][data-high
 - Privacy policy, terms of use, personal data agreement.
 - Back button returns to previous screen.
 
+### 3.14. Cookie Consent
+
+**File:** `web/src/components/CookieConsent.jsx`
+
+- Fixed banner at bottom of screen.
+- Text: "Мы используем файлы cookie для улучшения работы сервиса. Продолжая использовать FitPulse, вы соглашаетесь с нашей Политикой конфиденциальности."
+- Actions: «Принять» (accept), «Отклонить» (decline).
+- State: `localStorage.getItem('cookie-consent')` → `'accepted'` | `'declined'`.
+- Accessibility: `role="dialog"`, `aria-label="Cookie consent"`.
+- Does not block scrolling; `position: fixed` at bottom.
+
+### 3.15. Medical Disclaimer
+
+**File:** Inline in `web/src/screens/Body.jsx`, `web/src/screens/Register.jsx`
+
+- Text: "Это не медицинский совет. При заболеваниях или травмах consult врача."
+- Styling: yellow-ish background (`#fff3cd33`), border (`#ffc10755`), rounded corners.
+- Accessibility: `role="note"`, `aria-live="polite"`.
+- High contrast mode: applies high-contrast colors.
+- Does not auto-dismiss; user must explicitly proceed.
+
+### 3.16. Special Category Consent (Register)
+
+**File:** `web/src/screens/Register.jsx`
+
+- Checkbox: "Я даю согласие на обработку специальных категорий персональных данных (сведения о здоровье, менструальном цикле) в соответствии с Политикой конфиденциальности."
+- Required for registration (cannot proceed without checking).
+- Accessibility: `aria-describedby` linked to consent text.
+
+### 3.17. Real-time Metrics & ARIA Live
+
+**File:** `web/src/screens/Home.jsx`, `web/src/screens/Body.jsx`
+
+- Metric updates (pulse, SpO2, etc.) announced via `aria-live="polite"` regions.
+- Toasts: `role="status"`, `aria-live="polite"`, `aria-atomic="true"`.
+- Loading states: `role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`.
+- Error messages: `role="alert"`, `aria-live="assertive"`.
+
 ---
 
 ## 4. State management

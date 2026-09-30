@@ -27,11 +27,18 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.dev.set_exc_info,
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.dev.ConsoleRenderer(),
+        add_global_fields,
+        structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
 )
 logger = structlog.get_logger()
+
+
+def add_global_fields(logger, method_name, event_dict):
+    event_dict.setdefault("service", "ml-generator")
+    event_dict.setdefault("action", method_name)
+    return event_dict
 
 # Prometheus metrics
 classification_confidence = Gauge(

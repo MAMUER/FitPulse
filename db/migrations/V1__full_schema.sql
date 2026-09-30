@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     nickname_nonce          BYTEA,
     nickname_hash           VARCHAR(64),
     profile_photo_url       VARCHAR(500),
+    profile_photo_url_encrypted BYTEA,
+    profile_photo_url_nonce BYTEA,
     role                    VARCHAR(50) NOT NULL DEFAULT 'client'
                                 CHECK (role IN ('client', 'admin')),
     email_confirmed         BOOLEAN NOT NULL DEFAULT FALSE,
@@ -61,16 +63,19 @@ CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(u
 
 -- ===================== Refresh Tokens =====================
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    token       VARCHAR(255) UNIQUE NOT NULL,
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    revoked     BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_hash      VARCHAR(64) UNIQUE NOT NULL,
+    token_encrypted BYTEA,
+    token_nonce     BYTEA,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    revoked         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
 -- Fix: rename legacy "used" column to "revoked" if it exists from old init-db.sql
 DO $$
@@ -339,51 +344,6 @@ CREATE TABLE IF NOT EXISTS user_menstrual_moods (
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_cycles_user ON user_menstrual_cycles(user_id, cycle_start_date DESC);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_symptoms_cycle ON user_menstrual_symptoms(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_moods_cycle ON user_menstrual_moods(cycle_id);
-
--- ===================== Device Providers / OAuth =====================
-CREATE TABLE IF NOT EXISTS oauth_states (
-    state       VARCHAR(255) PRIMARY KEY,
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider    VARCHAR(50) NOT NULL,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
-
-CREATE TABLE IF NOT EXISTS device_provider_accounts (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider                VARCHAR(50) NOT NULL,
-    provider_user_id        VARCHAR(255) NOT NULL,
-    access_token            TEXT NOT NULL,
-    refresh_token           TEXT,
-    token_expires_at        TIMESTAMPTZ,
-    scopes                  TEXT[],
-    webhook_subscription_id VARCHAR(255),
-    last_sync_at            TIMESTAMPTZ,
-    is_active               BOOLEAN DEFAULT TRUE,
-    created_at              TIMESTAMPTZ DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, provider)
-);
-
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_user ON device_provider_accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON device_provider_accounts(provider);
-
-CREATE TABLE IF NOT EXISTS device_sync_log (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider_account_id UUID REFERENCES device_provider_accounts(id) ON DELETE CASCADE,
-    sync_type           VARCHAR(50) NOT NULL,
-    records_count       INT DEFAULT 0,
-    started_at          TIMESTAMPTZ DEFAULT NOW(),
-    completed_at        TIMESTAMPTZ,
-    status              VARCHAR(20) DEFAULT 'pending',
-    error_message       TEXT,
-    created_at          TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
 
 -- ===================== Biometric Dedup =====================
 ALTER TABLE biometric_data

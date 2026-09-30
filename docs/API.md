@@ -4,11 +4,7 @@
 
 ## Аутентификация
 
-Все защищённые запросы требуют JWT access token (ES256, ECDSA P-256) в заголовке:
-
-```text
-Authorization: Bearer <access_token>
-```
+Все защищённые запросы требуют JWT access token (ES256, ECDSA P-256). Токен передаётся через HttpOnly cookie `fitpulse-access-token` с `Secure`, `SameSite=Strict`. Cookie отправляются автоматически браузером через `credentials: 'include'`. Fallback: токен также принимается из заголовка `Authorization: Bearer <access_token>` для совместимости.
 
 - **access_token TTL**: 15 минут
 - **refresh_token TTL**: 7 дней (Absolute Timeout, после требуется повторный login). Реализована rotation (один раз на использование) и reuse detection (инвалидация всей сессии при попытке повторного использования отозванного токена).
@@ -23,13 +19,13 @@ Refresh token используется для ротации через `POST /a
 |POST|`/api/v1/register`|Регистрация пользователя|`{email, password, full_name, role}`|`{status, message?}`|
 |POST|`/api/v1/register/invite`|Регистрация через invite-код|`{email, password, full_name, invite_code}`|`{status, message?}`|
 |POST|`/api/v1/invite/validate`|Валидация invite-кода|`{code}`|`{is_valid, role, specialty, error_message}`|
-|POST|`/api/v1/login`|Вход|`{email, password}`|`{status, access_token?, token_type, expires_in, requires_2fa?, temp_token?, refresh_token?, user_id?, role?}`|
+|POST|`/api/v1/login`|Вход|`{email, password}`|`{status, token_type, expires_in, requires_2fa?, temp_token?, user_id?, role?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min), `fitpulse-refresh-token` (HttpOnly, 7d)|
 |POST|`/api/v1/auth/confirm`|Подтверждение email|`{token}`|`{status, message}`|
 |GET|`/api/v1/auth/verify-status`|Проверка статуса подтверждения email|Query: `?email=`|`{email_confirmed, email}`|
-|POST|`/api/v1/auth/refresh`|Ротация refresh token|`{refresh_token}`|`{status, access_token, refresh_token, token_type, expires_in}`|
-|POST|`/api/v1/auth/2fa/verify`|Проверка TOTP после логина|`{temp_token, passcode, is_backup_code?}`|`{status, access_token, refresh_token, token_type, expires_in, backup_codes_remaining?}`|
+|POST|`/api/v1/auth/refresh`|Ротация refresh token|Cookie: `fitpulse-refresh-token`|`{status, token_type, expires_in}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min), `fitpulse-refresh-token` (HttpOnly, 7d)|
+|POST|`/api/v1/auth/2fa/verify`|Проверка TOTP после логина|`{temp_token, passcode, is_backup_code?}`|`{status, token_type, expires_in, backup_codes_remaining?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min), `fitpulse-refresh-token` (HttpOnly, 7d)|
 |GET|`/api/v1/auth/google`|Google OAuth логин|—|Redirect to Google|
-|GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, access_token?, user_id?, role?}`|
+|GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, user_id?, role?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min)|
 |POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
 |GET|`/health`|Health check|—|`200 OK`|
 |GET|`/confirm`|Страница подтверждения email (React SPA)|Query: `?token=`|HTML|
@@ -50,7 +46,20 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
 |POST|`/ml/chat`|AI-советник (классификация + план + диета)|`{message}`|`{status, classification, plan, diet}`|
+|GET|`/api/v1/health/conditions`|Список заболеваний пользователя|—|`{status, conditions: [{condition_id, condition_name, condition_type, severity, diagnosed_at, notes}]}`|
+|POST|`/api/v1/health/conditions`|Добавить заболевание|`{condition_name, condition_type, severity?, diagnosed_at?, notes?}`|`{status, condition_id}`|
+|DELETE|`/api/v1/health/conditions/{condition_id}`|Удалить заболевание|—|`{status}`|
+|GET|`/api/v1/health/menstrual-cycles`|Список менструальных циклов|Query: `?from=&to=&limit=`|`{status, cycles: [{cycle_id, cycle_start_date, cycle_end_date?, flow_intensity, symptoms, moods, created_at}]}`|
+|POST|`/api/v1/health/menstrual-cycles`|Добавить цикл|`{cycle_start_date, cycle_end_date?, flow_intensity?, symptoms?, moods?}`|`{status, cycle_id}`|
+|PUT|`/api/v1/health/menstrual-cycles/{cycle_id}`|Обновить цикл|`{cycle_start_date?, cycle_end_date?, flow_intensity?, symptoms?, moods?}`|`{status}`|
+|DELETE|`/api/v1/health/menstrual-cycles/{cycle_id}`|Удалить цикл|—|`{status}`|
+|GET|`/api/v1/health/body-composition`|Список записей состава тела|Query: `?from=&to=&limit=`|`{status, records: [{record_id, height_cm, weight_kg, bmi, body_fat_percentage, muscle_mass_percentage, water_percentage, recorded_at}]}`|
+|POST|`/api/v1/health/body-composition`|Создать запись состава тела|`{height_cm, weight_kg, body_fat_percentage?, muscle_mass_percentage?, water_percentage?, recorded_at?}`|`{status, record_id}`|
 |POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
+|GET|`/api/v1/devices/providers`|Список провайдеров устройств (Device Aggregator)|—|`{status, providers: [{provider_id, provider_name, status, last_sync_at}]}`|
+|GET|`/api/v1/devices/{device_id}/sync-status`|Статус синхронизации устройства|—|`{status, device_id, last_sync_at, sync_error?}`|
+|POST|`/api/v1/devices/{device_id}/sync`|Запустить синхронизацию устройства|—|`{status, message}`|
+|GET|`/api/v1/admin/cli/status`|Статус Admin CLI (admin)|—|`{status, cli_version, vault_connection, db_connection}`|
 |POST|`/auth/2fa/setup`|Настройка TOTP|—|`{status, qr_code_url, qr_code_base64, secret, backup_codes}`|
 |POST|`/auth/2fa/confirm`|Подтверждение TOTP|`{passcode, temp_secret?, backup_codes?}`|`{status, message}`|
 |GET|`/auth/2fa/status`|Статус TOTP|—|`{enabled, backup_codes_remaining}`|
@@ -74,6 +83,8 @@ Refresh token используется для ротации через `POST /a
 |User Service|50051|Регистрация, логин, профили, email-верификация, invite-коды, админ-операции, удаление профиля (GDPR), статус TOTP|`9096`|
 |Biometric Service|50052|Приём и хранение биометрических данных (JWT auth required)||
 |Training Service|50053|Управление тренировочными планами||
+|Device Aggregator|50054|Webhook-forwarder для Open Wearables, управление устройствами|`9097`|
+|Admin CLI|CLI|CLI-инструмент для администрирования (Vault, PostgreSQL, инвайты)|N/A|
 
 ### UserService gRPC Methods
 
@@ -217,3 +228,33 @@ Refresh token используется для ротации через `POST /a
 |GET|`/metrics`|Prometheus метрики|—|text/plain|
 
 Порты по умолчанию: `DATA_PROCESSOR_PORT=8084`, `DATA_PROCESSOR_METRICS_PORT=9092`.
+
+### Device Aggregator (`cmd/device-aggregator`)
+
+Легковесный webhook-forwarder для Open Wearables. Принимает webhook от Open Wearables, валидирует подпись, пересылает в `biometric-service`.
+
+|Метод|Путь|Описание|Входные данные|Выходные данные|
+|---|---|---|---|---|
+|GET|`/health`|Health check|—|`{"status":"healthy"}`|
+|POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
+|GET|`/api/v1/devices/providers`|Список провайдеров устройств|—|`{status, providers: [{provider_id, provider_name, status, last_sync_at}]}`|
+|GET|`/api/v1/devices/{device_id}/sync-status`|Статус синхронизации устройства|—|`{status, device_id, last_sync_at, sync_error?}`|
+|POST|`/api/v1/devices/{device_id}/sync`|Запустить синхронизацию устройства|—|`{status, message}`|
+
+Порты по умолчанию: `DEVICE_AGGREGATOR_PORT=8084`, `DEVICE_AGGREGATOR_METRICS_PORT=9093`.
+
+### Admin CLI (`cmd/admin-cli`)
+
+CLI-инструмент для администрирования. Использует Vault для аутентификации и PostgreSQL для операций.
+
+|Команда|Описание|
+|---|---|
+|`admin-cli --check-config`|Проверить конфигурацию (Vault, PostgreSQL, токены)|
+|`admin-cli --verify-vault-connection`|Проверить соединение с Vault|
+|`admin-cli --list-users`|Список пользователей|
+|`admin-cli --create-invite --role admin`|Создать invite-код|
+|`admin-cli --revoke-invite --code XYZ`|Отозвать invite-код|
+
+---
+
+**Последнее обновление**: 2026-09-30

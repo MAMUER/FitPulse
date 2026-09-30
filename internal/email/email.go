@@ -122,7 +122,7 @@ func LoadConfig() Config {
 
 		Password: config.GetEnv("SMTP_PASSWORD"),
 
-		From: config.GetEnv("SMTP_FROM", "noreply@fittpulse.ru"),
+		From: config.GetEnv("SMTP_FROM", "mihnikolaenko12@yandex.ru"),
 
 		UseTLS: config.GetEnv("SMTP_TLS", "true") == "true",
 

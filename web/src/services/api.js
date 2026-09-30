@@ -1,17 +1,10 @@
 import { backendRequest } from '../utils/backendRequest';
 
 export async function login(email, password) {
-  const data = await backendRequest('/api/v1/auth/login', {
+  return backendRequest('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  if (data?.access_token) {
-    localStorage.setItem('fitpulse-access-token', data.access_token);
-    if (data.refresh_token) {
-      localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
-    }
-  }
-  return data;
 }
 
 export async function logout() {
@@ -20,8 +13,6 @@ export async function logout() {
   } catch {
     // ignore logout errors
   }
-  localStorage.removeItem('fitpulse-access-token');
-  localStorage.removeItem('fitpulse-refresh-token');
 }
 
 export function register(email, password, confirm) {
@@ -109,12 +100,6 @@ export async function verify2FA(tempToken, passcode, isBackupCode = false) {
       is_backup_code: isBackupCode,
     }),
   });
-  if (data?.access_token) {
-    localStorage.setItem('fitpulse-access-token', data.access_token);
-    if (data?.refresh_token) {
-      localStorage.setItem('fitpulse-refresh-token', data.refresh_token);
-    }
-  }
   return data;
 }
 

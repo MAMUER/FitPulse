@@ -11,7 +11,7 @@ export function useAuth({ state, update, notify }) {
     }
     try {
       const data = await api.login(email, pass);
-      if (!data?.access_token || data?.status !== 'ok') {
+      if (data?.status !== 'ok') {
         notify('Неверный email или пароль');
         return;
       }
@@ -191,7 +191,7 @@ export function useAuth({ state, update, notify }) {
     async (tempToken, passcode, isBackupCode = false) => {
       try {
         const data = await api.verify2FA(tempToken, passcode, isBackupCode);
-        if (data?.access_token) {
+        if (data?.status === 'ok') {
           update({
             registered: true,
             guest: false,

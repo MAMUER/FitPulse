@@ -50,6 +50,12 @@ export default function Body() {
         }
       >
         <div className='panel-body'>
+          <p className='medical-disclaimer'>
+            {t(
+              'Это не медицинский совет. При заболеваниях или травмах consult врача.',
+              'This is not medical advice. Consult a doctor if you have medical conditions or injuries.'
+            )}
+          </p>
           <div className='field'>
             <label htmlFor='height'>{t('Рост, см', 'Height, cm')}</label>
             <input

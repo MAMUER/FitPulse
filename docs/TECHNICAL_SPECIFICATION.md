@@ -55,11 +55,11 @@
 |User Service|Регистрация, логин, профили, email-верификация, invite-коды|
 |Biometric Service|Приём и хранение биометрических данных|
 |Training Service|CRUD тренировочных планов, история, достижения|
-|Device Connector|Подключение и приём данных с носимых устройств|
-|Device Aggregator|OAuth/webhook агрегатор для сторонних устройств|
-|Classifier|Классификация состояния (6 классов, Go-алгоритм)|
-|ML Generator|Генерация планов (GAN, Python/FastAPI)|
-|Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer)|
+|Device Aggregator|Webhook-forwarder для Open Wearables|
+|Classifier|Классификация состояния (7 классов, Go-алгоритм, Phase 1)|
+|ML Generator|Генерация планов (Conditional Diffusion Model, Python/FastAPI, Phase 1 production)|
+|Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer, Phase 1)|
+|Admin CLI|CLI-инструмент для администрирования (Vault, PostgreSQL, invites)|
 |Gateway|Единая точка входа (REST → gRPC). Не имеет прямого доступа к БД; делегирует пользовательские/админ-операции в user-service|
 |NGINX|SSL termination, CSP, rate limiting|
 
@@ -72,6 +72,16 @@
 - валидация входных данных (gRPC status codes);
 - deduplication данных с устройств (device_id + timestamp + metric_type);
 - SAST (gosec), govulncheck, Trivy, TruffleHog, Gitleaks в CI/CD.
+
+### 4.2. Compliance & Privacy
+
+- Cookie consent banner (GDPR Art. 7)
+- Special category consent для обработки здоровья и менструального цикла (GDPR Art. 9, 152-ФЗ)
+- Medical disclaimer в UI при вводе health-данных
+- DPA с Google OAuth (трансграничная передача ПДн в США)
+- DPIA (Data Protection Impact Assessment)
+- Quarterly access review (152-ФЗ, GDPR)
+- Profile export/delete (GDPR Art. 15, 17)
 
 ### 4.3. Условия эксплуатации
 

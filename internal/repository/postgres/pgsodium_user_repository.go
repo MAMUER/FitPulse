@@ -556,7 +556,7 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 
-		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
+		getProfileQuery.WriteString(",\n               " + db.PgsodiumDecryptParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url") + ", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
 
@@ -1364,7 +1364,29 @@ func (r *PgsodiumUserRepository) UpdatePassword(ctx context.Context, userID, pas
 
 func (r *PgsodiumUserRepository) UpdateProfilePhoto(ctx context.Context, userID, photoURL string) error {
 
-	_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = $1, updated_at = NOW() WHERE id = $2", photoURL, userID)
+	var err error
+
+	if db.PgsodiumKeyID() > 0 && photoURL != "" {
+
+		nonce, nonceErr := db.GenerateNonce()
+
+		if nonceErr != nil {
+
+			return apperrors.Internal(errFailedToGenerateNonce, nonceErr)
+
+		}
+
+		_, err = r.db.ExecContext(ctx,
+
+			"UPDATE users SET profile_photo_url_encrypted = "+db.PgsodiumRandomEncryptParam(1, 2)+", profile_photo_url_nonce = $3, updated_at = NOW() WHERE id = $4",
+
+			photoURL, nonce, userID)
+
+	} else {
+
+		_, err = r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = $1, updated_at = NOW() WHERE id = $2", photoURL, userID)
+
+	}
 
 	if err != nil {
 
@@ -1378,11 +1400,25 @@ func (r *PgsodiumUserRepository) UpdateProfilePhoto(ctx context.Context, userID,
 
 func (r *PgsodiumUserRepository) RemoveProfilePhoto(ctx context.Context, userID string) error {
 
+	if db.PgsodiumKeyID() > 0 {
+
+		_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url_encrypted = NULL, profile_photo_url_nonce = NULL, updated_at = NOW() WHERE id = $1", userID)
+
+		if err != nil {
+
+			return apperrors.Internal("failed to remove profile photo", err)
+
+		}
+
+		return nil
+
+	}
+
 	_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = NULL, updated_at = NOW() WHERE id = $1", userID)
 
 	if err != nil {
 
-		return apperrors.Internal(errFailedToUpdateProfilePhoto, err)
+		return apperrors.Internal("failed to remove profile photo", err)
 
 	}
 
@@ -1515,6 +1551,10 @@ func (r *PgsodiumUserRepository) DeleteProfileData(ctx context.Context, userID s
 			nickname_nonce = NULL,
 
 			nickname_hash = NULL,
+
+			profile_photo_url_encrypted = NULL,
+
+			profile_photo_url_nonce = NULL,
 
 			profile_photo_url = NULL,
 

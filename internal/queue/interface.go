@@ -20,4 +20,5 @@ type Consumer interface {
 	Ack(tag uint64, multiple bool) error
 	Nack(tag uint64, multiple, requeue bool) error
 	Close() error
+	Channel() *amqp.Channel
 }

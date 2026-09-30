@@ -58,6 +58,16 @@ const (
 	twoFATempPrefix = "2fa_temp:"
 )
 
+func isSecureRequest(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" {
+		return true
+	}
+	return false
+}
+
 type totpRateLimiter struct {
 	limiter *rate.Limiter
 
@@ -877,40 +887,40 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	loginResp := map[string]interface{}{
-
-		"status": "ok",
-
-		"access_token": resp.GetAccessToken(),
-
-		"token_type": resp.GetTokenType(),
-
-		"expires_in": 900,
-	}
-
+	accessToken := resp.GetAccessToken()
 	refreshToken, rtErr := g.issueRefreshToken(r.Context(), resp.GetUserId())
 
+	accessCookie := &http.Cookie{
+		Name:     "fitpulse-access-token",
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   900,
+	}
+	http.SetCookie(w, accessCookie)
+
+	var refreshCookie *http.Cookie
 	if rtErr == nil {
-
-		loginResp["refresh_token"] = refreshToken
-
-	} else {
-
-		g.log.Warn("Failed to issue refresh token", zap.Error(rtErr))
-
+		refreshCookie = &http.Cookie{
+			Name:     "fitpulse-refresh-token",
+			Value:    refreshToken,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:  isSecureRequest(r),
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   7 * 24 * 60 * 60,
+		}
+		http.SetCookie(w, refreshCookie)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
-
-	if err := json.NewEncoder(w).Encode(loginResp); err != nil {
-
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-		return
-
-	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
+		"token_type": resp.GetTokenType(),
+		"expires_in": 900,
+	})
 
 }
 
@@ -960,17 +970,33 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	accessCookie := &http.Cookie{
+		Name:     "fitpulse-access-token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	}
+	http.SetCookie(w, accessCookie)
+
+	refreshCookie := &http.Cookie{
+		Name:     "fitpulse-refresh-token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	}
+	http.SetCookie(w, refreshCookie)
+
 	w.Header().Set(headerContentType, contentTypeJSON)
 
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"}); err != nil {
-
-		g.log.Error("Failed to encode logout response", zap.Error(err))
-
-		return
-
-	}
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"})
 
 }
 
@@ -1325,28 +1351,22 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
-		"status": "ok",
-
-		"access_token": grpcResp.GetAccessToken(),
-
-		"token_type": grpcResp.GetTokenType(),
-
-		"expires_in": 900,
-
-		"user_id": grpcResp.GetUserId(),
-
-		"role": grpcResp.GetRole(),
-	}); err != nil {
-
-		g.log.Error("Failed to encode Google auth response", zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-		return
-
+	accessCookie := &http.Cookie{
+		Name:     "fitpulse-access-token",
+		Value:    grpcResp.GetAccessToken(),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   900,
 	}
+	http.SetCookie(w, accessCookie)
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"user_id": grpcResp.GetUserId(),
+		"role": grpcResp.GetRole(),
+	})
 
 }
 
@@ -1690,7 +1710,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken)
 
-	token, err := g.issueJWT(r.Context(), userID)
+		accessToken, err := g.issueJWT(r.Context(), userID)
 
 	if err != nil {
 
@@ -1710,28 +1730,39 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	accessCookie := &http.Cookie{
+		Name:     "fitpulse-access-token",
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   900,
+	}
+	http.SetCookie(w, accessCookie)
+
+	var refreshCookie *http.Cookie
+	if rtErr == nil {
+		refreshCookie = &http.Cookie{
+			Name:     "fitpulse-refresh-token",
+			Value:    refreshToken,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:  isSecureRequest(r),
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   7 * 24 * 60 * 60,
+		}
+		http.SetCookie(w, refreshCookie)
+	}
+
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
-		"access_token": token,
-
-		"token_type": "Bearer",
-
-		"expires_in": 900,
-
-		"refresh_token": refreshToken,
-
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":               "ok",
+		"token_type":           "Bearer",
+		"expires_in":           900,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
-	}); err != nil {
-
-		g.log.Error("Failed to encode TOTP verify response", zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-		return
-
-	}
+	})
 
 }
 
@@ -1938,23 +1969,14 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
+	var refreshToken string
+	if cookie, err := r.Cookie("fitpulse-refresh-token"); err == nil {
+		refreshToken = cookie.Value
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if refreshToken == "" {
 
-		g.log.Error("Failed to decode refresh token request", zap.Error(err))
-
-		http.Error(w, errBadRequest, http.StatusBadRequest)
-
-		return
-
-	}
-
-	if req.RefreshToken == "" {
-
-		g.log.Error("Missing refresh_token in request")
+		g.log.Error("Missing refresh_token in cookie")
 
 		http.Error(w, "refresh_token обязателен", http.StatusBadRequest)
 
@@ -1962,7 +1984,7 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	accessToken, newRefresh, err := g.rotateRefreshToken(r.Context(), req.RefreshToken)
+	accessToken, newRefresh, err := g.rotateRefreshToken(r.Context(), refreshToken)
 
 	if err != nil {
 
@@ -1974,26 +1996,35 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	accessCookie := &http.Cookie{
+		Name:     "fitpulse-access-token",
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   900,
+	}
+	http.SetCookie(w, accessCookie)
+
+	refreshCookie := &http.Cookie{
+		Name:     "fitpulse-refresh-token",
+		Value:    newRefresh,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:  isSecureRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   7 * 24 * 60 * 60,
+	}
+	http.SetCookie(w, refreshCookie)
+
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
-		"access_token": accessToken,
-
-		"refresh_token": newRefresh,
-
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
 		"token_type": "Bearer",
-
 		"expires_in": 900,
-	}); err != nil {
-
-		g.log.Error("Failed to encode refresh response", zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-		return
-
-	}
+	})
 
 }
 

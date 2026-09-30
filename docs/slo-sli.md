@@ -126,13 +126,45 @@ p95 и p99 задержка HTTP-запросов.
 ### 8.1 SLO
 
 - MTTR (Mean Time To Recovery): < 5 минут
-- RPO (Recovery Point Objective): < 5 минут (с WAL archiving)
-- RTO (Recovery Time Objective): < 15 минут
+- RPO (Recovery Point Objective): < 5 минут (с WAL archiving, single-VPS). Phase 2 с PostgreSQL HA: RPO = 0.
+- RTO (Recovery Time Objective): < 1 час (single-VPS). Phase 2 с PostgreSQL HA: RTO < 30 секунд.
 
 ### 8.2 Измерение
 
 - Grafana dashboard: `mttr_seconds`
-- Плановые учения по восстановлению: ежемесячно
+- Плановые учения по восстановлению: ежемесячно (см. `docs/compliance/ШАБЛОН_ОТЧЁТА_RECOVERY_DRILL.md`)
+
+## 8.1 Security Events SLO
+
+| Category | SLO | Target | Status |
+| --- | --- | --- | --- |
+| Security events | Время обнаружения инцидента (MTTD) | < 5 мин | ✅/❌ |
+| Security events | Время реагирования (MTTR) для SEV-1 | < 1 час | ✅/❌ |
+| Security events | Audit log delivery lag (event → ELK) | < 5 сек | ✅/❌ |
+
+### 8.2 ML Inference SLO
+
+| Service | SLO | Target | Status |
+| --- | --- | --- | --- |
+| Classifier | P99 latency | < 500ms | ✅/❌ |
+| ML Generator | P99 latency | < 1s | ✅/❌ |
+
+### 8.3 Vault SLO
+
+| Category | SLO | Target | Status |
+| --- | --- | --- | --- |
+| Vault | Secret read availability | 99.9% | ✅/❌ |
+| Vault | Secret read P99 latency | < 200ms | ✅/❌ |
+| Vault | Vault unseal time (after restart) | < 30 сек | ✅/❌ |
+
+### 8.4 Device & Data Processor SLO
+
+| Service | SLO | Target | Status |
+| --- | --- | --- | --- |
+| Device Aggregator | Availability | 99.9% | ✅/❌ |
+| Device Aggregator | P95 latency | < 2s | ✅/❌ |
+| Data Processor | RabbitMQ consumer lag | < 1000 messages | ✅/❌ |
+| Data Processor | Processing time per message | < 500ms | ✅/❌ |
 
 ## 9. Бюджет ошибок (Error Budget Policy)
 
