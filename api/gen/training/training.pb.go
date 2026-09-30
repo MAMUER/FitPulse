@@ -24,15 +24,15 @@ const (
 )
 
 type GeneratePlanRequest struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	UserId              string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ClassificationClass string                 `protobuf:"bytes,2,opt,name=classification_class,json=classificationClass,proto3" json:"classification_class,omitempty"`
-	Confidence          float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
-	DurationWeeks       int32                  `protobuf:"varint,4,opt,name=duration_weeks,json=durationWeeks,proto3" json:"duration_weeks,omitempty"`
-	AvailableDays       []int32                `protobuf:"varint,5,rep,packed,name=available_days,json=availableDays,proto3" json:"available_days,omitempty"`
-	PlanData            *structpb.Struct       `protobuf:"bytes,6,opt,name=plan_data,json=planData,proto3" json:"plan_data,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserId         string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Classification string                 `protobuf:"bytes,2,opt,name=classification,proto3" json:"classification,omitempty"`
+	Confidence     float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	DurationWeeks  int32                  `protobuf:"varint,4,opt,name=duration_weeks,json=durationWeeks,proto3" json:"duration_weeks,omitempty"`
+	AvailableDays  []int32                `protobuf:"varint,5,rep,packed,name=available_days,json=availableDays,proto3" json:"available_days,omitempty"`
+	PlanData       *structpb.Struct       `protobuf:"bytes,6,opt,name=plan_data,json=planData,proto3" json:"plan_data,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GeneratePlanRequest) Reset() {
@@ -72,9 +72,9 @@ func (x *GeneratePlanRequest) GetUserId() string {
 	return ""
 }
 
-func (x *GeneratePlanRequest) GetClassificationClass() string {
+func (x *GeneratePlanRequest) GetClassification() string {
 	if x != nil {
-		return x.ClassificationClass
+		return x.Classification
 	}
 	return ""
 }
@@ -735,10 +735,10 @@ var File_training_proto protoreflect.FileDescriptor
 
 const file_training_proto_rawDesc = "" +
 	"\n" +
-	"\x0etraining.proto\x12\btraining\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x85\x02\n" +
+	"\x0etraining.proto\x12\btraining\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xfa\x01\n" +
 	"\x13GeneratePlanRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x121\n" +
-	"\x14classification_class\x18\x02 \x01(\tR\x13classificationClass\x12\x1e\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12&\n" +
+	"\x0eclassification\x18\x02 \x01(\tR\x0eclassification\x12\x1e\n" +
 	"\n" +
 	"confidence\x18\x03 \x01(\x01R\n" +
 	"confidence\x12%\n" +

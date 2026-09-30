@@ -103,7 +103,7 @@ func (g *gateway) executeGeneratePlan(ctx context.Context, userID string, req ge
 
 	return client.GeneratePlan(ctx, &trainingpb.GeneratePlanRequest{
 		UserId:              userID,
-		ClassificationClass: req.Class,
+		Classification: req.Class,
 		Confidence:          req.Confidence,
 		DurationWeeks:       safeIntToInt32(req.DurationWeeks),
 		AvailableDays:       availableDays,

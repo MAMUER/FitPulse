@@ -30,7 +30,7 @@ func (r *refreshTokenRepository) GetValid(ctx context.Context, token string) (*p
 
 	rt := &port.RefreshToken{}
 	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(
-		&rt.ID, &rt.UserID, &rt.Token, &rt.Used, &rt.ExpiresAt, &rt.CreatedAt,
+		&rt.ID, &rt.UserID, &rt.Token, &rt.Revoked, &rt.ExpiresAt, &rt.CreatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -59,11 +59,11 @@ func (r *refreshTokenRepository) Create(ctx context.Context, rt *port.RefreshTok
 	return nil
 }
 
-func (r *refreshTokenRepository) MarkUsed(ctx context.Context, token string) error {
+func (r *refreshTokenRepository) MarkRevoked(ctx context.Context, token string) error {
 	tokenHash := db.BlindIndex(token)
 	_, err := r.db.ExecContext(ctx, `UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = $1`, tokenHash)
 	if err != nil {
-		return apperrors.Internal("failed to mark refresh token as used", err)
+		return apperrors.Internal("failed to mark refresh token as revoked", err)
 	}
 	return nil
 }

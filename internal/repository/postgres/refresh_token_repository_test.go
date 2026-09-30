@@ -52,7 +52,7 @@ func TestRefreshTokenRepository_GetValid_Success(t *testing.T) {
 
 	assert.Equal(t, "user-1", result.UserID)
 
-	assert.False(t, result.Used)
+	assert.False(t, result.Revoked)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 
@@ -149,7 +149,7 @@ func TestRefreshTokenRepository_Create_Error(t *testing.T) {
 
 }
 
-func TestRefreshTokenRepository_MarkUsed_Success(t *testing.T) {
+func TestRefreshTokenRepository_MarkRevoked_Success(t *testing.T) {
 
 	repo, mock := setupRefreshTokenRepo(t)
 
@@ -161,7 +161,7 @@ func TestRefreshTokenRepository_MarkUsed_Success(t *testing.T) {
 		WithArgs(tokenHash).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := repo.MarkUsed(ctx, "token-1")
+	err := repo.MarkRevoked(ctx, "token-1")
 
 	require.NoError(t, err)
 
@@ -169,7 +169,7 @@ func TestRefreshTokenRepository_MarkUsed_Success(t *testing.T) {
 
 }
 
-func TestRefreshTokenRepository_MarkUsed_Error(t *testing.T) {
+func TestRefreshTokenRepository_MarkRevoked_Error(t *testing.T) {
 
 	repo, mock := setupRefreshTokenRepo(t)
 
@@ -177,7 +177,7 @@ func TestRefreshTokenRepository_MarkUsed_Error(t *testing.T) {
 
 	mock.ExpectExec("UPDATE refresh_tokens").WillReturnError(assert.AnError)
 
-	err := repo.MarkUsed(ctx, "token-1")
+	err := repo.MarkRevoked(ctx, "token-1")
 
 	require.Error(t, err)
 

@@ -73,7 +73,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	s.log.Info("GeneratePlan request received",
 		zap.String("user_id", req.UserId),
-		zap.String("class", req.ClassificationClass),
+		zap.String("class", req.Classification),
 		zap.Int32("duration_weeks", req.DurationWeeks),
 		zap.Int("available_days", len(req.AvailableDays)),
 	)
@@ -85,7 +85,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	s.deleteExistingActivePlan(ctx, req.UserId)
 
-	classificationClass := sanitize.String(req.ClassificationClass)
+	classificationClass := sanitize.String(req.Classification)
 	planID := uuid.New().String()
 
 	planData := s.preparePlanData(classificationClass, req)
@@ -184,7 +184,7 @@ func (s *trainingServer) savePlanToDatabase(ctx context.Context, opts savePlanOp
 		zap.String("classificationClass", opts.classificationClass),
 	)
 	_, err := opts.tx.ExecContext(ctx, `
-		INSERT INTO training_plans (id, user_id, name, training_goal, classification_class, duration_weeks, generated_at, start_date, end_date, status, created_at)
+		INSERT INTO training_plans (id, user_id, name, training_goal, classification, duration_weeks, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, opts.planID, opts.userID, personalizedPlanName, opts.classificationClass, opts.classificationClass, opts.durationWeeks, time.Now(), opts.startDate.Truncate(24*time.Hour), opts.endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {

@@ -26,6 +26,7 @@ type userService struct {
 	devices        port.DeviceRepository
 	emailVerifs    port.EmailVerificationRepository
 	refreshTokens  port.RefreshTokenRepository
+	externalSecrets port.ExternalSecretRepository
 }
 
 type UserServiceConfig struct {
@@ -44,6 +45,7 @@ type UserServiceConfig struct {
 	Devices        port.DeviceRepository
 	EmailVerifs    port.EmailVerificationRepository
 	RefreshTokens  port.RefreshTokenRepository
+	ExternalSecrets port.ExternalSecretRepository
 }
 
 func NewUserService(cfg UserServiceConfig) UserService {
@@ -63,6 +65,7 @@ func NewUserService(cfg UserServiceConfig) UserService {
 		devices:        cfg.Devices,
 		emailVerifs:    cfg.EmailVerifs,
 		refreshTokens:  cfg.RefreshTokens,
+		externalSecrets: cfg.ExternalSecrets,
 	}
 }
 

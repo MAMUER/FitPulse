@@ -232,7 +232,7 @@ type RefreshToken struct {
 	ID        string
 	UserID    string
 	Token     string
-	Used      bool
+	Revoked   bool
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }
@@ -240,5 +240,20 @@ type RefreshToken struct {
 type RefreshTokenRepository interface {
 	GetValid(ctx context.Context, token string) (*RefreshToken, error)
 	Create(ctx context.Context, rt *RefreshToken) error
-	MarkUsed(ctx context.Context, token string) error
+	MarkRevoked(ctx context.Context, token string) error
+}
+
+type ExternalSecret struct {
+	ID        string
+	Name      string
+	Value     string
+	CreatedAt string
+	UpdatedAt string
+}
+
+type ExternalSecretRepository interface {
+	GetByName(ctx context.Context, name string) (*ExternalSecret, error)
+	List(ctx context.Context) ([]*ExternalSecret, error)
+	Upsert(ctx context.Context, secret *ExternalSecret) error
+	Delete(ctx context.Context, name string) error
 }

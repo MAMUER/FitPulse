@@ -601,7 +601,7 @@ var _ port.EmailVerificationRepository = (*mockEmailVerificationRepository)(nil)
 type mockRefreshTokenRepository struct {
 	getValidFn func(ctx context.Context, token string) (*port.RefreshToken, error)
 	createFn   func(ctx context.Context, rt *port.RefreshToken) error
-	markUsedFn func(ctx context.Context, token string) error
+	markRevokedFn func(ctx context.Context, token string) error
 }
 
 func (m *mockRefreshTokenRepository) GetValid(ctx context.Context, token string) (*port.RefreshToken, error) {
@@ -618,9 +618,9 @@ func (m *mockRefreshTokenRepository) Create(ctx context.Context, rt *port.Refres
 	return nil
 }
 
-func (m *mockRefreshTokenRepository) MarkUsed(ctx context.Context, token string) error {
-	if m.markUsedFn != nil {
-		return m.markUsedFn(ctx, token)
+func (m *mockRefreshTokenRepository) MarkRevoked(ctx context.Context, token string) error {
+	if m.markRevokedFn != nil {
+		return m.markRevokedFn(ctx, token)
 	}
 	return nil
 }

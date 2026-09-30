@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
     totp_enabled            BOOLEAN NOT NULL DEFAULT FALSE,
     totp_backup_codes_hash  TEXT[],
     totp_backup_codes_remaining INT NOT NULL DEFAULT 0,
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMPTZ DEFAULT NOW(),
     updated_at              TIMESTAMPTZ DEFAULT NOW()
 );
@@ -41,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_totp_enabled ON users(totp_enabled) WHERE totp_enabled = TRUE;
 CREATE INDEX IF NOT EXISTS idx_users_full_name_hash ON users(full_name_hash);
 CREATE INDEX IF NOT EXISTS idx_users_nickname_hash ON users(nickname_hash);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external ON users(provider, external_id) WHERE external_id IS NOT NULL;
 
 -- ===================== Email Verifications =====================
@@ -158,11 +160,28 @@ CREATE TABLE IF NOT EXISTS biometric_data (
     value       DOUBLE PRECISION NOT NULL CHECK (value >= 0),
     timestamp   TIMESTAMPTZ NOT NULL,
     device_type VARCHAR(50),
+    source      VARCHAR(100) NOT NULL DEFAULT 'unknown',
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp, source);
 CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_data(timestamp);
+
+-- Add check constraint for source values
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'biometric_data_source_check'
+    ) THEN
+        ALTER TABLE biometric_data
+            ADD CONSTRAINT biometric_data_source_check
+            CHECK (source IN (
+                'apple_health', 'garmin', 'health_connect', 'open_wearables',
+                'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown'
+            ));
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS device_ingest_log (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -180,7 +199,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name                VARCHAR(255),
-    classification_class VARCHAR(255),
+    classification VARCHAR(255),
     training_goal       VARCHAR(50) CHECK (training_goal IS NULL OR training_goal IN (
         'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility', 'general_fitness',
         'recovery', 'endurance_e1e2', 'threshold_e3', 'strength_hiit'
@@ -197,7 +216,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
 
 CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_plans_status ON training_plans(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_training_plans_classification_class ON training_plans(classification_class);
+CREATE INDEX IF NOT EXISTS idx_training_plans_classification ON training_plans(classification);
 
 CREATE TABLE IF NOT EXISTS training_plan_weeks (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -308,7 +327,7 @@ CREATE TABLE IF NOT EXISTS user_body_composition (
     water_percentage        NUMERIC(4,2) CHECK (water_percentage IS NULL OR (water_percentage >= 1 AND water_percentage <= 100)),
     visceral_fat_rating     INT CHECK (visceral_fat_rating IS NULL OR (visceral_fat_rating >= 1 AND visceral_fat_rating <= 59)),
     metabolic_age           INT CHECK (metabolic_age IS NULL OR (metabolic_age >= 10 AND metabolic_age <= 100)),
-    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('okok','manual')),
+    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('apple_health', 'garmin', 'health_connect', 'open_wearables', 'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown')),
     created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -345,10 +364,69 @@ CREATE INDEX IF NOT EXISTS idx_user_menstrual_cycles_user ON user_menstrual_cycl
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_symptoms_cycle ON user_menstrual_symptoms(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_moods_cycle ON user_menstrual_moods(cycle_id);
 
--- ===================== Biometric Dedup =====================
-ALTER TABLE biometric_data
-    ADD CONSTRAINT IF NOT EXISTS uq_biometric_user_metric_time_device
-    UNIQUE (user_id, metric_type, timestamp, device_type);
+-- ===================== Webhook Nonces =====================
+CREATE TABLE IF NOT EXISTS webhook_nonces (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nonce UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, nonce)
+);
+
+CREATE OR REPLACE FUNCTION purge_old_webhook_nonces()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM webhook_nonces
+    WHERE created_at < NOW() - INTERVAL '24 hours';
+END;
+$$ LANGUAGE plpgsql;
+
+-- ===================== External Secrets =====================
+CREATE TABLE IF NOT EXISTS external_secrets (
+    id          BIGSERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_external_secrets_name
+    ON external_secrets (name);
+
+CREATE OR REPLACE FUNCTION update_external_secrets_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_external_secrets_updated_at ON external_secrets;
+
+CREATE TRIGGER trg_external_secrets_updated_at
+    BEFORE UPDATE ON external_secrets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_external_secrets_updated_at();
+
+INSERT INTO external_secrets (name, value) VALUES
+    ('fitpulse/production/app-secrets/JWT_PRIVATE_KEY_PEM',
+     'REPLACE_WITH_REAL_JWT_PRIVATE_KEY_PEM'),
+    ('fitpulse/production/app-secrets/JWT_PUBLIC_KEY_PEM',
+     'REPLACE_WITH_REAL_JWT_PUBLIC_KEY_PEM'),
+    ('fitpulse/production/app-secrets/RABBITMQ_URL',
+     'REPLACE_WITH_REAL_RABBITMQ_URL'),
+    ('fitpulse/production/app-secrets/VALKEY_PASSWORD',
+     'REPLACE_WITH_REAL_VALKEY_PASSWORD'),
+    ('fitpulse/production/app-secrets/POSTGRES_PASSWORD',
+     'REPLACE_WITH_REAL_POSTGRES_PASSWORD'),
+    ('fitpulse/production/app-secrets/GOOGLE_CLIENT_ID',
+     'REPLACE_WITH_REAL_GOOGLE_CLIENT_ID'),
+    ('fitpulse/production/app-secrets/GOOGLE_CLIENT_SECRET',
+     'REPLACE_WITH_REAL_GOOGLE_CLIENT_SECRET'),
+    ('fitpulse/production/app-secrets/SMTP_PASSWORD',
+     'REPLACE_WITH_REAL_SMTP_PASSWORD'),
+    ('fitpulse/production/app-secrets/TOTP_ENCRYPTION_KEY',
+     'REPLACE_WITH_REAL_TOTP_ENCRYPTION_KEY')
+ON CONFLICT (name) DO NOTHING;
 
 -- ===================== Views =====================
 CREATE OR REPLACE VIEW invite_code_stats AS

@@ -902,7 +902,7 @@ func (s *userServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenReque
 
 	}
 
-	err = s.refreshTokenRepo.MarkUsed(ctx, req.RefreshToken)
+	err = s.refreshTokenRepo.MarkRevoked(ctx, req.RefreshToken)
 
 	if err != nil {
 
@@ -3295,6 +3295,8 @@ type userServerConfig struct {
 	userMenstrualRepo port.UserMenstrualRepository
 
 	deviceRepo port.DeviceRepository
+
+	externalSecretsRepo port.ExternalSecretRepository
 }
 
 func buildUserServer(cfg userServerConfig) *userServer {
@@ -3482,6 +3484,8 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 	refreshTokenRepo := postgres.NewRefreshTokenRepository(database)
 
+	externalSecretsRepo := postgres.NewExternalSecretsRepository(database)
+
 	userSvc := service.NewUserService(service.UserServiceConfig{
 
 		Users: userRepo,
@@ -3513,6 +3517,8 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 		EmailVerifs: emailVerifRepo,
 
 		RefreshTokens: refreshTokenRepo,
+
+		ExternalSecrets: externalSecretsRepo,
 	})
 
 	svc := buildUserServer(userServerConfig{
@@ -3554,6 +3560,8 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 		userMenstrualRepo: userMenstrualRepo,
 
 		deviceRepo: deviceRepo,
+
+		externalSecretsRepo: externalSecretsRepo,
 	})
 	if err := ensurePgsodiumKey(ctx, database, log); err != nil {
 
