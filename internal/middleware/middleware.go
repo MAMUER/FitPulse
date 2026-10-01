@@ -37,23 +37,25 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
+func extractToken(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			return parts[1]
+		}
+	}
+	if cookie, err := r.Cookie("fitpulse-access-token"); err == nil {
+		return cookie.Value
+	}
+	return ""
+}
+
 // AuthMiddleware проверяет JWT ES256 токен и добавляет пользователя в контекст
 func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var token string
-			authHeader := r.Header.Get("Authorization")
-			if authHeader != "" {
-				parts := strings.Split(authHeader, " ")
-				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-					token = parts[1]
-				}
-			}
-			if token == "" {
-				if cookie, err := r.Cookie("fitpulse-access-token"); err == nil {
-					token = cookie.Value
-				}
-			}
+			token := extractToken(r)
 			if token == "" {
 				log.Debug("Missing authorization header and access token cookie", zap.String("path", sanitizeLogValue(r.URL.Path)))
 				http.Error(w, msgNotFound, http.StatusNotFound)

@@ -15,7 +15,7 @@ data:
         type: file
         options:
           path: /etc/grafana/provisioning/dashboards/json
-   slo-overview.json: |
+  slo-overview.json: |
      {
        "dashboard": {
          "title": "SLO Overview",

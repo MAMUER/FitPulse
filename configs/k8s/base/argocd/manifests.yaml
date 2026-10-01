@@ -97,6 +97,7 @@ spec:
         app.kubernetes.io/name: argocd-application-controller
     spec:
       serviceAccountName: argocd-application-controller
+      automountServiceAccountToken: false
       containers:
         - name: argocd-application-controller
           image: argoproj/argocd:v2.11.0
@@ -109,9 +110,11 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "512Mi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -131,6 +134,7 @@ spec:
         app.kubernetes.io/name: argocd-repo-server
     spec:
       serviceAccountName: argocd-repo-server
+      automountServiceAccountToken: false
       containers:
         - name: argocd-repo-server
           image: argoproj/argocd:v2.11.0
@@ -142,9 +146,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "128Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "250m"
               memory: "256Mi"
+              ephemeral-storage: "512Mi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -164,6 +170,7 @@ spec:
         app.kubernetes.io/name: argocd-server
     spec:
       serviceAccountName: argocd-server
+      automountServiceAccountToken: false
       containers:
         - name: argocd-server
           image: argoproj/argocd:v2.11.0
@@ -178,9 +185,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "128Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "250m"
               memory: "256Mi"
+              ephemeral-storage: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -195,6 +204,12 @@ spec:
       targetPort: 6379
   selector:
     app.kubernetes.io/name: argocd-redis
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-redis
+  namespace: argocd
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -213,6 +228,8 @@ spec:
       labels:
         app.kubernetes.io/name: argocd-redis
     spec:
+      serviceAccountName: argocd-redis
+      automountServiceAccountToken: false
       containers:
         - name: redis
           image: redis:7-alpine
@@ -222,9 +239,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "128Mi"
             limits:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "256Mi"
 ---
 apiVersion: v1
 kind: ConfigMap

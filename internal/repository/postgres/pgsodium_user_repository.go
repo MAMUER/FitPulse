@@ -556,7 +556,9 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 
-		getProfileQuery.WriteString(",\n               " + db.PgsodiumDecryptParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url") + ", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
+		getProfileQuery.WriteString(",\n               ")
+		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
+		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
 

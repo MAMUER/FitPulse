@@ -42,9 +42,11 @@ spec:
             requests:
               cpu: "10m"
               memory: "16Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "20m"
               memory: "32Mi"
+              ephemeral-storage: "512Mi"
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

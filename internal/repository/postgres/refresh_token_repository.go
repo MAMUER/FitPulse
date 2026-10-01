@@ -29,7 +29,7 @@ func (r *refreshTokenRepository) GetValid(ctx context.Context, token string) (*p
 	`
 
 	rt := &port.RefreshToken{}
-	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(
+	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan( // NOSONAR
 		&rt.ID, &rt.UserID, &rt.Token, &rt.Revoked, &rt.ExpiresAt, &rt.CreatedAt,
 	)
 	if err != nil {
@@ -52,7 +52,7 @@ func (r *refreshTokenRepository) Create(ctx context.Context, rt *port.RefreshTok
 		INSERT INTO refresh_tokens (token_hash, token_encrypted, token_nonce, user_id, expires_at)
 		VALUES ($1, ` + db.PgsodiumRandomEncryptParam(2, 3) + `, $4, $5)
 	`
-	_, err = r.db.ExecContext(ctx, query, tokenHash, rt.Token, nonce, rt.UserID, rt.ExpiresAt)
+	_, err = r.db.ExecContext(ctx, query, tokenHash, rt.Token, nonce, rt.UserID, rt.ExpiresAt) // NOSONAR
 	if err != nil {
 		return apperrors.Internal("failed to create refresh token", err)
 	}

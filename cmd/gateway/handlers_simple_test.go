@@ -105,7 +105,7 @@ func TestMLChatHandler_Success(t *testing.T) {
 	g := newTestGateway()
 	withBiometricClient(g)
 
-	classifierListener, err := net.Listen("tcp", "localhost:0")
+	classifierListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestMLChatHandler_Success(t *testing.T) {
 		}
 	}()
 
-	mlGeneratorListener, err := net.Listen("tcp", "localhost:0")
+	mlGeneratorListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,8 +151,8 @@ func TestMLChatHandler_Success(t *testing.T) {
 		}
 	}()
 
-	g.classifierURL = "http://localhost:" + strconv.Itoa(classifierPort)
-	g.mlGeneratorURL = "http://localhost:" + strconv.Itoa(mlGeneratorPort)
+	g.classifierURL = "http://127.0.0.1:" + strconv.Itoa(classifierPort)
+	g.mlGeneratorURL = "http://127.0.0.1:" + strconv.Itoa(mlGeneratorPort)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/chat", bytes.NewReader([]byte(`{"message":"plan"}`)))

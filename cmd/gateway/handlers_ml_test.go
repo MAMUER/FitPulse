@@ -179,7 +179,7 @@ func TestML_ProxyToMLGenerator_InvalidURL(t *testing.T) {
 func TestML_ProxyToMLGenerator_Success(t *testing.T) {
 	g := newTestGateway()
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestML_ProxyToMLGenerator_Success(t *testing.T) {
 		}
 	}()
 
-	g.mlGeneratorURL = "http://localhost:" + strconv.Itoa(port)
+	g.mlGeneratorURL = "http://127.0.0.1:" + strconv.Itoa(port)
 
 	ctx := context.Background()
 	status, body, err := g.proxyToMLGenerator(ctx, "/generate-plan", []byte(`{}`))
@@ -217,11 +217,11 @@ func TestML_IsValidServiceURL(t *testing.T) {
 		prefixes []string
 		want     bool
 	}{
-		{"http://localhost:8001", []string{"http://localhost:"}, true},
-		{"https://localhost:8001", []string{"http://localhost:"}, false},
+		{"http://127.0.0.1:8001", []string{"http://127.0.0.1:"}, true},
+		{"https://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
 		{"http://classifier:8001", []string{"http://classifier:"}, true},
-		{"ftp://localhost:8001", []string{"http://localhost:"}, false},
-		{"http://evil.com", []string{"http://localhost:"}, false},
+		{"ftp://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
+		{"http://evil.com", []string{"http://127.0.0.1:"}, false},
 	}
 
 	for _, tt := range tests {

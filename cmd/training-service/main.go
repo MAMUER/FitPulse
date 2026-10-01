@@ -67,11 +67,11 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		req.DurationWeeks = 4
 	}
 	if err := validator.ValidateGeneratePlanRequest(req); err != nil {
-		s.log.Warn("Invalid generate plan request", zap.Error(err))
-		return nil, fmt.Errorf("validate generate plan request: %w", err)
+		s.log.Warn("Некорректный запрос на создание плана", zap.Error(err))
+		return nil, fmt.Errorf("ошибка валидации запроса на создание плана: %w", err)
 	}
 
-	s.log.Info("GeneratePlan request received",
+	s.log.Info("Получен запрос GeneratePlan",
 		zap.String("user_id", req.UserId),
 		zap.String("class", req.Classification),
 		zap.Int32("duration_weeks", req.DurationWeeks),
@@ -79,8 +79,8 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	)
 
 	if err := ctx.Err(); err != nil {
-		s.log.Warn("Request canceled", zap.Error(err))
-		return nil, status.Error(codes.Canceled, "request canceled")
+		s.log.Warn("Запрос отменён", zap.Error(err))
+		return nil, status.Error(codes.Canceled, "запрос отменён")
 	}
 
 	s.deleteExistingActivePlan(ctx, req.UserId)
@@ -94,12 +94,12 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		s.log.Error("Failed to begin transaction", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to begin transaction")
+		s.log.Error("Не удалось начать транзакцию", zap.Error(err))
+		return nil, status.Error(codes.Internal, "не удалось начать транзакцию")
 	}
 	defer func() {
 		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
-			s.log.Error("Failed to rollback transaction", zap.Error(rbErr))
+			s.log.Error("Не удалось откатить транзакцию", zap.Error(rbErr))
 		}
 	}()
 
@@ -118,7 +118,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	}
 
 	if err := tx.Commit(); err != nil {
-		s.log.Error("Failed to commit transaction", zap.Error(err))
+		s.log.Error("Не удалось зафиксировать транзакцию", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to commit plan")
 	}
 
@@ -132,13 +132,13 @@ func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID st
 	var existingPlanID string
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM training_plans WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`, userID).Scan(&existingPlanID)
 	if err == nil && existingPlanID != "" {
-		s.log.Info("Deleting existing plan for replacement", zap.String("user_id", userID), zap.String("old_plan_id", existingPlanID))
+		s.log.Info("Удаление существующего плана для замены", zap.String("user_id", userID), zap.String("old_plan_id", existingPlanID))
 		_, delErr := s.db.ExecContext(ctx, `DELETE FROM training_plans WHERE id = $1`, existingPlanID)
 		if delErr != nil {
-			s.log.Error("Failed to delete old plan", zap.Error(delErr))
+			s.log.Error("Не удалось удалить старый план", zap.Error(delErr))
 		}
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("Failed to query existing plan", zap.Error(err), zap.String("user_id", userID))
+		s.log.Error("Не удалось выполнить запрос существующего плана", zap.Error(err), zap.String("user_id", userID))
 	}
 }
 
@@ -178,7 +178,7 @@ type savePlanOptions struct {
 }
 
 func (s *trainingServer) savePlanToDatabase(ctx context.Context, opts savePlanOptions) error {
-	s.log.Info("Inserting into training_plans",
+	s.log.Info("Вставка в training_plans",
 		zap.String("planID", opts.planID),
 		zap.String("userID", opts.userID),
 		zap.String("classificationClass", opts.classificationClass),
@@ -188,8 +188,8 @@ func (s *trainingServer) savePlanToDatabase(ctx context.Context, opts savePlanOp
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, opts.planID, opts.userID, personalizedPlanName, opts.classificationClass, opts.classificationClass, opts.durationWeeks, time.Now(), opts.startDate.Truncate(24*time.Hour), opts.endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
-		s.log.Error("Failed to insert plan", zap.Error(err), zap.String("planID", opts.planID))
-		return status.Error(codes.Internal, "failed to save plan")
+		s.log.Error("Не удалось сохранить план", zap.Error(err), zap.String("planID", opts.planID))
+		return status.Error(codes.Internal, "не удалось сохранить план")
 	}
 	return nil
 }
@@ -213,7 +213,7 @@ func (s *trainingServer) buildWorkouts(planData map[string]interface{}, availabl
 	}
 
 	if len(workouts) == 0 {
-		s.log.Info("ML provided no valid exercises, using basic default plan", zap.String("class", classificationClass))
+		s.log.Info("ML не предоставил валидных упражнений, используется базовый план", zap.String("class", classificationClass))
 		workouts = generateBasicWeeklyWorkouts(classificationClass, availableDays)
 	}
 
@@ -293,7 +293,7 @@ func (s *trainingServer) publishPlanEvent(ctx context.Context, userID, planID st
 	}
 	if s.rabbitQueue != nil {
 		if pubErr := s.rabbitQueue.Publish(ctx, event); pubErr != nil {
-			s.log.Warn("Failed to publish event", zap.Error(pubErr))
+			s.log.Warn("Не удалось опубликовать событие", zap.Error(pubErr))
 		}
 	}
 }
@@ -307,7 +307,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, status.Error(codes.NotFound, "plan not found")
 			}
-			s.log.Error("Failed to query plan", zap.Error(err), zap.String("plan_id", req.PlanId))
+			s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", req.PlanId))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
@@ -342,7 +342,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, status.Error(codes.NotFound, "plan not found")
 	}
 	if err != nil {
-		s.log.Error("Failed to query plan", zap.Error(err), zap.String("plan_id", req.PlanId))
+		s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", req.PlanId))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -377,7 +377,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 
 func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest) (*pb.ListPlansResponse, error) {
 	if err := validator.ValidateListPlansRequest(req); err != nil {
-		s.log.Warn("Invalid list plans request", zap.Error(err))
+		s.log.Warn("Некорректный запрос списка планов", zap.Error(err))
 		return nil, fmt.Errorf("validate list plans request: %w", err)
 	}
 
@@ -386,7 +386,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	if s.trainingSvc != nil {
 		plans, _, err := s.trainingSvc.ListPlans(ctx, req.UserId, int(req.Page), int(req.PageSize))
 		if err != nil {
-			s.log.Error("Failed to list plans", zap.Error(err))
+			s.log.Error("Не удалось получить список планов", zap.Error(err))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
@@ -425,7 +425,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+			s.log.Warn("Не удалось закрыть строки", zap.Error(closeErr))
 		}
 	}()
 
@@ -437,7 +437,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 		var generatedAt, startDate, endDate time.Time
 
 		if err := rows.Scan(&planID, &userID, &planName, &trainingGoal, &durationWeeks, &generatedAt, &startDate, &endDate, &planStatus); err != nil {
-			s.log.Error("Failed to scan plan", zap.Error(err))
+			s.log.Error("Не удалось отсканировать план", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to read plan data")
 		}
 
@@ -448,7 +448,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 		}
 		planDataStruct, err := structpb.NewStruct(planData)
 		if err != nil {
-			s.log.Error("Failed to create plan struct", zap.Error(err))
+			s.log.Error("Не удалось создать план", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to process plan data")
 		}
 
@@ -464,13 +464,13 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 	}
 
 	if err := rows.Err(); err != nil {
-		s.log.Error("Row iteration error", zap.Error(err))
+		s.log.Error("Ошибка итерации по строкам", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading plans")
 	}
 
 	var total int32
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM training_plans WHERE user_id = $1", req.UserId).Scan(&total); err != nil {
-		s.log.Warn("Failed to count plans", zap.Error(err))
+		s.log.Warn("Не удалось подсчитать планы", zap.Error(err))
 	}
 
 	return &pb.ListPlansResponse{Plans: plans, Total: total}, nil
@@ -478,14 +478,14 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 
 func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWorkoutRequest) (*pb.CompleteWorkoutResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is nil")
+		return nil, status.Error(codes.InvalidArgument, "запрос не может быть nil")
 	}
 	if err := validator.ValidateCompleteWorkoutRequest(req); err != nil {
-		s.log.Warn("Invalid complete workout request", zap.Error(err))
+		s.log.Warn("Некорректный запрос завершения тренировки", zap.Error(err))
 		return nil, fmt.Errorf("validate complete workout request: %w", err)
 	}
 
-	s.log.Info("CompleteWorkout",
+	s.log.Info("Завершение тренировки",
 		zap.String("user_id", req.UserId),
 		zap.String("plan_id", req.PlanId),
 		zap.String("workout_id", req.WorkoutId),
@@ -499,7 +499,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 					  WHERE user_id = $1 AND training_plan_id = $2 AND workout_id = $3)
 	`, req.UserId, req.PlanId, req.WorkoutId).Scan(&exists)
 	if err != nil {
-		s.log.Error("Failed to check existing completion", zap.Error(err))
+		s.log.Error("Не удалось проверить существующее выполнение", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -512,7 +512,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		VALUES ($1, $2, $3, true, NOW(), $4)
 	`, req.UserId, req.PlanId, req.WorkoutId, feedback)
 	if err != nil {
-		s.log.Error("Failed to save completion", zap.Error(err))
+		s.log.Error("Не удалось сохранить выполнение", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to save completion")
 	}
 
@@ -522,7 +522,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 		WHERE user_id = $1 AND completed = true
 	`, req.UserId).Scan(&completedCount)
 	if err != nil {
-		s.log.Error("Failed to count completions", zap.Error(err))
+		s.log.Error("Не удалось подсчитать выполнения", zap.Error(err))
 		completedCount = 0
 	}
 
@@ -549,7 +549,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 
 func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressRequest) (*pb.GetProgressResponse, error) {
 	if err := validator.ValidateGetProgressRequest(req); err != nil {
-		s.log.Warn("Invalid get progress request", zap.Error(err))
+		s.log.Warn("Некорректный запрос прогресса", zap.Error(err))
 		return nil, fmt.Errorf("validate get progress request: %w", err)
 	}
 
@@ -558,7 +558,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 	if s.trainingSvc != nil {
 		progress, err := s.trainingSvc.GetProgress(ctx, req.UserId)
 		if err != nil {
-			s.log.Error("Failed to get progress", zap.Error(err))
+			s.log.Error("Не удалось получить прогресс", zap.Error(err))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
@@ -592,7 +592,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		WHERE user_id = $1
 	`, req.UserId).Scan(&totalWorkouts, &completedWorkouts)
 	if err != nil {
-		s.log.Error("Failed to get progress data", zap.Error(err))
+		s.log.Error("Не удалось получить прогресс data", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -613,7 +613,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
-			s.log.Warn("Failed to close rows", zap.Error(closeErr))
+			s.log.Warn("Не удалось закрыть строки", zap.Error(closeErr))
 		}
 	}()
 
@@ -622,7 +622,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		var wc pb.WorkoutCompletion
 		var scheduledDate, completedAt time.Time
 		if err := rows.Scan(&wc.WorkoutId, &scheduledDate, &completedAt); err != nil {
-			s.log.Error("Failed to scan workout completion", zap.Error(err))
+			s.log.Error("Не удалось отсканировать выполнение тренировки", zap.Error(err))
 			return nil, status.Error(codes.Internal, "failed to read workout data")
 		}
 		wc.ScheduledDate = timestamppb.New(scheduledDate)
@@ -631,7 +631,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 	}
 
 	if err := rows.Err(); err != nil {
-		s.log.Error("Row iteration error", zap.Error(err))
+		s.log.Error("Ошибка итерации по строкам", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading workout history")
 	}
 
@@ -657,12 +657,12 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 		ORDER BY w.week_number, d.day_of_week
 	`, planID)
 	if err != nil {
-		log.Error("Failed to query days", zap.Error(err))
+		log.Error("Не удалось выполнить запрос дней", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := dayRows.Close(); closeErr != nil {
-			log.Warn("Failed to close day rows", zap.Error(closeErr))
+			log.Warn("Не удалось закрыть строки дней", zap.Error(closeErr))
 		}
 	}()
 
@@ -672,7 +672,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 
 		scanErr := dayRows.Scan(&dayID, &weekNum)
 		if scanErr != nil {
-			log.Error("Failed to scan day", zap.Error(scanErr))
+			log.Error("Не удалось сканировать день", zap.Error(scanErr))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
@@ -689,7 +689,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 	}
 
 	if err := dayRows.Err(); err != nil {
-		log.Error("Day rows iteration error", zap.Error(err))
+		log.Error("Ошибка итерации по строкам дней", zap.Error(err))
 		return nil, status.Error(codes.Internal, "error reading days")
 	}
 
@@ -706,12 +706,12 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 		ORDER BY week_number
 	`, planID)
 	if err != nil {
-		log.Error("Failed to query weeks", zap.Error(err))
+		log.Error("Не удалось выполнить запрос недель", zap.Error(err))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 	defer func() {
 		if closeErr := weekRows.Close(); closeErr != nil {
-			log.Warn("Failed to close week rows", zap.Error(closeErr))
+			log.Warn("Не удалось закрыть строки недель", zap.Error(closeErr))
 		}
 	}()
 
@@ -719,7 +719,7 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 		var weekNum, totalDays, duration int32
 		scanErr := weekRows.Scan(&weekNum, &totalDays, &duration)
 		if scanErr != nil {
-			log.Error("Failed to scan week", zap.Error(scanErr))
+			log.Error("Не удалось сканировать неделю", zap.Error(scanErr))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 		weeksMap[weekNum] = map[string]interface{}{
@@ -731,7 +731,7 @@ func loadWeeksMap(ctx context.Context, db *sql.DB, planID string, log *logger.Lo
 	}
 
 	if weekRows.Err() != nil {
-		log.Error("Week rows iteration error", zap.Error(weekRows.Err()))
+		log.Error("Ошибка итерации по строкам недель", zap.Error(weekRows.Err()))
 		return nil, status.Error(codes.Internal, "error reading weeks")
 	}
 
@@ -742,7 +742,7 @@ func assembleWeeks(weeksMap map[int32]map[string]interface{}, log *logger.Logger
 	var weeks []map[string]interface{}
 	maxWeekNum := len(weeksMap)
 	if maxWeekNum > math.MaxInt32 {
-		log.Error("Too many weeks in plan", zap.Int("maxWeekNum", maxWeekNum))
+		log.Error("Слишком много недель в плане", zap.Int("maxWeekNum", maxWeekNum))
 		return nil, status.Error(codes.Internal, "plan has too many weeks")
 	}
 	for i := int32(1); i <= int32(maxWeekNum); i++ {
@@ -1101,7 +1101,7 @@ func createMetricsServer(metricsPort string) *http.Server {
 func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
 	database, err := db.NewConnection(dbCfg)
 	if err != nil {
-		log.Fatal("Failed to connect to database", zap.Error(err))
+		log.Fatal("Не удалось подключиться к базе данных", zap.Error(err))
 	}
 	return database
 }
@@ -1112,17 +1112,18 @@ func createRabbitQueue(rabbitURL, queueName string, log *logger.Logger) queue.Pu
 	}
 	rabbitQueue, err := queue.NewPublisher(rabbitURL, queueName, log)
 	if err != nil {
-		log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
+		log.Warn("Не удалось подключиться к RabbitMQ", zap.Error(err))
 		return nil
 	}
 	log.Info("RabbitMQ connected", zap.String("queue", queueName))
 	return rabbitQueue
 }
 
-func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.TrainingService, rabbitQueue queue.Publisher) *grpc.Server {
+func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.TrainingService, rabbitQueue queue.Publisher, jwtPublicKeyPEM string) *grpc.Server {
 	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
 		middleware.RecoveryGRPC(log.Logger),
 		middleware.CorrelationIDGRPC(),
+		middleware.GRPCAuthInterceptor(jwtPublicKeyPEM, log.Logger),
 		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
 	s := grpctls.NewServer(serverOpts...)
@@ -1148,49 +1149,49 @@ func main() {
 	shutdownTraces := telemetry.InitTracer()
 	defer func() {
 		if err := shutdownTraces(context.Background()); err != nil {
-			log.Warn("Failed to shutdown traces", zap.Error(err))
+			log.Warn("Не удалось завершить traces", zap.Error(err))
 		}
 	}()
 
-	port, metricsPort, dbCfg := loadTrainingConfig()
+	port, metricsPort, jwtPublicKeyPEM, dbCfg := loadTrainingConfig()
 	metricsSrv := createMetricsServer(metricsPort)
 	database, pgxPool, trainingSvc, rabbitQueue := initTrainingServices(dbCfg, log)
 
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
-			log.Error("Failed to close database", zap.Error(closeErr))
+			log.Error("Ошибка закрытия базы данных", zap.Error(closeErr))
 		}
 	}()
 	defer func() {
 		pgxPool.Close()
 	}()
 
-	s := setupGRPCServer(log, database, trainingSvc, rabbitQueue)
+	s := setupGRPCServer(log, database, trainingSvc, rabbitQueue, jwtPublicKeyPEM)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatal("Failed to listen", zap.Error(err))
+		log.Fatal("Не удалось запустить сервер", zap.Error(err))
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		log.Info("Запуск сервера метрик", zap.String("port", metricsPort))
 		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Metrics server failed", zap.Error(err))
+			log.Fatal("Сервер метрик завершил работу с ошибкой", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		log.Info("Training service starting", zap.String("port", port))
+		log.Info("Запуск training-service", zap.String("port", port))
 		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Failed to serve", zap.Error(err))
+			log.Fatal("Не удалось запустить сервер", zap.Error(err))
 		}
 	}()
 
 	<-ctx.Done()
-	log.Info("Shutting down training service")
+	log.Info("Остановка training-service")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -1206,7 +1207,7 @@ func main() {
 		_ = metricsSrv.Shutdown(shutdownCtx)
 	}()
 	wg.Wait()
-	log.Info("Training service stopped")
+	log.Info("Training service остановлен")
 }
 
 func stringValue(ns sql.NullString) string {
@@ -1230,10 +1231,11 @@ func float64Value(nf sql.NullFloat64) float64 {
 	return 0
 }
 
-func loadTrainingConfig() (port, metricsPort string, dbCfg db.Config) {
+func loadTrainingConfig() (port, metricsPort, jwtPublicKeyPEM string, dbCfg db.Config) {
 	config.InitViper(serviceName)
 	port = config.GetEnv("TRAINING_SERVICE_PORT", "50053")
 	metricsPort = config.GetEnv("TRAINING_SERVICE_METRICS_PORT", "9095")
+	jwtPublicKeyPEM = config.GetEnv("JWT_PUBLIC_KEY_PEM")
 	dbCfg = db.Config{
 		Host:     config.GetEnv("DB_HOST"),
 		Port:     config.GetEnv("DB_PORT"),
@@ -1242,7 +1244,7 @@ func loadTrainingConfig() (port, metricsPort string, dbCfg db.Config) {
 		DBName:   config.GetEnv("POSTGRES_DB"),
 		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
-	return port, metricsPort, dbCfg
+	return port, metricsPort, jwtPublicKeyPEM, dbCfg
 }
 
 func initTrainingServices(dbCfg db.Config, log *logger.Logger) (*sql.DB, *pgxpool.Pool, service.TrainingService, queue.Publisher) {
@@ -1250,14 +1252,14 @@ func initTrainingServices(dbCfg db.Config, log *logger.Logger) (*sql.DB, *pgxpoo
 
 	pgxPool, err := db.NewPgxPool(dbCfg)
 	if err != nil {
-		log.Fatal("Failed to connect to pgx pool", zap.Error(err))
+		log.Fatal("Не удалось подключиться к пулу pgx", zap.Error(err))
 	}
 
 	trainingRepo := pgx.NewTrainingRepositoryPGX(pgxPool)
 	trainingSvc := service.NewTrainingService(trainingRepo)
 
 	rabbitURL := config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
-	queueName := "training_events"
+	queueName := config.GetEnv("TRAINING_QUEUE_NAME", "training_events")
 	rabbitQueue := createRabbitQueue(rabbitURL, queueName, log)
 
 	return database, pgxPool, trainingSvc, rabbitQueue

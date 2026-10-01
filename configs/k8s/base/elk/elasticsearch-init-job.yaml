@@ -118,9 +118,11 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "512Mi"
             limits:
               cpu: "500m"
               memory: "256Mi"
+              ephemeral-storage: "512Mi"
       restartPolicy: Never
       volumes:
         - name: ilm-policy

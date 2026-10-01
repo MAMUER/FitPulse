@@ -1,22 +1,80 @@
 app:
   name: fitpulse
+  environment: production
 
 server:
   addr: ":8080"
+  tls_cert_file: ""
+  tls_key_file: ""
 
 database:
-  host: "localhost"
+  host: "postgres-service.fitness-platform-production.svc.cluster.local"
   port: "5432"
-  user: "postgres"
+  user: "fitpulse_app"
   password: ""
-  dbname: "postgres"
-  sslmode: "disable"
+  dbname: "fitness_platform"
+  sslmode: "require"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: "5m"
 
 cache:
-  addr: "localhost:6379"
+  addr: "valkey:6379"
   password: ""
   db: 0
+
+rabbitmq:
+  url: "amqps://rabbitmq:5671/"
+  exchange: "fitpulse.events"
+  queue_prefix: "fitpulse."
 
 jwt:
   private_key_pem: ""
   public_key_pem: ""
+  access_token_ttl: "15m"
+  refresh_token_ttl: "168h"
+
+totp:
+  encryption_key: ""
+  issuer: "FitPulse"
+
+email:
+  smtp_host: "smtp.yandex.ru"
+  smtp_port: "465"
+  smtp_user: ""
+  smtp_password: ""
+  smtp_from: "mihnikolaenko12@yandex.ru"
+
+google_oauth:
+  client_id: ""
+  client_secret: ""
+  redirect_url: "https://fittpulse.ru/api/v1/auth/google/callback"
+
+captcha:
+  provider: "none"
+  cloudflare_turnstile_site_key: ""
+  cloudflare_turnstile_secret_key: ""
+  hcaptcha_site_key: ""
+  hcaptcha_secret_key: ""
+
+open_wearables:
+  webhook_secret: ""
+  webhook_port: "8085"
+
+telemetry:
+  otel_exporter_otlp_endpoint: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+  otel_service_name: "fitpulse"
+  otel_traces_sampler: "traceidratio"
+  otel_traces_sampler_arg: "0.01"
+
+logging:
+  level: "INFO"
+  format: "json"
+
+metrics:
+  prometheus_port: "9096"
+
+backup:
+  strategy: "CronJob + WAL archiving"
+  schedule: "0 2 * * *"
+  retention_days: 30

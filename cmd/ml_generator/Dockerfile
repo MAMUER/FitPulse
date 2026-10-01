@@ -24,8 +24,11 @@ RUN pip install --no-cache-dir --only-binary :all: --retries 5 \
 # Runtime stage
 FROM python@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS runtime
 
-RUN groupadd -r mluser -g 1001 && \
-    useradd -r -u 1001 -g mluser -d /app -s /sbin/nologin mluser
+ARG APP_UID=1001
+ARG APP_GID=1001
+
+RUN groupadd -r mluser -g ${APP_GID} && \
+    useradd -r -u ${APP_UID} -g mluser -d /app -s /sbin/nologin mluser
 
 WORKDIR /app
 
@@ -34,15 +37,15 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Create models directory
-RUN mkdir -p /app/models && chown -R 1001:1001 /app/models
+RUN mkdir -p /app/models && chown -R ${APP_UID}:${APP_GID} /app/models
 
-USER 1001
+USER ${APP_UID}
 
 # Copy code
-COPY --chown=1001:1001 cmd /app/cmd
+COPY --chown=${APP_UID}:${APP_GID} cmd /app/cmd
 
 # Copy models if they exist (optional — модель обучается отдельно)
-COPY --chown=1001:1001 models/generator.onnx /app/models/generator.onnx
+COPY --chown=${APP_UID}:${APP_GID} models/generator.onnx /app/models/generator.onnx
 
 EXPOSE 8002
 

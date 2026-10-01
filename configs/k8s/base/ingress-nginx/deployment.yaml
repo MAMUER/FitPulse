@@ -98,9 +98,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "2Gi"
             limits:
-              cpu: "200m"
-              memory: "128Mi"
+              cpu: "1000m"
+              memory: "1Gi"
+              ephemeral-storage: "4Gi"
       volumes:
         - name: modsecurity-crs
           configMap:

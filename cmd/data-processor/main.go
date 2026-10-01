@@ -138,13 +138,14 @@ func run(ctx context.Context, log *logger.Logger) error {
 		return errors.New("RABBITMQ_URL is required")
 	}
 
-	consumer, err := queue.NewConsumer(rabbitURL, "biometric_events", log)
+	queueName := config.GetEnv("BIOMETRIC_QUEUE_NAME", "biometric_events")
+	consumer, err := queue.NewConsumer(rabbitURL, queueName, log)
 	if err != nil {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
 	defer func() { _ = consumer.Close() }()
 
-	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), "biometric_events")
+	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), queueName)
 	defer stopDepthReporter()
 
 	var wg sync.WaitGroup

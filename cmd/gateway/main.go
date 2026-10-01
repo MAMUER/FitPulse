@@ -88,6 +88,8 @@ type gateway struct {
 	captchaProvider CaptchaProvider
 
 	captchaSiteKey string
+
+	corsOrigins []string
 }
 
 func main() {
@@ -294,6 +296,8 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		googleClientID: config.GetEnv("GOOGLE_CLIENT_ID"),
 
 		googleClientSecret: config.GetEnv("GOOGLE_CLIENT_SECRET"),
+
+		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
 	}
 
 	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
@@ -416,6 +420,8 @@ type gatewayConfig struct {
 	mlAsync bool
 
 	googleOAuthConfig *oauth2.Config
+
+	corsOrigins []string
 }
 
 type gatewayTLSConfig struct {
@@ -484,7 +490,6 @@ func validateMLGeneratorURL(mlGeneratorURL string) error {
 		return fmt.Errorf("parse ml generator url: %w", err)
 
 	}
-
 	allowedHosts := map[string]bool{
 
 		"ml-generator:8002": true,
@@ -495,11 +500,12 @@ func validateMLGeneratorURL(mlGeneratorURL string) error {
 
 		"generator": true,
 
-		"localhost:8002": true,
+		"127.0.0.1:8002": true,
 
-		"localhost:8001": true,
+		"127.0.0.1:8001": true,
 
-		"localhost": true,
+		"127.0.0.1": true,
+
 	}
 
 	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
@@ -794,6 +800,8 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		captchaProvider: opts.captchaProvider,
 
 		captchaSiteKey: opts.captchaSiteKey,
+
+		corsOrigins: opts.cfg.corsOrigins,
 	}
 
 	biometricWebhookTarget, _ := url.Parse("http://biometric-service:8085")
@@ -848,6 +856,8 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 		ReadTimeout: 15 * time.Second,
 
 		WriteTimeout: 30 * time.Second,
+
+		IdleTimeout: 60 * time.Second,
 
 		ReadHeaderTimeout: 15 * time.Second,
 
@@ -1105,6 +1115,20 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	r.Use(middleware.RecoveryMiddleware(g.log.Logger))
 
 	r.Use(middleware.RateLimit(g.log.Logger))
+
+	r.Use(middleware.CORS(middleware.CORSConfig{
+
+		AllowedOrigins:   g.corsOrigins,
+
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Correlation-ID", "X-Captcha-Token"},
+
+		AllowCredentials: true,
+
+		MaxAge:           300,
+
+	}))
 
 	r.Use(middleware.RequestID)
 

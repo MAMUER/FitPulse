@@ -18,9 +18,9 @@ import (
 )
 
 func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[string]interface{}, error) {
-	if !isValidServiceURL(g.classifierURL, "http://localhost:", "http://classifier:", "http://classifier-service:") {
-		g.log.Error("Invalid classifier URL", zap.String("url", g.classifierURL))
-		return nil, errors.New("invalid classifier URL")
+	if !isValidServiceURL(g.classifierURL, "http://classifier:", "http://classifier-service:", "http://127.0.0.1:") {
+		g.log.Error("Некорректный URL классификатора", zap.String("url", g.classifierURL))
+		return nil, errors.New("некорректный URL классификатора")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", g.classifierURL+"/classify", bytes.NewReader(payload))
@@ -134,8 +134,8 @@ func mapClassToScores(predictedClass string) (float64, float64, float64) {
 }
 
 func (g *gateway) proxyToMLGenerator(ctx context.Context, path string, body []byte) (int, []byte, error) {
-	if !isValidServiceURL(g.mlGeneratorURL, "http://localhost:", "http://ml-", "http://ml-generator:", "http://generator:") { // NOSONAR: S5332 - internal service-to-service call within trusted Kubernetes cluster
-		g.log.Error("Invalid ML generator URL", zap.String("url", g.mlGeneratorURL))
+	if !isValidServiceURL(g.mlGeneratorURL, "http://ml-", "http://ml-generator:", "http://generator:", "http://127.0.0.1:") {
+		g.log.Error("Некорректный URL ML генератора", zap.String("url", g.mlGeneratorURL))
 		return http.StatusServiceUnavailable, nil, errors.New("mlServiceUnavailable")
 	}
 
