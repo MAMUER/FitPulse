@@ -120,9 +120,16 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     fitness_level   VARCHAR(50) CHECK (fitness_level IS NULL OR fitness_level IN ('beginner', 'intermediate', 'advanced')),
     nutrition       TEXT,
     sleep_hours     REAL CHECK (sleep_hours IS NULL OR (sleep_hours >= 0 AND sleep_hours <= 24)),
+    survey_data     JSONB DEFAULT '{}'::jsonb,
+    survey_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    survey_completed_at TIMESTAMPTZ,
+    ai_assistant_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_profiles_survey_data
+    ON user_profiles USING GIN (survey_data);
 
 CREATE TABLE IF NOT EXISTS user_goals (
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -207,6 +214,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
     training_location   VARCHAR(50) CHECK (training_location IS NULL OR training_location IN ('home', 'gym', 'pool', 'outdoor')),
     available_time      VARCHAR(20) CHECK (available_time IS NULL OR available_time IN ('morning', 'afternoon', 'evening')),
     duration_weeks      INT CHECK (duration_weeks IS NULL OR (duration_weeks > 0 AND duration_weeks <= 52)),
+    template_version    VARCHAR(50) DEFAULT 'v1',
     generated_at        TIMESTAMPTZ DEFAULT NOW(),
     start_date          DATE,
     end_date            DATE,
@@ -363,6 +371,21 @@ CREATE TABLE IF NOT EXISTS user_menstrual_moods (
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_cycles_user ON user_menstrual_cycles(user_id, cycle_start_date DESC);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_symptoms_cycle ON user_menstrual_symptoms(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_moods_cycle ON user_menstrual_moods(cycle_id);
+
+-- ===================== Classifier Logs =====================
+CREATE TABLE IF NOT EXISTS classifier_logs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    input_features  JSONB NOT NULL,
+    predicted_class VARCHAR(50) NOT NULL,
+    confidence      REAL NOT NULL,
+    actual_class    VARCHAR(50),
+    feedback_rating INT CHECK (feedback_rating IS NULL OR (feedback_rating >= 1 AND feedback_rating <= 5)),
+    source          VARCHAR(50) NOT NULL DEFAULT 'rule-based',
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_classifier_logs_user ON classifier_logs(user_id, created_at);
 
 -- ===================== Webhook Nonces =====================
 CREATE TABLE IF NOT EXISTS webhook_nonces (

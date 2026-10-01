@@ -29,6 +29,8 @@ import (
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/cmd/user-service/ports"
@@ -827,6 +829,56 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 
 	return profile, nil
 
+}
+
+func (s *userServer) SaveSurvey(ctx context.Context, req *pb.SaveSurveyRequest) (*pb.SaveSurveyResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
+	}
+
+	survey := req.Survey.AsMap()
+	completed := req.SurveyCompleted
+	var completedAt *time.Time
+	if req.SurveyCompletedAt != nil {
+		t := req.SurveyCompletedAt.AsTime()
+		completedAt = &t
+	}
+
+	if err := s.userSvc.SaveSurvey(ctx, req.UserId, survey, completed, completedAt); err != nil {
+		s.log.Error("Failed to save survey", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, errDatabaseError)
+	}
+
+	return &pb.SaveSurveyResponse{Status: "ok"}, nil
+}
+
+func (s *userServer) LoadSurvey(ctx context.Context, req *pb.LoadSurveyRequest) (*pb.LoadSurveyResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
+	}
+
+	survey, completed, completedAt, err := s.userSvc.LoadSurvey(ctx, req.UserId)
+	if err != nil {
+		s.log.Error("Failed to load survey", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Error(codes.Internal, errDatabaseError)
+	}
+
+	surveyStruct, err := structpb.NewStruct(survey)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to marshal survey")
+	}
+
+	resp := &pb.LoadSurveyResponse{
+		Status:           "ok",
+		Survey:           surveyStruct,
+		SurveyCompleted:  completed,
+	}
+
+	if completedAt != nil {
+		resp.SurveyCompletedAt = timestamppb.New(*completedAt)
+	}
+
+	return resp, nil
 }
 
 func (s *userServer) GetUserByEmail(ctx context.Context, req *pb.GetUserByEmailRequest) (*pb.UserProfile, error) {

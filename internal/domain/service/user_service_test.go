@@ -108,6 +108,8 @@ type mockProfileRepository struct {
 	userExistsFn    func(ctx context.Context, userID string) (bool, error)
 	createProfileFn func(ctx context.Context, userID string) error
 	upsertProfileFn func(ctx context.Context, userID string, data *port.ProfileData) error
+	saveSurveyFn    func(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	loadSurveyFn    func(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
 }
 
 func (m *mockProfileRepository) GetProfile(ctx context.Context, userID string) (*entity.User, error) {
@@ -143,6 +145,20 @@ func (m *mockProfileRepository) UpsertProfile(ctx context.Context, userID string
 		return m.upsertProfileFn(ctx, userID, data)
 	}
 	return nil
+}
+
+func (m *mockProfileRepository) SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
+	if m.saveSurveyFn != nil {
+		return m.saveSurveyFn(ctx, userID, survey, completed, completedAt)
+	}
+	return nil
+}
+
+func (m *mockProfileRepository) LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error) {
+	if m.loadSurveyFn != nil {
+		return m.loadSurveyFn(ctx, userID)
+	}
+	return map[string]interface{}{}, false, nil, nil
 }
 
 var _ port.ProfileRepository = (*mockProfileRepository)(nil)

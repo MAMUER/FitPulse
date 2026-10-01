@@ -714,7 +714,7 @@ func TestAuth_RefreshHandler_InvalidToken(t *testing.T) {
 
 	g.refreshHandler(w, req)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 }
 
@@ -1296,6 +1296,18 @@ func (m *errorUserServiceClient) AdminUnbanUser(ctx context.Context, req *user.A
 
 }
 
+func (m *errorUserServiceClient) SaveSurvey(ctx context.Context, req *user.SaveSurveyRequest, opts ...grpc.CallOption) (*user.SaveSurveyResponse, error) {
+
+	return nil, m.err
+
+}
+
+func (m *errorUserServiceClient) LoadSurvey(ctx context.Context, req *user.LoadSurveyRequest, opts ...grpc.CallOption) (*user.LoadSurveyResponse, error) {
+
+	return nil, m.err
+
+}
+
 type totpEnabledUserClient struct{}
 
 func (m *totpEnabledUserClient) Register(ctx context.Context, req *user.RegisterRequest, opts ...grpc.CallOption) (*user.RegisterResponse, error) {
@@ -1559,6 +1571,18 @@ func (m *totpEnabledUserClient) AdminBanUser(ctx context.Context, req *user.Admi
 func (m *totpEnabledUserClient) AdminUnbanUser(ctx context.Context, req *user.AdminUnbanUserRequest, opts ...grpc.CallOption) (*user.AdminUnbanUserResponse, error) {
 
 	return &user.AdminUnbanUserResponse{Success: true}, nil
+
+}
+
+func (m *totpEnabledUserClient) SaveSurvey(ctx context.Context, req *user.SaveSurveyRequest, opts ...grpc.CallOption) (*user.SaveSurveyResponse, error) {
+
+	return &user.SaveSurveyResponse{Status: "ok"}, nil
+
+}
+
+func (m *totpEnabledUserClient) LoadSurvey(ctx context.Context, req *user.LoadSurveyRequest, opts ...grpc.CallOption) (*user.LoadSurveyResponse, error) {
+
+	return &user.LoadSurveyResponse{Status: "ok"}, nil
 
 }
 

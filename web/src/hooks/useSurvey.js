@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { t } from '../utils/i18n';
+import * as api from '../services/api';
 
 export function useSurvey({ state, update, notify }) {
   const surveySelect = useCallback(
@@ -19,7 +20,26 @@ export function useSurvey({ state, update, notify }) {
     [state.survey, update]
   );
 
-  const surveyNext = useCallback(() => {
+  const saveSurveyToBackend = useCallback(async (survey) => {
+    try {
+      await api.saveSurvey({ survey, survey_completed: true });
+    } catch {
+      // ignore save errors, localStorage fallback
+    }
+  }, []);
+
+  const loadSurveyFromBackend = useCallback(async () => {
+    try {
+      const data = await api.loadSurvey();
+      if (data?.survey) {
+        update({ survey: data.survey, surveyCompleted: data.survey_completed });
+      }
+    } catch {
+      // ignore load errors
+    }
+  }, [update]);
+
+  const surveyNext = useCallback(async () => {
     const steps = [
       'allergies',
       'restrictions',
@@ -45,8 +65,9 @@ export function useSurvey({ state, update, notify }) {
       update({ survey: { ...state.survey, step: state.survey.step + 1 } });
     } else {
       update({ surveyCompleted: true, surveyDeferred: false, screen: 'home' });
+      await saveSurveyToBackend(state.survey);
     }
-  }, [state.survey, update, notify]);
+  }, [state.survey, update, notify, saveSurveyToBackend]);
 
   const surveyPrev = useCallback(() => {
     if (state.survey.step > 0) {
@@ -68,5 +89,6 @@ export function useSurvey({ state, update, notify }) {
     surveyPrev,
     deferSurvey,
     resumeSurvey,
+    loadSurveyFromBackend,
   };
 }

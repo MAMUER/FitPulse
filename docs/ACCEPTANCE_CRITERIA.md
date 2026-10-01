@@ -73,8 +73,9 @@
 ### ML / AI
 
 - [x] Classifier (rule-based) — Phase 1 production
-- [x] ML Generator (Conditional Diffusion Model, DDPM) — Phase 1 production
-- [ ] Ежедневное переобучение (Phase 2)
+- [x] Plan Engine (template-based, Go) — Phase 1 production
+- [ ] ONNX classifier inference with fallback (Phase 2)
+- [ ] External LLM with opt-in (Phase 2)
 
 ### Устройства
 

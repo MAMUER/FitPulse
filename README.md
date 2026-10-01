@@ -4,7 +4,6 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36+-326CE5.svg)](https://kubernetes.io/)
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8.svg)](https://go.dev/)
-[![Python Version](https://img.shields.io/badge/Python-3.14+-3776AB.svg)](https://www.python.org/)
 [![Node Version](https://img.shields.io/badge/Node-24+-339933.svg)](https://nodejs.org/)
 [![React Version](https://img.shields.io/badge/React-19.2+-61DAFB.svg)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -37,7 +36,7 @@
 
 **Для пользователей:**
 
-- Персонализированные тренировочные планы (Conditional Diffusion Model)
+- Персонализированные тренировочные планы (template-based engine)
 - Интеграция с носимыми устройствами
 - ML-классификация состояния (6 классов)
 - Мониторинг биометрии в реальном времени

@@ -31,6 +31,7 @@ import (
 	"github.com/MAMUER/project/cmd/gateway/ports"
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/cache"
+	"github.com/MAMUER/project/internal/chat"
 	"github.com/MAMUER/project/internal/config"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
@@ -55,7 +56,7 @@ type gateway struct {
 
 	classifierURL string
 
-	mlGeneratorURL string
+	externalLLM *chat.ExternalLLMService
 
 	log *logger.Logger
 
@@ -287,8 +288,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		classifierURL: config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
 
-		mlGeneratorURL: config.GetEnv("ML_GENERATOR_URL", "http://ml-generator:8002"),
-
 		mlAsync: config.GetEnv("ML_ASYNC", "false") == "true",
 
 		valkeyAddr: valkeyAddress(),
@@ -300,12 +299,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		googleClientSecret: config.GetEnv("GOOGLE_CLIENT_SECRET"),
 
 		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
-	}
-
-	if err := validateMLGeneratorURL(cfg.mlGeneratorURL); err != nil {
-
-		log.Fatal("invalid ML_GENERATOR_URL", zap.Error(err))
-
 	}
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
@@ -405,8 +398,6 @@ type gatewayConfig struct {
 
 	classifierURL string
 
-	mlGeneratorURL string
-
 	rabbitmqURL string
 
 	valkeyAddr string
@@ -480,42 +471,6 @@ func newGatewayMetrics() gatewayMetrics {
 	prometheus.MustRegister(metrics.requestDuration, metrics.requestTotal, metrics.errorTotal)
 
 	return metrics
-
-}
-
-func validateMLGeneratorURL(mlGeneratorURL string) error {
-
-	parsedURL, err := url.Parse(mlGeneratorURL)
-
-	if err != nil {
-
-		return fmt.Errorf("parse ml generator url: %w", err)
-
-	}
-	allowedHosts := map[string]bool{
-
-		"ml-generator:8002": true,
-
-		"ml-generator": true,
-
-		"generator:8002": true,
-
-		"generator": true,
-
-		"127.0.0.1:8002": true,
-
-		"127.0.0.1:8001": true,
-
-		"127.0.0.1": true,
-	}
-
-	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
-
-		return fmt.Errorf("host %q is not allowed", parsedURL.Host)
-
-	}
-
-	return nil
 
 }
 
@@ -776,8 +731,6 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 
 		classifierURL: opts.cfg.classifierURL,
 
-		mlGeneratorURL: opts.cfg.mlGeneratorURL,
-
 		log: opts.log,
 
 		tokenProvider: opts.tokenProvider,
@@ -814,6 +767,10 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
 
 	}
+
+	g.externalLLM = chat.NewExternalLLMService(chat.ExternalLLMConfig{
+		Enabled: false,
+	}, zap.NewNop())
 
 	return g
 
@@ -883,13 +840,11 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 
 			log.Info("HTTPS server starting",
 
-				zap.String("port", "8443"),
+			zap.String("port", "8443"),
 
-				zap.String("cert", tlsCfg.certFile),
+			zap.String("cert", tlsCfg.certFile),
 
-				zap.String("classifier", cfg.classifierURL),
-
-				zap.String("ml_generator", cfg.mlGeneratorURL))
+			zap.String("classifier", cfg.classifierURL))
 
 			httpsSrv.TLSConfig = &tls.Config{
 
@@ -1244,6 +1199,16 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 
 		r.Get(profilePath+"/export", g.exportUserDataHandler)
 
+		// Survey
+
+		r.Get("/survey", g.loadSurveyHandler)
+
+		r.Post("/survey", g.saveSurveyHandler)
+
+		// Chat
+
+		r.Post("/chat", g.chatHandler)
+
 		// Health features
 
 		r.Get("/health/conditions", g.listHealthConditionsHandler)
@@ -1298,7 +1263,7 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 
 		// ML
 
-		r.Post("/ml/chat", g.mlChatHandler)
+		r.Post("/ml/feedback", g.handleMLFeedback)
 
 		// Nutrition
 

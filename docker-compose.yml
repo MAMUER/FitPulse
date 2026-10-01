@@ -144,8 +144,6 @@ services:
       DB_PORT: 5432
       VALKEY_ADDR: valkey:6379
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-}@rabbitmq:5672/
-      ML_GENERATOR_HOST: ml-generator
-      ML_GENERATOR_PORT: 8002
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     depends_on:
       postgres:
@@ -225,28 +223,6 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  ml-generator:
-    build:
-      context: .
-      dockerfile: cmd/ml_generator/Dockerfile
-    ports:
-      - "8002:8002"
-    environment:
-      ML_GENERATOR_PORT: 8002
-    volumes:
-      - ./models:/app/models
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')",
-        ]
-      interval: 10s
-      timeout: 10s
       retries: 5
 
   jaeger:

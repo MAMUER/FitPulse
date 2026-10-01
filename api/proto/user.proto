@@ -4,6 +4,9 @@ package user.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/user";
 
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
 // Сервис пользователей.
 service UserService {
     // Регистрация нового пользователя.
@@ -94,6 +97,10 @@ service UserService {
     rpc AdminBanUser(AdminBanUserRequest) returns (AdminBanUserResponse);
     // Разбан пользователя (админ).
     rpc AdminUnbanUser(AdminUnbanUserRequest) returns (AdminUnbanUserResponse);
+    // Сохранить анкету.
+    rpc SaveSurvey(SaveSurveyRequest) returns (SaveSurveyResponse);
+    // Загрузить анкету.
+    rpc LoadSurvey(LoadSurveyRequest) returns (LoadSurveyResponse);
 }
 
 message RegisterRequest {
@@ -307,6 +314,7 @@ message UserProfile {
     string nutrition = 16;
     float sleep_hours = 17;
     string profile_photo_url = 18;
+    bool ai_assistant_enabled = 19;
 }
 
 message ListUsersRequest {
@@ -661,4 +669,26 @@ message AdminUnbanUserRequest {
 message AdminUnbanUserResponse {
     bool success = 1;
     string message = 2;
+}
+
+message SaveSurveyRequest {
+    string user_id = 1;
+    google.protobuf.Struct survey = 2;
+    bool survey_completed = 3;
+    google.protobuf.Timestamp survey_completed_at = 4;
+}
+
+message SaveSurveyResponse {
+    string status = 1;
+}
+
+message LoadSurveyRequest {
+    string user_id = 1;
+}
+
+message LoadSurveyResponse {
+    string status = 1;
+    google.protobuf.Struct survey = 2;
+    bool survey_completed = 3;
+    google.protobuf.Timestamp survey_completed_at = 4;
 }

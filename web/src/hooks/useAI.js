@@ -23,7 +23,7 @@ export function useAI({ state, update }) {
         const aiMsg = {
           id: `${Date.now()}-a`,
           type: 'ai',
-          text: data.message || 'Ответ получен',
+          text: data.answer || data.message || 'Ответ получен',
           classification: data.classification || null,
           plan: data.plan || null,
           diet: data.diet || null,
@@ -63,7 +63,7 @@ export function useAI({ state, update }) {
           const aiMsg = {
             id: `${Date.now()}-a`,
             type: 'ai',
-            text: data.message || 'Ответ получен',
+            text: data.answer || data.message || 'Ответ получен',
             classification: data.classification || null,
             plan: data.plan || null,
             diet: data.diet || null,

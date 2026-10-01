@@ -221,65 +221,9 @@ updates:
     assignees: ["MAMUER"]
     registries: ["ghcr"]
 
-  # ═══════════════════════════════════════════════════════════════
-  # 4. PYTHON (pip) — ML-сервисы
-  # ═══════════════════════════════════════════════════════════════
-  - package-ecosystem: "pip"
-    directory: "/cmd/ml_generator"
-    schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
-    labels: ["dependencies", "python", "ml-generator"]
-    assignees: ["MAMUER"]
-    groups:
-      ml-dependencies:
-        patterns:
-          - "fastapi"
-          - "uvicorn"
-          - "pydantic"
-          - "pandas"
-          - "matplotlib"
-          - "valkey"
-          - "pika"
-          - "joblib"
-          - "prometheus-client"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # ═══════════════════════════════════════════════════════════════
-  # 5. DOCKER — ML-сервисы (Python-образы)
-  # ═══════════════════════════════════════════════════════════════
-  - package-ecosystem: "docker"
-    directory: "/cmd/ml_generator"
-    schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
-    labels: ["dependencies", "docker", "ml-generator"]
-    assignees: ["MAMUER"]
-    registries: ["ghcr"]
-    allow:
-      - dependency-type: "direct"
-
-  # ═══════════════════════════════════════════════════════════════
-  # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
-  # ═══════════════════════════════════════════════════════════════
+   # ═══════════════════════════════════════════════════════════════
+   # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
+   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base"
     schedule:

@@ -63,7 +63,7 @@ export function useProfile({ state, update, notify }) {
       )
     )
       return;
-    api.deleteAccount();
+    api.deleteAccount().catch(() => {});
     notify(
       t(
         'Аккаунт удалён. Локальные данные очищены.',

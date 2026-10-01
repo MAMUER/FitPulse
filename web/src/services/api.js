@@ -269,7 +269,7 @@ export async function deleteCalendarEvent(eventId) {
 }
 
 export async function sendAIMessage(text) {
-  const data = await backendRequest('/api/v1/ml/chat', {
+  const data = await backendRequest('/api/v1/chat', {
     method: 'POST',
     body: JSON.stringify({ message: text }),
   });
@@ -353,9 +353,22 @@ export function changePassword(oldPass, newPass, confirmPass) {
   return { oldPass, newPass };
 }
 
-export function deleteAccount() {
+export async function deleteAccount() {
   localStorage.removeItem('fitpulse-merged-v9');
   return true;
+}
+
+export async function saveSurvey(surveyData) {
+  const data = await backendRequest('/api/v1/survey', {
+    method: 'POST',
+    body: JSON.stringify(surveyData),
+  });
+  return data;
+}
+
+export async function loadSurvey() {
+  const data = await backendRequest('/api/v1/survey');
+  return data;
 }
 
 export async function confirmEmail(token) {

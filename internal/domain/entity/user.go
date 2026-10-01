@@ -20,6 +20,10 @@ type User struct {
 	Goals           []string
 	Nutrition       string
 	SleepHours      float32
+	SurveyData      map[string]interface{}
+	SurveyCompleted bool
+	SurveyCompletedAt *time.Time
+	AIAssistantEnabled bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -41,6 +45,7 @@ type TrainingPlan struct {
 	Classification string
 	DurationWeeks  int
 	AvailableDays  []int
+	TemplateVersion string
 	PlanData       map[string]interface{}
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

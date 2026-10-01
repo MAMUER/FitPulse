@@ -63,6 +63,8 @@ const (
 	UserService_AdminDeleteUser_FullMethodName       = "/user.v1.UserService/AdminDeleteUser"
 	UserService_AdminBanUser_FullMethodName          = "/user.v1.UserService/AdminBanUser"
 	UserService_AdminUnbanUser_FullMethodName        = "/user.v1.UserService/AdminUnbanUser"
+	UserService_SaveSurvey_FullMethodName            = "/user.v1.UserService/SaveSurvey"
+	UserService_LoadSurvey_FullMethodName            = "/user.v1.UserService/LoadSurvey"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -159,6 +161,10 @@ type UserServiceClient interface {
 	AdminBanUser(ctx context.Context, in *AdminBanUserRequest, opts ...grpc.CallOption) (*AdminBanUserResponse, error)
 	// Разбан пользователя (админ).
 	AdminUnbanUser(ctx context.Context, in *AdminUnbanUserRequest, opts ...grpc.CallOption) (*AdminUnbanUserResponse, error)
+	// Сохранить анкету.
+	SaveSurvey(ctx context.Context, in *SaveSurveyRequest, opts ...grpc.CallOption) (*SaveSurveyResponse, error)
+	// Загрузить анкету.
+	LoadSurvey(ctx context.Context, in *LoadSurveyRequest, opts ...grpc.CallOption) (*LoadSurveyResponse, error)
 }
 
 type userServiceClient struct {
@@ -609,6 +615,26 @@ func (c *userServiceClient) AdminUnbanUser(ctx context.Context, in *AdminUnbanUs
 	return out, nil
 }
 
+func (c *userServiceClient) SaveSurvey(ctx context.Context, in *SaveSurveyRequest, opts ...grpc.CallOption) (*SaveSurveyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveSurveyResponse)
+	err := c.cc.Invoke(ctx, UserService_SaveSurvey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) LoadSurvey(ctx context.Context, in *LoadSurveyRequest, opts ...grpc.CallOption) (*LoadSurveyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadSurveyResponse)
+	err := c.cc.Invoke(ctx, UserService_LoadSurvey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -703,6 +729,10 @@ type UserServiceServer interface {
 	AdminBanUser(context.Context, *AdminBanUserRequest) (*AdminBanUserResponse, error)
 	// Разбан пользователя (админ).
 	AdminUnbanUser(context.Context, *AdminUnbanUserRequest) (*AdminUnbanUserResponse, error)
+	// Сохранить анкету.
+	SaveSurvey(context.Context, *SaveSurveyRequest) (*SaveSurveyResponse, error)
+	// Загрузить анкету.
+	LoadSurvey(context.Context, *LoadSurveyRequest) (*LoadSurveyResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -844,6 +874,12 @@ func (UnimplementedUserServiceServer) AdminBanUser(context.Context, *AdminBanUse
 }
 func (UnimplementedUserServiceServer) AdminUnbanUser(context.Context, *AdminUnbanUserRequest) (*AdminUnbanUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AdminUnbanUser not implemented")
+}
+func (UnimplementedUserServiceServer) SaveSurvey(context.Context, *SaveSurveyRequest) (*SaveSurveyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveSurvey not implemented")
+}
+func (UnimplementedUserServiceServer) LoadSurvey(context.Context, *LoadSurveyRequest) (*LoadSurveyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadSurvey not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -1658,6 +1694,42 @@ func _UserService_AdminUnbanUser_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_SaveSurvey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveSurveyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).SaveSurvey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_SaveSurvey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).SaveSurvey(ctx, req.(*SaveSurveyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_LoadSurvey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadSurveyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).LoadSurvey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_LoadSurvey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).LoadSurvey(ctx, req.(*LoadSurveyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1840,6 +1912,14 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AdminUnbanUser",
 			Handler:    _UserService_AdminUnbanUser_Handler,
+		},
+		{
+			MethodName: "SaveSurvey",
+			Handler:    _UserService_SaveSurvey_Handler,
+		},
+		{
+			MethodName: "LoadSurvey",
+			Handler:    _UserService_LoadSurvey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

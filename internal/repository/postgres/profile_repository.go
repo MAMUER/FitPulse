@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -153,4 +154,52 @@ func (r *profileRepository) UpsertProfile(ctx context.Context, userID string, da
 
 	return nil
 
+}
+
+func (r *profileRepository) SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
+	surveyJSON, err := json.Marshal(survey)
+	if err != nil {
+		return apperrors.Internal("failed to marshal survey", err)
+	}
+
+	query := `
+		UPDATE user_profiles
+		SET survey_data = $1, survey_completed = $2, survey_completed_at = $3, updated_at = NOW()
+		WHERE user_id = $4
+	`
+	_, err = r.db.ExecContext(ctx, query, surveyJSON, completed, completedAt, userID)
+	if err != nil {
+		return apperrors.Internal("failed to save survey", err)
+	}
+	return nil
+}
+
+func (r *profileRepository) LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error) {
+	var surveyJSON []byte
+	var completed bool
+	var completedAt *time.Time
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT survey_data, survey_completed, survey_completed_at
+		FROM user_profiles
+		WHERE user_id = $1
+	`, userID).Scan(&surveyJSON, &completed, &completedAt)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return map[string]interface{}{}, false, nil, nil
+		}
+		return nil, false, nil, apperrors.Internal("failed to load survey", err)
+	}
+
+	if len(surveyJSON) == 0 {
+		return map[string]interface{}{}, false, nil, nil
+	}
+
+	var survey map[string]interface{}
+	if err := json.Unmarshal(surveyJSON, &survey); err != nil {
+		return nil, false, nil, apperrors.Internal("failed to unmarshal survey", err)
+	}
+
+	return survey, completed, completedAt, nil
 }

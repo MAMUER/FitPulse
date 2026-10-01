@@ -46,6 +46,13 @@ type ProfileRepository interface {
 	UserExists(ctx context.Context, userID string) (bool, error)
 	CreateProfile(ctx context.Context, userID string) error
 	UpsertProfile(ctx context.Context, userID string, data *ProfileData) error
+	SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
+}
+
+type SurveyRepository interface {
+	SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
 }
 
 type ProfileData struct {

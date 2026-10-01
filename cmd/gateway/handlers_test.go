@@ -165,6 +165,14 @@ func (m *mockUserServiceClient) AdminUnbanUser(ctx context.Context, req *userpb.
 	return &userpb.AdminUnbanUserResponse{Success: true}, nil
 }
 
+func (m *mockUserServiceClient) SaveSurvey(ctx context.Context, req *userpb.SaveSurveyRequest, opts ...grpc.CallOption) (*userpb.SaveSurveyResponse, error) {
+	return &userpb.SaveSurveyResponse{Status: "ok"}, nil
+}
+
+func (m *mockUserServiceClient) LoadSurvey(ctx context.Context, req *userpb.LoadSurveyRequest, opts ...grpc.CallOption) (*userpb.LoadSurveyResponse, error) {
+	return &userpb.LoadSurveyResponse{Status: "ok"}, nil
+}
+
 func setupGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

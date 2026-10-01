@@ -376,7 +376,7 @@ jobs:
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: false
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: true
           SAVE_SUPER_LINTER_SUMMARY: true
-          FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*|cmd/ml_generator/.*)'
+          FILTER_REGEX_EXCLUDE: '(\.github/workflows/.*|.*\.ya?ml$|vendor/.*|bin/.*)'
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_PYTHON_FLAKE8: true
           VALIDATE_PYTHON_ISORT: true
@@ -395,7 +395,7 @@ jobs:
           JUPYTER_NBQA_MYPY: "false"
           JUPYTER_NBQA_PYLINT: "false"
           JUPYTER_NBQA_RUFF: "false"
-          PYTHON_MYPY_ARGS: "--config-file .github/linters/pyproject.toml --exclude 'cmd/ml_generator'"
+          PYTHON_MYPY_ARGS: "--config-file .github/linters/pyproject.toml"
 
   # ============================================================================
   # CODEQL ANALYSIS
@@ -533,7 +533,7 @@ jobs:
       - name: Run OSV Scanner (Go dependencies)
         uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc
         with:
-          scan-args: -r ./ --config .osv-scanner.toml --experimental-exclude=cmd/ml_generator
+           scan-args: -r ./ --config .osv-scanner.toml
       - name: Run OSV Scanner (Python requirements)
         run: bash scripts/ci/security.sh run_osv_python_requirements
   # ============================================================================
@@ -730,7 +730,7 @@ jobs:
             -Dsonar.tests=cmd,internal,web/src
             -Dsonar.test.inclusions=**/*_test.go,**/*.test.jsx,**/*.test.js
             -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go,**/*.test.jsx,**/*.test.js,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go
-            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go,cmd/ml_generator/main.py,cmd/**/main.go,web/src/main.jsx,web/src/App.jsx,web/src/index.css,web/src/test/setup.js
+            -Dsonar.coverage.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,cmd/ml-classifier/**,cmd/device-emulator/**,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go,cmd/**/main.go,web/src/main.jsx,web/src/App.jsx,web/src/index.css,web/src/test/setup.js
             -Dsonar.go.coverage.reportPaths=bin/coverage.out
             -Dsonar.javascript.lcov.reportPaths=bin/lcov.info
             -Dsonar.qualitygate.wait=true

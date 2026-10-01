@@ -45,7 +45,9 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/generate`|Сгенерировать план|`{duration_weeks, available_days, class?, confidence?}`|`{status, plan_id, plan_data, training_type}`|
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
-|POST|`/ml/chat`|AI-советник (классификация + план + диета)|`{message}`|`{status, classification, plan, diet}`|
+|POST|`/chat`|FAQ/чат (rule-based)|`{message}`|`{status, answer, user_id, timestamp}`|
+|GET|`/api/v1/survey`|Загрузить анкету|—|`{status, survey, survey_completed, survey_completed_at}`|
+|POST|`/api/v1/survey`|Сохранить анкету|`{survey, survey_completed?}`|`{status}`|
 |GET|`/api/v1/health/conditions`|Список заболеваний пользователя|—|`{status, conditions: [{condition_id, condition_name, condition_type, severity, diagnosed_at, notes}]}`|
 |POST|`/api/v1/health/conditions`|Добавить заболевание|`{condition_name, condition_type, severity?, diagnosed_at?, notes?}`|`{status, condition_id}`|
 |DELETE|`/api/v1/health/conditions/{condition_id}`|Удалить заболевание|—|`{status}`|

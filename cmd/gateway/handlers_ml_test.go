@@ -2,10 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"net"
-	"net/http"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -162,53 +158,6 @@ func TestML_CallClassifier_InvalidURL(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-}
-
-func TestML_ProxyToMLGenerator_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
-
-	ctx := context.Background()
-	status, body, err := g.proxyToMLGenerator(ctx, "/generate-plan", []byte(`{}`))
-
-	assert.Error(t, err)
-	assert.Equal(t, http.StatusServiceUnavailable, status)
-	assert.Nil(t, body)
-}
-
-func TestML_ProxyToMLGenerator_Success(t *testing.T) {
-	g := newTestGateway()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"plan": "generated-plan",
-		})
-	})}
-	go func() {
-		if serveErr := server.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
-			t.Logf("server error: %v", serveErr)
-		}
-	}()
-	defer func() {
-		if closeErr := server.Close(); closeErr != nil {
-			t.Logf("close error: %v", closeErr)
-		}
-	}()
-
-	g.mlGeneratorURL = "http://127.0.0.1:" + strconv.Itoa(port)
-
-	ctx := context.Background()
-	status, body, err := g.proxyToMLGenerator(ctx, "/generate-plan", []byte(`{}`))
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, status)
-	assert.Contains(t, string(body), "generated-plan")
 }
 
 func TestML_IsValidServiceURL(t *testing.T) {

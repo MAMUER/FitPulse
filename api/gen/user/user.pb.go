@@ -9,6 +9,8 @@ package user
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -2009,6 +2011,7 @@ type UserProfile struct {
 	Nutrition         string                 `protobuf:"bytes,16,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
 	SleepHours        float32                `protobuf:"fixed32,17,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
 	ProfilePhotoUrl   string                 `protobuf:"bytes,18,opt,name=profile_photo_url,json=profilePhotoUrl,proto3" json:"profile_photo_url,omitempty"`
+	AiAssistantEnabled bool                  `protobuf:"varint,19,opt,name=ai_assistant_enabled,json=aiAssistantEnabled,proto3" json:"ai_assistant_enabled,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -2167,6 +2170,13 @@ func (x *UserProfile) GetProfilePhotoUrl() string {
 		return x.ProfilePhotoUrl
 	}
 	return ""
+}
+
+func (x *UserProfile) GetAiAssistantEnabled() bool {
+	if x != nil {
+		return x.AiAssistantEnabled
+	}
+	return false
 }
 
 type ListUsersRequest struct {
@@ -5613,12 +5623,236 @@ func (x *AdminUnbanUserResponse) GetMessage() string {
 	return ""
 }
 
+type SaveSurveyRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Survey            *structpb.Struct       `protobuf:"bytes,2,opt,name=survey,proto3" json:"survey,omitempty"`
+	SurveyCompleted   bool                   `protobuf:"varint,3,opt,name=survey_completed,json=surveyCompleted,proto3" json:"survey_completed,omitempty"`
+	SurveyCompletedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=survey_completed_at,json=surveyCompletedAt,proto3" json:"survey_completed_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SaveSurveyRequest) Reset() {
+	*x = SaveSurveyRequest{}
+	mi := &file_user_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveSurveyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveSurveyRequest) ProtoMessage() {}
+
+func (x *SaveSurveyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveSurveyRequest.ProtoReflect.Descriptor instead.
+func (*SaveSurveyRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *SaveSurveyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SaveSurveyRequest) GetSurvey() *structpb.Struct {
+	if x != nil {
+		return x.Survey
+	}
+	return nil
+}
+
+func (x *SaveSurveyRequest) GetSurveyCompleted() bool {
+	if x != nil {
+		return x.SurveyCompleted
+	}
+	return false
+}
+
+func (x *SaveSurveyRequest) GetSurveyCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SurveyCompletedAt
+	}
+	return nil
+}
+
+type SaveSurveyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveSurveyResponse) Reset() {
+	*x = SaveSurveyResponse{}
+	mi := &file_user_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveSurveyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveSurveyResponse) ProtoMessage() {}
+
+func (x *SaveSurveyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveSurveyResponse.ProtoReflect.Descriptor instead.
+func (*SaveSurveyResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *SaveSurveyResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type LoadSurveyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadSurveyRequest) Reset() {
+	*x = LoadSurveyRequest{}
+	mi := &file_user_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadSurveyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadSurveyRequest) ProtoMessage() {}
+
+func (x *LoadSurveyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadSurveyRequest.ProtoReflect.Descriptor instead.
+func (*LoadSurveyRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *LoadSurveyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type LoadSurveyResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Status            string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Survey            *structpb.Struct       `protobuf:"bytes,2,opt,name=survey,proto3" json:"survey,omitempty"`
+	SurveyCompleted   bool                   `protobuf:"varint,3,opt,name=survey_completed,json=surveyCompleted,proto3" json:"survey_completed,omitempty"`
+	SurveyCompletedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=survey_completed_at,json=surveyCompletedAt,proto3" json:"survey_completed_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *LoadSurveyResponse) Reset() {
+	*x = LoadSurveyResponse{}
+	mi := &file_user_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadSurveyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadSurveyResponse) ProtoMessage() {}
+
+func (x *LoadSurveyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadSurveyResponse.ProtoReflect.Descriptor instead.
+func (*LoadSurveyResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{91}
+}
+
+func (x *LoadSurveyResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *LoadSurveyResponse) GetSurvey() *structpb.Struct {
+	if x != nil {
+		return x.Survey
+	}
+	return nil
+}
+
+func (x *LoadSurveyResponse) GetSurveyCompleted() bool {
+	if x != nil {
+		return x.SurveyCompleted
+	}
+	return false
+}
+
+func (x *LoadSurveyResponse) GetSurveyCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SurveyCompletedAt
+	}
+	return nil
+}
+
 var File_user_proto protoreflect.FileDescriptor
 
 const file_user_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"user.proto\x12\auser.v1\"t\n" +
+	"user.proto\x12\auser.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"t\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1b\n" +
@@ -6064,7 +6298,21 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"L\n" +
 	"\x16AdminUnbanUserResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xba\x1c\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xd4\x01\n" +
+	"\x11SaveSurveyRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12/\n" +
+	"\x06survey\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06survey\x12)\n" +
+	"\x10survey_completed\x18\x03 \x01(\bR\x0fsurveyCompleted\x12J\n" +
+	"\x13survey_completed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x11surveyCompletedAt\",\n" +
+	"\x12SaveSurveyResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\",\n" +
+	"\x11LoadSurveyRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xd4\x01\n" +
+	"\x12LoadSurveyResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12/\n" +
+	"\x06survey\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06survey\x12)\n" +
+	"\x10survey_completed\x18\x03 \x01(\bR\x0fsurveyCompleted\x12J\n" +
+	"\x13survey_completed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x11surveyCompletedAt2\xc8\x1d\n" +
 	"\vUserService\x12?\n" +
 	"\bRegister\x12\x18.user.v1.RegisterRequest\x1a\x19.user.v1.RegisterResponse\x12S\n" +
 	"\x12RegisterWithInvite\x12\".user.v1.RegisterWithInviteRequest\x1a\x19.user.v1.RegisterResponse\x12K\n" +
@@ -6111,7 +6359,11 @@ const file_user_proto_rawDesc = "" +
 	"\x11AdminRevokeInvite\x12!.user.v1.AdminRevokeInviteRequest\x1a\".user.v1.AdminRevokeInviteResponse\x12T\n" +
 	"\x0fAdminDeleteUser\x12\x1f.user.v1.AdminDeleteUserRequest\x1a .user.v1.AdminDeleteUserResponse\x12K\n" +
 	"\fAdminBanUser\x12\x1c.user.v1.AdminBanUserRequest\x1a\x1d.user.v1.AdminBanUserResponse\x12Q\n" +
-	"\x0eAdminUnbanUser\x12\x1e.user.v1.AdminUnbanUserRequest\x1a\x1f.user.v1.AdminUnbanUserResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
+	"\x0eAdminUnbanUser\x12\x1e.user.v1.AdminUnbanUserRequest\x1a\x1f.user.v1.AdminUnbanUserResponse\x12E\n" +
+	"\n" +
+	"SaveSurvey\x12\x1a.user.v1.SaveSurveyRequest\x1a\x1b.user.v1.SaveSurveyResponse\x12E\n" +
+	"\n" +
+	"LoadSurvey\x12\x1a.user.v1.LoadSurveyRequest\x1a\x1b.user.v1.LoadSurveyResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -6125,7 +6377,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 88)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 92)
 var file_user_proto_goTypes = []any{
 	(*RegisterRequest)(nil),               // 0: user.v1.RegisterRequest
 	(*RegisterResponse)(nil),              // 1: user.v1.RegisterResponse
@@ -6215,6 +6467,12 @@ var file_user_proto_goTypes = []any{
 	(*AdminBanUserResponse)(nil),          // 85: user.v1.AdminBanUserResponse
 	(*AdminUnbanUserRequest)(nil),         // 86: user.v1.AdminUnbanUserRequest
 	(*AdminUnbanUserResponse)(nil),        // 87: user.v1.AdminUnbanUserResponse
+	(*SaveSurveyRequest)(nil),             // 88: user.v1.SaveSurveyRequest
+	(*SaveSurveyResponse)(nil),            // 89: user.v1.SaveSurveyResponse
+	(*LoadSurveyRequest)(nil),             // 90: user.v1.LoadSurveyRequest
+	(*LoadSurveyResponse)(nil),            // 91: user.v1.LoadSurveyResponse
+	(*structpb.Struct)(nil),               // 92: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),         // 93: google.protobuf.Timestamp
 }
 var file_user_proto_depIdxs = []int32{
 	36, // 0: user.v1.GetUserByEmailResponse.user:type_name -> user.v1.UserProfile
@@ -6231,99 +6489,107 @@ var file_user_proto_depIdxs = []int32{
 	58, // 11: user.v1.ExportUserDataResponse.body_composition:type_name -> user.v1.BodyCompositionRecord
 	62, // 12: user.v1.ExportUserDataResponse.menstrual_cycles:type_name -> user.v1.MenstrualCycle
 	21, // 13: user.v1.ExportUserDataResponse.devices:type_name -> user.v1.Device
-	0,  // 14: user.v1.UserService.Register:input_type -> user.v1.RegisterRequest
-	39, // 15: user.v1.UserService.RegisterWithInvite:input_type -> user.v1.RegisterWithInviteRequest
-	2,  // 16: user.v1.UserService.ConfirmEmail:input_type -> user.v1.ConfirmEmailRequest
-	4,  // 17: user.v1.UserService.Login:input_type -> user.v1.LoginRequest
-	6,  // 18: user.v1.UserService.AuthenticateGoogle:input_type -> user.v1.AuthenticateGoogleRequest
-	7,  // 19: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
-	8,  // 20: user.v1.UserService.GetUserByEmail:input_type -> user.v1.GetUserByEmailRequest
-	10, // 21: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
-	11, // 22: user.v1.UserService.ChangePassword:input_type -> user.v1.ChangePasswordRequest
-	13, // 23: user.v1.UserService.ChangeEmail:input_type -> user.v1.ChangeEmailRequest
-	15, // 24: user.v1.UserService.UploadProfilePhoto:input_type -> user.v1.UploadProfilePhotoRequest
-	17, // 25: user.v1.UserService.RemoveProfilePhoto:input_type -> user.v1.RemoveProfilePhotoRequest
-	19, // 26: user.v1.UserService.ChangeNickname:input_type -> user.v1.ChangeNicknameRequest
-	22, // 27: user.v1.UserService.ListDevices:input_type -> user.v1.ListDevicesRequest
-	24, // 28: user.v1.UserService.AddDevice:input_type -> user.v1.AddDeviceRequest
-	26, // 29: user.v1.UserService.RemoveDevice:input_type -> user.v1.RemoveDeviceRequest
-	28, // 30: user.v1.UserService.SyncDeviceData:input_type -> user.v1.SyncDeviceDataRequest
-	30, // 31: user.v1.UserService.GetTrainingStats:input_type -> user.v1.GetTrainingStatsRequest
-	34, // 32: user.v1.UserService.GetAchievements:input_type -> user.v1.GetAchievementsRequest
-	37, // 33: user.v1.UserService.ListUsers:input_type -> user.v1.ListUsersRequest
-	40, // 34: user.v1.UserService.ValidateInviteCode:input_type -> user.v1.ValidateInviteCodeRequest
-	42, // 35: user.v1.UserService.SetupTOTP:input_type -> user.v1.SetupTOTPRequest
-	44, // 36: user.v1.UserService.ConfirmTOTP:input_type -> user.v1.ConfirmTOTPRequest
-	46, // 37: user.v1.UserService.VerifyTOTP:input_type -> user.v1.VerifyTOTPRequest
-	48, // 38: user.v1.UserService.DisableTOTP:input_type -> user.v1.DisableTOTPRequest
-	50, // 39: user.v1.UserService.RefreshToken:input_type -> user.v1.RefreshTokenRequest
-	53, // 40: user.v1.UserService.ListHealthConditions:input_type -> user.v1.ListHealthConditionsRequest
-	55, // 41: user.v1.UserService.UpsertHealthCondition:input_type -> user.v1.UpsertHealthConditionRequest
-	56, // 42: user.v1.UserService.DeleteHealthCondition:input_type -> user.v1.DeleteHealthConditionRequest
-	59, // 43: user.v1.UserService.ListBodyComposition:input_type -> user.v1.ListBodyCompositionRequest
-	61, // 44: user.v1.UserService.CreateBodyComposition:input_type -> user.v1.CreateBodyCompositionRequest
-	63, // 45: user.v1.UserService.ListMenstrualCycles:input_type -> user.v1.ListMenstrualCyclesRequest
-	65, // 46: user.v1.UserService.CreateMenstrualCycle:input_type -> user.v1.CreateMenstrualCycleRequest
-	66, // 47: user.v1.UserService.UpdateMenstrualCycle:input_type -> user.v1.UpdateMenstrualCycleRequest
-	67, // 48: user.v1.UserService.DeleteMenstrualCycle:input_type -> user.v1.DeleteMenstrualCycleRequest
-	69, // 49: user.v1.UserService.GetUserClaims:input_type -> user.v1.GetUserClaimsRequest
-	71, // 50: user.v1.UserService.DeleteProfile:input_type -> user.v1.DeleteProfileRequest
-	82, // 51: user.v1.UserService.ExportUserData:input_type -> user.v1.ExportUserDataRequest
-	74, // 52: user.v1.UserService.AdminListInvites:input_type -> user.v1.AdminListInvitesRequest
-	76, // 53: user.v1.UserService.AdminCreateInvite:input_type -> user.v1.AdminCreateInviteRequest
-	78, // 54: user.v1.UserService.AdminRevokeInvite:input_type -> user.v1.AdminRevokeInviteRequest
-	80, // 55: user.v1.UserService.AdminDeleteUser:input_type -> user.v1.AdminDeleteUserRequest
-	84, // 56: user.v1.UserService.AdminBanUser:input_type -> user.v1.AdminBanUserRequest
-	86, // 57: user.v1.UserService.AdminUnbanUser:input_type -> user.v1.AdminUnbanUserRequest
-	1,  // 58: user.v1.UserService.Register:output_type -> user.v1.RegisterResponse
-	1,  // 59: user.v1.UserService.RegisterWithInvite:output_type -> user.v1.RegisterResponse
-	3,  // 60: user.v1.UserService.ConfirmEmail:output_type -> user.v1.ConfirmEmailResponse
-	5,  // 61: user.v1.UserService.Login:output_type -> user.v1.LoginResponse
-	5,  // 62: user.v1.UserService.AuthenticateGoogle:output_type -> user.v1.LoginResponse
-	36, // 63: user.v1.UserService.GetProfile:output_type -> user.v1.UserProfile
-	36, // 64: user.v1.UserService.GetUserByEmail:output_type -> user.v1.UserProfile
-	36, // 65: user.v1.UserService.UpdateProfile:output_type -> user.v1.UserProfile
-	12, // 66: user.v1.UserService.ChangePassword:output_type -> user.v1.ChangePasswordResponse
-	14, // 67: user.v1.UserService.ChangeEmail:output_type -> user.v1.ChangeEmailResponse
-	16, // 68: user.v1.UserService.UploadProfilePhoto:output_type -> user.v1.UploadProfilePhotoResponse
-	18, // 69: user.v1.UserService.RemoveProfilePhoto:output_type -> user.v1.RemoveProfilePhotoResponse
-	20, // 70: user.v1.UserService.ChangeNickname:output_type -> user.v1.ChangeNicknameResponse
-	23, // 71: user.v1.UserService.ListDevices:output_type -> user.v1.ListDevicesResponse
-	25, // 72: user.v1.UserService.AddDevice:output_type -> user.v1.AddDeviceResponse
-	27, // 73: user.v1.UserService.RemoveDevice:output_type -> user.v1.RemoveDeviceResponse
-	29, // 74: user.v1.UserService.SyncDeviceData:output_type -> user.v1.SyncDeviceDataResponse
-	32, // 75: user.v1.UserService.GetTrainingStats:output_type -> user.v1.GetTrainingStatsResponse
-	35, // 76: user.v1.UserService.GetAchievements:output_type -> user.v1.GetAchievementsResponse
-	38, // 77: user.v1.UserService.ListUsers:output_type -> user.v1.ListUsersResponse
-	41, // 78: user.v1.UserService.ValidateInviteCode:output_type -> user.v1.ValidateInviteCodeResponse
-	43, // 79: user.v1.UserService.SetupTOTP:output_type -> user.v1.SetupTOTPResponse
-	45, // 80: user.v1.UserService.ConfirmTOTP:output_type -> user.v1.ConfirmTOTPResponse
-	47, // 81: user.v1.UserService.VerifyTOTP:output_type -> user.v1.VerifyTOTPResponse
-	49, // 82: user.v1.UserService.DisableTOTP:output_type -> user.v1.DisableTOTPResponse
-	51, // 83: user.v1.UserService.RefreshToken:output_type -> user.v1.RefreshTokenResponse
-	54, // 84: user.v1.UserService.ListHealthConditions:output_type -> user.v1.ListHealthConditionsResponse
-	52, // 85: user.v1.UserService.UpsertHealthCondition:output_type -> user.v1.HealthCondition
-	57, // 86: user.v1.UserService.DeleteHealthCondition:output_type -> user.v1.DeleteHealthConditionResponse
-	60, // 87: user.v1.UserService.ListBodyComposition:output_type -> user.v1.ListBodyCompositionResponse
-	58, // 88: user.v1.UserService.CreateBodyComposition:output_type -> user.v1.BodyCompositionRecord
-	64, // 89: user.v1.UserService.ListMenstrualCycles:output_type -> user.v1.ListMenstrualCyclesResponse
-	62, // 90: user.v1.UserService.CreateMenstrualCycle:output_type -> user.v1.MenstrualCycle
-	62, // 91: user.v1.UserService.UpdateMenstrualCycle:output_type -> user.v1.MenstrualCycle
-	68, // 92: user.v1.UserService.DeleteMenstrualCycle:output_type -> user.v1.DeleteMenstrualCycleResponse
-	70, // 93: user.v1.UserService.GetUserClaims:output_type -> user.v1.GetUserClaimsResponse
-	72, // 94: user.v1.UserService.DeleteProfile:output_type -> user.v1.DeleteProfileResponse
-	83, // 95: user.v1.UserService.ExportUserData:output_type -> user.v1.ExportUserDataResponse
-	75, // 96: user.v1.UserService.AdminListInvites:output_type -> user.v1.AdminListInvitesResponse
-	77, // 97: user.v1.UserService.AdminCreateInvite:output_type -> user.v1.AdminCreateInviteResponse
-	79, // 98: user.v1.UserService.AdminRevokeInvite:output_type -> user.v1.AdminRevokeInviteResponse
-	81, // 99: user.v1.UserService.AdminDeleteUser:output_type -> user.v1.AdminDeleteUserResponse
-	85, // 100: user.v1.UserService.AdminBanUser:output_type -> user.v1.AdminBanUserResponse
-	87, // 101: user.v1.UserService.AdminUnbanUser:output_type -> user.v1.AdminUnbanUserResponse
-	58, // [58:102] is the sub-list for method output_type
-	14, // [14:58] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	92, // 14: user.v1.SaveSurveyRequest.survey:type_name -> google.protobuf.Struct
+	93, // 15: user.v1.SaveSurveyRequest.survey_completed_at:type_name -> google.protobuf.Timestamp
+	92, // 16: user.v1.LoadSurveyResponse.survey:type_name -> google.protobuf.Struct
+	93, // 17: user.v1.LoadSurveyResponse.survey_completed_at:type_name -> google.protobuf.Timestamp
+	0,  // 18: user.v1.UserService.Register:input_type -> user.v1.RegisterRequest
+	39, // 19: user.v1.UserService.RegisterWithInvite:input_type -> user.v1.RegisterWithInviteRequest
+	2,  // 20: user.v1.UserService.ConfirmEmail:input_type -> user.v1.ConfirmEmailRequest
+	4,  // 21: user.v1.UserService.Login:input_type -> user.v1.LoginRequest
+	6,  // 22: user.v1.UserService.AuthenticateGoogle:input_type -> user.v1.AuthenticateGoogleRequest
+	7,  // 23: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
+	8,  // 24: user.v1.UserService.GetUserByEmail:input_type -> user.v1.GetUserByEmailRequest
+	10, // 25: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
+	11, // 26: user.v1.UserService.ChangePassword:input_type -> user.v1.ChangePasswordRequest
+	13, // 27: user.v1.UserService.ChangeEmail:input_type -> user.v1.ChangeEmailRequest
+	15, // 28: user.v1.UserService.UploadProfilePhoto:input_type -> user.v1.UploadProfilePhotoRequest
+	17, // 29: user.v1.UserService.RemoveProfilePhoto:input_type -> user.v1.RemoveProfilePhotoRequest
+	19, // 30: user.v1.UserService.ChangeNickname:input_type -> user.v1.ChangeNicknameRequest
+	22, // 31: user.v1.UserService.ListDevices:input_type -> user.v1.ListDevicesRequest
+	24, // 32: user.v1.UserService.AddDevice:input_type -> user.v1.AddDeviceRequest
+	26, // 33: user.v1.UserService.RemoveDevice:input_type -> user.v1.RemoveDeviceRequest
+	28, // 34: user.v1.UserService.SyncDeviceData:input_type -> user.v1.SyncDeviceDataRequest
+	30, // 35: user.v1.UserService.GetTrainingStats:input_type -> user.v1.GetTrainingStatsRequest
+	34, // 36: user.v1.UserService.GetAchievements:input_type -> user.v1.GetAchievementsRequest
+	37, // 37: user.v1.UserService.ListUsers:input_type -> user.v1.ListUsersRequest
+	40, // 38: user.v1.UserService.ValidateInviteCode:input_type -> user.v1.ValidateInviteCodeRequest
+	42, // 39: user.v1.UserService.SetupTOTP:input_type -> user.v1.SetupTOTPRequest
+	44, // 40: user.v1.UserService.ConfirmTOTP:input_type -> user.v1.ConfirmTOTPRequest
+	46, // 41: user.v1.UserService.VerifyTOTP:input_type -> user.v1.VerifyTOTPRequest
+	48, // 42: user.v1.UserService.DisableTOTP:input_type -> user.v1.DisableTOTPRequest
+	50, // 43: user.v1.UserService.RefreshToken:input_type -> user.v1.RefreshTokenRequest
+	53, // 44: user.v1.UserService.ListHealthConditions:input_type -> user.v1.ListHealthConditionsRequest
+	55, // 45: user.v1.UserService.UpsertHealthCondition:input_type -> user.v1.UpsertHealthConditionRequest
+	56, // 46: user.v1.UserService.DeleteHealthCondition:input_type -> user.v1.DeleteHealthConditionRequest
+	59, // 47: user.v1.UserService.ListBodyComposition:input_type -> user.v1.ListBodyCompositionRequest
+	61, // 48: user.v1.UserService.CreateBodyComposition:input_type -> user.v1.CreateBodyCompositionRequest
+	63, // 49: user.v1.UserService.ListMenstrualCycles:input_type -> user.v1.ListMenstrualCyclesRequest
+	65, // 50: user.v1.UserService.CreateMenstrualCycle:input_type -> user.v1.CreateMenstrualCycleRequest
+	66, // 51: user.v1.UserService.UpdateMenstrualCycle:input_type -> user.v1.UpdateMenstrualCycleRequest
+	67, // 52: user.v1.UserService.DeleteMenstrualCycle:input_type -> user.v1.DeleteMenstrualCycleRequest
+	69, // 53: user.v1.UserService.GetUserClaims:input_type -> user.v1.GetUserClaimsRequest
+	71, // 54: user.v1.UserService.DeleteProfile:input_type -> user.v1.DeleteProfileRequest
+	82, // 55: user.v1.UserService.ExportUserData:input_type -> user.v1.ExportUserDataRequest
+	74, // 56: user.v1.UserService.AdminListInvites:input_type -> user.v1.AdminListInvitesRequest
+	76, // 57: user.v1.UserService.AdminCreateInvite:input_type -> user.v1.AdminCreateInviteRequest
+	78, // 58: user.v1.UserService.AdminRevokeInvite:input_type -> user.v1.AdminRevokeInviteRequest
+	80, // 59: user.v1.UserService.AdminDeleteUser:input_type -> user.v1.AdminDeleteUserRequest
+	84, // 60: user.v1.UserService.AdminBanUser:input_type -> user.v1.AdminBanUserRequest
+	86, // 61: user.v1.UserService.AdminUnbanUser:input_type -> user.v1.AdminUnbanUserRequest
+	88, // 62: user.v1.UserService.SaveSurvey:input_type -> user.v1.SaveSurveyRequest
+	90, // 63: user.v1.UserService.LoadSurvey:input_type -> user.v1.LoadSurveyRequest
+	1,  // 64: user.v1.UserService.Register:output_type -> user.v1.RegisterResponse
+	1,  // 65: user.v1.UserService.RegisterWithInvite:output_type -> user.v1.RegisterResponse
+	3,  // 66: user.v1.UserService.ConfirmEmail:output_type -> user.v1.ConfirmEmailResponse
+	5,  // 67: user.v1.UserService.Login:output_type -> user.v1.LoginResponse
+	5,  // 68: user.v1.UserService.AuthenticateGoogle:output_type -> user.v1.LoginResponse
+	36, // 69: user.v1.UserService.GetProfile:output_type -> user.v1.UserProfile
+	36, // 70: user.v1.UserService.GetUserByEmail:output_type -> user.v1.UserProfile
+	36, // 71: user.v1.UserService.UpdateProfile:output_type -> user.v1.UserProfile
+	12, // 72: user.v1.UserService.ChangePassword:output_type -> user.v1.ChangePasswordResponse
+	14, // 73: user.v1.UserService.ChangeEmail:output_type -> user.v1.ChangeEmailResponse
+	16, // 74: user.v1.UserService.UploadProfilePhoto:output_type -> user.v1.UploadProfilePhotoResponse
+	18, // 75: user.v1.UserService.RemoveProfilePhoto:output_type -> user.v1.RemoveProfilePhotoResponse
+	20, // 76: user.v1.UserService.ChangeNickname:output_type -> user.v1.ChangeNicknameResponse
+	23, // 77: user.v1.UserService.ListDevices:output_type -> user.v1.ListDevicesResponse
+	25, // 78: user.v1.UserService.AddDevice:output_type -> user.v1.AddDeviceResponse
+	27, // 79: user.v1.UserService.RemoveDevice:output_type -> user.v1.RemoveDeviceResponse
+	29, // 80: user.v1.UserService.SyncDeviceData:output_type -> user.v1.SyncDeviceDataResponse
+	32, // 81: user.v1.UserService.GetTrainingStats:output_type -> user.v1.GetTrainingStatsResponse
+	35, // 82: user.v1.UserService.GetAchievements:output_type -> user.v1.GetAchievementsResponse
+	38, // 83: user.v1.UserService.ListUsers:output_type -> user.v1.ListUsersResponse
+	41, // 84: user.v1.UserService.ValidateInviteCode:output_type -> user.v1.ValidateInviteCodeResponse
+	43, // 85: user.v1.UserService.SetupTOTP:output_type -> user.v1.SetupTOTPResponse
+	45, // 86: user.v1.UserService.ConfirmTOTP:output_type -> user.v1.ConfirmTOTPResponse
+	47, // 87: user.v1.UserService.VerifyTOTP:output_type -> user.v1.VerifyTOTPResponse
+	49, // 88: user.v1.UserService.DisableTOTP:output_type -> user.v1.DisableTOTPResponse
+	51, // 89: user.v1.UserService.RefreshToken:output_type -> user.v1.RefreshTokenResponse
+	54, // 90: user.v1.UserService.ListHealthConditions:output_type -> user.v1.ListHealthConditionsResponse
+	52, // 91: user.v1.UserService.UpsertHealthCondition:output_type -> user.v1.HealthCondition
+	57, // 92: user.v1.UserService.DeleteHealthCondition:output_type -> user.v1.DeleteHealthConditionResponse
+	60, // 93: user.v1.UserService.ListBodyComposition:output_type -> user.v1.ListBodyCompositionResponse
+	58, // 94: user.v1.UserService.CreateBodyComposition:output_type -> user.v1.BodyCompositionRecord
+	64, // 95: user.v1.UserService.ListMenstrualCycles:output_type -> user.v1.ListMenstrualCyclesResponse
+	62, // 96: user.v1.UserService.CreateMenstrualCycle:output_type -> user.v1.MenstrualCycle
+	62, // 97: user.v1.UserService.UpdateMenstrualCycle:output_type -> user.v1.MenstrualCycle
+	68, // 98: user.v1.UserService.DeleteMenstrualCycle:output_type -> user.v1.DeleteMenstrualCycleResponse
+	70, // 99: user.v1.UserService.GetUserClaims:output_type -> user.v1.GetUserClaimsResponse
+	72, // 100: user.v1.UserService.DeleteProfile:output_type -> user.v1.DeleteProfileResponse
+	83, // 101: user.v1.UserService.ExportUserData:output_type -> user.v1.ExportUserDataResponse
+	75, // 102: user.v1.UserService.AdminListInvites:output_type -> user.v1.AdminListInvitesResponse
+	77, // 103: user.v1.UserService.AdminCreateInvite:output_type -> user.v1.AdminCreateInviteResponse
+	79, // 104: user.v1.UserService.AdminRevokeInvite:output_type -> user.v1.AdminRevokeInviteResponse
+	81, // 105: user.v1.UserService.AdminDeleteUser:output_type -> user.v1.AdminDeleteUserResponse
+	85, // 106: user.v1.UserService.AdminBanUser:output_type -> user.v1.AdminBanUserResponse
+	87, // 107: user.v1.UserService.AdminUnbanUser:output_type -> user.v1.AdminUnbanUserResponse
+	89, // 108: user.v1.UserService.SaveSurvey:output_type -> user.v1.SaveSurveyResponse
+	91, // 109: user.v1.UserService.LoadSurvey:output_type -> user.v1.LoadSurveyResponse
+	64, // [64:110] is the sub-list for method output_type
+	18, // [18:64] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -6338,7 +6604,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   88,
+			NumMessages:   92,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

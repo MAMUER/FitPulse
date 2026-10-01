@@ -159,6 +159,7 @@ type userProfile struct {
 type classifyRequest struct {
 	PhysiologicalData physiologicalData `json:"physiological_data"`
 	UserProfile       *userProfile      `json:"user_profile,omitempty"`
+	UserID            string            `json:"user_id,omitempty"`
 }
 
 type classifyResponse struct {
@@ -272,6 +273,13 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	metrics.ClassificationConfidence.WithLabelValues("rule-based", classInfo.Name).Set(confidence)
+
+	s.log.Info("Classification completed",
+		zap.String("user_id", req.UserID),
+		zap.String("predicted_class", classInfo.Name),
+		zap.Float64("confidence", confidence),
+		zap.String("state", classInfo.Name),
+	)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(resp)

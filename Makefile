@@ -1,4 +1,4 @@
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean swag
 BIN_DIR := bin
 GO_VERSION := 1.27.0
 
@@ -12,12 +12,6 @@ tidy:
 	@echo "Tidying Go modules..."
 	@go mod tidy
 	@echo "Tidy complete."
-
-pip-compile:
-	@echo "Compiling Python requirements..."
-	@python -m pip install --quiet --upgrade pip-tools
-	@cd cmd/ml_generator && python -m piptools compile --strip-extras --output-file=requirements.lock.txt requirements.txt
-	@echo "Pip-compile complete."
 
 fmt:
 	@echo "Formatting Go code..."
