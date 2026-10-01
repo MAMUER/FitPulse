@@ -22,6 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Цель тренировки.
 type TrainingGoal int32
 
 const (
@@ -86,6 +87,7 @@ func (TrainingGoal) EnumDescriptor() ([]byte, []int) {
 	return file_ml_proto_rawDescGZIP(), []int{0}
 }
 
+// Место тренировки.
 type TrainingLocation int32
 
 const (
@@ -144,6 +146,7 @@ func (TrainingLocation) EnumDescriptor() ([]byte, []int) {
 	return file_ml_proto_rawDescGZIP(), []int{1}
 }
 
+// Время суток.
 type TimeOfDay int32
 
 const (
@@ -196,6 +199,7 @@ func (TimeOfDay) EnumDescriptor() ([]byte, []int) {
 	return file_ml_proto_rawDescGZIP(), []int{2}
 }
 
+// Запрос классификации.
 type ClassifyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Features      []float64              `protobuf:"fixed64,1,rep,packed,name=features,proto3" json:"features,omitempty"`
@@ -248,6 +252,7 @@ func (x *ClassifyRequest) GetUserMetadata() map[string]string {
 	return nil
 }
 
+// Ответ классификации.
 type ClassifyResponse struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	Class                string                 `protobuf:"bytes,1,opt,name=class,proto3" json:"class,omitempty"`
@@ -308,6 +313,7 @@ func (x *ClassifyResponse) GetRecommendedIntensity() string {
 	return ""
 }
 
+// Запрос генерации плана.
 type GenerateRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Class             string                 `protobuf:"bytes,1,opt,name=class,proto3" json:"class,omitempty"`
@@ -392,6 +398,7 @@ func (x *GenerateRequest) GetFitnessLevel() string {
 	return ""
 }
 
+// Ответ генерации плана.
 type GenerateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PlanId        string                 `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
@@ -444,6 +451,7 @@ func (x *GenerateResponse) GetPlanData() []byte {
 	return nil
 }
 
+// Биометрические данные пользователя.
 type BiometricData struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	HeartRate              *float64               `protobuf:"fixed64,1,opt,name=heart_rate,json=heartRate,proto3,oneof" json:"heart_rate,omitempty"`
@@ -544,6 +552,7 @@ func (x *BiometricData) GetHrv() float64 {
 	return 0
 }
 
+// Подключённое устройство.
 type ConnectedDevice struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DeviceType    string                 `protobuf:"bytes,1,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"` // fitbit, withings
@@ -604,6 +613,7 @@ func (x *ConnectedDevice) GetCapabilities() []string {
 	return nil
 }
 
+// Запрос классификации состояния пользователя.
 type ClassifyUserStateRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	UserId           string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -688,10 +698,10 @@ func (x *ClassifyUserStateRequest) GetConnectedDevices() []string {
 	return nil
 }
 
+// Ответ классификации состояния пользователя.
 type ClassifyUserStateResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	State           string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
-	StateRu         string                 `protobuf:"bytes,2,opt,name=state_ru,json=stateRu,proto3" json:"state_ru,omitempty"`
 	Confidence      float64                `protobuf:"fixed64,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	Scores          map[string]float64     `protobuf:"bytes,4,rep,name=scores,proto3" json:"scores,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
 	Recommendations []string               `protobuf:"bytes,5,rep,name=recommendations,proto3" json:"recommendations,omitempty"`
@@ -736,13 +746,6 @@ func (x *ClassifyUserStateResponse) GetState() string {
 	return ""
 }
 
-func (x *ClassifyUserStateResponse) GetStateRu() string {
-	if x != nil {
-		return x.StateRu
-	}
-	return ""
-}
-
 func (x *ClassifyUserStateResponse) GetConfidence() float64 {
 	if x != nil {
 		return x.Confidence
@@ -764,14 +767,15 @@ func (x *ClassifyUserStateResponse) GetRecommendations() []string {
 	return nil
 }
 
+// Запрос генерации тренировочного плана.
 type GenerateTrainingPlanRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	UserState         string                 `protobuf:"bytes,2,opt,name=user_state,json=userState,proto3" json:"user_state,omitempty"` // from ClassifyUserState
-	TrainingGoal      TrainingGoal           `protobuf:"varint,3,opt,name=training_goal,json=trainingGoal,proto3,enum=ml.TrainingGoal" json:"training_goal,omitempty"`
-	TrainingLocation  TrainingLocation       `protobuf:"varint,4,opt,name=training_location,json=trainingLocation,proto3,enum=ml.TrainingLocation" json:"training_location,omitempty"`
-	AvailableTime     TimeOfDay              `protobuf:"varint,5,opt,name=available_time,json=availableTime,proto3,enum=ml.TimeOfDay" json:"available_time,omitempty"`
-	AvailableDays     []int32                `protobuf:"varint,6,rep,packed,name=available_days,json=availableDays,proto3" json:"available_days,omitempty"` // 0=Mon, 6=Sun
+	UserState         string                 `protobuf:"bytes,2,opt,name=user_state,json=userState,proto3" json:"user_state,omitempty"` // из ClassifyUserState
+	TrainingGoal      TrainingGoal           `protobuf:"varint,3,opt,name=training_goal,json=trainingGoal,proto3,enum=ml.v1.TrainingGoal" json:"training_goal,omitempty"`
+	TrainingLocation  TrainingLocation       `protobuf:"varint,4,opt,name=training_location,json=trainingLocation,proto3,enum=ml.v1.TrainingLocation" json:"training_location,omitempty"`
+	AvailableTime     TimeOfDay              `protobuf:"varint,5,opt,name=available_time,json=availableTime,proto3,enum=ml.v1.TimeOfDay" json:"available_time,omitempty"`
+	AvailableDays     []int32                `protobuf:"varint,6,rep,packed,name=available_days,json=availableDays,proto3" json:"available_days,omitempty"` // 0=Пн, 6=Вс
 	DurationWeeks     int32                  `protobuf:"varint,7,opt,name=duration_weeks,json=durationWeeks,proto3" json:"duration_weeks,omitempty"`
 	Diseases          *string                `protobuf:"bytes,8,opt,name=diseases,proto3,oneof" json:"diseases,omitempty"`
 	Contraindications []string               `protobuf:"bytes,9,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
@@ -872,16 +876,15 @@ func (x *GenerateTrainingPlanRequest) GetContraindications() []string {
 	return nil
 }
 
+// Упражнение.
 type Exercise struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	NameRu          string                 `protobuf:"bytes,2,opt,name=name_ru,json=nameRu,proto3" json:"name_ru,omitempty"`
 	DurationMinutes int32                  `protobuf:"varint,3,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
 	Intensity       float64                `protobuf:"fixed64,4,opt,name=intensity,proto3" json:"intensity,omitempty"` // 0.0 - 1.0
 	Sets            *int32                 `protobuf:"varint,5,opt,name=sets,proto3,oneof" json:"sets,omitempty"`
 	Reps            *int32                 `protobuf:"varint,6,opt,name=reps,proto3,oneof" json:"reps,omitempty"`
 	RestSeconds     int32                  `protobuf:"varint,7,opt,name=rest_seconds,json=restSeconds,proto3" json:"rest_seconds,omitempty"`
-	DescriptionRu   string                 `protobuf:"bytes,8,opt,name=description_ru,json=descriptionRu,proto3" json:"description_ru,omitempty"`
 	VideoUrl        *string                `protobuf:"bytes,9,opt,name=video_url,json=videoUrl,proto3,oneof" json:"video_url,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -924,13 +927,6 @@ func (x *Exercise) GetName() string {
 	return ""
 }
 
-func (x *Exercise) GetNameRu() string {
-	if x != nil {
-		return x.NameRu
-	}
-	return ""
-}
-
 func (x *Exercise) GetDurationMinutes() int32 {
 	if x != nil {
 		return x.DurationMinutes
@@ -966,13 +962,6 @@ func (x *Exercise) GetRestSeconds() int32 {
 	return 0
 }
 
-func (x *Exercise) GetDescriptionRu() string {
-	if x != nil {
-		return x.DescriptionRu
-	}
-	return ""
-}
-
 func (x *Exercise) GetVideoUrl() string {
 	if x != nil && x.VideoUrl != nil {
 		return *x.VideoUrl
@@ -980,17 +969,16 @@ func (x *Exercise) GetVideoUrl() string {
 	return ""
 }
 
+// План на день.
 type DailyPlan struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	Date                 string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
-	DayOfWeek            int32                  `protobuf:"varint,2,opt,name=day_of_week,json=dayOfWeek,proto3" json:"day_of_week,omitempty"` // 0=Mon, 6=Sun
-	TimeOfDay            TimeOfDay              `protobuf:"varint,3,opt,name=time_of_day,json=timeOfDay,proto3,enum=ml.TimeOfDay" json:"time_of_day,omitempty"`
+	DayOfWeek            int32                  `protobuf:"varint,2,opt,name=day_of_week,json=dayOfWeek,proto3" json:"day_of_week,omitempty"` // 0=Пн, 6=Вс
+	TimeOfDay            TimeOfDay              `protobuf:"varint,3,opt,name=time_of_day,json=timeOfDay,proto3,enum=ml.v1.TimeOfDay" json:"time_of_day,omitempty"`
 	TrainingType         string                 `protobuf:"bytes,4,opt,name=training_type,json=trainingType,proto3" json:"training_type,omitempty"`
-	TrainingTypeRu       string                 `protobuf:"bytes,5,opt,name=training_type_ru,json=trainingTypeRu,proto3" json:"training_type_ru,omitempty"`
 	Exercises            []*Exercise            `protobuf:"bytes,6,rep,name=exercises,proto3" json:"exercises,omitempty"`
 	TotalDurationMinutes int32                  `protobuf:"varint,7,opt,name=total_duration_minutes,json=totalDurationMinutes,proto3" json:"total_duration_minutes,omitempty"`
 	IntensityLevel       float64                `protobuf:"fixed64,8,opt,name=intensity_level,json=intensityLevel,proto3" json:"intensity_level,omitempty"`
-	NotesRu              string                 `protobuf:"bytes,9,opt,name=notes_ru,json=notesRu,proto3" json:"notes_ru,omitempty"`
 	IsRestDay            bool                   `protobuf:"varint,10,opt,name=is_rest_day,json=isRestDay,proto3" json:"is_rest_day,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -1054,13 +1042,6 @@ func (x *DailyPlan) GetTrainingType() string {
 	return ""
 }
 
-func (x *DailyPlan) GetTrainingTypeRu() string {
-	if x != nil {
-		return x.TrainingTypeRu
-	}
-	return ""
-}
-
 func (x *DailyPlan) GetExercises() []*Exercise {
 	if x != nil {
 		return x.Exercises
@@ -1082,13 +1063,6 @@ func (x *DailyPlan) GetIntensityLevel() float64 {
 	return 0
 }
 
-func (x *DailyPlan) GetNotesRu() string {
-	if x != nil {
-		return x.NotesRu
-	}
-	return ""
-}
-
 func (x *DailyPlan) GetIsRestDay() bool {
 	if x != nil {
 		return x.IsRestDay
@@ -1096,6 +1070,7 @@ func (x *DailyPlan) GetIsRestDay() bool {
 	return false
 }
 
+// План на неделю.
 type WeeklyPlan struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	WeekNumber           int32                  `protobuf:"varint,1,opt,name=week_number,json=weekNumber,proto3" json:"week_number,omitempty"`
@@ -1172,6 +1147,7 @@ func (x *WeeklyPlan) GetAverageIntensity() float64 {
 	return 0
 }
 
+// Ответ генерации тренировочного плана.
 type GenerateTrainingPlanResponse struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	PlanId            string                 `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
@@ -1248,13 +1224,14 @@ func (x *GenerateTrainingPlanResponse) GetWarnings() []string {
 	return nil
 }
 
+// Запрос генерации диетического плана.
 type GenerateDietPlanRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Age           int32                  `protobuf:"varint,2,opt,name=age,proto3" json:"age,omitempty"`
 	Weight        float64                `protobuf:"fixed64,3,opt,name=weight,proto3" json:"weight,omitempty"`
-	Height        int32                  `protobuf:"varint,4,opt,name=height,proto3" json:"height,omitempty"`
-	TrainingGoal  TrainingGoal           `protobuf:"varint,5,opt,name=training_goal,json=trainingGoal,proto3,enum=ml.TrainingGoal" json:"training_goal,omitempty"`
+	Height        float64                `protobuf:"fixed64,4,opt,name=height,proto3" json:"height,omitempty"`
+	TrainingGoal  TrainingGoal           `protobuf:"varint,5,opt,name=training_goal,json=trainingGoal,proto3,enum=ml.v1.TrainingGoal" json:"training_goal,omitempty"`
 	Diseases      *string                `protobuf:"bytes,6,opt,name=diseases,proto3,oneof" json:"diseases,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1311,7 +1288,7 @@ func (x *GenerateDietPlanRequest) GetWeight() float64 {
 	return 0
 }
 
-func (x *GenerateDietPlanRequest) GetHeight() int32 {
+func (x *GenerateDietPlanRequest) GetHeight() float64 {
 	if x != nil {
 		return x.Height
 	}
@@ -1332,10 +1309,10 @@ func (x *GenerateDietPlanRequest) GetDiseases() string {
 	return ""
 }
 
+// Элемент приёма пищи.
 type MealItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	NameRu        string                 `protobuf:"bytes,2,opt,name=name_ru,json=nameRu,proto3" json:"name_ru,omitempty"`
 	PortionGrams  int32                  `protobuf:"varint,3,opt,name=portion_grams,json=portionGrams,proto3" json:"portion_grams,omitempty"`
 	Calories      float64                `protobuf:"fixed64,4,opt,name=calories,proto3" json:"calories,omitempty"`
 	ProteinG      float64                `protobuf:"fixed64,5,opt,name=protein_g,json=proteinG,proto3" json:"protein_g,omitempty"`
@@ -1383,13 +1360,6 @@ func (x *MealItem) GetName() string {
 	return ""
 }
 
-func (x *MealItem) GetNameRu() string {
-	if x != nil {
-		return x.NameRu
-	}
-	return ""
-}
-
 func (x *MealItem) GetPortionGrams() int32 {
 	if x != nil {
 		return x.PortionGrams
@@ -1432,6 +1402,7 @@ func (x *MealItem) GetTime() string {
 	return ""
 }
 
+// План на день (диета).
 type DailyDiet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DayOfWeek     int32                  `protobuf:"varint,1,opt,name=day_of_week,json=dayOfWeek,proto3" json:"day_of_week,omitempty"`
@@ -1441,7 +1412,6 @@ type DailyDiet struct {
 	TotalCarbsG   float64                `protobuf:"fixed64,5,opt,name=total_carbs_g,json=totalCarbsG,proto3" json:"total_carbs_g,omitempty"`
 	TotalFatG     float64                `protobuf:"fixed64,6,opt,name=total_fat_g,json=totalFatG,proto3" json:"total_fat_g,omitempty"`
 	WaterLiters   float64                `protobuf:"fixed64,7,opt,name=water_liters,json=waterLiters,proto3" json:"water_liters,omitempty"`
-	NotesRu       string                 `protobuf:"bytes,8,opt,name=notes_ru,json=notesRu,proto3" json:"notes_ru,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1525,17 +1495,10 @@ func (x *DailyDiet) GetWaterLiters() float64 {
 	return 0
 }
 
-func (x *DailyDiet) GetNotesRu() string {
-	if x != nil {
-		return x.NotesRu
-	}
-	return ""
-}
-
+// Диетический план.
 type DietPlan struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	DietType            string                 `protobuf:"bytes,1,opt,name=diet_type,json=dietType,proto3" json:"diet_type,omitempty"`
-	DietTypeRu          string                 `protobuf:"bytes,2,opt,name=diet_type_ru,json=dietTypeRu,proto3" json:"diet_type_ru,omitempty"`
 	DailyCaloriesTarget float64                `protobuf:"fixed64,3,opt,name=daily_calories_target,json=dailyCaloriesTarget,proto3" json:"daily_calories_target,omitempty"`
 	MacrosRatio         map[string]float64     `protobuf:"bytes,4,rep,name=macros_ratio,json=macrosRatio,proto3" json:"macros_ratio,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"` // protein, carbs, fat
 	Days                []*DailyDiet           `protobuf:"bytes,5,rep,name=days,proto3" json:"days,omitempty"`
@@ -1582,13 +1545,6 @@ func (x *DietPlan) GetDietType() string {
 	return ""
 }
 
-func (x *DietPlan) GetDietTypeRu() string {
-	if x != nil {
-		return x.DietTypeRu
-	}
-	return ""
-}
-
 func (x *DietPlan) GetDailyCaloriesTarget() float64 {
 	if x != nil {
 		return x.DailyCaloriesTarget
@@ -1624,6 +1580,7 @@ func (x *DietPlan) GetContraindications() []string {
 	return nil
 }
 
+// Ответ генерации диетического плана.
 type GenerateDietPlanResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DietPlan      *DietPlan              `protobuf:"bytes,1,opt,name=diet_plan,json=dietPlan,proto3" json:"diet_plan,omitempty"`
@@ -1668,6 +1625,7 @@ func (x *GenerateDietPlanResponse) GetDietPlan() *DietPlan {
 	return nil
 }
 
+// Запрос адаптации плана.
 type AdaptPlanRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -1736,6 +1694,7 @@ func (x *AdaptPlanRequest) GetAge() int32 {
 	return 0
 }
 
+// Ответ адаптации плана.
 type AdaptPlanResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Adapted       bool                   `protobuf:"varint,1,opt,name=adapted,proto3" json:"adapted,omitempty"`
@@ -1808,10 +1767,10 @@ var File_ml_proto protoreflect.FileDescriptor
 
 const file_ml_proto_rawDesc = "" +
 	"\n" +
-	"\bml.proto\x12\x02ml\x1a\x1cgoogle/protobuf/struct.proto\"\xba\x01\n" +
+	"\bml.proto\x12\x05ml.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xbd\x01\n" +
 	"\x0fClassifyRequest\x12\x1a\n" +
-	"\bfeatures\x18\x01 \x03(\x01R\bfeatures\x12J\n" +
-	"\ruser_metadata\x18\x02 \x03(\v2%.ml.ClassifyRequest.UserMetadataEntryR\fuserMetadata\x1a?\n" +
+	"\bfeatures\x18\x01 \x03(\x01R\bfeatures\x12M\n" +
+	"\ruser_metadata\x18\x02 \x03(\v2(.ml.v1.ClassifyRequest.UserMetadataEntryR\fuserMetadata\x1a?\n" +
 	"\x11UserMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"}\n" +
@@ -1854,123 +1813,114 @@ const file_ml_proto_rawDesc = "" +
 	"\vdevice_type\x18\x01 \x01(\tR\n" +
 	"deviceType\x12\x1b\n" +
 	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\x12\"\n" +
-	"\fcapabilities\x18\x03 \x03(\tR\fcapabilities\"\xd5\x01\n" +
+	"\fcapabilities\x18\x03 \x03(\tR\fcapabilities\"\xd8\x01\n" +
 	"\x18ClassifyUserStateRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x121\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x124\n" +
 	"\n" +
-	"biometrics\x18\x02 \x01(\v2\x11.ml.BiometricDataR\n" +
+	"biometrics\x18\x02 \x01(\v2\x14.ml.v1.BiometricDataR\n" +
 	"biometrics\x12\x10\n" +
 	"\x03age\x18\x03 \x01(\x05R\x03age\x12\x16\n" +
 	"\x06weight\x18\x04 \x01(\x01R\x06weight\x12\x16\n" +
 	"\x06height\x18\x05 \x01(\x05R\x06height\x12+\n" +
-	"\x11connected_devices\x18\x06 \x03(\tR\x10connectedDevices\"\x94\x02\n" +
+	"\x11connected_devices\x18\x06 \x03(\tR\x10connectedDevices\"\xfc\x01\n" +
 	"\x19ClassifyUserStateResponse\x12\x14\n" +
-	"\x05state\x18\x01 \x01(\tR\x05state\x12\x19\n" +
-	"\bstate_ru\x18\x02 \x01(\tR\astateRu\x12\x1e\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1e\n" +
 	"\n" +
 	"confidence\x18\x03 \x01(\x01R\n" +
-	"confidence\x12A\n" +
-	"\x06scores\x18\x04 \x03(\v2).ml.ClassifyUserStateResponse.ScoresEntryR\x06scores\x12(\n" +
+	"confidence\x12D\n" +
+	"\x06scores\x18\x04 \x03(\v2,.ml.v1.ClassifyUserStateResponse.ScoresEntryR\x06scores\x12(\n" +
 	"\x0frecommendations\x18\x05 \x03(\tR\x0frecommendations\x1a9\n" +
 	"\vScoresEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xaf\x03\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xb8\x03\n" +
 	"\x1bGenerateTrainingPlanRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
-	"user_state\x18\x02 \x01(\tR\tuserState\x125\n" +
-	"\rtraining_goal\x18\x03 \x01(\x0e2\x10.ml.TrainingGoalR\ftrainingGoal\x12A\n" +
-	"\x11training_location\x18\x04 \x01(\x0e2\x14.ml.TrainingLocationR\x10trainingLocation\x124\n" +
-	"\x0eavailable_time\x18\x05 \x01(\x0e2\r.ml.TimeOfDayR\ravailableTime\x12%\n" +
+	"user_state\x18\x02 \x01(\tR\tuserState\x128\n" +
+	"\rtraining_goal\x18\x03 \x01(\x0e2\x13.ml.v1.TrainingGoalR\ftrainingGoal\x12D\n" +
+	"\x11training_location\x18\x04 \x01(\x0e2\x17.ml.v1.TrainingLocationR\x10trainingLocation\x127\n" +
+	"\x0eavailable_time\x18\x05 \x01(\x0e2\x10.ml.v1.TimeOfDayR\ravailableTime\x12%\n" +
 	"\x0eavailable_days\x18\x06 \x03(\x05R\ravailableDays\x12%\n" +
 	"\x0eduration_weeks\x18\a \x01(\x05R\rdurationWeeks\x12\x1f\n" +
 	"\bdiseases\x18\b \x01(\tH\x00R\bdiseases\x88\x01\x01\x12,\n" +
 	"\x11contraindications\x18\t \x03(\tR\x11contraindicationsB\v\n" +
-	"\t_diseases\"\xbe\x02\n" +
+	"\t_diseases\"\xfe\x01\n" +
 	"\bExercise\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x17\n" +
-	"\aname_ru\x18\x02 \x01(\tR\x06nameRu\x12)\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
 	"\x10duration_minutes\x18\x03 \x01(\x05R\x0fdurationMinutes\x12\x1c\n" +
 	"\tintensity\x18\x04 \x01(\x01R\tintensity\x12\x17\n" +
 	"\x04sets\x18\x05 \x01(\x05H\x00R\x04sets\x88\x01\x01\x12\x17\n" +
 	"\x04reps\x18\x06 \x01(\x05H\x01R\x04reps\x88\x01\x01\x12!\n" +
-	"\frest_seconds\x18\a \x01(\x05R\vrestSeconds\x12%\n" +
-	"\x0edescription_ru\x18\b \x01(\tR\rdescriptionRu\x12 \n" +
+	"\frest_seconds\x18\a \x01(\x05R\vrestSeconds\x12 \n" +
 	"\tvideo_url\x18\t \x01(\tH\x02R\bvideoUrl\x88\x01\x01B\a\n" +
 	"\x05_setsB\a\n" +
 	"\x05_repsB\f\n" +
 	"\n" +
-	"_video_url\"\x83\x03\n" +
+	"_video_url\"\xc4\x02\n" +
 	"\tDailyPlan\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x1e\n" +
-	"\vday_of_week\x18\x02 \x01(\x05R\tdayOfWeek\x12-\n" +
-	"\vtime_of_day\x18\x03 \x01(\x0e2\r.ml.TimeOfDayR\ttimeOfDay\x12#\n" +
-	"\rtraining_type\x18\x04 \x01(\tR\ftrainingType\x12(\n" +
-	"\x10training_type_ru\x18\x05 \x01(\tR\x0etrainingTypeRu\x12*\n" +
-	"\texercises\x18\x06 \x03(\v2\f.ml.ExerciseR\texercises\x124\n" +
+	"\vday_of_week\x18\x02 \x01(\x05R\tdayOfWeek\x120\n" +
+	"\vtime_of_day\x18\x03 \x01(\x0e2\x10.ml.v1.TimeOfDayR\ttimeOfDay\x12#\n" +
+	"\rtraining_type\x18\x04 \x01(\tR\ftrainingType\x12-\n" +
+	"\texercises\x18\x06 \x03(\v2\x0f.ml.v1.ExerciseR\texercises\x124\n" +
 	"\x16total_duration_minutes\x18\a \x01(\x05R\x14totalDurationMinutes\x12'\n" +
-	"\x0fintensity_level\x18\b \x01(\x01R\x0eintensityLevel\x12\x19\n" +
-	"\bnotes_ru\x18\t \x01(\tR\anotesRu\x12\x1e\n" +
+	"\x0fintensity_level\x18\b \x01(\x01R\x0eintensityLevel\x12\x1e\n" +
 	"\vis_rest_day\x18\n" +
-	" \x01(\bR\tisRestDay\"\xe3\x01\n" +
+	" \x01(\bR\tisRestDay\"\xe6\x01\n" +
 	"\n" +
 	"WeeklyPlan\x12\x1f\n" +
 	"\vweek_number\x18\x01 \x01(\x05R\n" +
-	"weekNumber\x12!\n" +
-	"\x04days\x18\x02 \x03(\v2\r.ml.DailyPlanR\x04days\x12.\n" +
+	"weekNumber\x12$\n" +
+	"\x04days\x18\x02 \x03(\v2\x10.ml.v1.DailyPlanR\x04days\x12.\n" +
 	"\x13total_training_days\x18\x03 \x01(\x05R\x11totalTrainingDays\x124\n" +
 	"\x16total_duration_minutes\x18\x04 \x01(\x05R\x14totalDurationMinutes\x12+\n" +
-	"\x11average_intensity\x18\x05 \x01(\x01R\x10averageIntensity\"\xd3\x01\n" +
+	"\x11average_intensity\x18\x05 \x01(\x01R\x10averageIntensity\"\xd6\x01\n" +
 	"\x1cGenerateTrainingPlanResponse\x12\x17\n" +
 	"\aplan_id\x18\x01 \x01(\tR\x06planId\x12.\n" +
-	"\x13plan_duration_weeks\x18\x02 \x01(\x05R\x11planDurationWeeks\x12$\n" +
-	"\x05weeks\x18\x03 \x03(\v2\x0e.ml.WeeklyPlanR\x05weeks\x12(\n" +
+	"\x13plan_duration_weeks\x18\x02 \x01(\x05R\x11planDurationWeeks\x12'\n" +
+	"\x05weeks\x18\x03 \x03(\v2\x11.ml.v1.WeeklyPlanR\x05weeks\x12(\n" +
 	"\x0frecommendations\x18\x04 \x03(\tR\x0frecommendations\x12\x1a\n" +
-	"\bwarnings\x18\x05 \x03(\tR\bwarnings\"\xd9\x01\n" +
+	"\bwarnings\x18\x05 \x03(\tR\bwarnings\"\xdc\x01\n" +
 	"\x17GenerateDietPlanRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x10\n" +
 	"\x03age\x18\x02 \x01(\x05R\x03age\x12\x16\n" +
 	"\x06weight\x18\x03 \x01(\x01R\x06weight\x12\x16\n" +
-	"\x06height\x18\x04 \x01(\x05R\x06height\x125\n" +
-	"\rtraining_goal\x18\x05 \x01(\x0e2\x10.ml.TrainingGoalR\ftrainingGoal\x12\x1f\n" +
+	"\x06height\x18\x04 \x01(\x01R\x06height\x128\n" +
+	"\rtraining_goal\x18\x05 \x01(\x0e2\x13.ml.v1.TrainingGoalR\ftrainingGoal\x12\x1f\n" +
 	"\bdiseases\x18\x06 \x01(\tH\x00R\bdiseases\x88\x01\x01B\v\n" +
-	"\t_diseases\"\xd7\x01\n" +
+	"\t_diseases\"\xbe\x01\n" +
 	"\bMealItem\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x17\n" +
-	"\aname_ru\x18\x02 \x01(\tR\x06nameRu\x12#\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12#\n" +
 	"\rportion_grams\x18\x03 \x01(\x05R\fportionGrams\x12\x1a\n" +
 	"\bcalories\x18\x04 \x01(\x01R\bcalories\x12\x1b\n" +
 	"\tprotein_g\x18\x05 \x01(\x01R\bproteinG\x12\x17\n" +
 	"\acarbs_g\x18\x06 \x01(\x01R\x06carbsG\x12\x13\n" +
 	"\x05fat_g\x18\a \x01(\x01R\x04fatG\x12\x12\n" +
-	"\x04time\x18\b \x01(\tR\x04time\"\xa0\x02\n" +
+	"\x04time\x18\b \x01(\tR\x04time\"\x88\x02\n" +
 	"\tDailyDiet\x12\x1e\n" +
-	"\vday_of_week\x18\x01 \x01(\x05R\tdayOfWeek\x12\"\n" +
-	"\x05meals\x18\x02 \x03(\v2\f.ml.MealItemR\x05meals\x12%\n" +
+	"\vday_of_week\x18\x01 \x01(\x05R\tdayOfWeek\x12%\n" +
+	"\x05meals\x18\x02 \x03(\v2\x0f.ml.v1.MealItemR\x05meals\x12%\n" +
 	"\x0etotal_calories\x18\x03 \x01(\x01R\rtotalCalories\x12&\n" +
 	"\x0ftotal_protein_g\x18\x04 \x01(\x01R\rtotalProteinG\x12\"\n" +
 	"\rtotal_carbs_g\x18\x05 \x01(\x01R\vtotalCarbsG\x12\x1e\n" +
 	"\vtotal_fat_g\x18\x06 \x01(\x01R\ttotalFatG\x12!\n" +
-	"\fwater_liters\x18\a \x01(\x01R\vwaterLiters\x12\x19\n" +
-	"\bnotes_ru\x18\b \x01(\tR\anotesRu\"\xfa\x02\n" +
+	"\fwater_liters\x18\a \x01(\x01R\vwaterLiters\"\xde\x02\n" +
 	"\bDietPlan\x12\x1b\n" +
-	"\tdiet_type\x18\x01 \x01(\tR\bdietType\x12 \n" +
-	"\fdiet_type_ru\x18\x02 \x01(\tR\n" +
-	"dietTypeRu\x122\n" +
-	"\x15daily_calories_target\x18\x03 \x01(\x01R\x13dailyCaloriesTarget\x12@\n" +
-	"\fmacros_ratio\x18\x04 \x03(\v2\x1d.ml.DietPlan.MacrosRatioEntryR\vmacrosRatio\x12!\n" +
-	"\x04days\x18\x05 \x03(\v2\r.ml.DailyDietR\x04days\x12(\n" +
+	"\tdiet_type\x18\x01 \x01(\tR\bdietType\x122\n" +
+	"\x15daily_calories_target\x18\x03 \x01(\x01R\x13dailyCaloriesTarget\x12C\n" +
+	"\fmacros_ratio\x18\x04 \x03(\v2 .ml.v1.DietPlan.MacrosRatioEntryR\vmacrosRatio\x12$\n" +
+	"\x04days\x18\x05 \x03(\v2\x10.ml.v1.DailyDietR\x04days\x12(\n" +
 	"\x0frecommendations\x18\x06 \x03(\tR\x0frecommendations\x12,\n" +
 	"\x11contraindications\x18\a \x03(\tR\x11contraindications\x1a>\n" +
 	"\x10MacrosRatioEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"E\n" +
-	"\x18GenerateDietPlanResponse\x12)\n" +
-	"\tdiet_plan\x18\x01 \x01(\v2\f.ml.DietPlanR\bdietPlan\"\xf8\x01\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"H\n" +
+	"\x18GenerateDietPlanResponse\x12,\n" +
+	"\tdiet_plan\x18\x01 \x01(\v2\x0f.ml.v1.DietPlanR\bdietPlan\"\xfb\x01\n" +
 	"\x10AdaptPlanRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x17\n" +
-	"\aplan_id\x18\x02 \x01(\tR\x06planId\x12Z\n" +
-	"\x12current_biometrics\x18\x03 \x03(\v2+.ml.AdaptPlanRequest.CurrentBiometricsEntryR\x11currentBiometrics\x12\x10\n" +
+	"\aplan_id\x18\x02 \x01(\tR\x06planId\x12]\n" +
+	"\x12current_biometrics\x18\x03 \x03(\v2..ml.v1.AdaptPlanRequest.CurrentBiometricsEntryR\x11currentBiometrics\x12\x10\n" +
 	"\x03age\x18\x04 \x01(\x05R\x03age\x1aD\n" +
 	"\x16CurrentBiometricsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -2000,14 +1950,14 @@ const file_ml_proto_rawDesc = "" +
 	"\x17TIME_OF_DAY_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13TIME_OF_DAY_MORNING\x10\x01\x12\x19\n" +
 	"\x15TIME_OF_DAY_AFTERNOON\x10\x02\x12\x17\n" +
-	"\x13TIME_OF_DAY_EVENING\x10\x032\xaf\x03\n" +
-	"\tMLService\x125\n" +
-	"\bClassify\x12\x13.ml.ClassifyRequest\x1a\x14.ml.ClassifyResponse\x125\n" +
-	"\bGenerate\x12\x13.ml.GenerateRequest\x1a\x14.ml.GenerateResponse\x12P\n" +
-	"\x11ClassifyUserState\x12\x1c.ml.ClassifyUserStateRequest\x1a\x1d.ml.ClassifyUserStateResponse\x12Y\n" +
-	"\x14GenerateTrainingPlan\x12\x1f.ml.GenerateTrainingPlanRequest\x1a .ml.GenerateTrainingPlanResponse\x12M\n" +
-	"\x10GenerateDietPlan\x12\x1b.ml.GenerateDietPlanRequest\x1a\x1c.ml.GenerateDietPlanResponse\x128\n" +
-	"\tAdaptPlan\x12\x14.ml.AdaptPlanRequest\x1a\x15.ml.AdaptPlanResponseB&Z$github.com/MAMUER/project/api/gen/mlb\x06proto3"
+	"\x13TIME_OF_DAY_EVENING\x10\x032\xd3\x03\n" +
+	"\tMLService\x12;\n" +
+	"\bClassify\x12\x16.ml.v1.ClassifyRequest\x1a\x17.ml.v1.ClassifyResponse\x12;\n" +
+	"\bGenerate\x12\x16.ml.v1.GenerateRequest\x1a\x17.ml.v1.GenerateResponse\x12V\n" +
+	"\x11ClassifyUserState\x12\x1f.ml.v1.ClassifyUserStateRequest\x1a .ml.v1.ClassifyUserStateResponse\x12_\n" +
+	"\x14GenerateTrainingPlan\x12\".ml.v1.GenerateTrainingPlanRequest\x1a#.ml.v1.GenerateTrainingPlanResponse\x12S\n" +
+	"\x10GenerateDietPlan\x12\x1e.ml.v1.GenerateDietPlanRequest\x1a\x1f.ml.v1.GenerateDietPlanResponse\x12>\n" +
+	"\tAdaptPlan\x12\x17.ml.v1.AdaptPlanRequest\x1a\x18.ml.v1.AdaptPlanResponseB&Z$github.com/MAMUER/project/api/gen/mlb\x06proto3"
 
 var (
 	file_ml_proto_rawDescOnce sync.Once
@@ -2024,65 +1974,65 @@ func file_ml_proto_rawDescGZIP() []byte {
 var file_ml_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_ml_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_ml_proto_goTypes = []any{
-	(TrainingGoal)(0),                    // 0: ml.TrainingGoal
-	(TrainingLocation)(0),                // 1: ml.TrainingLocation
-	(TimeOfDay)(0),                       // 2: ml.TimeOfDay
-	(*ClassifyRequest)(nil),              // 3: ml.ClassifyRequest
-	(*ClassifyResponse)(nil),             // 4: ml.ClassifyResponse
-	(*GenerateRequest)(nil),              // 5: ml.GenerateRequest
-	(*GenerateResponse)(nil),             // 6: ml.GenerateResponse
-	(*BiometricData)(nil),                // 7: ml.BiometricData
-	(*ConnectedDevice)(nil),              // 8: ml.ConnectedDevice
-	(*ClassifyUserStateRequest)(nil),     // 9: ml.ClassifyUserStateRequest
-	(*ClassifyUserStateResponse)(nil),    // 10: ml.ClassifyUserStateResponse
-	(*GenerateTrainingPlanRequest)(nil),  // 11: ml.GenerateTrainingPlanRequest
-	(*Exercise)(nil),                     // 12: ml.Exercise
-	(*DailyPlan)(nil),                    // 13: ml.DailyPlan
-	(*WeeklyPlan)(nil),                   // 14: ml.WeeklyPlan
-	(*GenerateTrainingPlanResponse)(nil), // 15: ml.GenerateTrainingPlanResponse
-	(*GenerateDietPlanRequest)(nil),      // 16: ml.GenerateDietPlanRequest
-	(*MealItem)(nil),                     // 17: ml.MealItem
-	(*DailyDiet)(nil),                    // 18: ml.DailyDiet
-	(*DietPlan)(nil),                     // 19: ml.DietPlan
-	(*GenerateDietPlanResponse)(nil),     // 20: ml.GenerateDietPlanResponse
-	(*AdaptPlanRequest)(nil),             // 21: ml.AdaptPlanRequest
-	(*AdaptPlanResponse)(nil),            // 22: ml.AdaptPlanResponse
-	nil,                                  // 23: ml.ClassifyRequest.UserMetadataEntry
-	nil,                                  // 24: ml.ClassifyUserStateResponse.ScoresEntry
-	nil,                                  // 25: ml.DietPlan.MacrosRatioEntry
-	nil,                                  // 26: ml.AdaptPlanRequest.CurrentBiometricsEntry
+	(TrainingGoal)(0),                    // 0: ml.v1.TrainingGoal
+	(TrainingLocation)(0),                // 1: ml.v1.TrainingLocation
+	(TimeOfDay)(0),                       // 2: ml.v1.TimeOfDay
+	(*ClassifyRequest)(nil),              // 3: ml.v1.ClassifyRequest
+	(*ClassifyResponse)(nil),             // 4: ml.v1.ClassifyResponse
+	(*GenerateRequest)(nil),              // 5: ml.v1.GenerateRequest
+	(*GenerateResponse)(nil),             // 6: ml.v1.GenerateResponse
+	(*BiometricData)(nil),                // 7: ml.v1.BiometricData
+	(*ConnectedDevice)(nil),              // 8: ml.v1.ConnectedDevice
+	(*ClassifyUserStateRequest)(nil),     // 9: ml.v1.ClassifyUserStateRequest
+	(*ClassifyUserStateResponse)(nil),    // 10: ml.v1.ClassifyUserStateResponse
+	(*GenerateTrainingPlanRequest)(nil),  // 11: ml.v1.GenerateTrainingPlanRequest
+	(*Exercise)(nil),                     // 12: ml.v1.Exercise
+	(*DailyPlan)(nil),                    // 13: ml.v1.DailyPlan
+	(*WeeklyPlan)(nil),                   // 14: ml.v1.WeeklyPlan
+	(*GenerateTrainingPlanResponse)(nil), // 15: ml.v1.GenerateTrainingPlanResponse
+	(*GenerateDietPlanRequest)(nil),      // 16: ml.v1.GenerateDietPlanRequest
+	(*MealItem)(nil),                     // 17: ml.v1.MealItem
+	(*DailyDiet)(nil),                    // 18: ml.v1.DailyDiet
+	(*DietPlan)(nil),                     // 19: ml.v1.DietPlan
+	(*GenerateDietPlanResponse)(nil),     // 20: ml.v1.GenerateDietPlanResponse
+	(*AdaptPlanRequest)(nil),             // 21: ml.v1.AdaptPlanRequest
+	(*AdaptPlanResponse)(nil),            // 22: ml.v1.AdaptPlanResponse
+	nil,                                  // 23: ml.v1.ClassifyRequest.UserMetadataEntry
+	nil,                                  // 24: ml.v1.ClassifyUserStateResponse.ScoresEntry
+	nil,                                  // 25: ml.v1.DietPlan.MacrosRatioEntry
+	nil,                                  // 26: ml.v1.AdaptPlanRequest.CurrentBiometricsEntry
 	(*structpb.Struct)(nil),              // 27: google.protobuf.Struct
 }
 var file_ml_proto_depIdxs = []int32{
-	23, // 0: ml.ClassifyRequest.user_metadata:type_name -> ml.ClassifyRequest.UserMetadataEntry
-	7,  // 1: ml.ClassifyUserStateRequest.biometrics:type_name -> ml.BiometricData
-	24, // 2: ml.ClassifyUserStateResponse.scores:type_name -> ml.ClassifyUserStateResponse.ScoresEntry
-	0,  // 3: ml.GenerateTrainingPlanRequest.training_goal:type_name -> ml.TrainingGoal
-	1,  // 4: ml.GenerateTrainingPlanRequest.training_location:type_name -> ml.TrainingLocation
-	2,  // 5: ml.GenerateTrainingPlanRequest.available_time:type_name -> ml.TimeOfDay
-	2,  // 6: ml.DailyPlan.time_of_day:type_name -> ml.TimeOfDay
-	12, // 7: ml.DailyPlan.exercises:type_name -> ml.Exercise
-	13, // 8: ml.WeeklyPlan.days:type_name -> ml.DailyPlan
-	14, // 9: ml.GenerateTrainingPlanResponse.weeks:type_name -> ml.WeeklyPlan
-	0,  // 10: ml.GenerateDietPlanRequest.training_goal:type_name -> ml.TrainingGoal
-	17, // 11: ml.DailyDiet.meals:type_name -> ml.MealItem
-	25, // 12: ml.DietPlan.macros_ratio:type_name -> ml.DietPlan.MacrosRatioEntry
-	18, // 13: ml.DietPlan.days:type_name -> ml.DailyDiet
-	19, // 14: ml.GenerateDietPlanResponse.diet_plan:type_name -> ml.DietPlan
-	26, // 15: ml.AdaptPlanRequest.current_biometrics:type_name -> ml.AdaptPlanRequest.CurrentBiometricsEntry
-	27, // 16: ml.AdaptPlanResponse.adapted_plan:type_name -> google.protobuf.Struct
-	3,  // 17: ml.MLService.Classify:input_type -> ml.ClassifyRequest
-	5,  // 18: ml.MLService.Generate:input_type -> ml.GenerateRequest
-	9,  // 19: ml.MLService.ClassifyUserState:input_type -> ml.ClassifyUserStateRequest
-	11, // 20: ml.MLService.GenerateTrainingPlan:input_type -> ml.GenerateTrainingPlanRequest
-	16, // 21: ml.MLService.GenerateDietPlan:input_type -> ml.GenerateDietPlanRequest
-	21, // 22: ml.MLService.AdaptPlan:input_type -> ml.AdaptPlanRequest
-	4,  // 23: ml.MLService.Classify:output_type -> ml.ClassifyResponse
-	6,  // 24: ml.MLService.Generate:output_type -> ml.GenerateResponse
-	10, // 25: ml.MLService.ClassifyUserState:output_type -> ml.ClassifyUserStateResponse
-	15, // 26: ml.MLService.GenerateTrainingPlan:output_type -> ml.GenerateTrainingPlanResponse
-	20, // 27: ml.MLService.GenerateDietPlan:output_type -> ml.GenerateDietPlanResponse
-	22, // 28: ml.MLService.AdaptPlan:output_type -> ml.AdaptPlanResponse
+	23, // 0: ml.v1.ClassifyRequest.user_metadata:type_name -> ml.v1.ClassifyRequest.UserMetadataEntry
+	7,  // 1: ml.v1.ClassifyUserStateRequest.biometrics:type_name -> ml.v1.BiometricData
+	24, // 2: ml.v1.ClassifyUserStateResponse.scores:type_name -> ml.v1.ClassifyUserStateResponse.ScoresEntry
+	0,  // 3: ml.v1.GenerateTrainingPlanRequest.training_goal:type_name -> ml.v1.TrainingGoal
+	1,  // 4: ml.v1.GenerateTrainingPlanRequest.training_location:type_name -> ml.v1.TrainingLocation
+	2,  // 5: ml.v1.GenerateTrainingPlanRequest.available_time:type_name -> ml.v1.TimeOfDay
+	2,  // 6: ml.v1.DailyPlan.time_of_day:type_name -> ml.v1.TimeOfDay
+	12, // 7: ml.v1.DailyPlan.exercises:type_name -> ml.v1.Exercise
+	13, // 8: ml.v1.WeeklyPlan.days:type_name -> ml.v1.DailyPlan
+	14, // 9: ml.v1.GenerateTrainingPlanResponse.weeks:type_name -> ml.v1.WeeklyPlan
+	0,  // 10: ml.v1.GenerateDietPlanRequest.training_goal:type_name -> ml.v1.TrainingGoal
+	17, // 11: ml.v1.DailyDiet.meals:type_name -> ml.v1.MealItem
+	25, // 12: ml.v1.DietPlan.macros_ratio:type_name -> ml.v1.DietPlan.MacrosRatioEntry
+	18, // 13: ml.v1.DietPlan.days:type_name -> ml.v1.DailyDiet
+	19, // 14: ml.v1.GenerateDietPlanResponse.diet_plan:type_name -> ml.v1.DietPlan
+	26, // 15: ml.v1.AdaptPlanRequest.current_biometrics:type_name -> ml.v1.AdaptPlanRequest.CurrentBiometricsEntry
+	27, // 16: ml.v1.AdaptPlanResponse.adapted_plan:type_name -> google.protobuf.Struct
+	3,  // 17: ml.v1.MLService.Classify:input_type -> ml.v1.ClassifyRequest
+	5,  // 18: ml.v1.MLService.Generate:input_type -> ml.v1.GenerateRequest
+	9,  // 19: ml.v1.MLService.ClassifyUserState:input_type -> ml.v1.ClassifyUserStateRequest
+	11, // 20: ml.v1.MLService.GenerateTrainingPlan:input_type -> ml.v1.GenerateTrainingPlanRequest
+	16, // 21: ml.v1.MLService.GenerateDietPlan:input_type -> ml.v1.GenerateDietPlanRequest
+	21, // 22: ml.v1.MLService.AdaptPlan:input_type -> ml.v1.AdaptPlanRequest
+	4,  // 23: ml.v1.MLService.Classify:output_type -> ml.v1.ClassifyResponse
+	6,  // 24: ml.v1.MLService.Generate:output_type -> ml.v1.GenerateResponse
+	10, // 25: ml.v1.MLService.ClassifyUserState:output_type -> ml.v1.ClassifyUserStateResponse
+	15, // 26: ml.v1.MLService.GenerateTrainingPlan:output_type -> ml.v1.GenerateTrainingPlanResponse
+	20, // 27: ml.v1.MLService.GenerateDietPlan:output_type -> ml.v1.GenerateDietPlanResponse
+	22, // 28: ml.v1.MLService.AdaptPlan:output_type -> ml.v1.AdaptPlanResponse
 	23, // [23:29] is the sub-list for method output_type
 	17, // [17:23] is the sub-list for method input_type
 	17, // [17:17] is the sub-list for extension type_name

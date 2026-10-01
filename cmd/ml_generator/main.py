@@ -10,7 +10,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-import numpy as np
+import numpy as np  # type: ignore
 import onnxruntime as ort  # type: ignore
 import structlog  # type: ignore
 from aio_pika import connect_robust  # type: ignore
@@ -18,6 +18,13 @@ from fastapi import FastAPI  # type: ignore
 from prometheus_client import Gauge  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field  # type: ignore
 from valkey.asyncio import Valkey  # type: ignore
+
+
+def add_global_fields(logger, method_name, event_dict):
+    event_dict.setdefault("service", "ml-generator")
+    event_dict.setdefault("action", method_name)
+    return event_dict
+
 
 # Configure structured logging
 structlog.configure(
@@ -34,11 +41,6 @@ structlog.configure(
 )
 logger = structlog.get_logger()
 
-
-def add_global_fields(logger, method_name, event_dict):
-    event_dict.setdefault("service", "ml-generator")
-    event_dict.setdefault("action", method_name)
-    return event_dict
 
 # Prometheus metrics
 classification_confidence = Gauge(

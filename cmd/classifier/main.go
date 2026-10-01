@@ -32,7 +32,6 @@ const (
 
 var trainingClasses = map[int]struct {
 	Name            string   `json:"name"`
-	NameRu          string   `json:"name_ru"`
 	Description     string   `json:"description"`
 	HrRange         string   `json:"hr_range"`
 	Hrv             string   `json:"hrv"`
@@ -41,7 +40,6 @@ var trainingClasses = map[int]struct {
 }{
 	0: {
 		Name:        "recovery",
-		NameRu:      "Восстановление",
 		Description: "Низкая нагрузка + высокий HRV + хорошее восстановление",
 		HrRange:     "50-65% HRmax",
 		Hrv:         "Высокий",
@@ -55,7 +53,6 @@ var trainingClasses = map[int]struct {
 	},
 	1: {
 		Name:        "endurance_basic",
-		NameRu:      "Базовая выносливость E1-E2",
 		Description: "Работа ниже лактатного порога, устойчивая кардиореспираторная система",
 		HrRange:     "65-80% HRmax",
 		Hrv:         "Умеренный",
@@ -68,8 +65,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	2: {
-		Name:        "endurance_threshold",
-		NameRu:      "Пороговая выносливость E3",
+		Name: "endurance_threshold",
+
 		Description: "Нагрузка вблизи анаэробного порога, баланс лактата",
 		HrRange:     "80-90% HRmax",
 		Hrv:         "Сниженный",
@@ -82,8 +79,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	3: {
-		Name:        "power_hiit",
-		NameRu:      "Силовая/HIIT",
+		Name: "power_hiit",
+
 		Description: "Высокая вариабельность пульса + постнагрузочная гипертензия + стресс-реакция",
 		HrRange:     "90-100% HRmax",
 		Hrv:         "Резкое падение",
@@ -96,8 +93,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	4: {
-		Name:        "overtraining",
-		NameRu:      "Перетренированность",
+		Name: "overtraining",
+
 		Description: "Повышенный пульс в покое + низкий HRV + усталость + ухудшение сна",
 		HrRange:     "Повышение в покое на 5-10% от нормы",
 		Hrv:         "Значительно снижен",
@@ -110,8 +107,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	5: {
-		Name:        "illness",
-		NameRu:      "Заболевание",
+		Name: "illness",
+
 		Description: "Повышение температуры + общая слабость + отклонения в детоксикации",
 		HrRange:     "Повышение на 10-20% от нормы",
 		Hrv:         "Сниженный",
@@ -124,8 +121,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	6: {
-		Name:        "uncertainty",
-		NameRu:      "Неопределённость",
+		Name: "uncertainty",
+
 		Description: "Данные противоречивы, требуется повторное измерение или консультация специалиста",
 		HrRange:     "—",
 		Hrv:         "—",
@@ -173,7 +170,6 @@ type classifyResponse struct {
 	MotivationScore   *float64           `json:"motivation_score,omitempty"`
 	RecoveryQuality   *float64           `json:"recovery_quality,omitempty"`
 	PredictedClass    string             `json:"predicted_class,omitempty"`
-	PredictedClassRu  string             `json:"predicted_class_ru,omitempty"`
 	Probabilities     map[string]float64 `json:"probabilities,omitempty"`
 	Description       string             `json:"description,omitempty"`
 	HrRange           string             `json:"hr_range,omitempty"`
@@ -269,7 +265,6 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		MotivationScore:   &motivationScore,
 		RecoveryQuality:   &recoveryQuality,
 		PredictedClass:    classInfo.Name,
-		PredictedClassRu:  classInfo.NameRu,
 		Probabilities:     probs,
 		Description:       classInfo.Description,
 		HrRange:           classInfo.HrRange,
@@ -347,86 +342,88 @@ func defaultIfZero(val, def float64) float64 {
 }
 
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
-	hrMax := 220.0 - float64(age)
-	if hrMax <= 0 {
-		hrMax = 200.0
-	}
-	hrPct := data.HeartRate / hrMax
-
-	zone := 0
-	switch {
-	case hrPct < 0.65:
-		zone = 0
-	case hrPct < 0.80:
-		zone = 1
-	case hrPct < 0.90:
-		zone = 2
-	default:
-		zone = 3
-	}
-
-	overtrainingSigns := 0
-	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
-		overtrainingSigns++
-	}
-	if hrPct < 0.6 && data.HeartRate > 0 {
-		overtrainingSigns++
-	}
-	if data.SleepHours < 5.0 && data.SleepHours > 0 {
-		overtrainingSigns++
-	}
-
-	illnessSigns := 0
-	if data.Temperature > 37.5 {
-		illnessSigns++
-	}
-	if data.SpO2 < 95.0 && data.SpO2 > 0 {
-		illnessSigns++
-	}
-	if data.HeartRateVariability < 25 && data.HeartRateVariability > 0 {
-		illnessSigns++
-	}
-
+	hrMax := computeMaxHR(age)
+	hrPct := computeHRPercentage(data.HeartRate, hrMax)
+	zone := computeZone(hrPct)
+	overtrainingSigns := countOvertrainingSigns(data, hrPct)
+	illnessSigns := countIllnessSigns(data)
 	hasMildFever := data.Temperature > 37.3 && data.Temperature <= 37.5
 
 	if illnessSigns >= 2 {
-		confidence := 0.55 + float64(illnessSigns-1)*0.15
-		if confidence > 0.95 {
-			confidence = 0.95
-		}
-		confidence = math.Round(confidence*10000) / 10000.0
-		probs := map[string]float64{
-			"recovery":            0.0,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.0,
-			"overtraining":        0.05,
-			"illness":             confidence,
-			"uncertainty":         1.0 - confidence - 0.05,
-		}
-		if probs["uncertainty"] < 0 {
-			probs["uncertainty"] = 0
-		}
-		return 5, confidence, probs
+		return classifyByIllnessSigns(illnessSigns, hasMildFever, data)
 	}
-
 	if data.Temperature > 37.5 {
-		confidence := 0.45
-		probs := map[string]float64{
-			"recovery":            0.0,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.0,
-			"overtraining":        0.05,
-			"illness":             confidence,
-			"uncertainty":         1.0 - confidence - 0.05,
-		}
-		if probs["uncertainty"] < 0 {
-			probs["uncertainty"] = 0
-		}
-		return 6, confidence, probs
+		return 6, 0.45, buildIllnessProbabilities(0.45)
 	}
+	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
+		return classifyByMildCondition(hasMildFever, data)
+	}
+	if overtrainingSigns >= 2 {
+		return classifyByOvertraining(overtrainingSigns)
+	}
+	if data.SpO2 < 94.0 && data.SpO2 > 0 {
+		return 6, 0.50, buildLowSpO2Probabilities()
+	}
+	return classifyByZone(zone, hrPct, data)
+}
 
+func computeMaxHR(age int) float64 {
+	hrMax := 220.0 - float64(age)
+	if hrMax <= 0 {
+		return 200.0
+	}
+	return hrMax
+}
+
+func computeHRPercentage(hr, hrMax float64) float64 {
+	return hr / hrMax
+}
+
+func computeZone(hrPct float64) int {
+	switch {
+	case hrPct < 0.65:
+		return 0
+	case hrPct < 0.80:
+		return 1
+	case hrPct < 0.90:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func countOvertrainingSigns(data physiologicalData, hrPct float64) int {
+	signs := 0
+	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
+		signs++
+	}
+	if hrPct < 0.6 && data.HeartRate > 0 {
+		signs++
+	}
+	if data.SleepHours < 5.0 && data.SleepHours > 0 {
+		signs++
+	}
+	return signs
+}
+
+func countIllnessSigns(data physiologicalData) int {
+	signs := 0
+	if data.Temperature > 37.5 {
+		signs++
+	}
+	if data.SpO2 < 95.0 && data.SpO2 > 0 {
+		signs++
+	}
+	if data.HeartRateVariability < 25 && data.HeartRateVariability > 0 {
+		signs++
+	}
+	return signs
+}
+
+func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
+	if data.Temperature > 37.5 {
+		return 6, 0.45, buildIllnessProbabilities(0.45)
+	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
 		confidence := 0.45
 		if hasMildFever {
@@ -436,56 +433,38 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 			confidence += 0.10
 		}
 		confidence = math.Round(confidence*10000) / 10000.0
-		probs := map[string]float64{
-			"recovery":            0.0,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.0,
-			"overtraining":        0.05,
-			"illness":             confidence,
-			"uncertainty":         1.0 - confidence - 0.05,
-		}
-		if probs["uncertainty"] < 0 {
-			probs["uncertainty"] = 0
-		}
-		return 6, confidence, probs
+		return 6, confidence, buildIllnessProbabilities(confidence)
 	}
-
-	if overtrainingSigns >= 2 {
-		confidence := 0.55 + float64(overtrainingSigns-1)*0.10
-		if confidence > 0.90 {
-			confidence = 0.90
-		}
-		confidence = math.Round(confidence*10000) / 10000.0
-		probs := map[string]float64{
-			"recovery":            0.05,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.0,
-			"overtraining":        confidence,
-			"illness":             0.05,
-			"uncertainty":         1.0 - confidence - 0.10,
-		}
-		if probs["uncertainty"] < 0 {
-			probs["uncertainty"] = 0
-		}
-		return 4, confidence, probs
+	confidence := 0.55 + float64(illnessSigns-1)*0.15
+	if confidence > 0.95 {
+		confidence = 0.95
 	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 5, confidence, buildIllnessProbabilities(confidence)
+}
 
-	if data.SpO2 < 94.0 && data.SpO2 > 0 {
-		confidence := 0.50
-		probs := map[string]float64{
-			"recovery":            0.05,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.05,
-			"overtraining":        0.10,
-			"illness":             0.10,
-			"uncertainty":         0.70,
-		}
-		return 6, confidence, probs
+func classifyByMildCondition(hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
+	confidence := 0.45
+	if hasMildFever {
+		confidence = 0.45
 	}
+	if data.SpO2 < 93.0 && data.SpO2 > 0 {
+		confidence += 0.10
+	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 6, confidence, buildIllnessProbabilities(confidence)
+}
 
+func classifyByOvertraining(overtrainingSigns int) (int, float64, map[string]float64) {
+	confidence := 0.55 + float64(overtrainingSigns-1)*0.10
+	if confidence > 0.90 {
+		confidence = 0.90
+	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 4, confidence, buildOvertrainingProbabilities(confidence)
+}
+
+func classifyByZone(zone int, hrPct float64, data physiologicalData) (int, float64, map[string]float64) {
 	boundaries := []float64{0.0, 0.65, 0.80, 0.90, 1.0}
 	center := (boundaries[zone] + boundaries[zone+1]) / 2.0
 	halfWidth := (boundaries[zone+1] - boundaries[zone]) / 2.0
@@ -504,7 +483,55 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 		rawConf = 0.35
 	}
 	confidence := math.Round(rawConf*10000) / 10000.0
+	probs := buildZoneProbabilities(zone, confidence)
+	return zone, confidence, probs
+}
 
+func buildIllnessProbabilities(confidence float64) map[string]float64 {
+	probs := map[string]float64{
+		"recovery":            0.0,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.0,
+		"overtraining":        0.05,
+		"illness":             confidence,
+		"uncertainty":         1.0 - confidence - 0.05,
+	}
+	if probs["uncertainty"] < 0 {
+		probs["uncertainty"] = 0
+	}
+	return probs
+}
+
+func buildOvertrainingProbabilities(confidence float64) map[string]float64 {
+	probs := map[string]float64{
+		"recovery":            0.05,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.0,
+		"overtraining":        confidence,
+		"illness":             0.05,
+		"uncertainty":         1.0 - confidence - 0.10,
+	}
+	if probs["uncertainty"] < 0 {
+		probs["uncertainty"] = 0
+	}
+	return probs
+}
+
+func buildLowSpO2Probabilities() map[string]float64 {
+	return map[string]float64{
+		"recovery":            0.05,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.05,
+		"overtraining":        0.10,
+		"illness":             0.10,
+		"uncertainty":         0.70,
+	}
+}
+
+func buildZoneProbabilities(zone int, confidence float64) map[string]float64 {
 	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness", "uncertainty"}
 	remainder := (1.0 - confidence) / 6.0
 	probs := make(map[string]float64)
@@ -515,8 +542,7 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 			probs[name] = math.Round(remainder*10000) / 10000.0
 		}
 	}
-
-	return zone, confidence, probs
+	return probs
 }
 
 func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predictedClass int) *string {

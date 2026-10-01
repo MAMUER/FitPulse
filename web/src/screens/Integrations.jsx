@@ -23,7 +23,7 @@ export default function Integrations() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, [loadIntegrationProviders]);
 
   const toggle = async (source) => {

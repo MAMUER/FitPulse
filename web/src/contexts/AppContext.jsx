@@ -153,12 +153,12 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (state.registered && !state.profileLoaded) {
-      profile.loadProfile();
-      health.loadBiometrics();
-      training.loadTrainingPlans();
-      health.loadConditions();
-      health.loadMenstrualCycles();
-      health.loadBodyComposition();
+      void profile.loadProfile();
+      void health.loadBiometrics();
+      void training.loadTrainingPlans();
+      void health.loadConditions();
+      void health.loadMenstrualCycles();
+      void health.loadBodyComposition();
     }
   }, [
     state.registered,

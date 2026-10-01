@@ -1,53 +1,98 @@
 syntax = "proto3";
 
-package user;
+package user.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/user";
 
+// Сервис пользователей.
 service UserService {
+    // Регистрация нового пользователя.
     rpc Register(RegisterRequest) returns (RegisterResponse);
+    // Регистрация по коду приглашения.
     rpc RegisterWithInvite(RegisterWithInviteRequest) returns (RegisterResponse);
+    // Подтверждение email.
     rpc ConfirmEmail(ConfirmEmailRequest) returns (ConfirmEmailResponse);
+    // Вход в систему.
     rpc Login(LoginRequest) returns (LoginResponse);
+    // Вход через Google.
     rpc AuthenticateGoogle(AuthenticateGoogleRequest) returns (LoginResponse);
+    // Получение профиля.
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
+    // Получение пользователя по email.
     rpc GetUserByEmail(GetUserByEmailRequest) returns (UserProfile);
+    // Обновление профиля.
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
+    // Смена пароля.
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+    // Смена email.
     rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
+    // Загрузка фото профиля.
     rpc UploadProfilePhoto(UploadProfilePhotoRequest) returns (UploadProfilePhotoResponse);
+    // Удаление фото профиля.
     rpc RemoveProfilePhoto(RemoveProfilePhotoRequest) returns (RemoveProfilePhotoResponse);
+    // Смена никнейма.
     rpc ChangeNickname(ChangeNicknameRequest) returns (ChangeNicknameResponse);
+    // Список устройств.
     rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+    // Добавление устройства.
     rpc AddDevice(AddDeviceRequest) returns (AddDeviceResponse);
+    // Удаление устройства.
     rpc RemoveDevice(RemoveDeviceRequest) returns (RemoveDeviceResponse);
+    // Синхронизация данных устройства.
     rpc SyncDeviceData(SyncDeviceDataRequest) returns (SyncDeviceDataResponse);
+    // Статистика тренировок.
     rpc GetTrainingStats(GetTrainingStatsRequest) returns (GetTrainingStatsResponse);
+    // Достижения пользователя.
     rpc GetAchievements(GetAchievementsRequest) returns (GetAchievementsResponse);
+    // Список пользователей (админ).
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+    // Проверка кода приглашения.
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
+    // Настройка TOTP.
     rpc SetupTOTP(SetupTOTPRequest) returns (SetupTOTPResponse);
+    // Подтверждение TOTP.
     rpc ConfirmTOTP(ConfirmTOTPRequest) returns (ConfirmTOTPResponse);
+    // Проверка TOTP.
     rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
+    // Отключение TOTP.
     rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
+    // Обновление токена доступа.
     rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+    // Список заболеваний.
     rpc ListHealthConditions(ListHealthConditionsRequest) returns (ListHealthConditionsResponse);
+    // Создание/обновление заболевания.
     rpc UpsertHealthCondition(UpsertHealthConditionRequest) returns (HealthCondition);
+    // Удаление заболевания.
     rpc DeleteHealthCondition(DeleteHealthConditionRequest) returns (DeleteHealthConditionResponse);
+    // Список записей body composition.
     rpc ListBodyComposition(ListBodyCompositionRequest) returns (ListBodyCompositionResponse);
+    // Создание записи body composition.
     rpc CreateBodyComposition(CreateBodyCompositionRequest) returns (BodyCompositionRecord);
+    // Список менструальных циклов.
     rpc ListMenstrualCycles(ListMenstrualCyclesRequest) returns (ListMenstrualCyclesResponse);
+    // Создание менструального цикла.
     rpc CreateMenstrualCycle(CreateMenstrualCycleRequest) returns (MenstrualCycle);
+    // Обновление менструального цикла.
     rpc UpdateMenstrualCycle(UpdateMenstrualCycleRequest) returns (MenstrualCycle);
+    // Удаление менструального цикла.
     rpc DeleteMenstrualCycle(DeleteMenstrualCycleRequest) returns (DeleteMenstrualCycleResponse);
+    // Получениеclaims пользователя.
     rpc GetUserClaims(GetUserClaimsRequest) returns (GetUserClaimsResponse);
+    // Удаление профиля.
     rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
+    // Экспорт данных пользователя.
     rpc ExportUserData(ExportUserDataRequest) returns (ExportUserDataResponse);
+    // Список инвайтов (админ).
     rpc AdminListInvites(AdminListInvitesRequest) returns (AdminListInvitesResponse);
+    // Создание инвайта (админ).
     rpc AdminCreateInvite(AdminCreateInviteRequest) returns (AdminCreateInviteResponse);
+    // Отзыв инвайта (админ).
     rpc AdminRevokeInvite(AdminRevokeInviteRequest) returns (AdminRevokeInviteResponse);
+    // Удаление пользователя (админ).
     rpc AdminDeleteUser(AdminDeleteUserRequest) returns (AdminDeleteUserResponse);
+    // Бан пользователя (админ).
     rpc AdminBanUser(AdminBanUserRequest) returns (AdminBanUserResponse);
+    // Разбан пользователя (админ).
     rpc AdminUnbanUser(AdminUnbanUserRequest) returns (AdminUnbanUserResponse);
 }
 

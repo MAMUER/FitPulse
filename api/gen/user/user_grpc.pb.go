@@ -19,99 +19,145 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_Register_FullMethodName              = "/user.UserService/Register"
-	UserService_RegisterWithInvite_FullMethodName    = "/user.UserService/RegisterWithInvite"
-	UserService_ConfirmEmail_FullMethodName          = "/user.UserService/ConfirmEmail"
-	UserService_Login_FullMethodName                 = "/user.UserService/Login"
-	UserService_AuthenticateGoogle_FullMethodName    = "/user.UserService/AuthenticateGoogle"
-	UserService_GetProfile_FullMethodName            = "/user.UserService/GetProfile"
-	UserService_GetUserByEmail_FullMethodName        = "/user.UserService/GetUserByEmail"
-	UserService_UpdateProfile_FullMethodName         = "/user.UserService/UpdateProfile"
-	UserService_ChangePassword_FullMethodName        = "/user.UserService/ChangePassword"
-	UserService_ChangeEmail_FullMethodName           = "/user.UserService/ChangeEmail"
-	UserService_UploadProfilePhoto_FullMethodName    = "/user.UserService/UploadProfilePhoto"
-	UserService_RemoveProfilePhoto_FullMethodName    = "/user.UserService/RemoveProfilePhoto"
-	UserService_ChangeNickname_FullMethodName        = "/user.UserService/ChangeNickname"
-	UserService_ListDevices_FullMethodName           = "/user.UserService/ListDevices"
-	UserService_AddDevice_FullMethodName             = "/user.UserService/AddDevice"
-	UserService_RemoveDevice_FullMethodName          = "/user.UserService/RemoveDevice"
-	UserService_SyncDeviceData_FullMethodName        = "/user.UserService/SyncDeviceData"
-	UserService_GetTrainingStats_FullMethodName      = "/user.UserService/GetTrainingStats"
-	UserService_GetAchievements_FullMethodName       = "/user.UserService/GetAchievements"
-	UserService_ListUsers_FullMethodName             = "/user.UserService/ListUsers"
-	UserService_ValidateInviteCode_FullMethodName    = "/user.UserService/ValidateInviteCode"
-	UserService_SetupTOTP_FullMethodName             = "/user.UserService/SetupTOTP"
-	UserService_ConfirmTOTP_FullMethodName           = "/user.UserService/ConfirmTOTP"
-	UserService_VerifyTOTP_FullMethodName            = "/user.UserService/VerifyTOTP"
-	UserService_DisableTOTP_FullMethodName           = "/user.UserService/DisableTOTP"
-	UserService_RefreshToken_FullMethodName          = "/user.UserService/RefreshToken"
-	UserService_ListHealthConditions_FullMethodName  = "/user.UserService/ListHealthConditions"
-	UserService_UpsertHealthCondition_FullMethodName = "/user.UserService/UpsertHealthCondition"
-	UserService_DeleteHealthCondition_FullMethodName = "/user.UserService/DeleteHealthCondition"
-	UserService_ListBodyComposition_FullMethodName   = "/user.UserService/ListBodyComposition"
-	UserService_CreateBodyComposition_FullMethodName = "/user.UserService/CreateBodyComposition"
-	UserService_ListMenstrualCycles_FullMethodName   = "/user.UserService/ListMenstrualCycles"
-	UserService_CreateMenstrualCycle_FullMethodName  = "/user.UserService/CreateMenstrualCycle"
-	UserService_UpdateMenstrualCycle_FullMethodName  = "/user.UserService/UpdateMenstrualCycle"
-	UserService_DeleteMenstrualCycle_FullMethodName  = "/user.UserService/DeleteMenstrualCycle"
-	UserService_GetUserClaims_FullMethodName         = "/user.UserService/GetUserClaims"
-	UserService_DeleteProfile_FullMethodName         = "/user.UserService/DeleteProfile"
-	UserService_ExportUserData_FullMethodName        = "/user.UserService/ExportUserData"
-	UserService_AdminListInvites_FullMethodName      = "/user.UserService/AdminListInvites"
-	UserService_AdminCreateInvite_FullMethodName     = "/user.UserService/AdminCreateInvite"
-	UserService_AdminRevokeInvite_FullMethodName     = "/user.UserService/AdminRevokeInvite"
-	UserService_AdminDeleteUser_FullMethodName       = "/user.UserService/AdminDeleteUser"
-	UserService_AdminBanUser_FullMethodName          = "/user.UserService/AdminBanUser"
-	UserService_AdminUnbanUser_FullMethodName        = "/user.UserService/AdminUnbanUser"
+	UserService_Register_FullMethodName              = "/user.v1.UserService/Register"
+	UserService_RegisterWithInvite_FullMethodName    = "/user.v1.UserService/RegisterWithInvite"
+	UserService_ConfirmEmail_FullMethodName          = "/user.v1.UserService/ConfirmEmail"
+	UserService_Login_FullMethodName                 = "/user.v1.UserService/Login"
+	UserService_AuthenticateGoogle_FullMethodName    = "/user.v1.UserService/AuthenticateGoogle"
+	UserService_GetProfile_FullMethodName            = "/user.v1.UserService/GetProfile"
+	UserService_GetUserByEmail_FullMethodName        = "/user.v1.UserService/GetUserByEmail"
+	UserService_UpdateProfile_FullMethodName         = "/user.v1.UserService/UpdateProfile"
+	UserService_ChangePassword_FullMethodName        = "/user.v1.UserService/ChangePassword"
+	UserService_ChangeEmail_FullMethodName           = "/user.v1.UserService/ChangeEmail"
+	UserService_UploadProfilePhoto_FullMethodName    = "/user.v1.UserService/UploadProfilePhoto"
+	UserService_RemoveProfilePhoto_FullMethodName    = "/user.v1.UserService/RemoveProfilePhoto"
+	UserService_ChangeNickname_FullMethodName        = "/user.v1.UserService/ChangeNickname"
+	UserService_ListDevices_FullMethodName           = "/user.v1.UserService/ListDevices"
+	UserService_AddDevice_FullMethodName             = "/user.v1.UserService/AddDevice"
+	UserService_RemoveDevice_FullMethodName          = "/user.v1.UserService/RemoveDevice"
+	UserService_SyncDeviceData_FullMethodName        = "/user.v1.UserService/SyncDeviceData"
+	UserService_GetTrainingStats_FullMethodName      = "/user.v1.UserService/GetTrainingStats"
+	UserService_GetAchievements_FullMethodName       = "/user.v1.UserService/GetAchievements"
+	UserService_ListUsers_FullMethodName             = "/user.v1.UserService/ListUsers"
+	UserService_ValidateInviteCode_FullMethodName    = "/user.v1.UserService/ValidateInviteCode"
+	UserService_SetupTOTP_FullMethodName             = "/user.v1.UserService/SetupTOTP"
+	UserService_ConfirmTOTP_FullMethodName           = "/user.v1.UserService/ConfirmTOTP"
+	UserService_VerifyTOTP_FullMethodName            = "/user.v1.UserService/VerifyTOTP"
+	UserService_DisableTOTP_FullMethodName           = "/user.v1.UserService/DisableTOTP"
+	UserService_RefreshToken_FullMethodName          = "/user.v1.UserService/RefreshToken"
+	UserService_ListHealthConditions_FullMethodName  = "/user.v1.UserService/ListHealthConditions"
+	UserService_UpsertHealthCondition_FullMethodName = "/user.v1.UserService/UpsertHealthCondition"
+	UserService_DeleteHealthCondition_FullMethodName = "/user.v1.UserService/DeleteHealthCondition"
+	UserService_ListBodyComposition_FullMethodName   = "/user.v1.UserService/ListBodyComposition"
+	UserService_CreateBodyComposition_FullMethodName = "/user.v1.UserService/CreateBodyComposition"
+	UserService_ListMenstrualCycles_FullMethodName   = "/user.v1.UserService/ListMenstrualCycles"
+	UserService_CreateMenstrualCycle_FullMethodName  = "/user.v1.UserService/CreateMenstrualCycle"
+	UserService_UpdateMenstrualCycle_FullMethodName  = "/user.v1.UserService/UpdateMenstrualCycle"
+	UserService_DeleteMenstrualCycle_FullMethodName  = "/user.v1.UserService/DeleteMenstrualCycle"
+	UserService_GetUserClaims_FullMethodName         = "/user.v1.UserService/GetUserClaims"
+	UserService_DeleteProfile_FullMethodName         = "/user.v1.UserService/DeleteProfile"
+	UserService_ExportUserData_FullMethodName        = "/user.v1.UserService/ExportUserData"
+	UserService_AdminListInvites_FullMethodName      = "/user.v1.UserService/AdminListInvites"
+	UserService_AdminCreateInvite_FullMethodName     = "/user.v1.UserService/AdminCreateInvite"
+	UserService_AdminRevokeInvite_FullMethodName     = "/user.v1.UserService/AdminRevokeInvite"
+	UserService_AdminDeleteUser_FullMethodName       = "/user.v1.UserService/AdminDeleteUser"
+	UserService_AdminBanUser_FullMethodName          = "/user.v1.UserService/AdminBanUser"
+	UserService_AdminUnbanUser_FullMethodName        = "/user.v1.UserService/AdminUnbanUser"
 )
 
 // UserServiceClient is the client API for UserService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Сервис пользователей.
 type UserServiceClient interface {
+	// Регистрация нового пользователя.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	// Регистрация по коду приглашения.
 	RegisterWithInvite(ctx context.Context, in *RegisterWithInviteRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	// Подтверждение email.
 	ConfirmEmail(ctx context.Context, in *ConfirmEmailRequest, opts ...grpc.CallOption) (*ConfirmEmailResponse, error)
+	// Вход в систему.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	// Вход через Google.
 	AuthenticateGoogle(ctx context.Context, in *AuthenticateGoogleRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	// Получение профиля.
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
+	// Получение пользователя по email.
 	GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*UserProfile, error)
+	// Обновление профиля.
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
+	// Смена пароля.
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
+	// Смена email.
 	ChangeEmail(ctx context.Context, in *ChangeEmailRequest, opts ...grpc.CallOption) (*ChangeEmailResponse, error)
+	// Загрузка фото профиля.
 	UploadProfilePhoto(ctx context.Context, in *UploadProfilePhotoRequest, opts ...grpc.CallOption) (*UploadProfilePhotoResponse, error)
+	// Удаление фото профиля.
 	RemoveProfilePhoto(ctx context.Context, in *RemoveProfilePhotoRequest, opts ...grpc.CallOption) (*RemoveProfilePhotoResponse, error)
+	// Смена никнейма.
 	ChangeNickname(ctx context.Context, in *ChangeNicknameRequest, opts ...grpc.CallOption) (*ChangeNicknameResponse, error)
+	// Список устройств.
 	ListDevices(ctx context.Context, in *ListDevicesRequest, opts ...grpc.CallOption) (*ListDevicesResponse, error)
+	// Добавление устройства.
 	AddDevice(ctx context.Context, in *AddDeviceRequest, opts ...grpc.CallOption) (*AddDeviceResponse, error)
+	// Удаление устройства.
 	RemoveDevice(ctx context.Context, in *RemoveDeviceRequest, opts ...grpc.CallOption) (*RemoveDeviceResponse, error)
+	// Синхронизация данных устройства.
 	SyncDeviceData(ctx context.Context, in *SyncDeviceDataRequest, opts ...grpc.CallOption) (*SyncDeviceDataResponse, error)
+	// Статистика тренировок.
 	GetTrainingStats(ctx context.Context, in *GetTrainingStatsRequest, opts ...grpc.CallOption) (*GetTrainingStatsResponse, error)
+	// Достижения пользователя.
 	GetAchievements(ctx context.Context, in *GetAchievementsRequest, opts ...grpc.CallOption) (*GetAchievementsResponse, error)
+	// Список пользователей (админ).
 	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
+	// Проверка кода приглашения.
 	ValidateInviteCode(ctx context.Context, in *ValidateInviteCodeRequest, opts ...grpc.CallOption) (*ValidateInviteCodeResponse, error)
+	// Настройка TOTP.
 	SetupTOTP(ctx context.Context, in *SetupTOTPRequest, opts ...grpc.CallOption) (*SetupTOTPResponse, error)
+	// Подтверждение TOTP.
 	ConfirmTOTP(ctx context.Context, in *ConfirmTOTPRequest, opts ...grpc.CallOption) (*ConfirmTOTPResponse, error)
+	// Проверка TOTP.
 	VerifyTOTP(ctx context.Context, in *VerifyTOTPRequest, opts ...grpc.CallOption) (*VerifyTOTPResponse, error)
+	// Отключение TOTP.
 	DisableTOTP(ctx context.Context, in *DisableTOTPRequest, opts ...grpc.CallOption) (*DisableTOTPResponse, error)
+	// Обновление токена доступа.
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
+	// Список заболеваний.
 	ListHealthConditions(ctx context.Context, in *ListHealthConditionsRequest, opts ...grpc.CallOption) (*ListHealthConditionsResponse, error)
+	// Создание/обновление заболевания.
 	UpsertHealthCondition(ctx context.Context, in *UpsertHealthConditionRequest, opts ...grpc.CallOption) (*HealthCondition, error)
+	// Удаление заболевания.
 	DeleteHealthCondition(ctx context.Context, in *DeleteHealthConditionRequest, opts ...grpc.CallOption) (*DeleteHealthConditionResponse, error)
+	// Список записей body composition.
 	ListBodyComposition(ctx context.Context, in *ListBodyCompositionRequest, opts ...grpc.CallOption) (*ListBodyCompositionResponse, error)
+	// Создание записи body composition.
 	CreateBodyComposition(ctx context.Context, in *CreateBodyCompositionRequest, opts ...grpc.CallOption) (*BodyCompositionRecord, error)
+	// Список менструальных циклов.
 	ListMenstrualCycles(ctx context.Context, in *ListMenstrualCyclesRequest, opts ...grpc.CallOption) (*ListMenstrualCyclesResponse, error)
+	// Создание менструального цикла.
 	CreateMenstrualCycle(ctx context.Context, in *CreateMenstrualCycleRequest, opts ...grpc.CallOption) (*MenstrualCycle, error)
+	// Обновление менструального цикла.
 	UpdateMenstrualCycle(ctx context.Context, in *UpdateMenstrualCycleRequest, opts ...grpc.CallOption) (*MenstrualCycle, error)
+	// Удаление менструального цикла.
 	DeleteMenstrualCycle(ctx context.Context, in *DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*DeleteMenstrualCycleResponse, error)
+	// Получениеclaims пользователя.
 	GetUserClaims(ctx context.Context, in *GetUserClaimsRequest, opts ...grpc.CallOption) (*GetUserClaimsResponse, error)
+	// Удаление профиля.
 	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*DeleteProfileResponse, error)
+	// Экспорт данных пользователя.
 	ExportUserData(ctx context.Context, in *ExportUserDataRequest, opts ...grpc.CallOption) (*ExportUserDataResponse, error)
+	// Список инвайтов (админ).
 	AdminListInvites(ctx context.Context, in *AdminListInvitesRequest, opts ...grpc.CallOption) (*AdminListInvitesResponse, error)
+	// Создание инвайта (админ).
 	AdminCreateInvite(ctx context.Context, in *AdminCreateInviteRequest, opts ...grpc.CallOption) (*AdminCreateInviteResponse, error)
+	// Отзыв инвайта (админ).
 	AdminRevokeInvite(ctx context.Context, in *AdminRevokeInviteRequest, opts ...grpc.CallOption) (*AdminRevokeInviteResponse, error)
+	// Удаление пользователя (админ).
 	AdminDeleteUser(ctx context.Context, in *AdminDeleteUserRequest, opts ...grpc.CallOption) (*AdminDeleteUserResponse, error)
+	// Бан пользователя (админ).
 	AdminBanUser(ctx context.Context, in *AdminBanUserRequest, opts ...grpc.CallOption) (*AdminBanUserResponse, error)
+	// Разбан пользователя (админ).
 	AdminUnbanUser(ctx context.Context, in *AdminUnbanUserRequest, opts ...grpc.CallOption) (*AdminUnbanUserResponse, error)
 }
 
@@ -566,50 +612,96 @@ func (c *userServiceClient) AdminUnbanUser(ctx context.Context, in *AdminUnbanUs
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
+//
+// Сервис пользователей.
 type UserServiceServer interface {
+	// Регистрация нового пользователя.
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	// Регистрация по коду приглашения.
 	RegisterWithInvite(context.Context, *RegisterWithInviteRequest) (*RegisterResponse, error)
+	// Подтверждение email.
 	ConfirmEmail(context.Context, *ConfirmEmailRequest) (*ConfirmEmailResponse, error)
+	// Вход в систему.
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+	// Вход через Google.
 	AuthenticateGoogle(context.Context, *AuthenticateGoogleRequest) (*LoginResponse, error)
+	// Получение профиля.
 	GetProfile(context.Context, *GetProfileRequest) (*UserProfile, error)
+	// Получение пользователя по email.
 	GetUserByEmail(context.Context, *GetUserByEmailRequest) (*UserProfile, error)
+	// Обновление профиля.
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UserProfile, error)
+	// Смена пароля.
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
+	// Смена email.
 	ChangeEmail(context.Context, *ChangeEmailRequest) (*ChangeEmailResponse, error)
+	// Загрузка фото профиля.
 	UploadProfilePhoto(context.Context, *UploadProfilePhotoRequest) (*UploadProfilePhotoResponse, error)
+	// Удаление фото профиля.
 	RemoveProfilePhoto(context.Context, *RemoveProfilePhotoRequest) (*RemoveProfilePhotoResponse, error)
+	// Смена никнейма.
 	ChangeNickname(context.Context, *ChangeNicknameRequest) (*ChangeNicknameResponse, error)
+	// Список устройств.
 	ListDevices(context.Context, *ListDevicesRequest) (*ListDevicesResponse, error)
+	// Добавление устройства.
 	AddDevice(context.Context, *AddDeviceRequest) (*AddDeviceResponse, error)
+	// Удаление устройства.
 	RemoveDevice(context.Context, *RemoveDeviceRequest) (*RemoveDeviceResponse, error)
+	// Синхронизация данных устройства.
 	SyncDeviceData(context.Context, *SyncDeviceDataRequest) (*SyncDeviceDataResponse, error)
+	// Статистика тренировок.
 	GetTrainingStats(context.Context, *GetTrainingStatsRequest) (*GetTrainingStatsResponse, error)
+	// Достижения пользователя.
 	GetAchievements(context.Context, *GetAchievementsRequest) (*GetAchievementsResponse, error)
+	// Список пользователей (админ).
 	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
+	// Проверка кода приглашения.
 	ValidateInviteCode(context.Context, *ValidateInviteCodeRequest) (*ValidateInviteCodeResponse, error)
+	// Настройка TOTP.
 	SetupTOTP(context.Context, *SetupTOTPRequest) (*SetupTOTPResponse, error)
+	// Подтверждение TOTP.
 	ConfirmTOTP(context.Context, *ConfirmTOTPRequest) (*ConfirmTOTPResponse, error)
+	// Проверка TOTP.
 	VerifyTOTP(context.Context, *VerifyTOTPRequest) (*VerifyTOTPResponse, error)
+	// Отключение TOTP.
 	DisableTOTP(context.Context, *DisableTOTPRequest) (*DisableTOTPResponse, error)
+	// Обновление токена доступа.
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
+	// Список заболеваний.
 	ListHealthConditions(context.Context, *ListHealthConditionsRequest) (*ListHealthConditionsResponse, error)
+	// Создание/обновление заболевания.
 	UpsertHealthCondition(context.Context, *UpsertHealthConditionRequest) (*HealthCondition, error)
+	// Удаление заболевания.
 	DeleteHealthCondition(context.Context, *DeleteHealthConditionRequest) (*DeleteHealthConditionResponse, error)
+	// Список записей body composition.
 	ListBodyComposition(context.Context, *ListBodyCompositionRequest) (*ListBodyCompositionResponse, error)
+	// Создание записи body composition.
 	CreateBodyComposition(context.Context, *CreateBodyCompositionRequest) (*BodyCompositionRecord, error)
+	// Список менструальных циклов.
 	ListMenstrualCycles(context.Context, *ListMenstrualCyclesRequest) (*ListMenstrualCyclesResponse, error)
+	// Создание менструального цикла.
 	CreateMenstrualCycle(context.Context, *CreateMenstrualCycleRequest) (*MenstrualCycle, error)
+	// Обновление менструального цикла.
 	UpdateMenstrualCycle(context.Context, *UpdateMenstrualCycleRequest) (*MenstrualCycle, error)
+	// Удаление менструального цикла.
 	DeleteMenstrualCycle(context.Context, *DeleteMenstrualCycleRequest) (*DeleteMenstrualCycleResponse, error)
+	// Получениеclaims пользователя.
 	GetUserClaims(context.Context, *GetUserClaimsRequest) (*GetUserClaimsResponse, error)
+	// Удаление профиля.
 	DeleteProfile(context.Context, *DeleteProfileRequest) (*DeleteProfileResponse, error)
+	// Экспорт данных пользователя.
 	ExportUserData(context.Context, *ExportUserDataRequest) (*ExportUserDataResponse, error)
+	// Список инвайтов (админ).
 	AdminListInvites(context.Context, *AdminListInvitesRequest) (*AdminListInvitesResponse, error)
+	// Создание инвайта (админ).
 	AdminCreateInvite(context.Context, *AdminCreateInviteRequest) (*AdminCreateInviteResponse, error)
+	// Отзыв инвайта (админ).
 	AdminRevokeInvite(context.Context, *AdminRevokeInviteRequest) (*AdminRevokeInviteResponse, error)
+	// Удаление пользователя (админ).
 	AdminDeleteUser(context.Context, *AdminDeleteUserRequest) (*AdminDeleteUserResponse, error)
+	// Бан пользователя (админ).
 	AdminBanUser(context.Context, *AdminBanUserRequest) (*AdminBanUserResponse, error)
+	// Разбан пользователя (админ).
 	AdminUnbanUser(context.Context, *AdminUnbanUserRequest) (*AdminUnbanUserResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
@@ -1570,7 +1662,7 @@ func _UserService_AdminUnbanUser_Handler(srv interface{}, ctx context.Context, d
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var UserService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "user.UserService",
+	ServiceName: "user.v1.UserService",
 	HandlerType: (*UserServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

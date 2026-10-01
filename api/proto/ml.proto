@@ -1,33 +1,41 @@
 syntax = "proto3";
 
-package ml;
+package ml.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/ml";
 
 import "google/protobuf/struct.proto";
 
+// Сервис машинного обучения.
 service MLService {
+    // Классификация признаков.
     rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+    // Генерация плана.
     rpc Generate(GenerateRequest) returns (GenerateResponse);
+    // Классификация состояния пользователя.
     rpc ClassifyUserState(ClassifyUserStateRequest) returns (ClassifyUserStateResponse);
+    // Генерация тренировочного плана.
     rpc GenerateTrainingPlan(GenerateTrainingPlanRequest) returns (GenerateTrainingPlanResponse);
+    // Генерация диетического плана.
     rpc GenerateDietPlan(GenerateDietPlanRequest) returns (GenerateDietPlanResponse);
+    // Адаптация плана.
     rpc AdaptPlan(AdaptPlanRequest) returns (AdaptPlanResponse);
 }
 
-// ===== Existing messages =====
-
+// Запрос классификации.
 message ClassifyRequest {
     repeated double features = 1;
     map<string, string> user_metadata = 2;
 }
 
+// Ответ классификации.
 message ClassifyResponse {
     string class = 1;
     double confidence = 2;
     string recommended_intensity = 3;
 }
 
+// Запрос генерации плана.
 message GenerateRequest {
     string class = 1;
     string goal = 2;
@@ -37,13 +45,13 @@ message GenerateRequest {
     string fitness_level = 6;
 }
 
+// Ответ генерации плана.
 message GenerateResponse {
     string plan_id = 1;
     bytes plan_data = 2;
 }
 
-// ===== New messages for comprehensive training =====
-
+// Биометрические данные пользователя.
 message BiometricData {
     optional double heart_rate = 1;
     optional double ecg = 2;
@@ -55,12 +63,14 @@ message BiometricData {
     optional double hrv = 8;
 }
 
+// Подключённое устройство.
 message ConnectedDevice {
     string device_type = 1; // fitbit, withings
     string device_id = 2;
     repeated string capabilities = 3;
 }
 
+// Цель тренировки.
 enum TrainingGoal {
     TRAINING_GOAL_UNSPECIFIED = 0;
     TRAINING_GOAL_WEIGHT_LOSS = 1;
@@ -72,6 +82,7 @@ enum TrainingGoal {
     TRAINING_GOAL_REHABILITATION = 7;
 }
 
+// Место тренировки.
 enum TrainingLocation {
     TRAINING_LOCATION_UNSPECIFIED = 0;
     TRAINING_LOCATION_HOME = 1;
@@ -81,6 +92,7 @@ enum TrainingLocation {
     TRAINING_LOCATION_MIXED = 5;
 }
 
+// Время суток.
 enum TimeOfDay {
     TIME_OF_DAY_UNSPECIFIED = 0;
     TIME_OF_DAY_MORNING = 1;
@@ -88,8 +100,7 @@ enum TimeOfDay {
     TIME_OF_DAY_EVENING = 3;
 }
 
-// ===== User State Classification =====
-
+// Запрос классификации состояния пользователя.
 message ClassifyUserStateRequest {
     string user_id = 1;
     BiometricData biometrics = 2;
@@ -99,53 +110,51 @@ message ClassifyUserStateRequest {
     repeated string connected_devices = 6;
 }
 
+// Ответ классификации состояния пользователя.
 message ClassifyUserStateResponse {
     string state = 1; // recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness
-    string state_ru = 2;
     double confidence = 3;
     map<string, double> scores = 4;
     repeated string recommendations = 5;
 }
 
-// ===== Training Plan Generation =====
-
+// Запрос генерации тренировочного плана.
 message GenerateTrainingPlanRequest {
     string user_id = 1;
-    string user_state = 2; // from ClassifyUserState
+    string user_state = 2; // из ClassifyUserState
     TrainingGoal training_goal = 3;
     TrainingLocation training_location = 4;
     TimeOfDay available_time = 5;
-    repeated int32 available_days = 6; // 0=Mon, 6=Sun
+    repeated int32 available_days = 6; // 0=Пн, 6=Вс
     int32 duration_weeks = 7;
     optional string diseases = 8;
     repeated string contraindications = 9;
 }
 
+// Упражнение.
 message Exercise {
     string name = 1;
-    string name_ru = 2;
     int32 duration_minutes = 3;
     double intensity = 4; // 0.0 - 1.0
     optional int32 sets = 5;
     optional int32 reps = 6;
     int32 rest_seconds = 7;
-    string description_ru = 8;
     optional string video_url = 9;
 }
 
+// План на день.
 message DailyPlan {
     string date = 1;
-    int32 day_of_week = 2; // 0=Mon, 6=Sun
+    int32 day_of_week = 2; // 0=Пн, 6=Вс
     TimeOfDay time_of_day = 3;
     string training_type = 4;
-    string training_type_ru = 5;
     repeated Exercise exercises = 6;
     int32 total_duration_minutes = 7;
     double intensity_level = 8;
-    string notes_ru = 9;
     bool is_rest_day = 10;
 }
 
+// План на неделю.
 message WeeklyPlan {
     int32 week_number = 1;
     repeated DailyPlan days = 2;
@@ -154,6 +163,7 @@ message WeeklyPlan {
     double average_intensity = 5;
 }
 
+// Ответ генерации тренировочного плана.
 message GenerateTrainingPlanResponse {
     string plan_id = 1;
     int32 plan_duration_weeks = 2;
@@ -162,20 +172,19 @@ message GenerateTrainingPlanResponse {
     repeated string warnings = 5;
 }
 
-// ===== Diet Plan Generation =====
-
+// Запрос генерации диетического плана.
 message GenerateDietPlanRequest {
     string user_id = 1;
     int32 age = 2;
     double weight = 3;
-    int32 height = 4;
+    double height = 4;
     TrainingGoal training_goal = 5;
     optional string diseases = 6;
 }
 
+// Элемент приёма пищи.
 message MealItem {
     string name = 1;
-    string name_ru = 2;
     int32 portion_grams = 3;
     double calories = 4;
     double protein_g = 5;
@@ -184,6 +193,7 @@ message MealItem {
     string time = 8; // "08:00"
 }
 
+// План на день (диета).
 message DailyDiet {
     int32 day_of_week = 1;
     repeated MealItem meals = 2;
@@ -192,12 +202,11 @@ message DailyDiet {
     double total_carbs_g = 5;
     double total_fat_g = 6;
     double water_liters = 7;
-    string notes_ru = 8;
 }
 
+// Диетический план.
 message DietPlan {
     string diet_type = 1;
-    string diet_type_ru = 2;
     double daily_calories_target = 3;
     map<string, double> macros_ratio = 4; // protein, carbs, fat
     repeated DailyDiet days = 5;
@@ -205,12 +214,12 @@ message DietPlan {
     repeated string contraindications = 7;
 }
 
+// Ответ генерации диетического плана.
 message GenerateDietPlanResponse {
     DietPlan diet_plan = 1;
 }
 
-// ===== Adaptive Plan Modification =====
-
+// Запрос адаптации плана.
 message AdaptPlanRequest {
     string user_id = 1;
     string plan_id = 2;
@@ -218,6 +227,7 @@ message AdaptPlanRequest {
     int32 age = 4;
 }
 
+// Ответ адаптации плана.
 message AdaptPlanResponse {
     bool adapted = 1;
     repeated string changes = 2;

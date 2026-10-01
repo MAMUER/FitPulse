@@ -105,6 +105,8 @@ updates:
     labels: ["dependencies", "docker", "gateway"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
@@ -122,6 +124,8 @@ updates:
     labels: ["dependencies", "docker", "user-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
@@ -140,6 +144,8 @@ updates:
     labels: ["dependencies", "docker", "biometric-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/training-service"
@@ -158,6 +164,8 @@ updates:
     labels: ["dependencies", "docker", "training-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
@@ -192,7 +200,9 @@ updates:
     commit-message: { prefix: "deps(docker/classifier)", include: "scope" }
     labels: ["dependencies", "docker", "classifier"]
     assignees: ["MAMUER"]
-     registries: ["ghcr"]
+    registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/data-processor"
@@ -264,6 +274,8 @@ updates:
     labels: ["dependencies", "docker", "ml-generator"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
   # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
@@ -299,6 +311,8 @@ updates:
       - dependency-name: "rancher/mirrored-pause"
       - dependency-name: "rancher/mirrored-coredns-coredns"
       - dependency-name: "registry.k8s.io/ingress-nginx/controller"
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/jobs"
@@ -336,6 +350,8 @@ updates:
     labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
   # 8. KUBERNETES MANIFESTS — overlays/production
@@ -356,6 +372,8 @@ updates:
     labels: ["dependencies", "docker", "kubernetes"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
   # 8. NPM — Frontend (React + Vite)

@@ -11,10 +11,10 @@ async function backendRequest(path, options = {}) {
   const res = await fetch(url, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}), // NOSONAR: S7744
+      },
   });
   if (res.status === 401) {
     const refreshed = await backendRequest('/api/v1/auth/refresh', {

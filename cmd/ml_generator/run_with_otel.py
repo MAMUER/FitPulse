@@ -1,14 +1,14 @@
 import os
 import sys
 
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.resource import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry import trace  # type: ignore
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # type: ignore
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # type: ignore
+from opentelemetry.sdk.resource import Resource  # type: ignore
+from opentelemetry.sdk.trace import TracerProvider  # type: ignore
+from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
 
-from cmd.ml_generator.main import app
+from cmd.ml_generator.main import app  # type: ignore
 
 OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 OTEL_SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "ml-generator")
@@ -24,11 +24,11 @@ if OTEL_EXPORTER_OTLP_ENDPOINT:
     FastAPIInstrumentor().instrument_app(app)
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # type: ignore
 
     uvicorn.run(
         app,
-        host="0.0.0.0",  # nosonar: S8392 - containerized service; ingress/NetworkPolicy controls external access
+        host="0.0.0.0",
         port=int(os.getenv("ML_GENERATOR_PORT", "8002")),
         loop="uvloop",
     )

@@ -13,9 +13,9 @@ security:
 
 paths:
   # ============================================================================
-  # AUTHENTICATION (public)
+  # PUBLIC AUTHENTICATION
   # ============================================================================
-  /register:
+  /api/v1/register:
     post:
       tags:
         - Authentication
@@ -61,7 +61,7 @@ paths:
         "409":
           description: User already exists
 
-  /register/invite:
+  /api/v1/register/invite:
     post:
       tags:
         - Authentication
@@ -112,7 +112,7 @@ paths:
                   message:
                     type: string
 
-  /invite/validate:
+  /api/v1/invite/validate:
     post:
       tags:
         - Authentication
@@ -146,7 +146,7 @@ paths:
                   error:
                     type: string
 
-  /login:
+  /api/v1/login:
     post:
       tags:
         - Authentication
@@ -195,7 +195,7 @@ paths:
                       message:
                         type: string
 
-  /auth/confirm:
+  /api/v1/auth/confirm:
     post:
       tags:
         - Authentication
@@ -225,33 +225,7 @@ paths:
                   user_id:
                     type: string
 
-  /auth/verify-status:
-    get:
-      tags:
-        - Authentication
-      summary: Check email verification status
-      security: []
-      parameters:
-        - name: email
-          in: query
-          required: true
-          schema:
-            type: string
-            format: email
-      responses:
-        "200":
-          description: Verification status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  email_confirmed:
-                    type: boolean
-                  email:
-                    type: string
-
-  /auth/google:
+  /api/v1/auth/google:
     get:
       tags:
         - Authentication
@@ -261,7 +235,7 @@ paths:
         "302":
           description: Redirect to Google OAuth
 
-  /auth/google/callback:
+  /api/v1/auth/google/callback:
     get:
       tags:
         - Authentication
@@ -299,7 +273,7 @@ paths:
                   role:
                     type: string
 
-  /auth/2fa/verify:
+  /api/v1/auth/2fa/verify:
     post:
       tags:
         - Authentication
@@ -319,6 +293,8 @@ paths:
                   type: string
                 passcode:
                   type: string
+                  minLength: 6
+                  maxLength: 6
                 is_backup_code:
                   type: boolean
       responses:
@@ -340,7 +316,7 @@ paths:
                   backup_codes_remaining:
                     type: integer
 
-  /auth/refresh:
+  /api/v1/auth/refresh:
     post:
       tags:
         - Authentication
@@ -374,15 +350,27 @@ paths:
                   expires_in:
                     type: integer
 
-  /logout:
+  /api/v1/auth/forgot-password:
     post:
       tags:
         - Authentication
-      summary: Logout (revoke refresh token)
+      summary: Request password reset
       security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
       responses:
         "200":
-          description: Logged out
+          description: Reset email sent if account exists
           content:
             application/json:
               schema:
@@ -390,23 +378,80 @@ paths:
                 properties:
                   status:
                     type: string
+                  message:
+                    type: string
 
-  /confirm:
-    get:
+  /api/v1/auth/reset:
+    post:
       tags:
         - Authentication
-      summary: Email confirmation page (HTML)
+      summary: Reset password with code
       security: []
-      parameters:
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - code
+                - new_password
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
       responses:
         "200":
-          description: HTML confirmation page
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
 
+  /api/v1/captcha/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify CAPTCHA token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: CAPTCHA verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  # ============================================================================
+  # PUBLIC SYSTEM
+  # ============================================================================
   /health:
     get:
       tags:
@@ -489,14 +534,32 @@ paths:
         "200":
           description: Report received
 
+  /confirm:
+    get:
+      tags:
+        - Authentication
+      summary: Email confirmation page (HTML)
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML confirmation page
+
   # ============================================================================
-  # PROFILE (protected)
+  # PROTECTED PROFILE
   # ============================================================================
-  /profile:
+  /api/v1/profile:
     get:
       tags:
         - Profile
       summary: Get user profile
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: User profile
@@ -513,6 +576,8 @@ paths:
       tags:
         - Profile
       summary: Update user profile
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -559,14 +624,88 @@ paths:
                     type: string
                     example: "deleted"
 
+  /api/v1/profile/export:
+    get:
+      tags:
+        - Profile
+      summary: Export user data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User data exported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  user_id:
+                    type: string
+                  email:
+                    type: string
+                  full_name:
+                    type: string
+                  nickname:
+                    type: string
+                  role:
+                    type: string
+                  age:
+                    type: integer
+                  gender:
+                    type: string
+                  height_cm:
+                    type: integer
+                  weight_kg:
+                    type: number
+                  fitness_level:
+                    type: string
+                  goals:
+                    type: array
+                    items:
+                      type: string
+                  contraindications:
+                    type: array
+                    items:
+                      type: string
+                  nutrition:
+                    type: string
+                  sleep_hours:
+                    type: number
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  health_conditions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HealthCondition"
+                  body_composition:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BodyCompositionRecord"
+                  menstrual_cycles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MenstrualCycle"
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                  exported_at:
+                    type: string
+
   # ============================================================================
-  # HEALTH (protected)
+  # PROTECTED HEALTH
   # ============================================================================
-  /health/conditions:
+  /api/v1/health/conditions:
     get:
       tags:
         - Health
       summary: List health conditions
+      security:
+        - bearerAuth: []
       parameters:
         - name: condition_type
           in: query
@@ -592,6 +731,8 @@ paths:
       tags:
         - Health
       summary: Create health condition
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -611,7 +752,7 @@ paths:
                   condition:
                     $ref: "#/components/schemas/HealthCondition"
 
-  /health/conditions/{condition_id}:
+  /api/v1/health/conditions/{condition_id}:
     parameters:
       - name: condition_id
         in: path
@@ -622,6 +763,8 @@ paths:
       tags:
         - Health
       summary: Delete health condition
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Condition deleted
@@ -634,11 +777,13 @@ paths:
                     type: string
                     example: "deleted"
 
-  /health/body-composition:
+  /api/v1/health/body-composition:
     get:
       tags:
         - Health
       summary: List body composition records
+      security:
+        - bearerAuth: []
       parameters:
         - name: from
           in: query
@@ -676,6 +821,8 @@ paths:
       tags:
         - Health
       summary: Create body composition record
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -695,11 +842,13 @@ paths:
                   record:
                     $ref: "#/components/schemas/BodyCompositionRecord"
 
-  /health/menstrual-cycles:
+  /api/v1/health/menstrual-cycles:
     get:
       tags:
         - Health
       summary: List menstrual cycles
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Menstrual cycles list
@@ -720,6 +869,8 @@ paths:
       tags:
         - Health
       summary: Create menstrual cycle record
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -739,7 +890,7 @@ paths:
                   cycle:
                     $ref: "#/components/schemas/MenstrualCycle"
 
-  /health/menstrual-cycles/{cycle_id}:
+  /api/v1/health/menstrual-cycles/{cycle_id}:
     parameters:
       - name: cycle_id
         in: path
@@ -750,6 +901,8 @@ paths:
       tags:
         - Health
       summary: Update menstrual cycle
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -763,6 +916,8 @@ paths:
       tags:
         - Health
       summary: Delete menstrual cycle
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Cycle deleted
@@ -776,9 +931,9 @@ paths:
                     example: "deleted"
 
   # ============================================================================
-  # AUTH (protected)
+  # PROTECTED AUTH
   # ============================================================================
-  /auth/2fa/setup:
+  /api/v1/auth/2fa/setup:
     post:
       tags:
         - Authentication
@@ -805,7 +960,7 @@ paths:
                     items:
                       type: string
 
-  /auth/2fa/confirm:
+  /api/v1/auth/2fa/confirm:
     post:
       tags:
         - Authentication
@@ -845,11 +1000,13 @@ paths:
                   message:
                     type: string
 
-  /auth/2fa/status:
+  /api/v1/auth/2fa/status:
     get:
       tags:
         - Authentication
       summary: Get 2FA status
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: 2FA status
@@ -863,7 +1020,7 @@ paths:
                   backup_codes_remaining:
                     type: integer
 
-  /auth/2fa/disable:
+  /api/v1/auth/2fa/disable:
     post:
       tags:
         - Authentication
@@ -897,7 +1054,7 @@ paths:
                   message:
                     type: string
 
-  /auth/critical-session:
+  /api/v1/auth/critical-session:
     post:
       tags:
         - Authentication
@@ -915,10 +1072,28 @@ paths:
                   critical_session_token:
                     type: string
 
+  /api/v1/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout (revoke refresh token)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
   # ============================================================================
-  # BIOMETRICS (protected)
+  # PROTECTED BIOMETRICS
   # ============================================================================
-  /biometrics:
+  /api/v1/biometrics:
     post:
       tags:
         - Biometrics
@@ -1041,9 +1216,9 @@ paths:
                     type: integer
 
   # ============================================================================
-  # TRAINING (protected)
+  # PROTECTED TRAINING
   # ============================================================================
-  /training/generate:
+  /api/v1/training/generate:
     post:
       tags:
         - Training
@@ -1091,7 +1266,7 @@ paths:
                   training_type:
                     type: string
 
-  /training/plans:
+  /api/v1/training/plans:
     get:
       tags:
         - Training
@@ -1131,19 +1306,19 @@ paths:
                   page_size:
                     type: integer
 
-  /training/plans/{plan_id}:
+  /api/v1/training/plans/{plan_id}:
+    parameters:
+      - name: plan_id
+        in: path
+        required: true
+        schema:
+          type: string
     get:
       tags:
         - Training
       summary: Get specific training plan
       security:
         - bearerAuth: []
-      parameters:
-        - name: plan_id
-          in: path
-          required: true
-          schema:
-            type: string
       responses:
         "200":
           description: Training plan details
@@ -1159,7 +1334,7 @@ paths:
                   plan_data:
                     type: object
 
-  /training/progress:
+  /api/v1/training/progress:
     get:
       tags:
         - Training
@@ -1179,7 +1354,7 @@ paths:
                   progress:
                     type: object
 
-  /training/complete:
+  /api/v1/training/complete:
     post:
       tags:
         - Training
@@ -1219,9 +1394,9 @@ paths:
                     type: string
 
   # ============================================================================
-  # ACHIEVEMENTS (protected)
+  # PROTECTED ACHIEVEMENTS
   # ============================================================================
-  /achievements:
+  /api/v1/achievements:
     get:
       tags:
         - Achievements
@@ -1230,25 +1405,7 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: User achievements (protobuf-encoded JSON)
-          content:
-            application/json:
-              schema:
-                type: object
-
-  # ============================================================================
-  # DEVICES (protected)
-  # ============================================================================
-  /devices:
-    get:
-      tags:
-        - Devices
-      summary: List user devices
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: User devices list
+          description: User achievements
           content:
             application/json:
               schema:
@@ -1256,95 +1413,15 @@ paths:
                 properties:
                   status:
                     type: string
-                  devices:
+                  achievements:
                     type: array
                     items:
                       type: object
-    post:
-      tags:
-        - Devices
-      summary: Register device
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - device_type
-              properties:
-                device_type:
-                  type: string
-                  enum: [fitbit, withings, apple_watch]
-      responses:
-        "200":
-          description: Device registered
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-
-  /devices/{device_id}/ingest:
-    post:
-      tags:
-        - Devices
-      summary: Ingest biometric data from device
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: device_id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BiometricIngestRequest"
-      responses:
-        "200":
-          description: Ingestion accepted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-
-  /devices/providers:
-    get:
-      tags:
-        - Devices
-      summary: List available device providers
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: List of providers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    status:
-                      type: string
 
   # ============================================================================
-  # ML (protected)
+  # PROTECTED ML
   # ============================================================================
-  /ml/chat:
+  /api/v1/ml/chat:
     post:
       tags:
         - ML
@@ -1385,30 +1462,18 @@ paths:
                     type: integer
 
   # ============================================================================
-  # ADMIN (protected, admin role required)
+  # PROTECTED NUTRITION
   # ============================================================================
-  /admin/users:
+  /api/v1/nutrition/meals:
     get:
       tags:
-        - Admin
-      summary: List users (admin)
+        - Nutrition
+      summary: List meals
       security:
         - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: page_size
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
       responses:
         "200":
-          description: Users list
+          description: Meals list
           content:
             application/json:
               schema:
@@ -1416,53 +1481,152 @@ paths:
                 properties:
                   status:
                     type: string
-                  users:
+                  meals:
                     type: array
                     items:
                       type: object
-                  total:
-                    type: integer
-
-  /admin/invites:
-    get:
-      tags:
-        - Admin
-      summary: List invite codes (admin)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: page_size
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
-      responses:
-        "200":
-          description: Invites list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  invites:
-                    type: array
-                    items:
-                      type: object
-                  page:
-                    type: integer
-
     post:
       tags:
-        - Admin
-      summary: Create invite code (admin)
+        - Nutrition
+      summary: Create meal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - calories
+              properties:
+                name:
+                  type: string
+                calories:
+                  type: number
+                protein_g:
+                  type: number
+                carbs_g:
+                  type: number
+                fat_g:
+                  type: number
+                time:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Meal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  meal:
+                    type: object
+    delete:
+      tags:
+        - Nutrition
+      summary: Delete meal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meal_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Meal deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  # ============================================================================
+  # PROTECTED CALENDAR
+  # ============================================================================
+  /api/v1/calendar/events:
+    get:
+      tags:
+        - Calendar
+      summary: List calendar events
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  events:
+                    type: array
+                    items:
+                      type: object
+    post:
+      tags:
+        - Calendar
+      summary: Create calendar event
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - start_time
+                - end_time
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                start_time:
+                  type: string
+                  format: date-time
+                end_time:
+                  type: string
+                  format: date-time
+                event_type:
+                  type: string
+                  enum: [workout, meal, rest, other]
+      responses:
+        "200":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  event:
+                    type: object
+
+  /api/v1/calendar/events/{event_id}:
+    parameters:
+      - name: event_id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+        - Calendar
+      summary: Update calendar event
       security:
         - bearerAuth: []
       requestBody:
@@ -1472,18 +1636,22 @@ paths:
             schema:
               type: object
               properties:
-                role:
+                title:
                   type: string
-                  enum: [user, admin, trainer]
-                  default: user
-                specialty:
+                description:
                   type: string
-                max_uses:
-                  type: integer
-                  default: 1
+                start_time:
+                  type: string
+                  format: date-time
+                end_time:
+                  type: string
+                  format: date-time
+                event_type:
+                  type: string
+                  enum: [workout, meal, rest, other]
       responses:
         "200":
-          description: Invite created
+          description: Event updated
           content:
             application/json:
               schema:
@@ -1491,33 +1659,17 @@ paths:
                 properties:
                   status:
                     type: string
-                  code:
-                    type: string
-                  role:
-                    type: string
-                  max_uses:
-                    type: integer
-                  specialty:
-                    type: string
-                  invite_url:
-                    type: string
-
-  /admin/invites/{code}/revoke:
-    post:
+                  event:
+                    type: object
+    delete:
       tags:
-        - Admin
-      summary: Revoke invite code (admin)
+        - Calendar
+      summary: Delete calendar event
       security:
         - bearerAuth: []
-      parameters:
-        - name: code
-          in: path
-          required: true
-          schema:
-            type: string
       responses:
         "200":
-          description: Invite revoked
+          description: Event deleted
           content:
             application/json:
               schema:
@@ -1527,22 +1679,40 @@ paths:
                     type: string
 
   # ============================================================================
-  # DEVICE AGGREGATOR (separate service, port 8083)
-  # Note: Device Aggregator has its own /health endpoint on port 8083
+  # PROTECTED VIDEOS
   # ============================================================================
-
-  /api/v1/devices/providers:
+  /api/v1/videos:
     get:
       tags:
-        - Device Aggregator
+        - Videos
+      summary: List videos
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Videos list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  videos:
+                    type: array
+                    items:
+                      type: object
+
+  # ============================================================================
+  # PROTECTED INTEGRATIONS
+  # ============================================================================
+  /api/v1/integrations/providers:
+    get:
+      tags:
+        - Integrations
       summary: List available device providers
-      security: []
-      parameters:
-        - name: X-User-ID
-          in: header
-          required: true
-          schema:
-            type: string
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: List of providers
@@ -1557,6 +1727,46 @@ paths:
                       type: string
                     status:
                       type: string
+
+  /api/v1/integrations/open-wearables/webhook:
+    post:
+      tags:
+        - Integrations
+      summary: Open Wearables webhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook accepted
+
+  /api/v1/integrations/{source}/disconnect:
+    parameters:
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - Integrations
+      summary: Disconnect integration source
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Integration disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
 
 components:
   securitySchemes:
@@ -1833,6 +2043,7 @@ components:
           type: string
         quality:
           type: string
+          enum: [high, medium, low]
         created_at:
           type: string
           format: date-time

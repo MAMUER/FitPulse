@@ -79,13 +79,6 @@ type captchaMiddleware struct {
 	log      *zap.Logger
 }
 
-func newCaptchaMiddleware(provider CaptchaProvider, log *zap.Logger) *captchaMiddleware {
-	return &captchaMiddleware{
-		provider: provider,
-		log:      log,
-	}
-}
-
 // captchaResponse represents the JSON response when CAPTCHA is required.
 type captchaResponse struct {
 	Error           string `json:"error"`
@@ -118,7 +111,7 @@ func (m *captchaMiddleware) VerifyCaptchaToken(r *http.Request, clientIP string)
 }
 
 // loadCaptchaProvider initializes CAPTCHA provider from environment.
-func loadCaptchaProvider(log *zap.Logger) (CaptchaProvider, string, error) {
+func loadCaptchaProvider() (CaptchaProvider, string, error) {
 	provider := os.Getenv("CAPTCHA_PROVIDER")
 	switch provider {
 	case "cloudflare", "":

@@ -134,7 +134,7 @@ func mapClassToScores(predictedClass string) (float64, float64, float64) {
 }
 
 func (g *gateway) proxyToMLGenerator(ctx context.Context, path string, body []byte) (int, []byte, error) {
-	if !isValidServiceURL(g.mlGeneratorURL, "http://ml-", "http://ml-generator:", "http://generator:", "http://127.0.0.1:") {
+	if !isValidServiceURL(g.mlGeneratorURL, "https://ml-", "https://ml-generator:", "https://generator:", "https://127.0.0.1:", "http://ml-", "http://ml-generator:", "http://generator:", "http://127.0.0.1:") { // NOSONAR: S5332
 		g.log.Error("Некорректный URL ML генератора", zap.String("url", g.mlGeneratorURL))
 		return http.StatusServiceUnavailable, nil, errors.New("mlServiceUnavailable")
 	}

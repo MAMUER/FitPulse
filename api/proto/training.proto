@@ -1,17 +1,23 @@
 syntax = "proto3";
 
-package training;
+package training.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/training";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 
+// Сервис тренировок.
 service TrainingService {
+    // Генерация плана тренировок.
     rpc GeneratePlan(GeneratePlanRequest) returns (GeneratePlanResponse);
+    // Получение плана по идентификатору.
     rpc GetPlan(GetPlanRequest) returns (TrainingPlan);
+    // Список планов пользователя.
     rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+    // Отметка тренировки как выполненной.
     rpc CompleteWorkout(CompleteWorkoutRequest) returns (CompleteWorkoutResponse);
+    // Получение прогресса пользователя.
     rpc GetProgress(GetProgressRequest) returns (GetProgressResponse);
 }
 

@@ -5618,7 +5618,7 @@ var File_user_proto protoreflect.FileDescriptor
 const file_user_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"user.proto\x12\x04user\"t\n" +
+	"user.proto\x12\auser.v1\"t\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1b\n" +
@@ -5649,9 +5649,9 @@ const file_user_proto_rawDesc = "" +
 	"\x11GetProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"-\n" +
 	"\x15GetUserByEmailRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"?\n" +
-	"\x16GetUserByEmailResponse\x12%\n" +
-	"\x04user\x18\x01 \x01(\v2\x11.user.UserProfileR\x04user\"\x9b\x04\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"B\n" +
+	"\x16GetUserByEmailResponse\x12(\n" +
+	"\x04user\x18\x01 \x01(\v2\x14.user.v1.UserProfileR\x04user\"\x9b\x04\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12 \n" +
 	"\tfull_name\x18\v \x01(\tH\x00R\bfullName\x88\x01\x01\x12\x1f\n" +
@@ -5717,17 +5717,17 @@ const file_user_proto_rawDesc = "" +
 	"\fis_connected\x18\x04 \x01(\bR\visConnected\x12\x1b\n" +
 	"\tlast_sync\x18\x05 \x01(\tR\blastSync\"-\n" +
 	"\x12ListDevicesRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"=\n" +
-	"\x13ListDevicesResponse\x12&\n" +
-	"\adevices\x18\x01 \x03(\v2\f.user.DeviceR\adevices\"m\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"@\n" +
+	"\x13ListDevicesResponse\x12)\n" +
+	"\adevices\x18\x01 \x03(\v2\x0f.user.v1.DeviceR\adevices\"m\n" +
 	"\x10AddDeviceRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vdevice_type\x18\x02 \x01(\tR\n" +
 	"deviceType\x12\x1f\n" +
 	"\vdevice_name\x18\x03 \x01(\tR\n" +
-	"deviceName\"9\n" +
-	"\x11AddDeviceResponse\x12$\n" +
-	"\x06device\x18\x01 \x01(\v2\f.user.DeviceR\x06device\"K\n" +
+	"deviceName\"<\n" +
+	"\x11AddDeviceResponse\x12'\n" +
+	"\x06device\x18\x01 \x01(\v2\x0f.user.v1.DeviceR\x06device\"K\n" +
 	"\x13RemoveDeviceRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\"0\n" +
@@ -5748,9 +5748,9 @@ const file_user_proto_rawDesc = "" +
 	"\x12completed_workouts\x18\x02 \x01(\x05R\x11completedWorkouts\x128\n" +
 	"\x18average_duration_minutes\x18\x03 \x01(\x01R\x16averageDurationMinutes\x122\n" +
 	"\x15total_calories_burned\x18\x04 \x01(\x01R\x13totalCaloriesBurned\x124\n" +
-	"\x16most_frequent_exercise\x18\x05 \x01(\tR\x14mostFrequentExercise\"E\n" +
-	"\x18GetTrainingStatsResponse\x12)\n" +
-	"\x05stats\x18\x01 \x01(\v2\x13.user.TrainingStatsR\x05stats\"\xa8\x01\n" +
+	"\x16most_frequent_exercise\x18\x05 \x01(\tR\x14mostFrequentExercise\"H\n" +
+	"\x18GetTrainingStatsResponse\x12,\n" +
+	"\x05stats\x18\x01 \x01(\v2\x16.user.v1.TrainingStatsR\x05stats\"\xa8\x01\n" +
 	"\vAchievement\x12%\n" +
 	"\x0eachievement_id\x18\x01 \x01(\tR\rachievementId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -5759,9 +5759,9 @@ const file_user_proto_rawDesc = "" +
 	"earnedDate\x12\x19\n" +
 	"\bicon_url\x18\x05 \x01(\tR\aiconUrl\"1\n" +
 	"\x16GetAchievementsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"P\n" +
-	"\x17GetAchievementsResponse\x125\n" +
-	"\fachievements\x18\x01 \x03(\v2\x11.user.AchievementR\fachievements\"\xa8\x04\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"S\n" +
+	"\x17GetAchievementsResponse\x128\n" +
+	"\fachievements\x18\x01 \x03(\v2\x14.user.v1.AchievementR\fachievements\"\xa8\x04\n" +
 	"\vUserProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
@@ -5789,9 +5789,9 @@ const file_user_proto_rawDesc = "" +
 	"\x11requester_user_id\x18\x01 \x01(\tR\x0frequesterUserId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"R\n" +
-	"\x11ListUsersResponse\x12'\n" +
-	"\x05users\x18\x01 \x03(\v2\x11.user.UserProfileR\x05users\x12\x14\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"U\n" +
+	"\x11ListUsersResponse\x12*\n" +
+	"\x05users\x18\x01 \x03(\v2\x14.user.v1.UserProfileR\x05users\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8b\x01\n" +
 	"\x19RegisterWithInviteRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
@@ -5861,10 +5861,10 @@ const file_user_proto_rawDesc = "" +
 	" \x01(\tR\tupdatedAt\"]\n" +
 	"\x1bListHealthConditionsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12%\n" +
-	"\x0econdition_type\x18\x02 \x01(\tR\rconditionType\"k\n" +
-	"\x1cListHealthConditionsResponse\x125\n" +
+	"\x0econdition_type\x18\x02 \x01(\tR\rconditionType\"n\n" +
+	"\x1cListHealthConditionsResponse\x128\n" +
 	"\n" +
-	"conditions\x18\x01 \x03(\v2\x15.user.HealthConditionR\n" +
+	"conditions\x18\x01 \x03(\v2\x18.user.v1.HealthConditionR\n" +
 	"conditions\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\xf7\x01\n" +
 	"\x1cUpsertHealthConditionRequest\x12\x17\n" +
@@ -5903,9 +5903,9 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\tR\x02to\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"j\n" +
-	"\x1bListBodyCompositionResponse\x125\n" +
-	"\arecords\x18\x01 \x03(\v2\x1b.user.BodyCompositionRecordR\arecords\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"m\n" +
+	"\x1bListBodyCompositionResponse\x128\n" +
+	"\arecords\x18\x01 \x03(\v2\x1e.user.v1.BodyCompositionRecordR\arecords\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\xd4\x03\n" +
 	"\x1cCreateBodyCompositionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
@@ -5940,9 +5940,9 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\tR\x02to\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"a\n" +
-	"\x1bListMenstrualCyclesResponse\x12,\n" +
-	"\x06cycles\x18\x01 \x03(\v2\x14.user.MenstrualCycleR\x06cycles\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"d\n" +
+	"\x1bListMenstrualCyclesResponse\x12/\n" +
+	"\x06cycles\x18\x01 \x03(\v2\x17.user.v1.MenstrualCycleR\x06cycles\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\xf5\x01\n" +
 	"\x1bCreateMenstrualCycleRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12(\n" +
@@ -5995,9 +5995,9 @@ const file_user_proto_rawDesc = "" +
 	"invite_url\x18\b \x01(\tR\tinviteUrl\"J\n" +
 	"\x17AdminListInvitesRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\"\\\n" +
-	"\x18AdminListInvitesResponse\x12*\n" +
-	"\ainvites\x18\x01 \x03(\v2\x10.user.InviteInfoR\ainvites\x12\x14\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\"_\n" +
+	"\x18AdminListInvitesResponse\x12-\n" +
+	"\ainvites\x18\x01 \x03(\v2\x13.user.v1.InviteInfoR\ainvites\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"g\n" +
 	"\x18AdminCreateInviteRequest\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x1c\n" +
@@ -6024,7 +6024,7 @@ const file_user_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"0\n" +
 	"\x15ExportUserDataRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa0\x06\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xac\x06\n" +
 	"\x16ExportUserDataResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
@@ -6046,11 +6046,11 @@ const file_user_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x10 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12B\n" +
-	"\x11health_conditions\x18\x12 \x03(\v2\x15.user.HealthConditionR\x10healthConditions\x12F\n" +
-	"\x10body_composition\x18\x13 \x03(\v2\x1b.user.BodyCompositionRecordR\x0fbodyComposition\x12?\n" +
-	"\x10menstrual_cycles\x18\x14 \x03(\v2\x14.user.MenstrualCycleR\x0fmenstrualCycles\x12&\n" +
-	"\adevices\x18\x15 \x03(\v2\f.user.DeviceR\adevices\x12\x1f\n" +
+	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12E\n" +
+	"\x11health_conditions\x18\x12 \x03(\v2\x18.user.v1.HealthConditionR\x10healthConditions\x12I\n" +
+	"\x10body_composition\x18\x13 \x03(\v2\x1e.user.v1.BodyCompositionRecordR\x0fbodyComposition\x12B\n" +
+	"\x10menstrual_cycles\x18\x14 \x03(\v2\x17.user.v1.MenstrualCycleR\x0fmenstrualCycles\x12)\n" +
+	"\adevices\x18\x15 \x03(\v2\x0f.user.v1.DeviceR\adevices\x12\x1f\n" +
 	"\vexported_at\x18\x16 \x01(\tR\n" +
 	"exportedAt\"Z\n" +
 	"\x13AdminBanUserRequest\x12*\n" +
@@ -6064,54 +6064,54 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"L\n" +
 	"\x16AdminUnbanUserResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xb2\x1a\n" +
-	"\vUserService\x129\n" +
-	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12M\n" +
-	"\x12RegisterWithInvite\x12\x1f.user.RegisterWithInviteRequest\x1a\x16.user.RegisterResponse\x12E\n" +
-	"\fConfirmEmail\x12\x19.user.ConfirmEmailRequest\x1a\x1a.user.ConfirmEmailResponse\x120\n" +
-	"\x05Login\x12\x12.user.LoginRequest\x1a\x13.user.LoginResponse\x12J\n" +
-	"\x12AuthenticateGoogle\x12\x1f.user.AuthenticateGoogleRequest\x1a\x13.user.LoginResponse\x128\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xba\x1c\n" +
+	"\vUserService\x12?\n" +
+	"\bRegister\x12\x18.user.v1.RegisterRequest\x1a\x19.user.v1.RegisterResponse\x12S\n" +
+	"\x12RegisterWithInvite\x12\".user.v1.RegisterWithInviteRequest\x1a\x19.user.v1.RegisterResponse\x12K\n" +
+	"\fConfirmEmail\x12\x1c.user.v1.ConfirmEmailRequest\x1a\x1d.user.v1.ConfirmEmailResponse\x126\n" +
+	"\x05Login\x12\x15.user.v1.LoginRequest\x1a\x16.user.v1.LoginResponse\x12P\n" +
+	"\x12AuthenticateGoogle\x12\".user.v1.AuthenticateGoogleRequest\x1a\x16.user.v1.LoginResponse\x12>\n" +
 	"\n" +
-	"GetProfile\x12\x17.user.GetProfileRequest\x1a\x11.user.UserProfile\x12@\n" +
-	"\x0eGetUserByEmail\x12\x1b.user.GetUserByEmailRequest\x1a\x11.user.UserProfile\x12>\n" +
-	"\rUpdateProfile\x12\x1a.user.UpdateProfileRequest\x1a\x11.user.UserProfile\x12K\n" +
-	"\x0eChangePassword\x12\x1b.user.ChangePasswordRequest\x1a\x1c.user.ChangePasswordResponse\x12B\n" +
-	"\vChangeEmail\x12\x18.user.ChangeEmailRequest\x1a\x19.user.ChangeEmailResponse\x12W\n" +
-	"\x12UploadProfilePhoto\x12\x1f.user.UploadProfilePhotoRequest\x1a .user.UploadProfilePhotoResponse\x12W\n" +
-	"\x12RemoveProfilePhoto\x12\x1f.user.RemoveProfilePhotoRequest\x1a .user.RemoveProfilePhotoResponse\x12K\n" +
-	"\x0eChangeNickname\x12\x1b.user.ChangeNicknameRequest\x1a\x1c.user.ChangeNicknameResponse\x12B\n" +
-	"\vListDevices\x12\x18.user.ListDevicesRequest\x1a\x19.user.ListDevicesResponse\x12<\n" +
-	"\tAddDevice\x12\x16.user.AddDeviceRequest\x1a\x17.user.AddDeviceResponse\x12E\n" +
-	"\fRemoveDevice\x12\x19.user.RemoveDeviceRequest\x1a\x1a.user.RemoveDeviceResponse\x12K\n" +
-	"\x0eSyncDeviceData\x12\x1b.user.SyncDeviceDataRequest\x1a\x1c.user.SyncDeviceDataResponse\x12Q\n" +
-	"\x10GetTrainingStats\x12\x1d.user.GetTrainingStatsRequest\x1a\x1e.user.GetTrainingStatsResponse\x12N\n" +
-	"\x0fGetAchievements\x12\x1c.user.GetAchievementsRequest\x1a\x1d.user.GetAchievementsResponse\x12<\n" +
-	"\tListUsers\x12\x16.user.ListUsersRequest\x1a\x17.user.ListUsersResponse\x12W\n" +
-	"\x12ValidateInviteCode\x12\x1f.user.ValidateInviteCodeRequest\x1a .user.ValidateInviteCodeResponse\x12<\n" +
-	"\tSetupTOTP\x12\x16.user.SetupTOTPRequest\x1a\x17.user.SetupTOTPResponse\x12B\n" +
-	"\vConfirmTOTP\x12\x18.user.ConfirmTOTPRequest\x1a\x19.user.ConfirmTOTPResponse\x12?\n" +
+	"GetProfile\x12\x1a.user.v1.GetProfileRequest\x1a\x14.user.v1.UserProfile\x12F\n" +
+	"\x0eGetUserByEmail\x12\x1e.user.v1.GetUserByEmailRequest\x1a\x14.user.v1.UserProfile\x12D\n" +
+	"\rUpdateProfile\x12\x1d.user.v1.UpdateProfileRequest\x1a\x14.user.v1.UserProfile\x12Q\n" +
+	"\x0eChangePassword\x12\x1e.user.v1.ChangePasswordRequest\x1a\x1f.user.v1.ChangePasswordResponse\x12H\n" +
+	"\vChangeEmail\x12\x1b.user.v1.ChangeEmailRequest\x1a\x1c.user.v1.ChangeEmailResponse\x12]\n" +
+	"\x12UploadProfilePhoto\x12\".user.v1.UploadProfilePhotoRequest\x1a#.user.v1.UploadProfilePhotoResponse\x12]\n" +
+	"\x12RemoveProfilePhoto\x12\".user.v1.RemoveProfilePhotoRequest\x1a#.user.v1.RemoveProfilePhotoResponse\x12Q\n" +
+	"\x0eChangeNickname\x12\x1e.user.v1.ChangeNicknameRequest\x1a\x1f.user.v1.ChangeNicknameResponse\x12H\n" +
+	"\vListDevices\x12\x1b.user.v1.ListDevicesRequest\x1a\x1c.user.v1.ListDevicesResponse\x12B\n" +
+	"\tAddDevice\x12\x19.user.v1.AddDeviceRequest\x1a\x1a.user.v1.AddDeviceResponse\x12K\n" +
+	"\fRemoveDevice\x12\x1c.user.v1.RemoveDeviceRequest\x1a\x1d.user.v1.RemoveDeviceResponse\x12Q\n" +
+	"\x0eSyncDeviceData\x12\x1e.user.v1.SyncDeviceDataRequest\x1a\x1f.user.v1.SyncDeviceDataResponse\x12W\n" +
+	"\x10GetTrainingStats\x12 .user.v1.GetTrainingStatsRequest\x1a!.user.v1.GetTrainingStatsResponse\x12T\n" +
+	"\x0fGetAchievements\x12\x1f.user.v1.GetAchievementsRequest\x1a .user.v1.GetAchievementsResponse\x12B\n" +
+	"\tListUsers\x12\x19.user.v1.ListUsersRequest\x1a\x1a.user.v1.ListUsersResponse\x12]\n" +
+	"\x12ValidateInviteCode\x12\".user.v1.ValidateInviteCodeRequest\x1a#.user.v1.ValidateInviteCodeResponse\x12B\n" +
+	"\tSetupTOTP\x12\x19.user.v1.SetupTOTPRequest\x1a\x1a.user.v1.SetupTOTPResponse\x12H\n" +
+	"\vConfirmTOTP\x12\x1b.user.v1.ConfirmTOTPRequest\x1a\x1c.user.v1.ConfirmTOTPResponse\x12E\n" +
 	"\n" +
-	"VerifyTOTP\x12\x17.user.VerifyTOTPRequest\x1a\x18.user.VerifyTOTPResponse\x12B\n" +
-	"\vDisableTOTP\x12\x18.user.DisableTOTPRequest\x1a\x19.user.DisableTOTPResponse\x12E\n" +
-	"\fRefreshToken\x12\x19.user.RefreshTokenRequest\x1a\x1a.user.RefreshTokenResponse\x12]\n" +
-	"\x14ListHealthConditions\x12!.user.ListHealthConditionsRequest\x1a\".user.ListHealthConditionsResponse\x12R\n" +
-	"\x15UpsertHealthCondition\x12\".user.UpsertHealthConditionRequest\x1a\x15.user.HealthCondition\x12`\n" +
-	"\x15DeleteHealthCondition\x12\".user.DeleteHealthConditionRequest\x1a#.user.DeleteHealthConditionResponse\x12Z\n" +
-	"\x13ListBodyComposition\x12 .user.ListBodyCompositionRequest\x1a!.user.ListBodyCompositionResponse\x12X\n" +
-	"\x15CreateBodyComposition\x12\".user.CreateBodyCompositionRequest\x1a\x1b.user.BodyCompositionRecord\x12Z\n" +
-	"\x13ListMenstrualCycles\x12 .user.ListMenstrualCyclesRequest\x1a!.user.ListMenstrualCyclesResponse\x12O\n" +
-	"\x14CreateMenstrualCycle\x12!.user.CreateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12O\n" +
-	"\x14UpdateMenstrualCycle\x12!.user.UpdateMenstrualCycleRequest\x1a\x14.user.MenstrualCycle\x12]\n" +
-	"\x14DeleteMenstrualCycle\x12!.user.DeleteMenstrualCycleRequest\x1a\".user.DeleteMenstrualCycleResponse\x12H\n" +
-	"\rGetUserClaims\x12\x1a.user.GetUserClaimsRequest\x1a\x1b.user.GetUserClaimsResponse\x12H\n" +
-	"\rDeleteProfile\x12\x1a.user.DeleteProfileRequest\x1a\x1b.user.DeleteProfileResponse\x12K\n" +
-	"\x0eExportUserData\x12\x1b.user.ExportUserDataRequest\x1a\x1c.user.ExportUserDataResponse\x12Q\n" +
-	"\x10AdminListInvites\x12\x1d.user.AdminListInvitesRequest\x1a\x1e.user.AdminListInvitesResponse\x12T\n" +
-	"\x11AdminCreateInvite\x12\x1e.user.AdminCreateInviteRequest\x1a\x1f.user.AdminCreateInviteResponse\x12T\n" +
-	"\x11AdminRevokeInvite\x12\x1e.user.AdminRevokeInviteRequest\x1a\x1f.user.AdminRevokeInviteResponse\x12N\n" +
-	"\x0fAdminDeleteUser\x12\x1c.user.AdminDeleteUserRequest\x1a\x1d.user.AdminDeleteUserResponse\x12E\n" +
-	"\fAdminBanUser\x12\x19.user.AdminBanUserRequest\x1a\x1a.user.AdminBanUserResponse\x12K\n" +
-	"\x0eAdminUnbanUser\x12\x1b.user.AdminUnbanUserRequest\x1a\x1c.user.AdminUnbanUserResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
+	"VerifyTOTP\x12\x1a.user.v1.VerifyTOTPRequest\x1a\x1b.user.v1.VerifyTOTPResponse\x12H\n" +
+	"\vDisableTOTP\x12\x1b.user.v1.DisableTOTPRequest\x1a\x1c.user.v1.DisableTOTPResponse\x12K\n" +
+	"\fRefreshToken\x12\x1c.user.v1.RefreshTokenRequest\x1a\x1d.user.v1.RefreshTokenResponse\x12c\n" +
+	"\x14ListHealthConditions\x12$.user.v1.ListHealthConditionsRequest\x1a%.user.v1.ListHealthConditionsResponse\x12X\n" +
+	"\x15UpsertHealthCondition\x12%.user.v1.UpsertHealthConditionRequest\x1a\x18.user.v1.HealthCondition\x12f\n" +
+	"\x15DeleteHealthCondition\x12%.user.v1.DeleteHealthConditionRequest\x1a&.user.v1.DeleteHealthConditionResponse\x12`\n" +
+	"\x13ListBodyComposition\x12#.user.v1.ListBodyCompositionRequest\x1a$.user.v1.ListBodyCompositionResponse\x12^\n" +
+	"\x15CreateBodyComposition\x12%.user.v1.CreateBodyCompositionRequest\x1a\x1e.user.v1.BodyCompositionRecord\x12`\n" +
+	"\x13ListMenstrualCycles\x12#.user.v1.ListMenstrualCyclesRequest\x1a$.user.v1.ListMenstrualCyclesResponse\x12U\n" +
+	"\x14CreateMenstrualCycle\x12$.user.v1.CreateMenstrualCycleRequest\x1a\x17.user.v1.MenstrualCycle\x12U\n" +
+	"\x14UpdateMenstrualCycle\x12$.user.v1.UpdateMenstrualCycleRequest\x1a\x17.user.v1.MenstrualCycle\x12c\n" +
+	"\x14DeleteMenstrualCycle\x12$.user.v1.DeleteMenstrualCycleRequest\x1a%.user.v1.DeleteMenstrualCycleResponse\x12N\n" +
+	"\rGetUserClaims\x12\x1d.user.v1.GetUserClaimsRequest\x1a\x1e.user.v1.GetUserClaimsResponse\x12N\n" +
+	"\rDeleteProfile\x12\x1d.user.v1.DeleteProfileRequest\x1a\x1e.user.v1.DeleteProfileResponse\x12Q\n" +
+	"\x0eExportUserData\x12\x1e.user.v1.ExportUserDataRequest\x1a\x1f.user.v1.ExportUserDataResponse\x12W\n" +
+	"\x10AdminListInvites\x12 .user.v1.AdminListInvitesRequest\x1a!.user.v1.AdminListInvitesResponse\x12Z\n" +
+	"\x11AdminCreateInvite\x12!.user.v1.AdminCreateInviteRequest\x1a\".user.v1.AdminCreateInviteResponse\x12Z\n" +
+	"\x11AdminRevokeInvite\x12!.user.v1.AdminRevokeInviteRequest\x1a\".user.v1.AdminRevokeInviteResponse\x12T\n" +
+	"\x0fAdminDeleteUser\x12\x1f.user.v1.AdminDeleteUserRequest\x1a .user.v1.AdminDeleteUserResponse\x12K\n" +
+	"\fAdminBanUser\x12\x1c.user.v1.AdminBanUserRequest\x1a\x1d.user.v1.AdminBanUserResponse\x12Q\n" +
+	"\x0eAdminUnbanUser\x12\x1e.user.v1.AdminUnbanUserRequest\x1a\x1f.user.v1.AdminUnbanUserResponseB(Z&github.com/MAMUER/project/api/gen/userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -6127,198 +6127,198 @@ func file_user_proto_rawDescGZIP() []byte {
 
 var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 88)
 var file_user_proto_goTypes = []any{
-	(*RegisterRequest)(nil),               // 0: user.RegisterRequest
-	(*RegisterResponse)(nil),              // 1: user.RegisterResponse
-	(*ConfirmEmailRequest)(nil),           // 2: user.ConfirmEmailRequest
-	(*ConfirmEmailResponse)(nil),          // 3: user.ConfirmEmailResponse
-	(*LoginRequest)(nil),                  // 4: user.LoginRequest
-	(*LoginResponse)(nil),                 // 5: user.LoginResponse
-	(*AuthenticateGoogleRequest)(nil),     // 6: user.AuthenticateGoogleRequest
-	(*GetProfileRequest)(nil),             // 7: user.GetProfileRequest
-	(*GetUserByEmailRequest)(nil),         // 8: user.GetUserByEmailRequest
-	(*GetUserByEmailResponse)(nil),        // 9: user.GetUserByEmailResponse
-	(*UpdateProfileRequest)(nil),          // 10: user.UpdateProfileRequest
-	(*ChangePasswordRequest)(nil),         // 11: user.ChangePasswordRequest
-	(*ChangePasswordResponse)(nil),        // 12: user.ChangePasswordResponse
-	(*ChangeEmailRequest)(nil),            // 13: user.ChangeEmailRequest
-	(*ChangeEmailResponse)(nil),           // 14: user.ChangeEmailResponse
-	(*UploadProfilePhotoRequest)(nil),     // 15: user.UploadProfilePhotoRequest
-	(*UploadProfilePhotoResponse)(nil),    // 16: user.UploadProfilePhotoResponse
-	(*RemoveProfilePhotoRequest)(nil),     // 17: user.RemoveProfilePhotoRequest
-	(*RemoveProfilePhotoResponse)(nil),    // 18: user.RemoveProfilePhotoResponse
-	(*ChangeNicknameRequest)(nil),         // 19: user.ChangeNicknameRequest
-	(*ChangeNicknameResponse)(nil),        // 20: user.ChangeNicknameResponse
-	(*Device)(nil),                        // 21: user.Device
-	(*ListDevicesRequest)(nil),            // 22: user.ListDevicesRequest
-	(*ListDevicesResponse)(nil),           // 23: user.ListDevicesResponse
-	(*AddDeviceRequest)(nil),              // 24: user.AddDeviceRequest
-	(*AddDeviceResponse)(nil),             // 25: user.AddDeviceResponse
-	(*RemoveDeviceRequest)(nil),           // 26: user.RemoveDeviceRequest
-	(*RemoveDeviceResponse)(nil),          // 27: user.RemoveDeviceResponse
-	(*SyncDeviceDataRequest)(nil),         // 28: user.SyncDeviceDataRequest
-	(*SyncDeviceDataResponse)(nil),        // 29: user.SyncDeviceDataResponse
-	(*GetTrainingStatsRequest)(nil),       // 30: user.GetTrainingStatsRequest
-	(*TrainingStats)(nil),                 // 31: user.TrainingStats
-	(*GetTrainingStatsResponse)(nil),      // 32: user.GetTrainingStatsResponse
-	(*Achievement)(nil),                   // 33: user.Achievement
-	(*GetAchievementsRequest)(nil),        // 34: user.GetAchievementsRequest
-	(*GetAchievementsResponse)(nil),       // 35: user.GetAchievementsResponse
-	(*UserProfile)(nil),                   // 36: user.UserProfile
-	(*ListUsersRequest)(nil),              // 37: user.ListUsersRequest
-	(*ListUsersResponse)(nil),             // 38: user.ListUsersResponse
-	(*RegisterWithInviteRequest)(nil),     // 39: user.RegisterWithInviteRequest
-	(*ValidateInviteCodeRequest)(nil),     // 40: user.ValidateInviteCodeRequest
-	(*ValidateInviteCodeResponse)(nil),    // 41: user.ValidateInviteCodeResponse
-	(*SetupTOTPRequest)(nil),              // 42: user.SetupTOTPRequest
-	(*SetupTOTPResponse)(nil),             // 43: user.SetupTOTPResponse
-	(*ConfirmTOTPRequest)(nil),            // 44: user.ConfirmTOTPRequest
-	(*ConfirmTOTPResponse)(nil),           // 45: user.ConfirmTOTPResponse
-	(*VerifyTOTPRequest)(nil),             // 46: user.VerifyTOTPRequest
-	(*VerifyTOTPResponse)(nil),            // 47: user.VerifyTOTPResponse
-	(*DisableTOTPRequest)(nil),            // 48: user.DisableTOTPRequest
-	(*DisableTOTPResponse)(nil),           // 49: user.DisableTOTPResponse
-	(*RefreshTokenRequest)(nil),           // 50: user.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),          // 51: user.RefreshTokenResponse
-	(*HealthCondition)(nil),               // 52: user.HealthCondition
-	(*ListHealthConditionsRequest)(nil),   // 53: user.ListHealthConditionsRequest
-	(*ListHealthConditionsResponse)(nil),  // 54: user.ListHealthConditionsResponse
-	(*UpsertHealthConditionRequest)(nil),  // 55: user.UpsertHealthConditionRequest
-	(*DeleteHealthConditionRequest)(nil),  // 56: user.DeleteHealthConditionRequest
-	(*DeleteHealthConditionResponse)(nil), // 57: user.DeleteHealthConditionResponse
-	(*BodyCompositionRecord)(nil),         // 58: user.BodyCompositionRecord
-	(*ListBodyCompositionRequest)(nil),    // 59: user.ListBodyCompositionRequest
-	(*ListBodyCompositionResponse)(nil),   // 60: user.ListBodyCompositionResponse
-	(*CreateBodyCompositionRequest)(nil),  // 61: user.CreateBodyCompositionRequest
-	(*MenstrualCycle)(nil),                // 62: user.MenstrualCycle
-	(*ListMenstrualCyclesRequest)(nil),    // 63: user.ListMenstrualCyclesRequest
-	(*ListMenstrualCyclesResponse)(nil),   // 64: user.ListMenstrualCyclesResponse
-	(*CreateMenstrualCycleRequest)(nil),   // 65: user.CreateMenstrualCycleRequest
-	(*UpdateMenstrualCycleRequest)(nil),   // 66: user.UpdateMenstrualCycleRequest
-	(*DeleteMenstrualCycleRequest)(nil),   // 67: user.DeleteMenstrualCycleRequest
-	(*DeleteMenstrualCycleResponse)(nil),  // 68: user.DeleteMenstrualCycleResponse
-	(*GetUserClaimsRequest)(nil),          // 69: user.GetUserClaimsRequest
-	(*GetUserClaimsResponse)(nil),         // 70: user.GetUserClaimsResponse
-	(*DeleteProfileRequest)(nil),          // 71: user.DeleteProfileRequest
-	(*DeleteProfileResponse)(nil),         // 72: user.DeleteProfileResponse
-	(*InviteInfo)(nil),                    // 73: user.InviteInfo
-	(*AdminListInvitesRequest)(nil),       // 74: user.AdminListInvitesRequest
-	(*AdminListInvitesResponse)(nil),      // 75: user.AdminListInvitesResponse
-	(*AdminCreateInviteRequest)(nil),      // 76: user.AdminCreateInviteRequest
-	(*AdminCreateInviteResponse)(nil),     // 77: user.AdminCreateInviteResponse
-	(*AdminRevokeInviteRequest)(nil),      // 78: user.AdminRevokeInviteRequest
-	(*AdminRevokeInviteResponse)(nil),     // 79: user.AdminRevokeInviteResponse
-	(*AdminDeleteUserRequest)(nil),        // 80: user.AdminDeleteUserRequest
-	(*AdminDeleteUserResponse)(nil),       // 81: user.AdminDeleteUserResponse
-	(*ExportUserDataRequest)(nil),         // 82: user.ExportUserDataRequest
-	(*ExportUserDataResponse)(nil),        // 83: user.ExportUserDataResponse
-	(*AdminBanUserRequest)(nil),           // 84: user.AdminBanUserRequest
-	(*AdminBanUserResponse)(nil),          // 85: user.AdminBanUserResponse
-	(*AdminUnbanUserRequest)(nil),         // 86: user.AdminUnbanUserRequest
-	(*AdminUnbanUserResponse)(nil),        // 87: user.AdminUnbanUserResponse
+	(*RegisterRequest)(nil),               // 0: user.v1.RegisterRequest
+	(*RegisterResponse)(nil),              // 1: user.v1.RegisterResponse
+	(*ConfirmEmailRequest)(nil),           // 2: user.v1.ConfirmEmailRequest
+	(*ConfirmEmailResponse)(nil),          // 3: user.v1.ConfirmEmailResponse
+	(*LoginRequest)(nil),                  // 4: user.v1.LoginRequest
+	(*LoginResponse)(nil),                 // 5: user.v1.LoginResponse
+	(*AuthenticateGoogleRequest)(nil),     // 6: user.v1.AuthenticateGoogleRequest
+	(*GetProfileRequest)(nil),             // 7: user.v1.GetProfileRequest
+	(*GetUserByEmailRequest)(nil),         // 8: user.v1.GetUserByEmailRequest
+	(*GetUserByEmailResponse)(nil),        // 9: user.v1.GetUserByEmailResponse
+	(*UpdateProfileRequest)(nil),          // 10: user.v1.UpdateProfileRequest
+	(*ChangePasswordRequest)(nil),         // 11: user.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),        // 12: user.v1.ChangePasswordResponse
+	(*ChangeEmailRequest)(nil),            // 13: user.v1.ChangeEmailRequest
+	(*ChangeEmailResponse)(nil),           // 14: user.v1.ChangeEmailResponse
+	(*UploadProfilePhotoRequest)(nil),     // 15: user.v1.UploadProfilePhotoRequest
+	(*UploadProfilePhotoResponse)(nil),    // 16: user.v1.UploadProfilePhotoResponse
+	(*RemoveProfilePhotoRequest)(nil),     // 17: user.v1.RemoveProfilePhotoRequest
+	(*RemoveProfilePhotoResponse)(nil),    // 18: user.v1.RemoveProfilePhotoResponse
+	(*ChangeNicknameRequest)(nil),         // 19: user.v1.ChangeNicknameRequest
+	(*ChangeNicknameResponse)(nil),        // 20: user.v1.ChangeNicknameResponse
+	(*Device)(nil),                        // 21: user.v1.Device
+	(*ListDevicesRequest)(nil),            // 22: user.v1.ListDevicesRequest
+	(*ListDevicesResponse)(nil),           // 23: user.v1.ListDevicesResponse
+	(*AddDeviceRequest)(nil),              // 24: user.v1.AddDeviceRequest
+	(*AddDeviceResponse)(nil),             // 25: user.v1.AddDeviceResponse
+	(*RemoveDeviceRequest)(nil),           // 26: user.v1.RemoveDeviceRequest
+	(*RemoveDeviceResponse)(nil),          // 27: user.v1.RemoveDeviceResponse
+	(*SyncDeviceDataRequest)(nil),         // 28: user.v1.SyncDeviceDataRequest
+	(*SyncDeviceDataResponse)(nil),        // 29: user.v1.SyncDeviceDataResponse
+	(*GetTrainingStatsRequest)(nil),       // 30: user.v1.GetTrainingStatsRequest
+	(*TrainingStats)(nil),                 // 31: user.v1.TrainingStats
+	(*GetTrainingStatsResponse)(nil),      // 32: user.v1.GetTrainingStatsResponse
+	(*Achievement)(nil),                   // 33: user.v1.Achievement
+	(*GetAchievementsRequest)(nil),        // 34: user.v1.GetAchievementsRequest
+	(*GetAchievementsResponse)(nil),       // 35: user.v1.GetAchievementsResponse
+	(*UserProfile)(nil),                   // 36: user.v1.UserProfile
+	(*ListUsersRequest)(nil),              // 37: user.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),             // 38: user.v1.ListUsersResponse
+	(*RegisterWithInviteRequest)(nil),     // 39: user.v1.RegisterWithInviteRequest
+	(*ValidateInviteCodeRequest)(nil),     // 40: user.v1.ValidateInviteCodeRequest
+	(*ValidateInviteCodeResponse)(nil),    // 41: user.v1.ValidateInviteCodeResponse
+	(*SetupTOTPRequest)(nil),              // 42: user.v1.SetupTOTPRequest
+	(*SetupTOTPResponse)(nil),             // 43: user.v1.SetupTOTPResponse
+	(*ConfirmTOTPRequest)(nil),            // 44: user.v1.ConfirmTOTPRequest
+	(*ConfirmTOTPResponse)(nil),           // 45: user.v1.ConfirmTOTPResponse
+	(*VerifyTOTPRequest)(nil),             // 46: user.v1.VerifyTOTPRequest
+	(*VerifyTOTPResponse)(nil),            // 47: user.v1.VerifyTOTPResponse
+	(*DisableTOTPRequest)(nil),            // 48: user.v1.DisableTOTPRequest
+	(*DisableTOTPResponse)(nil),           // 49: user.v1.DisableTOTPResponse
+	(*RefreshTokenRequest)(nil),           // 50: user.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),          // 51: user.v1.RefreshTokenResponse
+	(*HealthCondition)(nil),               // 52: user.v1.HealthCondition
+	(*ListHealthConditionsRequest)(nil),   // 53: user.v1.ListHealthConditionsRequest
+	(*ListHealthConditionsResponse)(nil),  // 54: user.v1.ListHealthConditionsResponse
+	(*UpsertHealthConditionRequest)(nil),  // 55: user.v1.UpsertHealthConditionRequest
+	(*DeleteHealthConditionRequest)(nil),  // 56: user.v1.DeleteHealthConditionRequest
+	(*DeleteHealthConditionResponse)(nil), // 57: user.v1.DeleteHealthConditionResponse
+	(*BodyCompositionRecord)(nil),         // 58: user.v1.BodyCompositionRecord
+	(*ListBodyCompositionRequest)(nil),    // 59: user.v1.ListBodyCompositionRequest
+	(*ListBodyCompositionResponse)(nil),   // 60: user.v1.ListBodyCompositionResponse
+	(*CreateBodyCompositionRequest)(nil),  // 61: user.v1.CreateBodyCompositionRequest
+	(*MenstrualCycle)(nil),                // 62: user.v1.MenstrualCycle
+	(*ListMenstrualCyclesRequest)(nil),    // 63: user.v1.ListMenstrualCyclesRequest
+	(*ListMenstrualCyclesResponse)(nil),   // 64: user.v1.ListMenstrualCyclesResponse
+	(*CreateMenstrualCycleRequest)(nil),   // 65: user.v1.CreateMenstrualCycleRequest
+	(*UpdateMenstrualCycleRequest)(nil),   // 66: user.v1.UpdateMenstrualCycleRequest
+	(*DeleteMenstrualCycleRequest)(nil),   // 67: user.v1.DeleteMenstrualCycleRequest
+	(*DeleteMenstrualCycleResponse)(nil),  // 68: user.v1.DeleteMenstrualCycleResponse
+	(*GetUserClaimsRequest)(nil),          // 69: user.v1.GetUserClaimsRequest
+	(*GetUserClaimsResponse)(nil),         // 70: user.v1.GetUserClaimsResponse
+	(*DeleteProfileRequest)(nil),          // 71: user.v1.DeleteProfileRequest
+	(*DeleteProfileResponse)(nil),         // 72: user.v1.DeleteProfileResponse
+	(*InviteInfo)(nil),                    // 73: user.v1.InviteInfo
+	(*AdminListInvitesRequest)(nil),       // 74: user.v1.AdminListInvitesRequest
+	(*AdminListInvitesResponse)(nil),      // 75: user.v1.AdminListInvitesResponse
+	(*AdminCreateInviteRequest)(nil),      // 76: user.v1.AdminCreateInviteRequest
+	(*AdminCreateInviteResponse)(nil),     // 77: user.v1.AdminCreateInviteResponse
+	(*AdminRevokeInviteRequest)(nil),      // 78: user.v1.AdminRevokeInviteRequest
+	(*AdminRevokeInviteResponse)(nil),     // 79: user.v1.AdminRevokeInviteResponse
+	(*AdminDeleteUserRequest)(nil),        // 80: user.v1.AdminDeleteUserRequest
+	(*AdminDeleteUserResponse)(nil),       // 81: user.v1.AdminDeleteUserResponse
+	(*ExportUserDataRequest)(nil),         // 82: user.v1.ExportUserDataRequest
+	(*ExportUserDataResponse)(nil),        // 83: user.v1.ExportUserDataResponse
+	(*AdminBanUserRequest)(nil),           // 84: user.v1.AdminBanUserRequest
+	(*AdminBanUserResponse)(nil),          // 85: user.v1.AdminBanUserResponse
+	(*AdminUnbanUserRequest)(nil),         // 86: user.v1.AdminUnbanUserRequest
+	(*AdminUnbanUserResponse)(nil),        // 87: user.v1.AdminUnbanUserResponse
 }
 var file_user_proto_depIdxs = []int32{
-	36, // 0: user.GetUserByEmailResponse.user:type_name -> user.UserProfile
-	21, // 1: user.ListDevicesResponse.devices:type_name -> user.Device
-	21, // 2: user.AddDeviceResponse.device:type_name -> user.Device
-	31, // 3: user.GetTrainingStatsResponse.stats:type_name -> user.TrainingStats
-	33, // 4: user.GetAchievementsResponse.achievements:type_name -> user.Achievement
-	36, // 5: user.ListUsersResponse.users:type_name -> user.UserProfile
-	52, // 6: user.ListHealthConditionsResponse.conditions:type_name -> user.HealthCondition
-	58, // 7: user.ListBodyCompositionResponse.records:type_name -> user.BodyCompositionRecord
-	62, // 8: user.ListMenstrualCyclesResponse.cycles:type_name -> user.MenstrualCycle
-	73, // 9: user.AdminListInvitesResponse.invites:type_name -> user.InviteInfo
-	52, // 10: user.ExportUserDataResponse.health_conditions:type_name -> user.HealthCondition
-	58, // 11: user.ExportUserDataResponse.body_composition:type_name -> user.BodyCompositionRecord
-	62, // 12: user.ExportUserDataResponse.menstrual_cycles:type_name -> user.MenstrualCycle
-	21, // 13: user.ExportUserDataResponse.devices:type_name -> user.Device
-	0,  // 14: user.UserService.Register:input_type -> user.RegisterRequest
-	39, // 15: user.UserService.RegisterWithInvite:input_type -> user.RegisterWithInviteRequest
-	2,  // 16: user.UserService.ConfirmEmail:input_type -> user.ConfirmEmailRequest
-	4,  // 17: user.UserService.Login:input_type -> user.LoginRequest
-	6,  // 18: user.UserService.AuthenticateGoogle:input_type -> user.AuthenticateGoogleRequest
-	7,  // 19: user.UserService.GetProfile:input_type -> user.GetProfileRequest
-	8,  // 20: user.UserService.GetUserByEmail:input_type -> user.GetUserByEmailRequest
-	10, // 21: user.UserService.UpdateProfile:input_type -> user.UpdateProfileRequest
-	11, // 22: user.UserService.ChangePassword:input_type -> user.ChangePasswordRequest
-	13, // 23: user.UserService.ChangeEmail:input_type -> user.ChangeEmailRequest
-	15, // 24: user.UserService.UploadProfilePhoto:input_type -> user.UploadProfilePhotoRequest
-	17, // 25: user.UserService.RemoveProfilePhoto:input_type -> user.RemoveProfilePhotoRequest
-	19, // 26: user.UserService.ChangeNickname:input_type -> user.ChangeNicknameRequest
-	22, // 27: user.UserService.ListDevices:input_type -> user.ListDevicesRequest
-	24, // 28: user.UserService.AddDevice:input_type -> user.AddDeviceRequest
-	26, // 29: user.UserService.RemoveDevice:input_type -> user.RemoveDeviceRequest
-	28, // 30: user.UserService.SyncDeviceData:input_type -> user.SyncDeviceDataRequest
-	30, // 31: user.UserService.GetTrainingStats:input_type -> user.GetTrainingStatsRequest
-	34, // 32: user.UserService.GetAchievements:input_type -> user.GetAchievementsRequest
-	37, // 33: user.UserService.ListUsers:input_type -> user.ListUsersRequest
-	40, // 34: user.UserService.ValidateInviteCode:input_type -> user.ValidateInviteCodeRequest
-	42, // 35: user.UserService.SetupTOTP:input_type -> user.SetupTOTPRequest
-	44, // 36: user.UserService.ConfirmTOTP:input_type -> user.ConfirmTOTPRequest
-	46, // 37: user.UserService.VerifyTOTP:input_type -> user.VerifyTOTPRequest
-	48, // 38: user.UserService.DisableTOTP:input_type -> user.DisableTOTPRequest
-	50, // 39: user.UserService.RefreshToken:input_type -> user.RefreshTokenRequest
-	53, // 40: user.UserService.ListHealthConditions:input_type -> user.ListHealthConditionsRequest
-	55, // 41: user.UserService.UpsertHealthCondition:input_type -> user.UpsertHealthConditionRequest
-	56, // 42: user.UserService.DeleteHealthCondition:input_type -> user.DeleteHealthConditionRequest
-	59, // 43: user.UserService.ListBodyComposition:input_type -> user.ListBodyCompositionRequest
-	61, // 44: user.UserService.CreateBodyComposition:input_type -> user.CreateBodyCompositionRequest
-	63, // 45: user.UserService.ListMenstrualCycles:input_type -> user.ListMenstrualCyclesRequest
-	65, // 46: user.UserService.CreateMenstrualCycle:input_type -> user.CreateMenstrualCycleRequest
-	66, // 47: user.UserService.UpdateMenstrualCycle:input_type -> user.UpdateMenstrualCycleRequest
-	67, // 48: user.UserService.DeleteMenstrualCycle:input_type -> user.DeleteMenstrualCycleRequest
-	69, // 49: user.UserService.GetUserClaims:input_type -> user.GetUserClaimsRequest
-	71, // 50: user.UserService.DeleteProfile:input_type -> user.DeleteProfileRequest
-	82, // 51: user.UserService.ExportUserData:input_type -> user.ExportUserDataRequest
-	74, // 52: user.UserService.AdminListInvites:input_type -> user.AdminListInvitesRequest
-	76, // 53: user.UserService.AdminCreateInvite:input_type -> user.AdminCreateInviteRequest
-	78, // 54: user.UserService.AdminRevokeInvite:input_type -> user.AdminRevokeInviteRequest
-	80, // 55: user.UserService.AdminDeleteUser:input_type -> user.AdminDeleteUserRequest
-	84, // 56: user.UserService.AdminBanUser:input_type -> user.AdminBanUserRequest
-	86, // 57: user.UserService.AdminUnbanUser:input_type -> user.AdminUnbanUserRequest
-	1,  // 58: user.UserService.Register:output_type -> user.RegisterResponse
-	1,  // 59: user.UserService.RegisterWithInvite:output_type -> user.RegisterResponse
-	3,  // 60: user.UserService.ConfirmEmail:output_type -> user.ConfirmEmailResponse
-	5,  // 61: user.UserService.Login:output_type -> user.LoginResponse
-	5,  // 62: user.UserService.AuthenticateGoogle:output_type -> user.LoginResponse
-	36, // 63: user.UserService.GetProfile:output_type -> user.UserProfile
-	36, // 64: user.UserService.GetUserByEmail:output_type -> user.UserProfile
-	36, // 65: user.UserService.UpdateProfile:output_type -> user.UserProfile
-	12, // 66: user.UserService.ChangePassword:output_type -> user.ChangePasswordResponse
-	14, // 67: user.UserService.ChangeEmail:output_type -> user.ChangeEmailResponse
-	16, // 68: user.UserService.UploadProfilePhoto:output_type -> user.UploadProfilePhotoResponse
-	18, // 69: user.UserService.RemoveProfilePhoto:output_type -> user.RemoveProfilePhotoResponse
-	20, // 70: user.UserService.ChangeNickname:output_type -> user.ChangeNicknameResponse
-	23, // 71: user.UserService.ListDevices:output_type -> user.ListDevicesResponse
-	25, // 72: user.UserService.AddDevice:output_type -> user.AddDeviceResponse
-	27, // 73: user.UserService.RemoveDevice:output_type -> user.RemoveDeviceResponse
-	29, // 74: user.UserService.SyncDeviceData:output_type -> user.SyncDeviceDataResponse
-	32, // 75: user.UserService.GetTrainingStats:output_type -> user.GetTrainingStatsResponse
-	35, // 76: user.UserService.GetAchievements:output_type -> user.GetAchievementsResponse
-	38, // 77: user.UserService.ListUsers:output_type -> user.ListUsersResponse
-	41, // 78: user.UserService.ValidateInviteCode:output_type -> user.ValidateInviteCodeResponse
-	43, // 79: user.UserService.SetupTOTP:output_type -> user.SetupTOTPResponse
-	45, // 80: user.UserService.ConfirmTOTP:output_type -> user.ConfirmTOTPResponse
-	47, // 81: user.UserService.VerifyTOTP:output_type -> user.VerifyTOTPResponse
-	49, // 82: user.UserService.DisableTOTP:output_type -> user.DisableTOTPResponse
-	51, // 83: user.UserService.RefreshToken:output_type -> user.RefreshTokenResponse
-	54, // 84: user.UserService.ListHealthConditions:output_type -> user.ListHealthConditionsResponse
-	52, // 85: user.UserService.UpsertHealthCondition:output_type -> user.HealthCondition
-	57, // 86: user.UserService.DeleteHealthCondition:output_type -> user.DeleteHealthConditionResponse
-	60, // 87: user.UserService.ListBodyComposition:output_type -> user.ListBodyCompositionResponse
-	58, // 88: user.UserService.CreateBodyComposition:output_type -> user.BodyCompositionRecord
-	64, // 89: user.UserService.ListMenstrualCycles:output_type -> user.ListMenstrualCyclesResponse
-	62, // 90: user.UserService.CreateMenstrualCycle:output_type -> user.MenstrualCycle
-	62, // 91: user.UserService.UpdateMenstrualCycle:output_type -> user.MenstrualCycle
-	68, // 92: user.UserService.DeleteMenstrualCycle:output_type -> user.DeleteMenstrualCycleResponse
-	70, // 93: user.UserService.GetUserClaims:output_type -> user.GetUserClaimsResponse
-	72, // 94: user.UserService.DeleteProfile:output_type -> user.DeleteProfileResponse
-	83, // 95: user.UserService.ExportUserData:output_type -> user.ExportUserDataResponse
-	75, // 96: user.UserService.AdminListInvites:output_type -> user.AdminListInvitesResponse
-	77, // 97: user.UserService.AdminCreateInvite:output_type -> user.AdminCreateInviteResponse
-	79, // 98: user.UserService.AdminRevokeInvite:output_type -> user.AdminRevokeInviteResponse
-	81, // 99: user.UserService.AdminDeleteUser:output_type -> user.AdminDeleteUserResponse
-	85, // 100: user.UserService.AdminBanUser:output_type -> user.AdminBanUserResponse
-	87, // 101: user.UserService.AdminUnbanUser:output_type -> user.AdminUnbanUserResponse
+	36, // 0: user.v1.GetUserByEmailResponse.user:type_name -> user.v1.UserProfile
+	21, // 1: user.v1.ListDevicesResponse.devices:type_name -> user.v1.Device
+	21, // 2: user.v1.AddDeviceResponse.device:type_name -> user.v1.Device
+	31, // 3: user.v1.GetTrainingStatsResponse.stats:type_name -> user.v1.TrainingStats
+	33, // 4: user.v1.GetAchievementsResponse.achievements:type_name -> user.v1.Achievement
+	36, // 5: user.v1.ListUsersResponse.users:type_name -> user.v1.UserProfile
+	52, // 6: user.v1.ListHealthConditionsResponse.conditions:type_name -> user.v1.HealthCondition
+	58, // 7: user.v1.ListBodyCompositionResponse.records:type_name -> user.v1.BodyCompositionRecord
+	62, // 8: user.v1.ListMenstrualCyclesResponse.cycles:type_name -> user.v1.MenstrualCycle
+	73, // 9: user.v1.AdminListInvitesResponse.invites:type_name -> user.v1.InviteInfo
+	52, // 10: user.v1.ExportUserDataResponse.health_conditions:type_name -> user.v1.HealthCondition
+	58, // 11: user.v1.ExportUserDataResponse.body_composition:type_name -> user.v1.BodyCompositionRecord
+	62, // 12: user.v1.ExportUserDataResponse.menstrual_cycles:type_name -> user.v1.MenstrualCycle
+	21, // 13: user.v1.ExportUserDataResponse.devices:type_name -> user.v1.Device
+	0,  // 14: user.v1.UserService.Register:input_type -> user.v1.RegisterRequest
+	39, // 15: user.v1.UserService.RegisterWithInvite:input_type -> user.v1.RegisterWithInviteRequest
+	2,  // 16: user.v1.UserService.ConfirmEmail:input_type -> user.v1.ConfirmEmailRequest
+	4,  // 17: user.v1.UserService.Login:input_type -> user.v1.LoginRequest
+	6,  // 18: user.v1.UserService.AuthenticateGoogle:input_type -> user.v1.AuthenticateGoogleRequest
+	7,  // 19: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
+	8,  // 20: user.v1.UserService.GetUserByEmail:input_type -> user.v1.GetUserByEmailRequest
+	10, // 21: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
+	11, // 22: user.v1.UserService.ChangePassword:input_type -> user.v1.ChangePasswordRequest
+	13, // 23: user.v1.UserService.ChangeEmail:input_type -> user.v1.ChangeEmailRequest
+	15, // 24: user.v1.UserService.UploadProfilePhoto:input_type -> user.v1.UploadProfilePhotoRequest
+	17, // 25: user.v1.UserService.RemoveProfilePhoto:input_type -> user.v1.RemoveProfilePhotoRequest
+	19, // 26: user.v1.UserService.ChangeNickname:input_type -> user.v1.ChangeNicknameRequest
+	22, // 27: user.v1.UserService.ListDevices:input_type -> user.v1.ListDevicesRequest
+	24, // 28: user.v1.UserService.AddDevice:input_type -> user.v1.AddDeviceRequest
+	26, // 29: user.v1.UserService.RemoveDevice:input_type -> user.v1.RemoveDeviceRequest
+	28, // 30: user.v1.UserService.SyncDeviceData:input_type -> user.v1.SyncDeviceDataRequest
+	30, // 31: user.v1.UserService.GetTrainingStats:input_type -> user.v1.GetTrainingStatsRequest
+	34, // 32: user.v1.UserService.GetAchievements:input_type -> user.v1.GetAchievementsRequest
+	37, // 33: user.v1.UserService.ListUsers:input_type -> user.v1.ListUsersRequest
+	40, // 34: user.v1.UserService.ValidateInviteCode:input_type -> user.v1.ValidateInviteCodeRequest
+	42, // 35: user.v1.UserService.SetupTOTP:input_type -> user.v1.SetupTOTPRequest
+	44, // 36: user.v1.UserService.ConfirmTOTP:input_type -> user.v1.ConfirmTOTPRequest
+	46, // 37: user.v1.UserService.VerifyTOTP:input_type -> user.v1.VerifyTOTPRequest
+	48, // 38: user.v1.UserService.DisableTOTP:input_type -> user.v1.DisableTOTPRequest
+	50, // 39: user.v1.UserService.RefreshToken:input_type -> user.v1.RefreshTokenRequest
+	53, // 40: user.v1.UserService.ListHealthConditions:input_type -> user.v1.ListHealthConditionsRequest
+	55, // 41: user.v1.UserService.UpsertHealthCondition:input_type -> user.v1.UpsertHealthConditionRequest
+	56, // 42: user.v1.UserService.DeleteHealthCondition:input_type -> user.v1.DeleteHealthConditionRequest
+	59, // 43: user.v1.UserService.ListBodyComposition:input_type -> user.v1.ListBodyCompositionRequest
+	61, // 44: user.v1.UserService.CreateBodyComposition:input_type -> user.v1.CreateBodyCompositionRequest
+	63, // 45: user.v1.UserService.ListMenstrualCycles:input_type -> user.v1.ListMenstrualCyclesRequest
+	65, // 46: user.v1.UserService.CreateMenstrualCycle:input_type -> user.v1.CreateMenstrualCycleRequest
+	66, // 47: user.v1.UserService.UpdateMenstrualCycle:input_type -> user.v1.UpdateMenstrualCycleRequest
+	67, // 48: user.v1.UserService.DeleteMenstrualCycle:input_type -> user.v1.DeleteMenstrualCycleRequest
+	69, // 49: user.v1.UserService.GetUserClaims:input_type -> user.v1.GetUserClaimsRequest
+	71, // 50: user.v1.UserService.DeleteProfile:input_type -> user.v1.DeleteProfileRequest
+	82, // 51: user.v1.UserService.ExportUserData:input_type -> user.v1.ExportUserDataRequest
+	74, // 52: user.v1.UserService.AdminListInvites:input_type -> user.v1.AdminListInvitesRequest
+	76, // 53: user.v1.UserService.AdminCreateInvite:input_type -> user.v1.AdminCreateInviteRequest
+	78, // 54: user.v1.UserService.AdminRevokeInvite:input_type -> user.v1.AdminRevokeInviteRequest
+	80, // 55: user.v1.UserService.AdminDeleteUser:input_type -> user.v1.AdminDeleteUserRequest
+	84, // 56: user.v1.UserService.AdminBanUser:input_type -> user.v1.AdminBanUserRequest
+	86, // 57: user.v1.UserService.AdminUnbanUser:input_type -> user.v1.AdminUnbanUserRequest
+	1,  // 58: user.v1.UserService.Register:output_type -> user.v1.RegisterResponse
+	1,  // 59: user.v1.UserService.RegisterWithInvite:output_type -> user.v1.RegisterResponse
+	3,  // 60: user.v1.UserService.ConfirmEmail:output_type -> user.v1.ConfirmEmailResponse
+	5,  // 61: user.v1.UserService.Login:output_type -> user.v1.LoginResponse
+	5,  // 62: user.v1.UserService.AuthenticateGoogle:output_type -> user.v1.LoginResponse
+	36, // 63: user.v1.UserService.GetProfile:output_type -> user.v1.UserProfile
+	36, // 64: user.v1.UserService.GetUserByEmail:output_type -> user.v1.UserProfile
+	36, // 65: user.v1.UserService.UpdateProfile:output_type -> user.v1.UserProfile
+	12, // 66: user.v1.UserService.ChangePassword:output_type -> user.v1.ChangePasswordResponse
+	14, // 67: user.v1.UserService.ChangeEmail:output_type -> user.v1.ChangeEmailResponse
+	16, // 68: user.v1.UserService.UploadProfilePhoto:output_type -> user.v1.UploadProfilePhotoResponse
+	18, // 69: user.v1.UserService.RemoveProfilePhoto:output_type -> user.v1.RemoveProfilePhotoResponse
+	20, // 70: user.v1.UserService.ChangeNickname:output_type -> user.v1.ChangeNicknameResponse
+	23, // 71: user.v1.UserService.ListDevices:output_type -> user.v1.ListDevicesResponse
+	25, // 72: user.v1.UserService.AddDevice:output_type -> user.v1.AddDeviceResponse
+	27, // 73: user.v1.UserService.RemoveDevice:output_type -> user.v1.RemoveDeviceResponse
+	29, // 74: user.v1.UserService.SyncDeviceData:output_type -> user.v1.SyncDeviceDataResponse
+	32, // 75: user.v1.UserService.GetTrainingStats:output_type -> user.v1.GetTrainingStatsResponse
+	35, // 76: user.v1.UserService.GetAchievements:output_type -> user.v1.GetAchievementsResponse
+	38, // 77: user.v1.UserService.ListUsers:output_type -> user.v1.ListUsersResponse
+	41, // 78: user.v1.UserService.ValidateInviteCode:output_type -> user.v1.ValidateInviteCodeResponse
+	43, // 79: user.v1.UserService.SetupTOTP:output_type -> user.v1.SetupTOTPResponse
+	45, // 80: user.v1.UserService.ConfirmTOTP:output_type -> user.v1.ConfirmTOTPResponse
+	47, // 81: user.v1.UserService.VerifyTOTP:output_type -> user.v1.VerifyTOTPResponse
+	49, // 82: user.v1.UserService.DisableTOTP:output_type -> user.v1.DisableTOTPResponse
+	51, // 83: user.v1.UserService.RefreshToken:output_type -> user.v1.RefreshTokenResponse
+	54, // 84: user.v1.UserService.ListHealthConditions:output_type -> user.v1.ListHealthConditionsResponse
+	52, // 85: user.v1.UserService.UpsertHealthCondition:output_type -> user.v1.HealthCondition
+	57, // 86: user.v1.UserService.DeleteHealthCondition:output_type -> user.v1.DeleteHealthConditionResponse
+	60, // 87: user.v1.UserService.ListBodyComposition:output_type -> user.v1.ListBodyCompositionResponse
+	58, // 88: user.v1.UserService.CreateBodyComposition:output_type -> user.v1.BodyCompositionRecord
+	64, // 89: user.v1.UserService.ListMenstrualCycles:output_type -> user.v1.ListMenstrualCyclesResponse
+	62, // 90: user.v1.UserService.CreateMenstrualCycle:output_type -> user.v1.MenstrualCycle
+	62, // 91: user.v1.UserService.UpdateMenstrualCycle:output_type -> user.v1.MenstrualCycle
+	68, // 92: user.v1.UserService.DeleteMenstrualCycle:output_type -> user.v1.DeleteMenstrualCycleResponse
+	70, // 93: user.v1.UserService.GetUserClaims:output_type -> user.v1.GetUserClaimsResponse
+	72, // 94: user.v1.UserService.DeleteProfile:output_type -> user.v1.DeleteProfileResponse
+	83, // 95: user.v1.UserService.ExportUserData:output_type -> user.v1.ExportUserDataResponse
+	75, // 96: user.v1.UserService.AdminListInvites:output_type -> user.v1.AdminListInvitesResponse
+	77, // 97: user.v1.UserService.AdminCreateInvite:output_type -> user.v1.AdminCreateInviteResponse
+	79, // 98: user.v1.UserService.AdminRevokeInvite:output_type -> user.v1.AdminRevokeInviteResponse
+	81, // 99: user.v1.UserService.AdminDeleteUser:output_type -> user.v1.AdminDeleteUserResponse
+	85, // 100: user.v1.UserService.AdminBanUser:output_type -> user.v1.AdminBanUserResponse
+	87, // 101: user.v1.UserService.AdminUnbanUser:output_type -> user.v1.AdminUnbanUserResponse
 	58, // [58:102] is the sub-list for method output_type
 	14, // [14:58] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name

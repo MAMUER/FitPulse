@@ -19,23 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MLService_Classify_FullMethodName             = "/ml.MLService/Classify"
-	MLService_Generate_FullMethodName             = "/ml.MLService/Generate"
-	MLService_ClassifyUserState_FullMethodName    = "/ml.MLService/ClassifyUserState"
-	MLService_GenerateTrainingPlan_FullMethodName = "/ml.MLService/GenerateTrainingPlan"
-	MLService_GenerateDietPlan_FullMethodName     = "/ml.MLService/GenerateDietPlan"
-	MLService_AdaptPlan_FullMethodName            = "/ml.MLService/AdaptPlan"
+	MLService_Classify_FullMethodName             = "/ml.v1.MLService/Classify"
+	MLService_Generate_FullMethodName             = "/ml.v1.MLService/Generate"
+	MLService_ClassifyUserState_FullMethodName    = "/ml.v1.MLService/ClassifyUserState"
+	MLService_GenerateTrainingPlan_FullMethodName = "/ml.v1.MLService/GenerateTrainingPlan"
+	MLService_GenerateDietPlan_FullMethodName     = "/ml.v1.MLService/GenerateDietPlan"
+	MLService_AdaptPlan_FullMethodName            = "/ml.v1.MLService/AdaptPlan"
 )
 
 // MLServiceClient is the client API for MLService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Сервис машинного обучения.
 type MLServiceClient interface {
+	// Классификация признаков.
 	Classify(ctx context.Context, in *ClassifyRequest, opts ...grpc.CallOption) (*ClassifyResponse, error)
+	// Генерация плана.
 	Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*GenerateResponse, error)
+	// Классификация состояния пользователя.
 	ClassifyUserState(ctx context.Context, in *ClassifyUserStateRequest, opts ...grpc.CallOption) (*ClassifyUserStateResponse, error)
+	// Генерация тренировочного плана.
 	GenerateTrainingPlan(ctx context.Context, in *GenerateTrainingPlanRequest, opts ...grpc.CallOption) (*GenerateTrainingPlanResponse, error)
+	// Генерация диетического плана.
 	GenerateDietPlan(ctx context.Context, in *GenerateDietPlanRequest, opts ...grpc.CallOption) (*GenerateDietPlanResponse, error)
+	// Адаптация плана.
 	AdaptPlan(ctx context.Context, in *AdaptPlanRequest, opts ...grpc.CallOption) (*AdaptPlanResponse, error)
 }
 
@@ -110,12 +118,20 @@ func (c *mLServiceClient) AdaptPlan(ctx context.Context, in *AdaptPlanRequest, o
 // MLServiceServer is the server API for MLService service.
 // All implementations must embed UnimplementedMLServiceServer
 // for forward compatibility.
+//
+// Сервис машинного обучения.
 type MLServiceServer interface {
+	// Классификация признаков.
 	Classify(context.Context, *ClassifyRequest) (*ClassifyResponse, error)
+	// Генерация плана.
 	Generate(context.Context, *GenerateRequest) (*GenerateResponse, error)
+	// Классификация состояния пользователя.
 	ClassifyUserState(context.Context, *ClassifyUserStateRequest) (*ClassifyUserStateResponse, error)
+	// Генерация тренировочного плана.
 	GenerateTrainingPlan(context.Context, *GenerateTrainingPlanRequest) (*GenerateTrainingPlanResponse, error)
+	// Генерация диетического плана.
 	GenerateDietPlan(context.Context, *GenerateDietPlanRequest) (*GenerateDietPlanResponse, error)
+	// Адаптация плана.
 	AdaptPlan(context.Context, *AdaptPlanRequest) (*AdaptPlanResponse, error)
 	mustEmbedUnimplementedMLServiceServer()
 }
@@ -278,7 +294,7 @@ func _MLService_AdaptPlan_Handler(srv interface{}, ctx context.Context, dec func
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var MLService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ml.MLService",
+	ServiceName: "ml.v1.MLService",
 	HandlerType: (*MLServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -138,6 +138,8 @@ const (
 
 	errUserIDRequired = "user_id is required"
 
+	serviceName = "user-service"
+
 	errDatabaseError = "database error"
 
 	errInternalError = "internal error"
@@ -346,7 +348,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIAccess, "register", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIAccess, "register", "user").
 			WithUser(userID).
 			WithFields("email", "full_name", "role").
 			WithMetadata("email_hash", emailHash))
@@ -523,7 +525,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 		if s.auditLogger != nil {
 
-			s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAuthFailure, "login", "user").
+			s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypeAuthFailure, "login", "user").
 				WithUser(user.ID).
 				WithFields("email").
 				WithError(fmt.Errorf("invalid credentials")))
@@ -546,7 +548,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAuthSuccess, "login", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypeAuthSuccess, "login", "user").
 			WithUser(user.ID).
 			WithFields("email"))
 
@@ -817,7 +819,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIAccess, "get_profile", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIAccess, "get_profile", "user").
 			WithUser(user.ID).
 			WithFields("email", "full_name", "nickname", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours"))
 
@@ -1047,7 +1049,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "update_profile", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIUpdate, "update_profile", "user").
 			WithUser(req.UserId).
 			WithFields("full_name", "nickname", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours", "contraindications"))
 
@@ -2145,7 +2147,7 @@ func (s *userServer) UpsertHealthCondition(ctx context.Context, req *pb.UpsertHe
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "upsert_health_condition", "health_condition").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIUpdate, "upsert_health_condition", "health_condition").
 			WithUser(req.UserId).
 			WithFields("condition_type", "condition_name", "severity", "is_active"))
 
@@ -2176,7 +2178,7 @@ func (s *userServer) DeleteHealthCondition(ctx context.Context, req *pb.DeleteHe
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_health_condition", "health_condition").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIDelete, "delete_health_condition", "health_condition").
 			WithUser(req.UserId).
 			WithFields("condition_id"))
 
@@ -2356,7 +2358,7 @@ func (s *userServer) CreateBodyComposition(ctx context.Context, req *pb.CreateBo
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "create_body_composition", "body_composition").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIUpdate, "create_body_composition", "body_composition").
 			WithUser(req.UserId).
 			WithFields("weight_kg", "height_cm", "bmi", "body_fat_percentage", "muscle_mass_percentage", "bone_mass_percentage", "water_percentage", "visceral_fat_rating", "metabolic_age"))
 
@@ -2475,7 +2477,7 @@ func (s *userServer) CreateMenstrualCycle(ctx context.Context, req *pb.CreateMen
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "create_menstrual_cycle", "menstrual_cycle").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIUpdate, "create_menstrual_cycle", "menstrual_cycle").
 			WithUser(req.UserId).
 			WithFields("cycle_start_date", "cycle_end_date", "flow_intensity", "notes", "symptoms", "moods"))
 
@@ -2531,7 +2533,7 @@ func (s *userServer) UpdateMenstrualCycle(ctx context.Context, req *pb.UpdateMen
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIUpdate, "update_menstrual_cycle", "menstrual_cycle").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIUpdate, "update_menstrual_cycle", "menstrual_cycle").
 			WithUser(req.UserId).
 			WithFields("cycle_id", "cycle_start_date", "cycle_end_date", "flow_intensity", "notes", "symptoms", "moods"))
 
@@ -2564,7 +2566,7 @@ func (s *userServer) DeleteMenstrualCycle(ctx context.Context, req *pb.DeleteMen
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_menstrual_cycle", "menstrual_cycle").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIDelete, "delete_menstrual_cycle", "menstrual_cycle").
 			WithUser(req.UserId).
 			WithFields("cycle_id"))
 
@@ -2661,7 +2663,7 @@ func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileReq
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIDelete, "delete_profile", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIDelete, "delete_profile", "user").
 			WithUser(req.UserId).
 			WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles"))
 
@@ -2773,7 +2775,7 @@ func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataR
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypePIIExport, "export_user_data", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIExport, "export_user_data", "user").
 			WithUser(req.UserId).
 			WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles", "devices"))
 
@@ -3175,7 +3177,7 @@ func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUse
 
 	if req.UserId == "" {
 
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
 
 	}
 
@@ -3189,7 +3191,7 @@ func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUse
 
 	if s.auditLogger != nil {
 
-		s.auditLogger.Log(audit.NewEvent("user-service", audit.EventTypeAdminAction, "admin_delete_user", "user").
+		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypeAdminAction, "admin_delete_user", "user").
 			WithUser(req.UserId).
 			WithActor(req.RequesterUserId))
 
@@ -3211,7 +3213,7 @@ func (s *userServer) AdminBanUser(ctx context.Context, req *pb.AdminBanUserReque
 
 	if req.UserId == "" {
 
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
 
 	}
 
@@ -3239,7 +3241,7 @@ func (s *userServer) AdminUnbanUser(ctx context.Context, req *pb.AdminUnbanUserR
 
 	if req.UserId == "" {
 
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
 
 	}
 
@@ -3383,7 +3385,7 @@ func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
 
 		middleware.CorrelationIDGRPC(),
 
-		metrics.UnaryServerInterceptor("user-service"),
+		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
 
 	s := grpctls.NewServer(serverOpts...)
@@ -3579,7 +3581,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 func main() {
 
-	log := logger.New("user-service")
+	log := logger.New(serviceName)
 
 	defer func() { _ = log.Sync() }()
 

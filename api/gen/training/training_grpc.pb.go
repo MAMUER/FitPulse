@@ -19,21 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TrainingService_GeneratePlan_FullMethodName    = "/training.TrainingService/GeneratePlan"
-	TrainingService_GetPlan_FullMethodName         = "/training.TrainingService/GetPlan"
-	TrainingService_ListPlans_FullMethodName       = "/training.TrainingService/ListPlans"
-	TrainingService_CompleteWorkout_FullMethodName = "/training.TrainingService/CompleteWorkout"
-	TrainingService_GetProgress_FullMethodName     = "/training.TrainingService/GetProgress"
+	TrainingService_GeneratePlan_FullMethodName    = "/training.v1.TrainingService/GeneratePlan"
+	TrainingService_GetPlan_FullMethodName         = "/training.v1.TrainingService/GetPlan"
+	TrainingService_ListPlans_FullMethodName       = "/training.v1.TrainingService/ListPlans"
+	TrainingService_CompleteWorkout_FullMethodName = "/training.v1.TrainingService/CompleteWorkout"
+	TrainingService_GetProgress_FullMethodName     = "/training.v1.TrainingService/GetProgress"
 )
 
 // TrainingServiceClient is the client API for TrainingService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Сервис тренировок.
 type TrainingServiceClient interface {
+	// Генерация плана тренировок.
 	GeneratePlan(ctx context.Context, in *GeneratePlanRequest, opts ...grpc.CallOption) (*GeneratePlanResponse, error)
+	// Получение плана по идентификатору.
 	GetPlan(ctx context.Context, in *GetPlanRequest, opts ...grpc.CallOption) (*TrainingPlan, error)
+	// Список планов пользователя.
 	ListPlans(ctx context.Context, in *ListPlansRequest, opts ...grpc.CallOption) (*ListPlansResponse, error)
+	// Отметка тренировки как выполненной.
 	CompleteWorkout(ctx context.Context, in *CompleteWorkoutRequest, opts ...grpc.CallOption) (*CompleteWorkoutResponse, error)
+	// Получение прогресса пользователя.
 	GetProgress(ctx context.Context, in *GetProgressRequest, opts ...grpc.CallOption) (*GetProgressResponse, error)
 }
 
@@ -98,11 +105,18 @@ func (c *trainingServiceClient) GetProgress(ctx context.Context, in *GetProgress
 // TrainingServiceServer is the server API for TrainingService service.
 // All implementations must embed UnimplementedTrainingServiceServer
 // for forward compatibility.
+//
+// Сервис тренировок.
 type TrainingServiceServer interface {
+	// Генерация плана тренировок.
 	GeneratePlan(context.Context, *GeneratePlanRequest) (*GeneratePlanResponse, error)
+	// Получение плана по идентификатору.
 	GetPlan(context.Context, *GetPlanRequest) (*TrainingPlan, error)
+	// Список планов пользователя.
 	ListPlans(context.Context, *ListPlansRequest) (*ListPlansResponse, error)
+	// Отметка тренировки как выполненной.
 	CompleteWorkout(context.Context, *CompleteWorkoutRequest) (*CompleteWorkoutResponse, error)
+	// Получение прогресса пользователя.
 	GetProgress(context.Context, *GetProgressRequest) (*GetProgressResponse, error)
 	mustEmbedUnimplementedTrainingServiceServer()
 }
@@ -244,7 +258,7 @@ func _TrainingService_GetProgress_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var TrainingService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "training.TrainingService",
+	ServiceName: "training.v1.TrainingService",
 	HandlerType: (*TrainingServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

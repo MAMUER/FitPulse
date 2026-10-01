@@ -144,6 +144,18 @@ func main() {
 
 }
 
+func initJWTProvider() (ports.TokenProvider, error) {
+	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	if jwtPrivateKeyPEM == "" {
+		return nil, errors.New("JWT_PRIVATE_KEY_PEM environment variable is required")
+	}
+	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	if jwtPublicKeyPEM == "" {
+		return nil, errors.New("JWT_PUBLIC_KEY_PEM environment variable is required")
+	}
+	return jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM), nil
+}
+
 func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics) (*gateway, error) {
 
 	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
@@ -216,25 +228,15 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	}()
 
-	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	tokenProvider, err := initJWTProvider()
 
-	if jwtPrivateKeyPEM == "" {
+	if err != nil {
 
-		return nil, errors.New("JWT_PRIVATE_KEY_PEM environment variable is required")
-
-	}
-
-	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
-
-	if jwtPublicKeyPEM == "" {
-
-		return nil, errors.New("JWT_PUBLIC_KEY_PEM environment variable is required")
+		return nil, err
 
 	}
 
-	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
-
-	captchaProvider, captchaSiteKey, err := loadCaptchaProvider(log.Logger)
+	captchaProvider, captchaSiteKey, err := loadCaptchaProvider()
 
 	if err != nil {
 
@@ -505,7 +507,6 @@ func validateMLGeneratorURL(mlGeneratorURL string) error {
 		"127.0.0.1:8001": true,
 
 		"127.0.0.1": true,
-
 	}
 
 	if !allowedHosts[parsedURL.Host] && !allowedHosts[parsedURL.Hostname()] {
@@ -978,7 +979,7 @@ func buildHTTPRedirectHandler(log *zap.Logger, publicHost, port string) http.Han
 
 		if r.URL.Path == "/health" {
 
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set(headerContentType, contentTypeJSON)
 
 			w.WriteHeader(http.StatusOK)
 
@@ -1118,16 +1119,15 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 	r.Use(middleware.CORS(middleware.CORSConfig{
 
-		AllowedOrigins:   g.corsOrigins,
+		AllowedOrigins: g.corsOrigins,
 
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 
-		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Correlation-ID", "X-Captcha-Token"},
+		AllowedHeaders: []string{"Content-Type", "Authorization", "X-Correlation-ID", "X-Captcha-Token"},
 
 		AllowCredentials: true,
 
-		MaxAge:           300,
-
+		MaxAge: 300,
 	}))
 
 	r.Use(middleware.RequestID)
@@ -1516,7 +1516,7 @@ func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 
@@ -1596,7 +1596,7 @@ func (g *gateway) captchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	g.log.Info("CAPTCHA verified, rate limit reset", zap.String("ip", sanitize.LogString(clientIP)))
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 
 	w.WriteHeader(http.StatusOK)
 

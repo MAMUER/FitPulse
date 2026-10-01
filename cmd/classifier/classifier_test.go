@@ -120,7 +120,6 @@ func TestClassifyHandler_ValidRequest(t *testing.T) {
 	assert.NotNil(t, resp.MotivationScore)
 	assert.NotNil(t, resp.RecoveryQuality)
 	assert.NotEmpty(t, resp.PredictedClass)
-	assert.NotEmpty(t, resp.PredictedClassRu)
 	assert.Len(t, resp.Probabilities, 7)
 }
 

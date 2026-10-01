@@ -1,6 +1,6 @@
 version: v1
 plugins:
-  - plugin: buf.build/community/stephenh/grpc-gateway
+  - plugin: buf.build/community/nebuo/plugins/go
     out: api/gen
     opt:
       - paths=source_relative
@@ -8,4 +8,9 @@ plugins:
   - plugin: buf.build/community/grpc-ecosystem/openapi
     out: api/rest
     opt:
+      - logtostderr=true
+  - plugin: buf.build/community/stephenh/grpc-gateway
+    out: api/gen
+    opt:
+      - paths=source_relative
       - logtostderr=true

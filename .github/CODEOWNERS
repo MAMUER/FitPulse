@@ -9,6 +9,8 @@
 /scripts/ @MAMUER
 /deploy/ @MAMUER
 /Makefile @MAMUER
+/Dockerfile @MAMUER
+/cmd/*/Dockerfile @MAMUER
 
 # Backend services
 

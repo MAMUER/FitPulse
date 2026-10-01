@@ -47,7 +47,7 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"profile": resp,
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(profileResp); err != nil {
 		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
 		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
@@ -173,7 +173,7 @@ func (g *gateway) deleteProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  resp.GetStatus(),
 		"message": resp.GetMessage(),
@@ -215,7 +215,7 @@ func (g *gateway) exportUserDataHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		g.log.Error("Failed to encode export user data response", zap.Error(err))
 	}

@@ -28,40 +28,45 @@ func CORS(cfg CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-
-			allowed := false
-			for _, allowedOrigin := range cfg.AllowedOrigins {
-				if allowedOrigin == "*" || allowedOrigin == origin {
-					allowed = true
-					break
-				}
+			if isOriginAllowed(cfg.AllowedOrigins, origin) {
+				setCORSHeaders(w, cfg, origin)
 			}
-
-			if allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				if cfg.AllowCredentials {
-					w.Header().Set("Access-Control-Allow-Credentials", "true")
-				}
-			}
-
-			if len(cfg.AllowedMethods) > 0 {
-				w.Header().Set("Access-Control-Allow-Methods", joinStrings(cfg.AllowedMethods))
-			}
-			if len(cfg.AllowedHeaders) > 0 {
-				w.Header().Set("Access-Control-Allow-Headers", joinStrings(cfg.AllowedHeaders))
-			}
-			if cfg.MaxAge > 0 {
-				w.Header().Set("Access-Control-Max-Age", http.StatusText(cfg.MaxAge))
-			}
-
-			if r.Method == http.MethodOptions {
+			if isPreflight(r.Method) {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isOriginAllowed(allowedOrigins []string, origin string) bool {
+	for _, allowedOrigin := range allowedOrigins {
+		if allowedOrigin == "*" || allowedOrigin == origin {
+			return true
+		}
+	}
+	return false
+}
+
+func setCORSHeaders(w http.ResponseWriter, cfg CORSConfig, origin string) {
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	if cfg.AllowCredentials {
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+	}
+	if len(cfg.AllowedMethods) > 0 {
+		w.Header().Set("Access-Control-Allow-Methods", joinStrings(cfg.AllowedMethods))
+	}
+	if len(cfg.AllowedHeaders) > 0 {
+		w.Header().Set("Access-Control-Allow-Headers", joinStrings(cfg.AllowedHeaders))
+	}
+	if cfg.MaxAge > 0 {
+		w.Header().Set("Access-Control-Max-Age", http.StatusText(cfg.MaxAge))
+	}
+}
+
+func isPreflight(method string) bool {
+	return method == http.MethodOptions
 }
 
 func joinStrings(ss []string) string {

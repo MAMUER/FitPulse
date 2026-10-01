@@ -22,15 +22,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Биометрическая запись.
 type BiometricRecord struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	MetricType    string                 `protobuf:"bytes,3,opt,name=metric_type,json=metricType,proto3" json:"metric_type,omitempty"`
-	Value         float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	DeviceType    string                 `protobuf:"bytes,6,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId     string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	MetricType string                 `protobuf:"bytes,3,opt,name=metric_type,json=metricType,proto3" json:"metric_type,omitempty"`
+	Value      float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
+	Timestamp  *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	DeviceType string                 `protobuf:"bytes,6,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`
+	CreatedAt  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Качество данных.
+	Quality       *string `protobuf:"bytes,8,opt,name=quality,proto3,oneof" json:"quality,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +115,13 @@ func (x *BiometricRecord) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *BiometricRecord) GetQuality() string {
+	if x != nil && x.Quality != nil {
+		return *x.Quality
+	}
+	return ""
 }
 
 type AddRecordRequest struct {
@@ -810,7 +820,7 @@ var File_biometric_proto protoreflect.FileDescriptor
 
 const file_biometric_proto_rawDesc = "" +
 	"\n" +
-	"\x0fbiometric.proto\x12\tbiometric\x1a\x1fgoogle/protobuf/timestamp.proto\"\x87\x02\n" +
+	"\x0fbiometric.proto\x12\fbiometric.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb2\x02\n" +
 	"\x0fBiometricRecord\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1f\n" +
@@ -821,7 +831,10 @@ const file_biometric_proto_rawDesc = "" +
 	"\vdevice_type\x18\x06 \x01(\tR\n" +
 	"deviceType\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xbd\x01\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1d\n" +
+	"\aquality\x18\b \x01(\tH\x00R\aquality\x88\x01\x01B\n" +
+	"\n" +
+	"\b_quality\"\xbd\x01\n" +
 	"\x10AddRecordRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vmetric_type\x18\x02 \x01(\tR\n" +
@@ -831,10 +844,10 @@ const file_biometric_proto_rawDesc = "" +
 	"\vdevice_type\x18\x05 \x01(\tR\n" +
 	"deviceType\"#\n" +
 	"\x11AddRecordResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"h\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"k\n" +
 	"\x16BatchAddRecordsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x125\n" +
-	"\arecords\x18\x02 \x03(\v2\x1b.biometric.AddRecordRequestR\arecords\"/\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x128\n" +
+	"\arecords\x18\x02 \x03(\v2\x1e.biometric.v1.AddRecordRequestR\arecords\"/\n" +
 	"\x17BatchAddRecordsResponse\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x05R\x05count\"\xd7\x01\n" +
 	"\x11GetRecordsRequest\x12\x17\n" +
@@ -844,9 +857,9 @@ const file_biometric_proto_rawDesc = "" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
 	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x14\n" +
 	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x06 \x01(\x05R\x06offset\"J\n" +
-	"\x12GetRecordsResponse\x124\n" +
-	"\arecords\x18\x01 \x03(\v2\x1a.biometric.BiometricRecordR\arecords\"L\n" +
+	"\x06offset\x18\x06 \x01(\x05R\x06offset\"M\n" +
+	"\x12GetRecordsResponse\x127\n" +
+	"\arecords\x18\x01 \x03(\v2\x1d.biometric.v1.BiometricRecordR\arecords\"L\n" +
 	"\x10GetLatestRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vmetric_type\x18\x02 \x01(\tR\n" +
@@ -862,23 +875,23 @@ const file_biometric_proto_rawDesc = "" +
 	"\x14DeleteRecordResponse\x12\x18\n" +
 	"\adeleted\x18\x01 \x01(\bR\adeleted\",\n" +
 	"\x11GetSourcesRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"E\n" +
-	"\x12GetSourcesResponse\x12/\n" +
-	"\asources\x18\x01 \x03(\v2\x15.biometric.SourceInfoR\asources\"c\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"H\n" +
+	"\x12GetSourcesResponse\x122\n" +
+	"\asources\x18\x01 \x03(\v2\x18.biometric.v1.SourceInfoR\asources\"c\n" +
 	"\n" +
 	"SourceInfo\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12=\n" +
-	"\fconnected_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectedAt2\xad\x04\n" +
-	"\x10BiometricService\x12F\n" +
-	"\tAddRecord\x12\x1b.biometric.AddRecordRequest\x1a\x1c.biometric.AddRecordResponse\x12X\n" +
-	"\x0fBatchAddRecords\x12!.biometric.BatchAddRecordsRequest\x1a\".biometric.BatchAddRecordsResponse\x12I\n" +
+	"\fconnected_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectedAt2\xd7\x04\n" +
+	"\x10BiometricService\x12L\n" +
+	"\tAddRecord\x12\x1e.biometric.v1.AddRecordRequest\x1a\x1f.biometric.v1.AddRecordResponse\x12^\n" +
+	"\x0fBatchAddRecords\x12$.biometric.v1.BatchAddRecordsRequest\x1a%.biometric.v1.BatchAddRecordsResponse\x12O\n" +
 	"\n" +
-	"GetRecords\x12\x1c.biometric.GetRecordsRequest\x1a\x1d.biometric.GetRecordsResponse\x12D\n" +
-	"\tGetLatest\x12\x1b.biometric.GetLatestRequest\x1a\x1a.biometric.BiometricRecord\x12J\n" +
-	"\fUpdateRecord\x12\x1e.biometric.UpdateRecordRequest\x1a\x1a.biometric.BiometricRecord\x12O\n" +
-	"\fDeleteRecord\x12\x1e.biometric.DeleteRecordRequest\x1a\x1f.biometric.DeleteRecordResponse\x12I\n" +
+	"GetRecords\x12\x1f.biometric.v1.GetRecordsRequest\x1a .biometric.v1.GetRecordsResponse\x12J\n" +
+	"\tGetLatest\x12\x1e.biometric.v1.GetLatestRequest\x1a\x1d.biometric.v1.BiometricRecord\x12P\n" +
+	"\fUpdateRecord\x12!.biometric.v1.UpdateRecordRequest\x1a\x1d.biometric.v1.BiometricRecord\x12U\n" +
+	"\fDeleteRecord\x12!.biometric.v1.DeleteRecordRequest\x1a\".biometric.v1.DeleteRecordResponse\x12O\n" +
 	"\n" +
-	"GetSources\x12\x1c.biometric.GetSourcesRequest\x1a\x1d.biometric.GetSourcesResponseB-Z+github.com/MAMUER/project/api/gen/biometricb\x06proto3"
+	"GetSources\x12\x1f.biometric.v1.GetSourcesRequest\x1a .biometric.v1.GetSourcesResponseB-Z+github.com/MAMUER/project/api/gen/biometricb\x06proto3"
 
 var (
 	file_biometric_proto_rawDescOnce sync.Once
@@ -894,47 +907,47 @@ func file_biometric_proto_rawDescGZIP() []byte {
 
 var file_biometric_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_biometric_proto_goTypes = []any{
-	(*BiometricRecord)(nil),         // 0: biometric.BiometricRecord
-	(*AddRecordRequest)(nil),        // 1: biometric.AddRecordRequest
-	(*AddRecordResponse)(nil),       // 2: biometric.AddRecordResponse
-	(*BatchAddRecordsRequest)(nil),  // 3: biometric.BatchAddRecordsRequest
-	(*BatchAddRecordsResponse)(nil), // 4: biometric.BatchAddRecordsResponse
-	(*GetRecordsRequest)(nil),       // 5: biometric.GetRecordsRequest
-	(*GetRecordsResponse)(nil),      // 6: biometric.GetRecordsResponse
-	(*GetLatestRequest)(nil),        // 7: biometric.GetLatestRequest
-	(*UpdateRecordRequest)(nil),     // 8: biometric.UpdateRecordRequest
-	(*DeleteRecordRequest)(nil),     // 9: biometric.DeleteRecordRequest
-	(*DeleteRecordResponse)(nil),    // 10: biometric.DeleteRecordResponse
-	(*GetSourcesRequest)(nil),       // 11: biometric.GetSourcesRequest
-	(*GetSourcesResponse)(nil),      // 12: biometric.GetSourcesResponse
-	(*SourceInfo)(nil),              // 13: biometric.SourceInfo
+	(*BiometricRecord)(nil),         // 0: biometric.v1.BiometricRecord
+	(*AddRecordRequest)(nil),        // 1: biometric.v1.AddRecordRequest
+	(*AddRecordResponse)(nil),       // 2: biometric.v1.AddRecordResponse
+	(*BatchAddRecordsRequest)(nil),  // 3: biometric.v1.BatchAddRecordsRequest
+	(*BatchAddRecordsResponse)(nil), // 4: biometric.v1.BatchAddRecordsResponse
+	(*GetRecordsRequest)(nil),       // 5: biometric.v1.GetRecordsRequest
+	(*GetRecordsResponse)(nil),      // 6: biometric.v1.GetRecordsResponse
+	(*GetLatestRequest)(nil),        // 7: biometric.v1.GetLatestRequest
+	(*UpdateRecordRequest)(nil),     // 8: biometric.v1.UpdateRecordRequest
+	(*DeleteRecordRequest)(nil),     // 9: biometric.v1.DeleteRecordRequest
+	(*DeleteRecordResponse)(nil),    // 10: biometric.v1.DeleteRecordResponse
+	(*GetSourcesRequest)(nil),       // 11: biometric.v1.GetSourcesRequest
+	(*GetSourcesResponse)(nil),      // 12: biometric.v1.GetSourcesResponse
+	(*SourceInfo)(nil),              // 13: biometric.v1.SourceInfo
 	(*timestamppb.Timestamp)(nil),   // 14: google.protobuf.Timestamp
 }
 var file_biometric_proto_depIdxs = []int32{
-	14, // 0: biometric.BiometricRecord.timestamp:type_name -> google.protobuf.Timestamp
-	14, // 1: biometric.BiometricRecord.created_at:type_name -> google.protobuf.Timestamp
-	14, // 2: biometric.AddRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
-	1,  // 3: biometric.BatchAddRecordsRequest.records:type_name -> biometric.AddRecordRequest
-	14, // 4: biometric.GetRecordsRequest.from:type_name -> google.protobuf.Timestamp
-	14, // 5: biometric.GetRecordsRequest.to:type_name -> google.protobuf.Timestamp
-	0,  // 6: biometric.GetRecordsResponse.records:type_name -> biometric.BiometricRecord
-	14, // 7: biometric.UpdateRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
-	13, // 8: biometric.GetSourcesResponse.sources:type_name -> biometric.SourceInfo
-	14, // 9: biometric.SourceInfo.connected_at:type_name -> google.protobuf.Timestamp
-	1,  // 10: biometric.BiometricService.AddRecord:input_type -> biometric.AddRecordRequest
-	3,  // 11: biometric.BiometricService.BatchAddRecords:input_type -> biometric.BatchAddRecordsRequest
-	5,  // 12: biometric.BiometricService.GetRecords:input_type -> biometric.GetRecordsRequest
-	7,  // 13: biometric.BiometricService.GetLatest:input_type -> biometric.GetLatestRequest
-	8,  // 14: biometric.BiometricService.UpdateRecord:input_type -> biometric.UpdateRecordRequest
-	9,  // 15: biometric.BiometricService.DeleteRecord:input_type -> biometric.DeleteRecordRequest
-	11, // 16: biometric.BiometricService.GetSources:input_type -> biometric.GetSourcesRequest
-	2,  // 17: biometric.BiometricService.AddRecord:output_type -> biometric.AddRecordResponse
-	4,  // 18: biometric.BiometricService.BatchAddRecords:output_type -> biometric.BatchAddRecordsResponse
-	6,  // 19: biometric.BiometricService.GetRecords:output_type -> biometric.GetRecordsResponse
-	0,  // 20: biometric.BiometricService.GetLatest:output_type -> biometric.BiometricRecord
-	0,  // 21: biometric.BiometricService.UpdateRecord:output_type -> biometric.BiometricRecord
-	10, // 22: biometric.BiometricService.DeleteRecord:output_type -> biometric.DeleteRecordResponse
-	12, // 23: biometric.BiometricService.GetSources:output_type -> biometric.GetSourcesResponse
+	14, // 0: biometric.v1.BiometricRecord.timestamp:type_name -> google.protobuf.Timestamp
+	14, // 1: biometric.v1.BiometricRecord.created_at:type_name -> google.protobuf.Timestamp
+	14, // 2: biometric.v1.AddRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
+	1,  // 3: biometric.v1.BatchAddRecordsRequest.records:type_name -> biometric.v1.AddRecordRequest
+	14, // 4: biometric.v1.GetRecordsRequest.from:type_name -> google.protobuf.Timestamp
+	14, // 5: biometric.v1.GetRecordsRequest.to:type_name -> google.protobuf.Timestamp
+	0,  // 6: biometric.v1.GetRecordsResponse.records:type_name -> biometric.v1.BiometricRecord
+	14, // 7: biometric.v1.UpdateRecordRequest.timestamp:type_name -> google.protobuf.Timestamp
+	13, // 8: biometric.v1.GetSourcesResponse.sources:type_name -> biometric.v1.SourceInfo
+	14, // 9: biometric.v1.SourceInfo.connected_at:type_name -> google.protobuf.Timestamp
+	1,  // 10: biometric.v1.BiometricService.AddRecord:input_type -> biometric.v1.AddRecordRequest
+	3,  // 11: biometric.v1.BiometricService.BatchAddRecords:input_type -> biometric.v1.BatchAddRecordsRequest
+	5,  // 12: biometric.v1.BiometricService.GetRecords:input_type -> biometric.v1.GetRecordsRequest
+	7,  // 13: biometric.v1.BiometricService.GetLatest:input_type -> biometric.v1.GetLatestRequest
+	8,  // 14: biometric.v1.BiometricService.UpdateRecord:input_type -> biometric.v1.UpdateRecordRequest
+	9,  // 15: biometric.v1.BiometricService.DeleteRecord:input_type -> biometric.v1.DeleteRecordRequest
+	11, // 16: biometric.v1.BiometricService.GetSources:input_type -> biometric.v1.GetSourcesRequest
+	2,  // 17: biometric.v1.BiometricService.AddRecord:output_type -> biometric.v1.AddRecordResponse
+	4,  // 18: biometric.v1.BiometricService.BatchAddRecords:output_type -> biometric.v1.BatchAddRecordsResponse
+	6,  // 19: biometric.v1.BiometricService.GetRecords:output_type -> biometric.v1.GetRecordsResponse
+	0,  // 20: biometric.v1.BiometricService.GetLatest:output_type -> biometric.v1.BiometricRecord
+	0,  // 21: biometric.v1.BiometricService.UpdateRecord:output_type -> biometric.v1.BiometricRecord
+	10, // 22: biometric.v1.BiometricService.DeleteRecord:output_type -> biometric.v1.DeleteRecordResponse
+	12, // 23: biometric.v1.BiometricService.GetSources:output_type -> biometric.v1.GetSourcesResponse
 	17, // [17:24] is the sub-list for method output_type
 	10, // [10:17] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -947,6 +960,7 @@ func file_biometric_proto_init() {
 	if File_biometric_proto != nil {
 		return
 	}
+	file_biometric_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

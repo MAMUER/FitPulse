@@ -229,14 +229,6 @@ func withProxy(g *gateway, targetURL string) {
 	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(u)
 }
 
-func withClassifierURL(g *gateway, url string) {
-	g.classifierURL = url
-}
-
-func withMLGeneratorURL(g *gateway, url string) {
-	g.mlGeneratorURL = url
-}
-
 func grpcError(code codes.Code, msg string) error {
 	st := status.New(code, msg)
 	return st.Err()

@@ -10,8 +10,8 @@ from datetime import datetime
 from pathlib import Path
 
 import lightning as L  # type: ignore
-import numpy as np
-import pandas as pd
+import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
 import torch  # type: ignore
 import torch.nn as nn  # type: ignore
 from torch.utils.data import DataLoader, TensorDataset  # type: ignore

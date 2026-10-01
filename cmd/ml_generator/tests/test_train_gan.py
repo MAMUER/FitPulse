@@ -16,8 +16,8 @@ import sys
 import types
 from unittest import mock
 
-import numpy as np
-import pytest
+import numpy as np  # type: ignore
+import pytest  # type: ignore
 import torch  # type: ignore
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def _install_mocks():
 _install_mocks()
 
 # Now import the module under test
-from cmd.ml_generator import train_gan  # noqa: E402  (import after mocks)
+from cmd.ml_generator import train_gan  # noqa: E402  # type: ignore
 
 # ===========================================================================
 # Fixtures
@@ -770,7 +770,7 @@ class TestLoadRealData:
             train_gan.load_real_data()
 
     def test_uses_fallback_when_primary_missing(self, tmp_path, monkeypatch):
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         fallback_path = tmp_path / "fallback.csv"
         plan_vec_str = (
@@ -790,7 +790,7 @@ class TestLoadRealData:
         assert (train_c == 0).all()  # zero conditions in fallback mode
 
     def test_normalizes_plan_values_to_minus_one_to_one(self, tmp_path, monkeypatch):
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         data_path = tmp_path / "training_data.csv"
         # Values in [0, 1] -> should be normalized to [-1, 1]
@@ -810,7 +810,7 @@ class TestLoadRealData:
         assert train[0, 2] == pytest.approx(1.0)
 
     def test_80_20_train_val_split(self, tmp_path, monkeypatch):
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         data_path = tmp_path / "training_data.csv"
         vec = [0.5] * train_gan.PLAN_DIM
@@ -827,7 +827,7 @@ class TestLoadRealData:
         assert len(val) == 20
 
     def test_loads_condition_vector_column(self, tmp_path, monkeypatch):
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         data_path = tmp_path / "training_data.csv"
         plan_vec = [0.5] * train_gan.PLAN_DIM
@@ -853,7 +853,7 @@ class TestLoadRealData:
         assert train_c[0, 1] == pytest.approx(1.0)
 
     def test_missing_condition_vector_uses_zero_conditions(self, tmp_path, monkeypatch):
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         data_path = tmp_path / "training_data.csv"
         plan_vec = [0.5] * train_gan.PLAN_DIM
@@ -871,7 +871,7 @@ class TestLoadRealData:
 
     def test_plan_vector_column_slice_fallback(self, tmp_path, monkeypatch):
         """When plan_vector column absent, first PLAN_DIM columns are used."""
-        import pandas as pd
+        import pandas as pd  # type: ignore
 
         data_path = tmp_path / "training_data.csv"
         cols = [f"f{i}" for i in range(train_gan.PLAN_DIM)]

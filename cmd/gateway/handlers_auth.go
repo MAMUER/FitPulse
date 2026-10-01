@@ -47,6 +47,10 @@ const (
 
 	contentTypeJSON = "application/json"
 
+	accessTokenCookieName = "fitpulse-access-token"
+
+	refreshTokenCookieName = "fitpulse-refresh-token"
+
 	refreshTokenPrefix = "refresh:"
 
 	refreshFingerprintPrefix = "refresh:fp:"
@@ -57,16 +61,6 @@ const (
 
 	twoFATempPrefix = "2fa_temp:"
 )
-
-func isSecureRequest(r *http.Request) bool {
-	if r.TLS != nil {
-		return true
-	}
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" {
-		return true
-	}
-	return false
-}
 
 type totpRateLimiter struct {
 	limiter *rate.Limiter
@@ -891,11 +885,11 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	refreshToken, rtErr := g.issueRefreshToken(r.Context(), resp.GetUserId())
 
 	accessCookie := &http.Cookie{
-		Name:     "fitpulse-access-token",
+		Name:     accessTokenCookieName,
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   900,
 	}
@@ -904,15 +898,15 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var refreshCookie *http.Cookie
 	if rtErr == nil {
 		refreshCookie = &http.Cookie{
-			Name:     "fitpulse-refresh-token",
+			Name:     refreshTokenCookieName,
 			Value:    refreshToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:  isSecureRequest(r),
+			Secure:   true,
 			SameSite: http.SameSiteStrictMode,
-			MaxAge:   7 * 24 * 60 * 60,
-		}
-		http.SetCookie(w, refreshCookie)
+		MaxAge:   7 * 24 * 60 * 60,
+	}
+	http.SetCookie(w, refreshCookie)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -971,22 +965,22 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessCookie := &http.Cookie{
-		Name:     "fitpulse-access-token",
+		Name:     accessTokenCookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	}
 	http.SetCookie(w, accessCookie)
 
 	refreshCookie := &http.Cookie{
-		Name:     "fitpulse-refresh-token",
+		Name:     refreshTokenCookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	}
@@ -1352,20 +1346,20 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
 	accessCookie := &http.Cookie{
-		Name:     "fitpulse-access-token",
+		Name:     accessTokenCookieName,
 		Value:    grpcResp.GetAccessToken(),
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   900,
 	}
 	http.SetCookie(w, accessCookie)
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "ok",
+		"status":  "ok",
 		"user_id": grpcResp.GetUserId(),
-		"role": grpcResp.GetRole(),
+		"role":    grpcResp.GetRole(),
 	})
 
 }
@@ -1710,7 +1704,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken)
 
-		accessToken, err := g.issueJWT(r.Context(), userID)
+	accessToken, err := g.issueJWT(r.Context(), userID)
 
 	if err != nil {
 
@@ -1731,11 +1725,11 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessCookie := &http.Cookie{
-		Name:     "fitpulse-access-token",
+		Name:     accessTokenCookieName,
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   900,
 	}
@@ -1744,23 +1738,23 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 	var refreshCookie *http.Cookie
 	if rtErr == nil {
 		refreshCookie = &http.Cookie{
-			Name:     "fitpulse-refresh-token",
+			Name:     refreshTokenCookieName,
 			Value:    refreshToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:  isSecureRequest(r),
+			Secure:   true,
 			SameSite: http.SameSiteStrictMode,
-			MaxAge:   7 * 24 * 60 * 60,
-		}
-		http.SetCookie(w, refreshCookie)
+		MaxAge:   7 * 24 * 60 * 60,
+	}
+	http.SetCookie(w, refreshCookie)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":               "ok",
-		"token_type":           "Bearer",
-		"expires_in":           900,
+		"status":                 "ok",
+		"token_type":             "Bearer",
+		"expires_in":             900,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
 	})
 
@@ -1970,7 +1964,7 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	var refreshToken string
-	if cookie, err := r.Cookie("fitpulse-refresh-token"); err == nil {
+	if cookie, err := r.Cookie(refreshTokenCookieName); err == nil {
 		refreshToken = cookie.Value
 	}
 
@@ -1997,22 +1991,22 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessCookie := &http.Cookie{
-		Name:     "fitpulse-access-token",
+		Name:     accessTokenCookieName,
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   900,
 	}
 	http.SetCookie(w, accessCookie)
 
 	refreshCookie := &http.Cookie{
-		Name:     "fitpulse-refresh-token",
+		Name:     refreshTokenCookieName,
 		Value:    newRefresh,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:  isSecureRequest(r),
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   7 * 24 * 60 * 60,
 	}

@@ -19,25 +19,34 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BiometricService_AddRecord_FullMethodName       = "/biometric.BiometricService/AddRecord"
-	BiometricService_BatchAddRecords_FullMethodName = "/biometric.BiometricService/BatchAddRecords"
-	BiometricService_GetRecords_FullMethodName      = "/biometric.BiometricService/GetRecords"
-	BiometricService_GetLatest_FullMethodName       = "/biometric.BiometricService/GetLatest"
-	BiometricService_UpdateRecord_FullMethodName    = "/biometric.BiometricService/UpdateRecord"
-	BiometricService_DeleteRecord_FullMethodName    = "/biometric.BiometricService/DeleteRecord"
-	BiometricService_GetSources_FullMethodName      = "/biometric.BiometricService/GetSources"
+	BiometricService_AddRecord_FullMethodName       = "/biometric.v1.BiometricService/AddRecord"
+	BiometricService_BatchAddRecords_FullMethodName = "/biometric.v1.BiometricService/BatchAddRecords"
+	BiometricService_GetRecords_FullMethodName      = "/biometric.v1.BiometricService/GetRecords"
+	BiometricService_GetLatest_FullMethodName       = "/biometric.v1.BiometricService/GetLatest"
+	BiometricService_UpdateRecord_FullMethodName    = "/biometric.v1.BiometricService/UpdateRecord"
+	BiometricService_DeleteRecord_FullMethodName    = "/biometric.v1.BiometricService/DeleteRecord"
+	BiometricService_GetSources_FullMethodName      = "/biometric.v1.BiometricService/GetSources"
 )
 
 // BiometricServiceClient is the client API for BiometricService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Сервис биометрических данных.
 type BiometricServiceClient interface {
+	// Добавление одной записи.
 	AddRecord(ctx context.Context, in *AddRecordRequest, opts ...grpc.CallOption) (*AddRecordResponse, error)
+	// Пакетное добавление записей.
 	BatchAddRecords(ctx context.Context, in *BatchAddRecordsRequest, opts ...grpc.CallOption) (*BatchAddRecordsResponse, error)
+	// Получение записей с фильтрами.
 	GetRecords(ctx context.Context, in *GetRecordsRequest, opts ...grpc.CallOption) (*GetRecordsResponse, error)
+	// Получение последней записи.
 	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*BiometricRecord, error)
+	// Обновление записи.
 	UpdateRecord(ctx context.Context, in *UpdateRecordRequest, opts ...grpc.CallOption) (*BiometricRecord, error)
+	// Удаление записи.
 	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*DeleteRecordResponse, error)
+	// Получение источников данных.
 	GetSources(ctx context.Context, in *GetSourcesRequest, opts ...grpc.CallOption) (*GetSourcesResponse, error)
 }
 
@@ -122,13 +131,22 @@ func (c *biometricServiceClient) GetSources(ctx context.Context, in *GetSourcesR
 // BiometricServiceServer is the server API for BiometricService service.
 // All implementations must embed UnimplementedBiometricServiceServer
 // for forward compatibility.
+//
+// Сервис биометрических данных.
 type BiometricServiceServer interface {
+	// Добавление одной записи.
 	AddRecord(context.Context, *AddRecordRequest) (*AddRecordResponse, error)
+	// Пакетное добавление записей.
 	BatchAddRecords(context.Context, *BatchAddRecordsRequest) (*BatchAddRecordsResponse, error)
+	// Получение записей с фильтрами.
 	GetRecords(context.Context, *GetRecordsRequest) (*GetRecordsResponse, error)
+	// Получение последней записи.
 	GetLatest(context.Context, *GetLatestRequest) (*BiometricRecord, error)
+	// Обновление записи.
 	UpdateRecord(context.Context, *UpdateRecordRequest) (*BiometricRecord, error)
+	// Удаление записи.
 	DeleteRecord(context.Context, *DeleteRecordRequest) (*DeleteRecordResponse, error)
+	// Получение источников данных.
 	GetSources(context.Context, *GetSourcesRequest) (*GetSourcesResponse, error)
 	mustEmbedUnimplementedBiometricServiceServer()
 }
@@ -312,7 +330,7 @@ func _BiometricService_GetSources_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var BiometricService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "biometric.BiometricService",
+	ServiceName: "biometric.v1.BiometricService",
 	HandlerType: (*BiometricServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -25,8 +25,10 @@ paths-ignore:
     - "models/**"
 # Дополнительные запросы для расширенного анализа
 queries:
-    - uses: security-extended
-    - uses: security-and-quality
+  - name: security-extended
+    uses: security-extended
+  - name: security-and-quality
+    uses: security-and-quality
 # Фильтры для запросов
 query-filters:
     # Исключаем предупреждения о тестовом коде

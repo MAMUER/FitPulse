@@ -4,11 +4,15 @@ inputs:
   go-version:
     description: "Go version"
     required: false
-    default: "1.26.5"
+    default: "1.27.0"
   node-version:
     description: "Node.js version"
     required: false
     default: "26"
+  test-tags:
+    description: "Go test tags to include integration tests"
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -25,12 +29,12 @@ runs:
       shell: bash
     - run: |
         npm config set registry https://registry.npmjs.org
-        NPM_CONFIG_MIN_RELEASE_AGE=0 npm ci --ignore-scripts --legacy-peer-deps
+        NPM_CONFIG_MIN_RELEASE_AGE=0 npm ci --ignore-scripts
       working-directory: web
       shell: bash
     - run: |
         mkdir -p bin
-        go test -coverprofile=bin/coverage.out ./...
+        go test ${{ inputs.test-tags }} -coverprofile=bin/coverage.out ./...
         cd web && npm run test
         pwd
         ls -la bin || true
