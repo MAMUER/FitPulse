@@ -1,7 +1,7 @@
 # FitPulse — ML/GAN Спецификация
 
 > **Status:** This document describes the ML architecture of FitPulse.
-> **Phase 1 (production):** Rule-based classifier (Go) + Conditional Diffusion Model (DDPM) for plan generation (Python/FastAPI). DVC pipeline initialized.
+> **Phase 1 (production):** Rule-based classifier (Go) + Conditional Diffusion Model (DDPM) for plan generation (Python/FastAPI).
 > **Phase 2:** Daily adaptive plan retrain, model versioning, canary rollout.
 
 ## Обзор
@@ -298,7 +298,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 | Данные для обучения | Исторические планы + биометрия + фидбек пользователей + менструальные циклы + заболевания + состав тела |
 | Частота переобучения | Раз в 2 недели (incremental) |
 | Валидация | Hold-out 20%, метрики: val_loss (MSE noise prediction) |
-| Версионирование | DVC для данных и моделей (`datasets/`, `models/`) |
+| Версионирование | Git tags + semantic versioning для моделей (`models/`) |
 
 ---
 
@@ -357,7 +357,7 @@ uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
 - [ ] Переобучить модель с CONDITION_DIM=32 и сохранить новый `generator.onnx`
 - [ ] Реализовать DDIM sampling для ускорения inference (< 10 шагов)
 - [ ] Добавить A/B тестирование планов (качество планов vs фидбек пользователей)
-- [ ] Реализовать incremental training с DVC pipeline (см. `docs/phase2-roadmap.md` раздел 16)
+- [ ] Реализовать incremental training (см. `docs/phase2-roadmap.md` раздел 16)
 - [ ] Добавить валидацию plan_vector (диапазоны, суммы) перед возвратом клиенту
 
 > **Примечание:** Эти задачи отслеживаются в `docs/phase2-roadmap.md` (раздел 16) и требуют отдельного планирования sprint'а.

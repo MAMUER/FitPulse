@@ -74,7 +74,6 @@
 
 - [x] Classifier (rule-based) — Phase 1 production
 - [x] ML Generator (Conditional Diffusion Model, DDPM) — Phase 1 production
-- [x] DVC pipeline инициализирован
 - [ ] Ежедневное переобучение (Phase 2)
 
 ### Устройства

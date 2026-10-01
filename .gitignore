@@ -115,9 +115,6 @@ results.json
 # Raw datasets (too large for git)
 datasets/raw/
 
-# DVC
-/dvc_remote/
-/metrics/
 
 datasets/processed/
 
