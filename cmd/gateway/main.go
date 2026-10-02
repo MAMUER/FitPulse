@@ -76,7 +76,7 @@ type gateway struct {
 
 	errorTotal *prometheus.CounterVec
 
-	googleOAuthConfig *oauth2.Config
+	yandexOAuthConfig *oauth2.Config
 
 	biometricMu sync.Mutex
 
@@ -294,9 +294,9 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		appBaseURL: config.GetEnv("APP_BASE_URL"),
 
-		googleClientID: config.GetEnv("GOOGLE_CLIENT_ID"),
+		yandexClientID: config.GetEnv("YANDEX_CLIENT_ID"),
 
-		googleClientSecret: config.GetEnv("GOOGLE_CLIENT_SECRET"),
+		yandexClientSecret: config.GetEnv("YANDEX_CLIENT_SECRET"),
 
 		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
 	}
@@ -305,7 +305,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 
-	cfg.googleOAuthConfig = buildGoogleOAuthConfig(log, cfg)
+	cfg.yandexOAuthConfig = buildYandexOAuthConfig(log, cfg)
 
 	return cfg
 
@@ -331,41 +331,41 @@ func extractPublicHost(appBaseURL string) string {
 
 }
 
-func buildGoogleOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
+func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Config {
 
-	if cfg.googleClientID == "" || cfg.googleClientSecret == "" {
+	if cfg.yandexClientID == "" || cfg.yandexClientSecret == "" {
 
-		log.Warn("Google OAuth not configured: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing")
+		log.Warn("Yandex OAuth not configured: YANDEX_CLIENT_ID or YANDEX_CLIENT_SECRET missing")
 
 		return nil
 
 	}
 
-	redirectURL := config.GetEnv("GOOGLE_REDIRECT_URL")
+	redirectURL := config.GetEnv("YANDEX_REDIRECT_URL")
 
 	if redirectURL == "" && cfg.appBaseURL != "" {
 
-		redirectURL = cfg.appBaseURL + "/api/v1/auth/google/callback"
+		redirectURL = cfg.appBaseURL + "/api/v1/auth/yandex/callback"
 
 	}
 
-	log.Info("Google OAuth configured", zap.String("redirect_url", redirectURL))
+	log.Info("Yandex OAuth configured", zap.String("redirect_url", redirectURL))
 
 	return &oauth2.Config{
 
-		ClientID: cfg.googleClientID,
+		ClientID: cfg.yandexClientID,
 
-		ClientSecret: cfg.googleClientSecret,
+		ClientSecret: cfg.yandexClientSecret,
 
 		RedirectURL: redirectURL,
 
-		Scopes: []string{"openid", "profile", "email"},
+		Scopes: []string{"login:info", "login:email"},
 
-		Endpoint: oauth2.Endpoint{ // nolint:G101
+		Endpoint: oauth2.Endpoint{
 
-			AuthURL: "https://accounts.google.com/o/oauth2/auth",
+			AuthURL:  "https://oauth.yandex.ru/authorize",
 
-			TokenURL: "https://oauth2.googleapis.com/token",
+			TokenURL: "https://oauth.yandex.ru/token",
 		},
 	}
 
@@ -406,13 +406,13 @@ type gatewayConfig struct {
 
 	publicHost string
 
-	googleClientID string
+	yandexClientID string
 
-	googleClientSecret string
+	yandexClientSecret string
 
 	mlAsync bool
 
-	googleOAuthConfig *oauth2.Config
+	yandexOAuthConfig *oauth2.Config
 
 	corsOrigins []string
 }
@@ -749,7 +749,7 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 
 		errorTotal: opts.metrics.errorTotal,
 
-		googleOAuthConfig: opts.cfg.googleOAuthConfig,
+		yandexOAuthConfig: opts.cfg.yandexOAuthConfig,
 
 		captchaProvider: opts.captchaProvider,
 
@@ -1127,9 +1127,9 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
 
-	r.Get("/api/v1/auth/google", g.googleLoginHandler)
+	r.Get("/api/v1/auth/yandex", g.yandexLoginHandler)
 
-	r.Get("/api/v1/auth/google/callback", g.googleCallbackHandler)
+	r.Get("/api/v1/auth/yandex/callback", g.yandexCallbackHandler)
 
 	r.Get("/health", g.healthHandler)
 

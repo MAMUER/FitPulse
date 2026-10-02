@@ -45,10 +45,10 @@ email:
   smtp_password: ""
   smtp_from: "mihnikolaenko12@yandex.ru"
 
-google_oauth:
+yandex_id:
   client_id: ""
   client_secret: ""
-  redirect_url: "https://fittpulse.ru/api/v1/auth/google/callback"
+  redirect_url: "https://fittpulse.duckdns.org/api/v1/auth/yandex/callback"
 
 captcha:
   provider: "none"

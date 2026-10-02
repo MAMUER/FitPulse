@@ -19,7 +19,7 @@ FitPulse — open-source fitness platform.
 
 | Target | Notes |
 | -------- | ------- |
-| `https://fittpulse.ru` | текущий production-домен. При переходе на дополнительный домен он автоматически добавляется в scope. |
+| `https://fittpulse.duckdns.org` | текущий production-домен. При переходе на дополнительный домен он автоматически добавляется в scope. |
 | Веб-интерфейс (`web/src/`, `web/static/fonts/`, `web/static/errors/`) | React SPA, шрифты, страницы ошибок |
 | Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
 | Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
@@ -59,7 +59,7 @@ KB2kZNQaaRr4/jwD
 =vO9G
 -----END PGP PUBLIC KEY BLOCK-----`  
 **Public key server**: `hkps://keys.openpgp.org`  
-**WKD endpoint**: `<https://fittpulse.ru/.well-known/openpgpkey/hu/`>
+**WKD endpoint**: `<https://fittpulse.duckdns.org/.well-known/openpgpkey/hu/`>
 
 ### Как отправить encrypted report
 

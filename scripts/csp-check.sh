@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${CSP_DOMAIN:-https://fittpulse.ru}"
+DOMAIN="${CSP_DOMAIN:-https://fittpulse.duckdns.org}"
 EXPECTED_HEADERS=(
 	"Content-Security-Policy"
 	"Cross-Origin-Opener-Policy"

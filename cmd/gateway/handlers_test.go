@@ -35,7 +35,7 @@ func (m *mockUserServiceClient) ConfirmEmail(ctx context.Context, req *userpb.Co
 func (m *mockUserServiceClient) Login(ctx context.Context, req *userpb.LoginRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
 	return &userpb.LoginResponse{AccessToken: "token", UserId: "user-123", Role: "client"}, nil
 }
-func (m *mockUserServiceClient) AuthenticateGoogle(ctx context.Context, req *userpb.AuthenticateGoogleRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
+func (m *mockUserServiceClient) AuthenticateYandex(ctx context.Context, req *userpb.AuthenticateYandexRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
 	return &userpb.LoginResponse{AccessToken: "token", UserId: "user-123"}, nil
 }
 func (m *mockUserServiceClient) GetProfile(ctx context.Context, req *userpb.GetProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {

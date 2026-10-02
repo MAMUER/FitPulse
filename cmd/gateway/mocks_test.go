@@ -215,13 +215,13 @@ func withOAuth(g *gateway) {
 		ClientID:     "test-client-id",
 		ClientSecret: "test-secret",
 		RedirectURL:  "http://localhost/callback",
-		Scopes:       []string{"openid", "profile", "email"},
+		Scopes:       []string{"login:info", "login:email"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "http://localhost/auth",
 			TokenURL: "http://localhost/token",
 		},
 	}
-	g.googleOAuthConfig = conf
+	g.yandexOAuthConfig = conf
 }
 
 func withProxy(g *gateway, targetURL string) {

@@ -79,8 +79,8 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/login` | Вход |
 | POST | `/api/v1/auth/confirm` | Подтверждение email |
 | GET | `/api/v1/auth/verify-status` | Проверка статуса подтверждения email |
-| GET | `/api/v1/auth/google` | Google OAuth логин |
-| GET | `/api/v1/auth/google/callback` | Google OAuth callback |
+| GET | `/api/v1/auth/yandex` | Yandex ID логин |
+| GET | `/api/v1/auth/yandex/callback` | Yandex ID callback |
 | POST | `/api/v1/auth/2fa/verify` | Проверка TOTP после логина |
 | POST | `/api/v1/auth/refresh` | Ротация refresh token |
 | GET | `/.well-known/jwks.json` | JWKS endpoint для JWT публичного ключа |
@@ -118,7 +118,7 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/training/generate` | Сгенерировать план |
 | POST | `/api/v1/training/complete` | Завершить тренировку |
 | GET | `/api/v1/training/progress` | Прогресс |
-| POST | `/api/v1/ml/chat` | AI-советник (классификация + план + диета) |
+| POST | `/api/v1/chat` | FAQ/чат (rule-based) |
 | POST | `/api/v1/devices/register` | Регистрация устройства |
 | POST | `/api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
 | GET | `/api/v1/devices` | Список устройств |
@@ -144,7 +144,7 @@ FitPulse реализует комплексные меры безопаснос
 
 ### Секреты
 
-**Static secrets** (JWT, SMTP, Google OAuth, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator** (`configs/k8s/base/external-secrets/`).
+**Static secrets** (JWT, SMTP, Yandex ID, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator** (`configs/k8s/base/external-secrets/`).
 
 **Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере, `configs/k8s/base/vault/`):
 
@@ -180,7 +180,6 @@ docker compose up --build
 - **Classifier**: <http://localhost:8001>
 - **Device Aggregator**: <http://localhost:8083>
 - **Data Processor**: <http://localhost:8084>
-- **ML Generator**: <http://localhost:8002>
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
 - **RabbitMQ**: localhost:5672 (AMQPS), Management UI: <http://localhost:15672>
@@ -188,7 +187,7 @@ docker compose up --build
 - **Grafana**: <http://localhost:3000>
 - **Jaeger**: <http://localhost:16686>
 
-Production домен: <https://fittpulse.ru>
+Production домен: <https://fittpulse.duckdns.org>
 
 Переменные окружения для локального запуска описаны в `docker-compose.yml`.
 

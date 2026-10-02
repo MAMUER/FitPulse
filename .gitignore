@@ -115,9 +115,6 @@ results.json
 # Raw datasets (too large for git)
 datasets/raw/
 
-
-datasets/processed/
-
 web/test-results/
 
 pgp-private-key.asc

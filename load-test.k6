@@ -108,13 +108,13 @@ export default function (data) {
     });
     sleep(0.5);
 
-    // 2. ML Chat - 30%
+    // 2. Chat - 30%
     if (Math.random() < 0.3) {
-        group('ML Chat', () => {
+        group('Chat', () => {
             let startTime = new Date();
-            let chatRes = http.post(`${BASE_URL}/api/v1/ml/chat`, JSON.stringify({message: 'plan'}), {
+            let chatRes = http.post(`${BASE_URL}/api/v1/chat`, JSON.stringify({message: 'plan'}), {
                 headers,
-                timeout: '30s'
+                timeout: '10s'
             });
             mlChatDuration.add(new Date() - startTime);
 

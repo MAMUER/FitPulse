@@ -95,7 +95,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER=${{ github.event.number }}
-          PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.ru"
+          PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.duckdns.org"
           gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
 
   cleanup:

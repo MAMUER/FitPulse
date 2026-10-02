@@ -45,8 +45,8 @@
 .fp-no-fa .fa-eye::before {
   content: "◉";
 }
-.fp-no-fa .fa-google::before {
-  content: "G";
+.fp-no-fa .fa-yandex::before {
+  content: "Я";
 }
 .fp-no-fa .fa-heart::before,
 .fp-no-fa .fa-heart-pulse::before {
@@ -2829,8 +2829,8 @@ textarea:focus {
 .socials button:hover {
   border-color: var(--blue);
 }
-.google i {
-  color: #ea4335;
+.yandex i {
+  color: #fc3f1d;
 }
 .auth .primary {
   margin-top: 6px;

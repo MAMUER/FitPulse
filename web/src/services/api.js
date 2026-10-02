@@ -66,8 +66,8 @@ export function continueAsGuest() {
 }
 
 export function socialLogin(provider) {
-  if (provider === 'google') {
-    return { redirect: '/api/v1/auth/google' };
+  if (provider === 'yandex') {
+    return { redirect: '/api/v1/auth/yandex' };
   }
   throw new Error(`Интеграция ${provider} не поддерживается`);
 }

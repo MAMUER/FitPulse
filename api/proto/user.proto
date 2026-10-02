@@ -17,8 +17,8 @@ service UserService {
     rpc ConfirmEmail(ConfirmEmailRequest) returns (ConfirmEmailResponse);
     // Вход в систему.
     rpc Login(LoginRequest) returns (LoginResponse);
-    // Вход через Google.
-    rpc AuthenticateGoogle(AuthenticateGoogleRequest) returns (LoginResponse);
+    // Вход через Яндекс ID.
+    rpc AuthenticateYandex(AuthenticateYandexRequest) returns (LoginResponse);
     // Получение профиля.
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
     // Получение пользователя по email.
@@ -138,8 +138,12 @@ message LoginResponse {
     string refresh_token = 6;
 }
 
-message AuthenticateGoogleRequest {
-    string id_token = 1;
+message AuthenticateYandexRequest {
+    string yandex_id = 1;
+    string email = 2;
+    string login = 3;
+    string first_name = 4;
+    string last_name = 5;
 }
 
 message GetProfileRequest {

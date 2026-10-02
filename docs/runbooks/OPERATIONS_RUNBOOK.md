@@ -226,7 +226,7 @@ kubectl logs -f deployment/gateway -n fitness-platform-production
 ### Доступ к Grafana
 
 ```text
-URL: https://fittpulse.ru
+URL: https://fittpulse.duckdns.org
 Username: admin
 Password: ${GRAFANA_ADMIN_PASSWORD}
 ```
@@ -352,7 +352,7 @@ pg_ctl -D /tmp/clone_pgdata promote
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://fittpulse.ru/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|

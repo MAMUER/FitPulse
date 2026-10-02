@@ -62,9 +62,9 @@ services:
       CLASSIFIER_ADDR: classifier:8001
       DEVICE_AGGREGATOR_ADDR: device-aggregator:8083
       ML_GENERATOR_ADDR: ml-generator:8002
-      APP_BASE_URL: ${APP_BASE_URL:-https://fittpulse.ru}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-https://fittpulse.duckdns.org}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,7 +94,8 @@ services:
       DB_PORT: 5432
       VALKEY_ADDR: valkey:6379
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

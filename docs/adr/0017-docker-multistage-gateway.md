@@ -42,7 +42,7 @@ Gateway слушает на порту 8080, раздаёт `web/dist/` чере
 ## Реализация
 
 - `cmd/gateway/Dockerfile` — 3-stage: node-builder → go-builder → runtime
-- `cmd/user-service/Dockerfile`, `cmd/biometric-service/Dockerfile`, `cmd/training-service/Dockerfile`, `cmd/classifier/Dockerfile`, `cmd/ml_generator/Dockerfile`, `cmd/device-aggregator/Dockerfile`, `cmd/data-processor/Dockerfile` — 2-stage: builder → runtime
+- `cmd/user-service/Dockerfile`, `cmd/biometric-service/Dockerfile`, `cmd/training-service/Dockerfile`, `cmd/classifier/Dockerfile`, `cmd/device-aggregator/Dockerfile`, `cmd/data-processor/Dockerfile` — 2-stage: builder → runtime
 - `cmd/gateway/main.go` — `http.FileServer` для `./web/dist/`, rewrite SPA routes
 - `cmd/gateway/handlers_auth.go` — `/confirm` handler возвращает `web/dist/index.html`
 - `.github/workflows/ci.yml` — `docker` job собирает и публикует образы через Buildx

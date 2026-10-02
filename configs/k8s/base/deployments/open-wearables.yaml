@@ -96,7 +96,7 @@ spec:
             - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
               value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
             - name: API_BASE_URL
-              value: "https://fittpulse.ru"
+               value: "https://fittpulse.duckdns.org"
           livenessProbe:
             httpGet:
               path: /health

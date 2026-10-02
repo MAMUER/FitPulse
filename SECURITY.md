@@ -172,7 +172,7 @@ Kubescape scan запускается в CI на директорию `configs/k
 
 | Правило | Файл | Обоснование |
 | --------- | ------ | ------------- |
-| `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Google OAuth endpoints (`https://accounts.google.com/o/oauth2/auth`, `https://oauth2.googleapis.com/token`), известные всем разработчикам. Не являются credentials. |
+| `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Yandex ID endpoints (`https://oauth.yandex.ru/authorize`, `https://oauth.yandex.ru/token`), известные всем разработчикам. Не являются credentials. |
 | `G101` | `cmd/gateway/helpers.go:94` | Ложноположительное: ключи мапы — пользовательские сообщения об ошибках (gRPC status text), а не пароли/токены/секреты. |
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
@@ -282,9 +282,9 @@ Mutable tags позволяют владельцу action'а перенапра�
   - Let's Encrypt / cert-manager — TLS-сертификаты для внешнего домена
   - GitHub Actions / GHCR — CI/CD и registry образов
   - [SonarCloud — fitness-platform](https://sonarcloud.io/project/settings?category=integration&id=fitness-platform) — SAST, quality gate и покрытие кода. Токен хранится в GitHub Secrets как `SONAR_TOKEN`. При проблемах с доступом проверьте права токена и существование проекта `fitness-platform` в организации `mamuer`.
-  - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Google OAuth 2.0 вход (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` в GitHub Secrets).
-  - Privacy Policy: `https://fittpulse.ru/privacy`. Terms of Service: `https://fittpulse.ru/terms`.
-  - Authorized domain: `fittpulse.ru`. Домен `mamuer.github.io` не настроен как authorized domain и не является источником политик; страницы генерируются React-приложением (`web/src/components/Legal/Privacy.jsx`, `web/src/components/Legal/Terms.jsx`) и доступны без авторизации через маршруты `/privacy` и `/terms`.
+  - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Yandex ID вход (`YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` в GitHub Secrets).
+  - Privacy Policy: `https://fittpulse.duckdns.org/privacy`. Terms of Service: `https://fittpulse.duckdns.org/terms`.
+  - Authorized domain: `fittpulse.duckdns.org`.
   - [Yandex app passwords](https://id.yandex.ru/security/app-passwords) — SMTP-провайдер — отправка писем. Secrets: `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
 - **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
 - **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.
@@ -427,7 +427,7 @@ KB2kZNQaaRr4/jwD
 =vO9G
 -----END PGP PUBLIC KEY BLOCK-----`  
 **Public key server**: `hkps://keys.openpgp.org`  
-**WKD endpoint**: `<https://fittpulse.ru/.well-known/openpgpkey/hu/`>
+**WKD endpoint**: `<https://fittpulse.duckdns.org/.well-known/openpgpkey/hu/`>
 
 ### Как отправить encrypted report
 

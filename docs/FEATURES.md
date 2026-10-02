@@ -92,5 +92,5 @@ API: `POST /api/v1/register/invite` — регистрация через код
 - **Special category consent** — explicit consent для обработки специальных категорий ПДн (здоровье, менструальный цикл) при регистрации
 - **Medical disclaimer** — отображение предупреждения "Это не медицинский совет" при вводе health-данных
 - **Profile export/delete** — реализация прав субъектов ПДн (GDPR Art. 15, 17)
-- **DPA with Google OAuth** — трансграничная передача ПДн в США при использовании Google Sign-In
+- **DPA with Yandex ID** — трансграничная передача ПДн в США при использовании Yandex ID
 - **Quarterly access review** — ежеквартальный пересмотр доступов (152-ФЗ, GDPR)

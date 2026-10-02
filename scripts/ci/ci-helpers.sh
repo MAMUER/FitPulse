@@ -36,7 +36,6 @@ install_golangci_lint() {
 
 install_python_deps() {
 	python -m pip install --only-binary :all: --upgrade pip==25.0
-	pip install --only-binary :all: -r cmd/ml_generator/requirements.lock.txt
 }
 
 run_coverage() {

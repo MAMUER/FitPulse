@@ -1,6 +1,6 @@
 # FitPulse — API Reference
 
-> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.ru/api/v1/` (production).
+> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.duckdns.org/api/v1/` (production).
 
 ## Аутентификация
 
@@ -24,8 +24,8 @@ Refresh token используется для ротации через `POST /a
 |GET|`/api/v1/auth/verify-status`|Проверка статуса подтверждения email|Query: `?email=`|`{email_confirmed, email}`|
 |POST|`/api/v1/auth/refresh`|Ротация refresh token|Cookie: `fitpulse-refresh-token`|`{status, token_type, expires_in}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min), `fitpulse-refresh-token` (HttpOnly, 7d)|
 |POST|`/api/v1/auth/2fa/verify`|Проверка TOTP после логина|`{temp_token, passcode, is_backup_code?}`|`{status, token_type, expires_in, backup_codes_remaining?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min), `fitpulse-refresh-token` (HttpOnly, 7d)|
-|GET|`/api/v1/auth/google`|Google OAuth логин|—|Redirect to Google|
-|GET|`/api/v1/auth/google/callback`|Google OAuth callback|—|`{status, user_id?, role?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min)|
+|GET|`/api/v1/auth/yandex`|Yandex ID логин|—|Redirect to Yandex|
+|GET|`/api/v1/auth/yandex/callback`|Yandex ID callback|—|`{status, user_id?, role?}`. Cookies: `fitpulse-access-token` (HttpOnly, 15min)|
 |POST|`/api/v1/integrations/open-wearables/webhook`|Open Wearables webhook (публичный)|Header: `X-Open-Wearables-Signature`, Body: `{user_id, source, timestamp, metrics: [{metric_type, value, unit?, timestamp?}]}`|`{status, message}`|
 |GET|`/health`|Health check|—|`200 OK`|
 |GET|`/confirm`|Страница подтверждения email (React SPA)|Query: `?token=`|HTML|
@@ -45,7 +45,8 @@ Refresh token используется для ротации через `POST /a
 |POST|`/training/generate`|Сгенерировать план|`{duration_weeks, available_days, class?, confidence?}`|`{status, plan_id, plan_data, training_type}`|
 |POST|`/training/complete`|Завершить тренировку|`{plan_id, workout_id, rating?, feedback?}`|`{status}`|
 |GET|`/training/progress`|Прогресс|—|`{status, progress_data}`|
-|POST|`/chat`|FAQ/чат (rule-based)|`{message}`|`{status, answer, user_id, timestamp}`|
+|POST|`/api/v1/chat`|FAQ/чат (rule-based)|`{message}`|`{status, answer, user_id, timestamp}`|
+|POST|`/api/v1/ml/feedback`|Обратная связь по ML-рекомендациям|`{plan_id?, workout_id?, rating?, feedback?}`|`{status}`|
 |GET|`/api/v1/survey`|Загрузить анкету|—|`{status, survey, survey_completed, survey_completed_at}`|
 |POST|`/api/v1/survey`|Сохранить анкету|`{survey, survey_completed?}`|`{status}`|
 |GET|`/api/v1/health/conditions`|Список заболеваний пользователя|—|`{status, conditions: [{condition_id, condition_name, condition_type, severity, diagnosed_at, notes}]}`|
@@ -96,7 +97,7 @@ Refresh token используется для ротации через `POST /a
 |`RegisterWithInvite`|`RegisterWithInviteRequest`|`RegisterResponse`|Регистрация по invite-коду|
 |`ConfirmEmail`|`ConfirmEmailRequest`|`ConfirmEmailResponse`|Подтверждение email|
 |`Login`|`LoginRequest`|`LoginResponse`|Вход по email/password|
-|`AuthenticateGoogle`|`AuthenticateGoogleRequest`|`LoginResponse`|Вход через Google OAuth|
+|`AuthenticateYandex`|`AuthenticateYandexRequest`|`LoginResponse`|Вход через Yandex ID|
 |`GetProfile`|`GetProfileRequest`|`UserProfile`|Получить профиль|
 |`GetUserByEmail`|`GetUserByEmailRequest`|`UserProfile`|Получить пользователя по email|
 |`UpdateProfile`|`UpdateProfileRequest`|`UserProfile`|Обновить профиль|

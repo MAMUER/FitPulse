@@ -38,7 +38,7 @@
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  DuckDNS / Cloudflare (free DNS, no card required)              │
-│  fittpulse.ru → <VPS_IP>                                       │
+│  fittpulse.duckdns.org → <VPS_IP>                                       │
 └────────────────────────────┬────────────────────────────────────┘
                               │
                               ▼

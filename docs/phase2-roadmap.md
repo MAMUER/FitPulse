@@ -14,7 +14,7 @@
 - [Medical](phase2/medical.md) — Wellness boundary enforcement, medical registration (не требуется)
 - [ML](phase2/ml.md) — Daily adaptive plan retrain, Cost estimate, Resource Plan FTE
 - [Devices](phase2/devices.md) — Extended devices
-- [Google OAuth](phase2/google-oauth.md) — Google OAuth production verification
+- [Yandex ID](phase2/yandex-id.md) — Yandex ID production verification
 
 ---
 
@@ -49,3 +49,17 @@
 | Q2 2027 | Service Mesh, Secrets Rotation, ELK/Fluent Bit, CAPTCHA production |
 | Q3 2027 | Canary Deployments, GDPR/152-ФЗ compliance завершение, Medical boundary docs |
 | Q4 2027 | Pen Test, Bug Bounty, Adaptive ML retrain, DPA/contracts финализация |
+
+---
+
+## Why Yandex ID instead of Google OAuth?
+
+The project is a student project with practically no budget. Yandex ID was chosen because:
+
+1. It's free for students and small projects
+2. No credit card required
+3. Simple integration
+4. Targets Russian-speaking users
+
+Other social authentications (VK, Mail.ru, Odnoklassniki, etc.) are planned for Phase 2 when the project has more resources.
+

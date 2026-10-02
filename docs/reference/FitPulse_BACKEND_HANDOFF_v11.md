@@ -17,8 +17,8 @@
 - POST `/api/v1/login`
 - POST `/api/v1/auth/confirm`
 - GET `/api/v1/auth/verify-status`
-- GET `/api/v1/auth/google`
-- GET `/api/v1/auth/google/callback`
+- GET `/api/v1/auth/yandex`
+- GET `/api/v1/auth/yandex/callback`
 - POST `/api/v1/auth/refresh`
 - POST `/api/v1/auth/2fa/verify`
 - POST `/api/v1/auth/2fa/setup`
@@ -54,7 +54,9 @@
 
 ### 5. ML
 
-- POST `/api/v1/ml/chat` — классификация состояния + генерация плана тренировок + генерация диеты
+- `POST /api/v1/chat` — FAQ/чат (rule-based)
+- `POST /api/v1/ml/feedback` — обратная связь по ML-рекомендациям
+- `POST /classify` (classifier) — классификация состояния (rule-based)
 
 ### 6. Админка
 

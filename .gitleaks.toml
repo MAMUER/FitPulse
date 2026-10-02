@@ -14,10 +14,10 @@ regex = '''(?i)jwt[_-]?secret\s*[:=]\s*['"]([a-zA-Z0-9+/]{32,}={0,2})['"]'''
 tags = ["jwt", "secret"]
 
 [[rules]]
-id = "custom-google-oauth-secret"
-description = "Detect Google OAuth client secret"
-regex = '''(?i)google[_-]?client[_-]?secret\s*[:=]\s*['"]([a-zA-Z0-9+/]{20,}={0,2})['"]'''
-tags = ["oauth", "google", "secret"]
+id = "custom-yandex-id-secret"
+description = "Detect Yandex ID client secret"
+regex = '''(?i)yandex[_-]?client[_-]?secret\s*[:=]\s*['"]([a-zA-Z0-9+/]{20,}={0,2})['"]'''
+tags = ["oauth", "yandex", "secret"]
 
 [[rules]]
 id = "custom-smtp-password"

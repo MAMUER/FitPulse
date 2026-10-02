@@ -6,7 +6,7 @@
 
 ## Контекст
 
-Система состоит из нескольких микросервисов (gateway, user-service, biometric-service, training-service, device-aggregator, ml_generator) и инфраструктурных компонентов (PostgreSQL, Valkey, RabbitMQ). Требуется платформа, которая обеспечивает:
+Система состоит из нескольких микросервисов (gateway, user-service, biometric-service, training-service, device-aggregator, classifier) и инфраструктурных компонентов (PostgreSQL, Valkey, RabbitMQ). Требуется платформа, которая обеспечивает:
 
 - оркестрацию контейнеров;
 - service discovery;

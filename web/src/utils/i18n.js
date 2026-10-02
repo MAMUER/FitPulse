@@ -217,7 +217,7 @@ const EN_TEXT = {
   '24 июля': 'July 24',
   '25 июля': 'July 25',
   'Нет аккаунта?': 'Don’t have an account?',
-  Google: 'Google',
+  Yandex: 'Yandex',
   Запрос: 'Prompt',
   'Например: план на неделю': 'e.g. weekly plan',
   Отправить: 'Send',

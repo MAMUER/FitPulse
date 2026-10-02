@@ -24,7 +24,7 @@
 | Функционал | Реализация | Риск реклассификации? |
 | --- | --- | --- |
 | Классификация состояния | `cmd/classifier/main.go` — rule-based (`illness`, `overtraining`, `normal`) | Нет — нет диагноза, нет назначения лечения |
-| Генерация планов | `cmd/ml_generator/main.py` — DDPM с fallback на rule-based | Нет — рекомендательный, не назначает лечение |
+| Генерация планов | `internal/planner/engine.go` — template-based engine (Go) | Нет — рекомендательный, не назначает лечение |
 | Интеграции с wearables | Open Wearables (Apple Health, Garmin, Health Connect) | Нет — агрегация, не EHR |
 | Хранение заболеваний | `user_health_conditions` — user-reported, не диагностика | Нет — нет врачебной верификации |
 

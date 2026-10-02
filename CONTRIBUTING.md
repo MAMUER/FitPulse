@@ -44,7 +44,7 @@
 
     ```bash
     go mod tidy
-    pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
+
     cd web && npm ci  # для frontend
     ```
 

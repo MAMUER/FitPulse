@@ -340,21 +340,21 @@ func TestAuth_EmailConfirmPageHandler_FileNotFound(t *testing.T) {
 
 }
 
-func TestAuth_GoogleLoginHandler_NotConfigured(t *testing.T) {
+func TestAuth_YandexLoginHandler_NotConfigured(t *testing.T) {
 
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex", nil)
 
-	g.googleLoginHandler(w, req)
+	g.yandexLoginHandler(w, req)
 
 	assert.Equal(t, http.StatusNotImplemented, w.Code)
 
 }
 
-func TestAuth_GoogleLoginHandler_Success(t *testing.T) {
+func TestAuth_YandexLoginHandler_Success(t *testing.T) {
 
 	g := newTestGateway()
 
@@ -362,29 +362,29 @@ func TestAuth_GoogleLoginHandler_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex", nil)
 
-	g.googleLoginHandler(w, req)
+	g.yandexLoginHandler(w, req)
 
 	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
 
 }
 
-func TestAuth_GoogleCallbackHandler_NotConfigured(t *testing.T) {
+func TestAuth_YandexCallbackHandler_NotConfigured(t *testing.T) {
 
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusNotImplemented, w.Code)
 
 }
 
-func TestAuth_GoogleCallbackHandler_InvalidState(t *testing.T) {
+func TestAuth_YandexCallbackHandler_InvalidState(t *testing.T) {
 
 	g := newTestGateway()
 
@@ -392,15 +392,15 @@ func TestAuth_GoogleCallbackHandler_InvalidState(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 }
 
-func TestAuth_GoogleCallbackHandler_MissingCode(t *testing.T) {
+func TestAuth_YandexCallbackHandler_MissingCode(t *testing.T) {
 
 	g := newTestGateway()
 
@@ -408,15 +408,15 @@ func TestAuth_GoogleCallbackHandler_MissingCode(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc", nil)
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 }
 
-func TestAuth_GoogleCallbackHandler_ExchangeError(t *testing.T) {
+func TestAuth_YandexCallbackHandler_ExchangeError(t *testing.T) {
 
 	g := newTestGateway()
 
@@ -424,17 +424,17 @@ func TestAuth_GoogleCallbackHandler_ExchangeError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 }
 
-func TestAuth_GoogleCallbackHandler_InvalidStateCookie(t *testing.T) {
+func TestAuth_YandexCallbackHandler_InvalidStateCookie(t *testing.T) {
 
 	g := newTestGateway()
 
@@ -442,11 +442,11 @@ func TestAuth_GoogleCallbackHandler_InvalidStateCookie(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "wrong-state", Secure: true, HttpOnly: true})
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "wrong-state", Secure: true, HttpOnly: true})
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
@@ -462,11 +462,11 @@ func TestAuth_GoogleCallbackHandler_TOTPEnabled(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/google/callback?state=abc&code=xyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 
-	req.AddCookie(&http.Cookie{Name: googleOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
-	g.googleCallbackHandler(w, req)
+	g.yandexCallbackHandler(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
@@ -1056,7 +1056,7 @@ func (m *errorUserServiceClient) Login(ctx context.Context, req *user.LoginReque
 
 }
 
-func (m *errorUserServiceClient) AuthenticateGoogle(ctx context.Context, req *user.AuthenticateGoogleRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
+func (m *errorUserServiceClient) AuthenticateYandex(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
 
 	return nil, m.err
 
@@ -1340,7 +1340,7 @@ func (m *totpEnabledUserClient) GetUserClaims(ctx context.Context, req *user.Get
 
 }
 
-func (m *totpEnabledUserClient) AuthenticateGoogle(ctx context.Context, req *user.AuthenticateGoogleRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
+func (m *totpEnabledUserClient) AuthenticateYandex(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
 
 	return &user.LoginResponse{AccessToken: "token", UserId: "user-123", Role: "client"}, nil
 

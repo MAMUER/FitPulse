@@ -54,7 +54,7 @@
 - [x] GDPR: explicit consent для специальных категорий ПДн (здоровье, менструальный цикл)
 - [x] Cookie consent banner (GDPR Art. 7)
 - [x] Medical disclaimer в UI при вводе health-данных
-- [x] DPA с Google OAuth (трансграничная передача ПДн в США)
+- [x] DPA с Yandex ID (трансграничная передача ПДн в США)
 - [x] DPIA (Data Protection Impact Assessment) — `docs/compliance/DPIA.md`
 - [x] Реестр обработки ПДн — `docs/compliance/РЕЕСТР_ОБРАБОТКИ_ПДН.md`
 - [ ] Centralized audit trail в Elasticsearch (Phase 2; текущий audit-logger пишет в stdout)
@@ -74,6 +74,7 @@
 
 - [x] Classifier (rule-based) — Phase 1 production
 - [x] Plan Engine (template-based, Go) — Phase 1 production
+- [x] Rule-based chat with dataset-backed FAQ — Phase 1 production
 - [ ] ONNX classifier inference with fallback (Phase 2)
 - [ ] External LLM with opt-in (Phase 2)
 

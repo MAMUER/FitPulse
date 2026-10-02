@@ -22,7 +22,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
-	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -116,7 +115,9 @@ type userServer struct {
 
 	baseURL string
 
-	googleClientID string
+	yandexClientID     string
+
+	yandexClientSecret string
 
 	totpService *totp.Service
 }
@@ -570,42 +571,35 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 	}, nil
 
 }
+func (s *userServer) AuthenticateYandex(ctx context.Context, req *pb.AuthenticateYandexRequest) (*pb.LoginResponse, error) {
 
-func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.AuthenticateGoogleRequest) (*pb.LoginResponse, error) {
+	s.log.Info("Yandex auth request")
 
-	s.log.Info("Google auth request")
+	if req.YandexId == "" {
 
-	if req.IdToken == "" {
-
-		return nil, status.Error(codes.InvalidArgument, "id_token is required")
-
-	}
-
-	payload, err := idtoken.Validate(ctx, req.IdToken, s.googleClientID)
-
-	if err != nil {
-
-		s.log.Warn("Invalid Google token", zap.Error(err))
-
-		return nil, status.Error(codes.Unauthenticated, "invalid Google token")
+		return nil, status.Error(codes.InvalidArgument, "yandex_id is required")
 
 	}
 
-	emailVal, _ := payload.Claims["email"].(string)
+	if req.Email == "" {
 
-	googleSub, _ := payload.Claims["sub"].(string)
-
-	if emailVal == "" || googleSub == "" {
-
-		return nil, status.Error(codes.InvalidArgument, "Google token missing required claims")
+		return nil, status.Error(codes.InvalidArgument, "email is required")
 
 	}
 
-	emailVal = sanitize.String(emailVal)
+	yandexID := sanitize.String(req.YandexId)
+
+	emailVal := sanitize.String(req.Email)
+
+	login := sanitize.String(req.Login)
+
+	firstName := sanitize.String(req.FirstName)
+
+	lastName := sanitize.String(req.LastName)
 
 	emailHash := db.EmailHash(emailVal)
 
-	userID, role, emailConfirmed, err := s.findOrCreateGoogleUser(ctx, googleSub, emailHash, emailVal)
+	userID, role, emailConfirmed, err := s.findOrCreateYandexUser(ctx, yandexID, emailHash, emailVal, login, firstName, lastName)
 
 	if err != nil {
 
@@ -629,7 +623,7 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 
 	}
 
-	s.log.Info("Google auth successful", zap.String("user_id", userID), zap.String("email", emailVal))
+	s.log.Info("Yandex auth successful", zap.String("user_id", userID), zap.String("email", emailVal))
 
 	return &pb.LoginResponse{
 
@@ -642,31 +636,16 @@ func (s *userServer) AuthenticateGoogle(ctx context.Context, req *pb.Authenticat
 		UserId: userID,
 
 		Role: role,
+
 	}, nil
 
 }
 
-// Google OAuth flow requires multiple nonce generations and INSERT logic.
+// Yandex ID OAuth flow requires multiple nonce generations and INSERT logic.
 
-func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
+func (s *userServer) findOrCreateYandexUser(ctx context.Context, yandexID, emailHash, emailVal, login, firstName, lastName string) (userID, role string, emailConfirmed bool, err error) {
 
-	userID, role, emailConfirmed, err = s.findGoogleUserBySub(ctx, googleSub)
-
-	if err == nil {
-
-		return userID, role, emailConfirmed, nil
-
-	}
-
-	if !errors.Is(err, sql.ErrNoRows) {
-
-		s.log.Error("Database error during Google auth", zap.Error(err))
-
-		return "", "", false, status.Error(codes.Internal, errDatabaseError)
-
-	}
-
-	userID, role, emailConfirmed, err = s.linkGoogleToEmailUser(ctx, googleSub, emailHash)
+	userID, role, emailConfirmed, err = s.findYandexUserByID(ctx, yandexID)
 
 	if err == nil {
 
@@ -676,19 +655,35 @@ func (s *userServer) findOrCreateGoogleUser(ctx context.Context, googleSub, emai
 
 	if !errors.Is(err, sql.ErrNoRows) {
 
-		s.log.Error("Database error during Google auth", zap.Error(err))
+		s.log.Error("Database error during Yandex auth", zap.Error(err))
 
 		return "", "", false, status.Error(codes.Internal, errDatabaseError)
 
 	}
 
-	return s.createGoogleUser(ctx, googleSub, emailHash, emailVal)
+	userID, role, emailConfirmed, err = s.linkYandexToEmailUser(ctx, yandexID, emailHash)
+
+	if err == nil {
+
+		return userID, role, emailConfirmed, nil
+
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+
+		s.log.Error("Database error during Yandex auth", zap.Error(err))
+
+		return "", "", false, status.Error(codes.Internal, errDatabaseError)
+
+	}
+
+	return s.createYandexUser(ctx, yandexID, emailHash, emailVal, login, firstName, lastName)
 
 }
 
-func (s *userServer) findGoogleUserBySub(ctx context.Context, googleSub string) (userID, role string, emailConfirmed bool, err error) {
+func (s *userServer) findYandexUserByID(ctx context.Context, yandexID string) (userID, role string, emailConfirmed bool, err error) {
 
-	user, err := s.userRepo.FindGoogleUser(ctx, googleSub)
+	user, err := s.userRepo.FindYandexUser(ctx, yandexID)
 
 	if err == nil {
 
@@ -698,7 +693,7 @@ func (s *userServer) findGoogleUserBySub(ctx context.Context, googleSub string) 
 
 			if markErr != nil {
 
-				s.log.Warn("Failed to mark Google user email as confirmed", zap.Error(markErr), zap.String("user_id", user.ID))
+				s.log.Warn("Failed to mark Yandex user email as confirmed", zap.Error(markErr), zap.String("user_id", user.ID))
 
 			} else {
 
@@ -720,15 +715,15 @@ func (s *userServer) findGoogleUserBySub(ctx context.Context, googleSub string) 
 
 }
 
-func (s *userServer) linkGoogleToEmailUser(ctx context.Context, googleSub, emailHash string) (userID, role string, emailConfirmed bool, err error) {
+func (s *userServer) linkYandexToEmailUser(ctx context.Context, yandexID, emailHash string) (userID, role string, emailConfirmed bool, err error) {
 
 	user, err := s.userRepo.GetByEmailHash(ctx, emailHash)
 
 	if err == nil {
 
-		if linkErr := s.userRepo.LinkGoogleAccount(ctx, googleSub, user.ID); linkErr != nil {
+		if linkErr := s.userRepo.LinkYandexAccount(ctx, yandexID, user.ID); linkErr != nil {
 
-			s.log.Warn("Failed to link Google account", zap.Error(linkErr), zap.String("user_id", user.ID))
+			s.log.Warn("Failed to link Yandex account", zap.Error(linkErr), zap.String("user_id", user.ID))
 
 		}
 
@@ -740,13 +735,21 @@ func (s *userServer) linkGoogleToEmailUser(ctx context.Context, googleSub, email
 
 }
 
-func (s *userServer) createGoogleUser(ctx context.Context, googleSub, emailHash, emailVal string) (userID, role string, emailConfirmed bool, err error) {
+func (s *userServer) createYandexUser(ctx context.Context, yandexID, emailHash, emailVal, login, firstName, lastName string) (userID, role string, emailConfirmed bool, err error) {
 
 	nickname := extractLocalPart(emailVal)
 
 	nicknameHash := db.NicknameHash(nickname)
 
-	userID, role, emailConfirmed, err = s.userRepo.CreateGoogleUser(ctx, googleSub, emailHash, emailVal, nickname, nicknameHash)
+	fullName := strings.TrimSpace(firstName + " " + lastName)
+
+	if fullName == "" && login != "" {
+
+		fullName = login
+
+	}
+
+	userID, role, emailConfirmed, err = s.userRepo.CreateYandexUser(ctx, yandexID, emailHash, emailVal, fullName, nickname, nicknameHash)
 
 	if err != nil {
 
@@ -3036,7 +3039,7 @@ func (s *userServer) AdminListInvites(ctx context.Context, req *pb.AdminListInvi
 
 	if baseURL == "" {
 
-		baseURL = "https://fittpulse.ru"
+		baseURL = "https://fittpulse.duckdns.org"
 
 	}
 
@@ -3159,7 +3162,7 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	if baseURL == "" {
 
-		baseURL = "https://fittpulse.ru"
+		baseURL = "https://fittpulse.duckdns.org"
 
 	}
 
@@ -3322,7 +3325,9 @@ type userServerConfig struct {
 
 	baseURL string
 
-	googleClientID string
+	yandexClientID     string
+
+	yandexClientSecret string
 
 	emailSender email.EmailSender
 
@@ -3391,7 +3396,9 @@ func buildUserServer(cfg userServerConfig) *userServer {
 
 		baseURL: cfg.baseURL,
 
-		googleClientID: cfg.googleClientID,
+		yandexClientID:     cfg.yandexClientID,
+
+		yandexClientSecret: cfg.yandexClientSecret,
 
 		totpService: cfg.totpService,
 	}
@@ -3498,11 +3505,19 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
 
-	googleClientID := config.GetEnv("GOOGLE_CLIENT_ID")
+	yandexClientID := config.GetEnv("YANDEX_CLIENT_ID")
 
-	if googleClientID == "" {
+	if yandexClientID == "" {
 
-		log.Fatal("GOOGLE_CLIENT_ID environment variable is required for Google OAuth")
+		log.Fatal("YANDEX_CLIENT_ID environment variable is required for Yandex ID auth")
+
+	}
+
+	yandexClientSecret := config.GetEnv("YANDEX_CLIENT_SECRET")
+
+	if yandexClientSecret == "" {
+
+		log.Fatal("YANDEX_CLIENT_SECRET environment variable is required for Yandex ID auth")
 
 	}
 
@@ -3587,7 +3602,9 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 		baseURL: baseURL,
 
-		googleClientID: googleClientID,
+		yandexClientID:     yandexClientID,
+
+		yandexClientSecret: yandexClientSecret,
 
 		emailSender: emailSender,
 

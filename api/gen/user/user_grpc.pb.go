@@ -23,7 +23,7 @@ const (
 	UserService_RegisterWithInvite_FullMethodName    = "/user.v1.UserService/RegisterWithInvite"
 	UserService_ConfirmEmail_FullMethodName          = "/user.v1.UserService/ConfirmEmail"
 	UserService_Login_FullMethodName                 = "/user.v1.UserService/Login"
-	UserService_AuthenticateGoogle_FullMethodName    = "/user.v1.UserService/AuthenticateGoogle"
+	UserService_AuthenticateYandex_FullMethodName    = "/user.v1.UserService/AuthenticateYandex"
 	UserService_GetProfile_FullMethodName            = "/user.v1.UserService/GetProfile"
 	UserService_GetUserByEmail_FullMethodName        = "/user.v1.UserService/GetUserByEmail"
 	UserService_UpdateProfile_FullMethodName         = "/user.v1.UserService/UpdateProfile"
@@ -81,8 +81,8 @@ type UserServiceClient interface {
 	ConfirmEmail(ctx context.Context, in *ConfirmEmailRequest, opts ...grpc.CallOption) (*ConfirmEmailResponse, error)
 	// Вход в систему.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
-	// Вход через Google.
-	AuthenticateGoogle(ctx context.Context, in *AuthenticateGoogleRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	// Вход через Яндекс ID.
+	AuthenticateYandex(ctx context.Context, in *AuthenticateYandexRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	// Получение профиля.
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
 	// Получение пользователя по email.
@@ -215,10 +215,10 @@ func (c *userServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 	return out, nil
 }
 
-func (c *userServiceClient) AuthenticateGoogle(ctx context.Context, in *AuthenticateGoogleRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+func (c *userServiceClient) AuthenticateYandex(ctx context.Context, in *AuthenticateYandexRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LoginResponse)
-	err := c.cc.Invoke(ctx, UserService_AuthenticateGoogle_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserService_AuthenticateYandex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -649,8 +649,8 @@ type UserServiceServer interface {
 	ConfirmEmail(context.Context, *ConfirmEmailRequest) (*ConfirmEmailResponse, error)
 	// Вход в систему.
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
-	// Вход через Google.
-	AuthenticateGoogle(context.Context, *AuthenticateGoogleRequest) (*LoginResponse, error)
+	// Вход через Яндекс ID.
+	AuthenticateYandex(context.Context, *AuthenticateYandexRequest) (*LoginResponse, error)
 	// Получение профиля.
 	GetProfile(context.Context, *GetProfileRequest) (*UserProfile, error)
 	// Получение пользователя по email.
@@ -755,8 +755,8 @@ func (UnimplementedUserServiceServer) ConfirmEmail(context.Context, *ConfirmEmai
 func (UnimplementedUserServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedUserServiceServer) AuthenticateGoogle(context.Context, *AuthenticateGoogleRequest) (*LoginResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method AuthenticateGoogle not implemented")
+func (UnimplementedUserServiceServer) AuthenticateYandex(context.Context, *AuthenticateYandexRequest) (*LoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AuthenticateYandex not implemented")
 }
 func (UnimplementedUserServiceServer) GetProfile(context.Context, *GetProfileRequest) (*UserProfile, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
@@ -974,20 +974,20 @@ func _UserService_Login_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_AuthenticateGoogle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AuthenticateGoogleRequest)
+func _UserService_AuthenticateYandex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthenticateYandexRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).AuthenticateGoogle(ctx, in)
+		return srv.(UserServiceServer).AuthenticateYandex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_AuthenticateGoogle_FullMethodName,
+		FullMethod: UserService_AuthenticateYandex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).AuthenticateGoogle(ctx, req.(*AuthenticateGoogleRequest))
+		return srv.(UserServiceServer).AuthenticateYandex(ctx, req.(*AuthenticateYandexRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1754,8 +1754,8 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_Login_Handler,
 		},
 		{
-			MethodName: "AuthenticateGoogle",
-			Handler:    _UserService_AuthenticateGoogle_Handler,
+			MethodName: "AuthenticateYandex",
+			Handler:    _UserService_AuthenticateYandex_Handler,
 		},
 		{
 			MethodName: "GetProfile",

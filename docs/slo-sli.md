@@ -49,7 +49,8 @@ p95 и p99 задержка HTTP-запросов.
 | `/api/v1/profile` | < 500ms | < 1.5s |
 | `/api/v1/biometrics` | < 1s | < 3s |
 | `/api/v1/training/plans` | < 1s | < 3s |
-| `/api/v1/ml/chat` | < 10s | < 20s |
+| `/api/v1/chat` | < 2s | < 5s |
+| `/api/v1/ml/feedback` | < 1s | < 2s |
 | `/health` | < 100ms | < 200ms |
 
 ### 3.3 Измерение

@@ -69,7 +69,7 @@ on:
 env:
   GO_VERSION: "1.27.0"
   REGISTRY: ghcr.io
-  FITPULSE_DOMAIN: "fittpulse.ru"
+  FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
 jobs:
   # ============================================================================
@@ -368,7 +368,7 @@ jobs:
         env:
           GO_VERSION: 1.27.0
           REGISTRY: ghcr.io
-          FITPULSE_DOMAIN: fittpulse.ru
+          FITPULSE_DOMAIN: fittpulse.duckdns.org
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1371,7 +1371,7 @@ jobs:
         run: bash scripts/ci/deploy-staging.sh verify_health
       - name: Run UAT tests against staging
         env:
-          BASE_URL: "https://staging.fittpulse.ru"
+          BASE_URL: "https://fittpulse.duckdns.org"
           NAMESPACE: fitness-platform-staging
         run: bash scripts/ci/deploy-staging.sh run_uat_tests
   # ============================================================================
@@ -1536,8 +1536,8 @@ jobs:
         env:
           RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
           RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
+          YANDEX_CLIENT_SECRET: ${{ secrets.YANDEX_CLIENT_SECRET }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
           JWT_PUBLIC_KEY_PEM: ${{ secrets.JWT_PUBLIC_KEY_PEM }}

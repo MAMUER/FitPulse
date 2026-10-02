@@ -75,10 +75,10 @@ export default function Login() {
       <div className='socials'>
         <button
           type='button'
-          className='google'
-          onClick={() => socialLogin('google')}
+          className='yandex'
+          onClick={() => socialLogin('yandex')}
         >
-          <i className='fab fa-google'></i> {t('Google', 'Google')}
+          <i className='fab fa-yandex'></i> {t('Яндекс', 'Yandex')}
         </button>
       </div>
     </AuthLayout>

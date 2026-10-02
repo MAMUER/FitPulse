@@ -240,7 +240,7 @@ admin-cli --verify-vault-connection
 
 - [Политика обработки ПДн FitPulse](ПОЛИТИКА_ОБРАБОТКИ_ПДН.md)
 - [Реестр обработки ПДн](РЕЕСТР_ОБРАБОТКИ_ПДН.md)
-- [DPA с Google OAuth](DPA_GOOGLE_OAUTH.md)
+- [DPA с Yandex ID](DPA_YANDEX_ID.md)
 - [Runbook: Ответ на инциденты](../runbooks/INCIDENT_RESPONSE.md)
 - [ADR 0005: Безопасное развёртывание](../adr/0005-security-deployment.md)
 - [152-ФЗ «О персональных данных»](https://www.consultant.ru/document/cons_doc_LAW_61801/)

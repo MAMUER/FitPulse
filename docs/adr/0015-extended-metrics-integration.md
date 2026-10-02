@@ -20,7 +20,7 @@
   - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
   - `BackupSuccess` (`type`, `job`)
 
-- В `cmd/ml_generator/main.py` добавлен Gauge-вектор `classification_confidence` через `prometheus_client`. После успешной генерации происходит `labels(model_version, class_name).set(confidence)`.
+- `ClassificationConfidence` (`model_version`, `class`) — уверенность классификатора (rule-based).
 
 ### База данных
 
@@ -60,7 +60,6 @@ metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(l
 - `internal/queue/queue.go`
 - `cmd/biometric-service/main.go`
 - `cmd/data-processor/main.go`
-- `cmd/ml_generator/main.py`
 - `cmd/device-aggregator/main.go`
 - `cmd/device-aggregator/webhooks.go`
 - `cmd/device-aggregator/webhooks_test.go`

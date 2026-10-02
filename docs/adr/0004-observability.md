@@ -43,7 +43,6 @@
 ## Реализация
 
 - **Структурированное JSON-логирование**: Go-сервисы используют `internal/logger/logger.go` на базе zap с JSON-кодированием, ISO8601-таймстемпами и полем `service`. Gateway-middleware добавляет `correlationId`, `userId`, `action` через `internal/middleware/middleware.go`.
-  Python-сервис (`cmd/ml_generator/main.py`) использует `structlog` с `JSONRenderer()` и processor'ом `add_global_fields` для полей `service` и `action`.
 - **Prometheus-экспортёры и Grafana-дашборды**: реализованы core и доменные метрики (`internal/metrics/metrics.go`, `internal/metrics/extended.go`).
 - **Alertmanager**: развёрнут с Telegram-интеграцией (`telegram-notifications` receiver) в `configs/k8s/base/monitoring/alertmanager-config.yaml`. Slack/PagerDuty/Grafana OnCall receivers добавлены в конфиг, но не настроены (требуют credentials).
 - **Propagation correlation ID**: реализована в gateway-middleware через `internal/middleware/middleware.go` и `internal/middleware/context_keys.go`.

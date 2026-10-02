@@ -1,7 +1,7 @@
 # Phase 2 Backlog
 
 > Phase 2 — инфраструктура, масштабирование и hardening production-ready wellness-платформы.
-> Phase 1 уже работает в production: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor, device-aggregator, Vault (External Secrets), PostgreSQL, Valkey, RabbitMQ, WAF, daily backups, Google OAuth, TOTP 2FA.
+> Phase 1 уже работает в production: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor, device-aggregator, Vault (External Secrets), PostgreSQL, Valkey, RabbitMQ, WAF, daily backups, Yandex ID, TOTP 2FA.
 
 ---
 
@@ -46,7 +46,7 @@
 | RabbitMQ | ✅ Production | DLQ, retry logic |
 | WAF | ✅ Production | ModSecurity + OWASP CRS v4 |
 | TLS | ✅ Production | cert-manager + Let's Encrypt |
-| Google OAuth | ✅ Production | Consent screen testing, DPA готов |
+| Yandex ID | ✅ Production | Consent screen testing, DPA готов |
 | TOTP 2FA | ✅ Production | Argon2id, pgsodium encryption |
 | Audit Logging | ⚠️ Partial | ConsoleAuditLogger (stdout), ELK не развёрнут |
 | Cookie Consent | ✅ UI ready | localStorage, banner в App.jsx |
@@ -82,8 +82,8 @@
   - [17. Resource Plan: FTE](ml.md#17-resource-plan-fte)
 - [Devices](devices.md)
   - [24. Расширение поддерживаемых устройств](devices.md#24-расширение-поддерживаемых-устройств)
-- [Google OAuth](google-oauth.md)
-  - [25. Production verification Google OAuth](google-oauth.md#25-production-verification-google-oauth)
+- [Yandex ID](yandex-id.md)
+  - [25. Production verification Yandex ID](yandex-id.md#25-production-verification-yandex-id)
 
 ---
 

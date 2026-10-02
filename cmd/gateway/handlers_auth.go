@@ -35,13 +35,13 @@ const (
 
 	errUnauthorized = "Unauthorized access"
 
-	errGoogleOAuthNotConfigured = "Google OAuth not configured"
+	errYandexOAuthNotConfigured = "Yandex OAuth not configured"
 
 	errCriticalSessionRequired = "Critical session required"
 
 	errTOTPRateLimitExceeded = "TOTP rate limit exceeded"
 
-	googleOAuthStateCookie = "google_oauth_state"
+	yandexOAuthStateCookie = "yandex_oauth_state"
 
 	headerContentType = "Content-Type"
 
@@ -1125,9 +1125,9 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 
 }
 
-// @Summary      Initiate Google OAuth login
+// @Summary      Initiate Yandex ID OAuth login
 
-// @Description  Redirects user to Google OAuth consent screen
+// @Description  Redirects user to Yandex ID consent screen
 
 // @Tags         Auth
 
@@ -1139,15 +1139,15 @@ func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request
 
 // @Failure      500  {object}  map[string]interface{}
 
-// @Router       /api/v1/auth/google [get]
+// @Router       /api/v1/auth/yandex [get]
 
-func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
+func (g *gateway) yandexLoginHandler(w http.ResponseWriter, r *http.Request) {
 
-	if g.googleOAuthConfig == nil {
+	if g.yandexOAuthConfig == nil {
 
-		g.log.Error(errGoogleOAuthNotConfigured)
+		g.log.Error(errYandexOAuthNotConfigured)
 
-		http.Error(w, errGoogleOAuthNotConfigured, http.StatusNotImplemented)
+		http.Error(w, errYandexOAuthNotConfigured, http.StatusNotImplemented)
 
 		return
 
@@ -1157,7 +1157,7 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 
-		g.log.Error("Failed to generate Google OAuth state", zap.Error(err))
+		g.log.Error("Failed to generate Yandex OAuth state", zap.Error(err))
 
 		http.Error(w, "failed to generate oauth state", http.StatusInternalServerError)
 
@@ -1167,7 +1167,7 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 
-		Name: googleOAuthStateCookie,
+		Name: yandexOAuthStateCookie,
 
 		Value: state,
 
@@ -1184,15 +1184,15 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	redirectURL := g.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	redirectURL := g.yandexOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 
 }
 
-// @Summary      Google OAuth callback
+// @Summary      Yandex ID OAuth callback
 
-// @Description  Handles Google OAuth callback and exchanges authorization code for tokens
+// @Description  Handles Yandex ID OAuth callback, exchanges authorization code for access token and user info
 
 // @Tags         Auth
 
@@ -1202,7 +1202,7 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 // @Param        state  query  string  false  "OAuth state parameter"
 
-// @Param        code   query  string  false  "Authorization code from Google"
+// @Param        code   query  string  false  "Authorization code from Yandex"
 
 // @Success      200  {object}  map[string]interface{}
 
@@ -1216,15 +1216,15 @@ func (g *gateway) googleLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 // @Failure      503  {object}  map[string]interface{}
 
-// @Router       /api/v1/auth/google/callback [get]
+// @Router       /api/v1/auth/yandex/callback [get]
 
-func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
+func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
-	if g.googleOAuthConfig == nil {
+	if g.yandexOAuthConfig == nil {
 
-		g.log.Error(errGoogleOAuthNotConfigured)
+		g.log.Error(errYandexOAuthNotConfigured)
 
-		http.Error(w, errGoogleOAuthNotConfigured, http.StatusNotImplemented)
+		http.Error(w, errYandexOAuthNotConfigured, http.StatusNotImplemented)
 
 		return
 
@@ -1232,7 +1232,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	state := r.URL.Query().Get("state")
 
-	cookie, err := r.Cookie(googleOAuthStateCookie)
+	cookie, err := r.Cookie(yandexOAuthStateCookie)
 
 	if err != nil || state == "" || cookie == nil || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
 
@@ -1246,7 +1246,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	http.SetCookie(w, &http.Cookie{
 
-		Name: googleOAuthStateCookie,
+		Name: yandexOAuthStateCookie,
 
 		Value: "",
 
@@ -1275,11 +1275,11 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	}
 
-	token, err := g.googleOAuthConfig.Exchange(r.Context(), code)
+	token, err := g.yandexOAuthConfig.Exchange(r.Context(), code)
 
 	if err != nil {
 
-		g.log.Error("Failed to exchange Google code", zap.Error(err))
+		g.log.Error("Failed to exchange Yandex code", zap.Error(err))
 
 		http.Error(w, "failed to exchange authorization code", http.StatusBadRequest)
 
@@ -1287,28 +1287,107 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	}
 
-	idToken, ok := token.Extra("id_token").(string)
+	accessToken, ok := token.Extra("access_token").(string)
 
-	if !ok || idToken == "" {
+	if !ok || accessToken == "" {
 
-		g.log.Error("Google token missing id_token")
+		g.log.Error("Yandex token missing access_token")
 
-		http.Error(w, "missing id_token from Google", http.StatusBadRequest)
+		http.Error(w, "missing access_token from Yandex", http.StatusBadRequest)
 
 		return
 
 	}
 
-	grpcResp, err := g.userClient.AuthenticateGoogle(r.Context(), &userpb.AuthenticateGoogleRequest{
+	req, err := http.NewRequestWithContext(r.Context(), "GET", "https://login.yandex.ru/info?format=json", nil)
 
-		IdToken: idToken,
+	if err != nil {
+
+		g.log.Error("Failed to create Yandex userinfo request", zap.Error(err))
+
+		http.Error(w, "failed to create user info request", http.StatusBadRequest)
+
+		return
+
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	userInfoResp, err := client.Do(req)
+
+	if err != nil {
+
+		g.log.Error("Failed to fetch Yandex userinfo with token", zap.Error(err))
+
+		http.Error(w, "failed to get user info", http.StatusBadRequest)
+
+		return
+
+	}
+
+	defer userInfoResp.Body.Close()
+
+	if userInfoResp.StatusCode != http.StatusOK {
+
+		g.log.Error("Yandex userinfo returned non-200", zap.Int("status", userInfoResp.StatusCode))
+
+		http.Error(w, "failed to get user info", http.StatusBadRequest)
+
+		return
+
+	}
+
+	var yandexUserInfo struct {
+		ID          string `json:"id"`
+		Login       string `json:"login"`
+		DefaultEmail string `json:"default_email"`
+		FirstName   string `json:"first_name"`
+		LastName    string `json:"last_name"`
+		Email       string `json:"email"`
+	}
+
+	if err := json.NewDecoder(userInfoResp.Body).Decode(&yandexUserInfo); err != nil {
+
+		g.log.Error("Failed to decode Yandex userinfo response", zap.Error(err))
+
+		http.Error(w, "failed to decode user info", http.StatusBadRequest)
+
+		return
+
+	}
+
+	if yandexUserInfo.ID == "" || yandexUserInfo.DefaultEmail == "" {
+
+		g.log.Error("Yandex userinfo missing required fields",
+			zap.String("id", yandexUserInfo.ID),
+			zap.String("email", yandexUserInfo.DefaultEmail))
+
+		http.Error(w, "Yandex token missing required claims", http.StatusBadRequest)
+
+		return
+
+	}
+
+	emailVal := yandexUserInfo.DefaultEmail
+	if emailVal == "" {
+		emailVal = yandexUserInfo.Email
+	}
+
+	grpcResp, err := g.userClient.AuthenticateYandex(r.Context(), &userpb.AuthenticateYandexRequest{
+		YandexId:  yandexUserInfo.ID,
+		Email:     emailVal,
+		Login:     yandexUserInfo.Login,
+		FirstName: yandexUserInfo.FirstName,
+		LastName:  yandexUserInfo.LastName,
 	})
 
 	if err != nil {
 
 		httpCode, errMsg := grpcToHTTPStatus(err)
 
-		g.log.Error("Google auth failed", zap.Error(err))
+		g.log.Error("Yandex auth failed", zap.Error(err))
 
 		http.Error(w, errMsg, httpCode)
 
@@ -1325,15 +1404,12 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set(headerContentType, contentTypeJSON)
 
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
 			"requires_2fa": true,
-
 			"temp_token": tempToken,
-
 			"message": "Please provide your 2FA code",
 		}); err != nil {
 
-			g.log.Error("Failed to encode Google 2FA response", zap.Error(err))
+			g.log.Error("Failed to encode Yandex 2FA response", zap.Error(err))
 
 			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
 
@@ -1363,6 +1439,7 @@ func (g *gateway) googleCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	})
 
 }
+
 
 // 2FA TOTP endpoints
 

@@ -78,7 +78,7 @@
 - Cookie consent banner (GDPR Art. 7)
 - Special category consent для обработки здоровья и менструального цикла (GDPR Art. 9, 152-ФЗ)
 - Medical disclaimer в UI при вводе health-данных
-- DPA с Google OAuth (трансграничная передача ПДн в США)
+- DPA с Yandex ID (трансграничная передача ПДн в США)
 - DPIA (Data Protection Impact Assessment)
 - Quarterly access review (152-ФЗ, GDPR)
 - Profile export/delete (GDPR Art. 15, 17)

@@ -375,27 +375,31 @@ func (x *LoginResponse) GetRefreshToken() string {
 	return ""
 }
 
-type AuthenticateGoogleRequest struct {
+type AuthenticateYandexRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	IdToken       string                 `protobuf:"bytes,1,opt,name=id_token,json=idToken,proto3" json:"id_token,omitempty"`
+	YandexId      string                 `protobuf:"bytes,1,opt,name=yandex_id,json=yandexId,proto3" json:"yandex_id,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Login         string                 `protobuf:"bytes,3,opt,name=login,proto3" json:"login,omitempty"`
+	FirstName     string                 `protobuf:"bytes,4,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName      string                 `protobuf:"bytes,5,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AuthenticateGoogleRequest) Reset() {
-	*x = AuthenticateGoogleRequest{}
+func (x *AuthenticateYandexRequest) Reset() {
+	*x = AuthenticateYandexRequest{}
 	mi := &file_user_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AuthenticateGoogleRequest) String() string {
+func (x *AuthenticateYandexRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AuthenticateGoogleRequest) ProtoMessage() {}
+func (*AuthenticateYandexRequest) ProtoMessage() {}
 
-func (x *AuthenticateGoogleRequest) ProtoReflect() protoreflect.Message {
+func (x *AuthenticateYandexRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_user_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -407,14 +411,42 @@ func (x *AuthenticateGoogleRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AuthenticateGoogleRequest.ProtoReflect.Descriptor instead.
-func (*AuthenticateGoogleRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use AuthenticateYandexRequest.ProtoReflect.Descriptor instead.
+func (*AuthenticateYandexRequest) Descriptor() ([]byte, []int) {
 	return file_user_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *AuthenticateGoogleRequest) GetIdToken() string {
+func (x *AuthenticateYandexRequest) GetYandexId() string {
 	if x != nil {
-		return x.IdToken
+		return x.YandexId
+	}
+	return ""
+}
+
+func (x *AuthenticateYandexRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *AuthenticateYandexRequest) GetLogin() string {
+	if x != nil {
+		return x.Login
+	}
+	return ""
+}
+
+func (x *AuthenticateYandexRequest) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *AuthenticateYandexRequest) GetLastName() string {
+	if x != nil {
+		return x.LastName
 	}
 	return ""
 }
@@ -1992,28 +2024,28 @@ func (x *GetAchievementsResponse) GetAchievements() []*Achievement {
 }
 
 type UserProfile struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Email             string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	FullName          string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
-	Nickname          string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`
-	Role              string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
-	EmailConfirmed    bool                   `protobuf:"varint,6,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"`
-	Age               int32                  `protobuf:"varint,7,opt,name=age,proto3" json:"age,omitempty"`
-	Gender            string                 `protobuf:"bytes,8,opt,name=gender,proto3" json:"gender,omitempty"`
-	HeightCm          int32                  `protobuf:"varint,9,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
-	WeightKg          float64                `protobuf:"fixed64,10,opt,name=weight_kg,json=weightKg,proto3" json:"weight_kg,omitempty"`
-	FitnessLevel      string                 `protobuf:"bytes,11,opt,name=fitness_level,json=fitnessLevel,proto3" json:"fitness_level,omitempty"`
-	Goals             []string               `protobuf:"bytes,12,rep,name=goals,proto3" json:"goals,omitempty"`
-	Contraindications []string               `protobuf:"bytes,13,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
-	CreatedAt         string                 `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt         string                 `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Nutrition         string                 `protobuf:"bytes,16,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
-	SleepHours        float32                `protobuf:"fixed32,17,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
-	ProfilePhotoUrl   string                 `protobuf:"bytes,18,opt,name=profile_photo_url,json=profilePhotoUrl,proto3" json:"profile_photo_url,omitempty"`
-	AiAssistantEnabled bool                  `protobuf:"varint,19,opt,name=ai_assistant_enabled,json=aiAssistantEnabled,proto3" json:"ai_assistant_enabled,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	UserId             string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Email              string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	FullName           string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	Nickname           string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Role               string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	EmailConfirmed     bool                   `protobuf:"varint,6,opt,name=email_confirmed,json=emailConfirmed,proto3" json:"email_confirmed,omitempty"`
+	Age                int32                  `protobuf:"varint,7,opt,name=age,proto3" json:"age,omitempty"`
+	Gender             string                 `protobuf:"bytes,8,opt,name=gender,proto3" json:"gender,omitempty"`
+	HeightCm           int32                  `protobuf:"varint,9,opt,name=height_cm,json=heightCm,proto3" json:"height_cm,omitempty"`
+	WeightKg           float64                `protobuf:"fixed64,10,opt,name=weight_kg,json=weightKg,proto3" json:"weight_kg,omitempty"`
+	FitnessLevel       string                 `protobuf:"bytes,11,opt,name=fitness_level,json=fitnessLevel,proto3" json:"fitness_level,omitempty"`
+	Goals              []string               `protobuf:"bytes,12,rep,name=goals,proto3" json:"goals,omitempty"`
+	Contraindications  []string               `protobuf:"bytes,13,rep,name=contraindications,proto3" json:"contraindications,omitempty"`
+	CreatedAt          string                 `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt          string                 `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Nutrition          string                 `protobuf:"bytes,16,opt,name=nutrition,proto3" json:"nutrition,omitempty"`
+	SleepHours         float32                `protobuf:"fixed32,17,opt,name=sleep_hours,json=sleepHours,proto3" json:"sleep_hours,omitempty"`
+	ProfilePhotoUrl    string                 `protobuf:"bytes,18,opt,name=profile_photo_url,json=profilePhotoUrl,proto3" json:"profile_photo_url,omitempty"`
+	AiAssistantEnabled bool                   `protobuf:"varint,19,opt,name=ai_assistant_enabled,json=aiAssistantEnabled,proto3" json:"ai_assistant_enabled,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *UserProfile) Reset() {
@@ -5877,9 +5909,14 @@ const file_user_proto_rawDesc = "" +
 	"expires_in\x18\x03 \x01(\x03R\texpiresIn\x12\x17\n" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04role\x18\x05 \x01(\tR\x04role\x12#\n" +
-	"\rrefresh_token\x18\x06 \x01(\tR\frefreshToken\"6\n" +
-	"\x19AuthenticateGoogleRequest\x12\x19\n" +
-	"\bid_token\x18\x01 \x01(\tR\aidToken\",\n" +
+	"\rrefresh_token\x18\x06 \x01(\tR\frefreshToken\"\xa0\x01\n" +
+	"\x19AuthenticateYandexRequest\x12\x1b\n" +
+	"\tyandex_id\x18\x01 \x01(\tR\byandexId\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x14\n" +
+	"\x05login\x18\x03 \x01(\tR\x05login\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x04 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x05 \x01(\tR\blastName\",\n" +
 	"\x11GetProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"-\n" +
 	"\x15GetUserByEmailRequest\x12\x14\n" +
@@ -5995,7 +6032,7 @@ const file_user_proto_rawDesc = "" +
 	"\x16GetAchievementsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"S\n" +
 	"\x17GetAchievementsResponse\x128\n" +
-	"\fachievements\x18\x01 \x03(\v2\x14.user.v1.AchievementR\fachievements\"\xa8\x04\n" +
+	"\fachievements\x18\x01 \x03(\v2\x14.user.v1.AchievementR\fachievements\"\xda\x04\n" +
 	"\vUserProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
@@ -6018,7 +6055,8 @@ const file_user_proto_rawDesc = "" +
 	"\tnutrition\x18\x10 \x01(\tR\tnutrition\x12\x1f\n" +
 	"\vsleep_hours\x18\x11 \x01(\x02R\n" +
 	"sleepHours\x12*\n" +
-	"\x11profile_photo_url\x18\x12 \x01(\tR\x0fprofilePhotoUrl\"\x83\x01\n" +
+	"\x11profile_photo_url\x18\x12 \x01(\tR\x0fprofilePhotoUrl\x120\n" +
+	"\x14ai_assistant_enabled\x18\x13 \x01(\bR\x12aiAssistantEnabled\"\x83\x01\n" +
 	"\x10ListUsersRequest\x12*\n" +
 	"\x11requester_user_id\x18\x01 \x01(\tR\x0frequesterUserId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
@@ -6318,7 +6356,7 @@ const file_user_proto_rawDesc = "" +
 	"\x12RegisterWithInvite\x12\".user.v1.RegisterWithInviteRequest\x1a\x19.user.v1.RegisterResponse\x12K\n" +
 	"\fConfirmEmail\x12\x1c.user.v1.ConfirmEmailRequest\x1a\x1d.user.v1.ConfirmEmailResponse\x126\n" +
 	"\x05Login\x12\x15.user.v1.LoginRequest\x1a\x16.user.v1.LoginResponse\x12P\n" +
-	"\x12AuthenticateGoogle\x12\".user.v1.AuthenticateGoogleRequest\x1a\x16.user.v1.LoginResponse\x12>\n" +
+	"\x12AuthenticateYandex\x12\".user.v1.AuthenticateYandexRequest\x1a\x16.user.v1.LoginResponse\x12>\n" +
 	"\n" +
 	"GetProfile\x12\x1a.user.v1.GetProfileRequest\x1a\x14.user.v1.UserProfile\x12F\n" +
 	"\x0eGetUserByEmail\x12\x1e.user.v1.GetUserByEmailRequest\x1a\x14.user.v1.UserProfile\x12D\n" +
@@ -6385,7 +6423,7 @@ var file_user_proto_goTypes = []any{
 	(*ConfirmEmailResponse)(nil),          // 3: user.v1.ConfirmEmailResponse
 	(*LoginRequest)(nil),                  // 4: user.v1.LoginRequest
 	(*LoginResponse)(nil),                 // 5: user.v1.LoginResponse
-	(*AuthenticateGoogleRequest)(nil),     // 6: user.v1.AuthenticateGoogleRequest
+	(*AuthenticateYandexRequest)(nil),     // 6: user.v1.AuthenticateYandexRequest
 	(*GetProfileRequest)(nil),             // 7: user.v1.GetProfileRequest
 	(*GetUserByEmailRequest)(nil),         // 8: user.v1.GetUserByEmailRequest
 	(*GetUserByEmailResponse)(nil),        // 9: user.v1.GetUserByEmailResponse
@@ -6497,7 +6535,7 @@ var file_user_proto_depIdxs = []int32{
 	39, // 19: user.v1.UserService.RegisterWithInvite:input_type -> user.v1.RegisterWithInviteRequest
 	2,  // 20: user.v1.UserService.ConfirmEmail:input_type -> user.v1.ConfirmEmailRequest
 	4,  // 21: user.v1.UserService.Login:input_type -> user.v1.LoginRequest
-	6,  // 22: user.v1.UserService.AuthenticateGoogle:input_type -> user.v1.AuthenticateGoogleRequest
+	6,  // 22: user.v1.UserService.AuthenticateYandex:input_type -> user.v1.AuthenticateYandexRequest
 	7,  // 23: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
 	8,  // 24: user.v1.UserService.GetUserByEmail:input_type -> user.v1.GetUserByEmailRequest
 	10, // 25: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
@@ -6543,7 +6581,7 @@ var file_user_proto_depIdxs = []int32{
 	1,  // 65: user.v1.UserService.RegisterWithInvite:output_type -> user.v1.RegisterResponse
 	3,  // 66: user.v1.UserService.ConfirmEmail:output_type -> user.v1.ConfirmEmailResponse
 	5,  // 67: user.v1.UserService.Login:output_type -> user.v1.LoginResponse
-	5,  // 68: user.v1.UserService.AuthenticateGoogle:output_type -> user.v1.LoginResponse
+	5,  // 68: user.v1.UserService.AuthenticateYandex:output_type -> user.v1.LoginResponse
 	36, // 69: user.v1.UserService.GetProfile:output_type -> user.v1.UserProfile
 	36, // 70: user.v1.UserService.GetUserByEmail:output_type -> user.v1.UserProfile
 	36, // 71: user.v1.UserService.UpdateProfile:output_type -> user.v1.UserProfile
