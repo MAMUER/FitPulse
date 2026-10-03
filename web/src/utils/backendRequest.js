@@ -41,4 +41,4 @@ async function backendRequest(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-export { BACKEND_CONFIG };
+export { BACKEND_CONFIG, backendRequest };

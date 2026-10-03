@@ -11,6 +11,7 @@ import Integrations from './screens/Integrations';
 import Landing from './screens/Landing';
 import Legal from './screens/Legal';
 import Login from './screens/Login';
+import Menstrual from './screens/Menstrual';
 import Nutrition from './screens/Nutrition';
 import Profile from './screens/Profile';
 import Register from './screens/Register';
@@ -46,6 +47,11 @@ function TabBar() {
     },
     { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
     { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
+    {
+      key: 'menstrual',
+      label: t('Цикл', 'Cycle'),
+      icon: 'fas fa-venus',
+    },
   ];
 
   return (
@@ -93,6 +99,7 @@ export default function App() {
         <Route path='/videos' element={<Videos />} />
         <Route path='/ai' element={<Ai />} />
         <Route path='/body' element={<Body />} />
+        <Route path='/menstrual' element={<Menstrual />} />
         <Route path='/profile' element={<Profile />} />
         <Route path='/chat' element={<Chat />} />
         <Route path='/legal' element={<Legal />} />

@@ -1153,7 +1153,7 @@ paths:
                   format: date-time
                 device_type:
                   type: string
-                  enum: [fitbit, withings, apple_watch, manual]
+                  enum: [garmin, whoop, polar, suunto, strava, oura, ultrahuman, apple_health, samsung_health, google_health_connect, open_wearables, withings, manual]
                 quality:
                   type: string
                   enum: [high, medium, low]
@@ -1701,6 +1701,66 @@ paths:
         "200":
           description: Webhook accepted
 
+  /api/v1/integrations/withings/auth:
+    get:
+      tags:
+        - Integrations
+      summary: Initiate Withings OAuth login
+      security: []
+      responses:
+        "307":
+          description: Redirect to Withings consent screen
+        "501":
+          description: Withings integration not configured
+
+  /api/v1/integrations/withings/callback:
+    get:
+      tags:
+        - Integrations
+      summary: Withings OAuth callback
+      security: []
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Withings connected
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Invalid OAuth state or missing code
+        "401":
+          description: Unauthorized
+
+  /api/v1/integrations/withings/sync:
+    post:
+      tags:
+        - Integrations
+      summary: Sync Withings data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Withings data synced
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+        "404":
+          description: Withings device not connected
+        "500":
+          description: Failed to sync Withings data
+
   /api/v1/integrations/{source}/disconnect:
     parameters:
       - name: source
@@ -1842,7 +1902,7 @@ components:
           type: integer
         source:
           type: string
-          enum: [manual, fitbit, withings, apple_health]
+          enum: [manual, garmin, whoop, polar, suunto, strava, oura, ultrahuman, apple_health, samsung_health, google_health_connect, open_wearables, withings]
         created_at:
           type: string
           format: date-time
@@ -1877,7 +1937,7 @@ components:
           type: integer
         source:
           type: string
-          enum: [manual, fitbit, withings, apple_health]
+          enum: [manual, garmin, whoop, polar, suunto, strava, oura, ultrahuman, apple_health, samsung_health, google_health_connect, open_wearables, withings]
 
     MenstrualCycle:
       type: object
@@ -2013,7 +2073,7 @@ components:
       properties:
         device_type:
           type: string
-          enum: [fitbit, withings, apple_watch, manual]
+          enum: [garmin, whoop, polar, suunto, strava, oura, ultrahuman, apple_health, samsung_health, google_health_connect, open_wearables, manual]
         device_token:
           type: string
         sync_interval_ms:

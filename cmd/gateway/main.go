@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -39,6 +40,8 @@ import (
 	"github.com/MAMUER/project/internal/resilience"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
+	"github.com/MAMUER/project/internal/withings"
+	"github.com/MAMUER/project/internal/db"
 )
 
 type gateway struct {
@@ -77,6 +80,12 @@ type gateway struct {
 	errorTotal *prometheus.CounterVec
 
 	yandexOAuthConfig *oauth2.Config
+
+	withingsClient *withings.WithingsClient
+
+	deviceClient *gatewayDeviceClient
+
+	db *sql.DB
 
 	biometricMu sync.Mutex
 
@@ -167,39 +176,11 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	mlAsync := cfg.mlAsync
 
-	var asyncRDB *redis.Client
-
-	if mlAsync {
-
-		var valkeyConnected bool
-
-		asyncRDB, valkeyConnected = connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 1, valkeyMaxRetries, valkeyRetryDelay)
-
-		if !valkeyConnected {
-
-			mlAsync = false
-
-		}
-
-	}
+	asyncRDB, mlAsync := initAsyncValkey(ctx, log, cfg, valkeyPassword, valkeyMaxRetries, valkeyRetryDelay, mlAsync)
 
 	rmqCh, rmqClose, rabbitMQConnected := connectRabbitMQ(log, cfg.rabbitmqURL, mlAsync)
 
-	if !rabbitMQConnected {
-
-		mlAsync = false
-
-		if asyncRDB != nil {
-
-			if closeErr := asyncRDB.Close(); closeErr != nil {
-
-				log.Warn("Failed to close async Valkey client", zap.Error(closeErr))
-
-			}
-
-		}
-
-	}
+	mlAsync = handleRabbitMQConnection(log, asyncRDB, mlAsync, rabbitMQConnected)
 
 	if rmqClose != nil {
 
@@ -245,6 +226,33 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	}
 
+	var database *sql.DB
+
+	if cfg.dbHost != "" && cfg.dbUser != "" && cfg.dbPassword != "" && cfg.dbName != "" {
+
+		database, err = db.NewConnection(db.Config{
+
+			Host:     cfg.dbHost,
+
+			Port:     cfg.dbPort,
+
+			User:     cfg.dbUser,
+
+			Password: cfg.dbPassword,
+
+			DBName:   cfg.dbName,
+
+			SSLMode:  cfg.dbSSLMode,
+		})
+
+		if err != nil {
+
+			log.Warn("Failed to connect to database for device integrations", zap.Error(err))
+
+		}
+
+	}
+
 	g := buildGateway(gatewayBuildOptions{
 
 		log: log,
@@ -270,8 +278,39 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 		captchaSiteKey: captchaSiteKey,
 	})
 
-	return g, nil
+	if database != nil {
 
+		g.db = database
+
+		g.deviceClient = newGatewayDeviceClient(database)
+
+	}
+
+	return g, nil
+}
+
+func initAsyncValkey(ctx context.Context, log *logger.Logger, cfg gatewayConfig, valkeyPassword string, valkeyMaxRetries int, valkeyRetryDelay time.Duration, mlAsync bool) (*redis.Client, bool) {
+	if !mlAsync {
+		return nil, false
+	}
+	var valkeyConnected bool
+	asyncRDB, valkeyConnected := connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 1, valkeyMaxRetries, valkeyRetryDelay)
+	if !valkeyConnected {
+		return nil, false
+	}
+	return asyncRDB, true
+}
+
+func handleRabbitMQConnection(log *logger.Logger, asyncRDB *redis.Client, mlAsync, rabbitMQConnected bool) bool {
+	if !rabbitMQConnected {
+		if asyncRDB != nil {
+			if closeErr := asyncRDB.Close(); closeErr != nil {
+				log.Warn("Failed to close async Valkey client", zap.Error(closeErr))
+			}
+		}
+		return false
+	}
+	return mlAsync
 }
 
 func loadGatewayConfig(log *logger.Logger) gatewayConfig {
@@ -298,7 +337,27 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		yandexClientSecret: config.GetEnv("YANDEX_CLIENT_SECRET"),
 
-		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
+		withingsClientID: config.GetEnv("WITHINGS_CLIENT_ID"),
+
+		withingsClientSecret: config.GetEnv("WITHINGS_CLIENT_SECRET"),
+
+	withingsRedirectURL: "",
+
+	withingsAPIBaseURL: config.GetEnv("WITHINGS_API_BASE_URL", "https://wbsapi.withings.net"),
+
+	corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
+
+	dbHost:     config.GetEnv("DB_HOST", "postgres-service.fitness-platform-production.svc.cluster.local"),
+
+	dbPort:     config.GetEnv("DB_PORT", "5432"),
+
+	dbUser:     config.GetEnv("POSTGRES_USER", "fitpulse_app"),
+
+	dbPassword: config.GetEnv("POSTGRES_PASSWORD", ""),
+
+	dbName:     config.GetEnv("POSTGRES_DB", "fitness_platform"),
+
+	dbSSLMode:  config.GetEnv("DB_SSLMODE", "require"),
 	}
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
@@ -306,6 +365,8 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 
 	cfg.yandexOAuthConfig = buildYandexOAuthConfig(log, cfg)
+
+	cfg.withingsClient = buildWithingsClient(log, cfg)
 
 	return cfg
 
@@ -371,6 +432,49 @@ func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 
 }
 
+func buildWithingsClient(log *logger.Logger, cfg gatewayConfig) *withings.WithingsClient {
+
+	if cfg.withingsClientID == "" || cfg.withingsClientSecret == "" {
+
+		log.Warn("Withings integration not configured: WITHINGS_CLIENT_ID or WITHINGS_CLIENT_SECRET missing")
+
+		return nil
+
+	}
+
+	redirectURL := config.GetEnv("WITHINGS_REDIRECT_URL")
+
+	if redirectURL == "" && cfg.appBaseURL != "" {
+
+		redirectURL = cfg.appBaseURL + "/api/v1/integrations/withings/callback"
+
+	}
+
+	apiBaseURL := config.GetEnv("WITHINGS_API_BASE_URL")
+
+	if apiBaseURL == "" {
+
+		apiBaseURL = "https://wbsapi.withings.net"
+
+	}
+
+	log.Info("Withings integration configured", zap.String("redirect_url", redirectURL), zap.String("api_base_url", apiBaseURL))
+
+	return withings.NewClient(&withings.Config{
+
+		ClientID:     cfg.withingsClientID,
+
+		ClientSecret: cfg.withingsClientSecret,
+
+		RedirectURL:  redirectURL,
+
+		APIBaseURL:   apiBaseURL,
+
+		Scopes:       withings.DefaultScopes(),
+	}, log.Logger)
+
+}
+
 func valkeyAddress() string {
 
 	valkeyHost := config.GetEnv("VALKEY_HOST", "valkey")
@@ -410,11 +514,33 @@ type gatewayConfig struct {
 
 	yandexClientSecret string
 
+	withingsClientID string
+
+	withingsClientSecret string
+
+	withingsRedirectURL string
+
+	withingsAPIBaseURL string
+
 	mlAsync bool
 
 	yandexOAuthConfig *oauth2.Config
 
+	withingsClient *withings.WithingsClient
+
 	corsOrigins []string
+
+	dbHost string
+
+	dbPort string
+
+	dbUser string
+
+	dbPassword string
+
+	dbName string
+
+	dbSSLMode string
 }
 
 type gatewayTLSConfig struct {
@@ -710,6 +836,10 @@ type gatewayBuildOptions struct {
 
 	userClient userpb.UserServiceClient
 
+	biometricClient biometricpb.BiometricServiceClient
+
+	trainingClient trainingpb.TrainingServiceClient
+
 	mlAsync bool
 
 	tokenProvider ports.TokenProvider
@@ -750,6 +880,8 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		errorTotal: opts.metrics.errorTotal,
 
 		yandexOAuthConfig: opts.cfg.yandexOAuthConfig,
+
+		withingsClient: opts.cfg.withingsClient,
 
 		captchaProvider: opts.captchaProvider,
 
@@ -1131,6 +1263,10 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	r.Get("/api/v1/auth/yandex/callback", g.yandexCallbackHandler)
 
+	r.Get("/api/v1/integrations/withings/auth", g.withingsLoginHandler)
+
+	r.Get("/api/v1/integrations/withings/callback", g.withingsCallbackHandler)
+
 	r.Get("/health", g.healthHandler)
 
 	// Metrics endpoint
@@ -1246,6 +1382,10 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 		r.Post("/biometrics", g.addBiometricRecordHandler)
 
 		r.Get("/biometrics", g.getBiometricRecordsHandler)
+
+		// Integrations
+
+		r.Post("/integrations/withings/sync", g.withingsSyncHandler)
 
 		// Training
 
