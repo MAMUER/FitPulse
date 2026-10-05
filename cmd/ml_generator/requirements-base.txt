@@ -6,10 +6,10 @@ torch>=2.13.0
 lightning @ git+https://github.com/Lightning-AI/pytorch-lightning.git@e1cfc4d
 lightning-utilities>=0.15.3,<2.0
 numpy>=2.5.2
-pandas>=3.0.5
+pandas>=3.0.6
 
 # API — FastAPI (without uvloop for Windows)
-uvicorn>=0.52.4
+uvicorn>=0.54.0
 fastapi>=0.141.1
 pydantic>=2.13.5
 python-multipart>=0.0.32
