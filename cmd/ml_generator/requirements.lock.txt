@@ -319,7 +319,7 @@ safetensors==0.8.0
     # via transformers
 scikit-learn==1.9.1
     # via evidently
-scipy==1.18.0
+scipy==1.18.1
     # via
     #   evidently
     #   scikit-learn
