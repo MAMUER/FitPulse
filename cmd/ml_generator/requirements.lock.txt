@@ -199,7 +199,7 @@ numpy==2.5.2
     #   tensorboard
     #   torchmetrics
     #   transformers
-onnx==1.22.0
+onnx==1.23.0
     # via
     #   -r requirements.txt
     #   onnx-ir
