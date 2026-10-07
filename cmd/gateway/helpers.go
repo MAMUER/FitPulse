@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -34,6 +35,30 @@ func safeIntToInt32(v int) int32 {
 		return -2147483648
 	}
 	return int32(v)
+}
+
+// parsePagination extracts page and page_size from query parameters
+func parsePagination(r *http.Request) (page, pageSize int) {
+	page = 1
+	pageSize = 20
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 {
+			pageSize = v
+		}
+	}
+
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	return page, pageSize
 }
 
 // isValidServiceURL validates that a URL points to an allowed internal service

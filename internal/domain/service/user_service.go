@@ -26,6 +26,8 @@ type userService struct {
 	devices        port.DeviceRepository
 	emailVerifs    port.EmailVerificationRepository
 	refreshTokens  port.RefreshTokenRepository
+	externalSecrets port.ExternalSecretRepository
+	survey         port.SurveyRepository
 }
 
 type UserServiceConfig struct {
@@ -44,6 +46,16 @@ type UserServiceConfig struct {
 	Devices        port.DeviceRepository
 	EmailVerifs    port.EmailVerificationRepository
 	RefreshTokens  port.RefreshTokenRepository
+	ExternalSecrets port.ExternalSecretRepository
+	Survey         port.SurveyRepository
+}
+
+func (s *userService) SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
+	return s.survey.SaveSurvey(ctx, userID, survey, completed, completedAt)
+}
+
+func (s *userService) LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error) {
+	return s.survey.LoadSurvey(ctx, userID)
 }
 
 func NewUserService(cfg UserServiceConfig) UserService {
@@ -63,6 +75,8 @@ func NewUserService(cfg UserServiceConfig) UserService {
 		devices:        cfg.Devices,
 		emailVerifs:    cfg.EmailVerifs,
 		refreshTokens:  cfg.RefreshTokens,
+		externalSecrets: cfg.ExternalSecrets,
+		survey:         cfg.Survey,
 	}
 }
 

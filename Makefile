@@ -1,23 +1,17 @@
+.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean swag
+BIN_DIR := bin
+GO_VERSION := 1.27.0
+
 imports:
 	@echo "Updating Go imports with gci..."
 	@go install github.com/daixiang0/gci@v0.14.0
 	@gci write -s standard -s default -s 'prefix(github.com/MAMUER/project)' --skip-generated --skip-vendor cmd internal || echo "gci failed, continuing without import reorganization"
 	@echo "Imports step finished."
 
-.PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean pip-compile swag
-BIN_DIR := bin
-GO_VERSION := 1.27.0
-
 tidy:
 	@echo "Tidying Go modules..."
 	@go mod tidy
 	@echo "Tidy complete."
-
-pip-compile:
-	@echo "Compiling Python requirements..."
-	@python -m pip install --quiet --upgrade pip-tools
-	@cd cmd/ml_generator && python -m piptools compile --strip-extras --output-file=requirements.lock.txt requirements.txt
-	@echo "Pip-compile complete."
 
 fmt:
 	@echo "Formatting Go code..."
@@ -41,9 +35,14 @@ test:
 
 coverage:
 	@echo "Generating Go coverage..."
-	@mkdir -p coverage
-	@go test -short -covermode=atomic -coverprofile="coverage/coverage.out" ./...
-	@echo "Coverage report generated at coverage/coverage.out"
+	@mkdir -p $(BIN_DIR)
+	@go test -short -covermode=atomic -coverprofile="$(BIN_DIR)/coverage.out" ./...
+	@echo "Coverage report generated at $(BIN_DIR)/coverage.out"
+	@go tool cover -func=$(BIN_DIR)/coverage.out | tail -1
+
+coverage-check: coverage
+	@echo "Checking coverage threshold..."
+	@go tool cover -func=$(BIN_DIR)/coverage.out | awk -v threshold=80 'NR>1 {gsub(/%/,"",$$4); if ($$4+0 < threshold) {print "Coverage below threshold: "$$4"% < "threshold"%"; exit 1} else {print "Coverage OK: "$$4"%"} }'
 
 build:
 	@echo "Building Go binaries into $(BIN_DIR)/..."
@@ -55,6 +54,7 @@ build:
 	@go build -o $(BIN_DIR)/classifier.exe ./cmd/classifier
 	@go build -o $(BIN_DIR)/device-aggregator.exe ./cmd/device-aggregator
 	@go build -o $(BIN_DIR)/data-processor.exe ./cmd/data-processor
+	@go build -o $(BIN_DIR)/admin-cli.exe ./cmd/admin-cli
 	@echo "Build complete. Binaries are in $(BIN_DIR)/"
 
 clean:
@@ -94,9 +94,9 @@ frontend-test:
 	@echo "Frontend tests complete."
 
 frontend-build:
-	@echo "Building frontend..."
-	@npm --prefix web run build
-	@echo "Frontend build complete."
+ 	@echo "Building frontend..."
+ 	@npm --prefix web run build
+ 	@echo "Frontend build complete."
 
 help:
 	@echo "Available commands:"
@@ -112,7 +112,7 @@ help:
 	@echo "  make frontend-install - Install frontend dependencies with npm"
 	@echo "  make imports         - Update Go imports with gci"
 	@echo "  make pip-compile     - Compile Python requirements with pip-compile"
-	@echo "  make coverage         - Generate Go and frontend coverage reports for SonarCloud"
+	@echo "  make coverage         - Generate Go coverage report in bin/coverage.out"
 	@echo "  make js-check        - Check JavaScript syntax with Node.js"
 	@echo "  make frontend-lint   - Lint frontend code with Biome"
 	@echo "  make frontend-test   - Run frontend tests with Vitest"

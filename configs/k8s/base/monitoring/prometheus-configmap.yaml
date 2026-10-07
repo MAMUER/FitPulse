@@ -101,3 +101,46 @@ data:
             annotations:
               summary: "Valkey/Redis is down"
               description: "Valkey instance {{ $labels.instance }} is unreachable."
+
+  slo.yml: |
+    groups:
+      - name: fitness-platform-slo
+        rules:
+          - record: job:request_error_rate
+            expr: rate(error_total[5m]) / rate(request_total[5m])
+
+          - record: job:request_duration_p95
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+          - record: job:slo_error_budget_remaining
+            expr: (0.001 - job:request_error_rate) / 0.001 * 100
+
+          - record: job:slo_burn_rate_5m
+            expr: job:request_error_rate / 0.001
+
+          - alert: SLOErrorBudgetBurnRateHigh
+            expr: job:slo_burn_rate_5m > 1
+            for: 1h
+            labels:
+              severity: warning
+            annotations:
+              summary: "SLO error budget burn rate high"
+              description: "Burn rate is {{ $value | humanize }}× for 1h on {{ $labels.job }}."
+
+          - alert: SLOErrorBudgetBurned
+            expr: job:slo_error_budget_remaining < 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "SLO error budget exhausted"
+              description: "Error budget remaining is {{ $value }}% on {{ $labels.job }}."
+
+          - alert: SLOLatencyBreach
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "SLO latency breach"
+              description: "P95 latency is {{ $value }}s on {{ $labels.job }}, threshold is 2s."

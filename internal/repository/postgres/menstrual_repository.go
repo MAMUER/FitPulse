@@ -10,28 +10,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type UserMenstrualRepository interface {
-	ListCycles(ctx context.Context, userID string) ([]*port.UserMenstrualCycle, error)
-
-	CreateCycle(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-
-	UpdateCycle(ctx context.Context, cycle *port.UserMenstrualCycle) (*port.UserMenstrualCycle, error)
-
-	DeleteCycle(ctx context.Context, id, userID string) error
-
-	ListSymptoms(ctx context.Context, cycleID string) ([]string, error)
-
-	CreateSymptom(ctx context.Context, cycleID, symptom string) error
-
-	DeleteSymptoms(ctx context.Context, cycleID string) error
-
-	ListMoods(ctx context.Context, cycleID string) ([]string, error)
-
-	CreateMood(ctx context.Context, cycleID, mood string) error
-
-	DeleteMoods(ctx context.Context, cycleID string) error
-}
-
 type userMenstrualRepository struct {
 	db *sql.DB
 }

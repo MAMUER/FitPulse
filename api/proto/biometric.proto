@@ -1,21 +1,30 @@
 syntax = "proto3";
 
-package biometric;
+package biometric.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/biometric";
 
 import "google/protobuf/timestamp.proto";
 
+// Сервис биометрических данных.
 service BiometricService {
+    // Добавление одной записи.
     rpc AddRecord(AddRecordRequest) returns (AddRecordResponse);
+    // Пакетное добавление записей.
     rpc BatchAddRecords(BatchAddRecordsRequest) returns (BatchAddRecordsResponse);
+    // Получение записей с фильтрами.
     rpc GetRecords(GetRecordsRequest) returns (GetRecordsResponse);
+    // Получение последней записи.
     rpc GetLatest(GetLatestRequest) returns (BiometricRecord);
+    // Обновление записи.
     rpc UpdateRecord(UpdateRecordRequest) returns (BiometricRecord);
+    // Удаление записи.
     rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
+    // Получение источников данных.
     rpc GetSources(GetSourcesRequest) returns (GetSourcesResponse);
 }
 
+// Биометрическая запись.
 message BiometricRecord {
     string id = 1;
     string user_id = 2;
@@ -24,6 +33,8 @@ message BiometricRecord {
     google.protobuf.Timestamp timestamp = 5;
     string device_type = 6;
     google.protobuf.Timestamp created_at = 7;
+    // Качество данных.
+    optional string quality = 8;
 }
 
 message AddRecordRequest {

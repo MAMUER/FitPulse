@@ -10,12 +10,6 @@ import (
 	"github.com/MAMUER/project/internal/domain/port"
 )
 
-type AchievementRepositoryEx interface {
-	ListWithEarnedStatus(ctx context.Context, userID string) ([]*port.AchievementInfo, error)
-
-	Earn(ctx context.Context, userID, achievementID string) error
-}
-
 type achievementRepositoryEx struct {
 	db *sql.DB
 }

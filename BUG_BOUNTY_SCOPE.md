@@ -19,7 +19,7 @@ FitPulse — open-source fitness platform.
 
 | Target | Notes |
 | -------- | ------- |
-| `https://fittpulse.duckdns.org` | текущий production-домен (development/staging). При переходе на платный домен `fitpulse.example.com` он автоматически добавляется в scope. |
+| `https://fittpulse.duckdns.org` | текущий production-домен. При переходе на дополнительный домен он автоматически добавляется в scope. |
 | Веб-интерфейс (`web/src/`, `web/static/fonts/`, `web/static/errors/`) | React SPA, шрифты, страницы ошибок |
 | Все API endpoints (`/api/v1/...`) | auth, biometrics, training, profile, devices, admin (`/api/v1/admin/*`), ML classification/generation |
 | Исходный код сервисов (`cmd/*`, `api/*`, `internal/*`) | backend, protobuf, адаптеры |
@@ -44,9 +44,44 @@ FitPulse — open-source fitness platform.
 
 ---
 
+## PGP Encryption
+
+Для защиты чувствительных отчётов об уязвимостях при передаче по email используйте PGP-шифрование.
+
+**PGP fingerprint**: `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEarNy8RYJKwYBBAHaRw8BAQdALnbfkcW/gpHJIdFDIhl1RsZzRbPmohRMllrT
++82BRm60LUZpdFB1bHNlIFNlY3VyaXR5IDxtaWhuaWtvbGFlbmtvMTJAeWFuZGV4
+LnJ1PoiWBBMWCgA+FiEE9M/2lOiJ2v5TztiQds+nIny3PfAFAmqzcvECGyMFCQHh
+M4AFCwkIBwIGFQoJCAsCBBYCAwECHgECF4AACgkQds+nIny3PfAcSQEAq8DVtDUL
+S5hBXHrX4CyqAei6Oemb68zuSR+xdPj1tE8BAPkdZ+eUBswjX+3pYimGXwutYeSj
+KB2kZNQaaRr4/jwD
+=vO9G
+-----END PGP PUBLIC KEY BLOCK-----`  
+**Public key server**: `hkps://keys.openpgp.org`  
+**WKD endpoint**: `<https://fittpulse.duckdns.org/.well-known/openpgpkey/hu/`>
+
+### Как отправить encrypted report
+
+1. Скачайте наш публичный PGP-ключ:
+
+   ```bash
+   gpg --keyserver hkps://keys.openpgp.org --recv-keys 76CFA7227CB73DF0
+   ```
+
+2. Зашифруйте отчёт:
+
+   ```bash
+   gpg --encrypt --armor --recipient 76CFA7227CB73DF0 report.txt
+   ```
+
+3. Отправьте зашифрованный файл на `mihnikolaenko12@yandex.ru`.
+
 ## Reporting
 
 Используйте **GitHub Security Advisory** (репозиторий → Security → "Report a vulnerability") или email: `mihnikolaenko12@yandex.ru`
+
+**Рекомендуется**: шифруйте чувствительные отчёты PGP (см. раздел выше).
 
 Ожидаемый ответ (best effort, без юридических гарантий):
 
@@ -86,4 +121,4 @@ FitPulse — open-source fitness platform.
 
 ---
 
-### Последнее обновление: 2026-07-03
+### Последнее обновление: 2026-09-23

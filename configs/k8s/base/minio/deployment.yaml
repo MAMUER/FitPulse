@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app: minio
+    tier: storage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+        tier: storage
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: minio-storage
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-password
+          args: ["server", "/data", "--console-address", ":9001"]
+          volumeMounts:
+            - name: minio-storage
+              mountPath: /data
+          securityContext:
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+              ephemeral-storage: "1Gi"

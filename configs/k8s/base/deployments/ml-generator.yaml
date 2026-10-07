@@ -90,6 +90,14 @@ spec:
               value: "2"
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "ml-generator"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
           livenessProbe:
             httpGet:
               path: /health

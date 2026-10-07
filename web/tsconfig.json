@@ -1,14 +1,31 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
-    "types": ["@playwright/test", "node"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["@playwright/test", "node", "vitest/globals"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": false,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/queue"
+	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 )
 
@@ -43,6 +44,13 @@ const (
 func main() {
 	log := logger.New(serviceName)
 	defer func() { _ = log.Sync() }()
+
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+		}
+	}()
 
 	config.InitViper("data-processor")
 	_ = config.GetViper()
@@ -130,11 +138,15 @@ func run(ctx context.Context, log *logger.Logger) error {
 		return errors.New("RABBITMQ_URL is required")
 	}
 
-	consumer, err := queue.NewConsumer(rabbitURL, "biometric_events", log)
+	queueName := config.GetEnv("BIOMETRIC_QUEUE_NAME", "biometric_events")
+	consumer, err := queue.NewConsumer(rabbitURL, queueName, log)
 	if err != nil {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
 	defer func() { _ = consumer.Close() }()
+
+	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), queueName)
+	defer stopDepthReporter()
 
 	var wg sync.WaitGroup
 	wg.Add(1)

@@ -105,6 +105,8 @@ updates:
     labels: ["dependencies", "docker", "gateway"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
@@ -122,6 +124,8 @@ updates:
     labels: ["dependencies", "docker", "user-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
@@ -140,6 +144,8 @@ updates:
     labels: ["dependencies", "docker", "biometric-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/training-service"
@@ -158,6 +164,8 @@ updates:
     labels: ["dependencies", "docker", "training-service"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
@@ -193,46 +201,11 @@ updates:
     labels: ["dependencies", "docker", "classifier"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
-  # ═══════════════════════════════════════════════════════════════
-  # 4. PYTHON (pip) — ML-сервисы
-  # ═══════════════════════════════════════════════════════════════
-  - package-ecosystem: "pip"
-    directory: "/cmd/ml_generator"
-    schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "deps(pip/ml-generator)", include: "scope" }
-    labels: ["dependencies", "python", "ml-generator"]
-    assignees: ["MAMUER"]
-    groups:
-      ml-dependencies:
-        patterns:
-          - "fastapi"
-          - "uvicorn"
-          - "pydantic"
-          - "pandas"
-          - "matplotlib"
-          - "valkey"
-          - "pika"
-          - "joblib"
-          - "prometheus-client"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # ═══════════════════════════════════════════════════════════════
-  # 5. DOCKER — ML-сервисы (Python-образы)
-  # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
-    directory: "/cmd/ml_generator"
+    directory: "/cmd/data-processor"
     schedule:
       {
         interval: "weekly",
@@ -243,14 +216,14 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
-    commit-message: { prefix: "deps(docker/ml-generator)", include: "scope" }
-    labels: ["dependencies", "docker", "ml-generator"]
+    commit-message: { prefix: "deps(docker/data-processor)", include: "scope" }
+    labels: ["dependencies", "docker", "data-processor"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
 
-  # ═══════════════════════════════════════════════════════════════
-  # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
-  # ═══════════════════════════════════════════════════════════════
+   # ═══════════════════════════════════════════════════════════════
+   # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
+   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base"
     schedule:
@@ -282,6 +255,8 @@ updates:
       - dependency-name: "rancher/mirrored-pause"
       - dependency-name: "rancher/mirrored-coredns-coredns"
       - dependency-name: "registry.k8s.io/ingress-nginx/controller"
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/jobs"
@@ -319,6 +294,8 @@ updates:
     labels: ["dependencies", "docker", "kubernetes", "ingress-nginx"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
   # 8. KUBERNETES MANIFESTS — overlays/production
@@ -339,6 +316,8 @@ updates:
     labels: ["dependencies", "docker", "kubernetes"]
     assignees: ["MAMUER"]
     registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
   # 8. NPM — Frontend (React + Vite)
@@ -364,8 +343,6 @@ updates:
           - "react*"
           - "@vitejs/*"
           - "vite"
-          - "chart.js"
-          - "react-chartjs-2"
           - "react-router-dom"
           - "@biomejs/*"
         update-types:

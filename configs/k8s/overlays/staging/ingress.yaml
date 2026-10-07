@@ -21,10 +21,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - staging.fittpulse.duckdns.org
-      secretName: staging-fittpulse-duckdns-org-tls
+        - fittpulse.duckdns.org
+      secretName: staging-fittpulse-ru-tls
   rules:
-    - host: staging.fittpulse.duckdns.org
+    - host: fittpulse.duckdns.org
       http:
         paths:
           - path: /

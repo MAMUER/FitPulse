@@ -3,3 +3,12 @@ failure-threshold: warning
 ignored:
   - DL3008 # apt-get install: allow unpinned versions
   - DL3018 # apk upgrade intentionally upgrades all packages
+
+trustedRegistries:
+  - docker.io
+  - quay.io
+  - gcr.io
+  - registry.k8s.io
+  - ghcr.io
+  - public.ecr.aws
+  - mcr.microsoft.com

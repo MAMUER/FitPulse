@@ -1,618 +1,370 @@
-# FitPulse — UI Specification
+# FitPulse — UI Specification v11
 
-> **Scope:** Мобильное веб-приложение (SPA) для пользователя системы FitPulse.
-> **Target device:** Мобильный браузер (Viewport `390–430 px`, touch-first).
-> **Base URL:** `https://fittpulse.duckdns.org:8443/` (development).
-
----
-
-## 1. Архитектура интерфейса
-
-### 1.1. Тип приложения
-
-Single Page Application (SPA) на React 19 с Vite, состоящая из компонентов в `web/src/`. Маршрутизация реализована через React Router v7. Все view управляются React-компонентами с централизованным состоянием через Context API.
-
-### 1.2. Навигация
-
-Нижний tab-bar с 7 кнопками (6 для всех пользователей + 1 скрытая для админов). Переключение происходит мгновенно без перезагрузки страницы.
-
-|Tab|Icon (SVG)|data-view|View ID|Заголовок|Примечание|
-|---|---|---|---|---|---|
-|Обзор|4-quadrant grid|`dashboard`|`dashboardView`|Обзор|Активен по умолчанию|
-|Профиль|User circle|`profile`|`profileView`|Профиль|—|
-|Тренировки|Lightning bolt|`training`|`trainingView`|Тренировки|—|
-|Устройства|Smartphone|`devices`|`devicesView`|Устройства|—|
-|Достижения|Trophy|`achievements`|`achievementsView`|Достижения|—|
-|Диета|Container/bottle|`diet`|`dietView`|Диета|—|
-|Здоровье|Heart pulse|`health`|`healthView`|Здоровье|—|
-|Админка|Shield|`admin`|`adminView`|Админка|Скрыт по умолчанию (`display: none`)|
-
-Дополнительные view без tab-bar:
-
-- `mlView` (AI-анализ) — открывается как модалка/оверлей или отдельный экран;
-
-### 1.3. Технологии
-
-- **React 19** с Vite 8, React Router v7.
-- **Chart.js** 4 + `react-chartjs-2` — график пульса на Dashboard.
-- **API**: `web/src/utils/api.js` с Bearer-авторизацией.
-- **State**: React Context API (`AuthContext`).
-- **Styling**: Plain CSS с CSS-переменными.
+> **Scope:** Mobile-first React SPA aligned with `FitPulse_FINAL_v11_RELEASE.html`.
+> **Target device:** Mobile browser (`390–430 px` viewport, touch-first).
+> **Runtime:** React 19 + Vite 8 + React Router v7 + Context API.
 
 ---
 
-## 2. Экраны и состояние
+## 1. Architecture
 
-### 2.1. Экран авторизации (`authScreen`)
+### 1.1. Application type
 
-Состояния (отображаются по классу `active` / `hidden`):
+Single Page Application (SPA). All screens are React components under `web/src/screens/`. Navigation is handled by React Router in `web/src/App.jsx`. Global state lives in `web/src/contexts/AppContext.jsx`.
 
-|Состояние|Форма / элемент|ID|Описание|
-|---|---|---|---|
-|Логин|`loginForm`|`loginForm`|Email + пароль|
-|Логин с 2FA|`login2FAForm`|`login2FAForm`|Ввод TOTP-кода или резервного кода|
-|Регистрация|`registerForm`|`registerForm`|Имя, email, пароль|
-|Верификация email|`verifyForm`|`verifyForm`|Подтверждение токена|
-|Ошибка|`authError` / `loginError` / `login2FAError` / `registerError` / `confirmError`|`authError`, `loginError`, `login2FAError`, `registerError`, `confirmError`|Общий блок ошибок|
+### 1.2. Screens and routes
 
-**Поля формы логина:**
+| Route | Screen component | Notes |
+| --- | --- | --- |
+| `/login` | `Login` | Default auth screen |
+| `/register` | `Register` | Registration + consent |
+| `/reset` | `Reset` | Password reset flow |
+| `/` | `Home` | Default main screen |
+| `/home` | `Home` | Dashboard, stories, metrics |
+| `/nutrition` | `Nutrition` | Meal plan, macros, alternatives |
+| `/calendar` | `Calendar` | Month view, quick events |
+| `/training` | `Training` | Plans, start workout, places |
+| `/videos` | `Videos` | Video workout cards |
+| `/ai` | `AI` | AI chat + quick actions |
+| `/body` | `Body` | Body composition, metrics |
+| `/profile` | `Profile` | Profile, settings, account |
+| `/chat` | `Chat` | Chat contacts and messages |
+| `/legal` | `Legal` | Privacy, terms, consent |
 
-- `loginEmail` — `type=email`, `inputmode=email`, `maxlength=254`, `autocomplete=email`.
-- `loginPassword` — `type=password`, `autocomplete=current-password`.
-- `loginBtn` — кнопка отправки.
+Unauthenticated users see auth routes only. Authenticated users see main routes with a bottom tab bar.
 
-**Поля формы логина с 2FA:**
+### 1.3. Bottom tab bar
 
-- `totpLoginCode` — `type=text`, `maxlength=6`, `inputmode=numeric`, `autocomplete=one-time-code`.
-- `backupLoginCode` — `type=text`, `maxlength=9`, `autocomplete=off`.
-- `login2FABtn` — кнопка отправки.
-- `useBackupLoginBtn` — переключение на резервный код.
-- `backToLoginFrom2FA` — возврат к обычному логину.
+Tabs: Home, Nutrition, Calendar, Training, AI, Chat. Active tab is highlighted with the blue accent.
 
-**Поля формы регистрации:**
+### 1.4. Technologies
 
-- `regName` — `type=text`, `maxlength=100`, `minlength=2`, `pattern=[A-Za-zА-Яа-яЁё\s\-]+`.
-- `regEmail` — email, `maxlength=254`.
-- `regPassword` — `type=password`, `minlength=8`, с подсказкой `passwordHint` (длина, заглавная, строчная, цифра).
-- `registerBtn` — кнопка отправки (изначально `disabled`).
-
-**Валидация:**
-
-- `regPassword` в реальном времени обновляет `passwordHint` через `hintLength`, `hintUpper`, `hintLower`, `hintDigit`.
-- Кнопка `registerBtn` заблокирована (`disabled`), до выполнения всех требований к паролю.
-- При сабмите формы запрос уходит в `api.register()` → `POST /api/v1/register`.
-
-**Верификация email:**
-
-- После успешной регистрации показывается `verifyForm` с email-адресом (`verifyEmail`).
-- Если нет SMTP / в режиме разработки — показывается секция `devTokenSection` с токеном (`devToken`, `verifyToken`).
-- Для production: пользователь переходит по ссылке из письма → токен передаётся в `POST /api/v1/auth/confirm`.
-- `confirmBtn` — кнопка подтверждения токена.
-- `backToLogin` — возврат к логину.
-
-**Переходы:**
-
-- `toRegister` — из логина в регистрацию.
-- `toLogin` — из регистрации в логин.
-- `backToLogin` — из верификации в логин.
-- `backToLoginFrom2FA` — из 2FA в обычный логин.
-
-### 2.2. Главное приложение (`mainScreen`)
-
-Структура:
-
-```text
-div#app
-  div#authScreen.screen (скрыт после авторизации)
-  div#mainScreen.screen
-    header.top-bar
-      h2#pageTitle
-      button#logoutBtn
-    main.content
-      section.view (один активный)
-        div#dashboardView
-        div#profileView
-        div#trainingView
-        div#devicesView
-        div#achievementsView
-        div#dietView
-        div#healthView
-        div#mlView (оверлей, не в tab-bar)
-        div#adminView (скрыт display:none для не-админов)
-    nav.tab-bar
-      button.tab × 8 (admin скрыт)
-```
-
-**Логика переключения view:**
-
-- По клику на tab: удалить `active` у текущего view, добавить текущему, обновить `pageTitle`.
-- При открытии view React Router подгружает соответствующий компонент.
-- `adminTab` отображается только для пользователей с ролью `admin`.
+- **React 19** with Vite 8.
+- **React Router v7** for client-side routing.
+- **Plain CSS** with CSS variables in `web/src/index.css`.
+- **Font Awesome 6** via CDN, with local unicode fallbacks.
+- **Google Fonts:** Barlow Condensed + Manrope.
 
 ---
 
-## 3. Обзор (Dashboard)
+## 2. Design tokens
 
-**View ID:** `dashboardView`
-**Заголовок:** `Обзор`
-
-### 3.1. Сводка здоровья (`health-summary`)
-
-4 карточки в сетке 2×2:
-
-|Карточка|ID|Единица|Диапазон|
-|---|---|---|---|
-|Пульс|`hrValue`|уд/мин|30–220|
-|SpO₂|`spo2Value`|%|70–100|
-|Сон|`sleepValue`|часов|0–24|
-|Давление|`bpValue`|мм рт.ст.|—|
-
-Данные подгружаются через `GET /profile` и `GET /biometrics`.
-
-### 3.2. Динамика пульса (`chart-section`)
-
-- `<canvas id="heartChart">` — последние 24ч / 7 дней.
-- Библиотека: Chart.js.
-- Данные: массив `{timestamp, value}` из `GET /biometrics?metric_type=heart_rate`.
-
-### 3.3. AI-анализ (`ai-section`)
-
-- Карточка с классом `ai-card`.
-- `aiRecommendation` — краткая рекомендация (например, «Восстановление»).
-- `aiDescription` — пояснение.
-- Source: результат `POST /ml/classify`.
-
-### 3.4. Тренировка на сегодня (`today-section`)
-
-- Блок `todayWorkout` — карточка с текущим / ближайшим занятием из активного плана.
-- Если плана нет: `workout-placeholder` с текстом «Сгенерируйте программу тренировок в разделе "Тренировки"».
-
----
-
-## 4. Профиль (`profileView`)
-
-**View ID:** `profileView`
-**Заголовок:** `Профиль`
-
-### 4.1. Основная форма `profileForm`
-
-Группы полей:
-
-**Основное:**
-
-- Никнейм (`profNickname`) — `maxlength=30`, обязательный.
-- Возраст (`profAge`) — `type=number`, `min=18`, `max=100`.
-- Пол (`profGender`) — select: `male`, `female`.
-
-**Параметры тела:**
-
-- Рост (`profHeight`) — см, `min=50`, `max=300`.
-- Вес (`profWeight`) — кг, `min=20`, `max=500`, шаг `0.1`.
-
-**Образ жизни:**
-
-- Уровень подготовки (`profFitness`) — select: `beginner`, `intermediate`, `advanced`.
-- Тип питания (`profNutrition`) — select: `balanced`, `high_protein`, `vegetarian`, `vegan`, `keto`, `paleo`.
-
-**Здоровье и предпочтения:**
-
-- Аллергии (`profAllergies`) — текстовое поле.
-- Медицинские противопоказания (`profContraindications`) — текстовое поле.
-- ИМТ калькулятор: `bmiHint`, `bmiValue`, `bmiCategory`, `bmiRecommendation`.
-
-**Цели** — radio-chips (`name="goal"`):
-
-- `weight_loss` — Похудение
-- `muscle_gain` — Набор мышц
-- `endurance` — Выносливость
-- `flexibility` — Гибкость
-
-### 4.2. Безопасность
-
-Кнопки:
-
-- `changePasswordBtn` — открывает форму смены пароля (`changePasswordForm`).
-- `changeEmailBtn` — открывает форму смены email (`changeEmailForm`).
-
-**Форма смены пароля (`changePasswordForm`):**
-
-- `currentPassword` + `currentPasswordError`
-- `newPassword` + `newPasswordError` + `passwordHint` (с `hintLength`, `hintUpper`, `hintLower`, `hintDigit`)
-- `confirmPassword` + `confirmPasswordError`
-- Кнопки: `cancelChangePassword`, submit → `PUT /profile`
-
-**Форма смены email (`changeEmailForm`):**
-
-- `newEmail` + `newEmailError`
-- `emailConfirmPassword` + `emailConfirmPasswordError`
-- Кнопки: `cancelChangeEmail`, submit → `PUT /profile`
-
-**Двухфакторная аутентификация:**
-
-- `twoFAStatus` — статус 2FA.
-- `enable2FABtn` / `disable2FABtn` — кнопки включения/отключения.
-- `totpSetupPanel` — панель настройки (QR-код `totpQRCode`, секрет `totpManualSecret`, резервные коды `totpBackupCodes`, код подтверждения `totpSetupCode` + `totpSetupError`).
-- `confirm2FABtn` — подтверждение включения 2FA.
-- `disable2FAPanel` — панель отключения (`disable2FACode` + `disable2FAError`).
-- Endpoints: `POST /auth/2fa/setup`, `POST /auth/2fa/confirm`, `GET /auth/2fa/status`, `POST /auth/2fa/disable`.
-
-### 4.3. Опасная зона (`danger-zone`)
-
-- Заголовок красным: «Опасная зона».
-- `deleteProfileBtn` → `confirm()` диалог с запросом пароля → `DELETE /profile` с `{password}` в теле запроса.
-
-### 4.4. Эндпоинты
-
-|Действие|Метод|Путь|
-|---|---|---|
-|Загрузить профиль|GET|`/profile`|
-|Обновить профиль|PUT|`/profile`|
-|Удалить профиль|DELETE|`/profile`|
-
-Смена пароля и email выполняются через `PUT /profile` с соответствующими полями, отдельные endpoints `/profile/security/*` не используются.
-
----
-
-## 5. Тренировки (`trainingView`)
-
-**View ID:** `trainingView`
-**Заголовок:** `Тренировки`
-
-### 5.1. Список планов (`plansList`)
-
-- Карточки планов: название, дата создания, статус (`active` / `completed` / `archived`).
-- Пустое состояние: `empty-state` с иконкой `🏃` и текстом «AI создаст персональный план...».
-- Эндпоинт: `GET /training/plans?page=&page_size=`.
-
-### 5.2. Кнопка генерации
-
-- `generatePlanBtn` — плавающая кнопка (FAB) внизу экрана.
-- При нажатии открывается **модалка / отдельный экран** с формой параметров:
-  - Длительность (недели), `min=1`, `max=12`
-  - Доступные дни (чекбоксы Пн–Вс)
-  - Класс тренировки (select)
-  - Уверенность/интенсивность
-- Submit → `POST /training/generate`.
-
-### 5.3. Детали плана
-
-При открытии плана:
-
-- Список дней → упражнения → подходы/повторения.
-- Кнопка «Завершить тренировку» → `POST /training/complete`.
-
-### 5.4. Прогресс
-
-- График прогресса (Chart.js, столбчатая диаграмма) — `GET /training/progress`. Отображается в разделе «Достижения» (`achievementsView`) под списком челленджей.
-
----
-
-## 6. Устройства (`devicesView`)
-
-**View ID:** `devicesView`
-**Заголовок:** `Устройства`
-
-### 6.1. Подключённые устройства (`connectedDevicesList`)
-
-Список карточек:
-
-- Иконка устройства (emoji или SVG)
-- Название: `Open Wearables`
-- Статус: «Подключено» / «Отключён»
-- Кнопка «Отключить»
-
-Эндпоинты:
-
-- `GET /api/v1/integrations/providers` — список источников.
-- `POST /api/v1/integrations/{source}/disconnect` — отключение источника.
-- `POST /api/v1/integrations/open-wearables/webhook` — приём данных от Open Wearables.
-- Управление состоянием через локальное состояние приложения.
-
-### 6.2. Выбор устройства (`deviceSelector`)
-
-Сетка доступных устройств для подключения. При выборе происходит регистрация и переключение статуса.
-
-### 6.3. Интеграции
-
-- Open Wearables: `POST /api/v1/integrations/open-wearables/webhook` (webhook от агрегатора).
-- Список провайдеров: `GET /api/v1/integrations/providers`.
-- Отключение источника: `POST /api/v1/integrations/{source}/disconnect`.
-
----
-
-## 7. Достижения (`achievementsView`)
-
-**View ID:** `achievementsView`
-**Заголовок:** `Достижения`
-
-### 7.1. Достижения (`achievementsList`)
-
-Сетка карточек (`achievements-grid`). Данные загружаются через `GET /api/v1/achievements` и отображаются все достижения из БД с статусом получено/заблокировано:
-
-- Первый шаг — первая завершённая тренировка
-- Десятка — 10 завершённых тренировок
-- Полтинник — 50 завершённых тренировок
-- Сто дней — 100 дней активности
-- Мастер спорта — 1000 завершённых тренировок
-
-Эндпоинт: `GET /api/v1/achievements`.
-
-### 7.2. Соревнования (`competitionsList`)
-
-- Список активных челленджей.
-- Позиция в рейтинге.
-- Призы.
-
-Источник данных: клиентские заглушки (персональные челленджи).
-
----
-
-## 8. Диета (`dietView`)
-
-**View ID:** `dietView`
-**Заголовок:** `Диета`
-
-### 8.1. Настройки питания (`dietSettings`)
-
-- `dietAllergies` — аллергии/непереносимость.
-- `dietDislikes` — нелюбимые продукты.
-- `dietMealsCount` — количество приёмов пищи (3–6).
-- `dietFirstMealTime` — время первого приёма пищи.
-- `applyDietSettingsBtn` — применить и обновить план.
-
-### 8.2. План питания (`dietPlanContainer`)
-
-Карточки приёмов пищи:
-
-- Завтрак / Обед / Ужин / Перекусы
-- Калории, белки/жиры/углеводы.
-- Ингредиенты/примеры блюд.
-
-Источник: `POST /ml/generate-plan` → диетная часть ответа.
-
----
-
-## 8.5. Здоровье (`healthView`)
-
-**View ID:** `healthView`
-**Заголовок:** `Здоровье`
-
-### 8.5.1. Особенности здоровья (`healthConditionsList`)
-
-- Список заболеваний/состояний.
-- Кнопка «Добавить» → `POST /health/conditions`.
-- Эндпоинты: `GET /health/conditions`, `POST /health/conditions`, `DELETE /health/conditions/{condition_id}`.
-
-### 8.5.2. Состав тела (`bodyCompositionList`)
-
-- Журнал записей состава тела.
-- Кнопка «Добавить запись» → `POST /health/body-composition`.
-- Эндпоинты: `GET /health/body-composition`, `POST /health/body-composition`.
-
-### 8.5.3. Женский цикл (`menstrualCyclesList`)
-
-- Календарь/список циклов.
-- Кнопка «Добавить цикл» → `POST /health/menstrual-cycles`.
-- Эндпоинты: `GET /health/menstrual-cycles`, `POST /health/menstrual-cycles`, `PUT /health/menstrual-cycles/{cycle_id}`, `DELETE /health/menstrual-cycles/{cycle_id}`.
-
-### 8.5.4. Синхронизация
-
-- Данные поступают через Open Wearables webhook: `POST /api/v1/integrations/open-wearables/webhook`.
-- Список источников: `GET /api/v1/integrations/providers`.
-- Отключение источника: `POST /api/v1/integrations/{source}/disconnect`.
-
----
-
-## 9. ML-анализ (`mlView`)
-
-**View ID:** `mlView` (оверлей/экран, не в нижнем tab-bar)
-
-### 9.1. Классификация состояния
-
-- `mlResult` — контейнер результата.
-- `mlClassifyBtn` — плавающая кнопка запуска классификации.
-- Показывает текущие параметры: пульс, HRV, SpO₂, температура, давление.
-- Кнопка «Классифицировать» → `POST /ml/classify`.
-- Результат: класс состояния, уверенность, рекомендация.
-
-### 9.2. Генерация плана (в разделе «Тренировки»)
-
-См. раздел 5.2 (кнопка `generatePlanBtn`).
-
-Результат:
-
-- План тренировок (JSON) с днями, упражнениями, подходами.
-- Диетический план (калории, БЖУ, приёмы пищи).
-
----
-
-## 10. Админка (`adminView`)
-
-**View ID:** `adminView`
-**Заголовок:** `Панель администратора`
-**Примечание:** view скрыта по умолчанию (`display: none`), отображается только для роли `admin`.
-
-### 10.1. Создание invite-кода
-
-- `newInviteRole` — select: `client`, `admin`.
-- `newInviteMaxUses` — число использований (min=1).
-- Кнопка «Создать» → `POST /invites`.
-
-### 10.2. Список invite-кодов (`invitesList`)
-
-- Карточки кодов: код, роль, статус, использовано/макс.
-- Эндпоинт: `GET /invites?page=&page_size=&used=`.
-
-### 10.3. Список пользователей
-
-- Бэкенд эндпоинт `GET /api/v1/admin/users` реализован.
-- UI в `adminView` отображает список пользователей в виде сетки: имя/email, роль, дата создания, дата обновления.
-
----
-
-## 11. Обработка ошибок
-
-### 11.1. Кастомные страницы ошибок
-
-Серверные ошибки отображаются через `web/static/errors/`:
-
-- `403.html` — «Доступ запрещён»
-- `404.html` — «Страница не найдена» (отдаётся только при прямом обращении к несуществующему серверному маршруту; клиентские роуты внутри SPA обрабатывает React Router)
-- `500.html` — «Внутренняя ошибка сервера»
-
-### 11.2. Страница подтверждения email (`/confirm`)
-
-- React-компонент `web/src/components/Auth/Confirm.jsx` рендерится по `GET /confirm?token=`.
-- Backend возвращает HTML shell с встроенным `token` в `window.__CONFIRM_TOKEN__`, React подхватывает токен из URL query параметра.
-
-### 11.3. Сетевые ошибки в SPA
-
-- Таймаут `fetch` — 10 секунд (`AbortController` + `setTimeout` в `client.js`). При превышении — ошибка «Превышено время ожидания запроса».
-- При 403 — для HTML запросов показывает middleware `ErrorPages` страницу `403.html`; для JSON API бэкенд через `JSONError` конвертирует 403 в 404 для предотвращения перечисления ресурсов.
-- При 401 — `client.js` очищает токен и делает `window.location.reload()`, что возвращает пользователя на экран логина.
-- При 429 — показывает сообщение «Слишком много запросов, повторите через N сек.» (или «через минуту», если заголовок `Retry-After` отсутствует).
-- При 5xx — сервер отдаёт страницу `500.html` для браузера; в JS `client.js` выбрасывает ошибку с текстом серверного ответа или fallback-строкой. Повтор запроса реализуется локально в компонентах (например, `useDevices.js`), глобальной retry-кнопки нет.
-
----
-
-## 12. Безопасность интерфейса
-
-|#|Мера|Реализация|
-|---|---|---|
-|1|XSS-защита|В большинстве мест используется `innerHTML` для рендеринга данных. Для пользовательского ввода применяется `textContent` там, где это реализовано.|
-|2|CSP|`Content-Security-Policy` генерируется серверным middleware `SecurityHeaders` (nonce-based) + `HTMLNonceInject` добавляет `nonce` в `<script>` теги.|
-|3|HTTPS|Поддерживается TLS 1.3 + HSTS. Клиент использует относительные URLs (`/api/v1/...`), поэтому работает и по HTTP, и по HTTPS в зависимости от окружения.|
-|4|JWT хранение|Access token хранится в `localStorage`, отправляется в заголовке `Authorization: Bearer`. Refresh token хранится в `session` cookie.|
-|5|Валидация на клиенте|Все поля имеют `type`, `min`, `max`, `pattern`, `required`.|
-|6|Защита ответов|Транспорт защищён TLS 1.3 + HSTS + CSP|
-|7|Rate limit UI|При 429 показывается сообщение «Слишком много запросов, попробуйте через минуту» (или с учетом `Retry-After`).|
-
----
-
-## 13. API-интеграция
-
-Все запросы централизованы в `web/src/utils/api.js`. Базовый путь: `/api/v1`.
-
-|Функция|Метод|Путь|
-|---|---|---|
-|`register(email, password, fullName, role)`|POST|`/api/v1/register`|
-|`login(email, password)`|POST|`/api/v1/login`|
-|`getProfile()`|GET|`/api/v1/profile`|
-|`updateProfile(profile)`|PUT|`/api/v1/profile`|
-|`changePassword(currentPassword, newPassword)`|POST|`/api/v1/auth/change-password`|
-|`changeEmail(newEmail, password)`|POST|`/api/v1/auth/change-email`|
-|`get2FAStatus()`|GET|`/api/v1/auth/2fa/status`|
-|`setup2FA()`|POST|`/api/v1/auth/2fa/setup`|
-|`confirm2FA(passcode, tempSecret, backupCodes)`|POST|`/api/v1/auth/2fa/confirm`|
-|`verify2FA(tempToken, passcode, isBackupCode)`|POST|`/api/v1/auth/2fa/verify`|
-|`disable2FA(passcode)`|POST|`/api/v1/auth/2fa/disable`|
-|`deleteProfile(password)`|DELETE|`/api/v1/profile`|
-|`addBiometricRecord(metricType, value, timestamp, deviceType)`|POST|`/api/v1/biometrics`|
-|`getBiometricRecords(metricType, from, to, limit)`|GET|`/api/v1/biometrics`|
-|`generateTrainingPlan(durationWeeks, availableDays, classificationClass, confidence)`|POST|`/api/v1/training/generate`|
-|`getTrainingPlans(page, pageSize)`|GET|`/api/v1/training/plans`|
-|`getPlan(planId)`|GET|`/api/v1/training/plans/{plan_id}`|
-|`completeWorkout(planId, workoutId, rating, feedback)`|POST|`/api/v1/training/complete`|
-|`getProgress()`|GET|`/api/v1/training/progress`|
-|`getAchievements()`|GET|`/api/v1/achievements`|
-|`logout()`|POST|`/api/v1/logout`|
-|`listHealthConditions(conditionType)`|GET|`/api/v1/health/conditions`|
-|`upsertHealthCondition(data)`|POST|`/api/v1/health/conditions`|
-|`deleteHealthCondition(conditionId)`|DELETE|`/api/v1/health/conditions/{conditionId}`|
-|`listBodyComposition(from, to, limit)`|GET|`/api/v1/health/body-composition`|
-|`createBodyComposition(data)`|POST|`/api/v1/health/body-composition`|
-|`listMenstrualCycles()`|GET|`/api/v1/health/menstrual-cycles`|
-|`createMenstrualCycle(data)`|POST|`/api/v1/health/menstrual-cycles`|
-|`updateMenstrualCycle(cycleId, data)`|PUT|`/api/v1/health/menstrual-cycles/{cycleId}`|
-|`deleteMenstrualCycle(cycleId)`|DELETE|`/api/v1/health/menstrual-cycles/{cycleId}`|
-|`getProviders()`|GET|`/api/v1/integrations/providers`|
-|`disconnectIntegration(source)`|POST|`/api/v1/integrations/{source}/disconnect`|
-|`classifyState(biometrics)`|POST|`/api/v1/ml/classify`|
-|`generateMLPlan(trainingClass, user_profile, goal, constraints)`|POST|`/api/v1/ml/generate-plan`|
-|`registerWithInvite(code, name, email, password)`|POST|`/api/v1/register/invite`|
-|`validateInvite(code)`|POST|`/api/v1/invite/validate`|
-|`createInvite(role, specialty, maxUses)`|POST|`/api/v1/admin/invites`|
-|`listInvites(page, pageSize, used)`|GET|`/api/v1/admin/invites`|
-|`revokeInvite(code)`|POST|`/api/v1/admin/invites/{code}/revoke`|
-|`listUsers(page, pageSize)`|GET|`/api/v1/admin/users`|
-
-Все ответы — JSON. Ошибки имеют формат `{error: string}` или `{message: string}`.
-
----
-
-## 14. Фактические файлы проекта
-
-|Путь|Назначение|
-|---|---|
-|`web/index.html`|Vite entry point для React SPA|
-|`web/src/main.jsx`|Точка входа React: BrowserRouter + AuthProvider|
-|`web/src/App.jsx`|Роутер с защищёнными маршрутами|
-|`web/src/index.css`|Глобальные стили, CSS-переменные|
-|`web/src/contexts/AuthContext.jsx`|Auth state management|
-|`web/src/utils/api.js`|HTTP-запросы к Gateway|
-|`web/src/utils/validators.js`|Валидаторы форм|
-|`web/src/components/Auth/`|Login, Register, 2FA, Confirm|
-|`web/src/components/Dashboard/`|Обзор с Chart.js|
-|`web/src/components/Profile/`|Профиль, смена пароля/email, 2FA|
-|`web/src/components/Training/`|Тренировочные планы|
-|`web/src/components/Devices/`|Интеграция с устройствами|
-|`web/src/components/Achievements/`|Достижения|
-|`web/src/components/Diet/`|Диета, калькулятор калорий|
-|`web/src/components/Health/`|Здоровье, менструальные циклы|
-|`web/src/components/ML/`|ML классификация, генерация планов|
-|`web/src/components/Admin/`|Админка: invites, users|
-|`web/src/components/Layout/`|Top bar, tab bar|
-|`web/static/fonts/`|Self-hosted шрифты (JetBrains Mono, Inter)|
-|`web/static/errors/`|Страницы ошибок (403, 404, 500)|
-|`web/vite.config.js`|Vite конфиг: proxy /api, alias @|
-|`web/package.json`|Зависимости React, Chart.js, React Router|
-
-Примечание: Старые файлы `web/templates/` и `web/static/js/`, `web/static/css/` удалены после миграции на React.
-
----
-
-## 15. Дизайн-токены (CSS-переменные)
-
-Основные переменные из `web/src/index.css`:
+### 2.1. Dark theme (default)
 
 ```css
 :root {
-  --bg-primary: #000000;
-  --bg-secondary: #1c1c1e;
-  --bg-card: #2c2c2e;
-  --bg-input: #3a3a3c;
-  --text-primary: #ffffff;
-  --text-secondary: #8e8e93;
-  --text-tertiary: #636366;
-  --accent: #ff375f;
-  --accent-secondary: #ff6b81;
-  --green: #30d158;
-  --blue: #0a84ff;
-  --orange: #ff9f0a;
-  --purple: #bf5af2;
-  --teal: #64d2ff;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-xl: 24px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bg: #050b08;
+  --card: #0d1b14;
+  --card-2: #15291f;
+  --line: rgba(255,255,255,.1);
+  --text: #f3fff7;
+  --muted: #8da99a;
+  --green: #6fae20;
+  --green-light: #a5ed38;
+  --blue: #19d8da;
+  --orange: #ff9947;
+  --red: #ff6375;
+  --purple: #a78bfa;
+  --yellow: #f5d45d;
+  --gold: #f5c842;
+  --radius: 20px;
+  --font: 'Manrope', sans-serif;
+  --font-display: 'Barlow Condensed', sans-serif;
 }
 ```
 
-Шрифты self-hosted: `web/static/fonts/fonts.css` подключает локальные `.woff2` JetBrains Mono и Inter. Без внешних запросов к Google Fonts.
+### 2.2. Light theme
 
-Тёмная тема (dark-mode-only). Контраст WCAG AA.
+```css
+[data-theme="light"] {
+  --bg: #f1f8f4;
+  --card: #fff;
+  --card-2: #e2f0e8;
+  --line: rgba(20,70,45,.13);
+  --text: #13251b;
+  --muted: #607669;
+}
+```
+
+### 2.3. High contrast
+
+```css
+[data-highcontrast="on"] {
+  --bg: #fff !important;
+  --card: #fff !important;
+  --card-2: #f2f2f2 !important;
+  --line: #111 !important;
+  --text: #000 !important;
+  --muted: #333 !important;
+}
+```
+
+Dark high-contrast overrides are also defined via `[data-theme="dark"][data-highcontrast="on"]`.
+
+### 2.4. Layout
+
+- App shell: `width: min(100%, 460px); height: min(920px, 100vh); border-radius: 32px;`
+- Page padding: `24px 17px 108px`.
+- Safe-area insets respected via `env(safe-area-inset-*)`.
 
 ---
 
-## 16. Приоритеты реализации
+## 3. Screen specifications
 
-1. **P0** — Auth (login/register/confirm/2FA), Dashboard (биометрия + график), Profile (форма + смена пароля/email + 2FA).
-2. **P1** — Training: список планов + генерация + завершение.
-3. **P2** — Devices: подключение + интеграции.
-4. **P3** — Achievements, Diet, ML-классификация.
-5. **P4** — Admin panel: invite-коды (создание, список, отзыв), список пользователей.
-6. **UX/Polish** — скелетон-экраны, pull-to-refresh, offline-индикатор, skeleton loaders.
+### 3.1. Login
+
+**File:** `web/src/screens/Login.jsx`
+
+- Email + password fields.
+- Primary CTA: `doLogin()`.
+- Secondary: `continueAsGuest()`.
+- Social: `socialLogin('google')`.
+- Links: register, forgot password, terms, privacy, personal data agreement.
+- Controls: theme toggle, language toggle, high-contrast toggle.
+
+### 3.2. Register
+
+**File:** `web/src/screens/Register.jsx`
+
+- Email, password, confirm password.
+- Consent checkbox.
+- CTA: `doRegister()`.
+- Social login, legal links, language/high-contrast toggles.
+
+### 3.3. Reset
+
+**File:** `web/src/screens/Reset.jsx`
+
+- Step 1: email input + submit.
+- Step 2: code input + submit.
+- Step 3: new password + confirm + submit.
+
+### 3.4. Home
+
+**File:** `web/src/screens/Home.jsx`
+
+- Notification bell (`showNotification`).
+- Theme toggle.
+- Profile shortcut.
+- Survey resume (`resumeSurvey`).
+- Start workout (`go('training')`).
+- Stories carousel (`scrollStories`, `showAllStories`).
+- Metrics: pulse, sleep, oxygen, stress (`openMetric`).
+- Mini calendar with `changeCalendar(-1|1)`.
+- Water tracker (`drinkWater`).
+- Places map with `editPlace`, `selectPlace`, `addPlace`.
+- Quick links: body analytics, full calendar.
+
+### 3.5. Calendar
+
+**File:** `web/src/screens/Calendar.jsx`
+
+- Month grid with event dots.
+- Quick add events: gym, pool, recovery, work, study, note (`quickAddEvent`).
+- Month navigation (`changeCalendar`).
+- Event list for selected day.
+- Calendar page overlay (`openCalendarPage`).
+
+### 3.6. Nutrition
+
+**File:** `web/src/screens/Nutrition.jsx`
+
+- Period tabs: day / week / month (`setNutritionPeriod`).
+- Goal display + nutrition settings (`nutritionSettings`).
+- Water tracker (`drinkWater`).
+- Meal slots: breakfast, lunch, snack, dinner.
+- Meal modal with alternatives (`openMeal`, `selectMeal`).
+- Custom meal save (`saveCustomMeal`).
+- Ask AI shortcut (`askAI`).
+
+### 3.7. Body
+
+**File:** `web/src/screens/Body.jsx`
+
+- Body composition cards: weight, fat, muscle, protein.
+- Metric modals (`openMetric`).
+- Add weight (`addWeight`).
+- Additional metrics: pulse, sleep, oxygen, HRV, stress, BMI.
+
+### 3.8. Training
+
+**File:** `web/src/screens/Training.jsx`
+
+- Period tabs: day / week / month (`setTrainingPeriod`).
+- Workout cards with expandable exercise lists (`toggleWorkout`).
+- Start workout (`startWorkout`).
+- Places editor (`editPlace`, `selectPlace`, `addPlace`).
+
+### 3.9. Videos
+
+**File:** `web/src/screens/Videos.jsx`
+
+- Video cards with play overlay.
+- Equipment tags, duration, level.
+- Navigation via bottom tab bar.
+
+### 3.10. AI
+
+**File:** `web/src/screens/AI.jsx`
+
+- Quick action buttons: menu, dinner, calendar, body composition.
+- Chat-like message list (`sendAI`, `quickAI`).
+- AI can add calendar events from natural language.
+
+### 3.11. Profile
+
+**File:** `web/src/screens/Profile.jsx`
+
+- Theme toggle, language toggle, high-contrast toggle.
+- Edit profile (`editProfile`).
+- Nutrition settings (`nutritionSettings`).
+- Two-factor toggle (`toggleTwoFactor`).
+- Change password (`changePassword`).
+- Connected devices (`showDevices`).
+- Restrictions/allergies (`showRestrictions`).
+- Chat settings (`chatSettings`).
+- Delete account (`deleteAccount`).
+- Legal links: privacy, terms, personal data.
+
+### 3.12. Chat
+
+**File:** `web/src/screens/Chat.jsx`
+
+- Chat contacts list.
+- Chat messages for selected contact.
+- Chat settings (`chatSettings`).
+- Legal links.
+- Navigation to login/register for guests.
+
+### 3.13. Legal
+
+**File:** `web/src/screens/Legal.jsx`
+
+- Privacy policy, terms of use, personal data agreement.
+- Back button returns to previous screen.
+
+### 3.14. Cookie Consent
+
+**File:** `web/src/components/CookieConsent.jsx`
+
+- Fixed banner at bottom of screen.
+- Text: "Мы используем файлы cookie для улучшения работы сервиса. Продолжая использовать FitPulse, вы соглашаетесь с нашей Политикой конфиденциальности."
+- Actions: «Принять» (accept), «Отклонить» (decline).
+- State: `localStorage.getItem('cookie-consent')` → `'accepted'` | `'declined'`.
+- Accessibility: `role="dialog"`, `aria-label="Cookie consent"`.
+- Does not block scrolling; `position: fixed` at bottom.
+
+### 3.15. Medical Disclaimer
+
+**File:** Inline in `web/src/screens/Body.jsx`, `web/src/screens/Register.jsx`
+
+- Text: "Это не медицинский совет. При заболеваниях или травмах consult врача."
+- Styling: yellow-ish background (`#fff3cd33`), border (`#ffc10755`), rounded corners.
+- Accessibility: `role="note"`, `aria-live="polite"`.
+- High contrast mode: applies high-contrast colors.
+- Does not auto-dismiss; user must explicitly proceed.
+
+### 3.16. Special Category Consent (Register)
+
+**File:** `web/src/screens/Register.jsx`
+
+- Checkbox: "Я даю согласие на обработку специальных категорий персональных данных (сведения о здоровье, менструальном цикле) в соответствии с Политикой конфиденциальности."
+- Required for registration (cannot proceed without checking).
+- Accessibility: `aria-describedby` linked to consent text.
+
+### 3.17. Real-time Metrics & ARIA Live
+
+**File:** `web/src/screens/Home.jsx`, `web/src/screens/Body.jsx`
+
+- Metric updates (pulse, SpO2, etc.) announced via `aria-live="polite"` regions.
+- Toasts: `role="status"`, `aria-live="polite"`, `aria-atomic="true"`.
+- Loading states: `role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`.
+- Error messages: `role="alert"`, `aria-live="assertive"`.
+
+---
+
+## 4. State management
+
+**File:** `web/src/contexts/AppContext.jsx`
+
+Centralized state via React Context. State shape includes:
+
+- `screen`, `theme`, `highContrast`, `language`
+- `profile`, `events`, `meals`, `alternatives`
+- `metricInfo`, `weightHistory`, `trainingData`, `nutritionData`
+- `messages`, `chatContacts`, `chatMessages`
+- `stories`, `pinnedPlaces`, `trainingVideos`
+- `achievements`, `dailyQuests`, `lifeHacks`
+- `survey`, `chatSettings`, `progressGoals`
+
+State is persisted to `localStorage` under `fitpulse-merged-v9`.
+
+---
+
+## 5. API integration
+
+**File:** `web/src/utils/backendRequest.js`
+
+```js
+export async function backendRequest(path, options = {})
+```
+
+Used for backend communication. Falls back to local demo data when `BACKEND_CONFIG.baseUrl` is empty.
+
+---
+
+## 6. Internationalization
+
+**File:** `web/src/utils/i18n.js`
+
+```js
+export function t(ru, _en)
+```
+
+Returns the appropriate string based on `localStorage` language preference. All strings are passed as `(ru, en)` pairs from components and context.
+
+---
+
+## 7. Accessibility
+
+See `docs/A11Y.md`.
+
+---
+
+## 8. Testing
+
+### 8.1. Unit tests
+
+- Vitest + React Testing Library.
+- Located alongside components: `*.test.jsx`, `*.test.js`.
+- Run: `npm run test`
+
+### 8.2. E2E tests
+
+- Playwright (`@playwright/test`).
+- Config: `web/playwright.config.ts`.
+- Test matrix: 8 configurations (RU/EN × Light/Dark × Normal/High Contrast).
+- Run: `npm run test:e2e`
+
+---
+
+## 9. Actual files
+
+| Path | Purpose |
+| --- | --- |
+| `web/src/main.jsx` | React entry point |
+| `web/src/App.jsx` | Router + tab bar |
+| `web/src/index.css` | Global styles, design tokens |
+| `web/src/contexts/AppContext.jsx` | Global state and handlers |
+| `web/src/utils/i18n.js` | Localization helper |
+| `web/src/utils/helpers.js` | Date, calendar, text utilities |
+| `web/src/utils/backendRequest.js` | Backend API helper |
+| `web/src/screens/*.jsx` | Screen components |
+| `web/tests/e2e/app.spec.ts` | Playwright E2E matrix |
+| `web/playwright.config.ts` | Playwright config |
+
+---
+
+## 10. Migration notes
+
+Previous architecture used separate component folders (`components/Dashboard/`, `components/Training/`, etc.) with a tab-based view switcher. v11 consolidates screen-specific markup into `src/screens/` while preserving shared utilities and contexts.

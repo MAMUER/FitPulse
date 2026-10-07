@@ -18,6 +18,10 @@ func (m *mockDBForSources) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx
 	return &mockTx{}, nil
 }
 
+func (m *mockDBForSources) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+	return &mockRower{}, nil
+}
+
 func (m *mockDBForSources) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
 	return m.sources, nil
 }
@@ -50,4 +54,10 @@ func TestStorageDeleteBySource(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), count)
 	})
+}
+
+type mockRower struct{}
+
+func (m *mockRower) RowsAffected() (int64, error) {
+	return 1, nil
 }

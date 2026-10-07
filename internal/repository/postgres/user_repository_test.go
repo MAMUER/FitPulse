@@ -137,14 +137,14 @@ func TestUserRepository_Create_Success(t *testing.T) {
 
 	ctx := context.Background()
 	user := &entity.User{
-		ID:             "user-1",
-		Email:          "test@example.com",
-		PasswordHash:   "hash",
-		FullName:       "Test User",
-		Role:           "user",
-		EmailVerified:  false,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:            "user-1",
+		Email:         "test@example.com",
+		PasswordHash:  "hash",
+		FullName:      "Test User",
+		Role:          "user",
+		EmailVerified: false,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 
 	mock.ExpectExec("INSERT INTO users").
@@ -162,14 +162,14 @@ func TestUserRepository_Create_Error(t *testing.T) {
 
 	ctx := context.Background()
 	user := &entity.User{
-		ID:             "user-1",
-		Email:          "test@example.com",
-		PasswordHash:   "hash",
-		FullName:       "Test User",
-		Role:           "user",
-		EmailVerified:  false,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:            "user-1",
+		Email:         "test@example.com",
+		PasswordHash:  "hash",
+		FullName:      "Test User",
+		Role:          "user",
+		EmailVerified: false,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 
 	mock.ExpectExec("INSERT INTO users").

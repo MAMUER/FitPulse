@@ -22,6 +22,8 @@ type mockUserRepository struct {
 	listFn          func(ctx context.Context, page, pageSize int) ([]*entity.User, error)
 	countFn         func(ctx context.Context) (int, error)
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
+	banFn           func(ctx context.Context, id string) error
+	unbanFn         func(ctx context.Context, id string) error
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *entity.User) error {
@@ -84,6 +86,20 @@ func (m *mockUserRepository) ListByRole(ctx context.Context, role string, page, 
 	return nil, 0, nil
 }
 
+func (m *mockUserRepository) BanUser(ctx context.Context, id string) error {
+	if m.banFn != nil {
+		return m.banFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *mockUserRepository) UnbanUser(ctx context.Context, id string) error {
+	if m.unbanFn != nil {
+		return m.unbanFn(ctx, id)
+	}
+	return nil
+}
+
 var _ port.UserRepository = (*mockUserRepository)(nil)
 
 type mockProfileRepository struct {
@@ -92,6 +108,8 @@ type mockProfileRepository struct {
 	userExistsFn    func(ctx context.Context, userID string) (bool, error)
 	createProfileFn func(ctx context.Context, userID string) error
 	upsertProfileFn func(ctx context.Context, userID string, data *port.ProfileData) error
+	saveSurveyFn    func(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	loadSurveyFn    func(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
 }
 
 func (m *mockProfileRepository) GetProfile(ctx context.Context, userID string) (*entity.User, error) {
@@ -127,6 +145,20 @@ func (m *mockProfileRepository) UpsertProfile(ctx context.Context, userID string
 		return m.upsertProfileFn(ctx, userID, data)
 	}
 	return nil
+}
+
+func (m *mockProfileRepository) SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
+	if m.saveSurveyFn != nil {
+		return m.saveSurveyFn(ctx, userID, survey, completed, completedAt)
+	}
+	return nil
+}
+
+func (m *mockProfileRepository) LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error) {
+	if m.loadSurveyFn != nil {
+		return m.loadSurveyFn(ctx, userID)
+	}
+	return map[string]interface{}{}, false, nil, nil
 }
 
 var _ port.ProfileRepository = (*mockProfileRepository)(nil)
@@ -585,7 +617,7 @@ var _ port.EmailVerificationRepository = (*mockEmailVerificationRepository)(nil)
 type mockRefreshTokenRepository struct {
 	getValidFn func(ctx context.Context, token string) (*port.RefreshToken, error)
 	createFn   func(ctx context.Context, rt *port.RefreshToken) error
-	markUsedFn func(ctx context.Context, token string) error
+	markRevokedFn func(ctx context.Context, token string) error
 }
 
 func (m *mockRefreshTokenRepository) GetValid(ctx context.Context, token string) (*port.RefreshToken, error) {
@@ -602,9 +634,9 @@ func (m *mockRefreshTokenRepository) Create(ctx context.Context, rt *port.Refres
 	return nil
 }
 
-func (m *mockRefreshTokenRepository) MarkUsed(ctx context.Context, token string) error {
-	if m.markUsedFn != nil {
-		return m.markUsedFn(ctx, token)
+func (m *mockRefreshTokenRepository) MarkRevoked(ctx context.Context, token string) error {
+	if m.markRevokedFn != nil {
+		return m.markRevokedFn(ctx, token)
 	}
 	return nil
 }

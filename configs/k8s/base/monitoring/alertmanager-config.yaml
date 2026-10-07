@@ -10,7 +10,7 @@ data:
   alertmanager.yml: |
     global:
       resolve_timeout: 5m
-      slack_api_url: ""
+      slack_api_url: "${SLACK_API_URL}"
 
     route:
       group_by: ["alertname", "namespace", "service"]
@@ -41,6 +41,34 @@ data:
                 <b>Description:</b> {{ .Annotations.description }}
                 <b>Starts At:</b> {{ .StartsAt.Format "2006-01-02 15:04:05" }}
               {{ end }}
+
+      - name: "slack-notifications"
+        slack_configs:
+          - channel: "#alerts"
+            api_url: "${SLACK_API_URL}"
+            send_resolved: true
+            title: "{{ .GroupLabels.alertname }}"
+            text: |
+              {{ range .Alerts }}
+                *Severity:* {{ .Labels.severity }}
+                *Summary:* {{ .Annotations.summary }}
+                *Description:* {{ .Annotations.description }}
+              {{ end }}
+
+      - name: "pagerduty-notifications"
+        pagerduty_configs:
+          - service_key: "${PAGERDUTY_SERVICE_KEY}"
+            severity: critical
+            description: "{{ .GroupLabels.alertname }}"
+
+      - name: "grafana-oncall-notifications"
+        webhook_configs:
+          - url: "${GRAFANA_ONCALL_WEBHOOK_URL}"
+            send_resolved: true
+            http_config:
+              basic_auth:
+                username: "${GRAFANA_ONCALL_USERNAME}"
+                password: "${GRAFANA_ONCALL_PASSWORD}"
 
     inhibit_rules:
       - source_match:

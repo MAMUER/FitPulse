@@ -8,16 +8,16 @@
 │   ├── proto/
 │   │   ├── user.proto
 │   │   ├── biometric.proto
-│   │   ├── training.proto
-│   │   └── ml.proto
+│   │   └── training.proto
 │   └── gen/                          # сгенерированные .go файлы (committed в репозиторий)
 ├── cmd/
 │   ├── gateway/                      # HTTP/gRPC gateway
 │   ├── user-service/                 # Users, auth, profile
 │   ├── biometric-service/            # Biometric data ingestion + Open Wearables webhook
-│   ├── classifier/                   # Classifier service
-│   ├── ml_generator/                 # ML plan generator service (Python/FastAPI)
-│   └── data-processor/               # Background data processing (in repo, not deployed standalone)
+│   ├── classifier/                   # Classifier service (rule-based, Phase 1)
+│   ├── data-processor/               # Background data processing (RabbitMQ consumer, Phase 1 production)
+│   ├── device-aggregator/            # Open Wearables webhook-forwarder (Phase 1 production)
+│   └── admin-cli/                    # CLI tool for administration (Vault, PostgreSQL, invites)
 ├── configs/
 │   └── k8s/
 │       ├── base/
@@ -57,6 +57,9 @@
 │   ├── queue/                        # RabbitMQ publisher/consumer
 │   ├── repository/                   # Generic repositories
 │   ├── sanitize/                     # HTML/XSS sanitization
+│   ├── templates/                    # Training templates (Go)
+│   ├── planner/                      # Plan engine (Go)
+│   ├── chat/                         # Rule-based FAQ + optional external LLM
 │   ├── telemetry/                    # OpenTelemetry tracing
 │   ├── totp/                         # TOTP 2FA
 │   └── validator/                    # Request validators
@@ -102,6 +105,26 @@
 
 ---
 
+## C4 Context Diagram
+
+```mermaid
+C4Context
+    title FitPulse — Context Diagram
+
+    Person(user, "Пользователь", "Клиент мобильного/веб-приложения")
+
+    System(fitpulse, "FitPulse Platform", "Фитнес-платформа с ML-классификацией и wearables интеграцией")
+
+    System_Ext(yandex_id, "Yandex ID", "Аутентификация")
+    System_Ext(open_wearables, "Open Wearables", "Webhook источник biometric данных")
+    System_Ext(email_smtp, "Email / SMTP", "Отправка писем подтверждения")
+
+    Rel(user, fitpulse, "Использует", "HTTPS")
+    Rel(fitpulse, yandex_id, "Аутентификация", "OAuth 2.0 / OIDC")
+    Rel(fitpulse, open_wearables, "Получение webhook", "HTTPS / HMAC-SHA256")
+    Rel(fitpulse, email_smtp, "Отправка email", "SMTP / STARTTLS")
+```
+
 ## C4 Container Diagram
 
 ```mermaid
@@ -117,7 +140,6 @@ C4Container
         Container(biometric_service, "Biometric Service", "Go + gRPC", "Биометрические данные, Open Wearables webhook")
         Container(training_service, "Training Service", "Go + gRPC", "Тренировочные планы, достижения")
         Container(classifier, "Classifier", "Go + HTTP", "Классификация состояния по биометрике")
-        Container(ml_generator, "ML Generator", "Python + FastAPI", "Генерация планов тренировок")
         Container(device_aggregator, "Device Aggregator", "Go + HTTP", "Webhook-forwarder для Open Wearables")
         ContainerDb(postgres, "PostgreSQL + pgsodium", "PostgreSQL 18", "Пользователи, профили, планы, биометрика")
         ContainerDb(valkey, "Valkey/Redis", "Valkey 8", "Сессии, кэши, rate limiting")
@@ -135,7 +157,6 @@ C4Container
     Rel(gateway, training_service, "gRPC вызовы", "mTLS")
     Rel(gateway, classifier, "HTTP вызовы", "HTTP/1.1")
     Rel(gateway, device_aggregator, "HTTP вызовы", "HTTP/1.1")
-    Rel(gateway, ml_generator, "HTTP вызовы", "HTTP/1.1")
     Rel(user_service, postgres, "Чтение/запись", "SQL")
     Rel(biometric_service, postgres, "Чтение/запись", "SQL")
     Rel(training_service, postgres, "Чтение/запись", "SQL")
@@ -144,7 +165,6 @@ C4Container
     Rel(biometric_service, valkey, "Кэши", "RESP")
     Rel(biometric_service, rabbitmq, "Публикация событий", "AMQP 0.9.1")
     Rel(training_service, rabbitmq, "Публикация событий", "AMQP 0.9.1")
-    Rel(ml_generator, rabbitmq, "Потребление событий", "AMQP 0.9.1")
     Rel(device_aggregator, rabbitmq, "Публикация событий", "AMQP 0.9.1")
     Rel(gateway, prometheus, "Метрики", "HTTP /metrics")
     Rel(user_service, prometheus, "Метрики", "HTTP /metrics")
@@ -417,7 +437,7 @@ logged_actions:
   - "Deployment / rollback operations"
   - "RBAC policy changes"
 
-retention: "1 год (соответствие 152-ФЗ)"
+retention: "3 года (соответствие 152-ФЗ)"
 access: "Только роль 'auditor', read-only"
 
 verification:
@@ -462,7 +482,7 @@ verification:
 gRPC-сервис для управления пользователями, аутентификацией и профилями. Отвечает за:
 
 - Регистрацию и подтверждение email
-- Логин по паролю (Argon2id) и Google OAuth
+- Логин по паролю (Argon2id) и Yandex ID
 - Выдачу JWT access/refresh токенов
 - Управление профилями, целями и противопоказаниями
 - 2FA через TOTP с резервными кодами
@@ -479,7 +499,7 @@ gRPC-сервис для управления пользователями, ау
 | `RegisterWithInvite` | Регистрация по invite-коду |
 | `ConfirmEmail` | Подтверждение email |
 | `Login` | Логин по паролю |
-| `AuthenticateGoogle` | Авторизация через Google |
+| `AuthenticateYandex` | Авторизация через Yandex ID |
 | `RefreshToken` | Обновление access token |
 | `GetProfile` | Получить профиль |
 | `GetUserByEmail` | Получить пользователя по email |
@@ -520,7 +540,7 @@ gRPC-сервис для управления пользователями, ау
 | `JWT_PRIVATE_KEY_PEM` | — | PEM-ключ для JWT |
 | `TOTP_ENCRYPTION_KEY` | — | Ключ для шифрования TOTP секретов |
 | `BASE_URL` | `https://localhost:8443` | Базовый URL для ссылок верификации |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth Client ID |
+| `YANDEX_CLIENT_ID` | — | Yandex ID Client ID |
 | `DB_ENCRYPTION_KEY` | — | Ключ для pgsodium PII шифрования |
 
 ### 4.8.4 Безопасность
@@ -530,7 +550,7 @@ gRPC-сервис для управления пользователями, ау
 - Blind indexes: `email_hash`, `full_name_hash`, `nickname_hash` для поиска по зашифрованным полям
 - JWT: ES256, 15 минут access, 7 дней refresh
 - 2FA: TOTP (10 резервных кодов, хешированных через SHA256)
-- Google OAuth: автоматическая привязка/создание пользователя
+- Yandex ID: автоматическая привязка/создание пользователя
 - Email верификация: токены с сроком 24 часа
 
 ### 4.8.5 Graceful Shutdown
@@ -713,7 +733,7 @@ gRPC-сервис для управления тренировочными пл�
 
 ### 4.11.1 Назначение
 
-HTTP-сервис для классификации физиологического состояния пользователя по 6 зонам на основе биометрических данных (пульс, HRV, SpO2, температура, АД, сон). Использует rule-based модель (замена реальной ML-модели в Phase 1). Gateway вызывает его для `POST /api/v1/ml/classify`.
+HTTP-сервис для классификации физиологического состояния пользователя по 7 зонам на основе биометрических данных (пульс, HRV, SpO2, температура, АД, сон). Использует rule-based модель. Вызывается из gateway через `POST /api/v1/classify`.
 
 ### 4.11.2 Endpoints
 

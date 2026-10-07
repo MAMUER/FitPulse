@@ -1,59 +1,133 @@
-# FitPulse — ML/GAN Спецификация
+# FitPulse — ML/Classifier Спецификация
 
-## Обзор
-
-FitPulse использует два компонента:
-
-1. **Classifier** — правила-на-основе классификация состояния пользователя, реализованная на Go. Работает только с биометрическими данными с носимых устройств.
-2. **Generator (Conditional Diffusion Model)** — генерация индивидуальных тренировочных планов с учётом полного профиля пользователя. Реализован на Python (PyTorch + Lightning, inference через ONNX Runtime).
-
-Генерация плана использует 3-tier fallback:
-
-1. **Primary**: Conditional Diffusion Model (DDPM) с 32-dim условным вектором
-2. **Fallback 1**: Rule-based генерация на основе шаблонов по классу состояния
-3. **Fallback 2**: Статический beginner-план
+> **Статус:** Этот документ описывает **реализованную** ML-архитектуру FitPulse (на 2026-10-07).
+> **Продакшн:** Гибридный классификатор — rule-based (Go) + ML fallback (HistGradientBoosting + ONNX).
 
 ---
 
-## Архитектура моделей
+## Обзор
 
-### Classifier (Go-правила, 6 классов)
+FitPulse использует **гибридный классификатор**:
 
-**Назначение:** Определение состояния пользователя по биометрическим данным с браслета.
+1. **Rule-based (Go, production)** — детерминированные правила на 7 признаках. Всегда доступен.
+2. **ML (Python → ONNX → Go, experimental)** — HistGradientBoosting (full) + LogisticRegression fallback (ONNX). Используется при confidence ≥ 0.85.
 
-**Входные признаки (7 признаков):**
+---
+
+## Архитектура
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    POST /classify Request                       │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  ML Model Loaded? (onnx_classifier.go loads classifier_weights) │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+         ДА                          НЕТ
+              │                       │
+              ▼                       ▼
+    ┌──────────────────┐    ┌────────────────────────┐
+    │ Predict via ONNX │    │ Rule-based (classifyState)│
+    │ (LogisticRegression) │  │ (7 features, 7 classes)  │
+    └────────┬───────────┘    └───────────┬────────────┘
+             │                           │
+             ▼                           ▼
+    Confidence ≥ 0.85?              Always used
+             │
+       ┌──────┴──────┐
+       ▼             ▼
+     ДА             НЕТ
+       │             │
+       ▼             ▼
+   Use ML         Rule-based
+```
+
+---
+
+## Классификатор (Go + ML Hybrid)
+
+### Входные признаки (7 признаков)
 
 | # | Признак | Тип | Единица | Примечание |
 | - | ------- | --- | ------- | ---------- |
 | 1 | `heart_rate` | float64 | уд/мин | Текущий или средний за последний час |
-| 2 | `heart_rate_variability` | float64 | мс | Heart Rate Variability (RMSSD) |
+| 2 | `heart_rate_variability` | float64 | мс | HRV (RMSSD) |
 | 3 | `spo2` | float64 | % | 70–100 |
-| 4 | `temperature` | float64 | °C | 35.5–38.5; ключевой признак для класса "Заболевание" |
-| 5 | `blood_pressure_systolic` | float64 | мм рт.ст. | 80–200 |
-| 6 | `blood_pressure_diastolic` | float64 | мм рт.ст. | 50–130 |
-| 7 | `sleep_hours` | float64 | часы | 0–24 |
+| 4 | `temperature` | float64 | °C | 35.5–38.5; ключевой для "illness" |
+| 5 | `blood_pressure_systolic` | float64 | мм рт.ст. | 80–200 (часто NaN) |
+| 6 | `blood_pressure_diastolic` | float64 | мм рт.ст. | 50–130 (часто NaN) |
+| 7 | `sleep_hours` | float64 | часы | 0–24 (часто NaN) |
 
-**Дополнительный контекст (не используется в классификации, передаётся в Generator):**
+> **Важно:** Признаки 5-7 часто NaN в текущих датасетах. ML fallback использует только 4 признака (HR, HRV, SpO2, Temp).
 
-- Менструальные данные (`GET /health/menstrual-cycles`)
-- Заболевания (`GET /health/conditions`)
-- История тренировок (`GET /training/plans`, `POST /training/complete`)
-- Состав тела (`GET /health/body-composition`)
-
-**Источники данных:**
+### Источники данных
 
 - `GET /api/v1/biometrics?metric_type=heart_rate,hrv,spo2,temperature,blood_pressure,sleep_hours`
-- `GET /api/v1/health/menstrual-cycles`
+- `GET /api/v1/health/menstrual-cycles` (дополнительный контекст)
 - `GET /api/v1/health/conditions`
-- `GET /api/v1/training/plans?status=active` + `POST /api/v1/training/complete` история
+- `GET /api/v1/training/plans?status=active` + `POST /api/v1/training/complete`
 - `GET /api/v1/devices` — проверка последнего ingestion
 
-**Выход:**
+---
+
+## ML Модель (Python → ONNX → Go)
+
+### Полная модель (Python)
+
+- **Файл:** `models/classifier.pkl` (joblib)
+- **Алгоритм:** HistGradientBoostingClassifier (sklearn)
+- **Данные:** 12.9M сэмплов из 13 датасетов
+- **Признаки:** 4 usable (HR, HRV, SpO2, Temp) — остальные NaN
+- **Классы:** 7 (recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness, unknown)
+- **Validation accuracy:** 0.9986
+- **Validation size:** 2.57M samples
+
+### Fallback ONNX (Go inference)
+
+- **Файл:** `models/classifier.onnx` + `models/classifier_weights.json`
+- **Алгоритм:** LogisticRegression (sklearn Pipeline с SimpleImputer) + pure Go linear inference
+- **Обучение:** на стратифицированной подвыборке 5000 сэмплов
+- **Классы:** 5 (endurance_basic, endurance_threshold, power_hiit, overtraining, unknown)
+- **Отсутствуют:** recovery (0), illness (5) — в текущих весах не представлены
+- **Признаки:** 4 (HR, HRV, SpO2, Temp) с импутацией NaN
+- **Примечание:** Для покрытия всех 7 классов требуется переобучение fallback-модели с гарантированным stratified sampling. Go-инференс использует `models/classifier_weights.json`.
+
+### Веса для Go (JSON)
+
+- **Файл:** `models/classifier_weights.json`
+- **Структура:** `{labels: [...], weights: [...], multi_class: int}`
+- **Загружается:** `onnx_classifier.go` при старте
+
+---
+
+## Rule-based Классификатор (Go, 7 классов)
+
+### 7 классов (как в коде)
+
+| Index | Класс (slug) | Название RU | Ключевые правила |
+| ------- | ------------- | ------------- | ------------------ |
+| 0 | `recovery` | Восстановление | HRV > 80 И (HR < 60% HRmax ИЛИ sleep > 8) |
+| 1 | `endurance_basic` | Базовая выносливость | HRV 50–80, HR 65–80% HRmax, sleep 6–8 |
+| 2 | `endurance_threshold` | Пороговая выносливость | HRV 40–50, HR 80–90% HRmax |
+| 3 | `power_hiit` | Силовая/HIIT | HRV > 60, HR > 90% HRmax, sleep > 7 |
+| 4 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
+| 5 | `illness` | Заболевание | Температура > 37.5°C ИЛИ HRV < 30 с признаками болезни |
+| 6 | `unknown` | Неопределено | Default fallback |
+
+### Endpoint
+
+`POST /classify` (service на порту 8001, вызывается через gateway `POST /api/v1/classify`)
+
+### Выход
 
 ```json
 {
   "predicted_class": "recovery",
-  "predicted_class_ru": "Восстановление",
   "confidence": 0.87,
   "probabilities": {
     "recovery": 0.87,
@@ -61,299 +135,216 @@ FitPulse использует два компонента:
     "endurance_threshold": 0.03,
     "power_hiit": 0.01,
     "overtraining": 0.01,
-    "illness": 0.0
+    "illness": 0.0,
+    "unknown": 0.0
   },
   "description": "Низкая нагрузка + высокий HRV + хорошее восстановление",
   "hr_range": "50-65% HRmax",
-  "recommendations": [
-    "Лёгкая активность (ходьба, йога)",
-    "Растяжка и мобилизация",
-    "Плавание в лёгком темпе"
-  ],
-  "personalized_notes": "Учитывая фолликулярную фазу, рекомендуется избегать высокоинтенсивных нагрузок до овуляции."
+  "recommendations": ["Лёгкая активность...", "..."]
 }
 ```
 
-**6 классов (имена как в коде):**
-
-| # | Класс (slug) | Название RU | Ключевые правила |
-| - | ------------ | ----------- | ---------------- |
-| 1 | `recovery` | Восстановление | HRV > 80 И (HR < 60% HRmax Или sleep > 8) |
-| 2 | `endurance_basic` | Базовая выносливость E1-E2 | HRV 50–80, HR 65–80% HRmax, sleep 6–8 |
-| 3 | `endurance_threshold` | Пороговая выносливость E3 | HRV 40–50, HR 80–90% HRmax |
-| 4 | `power_hiit` | Силовая/HIIT | HRV > 60, HR > 90% HRmax, sleep > 7 |
-| 5 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
-| 6 | `illness` | Заболевание | Температура > 37.5°C Или HRV < 30 с признаками болезни |
-
-**Endpoint:** `POST /classify` (service на порту 8001, gateway: `POST /api/v1/ml/classify`)
-
 ---
 
-### Generator (Conditional Diffusion Model — DDPM)
+## ML Switching Logic (Step 6.4)
 
-**Входные данные (условная генерация):**
+### Константа
 
-DDPM получает 32-dim conditional vector, построенный из полного профиля пользователя:
-
-| Index | Feature | Range | Описание |
-| ----- | ------- | ----- | -------- |
-| 0 | age_normalized | 0–1 | (age - 18) / (100 - 18) |
-| 1 | bmi_normalized | 0–1 | (bmi - 15) / (40 - 15) |
-| 2 | fitness_level | 0–1 | beginner=0.0, intermediate=0.5, advanced=1.0 |
-| 3 | goal_strength | 0–1 | one-hot: muscle_gain |
-| 4 | goal_endurance | 0–1 | one-hot: endurance |
-| 5 | goal_weight_loss | 0–1 | one-hot: weight_loss |
-| 6 | goal_flexibility | 0–1 | one-hot: flexibility |
-| 7 | health_factor | 0–1 | 1.0 - classifier confidence |
-| 8 | menstrual_phase_luteal | 0–1 | 1.0 если luteal |
-| 9 | menstrual_phase_menstruation | 0–1 | 1.0 если menstruation |
-| 10 | menstrual_phase_ovulation | 0–1 | 1.0 если ovulation |
-| 11 | active_conditions_count_normalized | 0–1 | min(conditions, 5) / 5 |
-| 12 | has_contraindications | 0–1 | 1.0 если есть противопоказания |
-| 13 | has_allergies | 0–1 | 1.0 если есть аллергии |
-| 14 | recovery_needed | 0–1 | 1.0 если classifier=recovery/overtraining |
-| 15 | days_since_last_workout | 0–1 | min(days, 7) / 7 |
-| 16 | workout_frequency | 0–1 | completed_workouts / 30 |
-| 17 | sleep_quality | 0–1 | sleep_hours / 9 |
-| 18 | hrv_factor | 0–1 | hrv / 100 |
-| 19 | temperature_normalized | 0–1 | (temp - 35.5) / (38.5 - 35.5) |
-| 20 | spo2_factor | 0–1 | spo2 / 100 |
-| 21 | available_days_count | 0–1 | count / 7 |
-| 22 | preferred_morning | 0–1 | 1.0 если preferred_time=morning |
-| 23 | preferred_evening | 0–1 | 1.0 если preferred_time=evening |
-| 24 | equipment_dumbbell | 0–1 | 1.0 если есть |
-| 25 | equipment_resistance_band | 0–1 | 1.0 если есть |
-| 26 | equipment_barbell | 0–1 | 1.0 если есть |
-| 27 | equipment_none | 0–1 | 1.0 если нет оборудования |
-| 28–31 | reserved | 0–1 | Зарезервировано |
-
-**Architecture:**
-
-- **Framework:** PyTorch 2.5+ + Lightning
-- **Model type:** Conditional Diffusion Model (DDPM)
-- **Noise predictor:** `plan_dim + condition_dim + 1 (time) → 512 → 512 → plan_dim`
-- **Input:** x_t (19-dim noisy plan) + t (timestep) + condition (32-dim)
-- **Output:** noise prediction (19-dim)
-- **Sampling:** 50-step DDPM reverse process
-- **Model file:** `models/generator.onnx` (ONNX Runtime для inference)
-- **Fallback:** rule-based → static beginner plan
-
-**Plan Features (19 dimensions):**
-
-| Index | Feature | Range | Условная логика |
-| ----- | ------- | ----- | --------------- |
-| 0 | duration_minutes | 0–100 | Recovery: 20–40; Overtraining/Illness: 0; Power: 60–100 |
-| 1 | intensity_level | 0–1 | Menstruation: -0.2; Illness: 0.0; Recovery: 0.3 |
-| 2 | rest_ratio | 0–1 | Overtraining: 0.5–0.7; HIIT: 0.3–0.4 |
-| 3 | weekly_frequency | 0–7 | Illness: 0; Recovery: 2–3; Normal: 3–5 |
-| 4–11 | equipment_tools | 8 values | На основе `equipment` из preferences |
-| 12 | warmup_ratio | 0–1 | Menstruation: +0.1; Illness: +0.2; age>60: +0.1 |
-| 13 | cooldown_ratio | 0–1 | Всегда >= 0.1; Recovery: +0.1; sleep<6: +0.1 |
-| 14 | age_factor | 0–1 | age > 50: -0.2; age < 25: +0.1 |
-| 15 | fitness_factor | 0–1 | beginner: -0.2; advanced: +0.2 |
-| 16 | health_factor | 0–1 | active_conditions > 0: -0.3; illness: 0.0 |
-| 17 | goal_strength | 0–1 | goal=muscle_gain: 0.8–1.0 |
-| 18 | goal_endurance | 0–1 | goal=endurance: 0.8–1.0 |
-
-**Условная пост-обработка (правила после DDPM):**
-
-1. **Менструация**: если `menstrual_phase == menstruation`, снизить `intensity_level` на 20%, увеличить `warmup_ratio` и `cooldown_ratio` на 10%.
-2. **Беременность**: если в `contraindications` есть "pregnancy", `intensity_level` = 0.3–0.5, исключить упражнения на живот.
-3. **Заболевание**: если `classifier.predicted_class == illness`, `duration_minutes` = 0, `intensity_level` = 0.0.
-4. **Перетренированность**: если `classifier.predicted_class == overtraining`, снизить `weekly_frequency` на 30%, увеличить `rest_ratio`.
-5. **Противопоказания**: если в `contraindications` есть "спина", исключить упражнения с осевой нагрузкой; если "колени", исключить прыжки.
-6. **Аллергии**: если в `allergies` есть "латекс", исключить оборудование с латексными ремешками.
-7. **Возраст**: если age > 60, снизить `intensity_level` на 20%, увеличить `warmup_ratio` до 0.3.
-8. **BMI**: если BMI > 35, снизить интенсивность, исключить прыжки и бег.
-9. **Recovery**: если `classifier.predicted_class == recovery`, `duration_minutes` = 20–30, `intensity_level` = 0.3–0.4.
-10. **Sleep**: если `sleep_hours < 6`, снизить `intensity_level` на 15%, увеличить `cooldown_ratio`.
-
-**Fallback chain:**
-
-1. **Primary:** DDPM-генерация с 32-dim conditional vector (50-step sampling)
-2. **Fallback 1:** Rule-based генерация на основе шаблонов по классу состояния (`build_rule_based_plan`)
-3. **Fallback 2:** Статический beginner-план (`build_static_beginner_plan`)
-
----
-
-## Generator Details
-
-- **Input:** 19-dimensional noisy plan (x_t) + 32-dimensional conditional vector + timestep
-- **Output:** 19-dimensional plan vector (normalized 0-1)
-- **Model location:** `models/generator.onnx`
-- **Inference:** ONNX Runtime (CPUExecutionProvider)
-- **Fallback:** rule-based generator + static beginner plan
-
-**Installation:**
-
-```bash
-pip install -r cmd/ml_generator/requirements.txt
+```go
+const mlSwitchThreshold = 0.85
 ```
 
-**Usage:**
+### Логика переключения
 
-### Загрузка модели при старте FastAPI (global scope)
-
-```python
-from cmd.ml_generator.main import load_generator, app
-
-@app.on_event("startup")
-async def startup():
-    await load_generator()
-```
-
-Via API:
-
-```bash
-uvicorn cmd.ml_generator.main:app --host 0.0.0.0 --port 8002
-```
-
-`POST /generate-plan` with:
-
-```json
-{
-  "training_class": "endurance_e3",
-  "user_profile": {
-    "age": 30,
-    "gender": "male",
-    "weight": 70.0,
-    "height": 170.0,
-    "fitness_level": "intermediate",
-    "goals": ["endurance"],
-    "allergies": [],
-    "contraindications": []
-  },
-  "health_status": {
-    "predicted_class": "endurance_basic",
-    "confidence": 0.87,
-    "hrv": 65.0,
-    "sleep_hours": 7.5,
-    "active_conditions_count": 0,
-    "menstrual_phase": "follicular",
-    "day_of_cycle": 8,
-    "cycle_length": 28,
-    "body_composition": {
-      "bmi": 24.2,
-      "body_fat_pct": 18.5,
-      "muscle_mass_kg": 55.0
+```go
+// В classifyHandler (cmd/classifier/main.go)
+if s.onnxClassifier != nil {
+    mlClass, mlConfidence, _ := s.onnxClassifier.Predict(features)
+    if mlConfidence >= mlSwitchThreshold {  // 0.85
+        // Используем ML предсказание
+        predictedClass = mlClass
+        confidence = mlConfidence
+        modelUsed = "ml"
+    } else {
+        // Fallback на rule-based
+        predictedClass, confidence, probs = classifyState(data, age)
+        modelUsed = "rule-based"
     }
-  },
-  "training_history": {
-    "completed_workouts_count": 12,
-    "avg_intensity": 0.6,
-    "last_workout_date": "2024-01-15T08:00:00Z"
-  },
-  "preferences": {
-    "time": "morning",
-    "equipment": ["dumbbell", "resistance_band"],
-    "available_days": ["mon", "wed", "fri"]
-  },
-  "constraints": {
-    "duration_weeks": 4,
-    "max_sessions_per_week": 4
-  }
+} else {
+    // ML не загружен → rule-based
+    predictedClass, confidence, probs = classifyState(data, age)
+    modelUsed = "rule-based"
 }
 ```
 
-**Response:**
+### Поведение
 
-```json
-{
-  "plan_vector": [45, 0.6, 0.4, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0.15, 0.15, 0.5, 0.5, 0.7, 0.2, 0.8],
-  "plan_metadata": {
-    "training_class": "endurance_basic",
-    "model_version": "diffusion_v1",
-    "vector_length": 19
-  }
-}
+| Условие | Результат |
+| ----------- | ----------- |
+| ONNX загружен + confidence ≥ 0.85 | ML prediction |
+| ONNX загружен + confidence < 0.85 | Rule-based fallback |
+| ONNX не загружен | Rule-based only |
+
+### Метрики
+
+- `ClassificationConfidence` с лейблами `model` (ml/rule-based) и `class`
+
+---
+
+## Pipeline: Data → Training → Deployment
+
+### Step 6.1 — Подготовка датасета
+
+**Скрипты:** `scripts/prepare_raw_datasets.py`, `scripts/prepare_classifier_dataset.py`
+
+1. **prepare_raw_datasets.py** — обрабатывает 13 датасетов:
+   - ADARP, SPD, ue4w, Toadstool, stress_nurses (E4 CSVs, headerless)
+   - big-ideas (E4 CSVs с заголовками)
+   - in-gauge_en-gage (E4 CSVs, двойная вложенность)
+   - PPG_DaLiA (Pickle + E4 extracted)
+   - WEEE (Fitbit/Apple Watch JSON/CSV)
+   - WESAD (Pickle S2.pkl–S17.pkl)
+   - WESD (Zip/CSV)
+   - BIDMC (Numerics CSV)
+
+2. **prepare_classifier_dataset.py** — очистка:
+   - Удаление дубликатов и all-NaN строк
+   - Удаление признаков без данных
+   - Fallback на синтетику если < 1000 сэмплов
+
+**Выход:** `datasets/processed/classifier_dataset.csv` (12.9M строк)
+
+### Step 6.2 — Обучение
+
+**Скрипт:** `scripts/train_classifier.py`
+
+```powershell
+python train_classifier.py --dataset datasets/processed/classifier_dataset.csv \
+  --output models/classifier.onnx --max-iter 50 --lr 1e-2
 ```
 
-**TRAINING_TEMPLATES (6 классов):**
+**Результат:**
 
-| Класс | duration_range | intensity_range | exercises | rest_ratio |
-| -------- | -------------- | --------------- | --------- | ---------- |
-| recovery | 20–45 | 0.3–0.5 | walking, yoga, stretching, light_swimming, mobility | 0.7 |
-| endurance_basic | 45–90 | 0.5–0.7 | running, cycling, swimming, rowing, hiking | 0.4 |
-| endurance_threshold | 30–60 | 0.7–0.85 | tempo_run, threshold_intervals, fartlek, critical_power | 0.3 |
-| power_hiit | 20–45 | 0.85–1.0 | hiit, strength, sprints, crossfit, plyometrics | 0.5 |
-| overtraining | 0–20 | 0.0–0.3 | rest, walking, stretching, yoga, mobility | 0.8 |
-| illness | 0–0 | 0.0–0.0 | rest | 1.0 |
+- `models/classifier.pkl` — полная HistGradientBoosting модель
+- `models/classifier.onnx` — fallback ONNX (LogisticRegression)
+- `models/classifier_weights.json` — веса для Go
 
----
+### Step 6.3 — Go Инференс
 
-## Требования к GPU и обучению
+**Файлы:** `cmd/classifier/onnx_classifier.go`, `cmd/classifier/main.go`
 
-| Параметр | Значение |
-| -------- | -------- |
-| Минимум GPU | CUDA-capable, 4GB VRAM |
-| Рекомендуется | 8GB+ VRAM (RTX 3070+) |
-| Epochs | 500–1000 |
-| Batch size | 32–64 |
-| Optimizer | AdamW (lr=1e-4, weight_decay=1e-5) |
-| Scheduler | cosine annealing |
-| Данные для обучения | Исторические планы + биометрия + фидбек пользователей + менструальные циклы + заболевания + состав тела |
-| Частота переобучения | Раз в 2 недели (incremental) |
-| Валидация | Hold-out 20%, метрики: val_loss (MSE noise prediction) |
-| Версионирование | DVC для данных и моделей (`datasets/`, `models/`) |
+```go
+// onnx_classifier.go — pure Go, без ONNX Runtime
+// Загружает weights из JSON, делает линейную классификацию
+
+// main.go — HTTP сервер с ML switching
+const mlSwitchThreshold = 0.85
+```
+
+### Step 6.4 — Порог переключения
+
+В `cmd/classifier/main.go`:
+
+```go
+const mlSwitchThreshold = 0.85
+```
 
 ---
 
-## Интеграция
+## Пайплайн данных (13 датасетов)
 
-### Classifier
-
-**Endpoint:** `POST /classify` (service на порту 8001, gateway: `POST /api/v1/ml/classify`)
-
-- **Вход:** физиологические данные
-
-  ```json
-  {
-    "physiological_data": {
-      "heart_rate": 72.0,
-      "heart_rate_variability": 65.0,
-      "spo2": 98.0,
-      "temperature": 36.6,
-      "blood_pressure_systolic": 120.0,
-      "blood_pressure_diastolic": 80.0,
-      "sleep_hours": 7.5
-    },
-    "user_profile": {
-      "age": 30,
-      "gender": "male",
-      "fitness_level": "intermediate",
-      "health_conditions": ["гипертония"],
-      "goals": ["endurance"]
-    }
-  }
-  ```
-
-- **Выход:** класс, уверенность, вероятности, рекомендации, персонализированные заметки
-
-### Generator
-
-**Endpoint:** `POST /generate-plan` (service на порту 8002, gateway: `POST /api/v1/ml/generate-plan`)
-
-- **Вход:** полный профиль пользователя + контекст здоровья + история тренировок
-- **Выход:** 19-dim plan vector + metadata
-- **Fallback:** rule-based → static beginner
+| Датасет | Формат | Сэмплы | Ключевое исправление |
+| --------- | -------- | -------- | ---------------------- |
+| ADARP | E4 CSV (без заголовков) | 6.1M | Пропуск строк с timestamp |
+| big-ideas | E4 CSV (с заголовками) | 9.4M | Шаблон `HR_001.csv` |
+| in-gauge_en-gage | E4 CSV (с заголовками) | 3.7M | Двойная вложенность исправлена |
+| PPG_DaLiA | Pickle + E4 | 135K | Директории `_E4_extracted/` |
+| SPD | E4 CSV (без заголовков) | 116K | Пропуск строк с timestamp |
+| stress_nurses | E4 CSV (без заголовков) | 4.6M | Директории `*_extracted/` |
+| Toadstool | E4 CSV (без заголовков) | 1.3M | Одноколоночные CSVs |
+| ue4w | E4 CSV (без заголовков) | 956K | Пропуск строк с timestamp |
+| WEEE | JSON/CSV | 4.4M | Множество поддиректорий |
+| WESAD | Pickle | 15 субъектов | S2.pkl–S17.pkl |
+| WESAD_labels | Pickle | 15 субъектов | Метки из WESAD |
+| WESD | Zip/CSV | — | Data.zip + extracted |
+| BIDMC | CSV | 53 файла | Numerics CSV |
 
 ---
 
-## Безопасность и ограничения
+## Результаты обучения
 
-1. **Medical disclaimer**: Все планы носят рекомендательный характер. При заболеваниях/травмах — консультация врача обязательна.
-2. **Privacy**: Персональные данные пользователя (менструальные циклы, заболевания) не используются для обучения моделей без явного согласия.
-3. **Bias mitigation**: Модель обучается на разнообразных данных (пол, возраст, уровень подготовки), чтобы избежать генерации планов, не подходящих для特定ных групп.
-4. **Audit**: Каждый generated plan содержит `model_version` для отслеживания версий моделей и аудита.
+| Метрика | Значение |
+| --------- | ---------- |
+| Всего сэмплов | 12,865,107 |
+| Разделение Train/Val | 80/20 (стратифицированное) |
+| Точность на валидации | 0.9986 |
+| Macro F1 | 0.89 |
+| Weighted F1 | 1.00 |
+
+### По классам (валидация)
+
+| Класс | Precision | Recall | F1 | Support |
+| ------- | ----------- | -------- | ----- | --------- |
+| recovery | 0.33 | 0.33 | 0.33 | 3 |
+| endurance_basic | 1.00 | 1.00 | 1.00 | 1,059,610 |
+| endurance_threshold | 0.97 | 0.87 | 0.92 | 3,052 |
+| power_hiit | 0.99 | 0.95 | 0.97 | 1,517 |
+| overtraining | 1.00 | 1.00 | 1.00 | 438,471 |
+| illness | 0.96 | 1.00 | 0.98 | 25 |
+| unknown | 1.00 | 1.00 | 1.00 | 1,070,344 |
+
+> **Примечание:** `recovery` (15 train / 3 val) и `illness` (125 train / 25 val) сильно недорепрезентированы.
 
 ---
 
-## Open Questions
+## Структура файлов
 
-- [ ] Переобучить модель с CONDITION_DIM=32 и сохранить новый `generator.onnx`
-- [ ] Реализовать DDIM sampling для ускорения inference (< 10 шагов)
-- [ ] Добавить A/B тестирование планов (качество планов vs фидбек пользователей)
-- [ ] Реализовать incremental training с DVC pipeline (см. `docs/phase2-roadmap.md` раздел 16)
-- [ ] Добавить валидацию plan_vector (диапазоны, суммы) перед возвратом клиенту
+```text
+scripts/
+├── prepare_raw_datasets.py      # Обработка 13 датасетов
+├── prepare_classifier_dataset.py # Очистка + разметка
+├── cleanup_raw_datasets.py       # Утилита очистки
+└── train_classifier.py           # Обучение + ONNX экспорт
 
-> **Примечание:** Эти задачи отслеживаются в `docs/phase2-roadmap.md` (раздел 16) и требуют отдельного планирования sprint'а.
+models/
+├── classifier.pkl              # Полная HistGradientBoosting (1.2 MB)
+├── classifier.onnx             # Fallback ONNX (700 байт)
+├── classifier_weights.json     # Веса для Go (JSON)
+└── classifier_test.onnx        # Тестовые модели
+
+cmd/classifier/
+├── main.go                     # HTTP сервер + ML switching
+└── onnx_classifier.go          # Чистый Go линейный инференс
+
+scripts/train_classifier.py     # Пайплайн обучения
+scripts/prepare_raw_datasets.py # Обработка данных
+scripts/prepare_classifier_dataset.py # Очистка датасета
+scripts/cleanup_raw_datasets.py # Утилита очистки
+```
+
+---
+
+## API Эндпоинты (Classifier Service: 8001)
+
+| Метод | Путь | Описание |
+| ------- | ------ | ---------- |
+| POST | `/classify` | Классификация физиологического состояния |
+| GET | `/health` | Проверка здоровья |
+| GET | `/classes` | Список классов обучения |
+| GET | `/model-info` | Метаданные модели (ML загружен?) |
+| GET | `/metrics` | Prometheus метрики |
+
+---
+
+## Известные проблемы / Планы
+
+1. **Дисбаланс классов** — `recovery` (15 сэмплов), `illness` (125) сильно недорепрезентированы
+2. **ONNX fallback только 5 классов** — отсутствуют `recovery` и `illness`
+3. **3 из 7 признаков в основном NaN** — `systolic_pressure`, `diastolic_pressure`, `sleep_hours`
+4. **ONNX fallback использует 4 признака** — отсутствуют BP/sleep
+5. **Нет GPU обучения** — HistGradientBoosting работает на CPU
+
+---
+
+*Последнее обновление: 2026-10-07*
+*Отражает реализованный пайплайн на момент коммита*

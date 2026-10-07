@@ -56,18 +56,18 @@
       },
       "a11y": {
         "useValidAnchor": "off",
-        "noLabelWithoutControl": "off",
-        "useButtonType": "off",
+        "noLabelWithoutControl": "error",
+        "useButtonType": "error",
         "noStaticElementInteractions": "off",
         "useKeyWithClickEvents": "off",
         "noSvgWithoutTitle": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "off",
+        "useExhaustiveDependencies": "error",
         "noInvalidUseBeforeDeclaration": "off"
       },
       "security": {
-        "noDangerouslySetInnerHtml": "off"
+        "noDangerouslySetInnerHtml": "warn"
       },
       "complexity": {
         "noImportantStyles": "off"

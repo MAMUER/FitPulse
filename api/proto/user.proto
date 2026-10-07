@@ -1,50 +1,106 @@
 syntax = "proto3";
 
-package user;
+package user.v1;
 
 option go_package = "github.com/MAMUER/project/api/gen/user";
 
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Сервис пользователей.
 service UserService {
+    // Регистрация нового пользователя.
     rpc Register(RegisterRequest) returns (RegisterResponse);
+    // Регистрация по коду приглашения.
     rpc RegisterWithInvite(RegisterWithInviteRequest) returns (RegisterResponse);
+    // Подтверждение email.
     rpc ConfirmEmail(ConfirmEmailRequest) returns (ConfirmEmailResponse);
+    // Вход в систему.
     rpc Login(LoginRequest) returns (LoginResponse);
-    rpc AuthenticateGoogle(AuthenticateGoogleRequest) returns (LoginResponse);
+    // Вход через Яндекс ID.
+    rpc AuthenticateYandex(AuthenticateYandexRequest) returns (LoginResponse);
+    // Получение профиля.
     rpc GetProfile(GetProfileRequest) returns (UserProfile);
+    // Получение пользователя по email.
     rpc GetUserByEmail(GetUserByEmailRequest) returns (UserProfile);
+    // Обновление профиля.
     rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
+    // Смена пароля.
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+    // Смена email.
     rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
+    // Загрузка фото профиля.
     rpc UploadProfilePhoto(UploadProfilePhotoRequest) returns (UploadProfilePhotoResponse);
+    // Удаление фото профиля.
     rpc RemoveProfilePhoto(RemoveProfilePhotoRequest) returns (RemoveProfilePhotoResponse);
+    // Смена никнейма.
     rpc ChangeNickname(ChangeNicknameRequest) returns (ChangeNicknameResponse);
+    // Список устройств.
     rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+    // Добавление устройства.
     rpc AddDevice(AddDeviceRequest) returns (AddDeviceResponse);
+    // Удаление устройства.
     rpc RemoveDevice(RemoveDeviceRequest) returns (RemoveDeviceResponse);
+    // Синхронизация данных устройства.
     rpc SyncDeviceData(SyncDeviceDataRequest) returns (SyncDeviceDataResponse);
+    // Статистика тренировок.
     rpc GetTrainingStats(GetTrainingStatsRequest) returns (GetTrainingStatsResponse);
+    // Достижения пользователя.
     rpc GetAchievements(GetAchievementsRequest) returns (GetAchievementsResponse);
+    // Список пользователей (админ).
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+    // Проверка кода приглашения.
     rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
+    // Настройка TOTP.
     rpc SetupTOTP(SetupTOTPRequest) returns (SetupTOTPResponse);
+    // Подтверждение TOTP.
     rpc ConfirmTOTP(ConfirmTOTPRequest) returns (ConfirmTOTPResponse);
+    // Проверка TOTP.
     rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
+    // Отключение TOTP.
     rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
+    // Обновление токена доступа.
     rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+    // Список заболеваний.
     rpc ListHealthConditions(ListHealthConditionsRequest) returns (ListHealthConditionsResponse);
+    // Создание/обновление заболевания.
     rpc UpsertHealthCondition(UpsertHealthConditionRequest) returns (HealthCondition);
+    // Удаление заболевания.
     rpc DeleteHealthCondition(DeleteHealthConditionRequest) returns (DeleteHealthConditionResponse);
+    // Список записей body composition.
     rpc ListBodyComposition(ListBodyCompositionRequest) returns (ListBodyCompositionResponse);
+    // Создание записи body composition.
     rpc CreateBodyComposition(CreateBodyCompositionRequest) returns (BodyCompositionRecord);
+    // Список менструальных циклов.
     rpc ListMenstrualCycles(ListMenstrualCyclesRequest) returns (ListMenstrualCyclesResponse);
+    // Создание менструального цикла.
     rpc CreateMenstrualCycle(CreateMenstrualCycleRequest) returns (MenstrualCycle);
+    // Обновление менструального цикла.
     rpc UpdateMenstrualCycle(UpdateMenstrualCycleRequest) returns (MenstrualCycle);
+    // Удаление менструального цикла.
     rpc DeleteMenstrualCycle(DeleteMenstrualCycleRequest) returns (DeleteMenstrualCycleResponse);
+    // Получениеclaims пользователя.
     rpc GetUserClaims(GetUserClaimsRequest) returns (GetUserClaimsResponse);
+    // Удаление профиля.
     rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
+    // Экспорт данных пользователя.
+    rpc ExportUserData(ExportUserDataRequest) returns (ExportUserDataResponse);
+    // Список инвайтов (админ).
     rpc AdminListInvites(AdminListInvitesRequest) returns (AdminListInvitesResponse);
+    // Создание инвайта (админ).
     rpc AdminCreateInvite(AdminCreateInviteRequest) returns (AdminCreateInviteResponse);
+    // Отзыв инвайта (админ).
     rpc AdminRevokeInvite(AdminRevokeInviteRequest) returns (AdminRevokeInviteResponse);
+    // Удаление пользователя (админ).
+    rpc AdminDeleteUser(AdminDeleteUserRequest) returns (AdminDeleteUserResponse);
+    // Бан пользователя (админ).
+    rpc AdminBanUser(AdminBanUserRequest) returns (AdminBanUserResponse);
+    // Разбан пользователя (админ).
+    rpc AdminUnbanUser(AdminUnbanUserRequest) returns (AdminUnbanUserResponse);
+    // Сохранить анкету.
+    rpc SaveSurvey(SaveSurveyRequest) returns (SaveSurveyResponse);
+    // Загрузить анкету.
+    rpc LoadSurvey(LoadSurveyRequest) returns (LoadSurveyResponse);
 }
 
 message RegisterRequest {
@@ -82,8 +138,12 @@ message LoginResponse {
     string refresh_token = 6;
 }
 
-message AuthenticateGoogleRequest {
-    string id_token = 1;
+message AuthenticateYandexRequest {
+    string yandex_id = 1;
+    string email = 2;
+    string login = 3;
+    string first_name = 4;
+    string last_name = 5;
 }
 
 message GetProfileRequest {
@@ -258,6 +318,7 @@ message UserProfile {
     string nutrition = 16;
     float sleep_hours = 17;
     string profile_photo_url = 18;
+    bool ai_assistant_enabled = 19;
 }
 
 message ListUsersRequest {
@@ -553,4 +614,85 @@ message AdminRevokeInviteRequest {
 message AdminRevokeInviteResponse {
     bool success = 1;
     string message = 2;
+}
+
+message AdminDeleteUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminDeleteUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ExportUserDataRequest {
+    string user_id = 1;
+}
+
+message ExportUserDataResponse {
+    string user_id = 1;
+    string email = 2;
+    string full_name = 3;
+    string nickname = 4;
+    string profile_photo_url = 5;
+    string role = 6;
+    int32 age = 7;
+    string gender = 8;
+    int32 height_cm = 9;
+    double weight_kg = 10;
+    string fitness_level = 11;
+    repeated string goals = 12;
+    repeated string contraindications = 13;
+    string nutrition = 14;
+    float sleep_hours = 15;
+    string created_at = 16;
+    string updated_at = 17;
+    repeated HealthCondition health_conditions = 18;
+    repeated BodyCompositionRecord body_composition = 19;
+    repeated MenstrualCycle menstrual_cycles = 20;
+    repeated Device devices = 21;
+    string exported_at = 22;
+}
+
+message AdminBanUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminBanUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AdminUnbanUserRequest {
+    string requester_user_id = 1;
+    string user_id = 2;
+}
+
+message AdminUnbanUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message SaveSurveyRequest {
+    string user_id = 1;
+    google.protobuf.Struct survey = 2;
+    bool survey_completed = 3;
+    google.protobuf.Timestamp survey_completed_at = 4;
+}
+
+message SaveSurveyResponse {
+    string status = 1;
+}
+
+message LoadSurveyRequest {
+    string user_id = 1;
+}
+
+message LoadSurveyResponse {
+    string status = 1;
+    google.protobuf.Struct survey = 2;
+    bool survey_completed = 3;
+    google.protobuf.Timestamp survey_completed_at = 4;
 }

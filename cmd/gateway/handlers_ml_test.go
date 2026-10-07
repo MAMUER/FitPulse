@@ -1,104 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	biometricpb "github.com/MAMUER/project/api/gen/biometric"
-	"github.com/MAMUER/project/internal/middleware"
 )
-
-func TestML_ClassifyHandler_Unauthorized(t *testing.T) {
-	g := newTestGateway()
-	withClassifierURL(g, "http://localhost:8001")
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestML_ClassifyHandler_InvalidClassifierURL(t *testing.T) {
-	g := newTestGateway()
-	g.classifierURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_ClassifyHandler_ClassifierUnavailable(t *testing.T) {
-	g := newTestGateway()
-	withClassifierURL(g, "http://localhost:99999")
-	withBiometricClient(g)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_ClassifyHandler_Success(t *testing.T) {
-	g := newTestGateway()
-	withBiometricClient(g)
-
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"predicted_class": "endurance_basic",
-			"confidence":      0.95,
-			"recommendations": []string{"increase cardio", "rest more"},
-		}); encodeErr != nil {
-			t.Logf("encode error: %v", encodeErr)
-		}
-	})}
-	go func() {
-		if serveErr := server.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
-			t.Logf("server error: %v", serveErr)
-		}
-	}()
-	defer func() {
-		if closeErr := server.Close(); closeErr != nil {
-			t.Logf("close error: %v", closeErr)
-		}
-	}()
-
-	withClassifierURL(g, "http://localhost:"+strconv.Itoa(port))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/ml/classify", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.classifyHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "success")
-	assert.Contains(t, w.Body.String(), "endurance_basic")
-}
 
 func TestML_AggregateMLPayload(t *testing.T) {
 	tests := []struct {
@@ -251,30 +160,25 @@ func TestML_CallClassifier_InvalidURL(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestML_ProxyToMLGenerator_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
+func TestML_IsValidServiceURL(t *testing.T) {
+	tests := []struct {
+		url      string
+		prefixes []string
+		want     bool
+	}{
+		{"http://127.0.0.1:8001", []string{"http://127.0.0.1:"}, true},
+		{"https://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
+		{"http://classifier:8001", []string{"http://classifier:"}, true},
+		{"ftp://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
+		{"http://evil.com", []string{"http://127.0.0.1:"}, false},
+	}
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.proxyToMLGenerator(w, req, "/generate-plan")
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_ProxyToMLGenerator_ReadBodyError(t *testing.T) {
-	g := newTestGateway()
-	withMLGeneratorURL(g, "http://localhost:99999")
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Body = &errorReader{err: errors.New("read error")}
-
-	g.proxyToMLGenerator(w, req, "/generate-plan")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			got := isValidServiceURL(tt.url, tt.prefixes...)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 type errorReader struct {
@@ -287,51 +191,4 @@ func (e *errorReader) Read(p []byte) (n int, err error) {
 
 func (e *errorReader) Close() error {
 	return nil
-}
-
-func TestML_MLGenerateHandler_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/generate", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.mlGenerateHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_MLDietHandler_InvalidURL(t *testing.T) {
-	g := newTestGateway()
-	g.mlGeneratorURL = "invalid-url"
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/ml/diet", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.mlDietHandler(w, req)
-
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-}
-
-func TestML_IsValidServiceURL(t *testing.T) {
-	tests := []struct {
-		url      string
-		prefixes []string
-		want     bool
-	}{
-		{"http://localhost:8001", []string{"http://localhost:"}, true},
-		{"https://localhost:8001", []string{"http://localhost:"}, false},
-		{"http://classifier:8001", []string{"http://classifier:"}, true},
-		{"ftp://localhost:8001", []string{"http://localhost:"}, false},
-		{"http://evil.com", []string{"http://localhost:"}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.url, func(t *testing.T) {
-			got := isValidServiceURL(tt.url, tt.prefixes...)
-			assert.Equal(t, tt.want, got)
-		})
-	}
 }

@@ -29,6 +29,7 @@ env/
 # Logs and temp files
 *.log
 *.tmp
+train_output.txt
 
 # IDE and editor settings
 .vscode/
@@ -112,5 +113,16 @@ results.json
 .kilo
 
 
+# ML model artifacts (use Git LFS or object storage for versioning)
+models/*.onnx
+models/*.pkl
+models/*.bin
+
 # Raw datasets (too large for git)
 datasets/raw/
+
+web/test-results/
+
+pgp-private-key.asc
+
+*.csv

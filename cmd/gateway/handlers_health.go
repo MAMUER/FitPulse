@@ -112,6 +112,5 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 		"timestamp":    time.Now().UTC().Format(time.RFC3339),
 		"services":     services,
 		"classifier":   g.classifierURL,
-		"ml_generator": g.mlGeneratorURL,
 	})
 }

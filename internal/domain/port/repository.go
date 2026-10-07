@@ -18,6 +18,8 @@ type UserRepository interface {
 	Count(ctx context.Context) (int, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ListByRole(ctx context.Context, role string, page, pageSize int) ([]*entity.User, int, error)
+	BanUser(ctx context.Context, id string) error
+	UnbanUser(ctx context.Context, id string) error
 }
 
 type BiometricRepository interface {
@@ -44,6 +46,13 @@ type ProfileRepository interface {
 	UserExists(ctx context.Context, userID string) (bool, error)
 	CreateProfile(ctx context.Context, userID string) error
 	UpsertProfile(ctx context.Context, userID string, data *ProfileData) error
+	SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
+}
+
+type SurveyRepository interface {
+	SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
 }
 
 type ProfileData struct {
@@ -230,7 +239,7 @@ type RefreshToken struct {
 	ID        string
 	UserID    string
 	Token     string
-	Used      bool
+	Revoked   bool
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }
@@ -238,5 +247,20 @@ type RefreshToken struct {
 type RefreshTokenRepository interface {
 	GetValid(ctx context.Context, token string) (*RefreshToken, error)
 	Create(ctx context.Context, rt *RefreshToken) error
-	MarkUsed(ctx context.Context, token string) error
+	MarkRevoked(ctx context.Context, token string) error
+}
+
+type ExternalSecret struct {
+	ID        string
+	Name      string
+	Value     string
+	CreatedAt string
+	UpdatedAt string
+}
+
+type ExternalSecretRepository interface {
+	GetByName(ctx context.Context, name string) (*ExternalSecret, error)
+	List(ctx context.Context) ([]*ExternalSecret, error)
+	Upsert(ctx context.Context, secret *ExternalSecret) error
+	Delete(ctx context.Context, name string) error
 }

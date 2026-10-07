@@ -102,11 +102,11 @@ func (g *gateway) executeGeneratePlan(ctx context.Context, userID string, req ge
 	}
 
 	return client.GeneratePlan(ctx, &trainingpb.GeneratePlanRequest{
-		UserId:              userID,
-		ClassificationClass: req.Class,
-		Confidence:          req.Confidence,
-		DurationWeeks:       safeIntToInt32(req.DurationWeeks),
-		AvailableDays:       availableDays,
+		UserId:         userID,
+		Classification: req.Class,
+		Confidence:     req.Confidence,
+		DurationWeeks:  safeIntToInt32(req.DurationWeeks),
+		AvailableDays:  availableDays,
 	})
 }
 
@@ -126,7 +126,9 @@ func writeGeneratePlanResponse(g *gateway, w http.ResponseWriter, resp *training
 		}
 	}
 	planData["duration_weeks"] = req.DurationWeeks
-	planData["training_goal"] = req.Class
+	if _, ok := planData["training_goal"]; !ok {
+		planData["training_goal"] = req.Class
+	}
 
 	response := map[string]interface{}{
 		"status":        "ok",

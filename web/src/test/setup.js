@@ -37,3 +37,21 @@ if (!globalThis.crypto) {
     configurable: true,
   });
 }
+
+Object.defineProperty(globalThis, 'alert', {
+  value: () => {},
+  writable: true,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'confirm', {
+  value: () => true,
+  writable: true,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'prompt', {
+  value: () => null,
+  writable: true,
+  configurable: true,
+});

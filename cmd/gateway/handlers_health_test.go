@@ -69,5 +69,4 @@ func TestHealth_HandlerResponseFormat(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "timestamp")
 	assert.Contains(t, w.Body.String(), "services")
 	assert.Contains(t, w.Body.String(), "classifier")
-	assert.Contains(t, w.Body.String(), "ml_generator")
 }
