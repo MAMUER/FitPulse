@@ -124,3 +124,5 @@ datasets/raw/
 web/test-results/
 
 pgp-private-key.asc
+
+*.csv
