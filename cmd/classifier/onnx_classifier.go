@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -102,7 +103,7 @@ func (c *ONNXClassifier) findBestClass(scores []float64) int {
 }
 
 func (c *ONNXClassifier) sigmoidConfidence(maxScore float64) float64 {
-	confidence := 1.0 / (1.0 + float64(-maxScore))
+	confidence := 1.0 / (1.0 + math.Exp(-maxScore))
 	if confidence > 1 {
 		confidence = 1
 	}

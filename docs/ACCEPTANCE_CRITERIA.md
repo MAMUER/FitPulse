@@ -75,7 +75,7 @@
 - [x] Classifier (rule-based) — Phase 1 production
 - [x] Plan Engine (template-based, Go) — Phase 1 production
 - [x] Rule-based chat with dataset-backed FAQ — Phase 1 production
-- [ ] ONNX classifier inference with fallback (Phase 2)
+- [x] ONNX classifier inference with fallback (Phase 1 production)
 - [ ] External LLM with opt-in (Phase 2)
 
 ### Устройства

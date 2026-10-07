@@ -29,6 +29,7 @@ env/
 # Logs and temp files
 *.log
 *.tmp
+train_output.txt
 
 # IDE and editor settings
 .vscode/

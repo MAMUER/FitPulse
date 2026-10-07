@@ -56,6 +56,23 @@ func toInt32(v int64) int32 {
 	return int32(v)
 }
 
+var trainingGoalByClass = map[string]string{
+	"recovery":             "recovery",
+	"endurance_basic":      "endurance_e1e2",
+	"endurance_threshold":  "threshold_e3",
+	"power_hiit":           "strength_hiit",
+	"overtraining":         "recovery",
+	"illness":              "recovery",
+	"unknown":              "general_fitness",
+}
+
+func mapClassToTrainingGoal(classificationClass string) string {
+	if goal, ok := trainingGoalByClass[classificationClass]; ok {
+		return goal
+	}
+	return "general_fitness"
+}
+
 type trainingServer struct {
 	pb.UnimplementedTrainingServiceServer
 	db          *sql.DB
@@ -93,6 +110,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	if classificationClass == "" {
 		classificationClass = "endurance_basic"
 	}
+	trainingGoal := mapClassToTrainingGoal(classificationClass)
 
 	planID := uuid.New().String()
 	startDate, endDate := s.calculatePlanDates(req.DurationWeeks)
@@ -137,6 +155,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		planID:              planID,
 		userID:              req.UserId,
 		classificationClass: classificationClass,
+		trainingGoal:        trainingGoal,
 		startDate:           startDate,
 		endDate:             endDate,
 		plan:                plan,
@@ -156,7 +175,7 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		"name":           plan.PlanData["name"],
 		"class":          plan.Classification,
 		"duration_weeks": int(req.DurationWeeks),
-		"training_goal":  classificationClass,
+		"training_goal":  trainingGoal,
 		"weeks":          weeks,
 	}
 	planStruct, _ := structpb.NewStruct(planData)
@@ -211,6 +230,7 @@ type savePlannerPlanOptions struct {
 	planID              string
 	userID              string
 	classificationClass string
+	trainingGoal        string
 	startDate           time.Time
 	endDate             time.Time
 	plan                *entity.TrainingPlan
@@ -221,6 +241,7 @@ func (s *trainingServer) savePlannerPlan(ctx context.Context, tx *sql.Tx, opts s
 	planID := opts.planID
 	userID := opts.userID
 	classificationClass := opts.classificationClass
+	trainingGoal := opts.trainingGoal
 	startDate := opts.startDate
 	endDate := opts.endDate
 	plan := opts.plan
@@ -229,7 +250,7 @@ func (s *trainingServer) savePlannerPlan(ctx context.Context, tx *sql.Tx, opts s
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO training_plans (id, user_id, name, training_goal, classification, duration_weeks, template_version, generated_at, start_date, end_date, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-	`, planID, userID, "Персонализированная программа", classificationClass, classificationClass, plan.DurationWeeks, "v1", time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
+	`, planID, userID, "Персонализированная программа", trainingGoal, classificationClass, plan.DurationWeeks, "v1", time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
 		s.log.Error("Не удалось сохранить план", zap.Error(err), zap.String("planID", planID))
 		return status.Error(codes.Internal, "не удалось сохранить план")

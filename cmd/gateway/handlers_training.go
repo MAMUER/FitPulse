@@ -126,7 +126,9 @@ func writeGeneratePlanResponse(g *gateway, w http.ResponseWriter, resp *training
 		}
 	}
 	planData["duration_weeks"] = req.DurationWeeks
-	planData["training_goal"] = req.Class
+	if _, ok := planData["training_goal"]; !ok {
+		planData["training_goal"] = req.Class
+	}
 
 	response := map[string]interface{}{
 		"status":        "ok",

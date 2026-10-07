@@ -125,7 +125,7 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	6: {
-		Name: "uncertainty",
+		Name: "unknown",
 
 		Description: "Данные противоречивы, требуется повторное измерение или консультация специалиста",
 		HrRange:     "—",
@@ -398,7 +398,7 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 		return classifyByIllnessSigns(illnessSigns, hasMildFever, data)
 	}
 	if data.Temperature > 37.5 {
-		return 6, 0.45, buildIllnessProbabilities(0.45)
+		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
 		return classifyByMildCondition(hasMildFever, data)
@@ -467,7 +467,7 @@ func countIllnessSigns(data physiologicalData) int {
 
 func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
 	if data.Temperature > 37.5 {
-		return 6, 0.45, buildIllnessProbabilities(0.45)
+		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
 		confidence := 0.45
@@ -478,7 +478,7 @@ func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologi
 			confidence += 0.10
 		}
 		confidence = math.Round(confidence*10000) / 10000.0
-		return 6, confidence, buildIllnessProbabilities(confidence)
+		return 5, confidence, buildIllnessProbabilities(confidence)
 	}
 	confidence := 0.55 + float64(illnessSigns-1)*0.15
 	if confidence > 0.95 {
@@ -497,7 +497,7 @@ func classifyByMildCondition(hasMildFever bool, data physiologicalData) (int, fl
 		confidence += 0.10
 	}
 	confidence = math.Round(confidence*10000) / 10000.0
-	return 6, confidence, buildIllnessProbabilities(confidence)
+	return 5, confidence, buildIllnessProbabilities(confidence)
 }
 
 func classifyByOvertraining(overtrainingSigns int) (int, float64, map[string]float64) {
@@ -540,10 +540,10 @@ func buildIllnessProbabilities(confidence float64) map[string]float64 {
 		"power_hiit":          0.0,
 		"overtraining":        0.05,
 		"illness":             confidence,
-		"uncertainty":         1.0 - confidence - 0.05,
+		"unknown":             1.0 - confidence - 0.05,
 	}
-	if probs["uncertainty"] < 0 {
-		probs["uncertainty"] = 0
+	if probs["unknown"] < 0 {
+		probs["unknown"] = 0
 	}
 	return probs
 }
@@ -556,10 +556,10 @@ func buildOvertrainingProbabilities(confidence float64) map[string]float64 {
 		"power_hiit":          0.0,
 		"overtraining":        confidence,
 		"illness":             0.05,
-		"uncertainty":         1.0 - confidence - 0.10,
+		"unknown":             1.0 - confidence - 0.10,
 	}
-	if probs["uncertainty"] < 0 {
-		probs["uncertainty"] = 0
+	if probs["unknown"] < 0 {
+		probs["unknown"] = 0
 	}
 	return probs
 }
@@ -572,12 +572,12 @@ func buildLowSpO2Probabilities() map[string]float64 {
 		"power_hiit":          0.05,
 		"overtraining":        0.10,
 		"illness":             0.10,
-		"uncertainty":         0.70,
+		"unknown":             0.70,
 	}
 }
 
 func buildZoneProbabilities(zone int, confidence float64) map[string]float64 {
-	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness", "uncertainty"}
+	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness", "unknown"}
 	remainder := (1.0 - confidence) / 6.0
 	probs := make(map[string]float64)
 	for i, name := range classNames {

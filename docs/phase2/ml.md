@@ -4,7 +4,7 @@
 
 ### 14.1 Текущий статус Phase 1
 
-- **Classifier**: Rule-based (не ML), детектирует `normal`, `illness`, `overtraining`, `recovery`, `fatigue`, `stress`, `dehydration`
+- **Classifier**: Rule-based (не ML), детектирует `recovery`, `endurance_basic`, `endurance_threshold`, `power_hiit`, `overtraining`, `illness`, `unknown`
 - **ML Generator**: Conditional Diffusion Model (DDPM) с 3-tier fallback, inference-ready в production
 - **DVC**: Инициализирован (`dvc.yaml`, `params.yaml`)
 - **Ограничение**: Текущий сервер (2 vCPU / 4 ГБ RAM / 60 ГБ Storage) не позволяет запускать ежедневное ML-переобучение без влияния на отзывчивость приложения
