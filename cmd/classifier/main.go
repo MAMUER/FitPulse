@@ -21,13 +21,17 @@ import (
 )
 
 type classifierServer struct {
-	log *logger.Logger
+	log            *logger.Logger
+	onnxClassifier *ONNXClassifier
 }
 
 const (
 	trainingClassCount = 7
 	contentTypeJSON    = "application/json"
 	headerContentType  = "Content-Type"
+	mlSwitchThreshold  = 0.85
+	modelRuleBased     = "rule-based"
+	modelML            = "ml"
 )
 
 var trainingClasses = map[int]struct {
@@ -206,11 +210,17 @@ func (s *classifierServer) metricsHandler(w http.ResponseWriter, r *http.Request
 
 func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
+	modelName := "rule-based-classifier"
+	totalParams := 0
+	if s.onnxClassifier != nil {
+		modelName = "onnx-linear-classifier"
+		totalParams = len(s.onnxClassifier.Weights)
+	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"model_name":       "rule-based-classifier",
+		"model_name":       modelName,
 		"input_shape":      []int{1, 7},
 		"output_shape":     []int{1, trainingClassCount},
-		"total_params":     0,
+		"total_params":     totalParams,
 		"training_classes": trainingClasses,
 		"loaded_at":        time.Now().UTC().Format(time.RFC3339),
 	})
@@ -251,7 +261,33 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		age = req.UserProfile.Age
 	}
 
-	predictedClass, confidence, probs := classifyState(data, age)
+	var predictedClass int
+	var confidence float64
+	var probs map[string]float64
+	modelUsed := modelRuleBased
+
+	if s.onnxClassifier != nil {
+		features := map[string]float64{
+			"heart_rate":           data.HeartRate,
+			"hrv":                  data.HeartRateVariability,
+			"spo2":                 data.SpO2,
+			"temperature":          data.Temperature,
+		}
+		mlClass, mlConfidence, err := s.onnxClassifier.Predict(features)
+		if err == nil && mlConfidence >= mlSwitchThreshold {
+			predictedClass = mlClass
+			confidence = mlConfidence
+			probs = buildZoneProbabilities(predictedClass, confidence)
+			modelUsed = modelML
+		} else {
+			predictedClass, confidence, probs = classifyState(data, age)
+			modelUsed = modelRuleBased
+		}
+	} else {
+		predictedClass, confidence, probs = classifyState(data, age)
+		modelUsed = modelRuleBased
+	}
+
 	classInfo := trainingClasses[predictedClass]
 	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
 
@@ -272,13 +308,14 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		PersonalizedNotes: personalizedNotes,
 	}
 
-	metrics.ClassificationConfidence.WithLabelValues("rule-based", classInfo.Name).Set(confidence)
+	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
 
 	s.log.Info("Classification completed",
 		zap.String("user_id", req.UserID),
 		zap.String("predicted_class", classInfo.Name),
 		zap.Float64("confidence", confidence),
 		zap.String("state", classInfo.Name),
+		zap.String("model", modelUsed),
 	)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -660,6 +697,12 @@ func main() {
 	_ = config.GetViper()
 
 	s := &classifierServer{log: log}
+	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
+		s.onnxClassifier = clf
+		log.Info("ONNX classifier loaded", zap.String("weights", DefaultONNXWeightsPath()))
+	} else {
+		log.Warn("ONNX classifier not loaded, using rule-based fallback", zap.Error(err))
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.healthHandler)

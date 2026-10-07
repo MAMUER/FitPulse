@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Train MLP classifier on processed classifier dataset and export to ONNX.
+"""Train classifier on processed classifier dataset and export to ONNX.
 
 Usage:
     python scripts/train_classifier.py \
         --dataset datasets/processed/classifier_dataset.csv \
         --output models/classifier.onnx \
-        --epochs 100 \
-        --lr 1e-3
+        --max-iter 50 \
+        --lr 1e-2 \
+        --val-split 0.2
 """
 
 import argparse
@@ -14,12 +15,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-import torch.optim as optim
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+import joblib
 
 
 CLASSES = [
@@ -32,7 +33,7 @@ CLASSES = [
     "unknown",
 ]
 
-FEATURE_COLUMNS = [
+REQUIRED_FEATURES = [
     "heart_rate",
     "hrv",
     "spo2",
@@ -43,135 +44,115 @@ FEATURE_COLUMNS = [
 ]
 
 
-class ClassifierMLP(nn.Module):
-    def __init__(self, input_dim: int, hidden_dim: int = 64, num_classes: int = len(CLASSES)) -> None:
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 2, num_classes),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-
-def load_dataset(path: Path) -> tuple[np.ndarray, np.ndarray]:
+def load_dataset(path: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
     df = pd.read_csv(path)
     if "label" not in df.columns:
         raise ValueError("Dataset must contain 'label' column")
 
-    x = df[FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    available_features = [c for c in REQUIRED_FEATURES if c in df.columns]
+    if not available_features:
+        raise ValueError("No usable feature columns found in dataset")
+
+    non_empty = [c for c in available_features if df[c].notna().sum() > 0]
+    if not non_empty:
+        raise ValueError("All feature columns are empty")
+
+    feature_columns = non_empty
+    print(f"Using features: {feature_columns}")
+
+    x = df[feature_columns].to_numpy(dtype=np.float32)
     label_to_idx = {label: idx for idx, label in enumerate(CLASSES)}
-    y = df["label"].map(label_to_idx).to_numpy(dtype=np.int64)
-    return x, y
+    y_raw = df["label"].map(label_to_idx)
 
+    unmapped = y_raw.isna().sum()
+    if unmapped > 0:
+        print(f"WARNING: {unmapped} rows have unmapped labels, dropping them")
 
-def train_epoch(model: nn.Module, loader: DataLoader, criterion: nn.Module, optimizer: optim.Optimizer, device: torch.device) -> tuple[float, float]:
-    model.train()
-    total_loss = 0.0
-    correct = 0
-    total = 0
-    for xb, yb in loader:
-        xb = xb.to(device)
-        yb = yb.to(device)
-        optimizer.zero_grad()
-        logits = model(xb)
-        loss = criterion(logits, yb)
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item() * xb.size(0)
-        correct += (logits.argmax(dim=1) == yb).sum().item()
-        total += xb.size(0)
-    return total_loss / total, correct / total
+    valid_mask = y_raw.notna().to_numpy()
+    x = x[valid_mask]
+    y = y_raw[valid_mask].to_numpy(dtype=np.int64)
 
+    unique_labels = np.unique(y)
+    if len(unique_labels) < 2:
+        raise ValueError(f"Need at least 2 classes for training, got {len(unique_labels)}: {unique_labels}")
 
-def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device) -> tuple[float, float, np.ndarray, np.ndarray]:
-    model.eval()
-    total_loss = 0.0
-    correct = 0
-    total = 0
-    all_preds = []
-    all_labels = []
-    with torch.no_grad():
-        for xb, yb in loader:
-            xb = xb.to(device)
-            yb = yb.to(device)
-            logits = model(xb)
-            loss = criterion(logits, yb)
-            total_loss += loss.item() * xb.size(0)
-            correct += (logits.argmax(dim=1) == yb).sum().item()
-            total += xb.size(0)
-            all_preds.extend(logits.argmax(dim=1).cpu().numpy())
-            all_labels.extend(yb.cpu().numpy())
-    return total_loss / total, correct / total, np.array(all_preds), np.array(all_labels)
-
-
-def export_to_onnx(model: nn.Module, output_path: Path, input_dim: int) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    dummy = torch.randn(1, input_dim)
-    torch.onnx.export(
-        model,
-        dummy,
-        output_path,
-        input_names=["input"],
-        output_names=["logits"],
-        dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
-        opset_version=15,
-    )
-    print(f"ONNX model exported to {output_path}")
+    return x, y, feature_columns
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train classifier MLP and export to ONNX")
+    parser = argparse.ArgumentParser(description="Train classifier and export to ONNX")
     parser.add_argument("--dataset", type=Path, required=True, help="Path to processed classifier_dataset.csv")
     parser.add_argument("--output", type=Path, default=Path("models/classifier.onnx"), help="Output ONNX path")
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--hidden-dim", type=int, default=64)
-    parser.add_argument("--val-split", type=float, default=0.2)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--max-iter", type=int, default=50, help="Maximum number of iterations")
+    parser.add_argument("--lr", type=float, default=1e-2, help="Learning rate")
+    parser.add_argument("--val-split", type=float, default=0.2, help="Validation split")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
-    torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    x, y = load_dataset(args.dataset)
-    x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=args.val_split, random_state=args.seed, stratify=y)
+    print(f"Loading dataset from {args.dataset}")
+    x, y, feature_columns = load_dataset(args.dataset)
+    print(f"Dataset shape: {x.shape}, classes: {len(np.unique(y))}")
 
-    train_ds = TensorDataset(torch.tensor(x_train), torch.tensor(y_train))
-    val_ds = TensorDataset(torch.tensor(x_val), torch.tensor(y_val))
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size)
+    unique, counts = np.unique(y, return_counts=True)
+    for cls_idx, count in zip(unique, counts):
+        print(f"  Class {CLASSES[cls_idx]}: {count} samples")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ClassifierMLP(input_dim=x.shape[1], hidden_dim=args.hidden_dim).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    min_class_count = counts.min()
+    if min_class_count < 2:
+        print(f"WARNING: Smallest class has only {min_class_count} sample(s). Disabling stratified split.")
+        x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=args.val_split, random_state=args.seed)
+    else:
+        x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=args.val_split, random_state=args.seed, stratify=y)
 
-    best_acc = 0.0
-    best_state = None
-    for epoch in range(1, args.epochs + 1):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss, val_acc, preds, labels = evaluate(model, val_loader, criterion, device)
-        if val_acc > best_acc:
-            best_acc = val_acc
-            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+    model = HistGradientBoostingClassifier(
+        max_iter=args.max_iter,
+        learning_rate=args.lr,
+        random_state=args.seed,
+        verbose=0,
+    )
 
-        if epoch % 10 == 0 or epoch == 1:
-            print(f"Epoch {epoch:03d}: train_loss={train_loss:.4f} train_acc={train_acc:.4f} val_loss={val_loss:.4f} val_acc={val_acc:.4f}")
+    print("Training HistGradientBoosting...")
+    model.fit(x_train, y_train)
 
-    if best_state is not None:
-        model.load_state_dict(best_state)
-    print(f"\nBest validation accuracy: {best_acc:.4f}")
+    y_pred = model.predict(x_val)
+    print(f"Validation accuracy: {accuracy_score(y_val, y_pred):.4f}")
     print("\nClassification report:")
-    print(classification_report(labels, preds, target_names=CLASSES, zero_division=0))
-    print(f"Overall accuracy: {accuracy_score(labels, preds):.4f}")
+    print(classification_report(y_val, y_pred, target_names=CLASSES, zero_division=0))
 
-    export_to_onnx(model, args.output, input_dim=x.shape[1])
+    # Save full model as pickle
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    model_path = args.output.with_suffix(".pkl")
+    joblib.dump(model, model_path)
+    print(f"Model saved to {model_path}")
+
+    # Export fallback ONNX from a small sklearn pipeline
+    print(f"\nExporting fallback ONNX to {args.output} ...")
+    from sklearn.pipeline import Pipeline
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression
+
+    sample_size = min(5000, len(x_train))
+    rng = np.random.default_rng(args.seed)
+    idx = rng.choice(len(x_train), size=sample_size, replace=False)
+    x_sample = x_train[idx]
+    y_sample = y_train[idx]
+
+    fallback_model = Pipeline([
+        ("imputer", SimpleImputer()),
+        ("clf", LogisticRegression(max_iter=200, class_weight="balanced")),
+    ], memory=None)
+    fallback_model.fit(x_sample, y_sample)
+
+    initial_types = [("input", FloatTensorType([1, len(feature_columns)]))]
+    onnx_model = convert_sklearn(fallback_model, initial_types=initial_types, options={id(fallback_model): {"zipmap": False}})
+
+    with open(args.output, "wb") as f:
+        f.write(onnx_model.SerializeToString())
+
+    print(f"ONNX model exported to {args.output} ({len(onnx_model.SerializeToString())} bytes)")
+    print("Done.")
 
 
 if __name__ == "__main__":

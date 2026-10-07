@@ -21,6 +21,7 @@
 | [Техническое задание](docs/TECHNICAL_SPECIFICATION.md) | Полное ТЗ с требованиями, стадиями разработки и критериями приемки |
 | [Архитектура](docs/ARCHITECTURE.md) | Инфраструктура, наблюдаемость, безопасность, релизный процесс |
 | [API Reference](docs/API.md) | Полная спецификация REST/gRPC endpoints |
+| [ML Specification](docs/ML_SPECIFICATION.md) | Архитектура классификатора, правила, ML модель, порог переключения |
 | [Security Policy](SECURITY.md) | Меры безопасности, compliance, аудит |
 | [Architecture Decision Records](docs/adr/) | Обоснование архитектурных решений |
 | [UI Specification](docs/UI_SPECIFICATION.md) | Спецификация мобильного веб-интерфейса |

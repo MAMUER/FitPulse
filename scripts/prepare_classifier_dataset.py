@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
-"""Prepare classifier dataset from PhysioNet and WESAD datasets.
+"""Prepare classifier dataset from existing processed data or generate synthetic fallback."""
+from __future__ import annotations
 
-This script:
-1. Loads raw physiological data from PhysioNet and WESAD
-2. Normalizes 7 features: heart_rate, hrv, spo2, temperature, systolic_pressure, diastolic_pressure, sleep_hours
-3. Labels classes using rule-based classifier
-4. Saves processed dataset to datasets/processed/classifier_dataset.csv
-
-Usage:
-    python scripts/prepare_classifier_dataset.py
-"""
-
-import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# 7 features used by the classifier
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+INPUT_PATH = PROJECT_ROOT / "datasets" / "processed" / "classifier_dataset.csv"
+OUTPUT_PATH = INPUT_PATH
+
 FEATURE_COLUMNS = [
     "heart_rate",
     "hrv",
@@ -38,7 +31,6 @@ CLASSES = [
     "unknown",
 ]
 
-# Placeholder thresholds for synthetic data generation
 HR_MIN, HR_MAX = 40.0, 200.0
 HRV_MIN, HRV_MAX = 10.0, 100.0
 SPO2_MIN, SPO2_MAX = 88.0, 100.0
@@ -52,33 +44,33 @@ def normalize_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     for col in FEATURE_COLUMNS:
         if col not in df.columns:
-            raise ValueError(f"Missing feature column: {col}")
-        min_val = df[col].min()
-        max_val = df[col].max()
-        if max_val > min_val:
-            df[col] = (df[col] - min_val) / (max_val - min_val)
+            df[col] = np.nan
+            continue
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if col_max > col_min:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
     return df
 
 
 def rule_based_label(row: pd.Series) -> str:
-    hr = row.get("heart_rate", 0)
-    hrv = row.get("hrv", 0)
-    spo2 = row.get("spo2", 100)
-    temp = row.get("temperature", 37)
-    sleep = row.get("sleep_hours", 7)
+    hr = float(row.get("heart_rate", 0) or 0)
+    hrv = float(row.get("hrv", 0) or 0)
+    spo2 = float(row.get("spo2", 100) or 100)
+    temp = float(row.get("temperature", 37) or 37)
+    sleep = float(row.get("sleep_hours", 7) or 7)
 
-    if temp >= 38.0 or spo2 <= 93.0:
-        return "illness"
-    if hr < 60 and hrv > 70 and sleep >= 7:
-        return "recovery"
-    if hrv < 25 or sleep < 5:
-        return "overtraining"
-    if hr >= 160 and hrv >= 45:
-        return "power_hiit"
-    if hr >= 140 and hrv >= 35:
-        return "endurance_threshold"
-    if hr >= 110:
-        return "endurance_basic"
+    labels = [
+        ("illness", temp >= 38.0 or spo2 <= 93.0),
+        ("recovery", hr < 60 and hrv > 70 and sleep >= 7),
+        ("overtraining", hrv < 25 or sleep < 5),
+        ("power_hiit", hr >= 160 and hrv >= 45),
+        ("endurance_threshold", hr >= 140 and hrv >= 35),
+        ("endurance_basic", hr >= 110),
+    ]
+    for label, condition in labels:
+        if condition:
+            return label
     return "unknown"
 
 
@@ -98,26 +90,71 @@ def generate_synthetic_dataset(n_samples: int = 2000, seed: int = 42) -> pd.Data
     return df
 
 
-def save_dataset(df: pd.DataFrame, output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False)
-    print(f"Dataset saved to {output_path} ({len(df)} samples)")
+def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicates, empty rows, and clearly corrupted values."""
+    df = df.copy()
 
+    # Drop exact duplicates
+    subset = [c for c in FEATURE_COLUMNS if c in df.columns] + ["label"]
+    df = df.drop_duplicates(subset=subset, keep="first")
 
-def print_summary(df: pd.DataFrame) -> None:
-    print("\nClass distribution:")
-    print(df["label"].value_counts().to_string())
-    print("\nFeature stats:")
-    print(df[FEATURE_COLUMNS].describe().to_string())
+    # Drop rows where all features are NaN
+    df = df.dropna(subset=FEATURE_COLUMNS, how="all")
+
+    # If heart_rate looks like a timestamp / all near-zero after normalization, drop it
+    if "heart_rate" in df.columns:
+        hr = df["heart_rate"].dropna()
+        if not hr.empty and hr.max() < 0.01:
+            df = df.drop(columns=["heart_rate"])
+
+    # Drop rows with clearly invalid normalized values
+    for col in ["spo2", "temperature"]:
+        if col in df.columns:
+            vals = df[col].dropna()
+            if not vals.empty and (vals.min() < -0.1 or vals.max() > 1.1):
+                df = df[df[col].isna() | ((df[col] >= -0.1) & (df[col] <= 1.1))]
+
+    return df
 
 
 def main() -> None:
     print("Preparing classifier dataset...")
-    df = generate_synthetic_dataset()
+
+    if INPUT_PATH.exists():
+        print(f"Loading existing dataset from {INPUT_PATH}")
+        df = pd.read_csv(INPUT_PATH)
+        print(f"Loaded {len(df)} samples")
+
+        df = clean_dataset(df)
+        print(f"After cleaning: {len(df)} samples")
+
+        if len(df) < 1000:
+            print("WARNING: Dataset too small after cleaning. Generating synthetic fallback.")
+            df = generate_synthetic_dataset()
+    else:
+        print("No existing dataset found. Generating synthetic dataset.")
+        df = generate_synthetic_dataset()
+
+    # Normalize features
     df = normalize_features(df)
-    output_path = Path(__file__).resolve().parent.parent / "datasets" / "processed" / "classifier_dataset.csv"
-    save_dataset(df, output_path)
-    print_summary(df)
+
+    # Ensure all feature columns exist
+    for col in FEATURE_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    # Reorder columns
+    df = df[FEATURE_COLUMNS + ["label"]]
+
+    # Save
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUTPUT_PATH, index=False)
+    print(f"Dataset saved to {OUTPUT_PATH} ({len(df)} samples)")
+
+    print("\nClass distribution:")
+    print(df["label"].value_counts().to_string())
+    print("\nFeature stats:")
+    print(df[FEATURE_COLUMNS].describe().to_string())
 
 
 if __name__ == "__main__":
