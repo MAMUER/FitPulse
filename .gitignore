@@ -113,6 +113,11 @@ results.json
 .kilo
 
 
+# ML model artifacts (use Git LFS or object storage for versioning)
+models/*.onnx
+models/*.pkl
+models/*.bin
+
 # Raw datasets (too large for git)
 datasets/raw/
 

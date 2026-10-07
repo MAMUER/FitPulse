@@ -452,6 +452,12 @@ func (m *mockDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 
 }
 
+func (m *mockDB) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockRower{}, nil
+
+}
+
 func (m *mockDB) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
 
 	return []SourceInfo{{Source: "open_wearables", SourceName: "open_wearables", ConnectedAt: time.Now()}}, nil
@@ -469,6 +475,12 @@ type mockDBWithNonce struct{}
 func (m *mockDBWithNonce) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 
 	return &mockTxWithNonce{}, nil
+
+}
+
+func (m *mockDBWithNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockRower{}, nil
 
 }
 
@@ -492,6 +504,12 @@ func (m *mockDBWithGetSourcesError) BeginTx(ctx context.Context, opts *sql.TxOpt
 
 }
 
+func (m *mockDBWithGetSourcesError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockRower{}, nil
+
+}
+
 func (m *mockDBWithGetSourcesError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
 
 	return nil, errors.New("database error")
@@ -509,6 +527,12 @@ type mockDBWithDeleteBySourceError struct{}
 func (m *mockDBWithDeleteBySourceError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 
 	return &mockTx{}, nil
+
+}
+
+func (m *mockDBWithDeleteBySourceError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockResult{}, nil
 
 }
 
@@ -532,6 +556,12 @@ func (m *mockDBWithSaveMetricsError) BeginTx(ctx context.Context, opts *sql.TxOp
 
 }
 
+func (m *mockDBWithSaveMetricsError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockResult{}, nil
+
+}
+
 func (m *mockDBWithSaveMetricsError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
 
 	return nil, nil
@@ -549,6 +579,12 @@ type mockDBForNewNonce struct{}
 func (m *mockDBForNewNonce) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 
 	return &mockTxForNewNonce{}, nil
+
+}
+
+func (m *mockDBForNewNonce) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+
+	return &mockResult{}, nil
 
 }
 

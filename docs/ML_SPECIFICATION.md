@@ -89,12 +89,13 @@ FitPulse использует **гибридный классификатор**:
 
 ### Fallback ONNX (Go inference)
 
-- **Файл:** `models/classifier.onnx` (700 bytes)
-- **Алгоритм:** Pipeline(SimpleImputer + LogisticRegression)
-- **Обучение:** на подвыборке 5000 сэмплов
+- **Файл:** `models/classifier.onnx` + `models/classifier_weights.json`
+- **Алгоритм:** LogisticRegression (sklearn Pipeline с SimpleImputer) + pure Go linear inference
+- **Обучение:** на стратифицированной подвыборке 5000 сэмплов
 - **Классы:** 5 (endurance_basic, endurance_threshold, power_hiit, overtraining, unknown)
-- **Отсутствуют:** recovery (0), illness (5) — недостаточно сэмплов в подвыборке
+- **Отсутствуют:** recovery (0), illness (5) — в текущих весах не представлены
 - **Признаки:** 4 (HR, HRV, SpO2, Temp) с импутацией NaN
+- **Примечание:** Для покрытия всех 7 классов требуется переобучение fallback-модели с гарантированным stratified sampling. Go-инференс использует `models/classifier_weights.json`.
 
 ### Веса для Go (JSON)
 

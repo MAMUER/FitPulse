@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -228,25 +229,30 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 
 func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.log.Error("Method not allowed", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.log.Error("Метод не поддерживается", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
 	var req classifyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Warn("Invalid classify request", zap.Error(err))
+		s.log.Warn("Некорректный запрос классификации", zap.Error(err))
 		metrics.ErrorTotal.WithLabelValues("classifier", "invalid_json").Inc()
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
 	if err := validateClassifyRequest(req); err != nil {
-		s.log.Warn("Invalid classify payload", zap.Error(err))
+		s.log.Warn("Некорректные данные запроса", zap.Error(err))
 		metrics.ErrorTotal.WithLabelValues("classifier", "validation_error").Inc()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	_ = ctx
 
 	data := req.PhysiologicalData
 	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
@@ -268,10 +274,10 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 
 	if s.onnxClassifier != nil {
 		features := map[string]float64{
-			"heart_rate":           data.HeartRate,
-			"hrv":                  data.HeartRateVariability,
-			"spo2":                 data.SpO2,
-			"temperature":          data.Temperature,
+			"heart_rate":  data.HeartRate,
+			"hrv":         data.HeartRateVariability,
+			"spo2":        data.SpO2,
+			"temperature": data.Temperature,
 		}
 		mlClass, mlConfidence, err := s.onnxClassifier.Predict(features)
 		if err == nil && mlConfidence >= mlSwitchThreshold {
@@ -310,7 +316,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 
 	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
 
-	s.log.Info("Classification completed",
+	s.log.Info("Классификация завершена",
 		zap.String("user_id", req.UserID),
 		zap.String("predicted_class", classInfo.Name),
 		zap.Float64("confidence", confidence),
@@ -394,11 +400,14 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 	illnessSigns := countIllnessSigns(data)
 	hasMildFever := data.Temperature > 37.3 && data.Temperature <= 37.5
 
-	if illnessSigns >= 2 {
+	if illnessSigns >= 2 && data.Temperature > 37.5 {
 		return classifyByIllnessSigns(illnessSigns, hasMildFever, data)
 	}
-	if data.Temperature > 37.5 {
+	if data.Temperature > 38.0 {
 		return 5, 0.45, buildIllnessProbabilities(0.45)
+	}
+	if data.Temperature > 37.3 {
+		return 6, 0.50, buildLowSpO2Probabilities()
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
 		return classifyByMildCondition(hasMildFever, data)
@@ -466,7 +475,7 @@ func countIllnessSigns(data physiologicalData) int {
 }
 
 func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
-	if data.Temperature > 37.5 {
+	if data.Temperature > 38.0 {
 		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
@@ -478,14 +487,14 @@ func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologi
 			confidence += 0.10
 		}
 		confidence = math.Round(confidence*10000) / 10000.0
-		return 5, confidence, buildIllnessProbabilities(confidence)
+		return 6, confidence, buildLowSpO2Probabilities()
 	}
 	confidence := 0.55 + float64(illnessSigns-1)*0.15
 	if confidence > 0.95 {
 		confidence = 0.95
 	}
 	confidence = math.Round(confidence*10000) / 10000.0
-	return 5, confidence, buildIllnessProbabilities(confidence)
+	return 6, confidence, buildLowSpO2Probabilities()
 }
 
 func classifyByMildCondition(hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
@@ -497,7 +506,7 @@ func classifyByMildCondition(hasMildFever bool, data physiologicalData) (int, fl
 		confidence += 0.10
 	}
 	confidence = math.Round(confidence*10000) / 10000.0
-	return 5, confidence, buildIllnessProbabilities(confidence)
+	return 6, confidence, buildLowSpO2Probabilities()
 }
 
 func classifyByOvertraining(overtrainingSigns int) (int, float64, map[string]float64) {
@@ -699,9 +708,9 @@ func main() {
 	s := &classifierServer{log: log}
 	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
 		s.onnxClassifier = clf
-		log.Info("ONNX classifier loaded", zap.String("weights", DefaultONNXWeightsPath()))
+		log.Info("ONNX-классификатор загружен", zap.String("weights", DefaultONNXWeightsPath()))
 	} else {
-		log.Warn("ONNX classifier not loaded, using rule-based fallback", zap.Error(err))
+		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
 	}
 
 	mux := http.NewServeMux()

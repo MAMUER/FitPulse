@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 )
 
-// ONNXClassifier loads a simple linear model exported from Python
-// and performs inference in pure Go without external ONNX runtime.
+// ONNXClassifier загружает простую линейную модель, экспортированную из Python,
+// и выполняет инференс в чистом Go без внешних ONNX рантаймов.
 type ONNXClassifier struct {
 	Labels      []int
 	Weights     []float64
@@ -17,14 +17,14 @@ type ONNXClassifier struct {
 	featureKeys []string
 }
 
-// ONNXWeights mirrors the JSON structure produced by train_classifier.py.
+// ONNXWeights отражает JSON-структуру, создаваемую train_classifier.py.
 type ONNXWeights struct {
 	Labels     []int     `json:"labels"`
 	Weights    []float64 `json:"weights"`
 	MultiClass int       `json:"multi_class"`
 }
 
-// NewONNXClassifier loads model weights from the given JSON path.
+// NewONNXClassifier загружает веса модели из указанного JSON-пути.
 func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 	data, err := os.ReadFile(weightsPath)
 	if err != nil {
@@ -46,7 +46,7 @@ func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 	}, nil
 }
 
-// Predict returns the predicted class index and confidence for the given feature map.
+// Predict возвращает индекс предсказанного класса и уверенность для заданной карты признаков.
 func (c *ONNXClassifier) Predict(features map[string]float64) (int, float64, error) {
 	if len(features) == 0 {
 		return 0, 0, fmt.Errorf("empty features")
@@ -104,21 +104,15 @@ func (c *ONNXClassifier) findBestClass(scores []float64) int {
 
 func (c *ONNXClassifier) sigmoidConfidence(maxScore float64) float64 {
 	confidence := 1.0 / (1.0 + math.Exp(-maxScore))
-	if confidence > 1 {
-		confidence = 1
-	}
-	if confidence < 0 {
-		confidence = 0
-	}
-	return confidence
+	return math.Max(0.0, math.Min(1.0, confidence))
 }
 
-// FeatureKeys returns the expected feature order.
+// FeatureKeys возвращает ожидаемый порядок признаков.
 func (c *ONNXClassifier) FeatureKeys() []string {
 	return c.featureKeys
 }
 
-// DefaultONNXWeightsPath returns the expected path for exported weights.
+// DefaultONNXWeightsPath возвращает ожидаемый путь к экспортированным весам.
 func DefaultONNXWeightsPath() string {
 	// Assuming binary runs from repo root or cmd/classifier
 	cwd, _ := os.Getwd()

@@ -48,18 +48,17 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Server{
 
-		port:     port,
+		port: port,
 
-		db:       db,
+		db: db,
 
-		log:      log.Named("webhook"),
+		log: log.Named("webhook"),
 
-		secret:   secret,
+		secret: secret,
 
 		shutdown: cancel,
 
-		ctx:      ctx,
-
+		ctx: ctx,
 	}
 
 	mux := http.NewServeMux()
@@ -127,6 +126,22 @@ func (s *Server) Start() {
 
 		}
 
+	}()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				storage := NewStorage(s.db, s.log)
+				if err := storage.PurgeExpiredNonces(s.ctx); err != nil {
+					s.log.Warn("failed to purge expired webhook nonces", zap.Error(err))
+				}
+			case <-s.ctx.Done():
+				return
+			}
+		}
 	}()
 
 }

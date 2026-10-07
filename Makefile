@@ -38,6 +38,11 @@ coverage:
 	@mkdir -p $(BIN_DIR)
 	@go test -short -covermode=atomic -coverprofile="$(BIN_DIR)/coverage.out" ./...
 	@echo "Coverage report generated at $(BIN_DIR)/coverage.out"
+	@go tool cover -func=$(BIN_DIR)/coverage.out | tail -1
+
+coverage-check: coverage
+	@echo "Checking coverage threshold..."
+	@go tool cover -func=$(BIN_DIR)/coverage.out | awk -v threshold=80 'NR>1 {gsub(/%/,"",$$4); if ($$4+0 < threshold) {print "Coverage below threshold: "$$4"% < "threshold"%"; exit 1} else {print "Coverage OK: "$$4"%"} }'
 
 build:
 	@echo "Building Go binaries into $(BIN_DIR)/..."

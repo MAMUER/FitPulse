@@ -399,7 +399,7 @@ CREATE OR REPLACE FUNCTION purge_old_webhook_nonces()
 RETURNS void AS $$
 BEGIN
     DELETE FROM webhook_nonces
-    WHERE created_at < NOW() - INTERVAL '24 hours';
+    WHERE created_at < NOW() - INTERVAL '1 hour';
 END;
 $$ LANGUAGE plpgsql;
 

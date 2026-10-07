@@ -39,6 +39,24 @@ SYS_MIN, SYS_MAX = 80.0, 200.0
 DIA_MIN, DIA_MAX = 50.0, 130.0
 SLEEP_MIN, SLEEP_MAX = 0.0, 12.0
 
+MIN_DATASET_SIZE = 10000
+
+
+def validate_raw_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    required = [c for c in FEATURE_COLUMNS if c in df.columns]
+    if not required:
+        raise ValueError("No required feature columns found in dataset")
+
+    df = df.dropna(subset=required, how="all")
+
+    if "heart_rate" in df.columns:
+        hr = df["heart_rate"].dropna()
+        if not hr.empty and hr.max() < 1.0:
+            df = df.drop(columns=["heart_rate"], errors="ignore")
+
+    return df
+
 
 def normalize_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -91,29 +109,10 @@ def generate_synthetic_dataset(n_samples: int = 2000, seed: int = 42) -> pd.Data
 
 
 def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove duplicates, empty rows, and clearly corrupted values."""
     df = df.copy()
-
-    # Drop exact duplicates
     subset = [c for c in FEATURE_COLUMNS if c in df.columns] + ["label"]
     df = df.drop_duplicates(subset=subset, keep="first")
-
-    # Drop rows where all features are NaN
     df = df.dropna(subset=FEATURE_COLUMNS, how="all")
-
-    # If heart_rate looks like a timestamp / all near-zero after normalization, drop it
-    if "heart_rate" in df.columns:
-        hr = df["heart_rate"].dropna()
-        if not hr.empty and hr.max() < 0.01:
-            df = df.drop(columns=["heart_rate"])
-
-    # Drop rows with clearly invalid normalized values
-    for col in ["spo2", "temperature"]:
-        if col in df.columns:
-            vals = df[col].dropna()
-            if not vals.empty and (vals.min() < -0.1 or vals.max() > 1.1):
-                df = df[df[col].isna() | ((df[col] >= -0.1) & (df[col] <= 1.1))]
-
     return df
 
 
@@ -125,28 +124,25 @@ def main() -> None:
         df = pd.read_csv(INPUT_PATH)
         print(f"Loaded {len(df)} samples")
 
+        df = validate_raw_dataset(df)
         df = clean_dataset(df)
         print(f"After cleaning: {len(df)} samples")
 
-        if len(df) < 1000:
-            print("WARNING: Dataset too small after cleaning. Generating synthetic fallback.")
+        if len(df) < MIN_DATASET_SIZE:
+            print(f"WARNING: Dataset too small after cleaning ({len(df)} < {MIN_DATASET_SIZE}). Generating synthetic fallback.")
             df = generate_synthetic_dataset()
     else:
         print("No existing dataset found. Generating synthetic dataset.")
         df = generate_synthetic_dataset()
 
-    # Normalize features
     df = normalize_features(df)
 
-    # Ensure all feature columns exist
     for col in FEATURE_COLUMNS:
         if col not in df.columns:
             df[col] = np.nan
 
-    # Reorder columns
     df = df[FEATURE_COLUMNS + ["label"]]
 
-    # Save
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False)
     print(f"Dataset saved to {OUTPUT_PATH} ({len(df)} samples)")
