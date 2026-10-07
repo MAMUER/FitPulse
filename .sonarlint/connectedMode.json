@@ -1,5 +1,6 @@
 {
     "sonarCloudOrganization": "mamuer",
     "projectKey": "fitness-platform",
-    "region": "EU"
+    "region": "EU",
+    "sonar.host.url": "https://sonarcloud.io"
 }

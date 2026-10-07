@@ -111,6 +111,39 @@ spec:
               value: "/etc/secrets/RABBITMQ_URL"
             - name: JWT_PUBLIC_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "gateway"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
+            - name: CAPTCHA_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: captcha-config
+                  key: CAPTCHA_PROVIDER
+            - name: CLOUDFLARE_TURNSTILE_SITE_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: captcha-config
+                  key: CLOUDFLARE_TURNSTILE_SITE_KEY
+            - name: CLOUDFLARE_TURNSTILE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: captcha-secrets
+                  key: CLOUDFLARE_TURNSTILE_SECRET_KEY
+            - name: HCAPTCHA_SITE_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: captcha-config
+                  key: HCAPTCHA_SITE_KEY
+            - name: HCAPTCHA_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: captcha-secrets
+                  key: HCAPTCHA_SECRET_KEY
           livenessProbe:
             httpGet:
               path: /health

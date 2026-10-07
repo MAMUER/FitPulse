@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	correlationIDKey = "correlation_id"
+	CorrelationIDKey = "correlation_id"
 	userIDKey        = "user_id"
 )
 
@@ -144,7 +144,7 @@ func (l *Logger) WithCallerSkip(skip int) *Logger {
 func FromContext(ctx context.Context, base *Logger) *Logger {
 	logger := base
 
-	if cid, ok := ctx.Value(correlationIDKey).(string); ok && cid != "" {
+	if cid, ok := ctx.Value(CorrelationIDKey).(string); ok && cid != "" {
 		logger = logger.WithRequestID(cid)
 	}
 	if uid, ok := ctx.Value(userIDKey).(string); ok && uid != "" {
@@ -152,6 +152,12 @@ func FromContext(ctx context.Context, base *Logger) *Logger {
 	}
 
 	return logger
+}
+
+// WithTraceID injects a trace/correlation ID into the context so downstream
+// handlers can retrieve it via FromContext and attach it to log entries.
+func WithTraceID(ctx context.Context, traceID string) context.Context {
+	return context.WithValue(ctx, CorrelationIDKey, traceID)
 }
 
 // Errorw логирует ошибку с дополнительными полями

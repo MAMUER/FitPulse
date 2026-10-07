@@ -15,3 +15,5 @@ resources:
   - create-open-wearables-db.yaml
   - postgres-backup-pvc.yaml
   - postgres-backup-cronjob.yaml
+  - postgres-wal-archive-cronjob.yaml
+  - backup-scripts-configmap.yaml

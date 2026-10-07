@@ -77,13 +77,13 @@ jobs:
           echo "✅ Alpine version references are consistent (3.24+)"
 
           echo "-> Checking Go version references..."
-          GO_REFS=$(grep -rn "golang:1\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "1\.2[6-9]\|1\.[3-9][0-9]" || true)
-          if [ -n "$GO_REFS" ]; then
-            echo "❌ Found outdated Go references (current: 1.26+):"
-            echo "$GO_REFS"
-            exit 1
-          fi
-          echo "✅ Go version references are consistent (1.26+)"
+           GO_REFS=$(grep -rn "golang:1\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "1\.2[7-9]\|1\.[3-9][0-9]" || true)
+           if [ -n "$GO_REFS" ]; then
+             echo "❌ Found outdated Go references (current: 1.27+):"
+             echo "$GO_REFS"
+             exit 1
+           fi
+           echo "✅ Go version references are consistent (1.27+)"
 
           echo "-> Checking GO_VERSION in Makefile..."
           MAKE_GO_VERSION=$(grep -E '^GO_VERSION[[:space:]]*:=' Makefile | head -1 | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/' || true)
@@ -122,10 +122,24 @@ jobs:
               echo "❌ Found outdated Go version in go.mod: $GO_MOD_VERSION (current: 1.27+)"
                exit 1
              fi
-             echo "✅ Go version in go.mod is consistent ($GO_MOD_VERSION)"
-           else
-             echo "⚠️  Go version not found in go.mod"
-           fi
+              echo "✅ Go version in go.mod is consistent ($GO_MOD_VERSION)"
+            else
+              echo "⚠️  Go version not found in go.mod"
+            fi
+
+            echo "-> Checking go-version default in .github/actions/go-setup/action.yml..."
+            ACTION_GO_VERSION=$(grep -E 'default:[[:space:]]*"?[0-9]+\.[0-9]+\.[0-9]+"?' .github/actions/go-setup/action.yml | head -1 | sed -E 's/.*default:[[:space:]]*"?([0-9]+\.[0-9]+\.[0-9]+)"?.*/\1/' || true)
+            if [ -n "$ACTION_GO_VERSION" ]; then
+              MAJOR=$(echo "$ACTION_GO_VERSION" | cut -d. -f1)
+              MINOR=$(echo "$ACTION_GO_VERSION" | cut -d. -f2)
+              if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 27 ]; }; then
+                echo "❌ Found outdated go-version default in .github/actions/go-setup/action.yml: $ACTION_GO_VERSION (current: 1.27+)"
+                exit 1
+              fi
+              echo "✅ go-version default in .github/actions/go-setup/action.yml is consistent ($ACTION_GO_VERSION)"
+            else
+              echo "⚠️  go-version default not found in .github/actions/go-setup/action.yml"
+            fi
 
            echo "-> Checking Python version references..."
           PYTHON_REFS=$(grep -rn "python:3\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "3\.1[4-9]\|3\.[2-9][0-9]" || true)
@@ -155,19 +169,19 @@ jobs:
           echo "✅ RabbitMQ version references are consistent (4.3+)"
 
           echo "-> Checking Node.js version references..."
-          NODE_REFS=$(grep -rn "node:2[0-9]\|Node\.js\s\+2[0-9]\|node\s\+2[0-9]\|Node\.js\s\+24\|node\s\+24" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" | grep -v "node:2[6-9]\|Node\.js\s\+2[6-9]\|node\s\+2[6-9]" || true)
-          if [ -n "$NODE_REFS" ]; then
-            echo "❌ Found outdated Node.js references (current: 26+):"
-            echo "$NODE_REFS"
-            exit 1
-          fi
-           echo "✅ Node.js version references are consistent (26+)"
+           NODE_REFS=$(grep -rn "node:2[0-3]\|Node\.js\s\+2[0-3]\|node\s\+2[0-3]" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+           if [ -n "$NODE_REFS" ]; then
+             echo "❌ Found outdated Node.js references (current: 24+):"
+             echo "$NODE_REFS"
+             exit 1
+           fi
+            echo "✅ Node.js version references are consistent (24+)"
 
            echo "-> Checking .nvmrc version..."
            if [ -f ".nvmrc" ]; then
               NODE_NVM_VERSION=$(tr -d ' ' < .nvmrc)
-             if [ "$NODE_NVM_VERSION" -lt 26 ]; then
-               echo "❌ Found outdated .nvmrc version: $NODE_NVM_VERSION (current: 26+)"
+              if [ "$NODE_NVM_VERSION" -lt 24 ]; then
+                echo "❌ Found outdated .nvmrc version: $NODE_NVM_VERSION (current: 24+)"
                exit 1
              fi
              echo "✅ .nvmrc version is consistent ($NODE_NVM_VERSION)"
@@ -176,13 +190,13 @@ jobs:
             fi
 
            echo "-> Checking node-version in .github/workflows/ci.yml..."
-           CI_NODE_VERSION=$(grep -E 'node-version:' .github/workflows/ci.yml | head -1 | sed -E "s/.*node-version:[[:space:]]*['\"]?([0-9]+)['\"]?.*/\1/" || true)
-           if [ -n "$CI_NODE_VERSION" ]; then
-             if [ "$CI_NODE_VERSION" -lt 26 ]; then
-               echo "❌ Found outdated node-version in .github/workflows/ci.yml: $CI_NODE_VERSION (current: 26+)"
-               exit 1
-             fi
-             echo "✅ node-version in .github/workflows/ci.yml is consistent ($CI_NODE_VERSION)"
+            CI_NODE_VERSION=$(grep -E 'node-version:' .github/workflows/ci.yml | head -1 | sed -E "s/.*node-version:[[:space:]]*['\"]?([0-9]+)['\"]?.*/\1/" || true)
+            if [ -n "$CI_NODE_VERSION" ]; then
+               if [ "$CI_NODE_VERSION" -lt 26 ]; then
+                 echo "❌ Found outdated node-version in .github/workflows/ci.yml: $CI_NODE_VERSION (current: 26+)"
+                exit 1
+              fi
+              echo "✅ node-version in .github/workflows/ci.yml is consistent ($CI_NODE_VERSION)"
            else
              echo "⚠️  node-version not found in .github/workflows/ci.yml"
            fi

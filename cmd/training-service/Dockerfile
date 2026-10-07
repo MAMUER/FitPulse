@@ -25,19 +25,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ========== Runtime stage ==========
 FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
+ARG APP_UID=1001
+ARG APP_GID=1001
+
 # Update libssl3 to fix CVE-2026-45447 (use-after-free in PKCS#7 verification)
 # Fixed in libssl3 3.5.7-r0; alpine:3.24 ships 3.5.7-r0 by default
 # hadolint ignore=DL3018
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates tzdata && \
-    addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+    addgroup -g "${APP_GID}" -S appgroup && \
+    adduser -u "${APP_UID}" -S appuser -G appgroup
 
 WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/bin/training-service .
 
-USER 1001
+USER ${APP_UID}
 
 HEALTHCHECK --interval=30s --timeout=3s CMD ps | grep -E 'training-service' | grep -v grep || exit 1
 

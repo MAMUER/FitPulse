@@ -32,6 +32,7 @@ data:
 
     receivers:
       - name: 'default'
+        # Phase 2: configure SMTP credentials and real recipient addresses
         email_configs:
           - to: 'ops-team@example.com'
             send_resolved: true
@@ -39,11 +40,17 @@ data:
               subject: '[FITPULSE] {{ .GroupLabels.alertname }}'
 
       - name: 'critical'
+        # Phase 2: configure SMTP credentials and real on-call address
         email_configs:
           - to: 'oncall@example.com'
             send_resolved: true
             headers:
               subject: '[FITPULSE CRITICAL] {{ .GroupLabels.alertname }}'
+
+      - name: 'telegram'
+        webhook_configs:
+          - url: 'http://alertmanager-telegram-bot:8080/alert'
+            send_resolved: true
 
     inhibit_rules:
       - source_match:

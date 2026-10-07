@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+  namespace: elk
+  labels:
+    app: elasticsearch
+    component: logging
+data:
+  ilm-policy.json: |
+    {
+      "policy": {
+        "phases": {
+          "hot": {
+            "min_age": "0ms",
+            "actions": {
+              "rollover": {
+                "max_primary_shard_size": "50gb",
+                "max_age": "7d"
+              }
+            }
+          },
+          "warm": {
+            "min_age": "7d",
+            "actions": {
+              "set_priority": {
+                "priority": 50
+              },
+              "shrink": {
+                "number_of_shards": 1
+              },
+              "force_merge": {
+                "max_num_segments": 1
+              }
+            }
+          },
+          "cold": {
+            "min_age": "30d",
+            "actions": {
+              "set_priority": {
+                "priority": 0
+              },
+              "freeze": {}
+            }
+          },
+          "frozen": {
+            "min_age": "90d",
+            "actions": {
+              "set_priority": {
+                "priority": -10
+              }
+            }
+          },
+          "delete": {
+            "min_age": "3y",
+            "actions": {
+              "delete": {}
+            }
+          }
+        }
+      }
+    }
+  index-template.json: |
+    {
+      "index_patterns": ["fitpulse-logs-*"],
+      "template": {
+        "settings": {
+          "number_of_shards": 3,
+          "number_of_replicas": 1,
+          "index.lifecycle.name": "fitpulse-logs-policy",
+          "index.lifecycle.rollover_alias": "fitpulse-logs"
+        },
+        "mappings": {
+          "properties": {
+            "timestamp": { "type": "date" },
+            "service": { "type": "keyword" },
+            "level": { "type": "keyword" },
+            "message": { "type": "text" },
+            "user_id": { "type": "keyword" },
+            "request_id": { "type": "keyword" },
+            "correlation_id": { "type": "keyword" },
+            "http_method": { "type": "keyword" },
+            "http_path": { "type": "keyword" },
+            "http_status": { "type": "integer" },
+            "duration_ms": { "type": "integer" },
+            "source_ip": { "type": "ip" },
+            "user_agent": { "type": "text" },
+            "grpc_method": { "type": "keyword" },
+            "grpc_status": { "type": "keyword" },
+            "pii_fields": { "type": "keyword" },
+            "event_type": { "type": "keyword" }
+          }
+        }
+      }
+    }

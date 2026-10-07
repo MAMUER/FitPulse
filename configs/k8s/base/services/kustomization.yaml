@@ -13,3 +13,5 @@ resources:
   - ml-generator-service.yaml
   - open-wearables-service.yaml
   - open-wearables-frontend-service.yaml
+  - device-aggregator-service.yaml
+  - data-processor-service.yaml

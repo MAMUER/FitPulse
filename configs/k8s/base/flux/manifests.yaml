@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flux-system
+  labels:
+    app.kubernetes.io/name: flux
+    app.kubernetes.io/component: namespace
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flux-system
+  namespace: flux-system
+type: Opaque
+stringData:
+  identity: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    [REPLACE_WITH_SSH_PRIVATE_KEY]
+    -----END OPENSSH PRIVATE KEY-----
+  identity.pub: |
+    ssh-ed25519 AAAA... flux@fittpulse
+  known_hosts: |
+    [github.com]:22 ssh-ed25519 AAAA...
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: fitpulse
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/MAMUER/fitpulse.git
+  ref:
+    branch: main
+  secretRef:
+    name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: fitpulse-platform
+  namespace: flux-system
+spec:
+  interval: 5m
+  targetNamespace: fitness-platform-production
+  sourceRef:
+    kind: GitRepository
+    name: fitpulse
+  path: ./configs/k8s/base
+  prune: true
+  validation: client
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: gateway
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      name: postgres
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: cert-manager
+      version: "v1.14.0"
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+        namespace: flux-system
+  values:
+    installCRDs: true
+    prometheus:
+      enabled: true
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: ingress-nginx
+      version: "4.9.0"
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+        namespace: flux-system
+  values:
+    controller:
+      hostNetwork: true
+      hostPort:
+        ports:
+          http: 80
+          https: 443
+      metrics:
+        enabled: true
+---
+apiVersion: notification.toolkit.fluxcd.io/v1
+kind: Alert
+metadata:
+  name: slack-alert
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack
+  eventSeverity: info
+  eventSources:
+    - kind: Kustomization
+      name: "*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1
+kind: Provider
+metadata:
+  name: slack
+  namespace: flux-system
+spec:
+  type: slack
+  channel: fitpulse-deploy
+  secretRef:
+    name: slack-url
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-url
+  namespace: flux-system
+type: Opaque
+stringData:
+  address: https://hooks.slack.com/services/...

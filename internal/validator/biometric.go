@@ -25,12 +25,30 @@ type MetricRules struct {
 func GetMetricRules(metricType string) (MetricRules, bool) {
 	rules := map[string]MetricRules{
 		"heart_rate":               {30, 220, "heart_rate"},
+		"resting_heart_rate":       {20, 220, "resting_heart_rate"},
 		"spo2":                     {70, 100, "spo2"},
 		"temperature":              {35.5, 38.5, "temperature"},
+		"body_temperature":         {35.5, 38.5, "body_temperature"},
 		"blood_pressure_systolic":  {80, 200, "blood_pressure_systolic"},
 		"blood_pressure_diastolic": {50, 130, "blood_pressure_diastolic"},
 		"steps":                    {0, 100000, "steps"},
 		"hrv":                      {0, 200, "hrv"},
+		"hrv_sdnn":                 {0, 300, "hrv_sdnn"},
+		"hrv_rmssd":                {0, 300, "hrv_rmssd"},
+		"blood_glucose":            {20, 600, "blood_glucose"},
+		"active_energy":            {0, 10000, "active_energy"},
+		"basal_energy":             {0, 10000, "basal_energy"},
+		"bmi":                      {10, 60, "bmi"},
+		"lean_body_mass":           {20, 200, "lean_body_mass"},
+		"flights_climbed":          {0, 1000, "flights_climbed"},
+		"water_intake":             {0, 10000, "water_intake"},
+		"vo2_max":                  {10, 100, "vo2_max"},
+		"respiratory_rate":         {5, 80, "respiratory_rate"},
+		"weight":                   {20, 500, "weight"},
+		"sleep_stages":             {0, 1000000, "sleep_stages"},
+		"workout":                  {0, 1000000, "workout"},
+		"menstrual_cycle":          {0, 1000000, "menstrual_cycle"},
+		"body_composition":         {0, 1000000, "body_composition"},
 	}
 	r, ok := rules[metricType]
 	return r, ok

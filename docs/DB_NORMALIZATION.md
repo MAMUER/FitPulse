@@ -34,7 +34,7 @@
 
 - `devices`
 - `biometric_data`
-- `webhook_nonces`
+- `device_ingest_log`
 
 ### Тренировки
 
@@ -71,9 +71,9 @@
 
 - Устранены транзитивные зависимости.
 - Примеры:
-  - `user_body_composition` хранит измерения напрямую, без вычисляемых полей из `user_profiles`.
-  - `device_sync_log` ссылается на `device_provider_accounts`, а не дублирует данные провайдера.
-  - `training_plan_weeks` и `training_plan_days` не дублируют данные плана.
+- `user_body_composition` хранит измерения напрямую, без вычисляемых полей из `user_profiles`.
+- `training_plan_weeks` и `training_plan_days` не дублируют данные плана.
+- `device_provider_accounts` и `device_sync_log` сохранены в схеме, но не используются в Phase 1 (см. ADR 0019).
 
 ## BCNF — Нормальная форма Бойса-Кодда
 
@@ -135,6 +135,8 @@ id (PK), invite_code_id (FK), user_id (FK), used_at
 state (PK), user_id (FK), provider, expires_at, created_at
 ```sql
 
+> **Deprecated:** После миграции на Open Wearables (ADR 0019) таблица `oauth_states` не используется. Прямые OAuth-роуты удалены.
+
 ### `device_provider_accounts`
 ```sql
 id (PK), user_id (FK), provider, provider_user_id, access_token, refresh_token,
@@ -142,11 +144,15 @@ token_expires_at, scopes, webhook_subscription_id, last_sync_at, is_active, crea
 UNIQUE(user_id, provider)
 ```sql
 
+> **Deprecated:** После миграции на Open Wearables (ADR 0019) таблица `device_provider_accounts` не используется для новых интеграций. Может быть удалена в будущем миграции.
+
 ### `device_sync_log`
 ```sql
 id (PK), provider_account_id (FK), sync_type, records_count, started_at, completed_at,
 status, error_message, created_at
 ```sql
+
+> **Deprecated:** После миграции на Open Wearables (ADR 0019) таблица `device_sync_log` не используется. Может быть удалена в будущем миграции.
 
 ### `refresh_tokens`
 ```sql
@@ -255,7 +261,70 @@ id (PK), name, description, criteria JSONB, icon_url, created_at
 ### `user_achievements`
 ```sql
 user_id (PK, FK), achievement_id (PK, FK), earned_at
+```
+
+### `external_secrets` (Vault ESO backend)
+
 ```sql
+-- Таблица для External Secrets Operator (PostgreSQL provider)
+-- Хранит секреты, синхронизируемые из Vault
+id (PK), name, namespace, data JSONB, created_at, updated_at
+```
+
+> **Note:** External Secrets Operator использует эту таблицу для хранения секретов из Vault. Данные в `data` хранятся в зашифрованном виде (pgsodium) для соответствия 152-ФЗ.
+
+### `device_aggregator_events` (если используется)
+
+```sql
+-- Логи webhook-событий от Open Wearables
+id (PK), user_id (FK), source, event_type, payload JSONB, processed, created_at
+```
+
+> **Note:** Если используется, должна быть индексирована по `(user_id, created_at)` для эффективных запросов.
+
+---
+
+## Влияние pgsodium на нормализацию
+
+- pgsodium добавляет `encrypted` и `nonce` поля к чувствительным атрибутам (`email`, `full_name`, `nickname`, `totp_secret`).
+- Это **не нарушает** нормальные формы, так как:
+  - encrypted/nonce являются производными от основного атрибута;
+  - PK остаётся `id`;
+  - нет функциональных зависимостей между nonce и другими неключевыми атрибутами.
+- Детерминированный поиск (`email_hash`, `full_name_hash`, `nickname_hash`) использует HMAC-SHA256 с глобальной солью, не хранящейся в БД. Это позволяет искать пользователя без расшифровки ciphertext.
+
+## Примеры JOIN-запросов
+
+### Получить профиль пользователя с целями и противопоказаниями
+
+```sql
+SELECT 
+  u.id, u.email, u.full_name, u.nickname,
+  p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
+  array_agg(DISTINCT g.goal) AS goals,
+  array_agg(DISTINCT c.contraindication) AS contraindications
+FROM users u
+LEFT JOIN user_profiles p ON p.user_id = u.id
+LEFT JOIN user_goals g ON g.user_id = u.id
+LEFT JOIN user_contraindications c ON c.user_id = u.id
+WHERE u.id = $1
+GROUP BY u.id, p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level;
+```
+
+### Получить последние биометрические данные с классификацией состояния
+
+```sql
+SELECT 
+  b.metric_type, b.value, b.timestamp,
+  c.predicted_class, c.confidence
+FROM biometric_data b
+LEFT JOIN classifier_results c ON c.user_id = b.user_id 
+  AND c.timestamp <= b.timestamp 
+  AND c.timestamp >= b.timestamp - interval '1 hour'
+WHERE b.user_id = $1
+  AND b.timestamp >= $2
+ORDER BY b.timestamp DESC;
+```
 
 ---
 

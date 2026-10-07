@@ -16,7 +16,7 @@
 
 ### Требования для разработки
 
-- **Go**: версия 1.26+
+- **Go**: версия 1.27+
 - **Python**: версия 3.14+ (для ML-сервисов)
 - **Node.js**: версия 24+ (для frontend)
 - **Docker**: Docker Desktop / Docker Engine с поддержкой BuildKit (современные версии)
@@ -44,7 +44,7 @@
 
     ```bash
     go mod tidy
-    pip install -r cmd/ml_generator/requirements.txt  # для ML-сервисов
+
     cd web && npm ci  # для frontend
     ```
 

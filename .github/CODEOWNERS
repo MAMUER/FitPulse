@@ -9,6 +9,8 @@
 /scripts/ @MAMUER
 /deploy/ @MAMUER
 /Makefile @MAMUER
+/Dockerfile @MAMUER
+/cmd/*/Dockerfile @MAMUER
 
 # Backend services
 
@@ -22,7 +24,7 @@
 /internal/training/ @MAMUER
 /cmd/device-aggregator/ @MAMUER
 /cmd/data-processor/ @MAMUER
-/cmd/ml_generator/ @MAMUER
+
 /cmd/tools/ @MAMUER
 /internal/device/ @MAMUER
 /cmd/classifier/ @MAMUER

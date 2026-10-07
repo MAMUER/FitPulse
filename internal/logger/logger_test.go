@@ -503,7 +503,7 @@ func TestFromContext(t *testing.T) {
 		core, recorded := observer.New(zap.InfoLevel)
 		baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
 
-		ctx := context.WithValue(context.Background(), correlationIDKey, "corr-123")
+		ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
 		ctx = context.WithValue(ctx, userIDKey, "user-456")
 
 		logger := FromContext(ctx, baseLogger)
@@ -538,7 +538,7 @@ func TestFromContext_PreservesService(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
 	baseLogger := &Logger{Logger: zap.New(core), service: "original-service"}
 
-	ctx := context.WithValue(context.Background(), correlationIDKey, "corr-123")
+	ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")
 	logger := FromContext(ctx, baseLogger)
 
 	assert.Equal(t, "original-service", logger.service)

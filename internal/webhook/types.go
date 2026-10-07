@@ -26,45 +26,91 @@ var (
 type MetricType string
 
 const (
-	MetricTypeWeight          MetricType = "weight"
-	MetricTypeHeartRate       MetricType = "heart_rate"
-	MetricTypeSpO2            MetricType = "spo2"
-	MetricTypeSleep           MetricType = "sleep"
-	MetricTypeSteps           MetricType = "steps"
-	MetricTypeMenstrualCycle  MetricType = "menstrual_cycle"
-	MetricTypeBodyComposition MetricType = "body_composition"
-	MetricTypeHRV             MetricType = "hrv"
-	MetricTypeTemperature     MetricType = "temperature"
-	MetricTypeBloodPressure   MetricType = "blood_pressure"
+	MetricTypeWeight           MetricType = "weight"
+	MetricTypeHeartRate        MetricType = "heart_rate"
+	MetricTypeRestingHeartRate MetricType = "resting_heart_rate"
+	MetricTypeSpO2             MetricType = "spo2"
+	MetricTypeSleep            MetricType = "sleep"
+	MetricTypeSleepStages      MetricType = "sleep_stages"
+	MetricTypeSteps            MetricType = "steps"
+	MetricTypeMenstrualCycle   MetricType = "menstrual_cycle"
+	MetricTypeBodyComposition  MetricType = "body_composition"
+	MetricTypeHRV              MetricType = "hrv"
+	MetricTypeHRVSDNN          MetricType = "hrv_sdnn"
+	MetricTypeHRVRMSSD         MetricType = "hrv_rmssd"
+	MetricTypeTemperature      MetricType = "temperature"
+	MetricTypeBloodPressure    MetricType = "blood_pressure"
+	MetricTypeBloodGlucose     MetricType = "blood_glucose"
+	MetricTypeActiveEnergy     MetricType = "active_energy"
+	MetricTypeBasalEnergy      MetricType = "basal_energy"
+	MetricTypeBodyTemperature  MetricType = "body_temperature"
+	MetricTypeBMI              MetricType = "bmi"
+	MetricTypeLeanBodyMass     MetricType = "lean_body_mass"
+	MetricTypeFlightsClimbed   MetricType = "flights_climbed"
+	MetricTypeWaterIntake      MetricType = "water_intake"
+	MetricTypeVO2Max           MetricType = "vo2_max"
+	MetricTypeRespiratoryRate  MetricType = "respiratory_rate"
+	MetricTypeWorkout          MetricType = "workout"
 )
 
 type SourceType string
 
 const (
-	SourceTypeAppleHealth   SourceType = "apple_health"
-	SourceTypeGarmin        SourceType = "garmin"
-	SourceTypeHealthConnect SourceType = "health_connect"
-	SourceTypeOpenWearables SourceType = "open_wearables"
+	SourceTypeAppleHealth         SourceType = "apple_health"
+	SourceTypeGarmin              SourceType = "garmin"
+	SourceTypeHealthConnect       SourceType = "health_connect"
+	SourceTypeOpenWearables       SourceType = "open_wearables"
+	SourceTypeWhoop               SourceType = "whoop"
+	SourceTypePolar               SourceType = "polar"
+	SourceTypeSuunto              SourceType = "suunto"
+	SourceTypeStrava              SourceType = "strava"
+	SourceTypeOura                SourceType = "oura"
+	SourceTypeUltrahuman          SourceType = "ultrahuman"
+	SourceTypeSamsungHealth       SourceType = "samsung_health"
+	SourceTypeGoogleHealthConnect SourceType = "google_health_connect"
 )
 
 var allowedMetricTypes = map[MetricType]struct{}{
-	MetricTypeWeight:          {},
-	MetricTypeHeartRate:       {},
-	MetricTypeSpO2:            {},
-	MetricTypeSleep:           {},
-	MetricTypeSteps:           {},
-	MetricTypeMenstrualCycle:  {},
-	MetricTypeBodyComposition: {},
-	MetricTypeHRV:             {},
-	MetricTypeTemperature:     {},
-	MetricTypeBloodPressure:   {},
+	MetricTypeWeight:           {},
+	MetricTypeHeartRate:        {},
+	MetricTypeRestingHeartRate: {},
+	MetricTypeSpO2:             {},
+	MetricTypeSleep:            {},
+	MetricTypeSleepStages:      {},
+	MetricTypeSteps:            {},
+	MetricTypeMenstrualCycle:   {},
+	MetricTypeBodyComposition:  {},
+	MetricTypeHRV:              {},
+	MetricTypeHRVSDNN:          {},
+	MetricTypeHRVRMSSD:         {},
+	MetricTypeTemperature:      {},
+	MetricTypeBloodPressure:    {},
+	MetricTypeBloodGlucose:     {},
+	MetricTypeActiveEnergy:     {},
+	MetricTypeBasalEnergy:      {},
+	MetricTypeBodyTemperature:  {},
+	MetricTypeBMI:              {},
+	MetricTypeLeanBodyMass:     {},
+	MetricTypeFlightsClimbed:   {},
+	MetricTypeWaterIntake:      {},
+	MetricTypeVO2Max:           {},
+	MetricTypeRespiratoryRate:  {},
+	MetricTypeWorkout:          {},
 }
 
 var allowedSourceTypes = map[SourceType]struct{}{
-	SourceTypeAppleHealth:   {},
-	SourceTypeGarmin:        {},
-	SourceTypeHealthConnect: {},
-	SourceTypeOpenWearables: {},
+	SourceTypeAppleHealth:         {},
+	SourceTypeGarmin:              {},
+	SourceTypeHealthConnect:       {},
+	SourceTypeOpenWearables:       {},
+	SourceTypeWhoop:               {},
+	SourceTypePolar:               {},
+	SourceTypeSuunto:              {},
+	SourceTypeStrava:              {},
+	SourceTypeOura:                {},
+	SourceTypeUltrahuman:          {},
+	SourceTypeSamsungHealth:       {},
+	SourceTypeGoogleHealthConnect: {},
 }
 
 // OpenWearablesWebhookPayload represents normalized data from Open Wearables

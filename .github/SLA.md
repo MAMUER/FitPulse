@@ -15,6 +15,20 @@
 Расчёт: downtime ≤ 3.65 дня/год для 99.0%, ≤ 1.83 дня/год для 99.5%.
 Planned maintenance windows исключаются из расчёта.
 
+## Monitoring & Alerting
+
+- Доступность сервисов отслеживается через Prometheus + Alertmanager.
+- Критические алерты направляются в Telegram.
+- Health checks реализованы для каждого сервиса (HTTP `/health` и gRPC Health Protocol).
+
+## Backup & Recovery
+
+- Автоматические бэкапы PostgreSQL раз в день с retention 7 дней.
+- Резервное копирование Valkey (RDB/AOF) раз в день.
+- Восстановление из бэкапа протестировано ежемесячно.
+- RTO (Recovery Time Objective): ≤ 4 часа.
+- RPO (Recovery Point Objective): ≤ 24 часа.
+
 ## Exclusions
 
 - Плановые технические работы (объявляются заранее)

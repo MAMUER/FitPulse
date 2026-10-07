@@ -2,7 +2,7 @@
 
 ## Обзор
 
-Данный документ определяет процесс реагирования на security-инциденты, простои сервисов и утечки данных. Playbook регулярно обновляется по мере добавления новых компонентов (Device Aggregator, Device Connector, ML-сервисы).
+Данный документ определяет процесс реагирования на security-инциденты, простои сервисов и утечки данных. Playbook регулярно обновляется по мере добавления новых компонентов (Device Aggregator, ML-сервисы).
 
 ---
 
@@ -239,9 +239,40 @@ Action Items:
 
 ---
 
+## Post-Deploy Monitoring Checklist
+
+После каждого деплоя в production ответственный следит за системой в течение 24 часов.
+
+### Мониторинги
+
+- [ ] **Telegram-алерты**: убедиться, что Alertmanager не шлёт критические уведомления (`ServiceDown`, `HighErrorRate`, `HighLatency`, `DBConnectionPoolExhausted`)
+- [ ] **Grafana дашборды**: проверить основные метрики — error rate, latency, CPU/memory usage, connection pool usage
+- [ ] **Логи подов**: `kubectl logs deployment/<service> -n fitness-platform-production --tail=100` на предмет panic/crash
+- [ ] **Статус подов**: `kubectl get pods -n fitness-platform-production` — все в статусе Running
+- [ ] **RabbitMQ**: глубина очередей в норме (алерт `RabbitMQQueueDepthHigh` не сработал)
+- [ ] **PostgreSQL**: `pg_up == 1`, connection pool не исчерпан
+
+### Критерии успешного завершения
+
+- Нет критических алертов в Telegram в течение 24ч
+- Все сервисы остаются в статусе Running
+- Error rate и latency на уровне baseline
+- Нет panic/crash в логах
+
+### Действия при проблеме
+
+- SEV-1/SEV-2: запустить полный incident response playbook
+- SEV-3: зафиксировать в очереди задач, исправить в следующем релизе
+- При необходимости — откат deployment: `kubectl rollout undo deployment/<service> -n fitness-platform-production`
+
+---
+
 ## Работа с новыми сервисами
 
 При расследовании учитывать все активные компоненты проекта:
+
+> Канонический список сервисов, health endpoints и namespace labels: см. `OPERATIONS_RUNBOOK.md` → «Справочник сервисов».
+> Для quarterly access review: см. `QUARTERLY_ACCESS_REVIEW.md`.
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
@@ -249,9 +280,23 @@ Action Items:
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
-|ML Generator|`app=ml-generator`|`http://ml-generator:8002/health`|`kubectl logs -f deployment/ml-generator`|
+|Device Aggregator|`app=device-aggregator`|`http://device-aggregator:8084/health`|`kubectl logs -f deployment/device-aggregator`|
+|Data Processor|`app=data-processor`|gRPC health|`kubectl logs -f deployment/data-processor`|
+|Admin CLI|`app=admin-cli`|CLI tool (no HTTP health)|N/A (client-side)|
+
+### Медицинские данные: special handling
+
+При инцидентах, затрагивающих health-данные (заболевания, менструальный цикл, биометрические параметры):
+
+1. **Классифицировать как SEV-1+**, если есть риск утечки ПДн специальных категорий (здоровье, менструальный цикл) — см. `docs/compliance/ПОЛИТИКА_ОБРАБОТКИ_ПДН.md`
+2. **Уведомить DPO** (`privacy@fittpulse.duckdns.org`) в течение 1 часа
+3. **Остановить инцидент** согласно playbook выше
+4. **Проверить audit trail** — кто, когда, какой доступ к health-данным имел
+5. **Подготовить breach notification** для Роскомнадзора (72 часа) и субъектов ПДн
+6. **Документировать** scope утечки: какие категории данных затронуты, сколько пользователей
+
+См. также: `docs/compliance/DPIA.md`, `docs/compliance/РЕЕСТР_ОБРАБОТКИ_ПДН.md`
 
 ---
 
-**Последнее обновление**: 2026-07-15  
 **Ведёт**: Security & Platform Teams

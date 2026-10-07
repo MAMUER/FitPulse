@@ -305,13 +305,13 @@ def test_training(t):
     )
 
 
-def test_ml(t):
-    section("6. ML")
-    ml_resp = t.test(
-        "ML Classify", "POST", "/api/v1/ml/classify", token=t.token, expected=200
+def test_chat(t):
+    section("6. Chat")
+    chat_resp = t.test(
+        "Chat", "POST", "/api/v1/chat", token=t.token, expected=200, json={"message": "plan"}
     )
-    if isinstance(ml_resp, dict) and ml_resp.get("job_id"):
-        print(f"       {GRAY}job_id: {ml_resp['job_id']}{RESET}")
+    if isinstance(chat_resp, dict) and chat_resp.get("answer"):
+        print(f"       {GRAY}answer: {chat_resp['answer'][:50]}...{RESET}")
 
 
 def test_totp(t):
@@ -401,7 +401,7 @@ def main():
     test_biometrics(t)
     test_post_logout(t)
     test_training(t)
-    test_ml(t)
+    test_chat(t)
     test_totp(t)
     test_security(t)
     print_summary(t)

@@ -556,7 +556,9 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 
-		getProfileQuery.WriteString(",\n               u.profile_photo_url, u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
+		getProfileQuery.WriteString(",\n               ")
+		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
+		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
 
@@ -731,6 +733,34 @@ func (r *PgsodiumUserRepository) Delete(ctx context.Context, id string) error {
 	if err != nil {
 
 		return apperrors.Internal(errFailedToDeleteUser, err)
+
+	}
+
+	return nil
+
+}
+
+func (r *PgsodiumUserRepository) BanUser(ctx context.Context, id string) error {
+
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET is_active = FALSE WHERE id = $1", id)
+
+	if err != nil {
+
+		return apperrors.Internal("failed to ban user", err)
+
+	}
+
+	return nil
+
+}
+
+func (r *PgsodiumUserRepository) UnbanUser(ctx context.Context, id string) error {
+
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET is_active = TRUE WHERE id = $1", id)
+
+	if err != nil {
+
+		return apperrors.Internal("failed to unban user", err)
 
 	}
 
@@ -1026,7 +1056,15 @@ func (r *PgsodiumUserRepository) LoginWithPgsodium(ctx context.Context, email st
 
 }
 
-func (r *PgsodiumUserRepository) CreateGoogleUser(ctx context.Context, googleSub, emailHash, emailVal, nickname, nicknameHash string) (userID, role string, emailConfirmed bool, err error) {
+func (r *PgsodiumUserRepository) CreateYandexUser(ctx context.Context, yandexID, emailHash, emailVal, fullName, nickname, nicknameHash string) (userID, role string, emailConfirmed bool, err error) {
+
+	fullNameNonce, err := db.GenerateNonce()
+
+	if err != nil {
+
+		return "", "", false, apperrors.Internal(errFailedToGenerateNonce, err)
+
+	}
 
 	nicknameNonce, err := db.GenerateNonce()
 
@@ -1046,11 +1084,13 @@ func (r *PgsodiumUserRepository) CreateGoogleUser(ctx context.Context, googleSub
 
 	userID = hex.EncodeToString(fmt.Appendf(nil, "%d", time.Now().UnixNano()))
 
-	query, args := buildGoogleUserInsertQuery(googleUserInsertData{
+	query, args := buildYandexUserInsertQuery(yandexUserInsertData{
 
 		userID: userID, emailVal: emailVal, emailHash: emailHash, emailNonce: emailNonce,
 
-		nickname: nickname, nicknameNonce: nicknameNonce, nicknameHash: nicknameHash, googleSub: googleSub,
+		fullName: fullName, fullNameNonce: fullNameNonce, nickname: nickname, nicknameNonce: nicknameNonce, nicknameHash: nicknameHash,
+
+		yandexID: yandexID,
 	})
 
 	_, insertErr := r.db.ExecContext(ctx, query, args...)
@@ -1139,19 +1179,19 @@ func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationTok
 
 }
 
-type googleUserInsertData struct {
-	userID, emailVal, emailHash, nickname, googleSub string
+type yandexUserInsertData struct {
+	userID, emailVal, fullName, nickname, yandexID string
 
-	emailNonce, nicknameNonce []byte
+	emailNonce, fullNameNonce, nicknameNonce []byte
 
-	nicknameHash string
+	emailHash, nicknameHash string
 }
 
-func buildGoogleUserInsertQuery(p googleUserInsertData) (string, []interface{}) {
+func buildYandexUserInsertQuery(p yandexUserInsertData) (string, []interface{}) {
 
 	var b strings.Builder
 
-	b.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, nickname_encrypted, nickname_nonce, nickname_hash, role, provider, external_id, email_confirmed, created_at, updated_at) ")
+	b.WriteString("INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, nickname_encrypted, nickname_nonce, nickname_hash, role, provider, external_id, email_confirmed, created_at, updated_at) ")
 
 	b.WriteString(sqlValuesPrefix)
 
@@ -1159,17 +1199,19 @@ func buildGoogleUserInsertQuery(p googleUserInsertData) (string, []interface{}) 
 
 	b.WriteString(sqlComma4Prefix)
 
-	b.WriteString(sql56Prefix)
+	b.WriteString("$6, ")
 
 	b.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
 
 	b.WriteString(", $9, ")
 
-	b.WriteString("$10, ")
+	b.WriteString(db.PgsodiumRandomEncryptParam(10, 11))
 
-	b.WriteString("'client', 'google', $11, true, NOW(), NOW())")
+	b.WriteString(", $12, ")
 
-	args := []interface{}{p.userID, p.emailVal, p.emailNonce, p.emailNonce, p.emailHash, "", p.nickname, p.nicknameNonce, p.nicknameNonce, p.nicknameHash, p.googleSub}
+	b.WriteString("'client', 'yandex', $13, true, NOW(), NOW())")
+
+	args := []interface{}{p.userID, p.emailVal, p.emailNonce, p.emailNonce, p.emailHash, p.fullName, p.fullNameNonce, p.fullNameNonce, p.nickname, p.nicknameNonce, p.nicknameNonce, p.nicknameHash, p.yandexID}
 
 	return b.String(), args
 
@@ -1213,13 +1255,13 @@ func (r *PgsodiumUserRepository) NicknameExists(ctx context.Context, nickname st
 
 }
 
-func (r *PgsodiumUserRepository) FindGoogleUser(ctx context.Context, googleSub string) (*entity.User, error) {
+func (r *PgsodiumUserRepository) FindYandexUser(ctx context.Context, yandexID string) (*entity.User, error) {
 
 	var user entity.User
 
 	var emailHash, fullNameHash string
 
-	err := r.db.QueryRowContext(ctx, "SELECT id, email_hash, password_hash, full_name_hash, role, email_confirmed, created_at, updated_at FROM users WHERE provider = 'google' AND external_id = $1", googleSub).Scan(
+	err := r.db.QueryRowContext(ctx, "SELECT id, email_hash, password_hash, full_name_hash, role, email_confirmed, created_at, updated_at FROM users WHERE provider = 'yandex' AND external_id = $1", yandexID).Scan(
 
 		&user.ID, &emailHash, &user.PasswordHash, &fullNameHash, &user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -1232,7 +1274,7 @@ func (r *PgsodiumUserRepository) FindGoogleUser(ctx context.Context, googleSub s
 
 	if err != nil {
 
-		return nil, apperrors.Internal("failed to find Google user", err)
+		return nil, apperrors.Internal("failed to find Yandex user", err)
 
 	}
 
@@ -1250,19 +1292,19 @@ func (r *PgsodiumUserRepository) FindGoogleUser(ctx context.Context, googleSub s
 
 }
 
-func (r *PgsodiumUserRepository) LinkGoogleAccount(ctx context.Context, googleSub, userID string) error {
+func (r *PgsodiumUserRepository) LinkYandexAccount(ctx context.Context, yandexID, userID string) error {
 
 	_, err := r.db.ExecContext(ctx, `
 
-		UPDATE users SET provider = 'google', external_id = $1, email_confirmed = true, updated_at = NOW()
+		UPDATE users SET provider = 'yandex', external_id = $1, email_confirmed = true, updated_at = NOW()
 
 		WHERE id = $2
 
-	`, googleSub, userID)
+	`, yandexID, userID)
 
 	if err != nil {
 
-		return apperrors.Internal("failed to link Google account", err)
+		return apperrors.Internal("failed to link Yandex account", err)
 
 	}
 
@@ -1336,7 +1378,29 @@ func (r *PgsodiumUserRepository) UpdatePassword(ctx context.Context, userID, pas
 
 func (r *PgsodiumUserRepository) UpdateProfilePhoto(ctx context.Context, userID, photoURL string) error {
 
-	_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = $1, updated_at = NOW() WHERE id = $2", photoURL, userID)
+	var err error
+
+	if db.PgsodiumKeyID() > 0 && photoURL != "" {
+
+		nonce, nonceErr := db.GenerateNonce()
+
+		if nonceErr != nil {
+
+			return apperrors.Internal(errFailedToGenerateNonce, nonceErr)
+
+		}
+
+		_, err = r.db.ExecContext(ctx,
+
+			"UPDATE users SET profile_photo_url_encrypted = "+db.PgsodiumRandomEncryptParam(1, 2)+", profile_photo_url_nonce = $3, updated_at = NOW() WHERE id = $4",
+
+			photoURL, nonce, userID)
+
+	} else {
+
+		_, err = r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = $1, updated_at = NOW() WHERE id = $2", photoURL, userID)
+
+	}
 
 	if err != nil {
 
@@ -1350,11 +1414,25 @@ func (r *PgsodiumUserRepository) UpdateProfilePhoto(ctx context.Context, userID,
 
 func (r *PgsodiumUserRepository) RemoveProfilePhoto(ctx context.Context, userID string) error {
 
+	if db.PgsodiumKeyID() > 0 {
+
+		_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url_encrypted = NULL, profile_photo_url_nonce = NULL, updated_at = NOW() WHERE id = $1", userID)
+
+		if err != nil {
+
+			return apperrors.Internal("failed to remove profile photo", err)
+
+		}
+
+		return nil
+
+	}
+
 	_, err := r.db.ExecContext(ctx, "UPDATE users SET profile_photo_url = NULL, updated_at = NOW() WHERE id = $1", userID)
 
 	if err != nil {
 
-		return apperrors.Internal(errFailedToUpdateProfilePhoto, err)
+		return apperrors.Internal("failed to remove profile photo", err)
 
 	}
 
@@ -1487,6 +1565,10 @@ func (r *PgsodiumUserRepository) DeleteProfileData(ctx context.Context, userID s
 			nickname_nonce = NULL,
 
 			nickname_hash = NULL,
+
+			profile_photo_url_encrypted = NULL,
+
+			profile_photo_url_nonce = NULL,
 
 			profile_photo_url = NULL,
 

@@ -3,8 +3,7 @@
 [![Build Status](https://github.com/MAMUER/fitpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/MAMUER/fitpulse/actions)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36+-326CE5.svg)](https://kubernetes.io/)
 [![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
-[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](https://go.dev/)
-[![Python Version](https://img.shields.io/badge/Python-3.14+-3776AB.svg)](https://www.python.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8.svg)](https://go.dev/)
 [![Node Version](https://img.shields.io/badge/Node-24+-339933.svg)](https://nodejs.org/)
 [![React Version](https://img.shields.io/badge/React-19.2+-61DAFB.svg)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -22,6 +21,7 @@
 | [Техническое задание](docs/TECHNICAL_SPECIFICATION.md) | Полное ТЗ с требованиями, стадиями разработки и критериями приемки |
 | [Архитектура](docs/ARCHITECTURE.md) | Инфраструктура, наблюдаемость, безопасность, релизный процесс |
 | [API Reference](docs/API.md) | Полная спецификация REST/gRPC endpoints |
+| [ML Specification](docs/ML_SPECIFICATION.md) | Архитектура классификатора, правила, ML модель, порог переключения |
 | [Security Policy](SECURITY.md) | Меры безопасности, compliance, аудит |
 | [Architecture Decision Records](docs/adr/) | Обоснование архитектурных решений |
 | [UI Specification](docs/UI_SPECIFICATION.md) | Спецификация мобильного веб-интерфейса |
@@ -37,9 +37,9 @@
 
 **Для пользователей:**
 
-- Персонализированные тренировочные планы (Conditional Diffusion Model)
+- Персонализированные тренировочные планы (template-based engine)
 - Интеграция с носимыми устройствами
-- ML-классификация состояния (6 классов)
+- ML-классификация состояния (7 классов)
 - Мониторинг биометрии в реальном времени
 
 **Для администраторов:**
@@ -80,11 +80,10 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/login` | Вход |
 | POST | `/api/v1/auth/confirm` | Подтверждение email |
 | GET | `/api/v1/auth/verify-status` | Проверка статуса подтверждения email |
-| GET | `/api/v1/auth/google` | Google OAuth логин |
-| GET | `/api/v1/auth/google/callback` | Google OAuth callback |
+| GET | `/api/v1/auth/yandex` | Yandex ID логин |
+| GET | `/api/v1/auth/yandex/callback` | Yandex ID callback |
 | POST | `/api/v1/auth/2fa/verify` | Проверка TOTP после логина |
 | POST | `/api/v1/auth/refresh` | Ротация refresh token |
-| POST | `/api/v1/devices/withings/webhook` | Webhook для Withings |
 | GET | `/.well-known/jwks.json` | JWKS endpoint для JWT публичного ключа |
 | GET | `/health` | Health check |
 | GET | `/confirm` | Страница подтверждения email |
@@ -120,8 +119,7 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/training/generate` | Сгенерировать план |
 | POST | `/api/v1/training/complete` | Завершить тренировку |
 | GET | `/api/v1/training/progress` | Прогресс |
-| POST | `/api/v1/ml/classify` | Классификация состояния |
-| POST | `/api/v1/ml/generate-plan` | Генерация плана |
+| POST | `/api/v1/chat` | FAQ/чат (rule-based) |
 | POST | `/api/v1/devices/register` | Регистрация устройства |
 | POST | `/api/v1/devices/{device_id}/ingest` | Приём данных с устройства |
 | GET | `/api/v1/devices` | Список устройств |
@@ -145,6 +143,16 @@ FitPulse реализует комплексные меры безопаснос
 
 ## Инфраструктура
 
+### Секреты
+
+**Static secrets** (JWT, SMTP, Yandex ID, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator** (`configs/k8s/base/external-secrets/`).
+
+**Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере, `configs/k8s/base/vault/`):
+
+- Каждый сервис получает уникального PostgreSQL пользователя с TTL 1h
+- Ротация паролей автоматическая
+- Vault развёрнут в текущей инфраструктуре
+
 ### Текущий сервер
 
 | Параметр | Значение |
@@ -167,6 +175,12 @@ docker compose up --build
 
 - **Gateway**: <http://localhost:8080>
 - **Frontend**: <http://localhost:5173>
+- **User Service**: gRPC `localhost:50051`
+- **Biometric Service**: gRPC `localhost:50052`, HTTP `localhost:8085`
+- **Training Service**: gRPC `localhost:50053`
+- **Classifier**: <http://localhost:8001>
+- **Device Aggregator**: <http://localhost:8083>
+- **Data Processor**: <http://localhost:8084>
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
 - **RabbitMQ**: localhost:5672 (AMQPS), Management UI: <http://localhost:15672>
@@ -174,16 +188,17 @@ docker compose up --build
 - **Grafana**: <http://localhost:3000>
 - **Jaeger**: <http://localhost:16686>
 
+Production домен: <https://fittpulse.duckdns.org>
+
 Переменные окружения для локального запуска описаны в `docker-compose.yml`.
 
 ### Frontend Stack
 
 - **Framework**: React 19.2+ with Vite 8
 - **Routing**: React Router v7
-- **Charts**: Chart.js 4 + react-chartjs-2
 - **Styling**: Plain CSS with CSS Variables
 - **State**: React Context API
-- **Testing**: Vitest + React Testing Library
+- **Testing**: Vitest + React Testing Library + Playwright
 - **Linting/formatting**: Biome
 
 Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

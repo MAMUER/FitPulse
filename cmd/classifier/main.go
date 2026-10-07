@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -21,18 +22,21 @@ import (
 )
 
 type classifierServer struct {
-	log *logger.Logger
+	log            *logger.Logger
+	onnxClassifier *ONNXClassifier
 }
 
 const (
-	trainingClassCount = 6
+	trainingClassCount = 7
 	contentTypeJSON    = "application/json"
 	headerContentType  = "Content-Type"
+	mlSwitchThreshold  = 0.85
+	modelRuleBased     = "rule-based"
+	modelML            = "ml"
 )
 
 var trainingClasses = map[int]struct {
 	Name            string   `json:"name"`
-	NameRu          string   `json:"name_ru"`
 	Description     string   `json:"description"`
 	HrRange         string   `json:"hr_range"`
 	Hrv             string   `json:"hrv"`
@@ -41,7 +45,6 @@ var trainingClasses = map[int]struct {
 }{
 	0: {
 		Name:        "recovery",
-		NameRu:      "Восстановление",
 		Description: "Низкая нагрузка + высокий HRV + хорошее восстановление",
 		HrRange:     "50-65% HRmax",
 		Hrv:         "Высокий",
@@ -55,7 +58,6 @@ var trainingClasses = map[int]struct {
 	},
 	1: {
 		Name:        "endurance_basic",
-		NameRu:      "Базовая выносливость E1-E2",
 		Description: "Работа ниже лактатного порога, устойчивая кардиореспираторная система",
 		HrRange:     "65-80% HRmax",
 		Hrv:         "Умеренный",
@@ -68,8 +70,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	2: {
-		Name:        "endurance_threshold",
-		NameRu:      "Пороговая выносливость E3",
+		Name: "endurance_threshold",
+
 		Description: "Нагрузка вблизи анаэробного порога, баланс лактата",
 		HrRange:     "80-90% HRmax",
 		Hrv:         "Сниженный",
@@ -82,8 +84,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	3: {
-		Name:        "power_hiit",
-		NameRu:      "Силовая/HIIT",
+		Name: "power_hiit",
+
 		Description: "Высокая вариабельность пульса + постнагрузочная гипертензия + стресс-реакция",
 		HrRange:     "90-100% HRmax",
 		Hrv:         "Резкое падение",
@@ -96,8 +98,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	4: {
-		Name:        "overtraining",
-		NameRu:      "Перетренированность",
+		Name: "overtraining",
+
 		Description: "Повышенный пульс в покое + низкий HRV + усталость + ухудшение сна",
 		HrRange:     "Повышение в покое на 5-10% от нормы",
 		Hrv:         "Значительно снижен",
@@ -110,8 +112,8 @@ var trainingClasses = map[int]struct {
 		},
 	},
 	5: {
-		Name:        "illness",
-		NameRu:      "Заболевание",
+		Name: "illness",
+
 		Description: "Повышение температуры + общая слабость + отклонения в детоксикации",
 		HrRange:     "Повышение на 10-20% от нормы",
 		Hrv:         "Сниженный",
@@ -121,6 +123,20 @@ var trainingClasses = map[int]struct {
 			"Обратиться к врачу при температуре >37.5°C",
 			"Обильное питьё и постельный режим",
 			"Возобновить тренировки только после выздоровления",
+		},
+	},
+	6: {
+		Name: "unknown",
+
+		Description: "Данные противоречивы, требуется повторное измерение или консультация специалиста",
+		HrRange:     "—",
+		Hrv:         "—",
+		Spo2:        "—",
+		Recommendations: []string{
+			"Повторите измерения через 30-60 минут",
+			"Сравните показатели с базовыми значениями",
+			"Присмотритесь к самочувствию: усталость, боль, головная боль",
+			"При сомнениях откажитесь от тренировки",
 		},
 	},
 }
@@ -148,6 +164,7 @@ type userProfile struct {
 type classifyRequest struct {
 	PhysiologicalData physiologicalData `json:"physiological_data"`
 	UserProfile       *userProfile      `json:"user_profile,omitempty"`
+	UserID            string            `json:"user_id,omitempty"`
 }
 
 type classifyResponse struct {
@@ -159,7 +176,6 @@ type classifyResponse struct {
 	MotivationScore   *float64           `json:"motivation_score,omitempty"`
 	RecoveryQuality   *float64           `json:"recovery_quality,omitempty"`
 	PredictedClass    string             `json:"predicted_class,omitempty"`
-	PredictedClassRu  string             `json:"predicted_class_ru,omitempty"`
 	Probabilities     map[string]float64 `json:"probabilities,omitempty"`
 	Description       string             `json:"description,omitempty"`
 	HrRange           string             `json:"hr_range,omitempty"`
@@ -195,11 +211,17 @@ func (s *classifierServer) metricsHandler(w http.ResponseWriter, r *http.Request
 
 func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
+	modelName := "rule-based-classifier"
+	totalParams := 0
+	if s.onnxClassifier != nil {
+		modelName = "onnx-linear-classifier"
+		totalParams = len(s.onnxClassifier.Weights)
+	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"model_name":       "rule-based-classifier",
+		"model_name":       modelName,
 		"input_shape":      []int{1, 7},
 		"output_shape":     []int{1, trainingClassCount},
-		"total_params":     0,
+		"total_params":     totalParams,
 		"training_classes": trainingClasses,
 		"loaded_at":        time.Now().UTC().Format(time.RFC3339),
 	})
@@ -207,25 +229,30 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 
 func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.log.Error("Method not allowed", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.log.Error("Метод не поддерживается", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
 	var req classifyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Warn("Invalid classify request", zap.Error(err))
+		s.log.Warn("Некорректный запрос классификации", zap.Error(err))
 		metrics.ErrorTotal.WithLabelValues("classifier", "invalid_json").Inc()
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
 	if err := validateClassifyRequest(req); err != nil {
-		s.log.Warn("Invalid classify payload", zap.Error(err))
+		s.log.Warn("Некорректные данные запроса", zap.Error(err))
 		metrics.ErrorTotal.WithLabelValues("classifier", "validation_error").Inc()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	_ = ctx
 
 	data := req.PhysiologicalData
 	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
@@ -240,7 +267,33 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		age = req.UserProfile.Age
 	}
 
-	predictedClass, confidence, probs := classifyState(data, age)
+	var predictedClass int
+	var confidence float64
+	var probs map[string]float64
+	modelUsed := modelRuleBased
+
+	if s.onnxClassifier != nil {
+		features := map[string]float64{
+			"heart_rate":  data.HeartRate,
+			"hrv":         data.HeartRateVariability,
+			"spo2":        data.SpO2,
+			"temperature": data.Temperature,
+		}
+		mlClass, mlConfidence, err := s.onnxClassifier.Predict(features)
+		if err == nil && mlConfidence >= mlSwitchThreshold {
+			predictedClass = mlClass
+			confidence = mlConfidence
+			probs = buildZoneProbabilities(predictedClass, confidence)
+			modelUsed = modelML
+		} else {
+			predictedClass, confidence, probs = classifyState(data, age)
+			modelUsed = modelRuleBased
+		}
+	} else {
+		predictedClass, confidence, probs = classifyState(data, age)
+		modelUsed = modelRuleBased
+	}
+
 	classInfo := trainingClasses[predictedClass]
 	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
 
@@ -255,14 +308,21 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		MotivationScore:   &motivationScore,
 		RecoveryQuality:   &recoveryQuality,
 		PredictedClass:    classInfo.Name,
-		PredictedClassRu:  classInfo.NameRu,
 		Probabilities:     probs,
 		Description:       classInfo.Description,
 		HrRange:           classInfo.HrRange,
 		PersonalizedNotes: personalizedNotes,
 	}
 
-	metrics.ClassificationConfidence.WithLabelValues("rule-based", classInfo.Name).Set(confidence)
+	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
+
+	s.log.Info("Классификация завершена",
+		zap.String("user_id", req.UserID),
+		zap.String("predicted_class", classInfo.Name),
+		zap.Float64("confidence", confidence),
+		zap.String("state", classInfo.Name),
+		zap.String("model", modelUsed),
+	)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(resp)
@@ -318,6 +378,8 @@ func deriveScores(predictedClass int) (fatigueLevel, motivationScore, recoveryQu
 		return 0.9, 0.2, 0.1
 	case 5:
 		return 1.0, 0.0, 0.0
+	case 6:
+		return 0.5, 0.5, 0.5
 	default:
 		return 0.5, 0.5, 0.5
 	}
@@ -331,59 +393,132 @@ func defaultIfZero(val, def float64) float64 {
 }
 
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
-	if data.Temperature > 37.5 {
-		probs := map[string]float64{
-			"recovery":            0.0,
-			"endurance_basic":     0.0,
-			"endurance_threshold": 0.0,
-			"power_hiit":          0.02,
-			"overtraining":        0.05,
-			"illness":             0.93,
-		}
-		return 5, 0.93, probs
+	hrMax := computeMaxHR(age)
+	hrPct := computeHRPercentage(data.HeartRate, hrMax)
+	zone := computeZone(hrPct)
+	overtrainingSigns := countOvertrainingSigns(data, hrPct)
+	illnessSigns := countIllnessSigns(data)
+	hasMildFever := data.Temperature > 37.3 && data.Temperature <= 37.5
+
+	if illnessSigns >= 2 && data.Temperature > 37.5 {
+		return classifyByIllnessSigns(illnessSigns, hasMildFever, data)
+	}
+	if data.Temperature > 38.0 {
+		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
 	if data.Temperature > 37.3 {
-		probs := map[string]float64{
-			"recovery":            0.05,
-			"endurance_basic":     0.05,
-			"endurance_threshold": 0.02,
-			"power_hiit":          0.03,
-			"overtraining":        0.10,
-			"illness":             0.75,
-		}
-		return 5, 0.75, probs
+		return 6, 0.50, buildLowSpO2Probabilities()
 	}
+	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
+		return classifyByMildCondition(hasMildFever, data)
+	}
+	if overtrainingSigns >= 2 {
+		return classifyByOvertraining(overtrainingSigns)
+	}
+	if data.SpO2 < 94.0 && data.SpO2 > 0 {
+		return 6, 0.50, buildLowSpO2Probabilities()
+	}
+	return classifyByZone(zone, hrPct, data)
+}
 
+func computeMaxHR(age int) float64 {
 	hrMax := 220.0 - float64(age)
 	if hrMax <= 0 {
-		hrMax = 200.0
+		return 200.0
 	}
-	hrPct := data.HeartRate / hrMax
+	return hrMax
+}
 
-	zone := 0
+func computeHRPercentage(hr, hrMax float64) float64 {
+	return hr / hrMax
+}
+
+func computeZone(hrPct float64) int {
 	switch {
 	case hrPct < 0.65:
-		zone = 0
+		return 0
 	case hrPct < 0.80:
-		zone = 1
+		return 1
 	case hrPct < 0.90:
-		zone = 2
+		return 2
 	default:
-		zone = 3
+		return 3
 	}
+}
 
-	if data.HeartRateVariability < 30 && hrPct < 0.6 {
-		topProbs := map[string]float64{
-			"recovery":            0.03,
-			"endurance_basic":     0.05,
-			"endurance_threshold": 0.02,
-			"power_hiit":          0.05,
-			"overtraining":        0.85,
-			"illness":             0.05,
+func countOvertrainingSigns(data physiologicalData, hrPct float64) int {
+	signs := 0
+	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
+		signs++
+	}
+	if hrPct < 0.6 && data.HeartRate > 0 {
+		signs++
+	}
+	if data.SleepHours < 5.0 && data.SleepHours > 0 {
+		signs++
+	}
+	return signs
+}
+
+func countIllnessSigns(data physiologicalData) int {
+	signs := 0
+	if data.Temperature > 37.5 {
+		signs++
+	}
+	if data.SpO2 < 95.0 && data.SpO2 > 0 {
+		signs++
+	}
+	if data.HeartRateVariability < 25 && data.HeartRateVariability > 0 {
+		signs++
+	}
+	return signs
+}
+
+func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
+	if data.Temperature > 38.0 {
+		return 5, 0.45, buildIllnessProbabilities(0.45)
+	}
+	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
+		confidence := 0.45
+		if hasMildFever {
+			confidence = 0.45
 		}
-		return 4, 0.85, topProbs
+		if data.SpO2 < 93.0 && data.SpO2 > 0 {
+			confidence += 0.10
+		}
+		confidence = math.Round(confidence*10000) / 10000.0
+		return 6, confidence, buildLowSpO2Probabilities()
 	}
+	confidence := 0.55 + float64(illnessSigns-1)*0.15
+	if confidence > 0.95 {
+		confidence = 0.95
+	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 6, confidence, buildLowSpO2Probabilities()
+}
 
+func classifyByMildCondition(hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
+	confidence := 0.45
+	if hasMildFever {
+		confidence = 0.45
+	}
+	if data.SpO2 < 93.0 && data.SpO2 > 0 {
+		confidence += 0.10
+	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 6, confidence, buildLowSpO2Probabilities()
+}
+
+func classifyByOvertraining(overtrainingSigns int) (int, float64, map[string]float64) {
+	confidence := 0.55 + float64(overtrainingSigns-1)*0.10
+	if confidence > 0.90 {
+		confidence = 0.90
+	}
+	confidence = math.Round(confidence*10000) / 10000.0
+	return 4, confidence, buildOvertrainingProbabilities(confidence)
+}
+
+func classifyByZone(zone int, hrPct float64, data physiologicalData) (int, float64, map[string]float64) {
 	boundaries := []float64{0.0, 0.65, 0.80, 0.90, 1.0}
 	center := (boundaries[zone] + boundaries[zone+1]) / 2.0
 	halfWidth := (boundaries[zone+1] - boundaries[zone]) / 2.0
@@ -392,11 +527,68 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 	if rawConf < 0.35 {
 		rawConf = 0.35
 	}
+	if data.SpO2 < 95.0 && data.SpO2 > 0 {
+		rawConf *= 0.85
+	}
+	if data.HeartRateVariability < 30 && data.HeartRateVariability > 0 {
+		rawConf *= 0.90
+	}
+	if rawConf < 0.35 {
+		rawConf = 0.35
+	}
 	confidence := math.Round(rawConf*10000) / 10000.0
+	probs := buildZoneProbabilities(zone, confidence)
+	return zone, confidence, probs
+}
 
+func buildIllnessProbabilities(confidence float64) map[string]float64 {
+	probs := map[string]float64{
+		"recovery":            0.0,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.0,
+		"overtraining":        0.05,
+		"illness":             confidence,
+		"unknown":             1.0 - confidence - 0.05,
+	}
+	if probs["unknown"] < 0 {
+		probs["unknown"] = 0
+	}
+	return probs
+}
+
+func buildOvertrainingProbabilities(confidence float64) map[string]float64 {
+	probs := map[string]float64{
+		"recovery":            0.05,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.0,
+		"overtraining":        confidence,
+		"illness":             0.05,
+		"unknown":             1.0 - confidence - 0.10,
+	}
+	if probs["unknown"] < 0 {
+		probs["unknown"] = 0
+	}
+	return probs
+}
+
+func buildLowSpO2Probabilities() map[string]float64 {
+	return map[string]float64{
+		"recovery":            0.05,
+		"endurance_basic":     0.0,
+		"endurance_threshold": 0.0,
+		"power_hiit":          0.05,
+		"overtraining":        0.10,
+		"illness":             0.10,
+		"unknown":             0.70,
+	}
+}
+
+func buildZoneProbabilities(zone int, confidence float64) map[string]float64 {
+	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness", "unknown"}
+	remainder := (1.0 - confidence) / 6.0
 	probs := make(map[string]float64)
-	classNames := []string{"recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness"}
-	remainder := (1.0 - confidence) / 5.0
 	for i, name := range classNames {
 		if i == zone {
 			probs[name] = confidence
@@ -404,8 +596,7 @@ func classifyState(data physiologicalData, age int) (int, float64, map[string]fl
 			probs[name] = math.Round(remainder*10000) / 10000.0
 		}
 	}
-
-	return zone, confidence, probs
+	return probs
 }
 
 func generatePersonalizedNotes(_ physiologicalData, profile *userProfile, predictedClass int) *string {
@@ -515,6 +706,12 @@ func main() {
 	_ = config.GetViper()
 
 	s := &classifierServer{log: log}
+	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
+		s.onnxClassifier = clf
+		log.Info("ONNX-классификатор загружен", zap.String("weights", DefaultONNXWeightsPath()))
+	} else {
+		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.healthHandler)

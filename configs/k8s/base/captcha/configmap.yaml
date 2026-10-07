@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: captcha-config
+  namespace: fitness-platform-production
+  labels:
+    app: gateway
+    component: captcha
+data:
+  CAPTCHA_PROVIDER: "cloudflare"
+  CLOUDFLARE_TURNSTILE_SITE_KEY: "0x4AAAAAAFAyPN_m3SG9U_kR"
+  HCAPTCHA_SITE_KEY: ""
+  CAPTCHA_FAILED_ATTEMPTS_THRESHOLD: "3"
+  CAPTCHA_COOLDOWN_SECONDS: "300"

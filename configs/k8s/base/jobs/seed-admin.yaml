@@ -168,6 +168,8 @@ spec:
             requests:
               memory: "32Mi"
               cpu: "15m"
+              ephemeral-storage: "64Mi"
             limits:
               memory: "96Mi"
               cpu: "100m"
+              ephemeral-storage: "128Mi"

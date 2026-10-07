@@ -24,6 +24,8 @@ func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 						zap.String("path", sanitize.LogString(r.URL.Path)),
 					)
 					w.Header().Set("X-Trace-ID", traceID)
+					ctx := logger.WithTraceID(r.Context(), traceID)
+					r = r.WithContext(ctx)
 				}
 				next.ServeHTTP(w, r)
 			}),

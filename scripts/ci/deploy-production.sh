@@ -25,6 +25,17 @@ create_secrets() {
 		--from-literal=grafana-admin-password="${GRAFANA_ADMIN_PASSWORD}" \
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
 	echo "✅ monitoring-secrets created"
+
+	if [ -n "${CLOUDFLARE_TURNSTILE_SECRET_KEY:-}" ]; then
+		echo "Creating captcha-secrets..."
+		kubectl create secret generic captcha-secrets \
+			--namespace=fitness-platform-production \
+			--from-literal=CLOUDFLARE_TURNSTILE_SECRET_KEY="$CLOUDFLARE_TURNSTILE_SECRET_KEY" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f -
+		echo "✅ captcha-secrets created"
+	else
+		echo "⚠️  CLOUDFLARE_TURNSTILE_SECRET_KEY is empty, skipping captcha-secrets"
+	fi
 }
 
 ensure_service_account() {

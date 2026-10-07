@@ -12,10 +12,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - staging-openwearables.fittpulse.duckdns.org
-      secretName: staging-openwearables-fittpulse-duckdns-org-tls
+        - fittpulse.duckdns.org
+      secretName: staging-openwearables-fittpulse-ru-tls
   rules:
-    - host: staging-openwearables.fittpulse.duckdns.org
+    - host: fittpulse.duckdns.org
       http:
         paths:
           - path: /api(/|$)(.*)

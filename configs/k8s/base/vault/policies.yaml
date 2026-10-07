@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-postgres-policy
+  namespace: vault
+  labels:
+    app: vault
+data:
+  user-service.hcl: |
+    path "database/creds/user-service-role" {
+      capabilities = ["read"]
+    }
+    path "database/creds/training-service-role" {
+      capabilities = ["read"]
+    }
+    path "database/creds/biometric-service-role" {
+      capabilities = ["read"]
+    }
+    path "database/creds/data-processor-role" {
+      capabilities = ["read"]
+    }

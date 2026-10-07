@@ -1,7 +1,5 @@
 {
   "extends": ["config:base"],
-  "enabledManagers": ["regex"],
-  "ignorePresets": ["config:base"],
   "regex": [
     {
       "fileMatch": ["\\.github/workflows/ci\\.yml$"],
