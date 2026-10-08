@@ -5,7 +5,6 @@ namespace: elk
 
 resources:
   - namespace.yaml
-  - credentials-secret.yaml
   - elasticsearch-config.yaml
   - elasticsearch-statefulset.yaml
   - elasticsearch-service.yaml

@@ -9,6 +9,38 @@ create_secrets() {
 	kubectl wait --for=condition=ready certificate/grpc-server-cert -n fitness-platform-production --timeout=300s || true
 	echo "✅ gRPC mTLS certificates managed by cert-manager"
 
+	echo "Creating argocd-secret..."
+	if [ -n "${ARGOCD_ADMIN_PASSWORD:-}" ]; then
+		ARGOCD_BCRYPT=$(python3 -c "import bcrypt; print(bcrypt.hashpw('${ARGOCD_ADMIN_PASSWORD}'.encode(), bcrypt.gensalt(rounds=12)).decode())" 2>/dev/null || echo "")
+		if [ -z "$ARGOCD_BCRYPT" ]; then
+			ARGOCD_BCRYPT=$(node -e "console.log(require('bcrypt').hashSync('${ARGOCD_ADMIN_PASSWORD}', 12))" 2>/dev/null || echo "")
+		fi
+		if [ -n "$ARGOCD_BCRYPT" ]; then
+			kubectl create secret generic argocd-secret \
+				-n argocd \
+				--from-literal=admin.password="$ARGOCD_BCRYPT" \
+				--from-literal=admin.passwordMTime="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+				--dry-run=client -o yaml | kubectl apply --validate=false -f -
+			echo "✅ argocd-secret created/updated"
+		else
+			echo "⚠️  bcrypt not available (python3-bcrypt/node-bcrypt), skipping argocd-secret update"
+		fi
+	else
+		echo "⚠️  ARGOCD_ADMIN_PASSWORD is empty, skipping argocd-secret update"
+	fi
+
+	echo "Creating external-secrets-db-credentials secret..."
+	if [ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]; then
+		echo "❌ EXTERNAL_SECRETS_DB_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic external-secrets-db-credentials \
+		-n external-secrets \
+		--from-literal=username=external_secrets \
+		--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ external-secrets-db-credentials created"
+
 	echo "Applying ExternalSecret manifests..."
 	kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production
 	echo "✅ ExternalSecrets applied"
@@ -19,6 +51,50 @@ create_secrets() {
 	echo "Creating rabbitmq-secret with rabbitmq.conf..."
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
+
+	echo "Creating minio-credentials secret..."
+	kubectl create secret generic minio-credentials \
+		-n minio \
+		--from-literal=root-user=fitpulse-admin \
+		--from-literal=root-password="${MINIO_SECRET_KEY}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ minio-credentials created"
+
+	echo "Creating grafana-credentials secret..."
+	if [ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]; then
+		echo "❌ GRAFANA_ADMIN_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic grafana-credentials \
+		-n monitoring \
+		--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ grafana-credentials created"
+
+	echo "Creating oncall-bot-credentials secret..."
+	if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+		echo "❌ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty!"
+		exit 1
+	fi
+	kubectl create secret generic oncall-bot-credentials \
+		-n monitoring \
+		--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
+		--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ oncall-bot-credentials created"
+
+	echo "Creating elk-credentials secret..."
+	if [ -z "${ELASTICSEARCH_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]; then
+		echo "❌ ELASTICSEARCH_PASSWORD, ELASTICSEARCH_PLATFORM_PASSWORD or ELASTICSEARCH_AUDITOR_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic elk-credentials \
+		-n elk \
+		--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
+		--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
+		--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ elk-credentials created"
 
 	echo "Creating monitoring-secrets..."
 	kubectl create secret generic monitoring-secrets -n fitness-platform-production \

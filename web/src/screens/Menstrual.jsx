@@ -1,21 +1,32 @@
-import { useEffect, useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import Panel from '../components/Panel';
-import ListItem from '../components/ListItem';
+import { useCallback, useEffect, useState } from 'react';
 import EmptyState from '../components/EmptyState';
+import ListItem from '../components/ListItem';
+import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Menstrual() {
-  const { state, t, notify, loadMenstrualCycles, createMenstrualCycle, updateMenstrualCycle, deleteMenstrualCycle } = useApp();
+  const {
+    state,
+    t,
+    notify,
+    loadMenstrualCycles,
+    createMenstrualCycle,
+    updateMenstrualCycle,
+    deleteMenstrualCycle,
+  } = useApp();
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ start_date: '', end_date: '', flow_intensity: 'moderate', symptoms: '', moods: '', notes: '' });
+  const [form, setForm] = useState({
+    start_date: '',
+    end_date: '',
+    flow_intensity: 'moderate',
+    symptoms: '',
+    moods: '',
+    notes: '',
+  });
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    void loadCycles();
-  }, [loadMenstrualCycles]);
-
-  const loadCycles = async () => {
+  const loadCycles = useCallback(async () => {
     setLoading(true);
     try {
       await loadMenstrualCycles();
@@ -24,7 +35,11 @@ export default function Menstrual() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadMenstrualCycles, notify]);
+
+  useEffect(() => {
+    void loadCycles();
+  }, [loadCycles]);
 
   const handleSubmit = async () => {
     if (!form.start_date) {
@@ -36,8 +51,18 @@ export default function Menstrual() {
       start_date: form.start_date,
       end_date: form.end_date || undefined,
       flow_intensity: form.flow_intensity,
-      symptoms: form.symptoms ? form.symptoms.split(',').map((s) => s.trim()).filter(Boolean) : [],
-      moods: form.moods ? form.moods.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      symptoms: form.symptoms
+        ? form.symptoms
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+      moods: form.moods
+        ? form.moods
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
       notes: form.notes || undefined,
     };
     try {
@@ -48,7 +73,14 @@ export default function Menstrual() {
         await createMenstrualCycle(payload);
         notify('Цикл добавлен');
       }
-      setForm({ start_date: '', end_date: '', flow_intensity: 'moderate', symptoms: '', moods: '', notes: '' });
+      setForm({
+        start_date: '',
+        end_date: '',
+        flow_intensity: 'moderate',
+        symptoms: '',
+        moods: '',
+        notes: '',
+      });
       setEditingId(null);
     } catch {
       notify('Ошибка сохранения цикла');
@@ -104,23 +136,36 @@ export default function Menstrual() {
     return cycles
       .slice()
       .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
-      .map((cycle) => (
-        <ListItem
-          key={cycle.id}
-          title={`${cycle.start_date || '—'} ${cycle.end_date ? '→ ' + cycle.end_date : ''}`}
-          subtitle={`${t('Интенсивность', 'Flow')}: ${cycle.flow_intensity || '—'}${cycle.notes ? ' · ' + cycle.notes : ''}`}
-          right={
-            <div className='row-buttons'>
-              <button type='button' className='secondary' onClick={() => handleEdit(cycle)}>
-                {t('Изменить', 'Edit')}
-              </button>
-              <button type='button' className='danger' onClick={() => handleDelete(cycle.id)}>
-                {t('Удалить', 'Delete')}
-              </button>
-            </div>
-          }
-        />
-      ));
+      .map((cycle) => {
+        const endDatePart = cycle.end_date ? `→ ${cycle.end_date}` : '';
+        const notesPart = cycle.notes ? ` · ${cycle.notes}` : '';
+
+        return (
+          <ListItem
+            key={cycle.id}
+            title={`${cycle.start_date || '—'} ${endDatePart}`}
+            subtitle={`${t('Интенсивность', 'Flow')}: ${cycle.flow_intensity || '—'}${notesPart}`}
+            right={
+              <div className='row-buttons'>
+                <button
+                  type='button'
+                  className='secondary'
+                  onClick={() => handleEdit(cycle)}
+                >
+                  {t('Изменить', 'Edit')}
+                </button>
+                <button
+                  type='button'
+                  className='danger'
+                  onClick={() => handleDelete(cycle.id)}
+                >
+                  {t('Удалить', 'Delete')}
+                </button>
+              </div>
+            }
+          />
+        );
+      });
   };
 
   return (
@@ -140,7 +185,9 @@ export default function Menstrual() {
           {nextPeriodEstimate && (
             <div className='metric-row'>
               <div className='metric-card'>
-                <div className='metric-label'>{t('Следующий период примерно', 'Next period approx')}</div>
+                <div className='metric-label'>
+                  {t('Следующий период примерно', 'Next period approx')}
+                </div>
                 <div className='metric-value'>{nextPeriodEstimate}</div>
               </div>
             </div>
@@ -148,52 +195,76 @@ export default function Menstrual() {
 
           <div className='form'>
             <div className='field'>
-              <label htmlFor='start_date'>{t('Дата начала', 'Start date')}</label>
+              <label htmlFor='start_date'>
+                {t('Дата начала', 'Start date')}
+              </label>
               <input
                 id='start_date'
                 type='date'
                 value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, start_date: e.target.value }))
+                }
               />
             </div>
             <div className='field'>
-              <label htmlFor='end_date'>{t('Дата окончания', 'End date')}</label>
+              <label htmlFor='end_date'>
+                {t('Дата окончания', 'End date')}
+              </label>
               <input
                 id='end_date'
                 type='date'
                 value={form.end_date}
-                onChange={(e) => setForm((e) => setForm((f) => ({ ...f, end_date: e.target.value })))}
+                onChange={(_e) =>
+                  setForm((e) =>
+                    setForm((f) => ({ ...f, end_date: e.target.value }))
+                  )
+                }
               />
             </div>
             <div className='field'>
-              <label htmlFor='flow_intensity'>{t('Интенсивность', 'Flow intensity')}</label>
+              <label htmlFor='flow_intensity'>
+                {t('Интенсивность', 'Flow intensity')}
+              </label>
               <select
                 id='flow_intensity'
                 value={form.flow_intensity}
-                onChange={(e) => setForm((f) => ({ ...f, flow_intensity: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, flow_intensity: e.target.value }))
+                }
               >
                 <option value='light'>{t('Легкая', 'Light')}</option>
                 <option value='moderate'>{t('Средняя', 'Moderate')}</option>
                 <option value='heavy'>{t('Сильная', 'Heavy')}</option>
-                <option value='spotting'>{t('Кровянистые выделения', 'Spotting')}</option>
+                <option value='spotting'>
+                  {t('Кровянистые выделения', 'Spotting')}
+                </option>
               </select>
             </div>
             <div className='field'>
-              <label htmlFor='symptoms'>{t('Симптомы (через запятую)', 'Symptoms (comma separated)')}</label>
+              <label htmlFor='symptoms'>
+                {t('Симптомы (через запятую)', 'Symptoms (comma separated)')}
+              </label>
               <input
                 id='symptoms'
                 type='text'
                 value={form.symptoms}
-                onChange={(e) => setForm((f) => ({ ...f, symptoms: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, symptoms: e.target.value }))
+                }
               />
             </div>
             <div className='field'>
-              <label htmlFor='moods'>{t('Настроение (через запятую)', 'Moods (comma separated)')}</label>
+              <label htmlFor='moods'>
+                {t('Настроение (через запятую)', 'Moods (comma separated)')}
+              </label>
               <input
                 id='moods'
                 type='text'
                 value={form.moods}
-                onChange={(e) => setForm((f) => ({ ...f, moods: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, moods: e.target.value }))
+                }
               />
             </div>
             <div className='field'>
@@ -201,22 +272,41 @@ export default function Menstrual() {
               <textarea
                 id='notes'
                 value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, notes: e.target.value }))
+                }
               />
             </div>
-            <button type='button' className='primary' onClick={handleSubmit} disabled={saving}>
+            <button
+              type='button'
+              className='primary'
+              onClick={handleSubmit}
+              disabled={saving}
+            >
               {editingId ? t('Сохранить', 'Save') : t('Добавить', 'Add')}
             </button>
             {editingId && (
-              <button type='button' className='secondary' onClick={() => { setEditingId(null); setForm({ start_date: '', end_date: '', flow_intensity: 'moderate', symptoms: '', moods: '', notes: '' }); }}>
+              <button
+                type='button'
+                className='secondary'
+                onClick={() => {
+                  setEditingId(null);
+                  setForm({
+                    start_date: '',
+                    end_date: '',
+                    flow_intensity: 'moderate',
+                    symptoms: '',
+                    moods: '',
+                    notes: '',
+                  });
+                }}
+              >
                 {t('Отмена', 'Cancel')}
               </button>
             )}
           </div>
 
-          <div className='list'>
-            {renderMenstrualList()}
-          </div>
+          <div className='list'>{renderMenstrualList()}</div>
         </div>
       </Panel>
     </section>

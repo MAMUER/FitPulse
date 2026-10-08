@@ -20,7 +20,7 @@ echo "Report: $REPORT_FILE"
 echo ""
 
 # Initialize report
-cat > "$REPORT_FILE" <<EOF
+cat >"$REPORT_FILE" <<EOF
 # Chaos Test Report
 
 **Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)  
@@ -73,7 +73,7 @@ fi
 echo "Vault: $VAULT_STATUS (${VAULT_TIME})"
 
 # Update report
-cat >> "$REPORT_FILE" <<EOF
+cat >>"$REPORT_FILE" <<EOF
 
 ### PostgreSQL Failure
 
@@ -113,12 +113,12 @@ EOF
 
 # Overall result
 if [[ "$PG_STATUS" == "✅ PASS" && "$VALKEY_STATUS" == "✅ PASS" && "$VAULT_STATUS" == "✅ PASS" ]]; then
-	echo "✅ ALL TESTS PASSED" >> "$REPORT_FILE"
+	echo "✅ ALL TESTS PASSED" >>"$REPORT_FILE"
 	echo ""
 	echo "=== All chaos tests passed ==="
 	exit 0
 else
-	echo "❌ SOME TESTS FAILED" >> "$REPORT_FILE"
+	echo "❌ SOME TESTS FAILED" >>"$REPORT_FILE"
 	echo ""
 	echo "=== Some chaos tests failed ==="
 	exit 1

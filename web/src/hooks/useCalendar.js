@@ -1,9 +1,15 @@
 import { useCallback } from 'react';
+import * as api from '../services/api';
 import { getDateKey, isDateAllowed } from '../utils/helpers';
 import { t } from '../utils/i18n';
-import * as api from '../services/api';
 
-export function useCalendar({ state, update, notify, getMonthName: getMonthNameFn, language }) {
+export function useCalendar({
+  state,
+  update,
+  notify,
+  getMonthName: getMonthNameFn,
+  language,
+}) {
   const changeCalendar = useCallback(
     (direction) => {
       let m = state.calendarMonthIndex + Number(direction || 0);
@@ -178,8 +184,8 @@ export function useCalendar({ state, update, notify, getMonthName: getMonthNameF
       language,
       update,
       notify,
-      t,
       getMonthNameFn,
+      state.calendarEventsList,
     ]
   );
 

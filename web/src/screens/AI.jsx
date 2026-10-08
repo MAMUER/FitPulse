@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useApp } from '../contexts/AppContext';
 import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Ai() {
   const { state, t, sendAI, go } = useApp();
@@ -15,7 +15,7 @@ export default function Ai() {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, []);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -38,7 +38,11 @@ export default function Ai() {
       <Panel
         title={t('AI-советник', 'AI Advisor')}
         right={
-          <button type='button' className='secondary' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary'
+            onClick={() => go('home')}
+          >
             {t('Назад', 'Back')}
           </button>
         }

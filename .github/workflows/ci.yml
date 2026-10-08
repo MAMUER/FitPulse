@@ -1534,6 +1534,7 @@ jobs:
       - name: Create production secrets
         if: steps.connectivity.outputs.reachable == 'true'
         env:
+          ARGOCD_ADMIN_PASSWORD: ${{ secrets.ARGOCD_ADMIN_PASSWORD }}
           RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
           RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
           YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
@@ -1550,6 +1551,13 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           TOTP_ENCRYPTION_KEY: ${{ secrets.TOTP_ENCRYPTION_KEY }}
           VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD }}
+          EXTERNAL_SECRETS_DB_PASSWORD: ${{ secrets.EXTERNAL_SECRETS_DB_PASSWORD }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          ELASTICSEARCH_PASSWORD: ${{ secrets.ELASTICSEARCH_PASSWORD }}
+          ELASTICSEARCH_PLATFORM_PASSWORD: ${{ secrets.ELASTICSEARCH_PLATFORM_PASSWORD }}
+          ELASTICSEARCH_AUDITOR_PASSWORD: ${{ secrets.ELASTICSEARCH_AUDITOR_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash scripts/ci/deploy-production.sh create_secrets
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'

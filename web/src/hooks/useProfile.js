@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { t } from '../utils/i18n';
 import * as api from '../services/api';
+import { t } from '../utils/i18n';
 
 export function useProfile({ state, update, notify }) {
   const editProfile = useCallback(async () => {
@@ -37,7 +37,7 @@ export function useProfile({ state, update, notify }) {
     } catch {
       notify('Ошибка обновления профиля');
     }
-  }, [state.profile, update, notify, t]);
+  }, [state.profile, update, notify]);
 
   const changePassword = useCallback(() => {
     const oldPass = document.getElementById('oldPass')?.value || '';

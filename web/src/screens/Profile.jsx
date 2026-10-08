@@ -1,5 +1,5 @@
-import Panel from '../components/Panel';
 import ListItem from '../components/ListItem';
+import Panel from '../components/Panel';
 import { useApp } from '../contexts/AppContext';
 
 export default function Profile() {
@@ -57,7 +57,11 @@ export default function Profile() {
             title={t('Язык', 'Language')}
             subtitle={state.language === 'ru' ? 'RU' : 'EN'}
             right={
-              <button type='button' className='secondary' onClick={toggleLanguage}>
+              <button
+                type='button'
+                className='secondary'
+                onClick={toggleLanguage}
+              >
                 {t('Сменить', 'Switch')}
               </button>
             }
@@ -75,13 +79,20 @@ export default function Profile() {
             title={t('Высокая контрастность', 'High contrast')}
             subtitle={state.highContrast ? 'ON' : 'OFF'}
             right={
-              <button type='button' className='secondary' onClick={toggleHighContrast}>
+              <button
+                type='button'
+                className='secondary'
+                onClick={toggleHighContrast}
+              >
                 {t('Сменить', 'Switch')}
               </button>
             }
           />
           <ListItem
-            title={t('Двухфакторная аутентификация', 'Two-Factor Authentication')}
+            title={t(
+              'Двухфакторная аутентификация',
+              'Two-Factor Authentication'
+            )}
             subtitle={state.profile?.twoFactor ? 'ON' : 'OFF'}
             right={
               !state.profile?.twoFactor ? (

@@ -23,3 +23,4 @@ resources:
   - local-path-provisioner/limit-range.yaml
   - vault
   - elk
+  - minio

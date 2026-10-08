@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function CookieConsent() {
@@ -48,8 +48,14 @@ export default function CookieConsent() {
             'Мы используем файлы cookie для улучшения работы сервиса. Продолжая использовать FitPulse, вы соглашаетесь с нашей ',
             'We use cookies to improve the service. By continuing to use FitPulse, you agree to our '
           )}
-          <a className='legal-link' href='/privacy' target='_blank' rel='noreferrer'>
-            {t('Политикой конфиденциальности', 'Privacy Policy')}</a>.
+          <a
+            className='legal-link'
+            href='/privacy'
+            target='_blank'
+            rel='noreferrer'
+          >
+            {t('Политикой конфиденциальности', 'Privacy Policy')}.
+          </a>
         </p>
         <div className='cookie-consent-actions'>
           <button type='button' className='primary' onClick={handleAccept}>

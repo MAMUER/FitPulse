@@ -28,10 +28,7 @@ export default function Chat() {
         <div className='panel-body'>
           <div className='chat'>
             {history.map((m, i) => (
-              <div
-                key={m.id || i}
-                className={`msg ${m.sent ? 'user' : 'bot'}`}
-              >
+              <div key={m.id || i} className={`msg ${m.sent ? 'user' : 'bot'}`}>
                 <div>{m.text}</div>
               </div>
             ))}

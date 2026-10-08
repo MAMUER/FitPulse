@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { t } from '../utils/i18n';
 import * as api from '../services/api';
+import { t } from '../utils/i18n';
 
 export function useSurvey({ state, update, notify }) {
   const surveySelect = useCallback(

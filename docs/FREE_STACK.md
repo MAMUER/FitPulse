@@ -120,23 +120,13 @@ Kubernetes Secret `app-secrets`
 # Не храните в репозитории.
 ```
 
-### MINIO_ACCESS_KEY / MINIO_SECRET_KEY
+### MINIO_ROOT_PASSWORD
 
-**Source:** You set these yourself when deploying MinIO.
+**Source:** You set this yourself when deploying MinIO.
 
 ```bash
-# Option 1: Generate random values
-openssl rand -base64 12   # ACCESS_KEY
-openssl rand -base64 24   # SECRET_KEY
-
-# Option 2: Use fixed values (change in production!)
-MINIO_ACCESS_KEY="fitpulse-admin"
-MINIO_SECRET_KEY="REPLACE_WITH_REAL_MINIO_SECRET_KEY"
-
-# Add to Vault:
-vault kv put secret/minio \
-  access_key="$MINIO_ACCESS_KEY" \
-  secret_key="$MINIO_SECRET_KEY"
+# Add to GitHub Secrets:
+# MINIO_SECRET_KEY → <generated-password>
 ```
 
 ### EXTERNAL_SECRETS_DB_PASSWORD
@@ -148,12 +138,63 @@ vault kv put secret/minio \
 openssl rand -base64 32
 
 # Create PostgreSQL user (run once)
-psql -h postgres-service -U postgres -f scripts/ci/setup-external-secrets-db.sh
-# Replace REPLACE_WITH_REAL_PASSWORD in the script with generated value
+psql -h postgres-service -U postgres -c "CREATE USER external_secrets WITH PASSWORD '<generated-password>';"
+psql -h postgres-service -U postgres -c "GRANT USAGE ON SCHEMA public TO external_secrets;"
+psql -h postgres-service -U postgres -c "GRANT SELECT, INSERT, UPDATE, DELETE ON external_secrets TO external_secrets;"
+psql -h postgres-service -U postgres -c "GRANT USAGE, SELECT ON SEQUENCE external_secrets_id_seq TO external_secrets;"
 
-# Add to Vault:
-vault kv put secret/external-secrets \
-  db_password="<generated-password>"
+# Add to GitHub Secrets:
+# EXTERNAL_SECRETS_DB_PASSWORD → <generated-password>
+```
+
+### ELASTICSEARCH_PASSWORD / ELASTICSEARCH_PLATFORM_PASSWORD / ELASTICSEARCH_AUDITOR_PASSWORD
+
+**Source:** You set these yourself.
+
+```bash
+# Generate random passwords
+openssl rand -base64 32  # ELASTICSEARCH_PASSWORD
+openssl rand -base64 32  # ELASTICSEARCH_PLATFORM_PASSWORD
+openssl rand -base64 32  # ELASTICSEARCH_AUDITOR_PASSWORD
+
+# Add to GitHub Secrets:
+# ELASTICSEARCH_PASSWORD → <elastic-user-password>
+# ELASTICSEARCH_PLATFORM_PASSWORD → <platform-team-password>
+# ELASTICSEARCH_AUDITOR_PASSWORD → <auditor-password>
+```
+
+### GRAFANA_ADMIN_PASSWORD
+
+**Source:** You set this yourself.
+
+```bash
+# Generate random password
+openssl rand -base64 24
+
+# Add to GitHub Secrets:
+# GRAFANA_ADMIN_PASSWORD → <generated-password>
+```
+
+### ARGOCD_ADMIN_PASSWORD (Optional)
+
+**Source:** You set this yourself if deploying ArgoCD.
+
+```bash
+# Generate random password
+openssl rand -base64 24
+
+# Add to GitHub Secrets:
+# ARGOCD_ADMIN_PASSWORD → <generated-password>
+```
+
+### TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+
+```bash
+# 1. Create bot via @BotFather (free, no card required)
+# 2. Get chat ID via @chatid_echo_bot
+# 3. Add to GitHub Secrets:
+# TELEGRAM_BOT_TOKEN → <bot-token>
+# TELEGRAM_CHAT_ID → <chat-id>
 ```
 
 ### KUBECONFIG_DATA
@@ -193,8 +234,6 @@ vault kv put secret/cloudflare api_token="<token>"
 
 ### What Changed
 
-- ❌ Removed: Terraform-based VPS provisioning
-- ❌ Removed: AWS Secrets Manager
 - ✅ Added: Vault + External Secrets Operator
 - ✅ Added: cert-manager для TLS
 - ✅ Added: MinIO для бэкапов
@@ -202,29 +241,21 @@ vault kv put secret/cloudflare api_token="<token>"
 
 ---
 
-## GitHub Secrets — Full List (No Card Required)
+## GitHub Secrets — Full List
 
-| Secret Name | Value | Source | Card Required? |
+| Secret Name | Value | Source |
 | --- | --- | --- | --- |
-| `KUBECONFIG_DATA` | base64 kubeconfig | Existing k3s cluster | ❌ No |
-| `MINIO_ACCESS_KEY` | MinIO root user | You generate | ❌ No |
-| `MINIO_SECRET_KEY` | MinIO root password | You generate | ❌ No |
-| `EXTERNAL_SECRETS_DB_PASSWORD` | PostgreSQL password | You generate | ❌ No |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token | cloudflare.com (free) | ❌ No |
-
----
-
-## Cost Breakdown (100% Free Stack)
-
-| Component | Monthly Cost | Card Required? |
-| --- | --- | --- |
-| Existing VPS (k3s) | €4 | Already paid |
-| MinIO | €0 | ❌ No |
-| PostgreSQL | €0 | ❌ No |
-| DuckDNS | €0 | ❌ No |
-| GitHub Actions | €0 | ❌ No |
-| Cloudflare DNS | €0 | ❌ No |
-| **Total additional** | **€0** | — |
+| `KUBECONFIG_DATA` | base64 kubeconfig | Existing k3s cluster |
+| `MINIO_SECRET_KEY` | MinIO root password | You generate |
+| `EXTERNAL_SECRETS_DB_PASSWORD` | PostgreSQL password | You generate |
+| `ELASTICSEARCH_PASSWORD` | Elasticsearch elastic user | You generate |
+| `ELASTICSEARCH_PLATFORM_PASSWORD` | Elasticsearch platform-team user | You generate |
+| `ELASTICSEARCH_AUDITOR_PASSWORD` | Elasticsearch auditor user | You generate |
+| `ARGOCD_ADMIN_PASSWORD` | ArgoCD admin password | You generate |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana admin password | You generate |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | @BotFather |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID | @chatid_echo_bot |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token | cloudflare.com (free) |
 
 ---
 

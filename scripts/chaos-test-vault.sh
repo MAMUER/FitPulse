@@ -9,8 +9,8 @@ set -euo pipefail
 
 NAMESPACE="${1:-vault}"
 SERVICE_NAME="vault-service"
-TEST_DURATION="${TEST_DURATION:-300}"  # 5 minutes
-RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}"  # 60 seconds
+TEST_DURATION="${TEST_DURATION:-300}"      # 5 minutes
+RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}" # 60 seconds
 
 echo "=== Chaos Test: Vault Failure ==="
 echo "Namespace: $NAMESPACE"

@@ -9,8 +9,8 @@ set -euo pipefail
 
 NAMESPACE="${1:-fitness-platform-production}"
 SERVICE_NAME="valkey-service"
-TEST_DURATION="${TEST_DURATION:-300}"  # 5 minutes
-RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}"  # 60 seconds
+TEST_DURATION="${TEST_DURATION:-300}"      # 5 minutes
+RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}" # 60 seconds
 
 echo "=== Chaos Test: Valkey Master Failure ==="
 echo "Namespace: $NAMESPACE"

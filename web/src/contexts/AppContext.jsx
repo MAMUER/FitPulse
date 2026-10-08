@@ -1,25 +1,29 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getInitialState } from '../reducers/appState';
-import { saveState } from '../services/storage';
 import {
-  formatRelativeDate,
-  safeText,
-} from '../utils/helpers';
-import { getMonthName, t } from '../utils/i18n';
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { useAI } from '../hooks/useAI';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigation } from '../hooks/useNavigation';
-import { useUI } from '../hooks/useUI';
 import { useCalendar } from '../hooks/useCalendar';
-import { useNutrition } from '../hooks/useNutrition';
-import { useTraining } from '../hooks/useTraining';
-import { useHealth } from '../hooks/useHealth';
 import { useChat } from '../hooks/useChat';
+import { useHealth } from '../hooks/useHealth';
+import { useMedia } from '../hooks/useMedia';
+import { useNavigation } from '../hooks/useNavigation';
+import { useNutrition } from '../hooks/useNutrition';
 import { useProfile } from '../hooks/useProfile';
+import { useSettings } from '../hooks/useSettings';
 import { useStories } from '../hooks/useStories';
 import { useSurvey } from '../hooks/useSurvey';
-import { useAI } from '../hooks/useAI';
-import { useMedia } from '../hooks/useMedia';
-import { useSettings } from '../hooks/useSettings';
+import { useTraining } from '../hooks/useTraining';
+import { useUI } from '../hooks/useUI';
+import { getInitialState } from '../reducers/appState';
+import { saveState } from '../services/storage';
+import { formatRelativeDate, safeText } from '../utils/helpers';
+import { getMonthName, t } from '../utils/i18n';
 
 const AppContext = createContext(null);
 
@@ -196,7 +200,6 @@ export function AppProvider({ children }) {
     }),
     [
       state,
-      t,
       notify,
       auth,
       navigation,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import Panel from '../components/Panel';
 import EmptyState from '../components/EmptyState';
+import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Achievements() {
   const { state, t, go, loadAchievements } = useApp();
@@ -20,9 +20,7 @@ export default function Achievements() {
   if (loading) {
     content = <EmptyState text={t('Загрузка...', 'Loading...')} />;
   } else if (achievements.length === 0) {
-    content = (
-      <EmptyState text={t('Нет достижений', 'No achievements')} />
-    );
+    content = <EmptyState text={t('Нет достижений', 'No achievements')} />;
   } else {
     content = (
       <div className='achievements-grid'>
@@ -49,7 +47,11 @@ export default function Achievements() {
       <Panel
         title={t('Достижения', 'Achievements')}
         right={
-          <button type='button' className='secondary' onClick={() => go('home')}>
+          <button
+            type='button'
+            className='secondary'
+            onClick={() => go('home')}
+          >
             {t('Назад', 'Back')}
           </button>
         }

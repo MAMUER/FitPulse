@@ -2,12 +2,7 @@ import AuthLayout from '../components/AuthLayout';
 import { useApp } from '../contexts/AppContext';
 
 export default function Register() {
-  const {
-    t,
-    doRegister,
-    socialLogin,
-    go,
-  } = useApp();
+  const { t, doRegister, socialLogin, go } = useApp();
 
   return (
     <AuthLayout>

@@ -82,7 +82,7 @@ fi
 
 # Create recovery configuration
 RECOVERY_CONF="${TEMP_DIR}/postgresql.conf"
-cat > "$RECOVERY_CONF" <<EOF
+cat >"$RECOVERY_CONF" <<EOF
 restore_command = 'cp ${WAL_RECOVERY_DIR}/%f %p'
 recovery_target_time = '${RECOVERY_TARGET}'
 EOF

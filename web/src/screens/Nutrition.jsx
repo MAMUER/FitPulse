@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import Panel from '../components/Panel';
-import ListItem from '../components/ListItem';
 import EmptyState from '../components/EmptyState';
+import ListItem from '../components/ListItem';
+import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Nutrition() {
   const { state, t, go, loadMeals, createMeal, removeMeal } = useApp();

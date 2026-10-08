@@ -1,7 +1,13 @@
 import { useCallback } from 'react';
 import { t } from '../utils/i18n';
 
-export function useNutrition({ state, update, notify, getMonthName: getMonthNameFn, language }) {
+export function useNutrition({
+  state,
+  update,
+  notify,
+  getMonthName: getMonthNameFn,
+  language,
+}) {
   const setNutritionPeriod = useCallback(
     (period) => {
       update({ nutritionPeriod: period });
@@ -77,7 +83,14 @@ export function useNutrition({ state, update, notify, getMonthName: getMonthName
     ];
     update({ meals: newMeals, calendarEvents: newEvents });
     notify('Блюдо добавлено в меню и календарь');
-  }, [state.meals, state.calendarEvents, language, update, notify, getMonthNameFn]);
+  }, [
+    state.meals,
+    state.calendarEvents,
+    language,
+    update,
+    notify,
+    getMonthNameFn,
+  ]);
 
   return {
     setNutritionPeriod,

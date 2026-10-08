@@ -1,11 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import CookieConsent from './components/CookieConsent';
 import { useApp } from './contexts/AppContext';
 import Ai from './screens/AI';
 import Body from './screens/Body';
 import Calendar from './screens/Calendar';
 import Chat from './screens/Chat';
 import Confirm from './screens/Confirm';
-import CookieConsent from './components/CookieConsent';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
 import Landing from './screens/Landing';

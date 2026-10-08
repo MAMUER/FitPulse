@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import Panel from '../components/Panel';
-import MetricCard from '../components/MetricCard';
 import ListItem from '../components/ListItem';
+import MetricCard from '../components/MetricCard';
+import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Body() {
   const { state, t, go, loadBodyComposition, saveBodyComposition } = useApp();
@@ -43,11 +43,7 @@ export default function Body() {
     <section className='body'>
       <Panel
         title={t('Профиль тела', 'Body profile')}
-        subtitle={
-          height && weight
-            ? `${height} см · ${weight} кг`
-            : '—'
-        }
+        subtitle={height && weight ? `${height} см · ${weight} кг` : '—'}
       >
         <div className='panel-body'>
           <p className='medical-disclaimer'>
@@ -104,9 +100,7 @@ export default function Body() {
               placeholder='50'
             />
           </div>
-          {bmi !== null && (
-            <MetricCard value={bmi} label={t('ИМТ', 'BMI')} />
-          )}
+          {bmi !== null && <MetricCard value={bmi} label={t('ИМТ', 'BMI')} />}
           <button
             type='button'
             className='primary full'

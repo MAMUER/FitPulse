@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
-
 import Panel from '../components/Panel';
+import { useApp } from '../contexts/AppContext';
 
 export default function Home() {
   const {
@@ -120,7 +119,11 @@ export default function Home() {
         title={t('Цели', 'Goals')}
         subtitle={t('Персональные рекомендации', 'Personal recommendations')}
         right={
-          <button type='button' className='link' onClick={() => navigate('/consent')}>
+          <button
+            type='button'
+            className='link'
+            onClick={() => navigate('/consent')}
+          >
             {t('Политика', 'Policy')}
           </button>
         }

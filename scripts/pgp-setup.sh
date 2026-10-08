@@ -41,11 +41,11 @@ echo "Fingerprint:  $FINGERPRINT"
 echo ""
 
 # Export public key
-gpg --armor --export "$KEY_ID" > "$KEY_DIR/public-key.asc"
-gpg --armor --export-secret-keys "$KEY_ID" > "$KEY_DIR/private-key.asc"
+gpg --armor --export "$KEY_ID" >"$KEY_DIR/public-key.asc"
+gpg --armor --export-secret-keys "$KEY_ID" >"$KEY_DIR/private-key.asc"
 
 # Export for WKD
-gpg --export "$KEY_ID" > "$KEY_DIR/openpgpkey_${KEY_ID:0:40}.asc"
+gpg --export "$KEY_ID" >"$KEY_DIR/openpgpkey_${KEY_ID:0:40}.asc"
 
 echo "=== Keys exported to $KEY_DIR ==="
 echo ""

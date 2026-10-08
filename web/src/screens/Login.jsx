@@ -2,14 +2,8 @@ import AuthLayout from '../components/AuthLayout';
 import { useApp } from '../contexts/AppContext';
 
 export default function Login() {
-  const {
-    t,
-    doLogin,
-    continueAsGuest,
-    socialLogin,
-    forgotPassword,
-    go,
-  } = useApp();
+  const { t, doLogin, continueAsGuest, socialLogin, forgotPassword, go } =
+    useApp();
 
   return (
     <AuthLayout>
