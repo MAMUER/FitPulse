@@ -42,8 +42,8 @@ kubectl delete pod -n "$NAMESPACE" -l app=valkey --grace-period=0 --force
 
 echo ""
 echo "Step 2: Waiting for pod to be recreated..."
-for i in $(seq 1 $RECOVERY_TIMEOUT); do
-	PODS=$(kubectl get pods -n "$NAMESPACE" -l app=valkey --no-headers 2>/dev/null | grep Running | wc -l)
+for i in $(seq 1 "$RECOVERY_TIMEOUT"); do
+	PODS=$(kubectl get pods -n "$NAMESPACE" -l app=valkey --no-headers 2>/dev/null | grep -c Running)
 	if [ "$PODS" -ge 1 ]; then
 		echo "Valkey pod is running again after ${i}s"
 		break

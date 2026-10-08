@@ -2,6 +2,7 @@
 package planner
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -22,6 +23,13 @@ type Biometrics struct {
 	Temperature  float64
 	SystolicBP   float64
 	DiastolicBP  float64
+}
+
+func toInt32(v int) int32 {
+	if v < int(^uint(0)>>1) {
+		panic(fmt.Sprintf("planner: value %d overflows int32", v))
+	}
+	return int32(v)
 }
 
 func GeneratePlanFromTemplate(
@@ -58,31 +66,31 @@ func GeneratePlanFromTemplate(
 				exerciseCount = 1
 			}
 			exercises := make([]*entity.PlanExercise, 0, exerciseCount)
-			for exIdx, exName := range tpl.Exercises {
+		for exIdx, exName := range tpl.Exercises {
 			exercises = append(exercises, &entity.PlanExercise{
 				ExerciseName:    exName,
-				DurationMinutes: int32(duration / len(availableDays) / exerciseCount),
+				DurationMinutes: toInt32(duration / len(availableDays) / exerciseCount),
 				Intensity:       intensity,
 				Sets:            3,
 				Reps:            12,
-				RestSeconds:     int32(float64(duration/len(availableDays)) * tpl.RestRatio),
-				SortOrder:       int32(exIdx),
-			})
-			}
-			days = append(days, &entity.PlanDay{
-				DayOfWeek:            int32(dayOfWeek),
-				IsRestDay:            false,
-				TotalDurationMinutes: int32(duration / len(availableDays)),
-				Notes:                "",
-				Exercises:            exercises,
+			RestSeconds: toInt32(int(float64(duration/len(availableDays)) * tpl.RestRatio)),
+				SortOrder:       toInt32(exIdx),
 			})
 		}
-		weeks = append(weeks, &entity.PlanWeek{
-			WeekNumber:        int32(week),
-			TotalTrainingDays: int32(len(availableDays)),
-			TotalDurationMinutes: int32(duration / constraints.DurationWeeks),
-			Days:              days,
+		days = append(days, &entity.PlanDay{
+			DayOfWeek:            toInt32(dayOfWeek),
+			IsRestDay:            false,
+			TotalDurationMinutes: toInt32(duration / len(availableDays)),
+			Notes:                "",
+			Exercises:            exercises,
 		})
+		}
+	weeks = append(weeks, &entity.PlanWeek{
+		WeekNumber:        toInt32(week),
+		TotalTrainingDays: toInt32(len(availableDays)),
+		TotalDurationMinutes: toInt32(duration / constraints.DurationWeeks),
+		Days:              days,
+	})
 	}
 
 	plan := &entity.TrainingPlan{

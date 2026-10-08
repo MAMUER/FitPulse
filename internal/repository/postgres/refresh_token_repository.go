@@ -48,11 +48,9 @@ func (r *refreshTokenRepository) Create(ctx context.Context, rt *port.RefreshTok
 		return apperrors.Internal("failed to generate nonce", err)
 	}
 
-	query := `
-		INSERT INTO refresh_tokens (token_hash, token_encrypted, token_nonce, user_id, expires_at)
-		VALUES ($1, ` + db.PgsodiumRandomEncryptParam(2, 3) + `, $4, $5)
-	`
-	_, err = r.db.ExecContext(ctx, query, tokenHash, rt.Token, nonce, rt.UserID, rt.ExpiresAt) // NOSONAR
+	query := db.PgsodiumRefreshTokenInsertQuery()
+	// #nosec G202
+	_, err = r.db.ExecContext(ctx, query, tokenHash, rt.Token, nonce, rt.UserID, rt.ExpiresAt)
 	if err != nil {
 		return apperrors.Internal("failed to create refresh token", err)
 	}

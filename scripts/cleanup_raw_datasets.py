@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Remove .DS_Store files, MUSE folders, and tags_*.csv files from raw datasets."""
+
 from __future__ import annotations
 
 import shutil
@@ -24,7 +25,9 @@ def main() -> None:
             if path.name == ".DS_Store":
                 path.unlink()
                 removed_ds += 1
-            elif (path.name.startswith("tags_") and path.suffix.lower() == ".csv") or path.suffix.lower() == ".txt":
+            elif (
+                path.name.startswith("tags_") and path.suffix.lower() == ".csv"
+            ) or path.suffix.lower() == ".txt":
                 path.unlink()
                 removed_tags += 1
 

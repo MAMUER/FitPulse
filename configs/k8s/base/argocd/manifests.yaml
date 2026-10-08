@@ -96,6 +96,14 @@ spec:
           env:
             - name: ARGOCD_CONTROLLER_THREADS
               value: "2"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "100m"
@@ -132,6 +140,14 @@ spec:
             - /argocd-repo-server
             - --redis
             - argocd-redis:6379
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "50m"
@@ -171,6 +187,14 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "50m"
@@ -225,6 +249,14 @@ spec:
           image: redis:7-alpine
           ports:
             - containerPort: 6379
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "50m"

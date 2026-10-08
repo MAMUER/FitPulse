@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 100
-exclude = 
+exclude =
     .git,
     __pycache__,
     .venv,
@@ -9,3 +9,6 @@ exclude =
     dist,
     vendor
 max-complexity = 10
+per-file-ignores =
+    scripts/*:E501,C901
+    scripts/oncall-bot/*:E501

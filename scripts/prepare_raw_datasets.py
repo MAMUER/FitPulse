@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Prepare classifier dataset from ALL raw physiological datasets."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import pickle
 import zipfile
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -81,7 +82,9 @@ def to_float(val) -> float | None:
     return None
 
 
-def read_signal_values(path: Path, candidates: list[str], max_rows: int | None = None) -> pd.Series | None:
+def read_signal_values(
+    path: Path, candidates: list[str], max_rows: int | None = None
+) -> pd.Series | None:
     """Read a CSV and return a Series of numeric values for the best matching column."""
     df = safe_read_csv(path, nrows=max_rows)
     if df is None or df.empty:
@@ -173,7 +176,9 @@ def label_wesad_stress(unique_labels: np.ndarray) -> str:
 # ------------------------------------------------------------------
 # BIDMC
 # ------------------------------------------------------------------
-def _bidmc_record(row: pd.Series, hr_col: str | None, spo2_col: str | None) -> dict[str, float | None]:
+def _bidmc_record(
+    row: pd.Series, hr_col: str | None, spo2_col: str | None
+) -> dict[str, float | None]:
     return {
         "heart_rate": to_float(row.get(hr_col)) if hr_col is not None else None,
         "hrv": None,
@@ -230,7 +235,9 @@ def _find_e4_files(session_dir: Path) -> tuple[Path | None, Path | None, Path | 
     return hr_path, temp_path, ibi_path
 
 
-def _process_ibi_series(ibi_series: pd.Series, index: pd.Index | None) -> tuple[pd.Series | None, pd.Series | None]:
+def _process_ibi_series(
+    ibi_series: pd.Series, index: pd.Index | None
+) -> tuple[pd.Series | None, pd.Series | None]:
     if ibi_series is None:
         return None, None
     ibi_vals = ibi_series.reindex(index)
@@ -240,7 +247,12 @@ def _process_ibi_series(ibi_series: pd.Series, index: pd.Index | None) -> tuple[
     if len(ibi_arr) <= 1:
         return None, None
     ibi_series_for_hr = pd.Series(ibi_arr)
-    hr_from_ibi = 60.0 / ibi_series_for_hr.rolling(window=2, min_periods=2).apply(lambda x: 60.0 / np.mean(x) if np.mean(x) > 0 else np.nan, raw=False).to_numpy()
+    hr_from_ibi = (
+        60.0
+        / ibi_series_for_hr.rolling(window=2, min_periods=2)
+        .apply(lambda x: 60.0 / np.mean(x) if np.mean(x) > 0 else np.nan, raw=False)
+        .to_numpy()
+    )
     hrv = pd.Series(ibi_arr).diff().abs() * 1000.0
     return hrv, pd.Series(hr_from_ibi)
 
@@ -256,21 +268,37 @@ def _build_e4_data(hr_series, temp_series, ibi_series, index):
         if hrv is not None:
             data["hrv"] = hrv
         if hr_from_ibi is not None:
-            data["heart_rate"] = data.get("heart_rate", pd.Series(index=ibi_series.index, dtype=float)).fillna(hr_from_ibi)
+            data["heart_rate"] = data.get(
+                "heart_rate", pd.Series(index=ibi_series.index, dtype=float)
+            ).fillna(hr_from_ibi)
     return data
 
 
-def process_e4_session_rows(session_dir: Path, max_rows: int | None = None) -> pd.DataFrame:
+def process_e4_session_rows(
+    session_dir: Path, max_rows: int | None = None
+) -> pd.DataFrame:
     hr_path, temp_path, ibi_path = _find_e4_files(session_dir)
 
-    hr_series = read_signal_values(hr_path, HR_CANDIDATE_COLUMNS, max_rows=max_rows) if hr_path else None
-    temp_series = read_signal_values(temp_path, ["temp", "temperature", "value"], max_rows=max_rows) if temp_path else None
+    hr_series = (
+        read_signal_values(hr_path, HR_CANDIDATE_COLUMNS, max_rows=max_rows)
+        if hr_path
+        else None
+    )
+    temp_series = (
+        read_signal_values(
+            temp_path, ["temp", "temperature", "value"], max_rows=max_rows
+        )
+        if temp_path
+        else None
+    )
     ibi_series = read_ibi_series(ibi_path, max_rows=max_rows) if ibi_path else None
 
     if hr_series is None and temp_series is None and ibi_series is None:
         return pd.DataFrame()
 
-    index = next((s.index for s in (hr_series, temp_series, ibi_series) if s is not None), None)
+    index = next(
+        (s.index for s in (hr_series, temp_series, ibi_series) if s is not None), None
+    )
     if index is None:
         return pd.DataFrame()
 
@@ -289,7 +317,9 @@ def _has_e4_files(session_dir: Path) -> bool:
     )
 
 
-def process_e4_like_dir(dataset_dir: Path, max_sessions: int = 200, max_rows_per_file: int | None = None) -> pd.DataFrame:
+def process_e4_like_dir(
+    dataset_dir: Path, max_sessions: int = 200, max_rows_per_file: int | None = None
+) -> pd.DataFrame:
     if not dataset_dir.exists():
         print(f"{dataset_dir.name}: missing")
         return pd.DataFrame()
@@ -323,8 +353,11 @@ def _extract_hr_from_bvp(bvp, fs: float = 32.0) -> tuple[float | None, float | N
         return None, None
     try:
         from scipy.signal import find_peaks
+
         bvp_detrend = bvp_arr - np.mean(bvp_arr)
-        peaks, _ = find_peaks(bvp_detrend, height=np.std(bvp_detrend) * 0.8, distance=int(fs * 0.3))
+        peaks, _ = find_peaks(
+            bvp_detrend, height=np.std(bvp_detrend) * 0.8, distance=int(fs * 0.3)
+        )
         if len(peaks) <= 1:
             return None, None
         rr = np.diff(peaks) / fs
@@ -344,8 +377,13 @@ def _extract_hr_from_ecg(ecg, fs: float = 700.0) -> float | None:
         if len(ecg_arr) > 1000:
             try:
                 from scipy.signal import find_peaks
+
                 ecg_detrend = ecg_arr - np.mean(ecg_arr)
-                peaks, _ = find_peaks(ecg_detrend, height=np.std(ecg_detrend) * 0.8, distance=int(fs * 0.3))
+                peaks, _ = find_peaks(
+                    ecg_detrend,
+                    height=np.std(ecg_detrend) * 0.8,
+                    distance=int(fs * 0.3),
+                )
                 if len(peaks) > 1:
                     rr = np.diff(peaks) / fs
                     hr = 60.0 / np.mean(rr)
@@ -377,7 +415,11 @@ def process_wesad() -> pd.DataFrame:
             continue
 
         temp = wrist.get("TEMP")
-        temp_val = to_float(np.nanmean(temp)) if temp is not None and hasattr(temp, "mean") else None
+        temp_val = (
+            to_float(np.nanmean(temp))
+            if temp is not None and hasattr(temp, "mean")
+            else None
+        )
 
         bvp = wrist.get("BVP")
         hr_val, hrv_val = _extract_hr_from_bvp(bvp, fs=32.0)
@@ -390,15 +432,17 @@ def process_wesad() -> pd.DataFrame:
         if eda is not None and hasattr(eda, "mean") and hrv_val is None:
             hrv_val = to_float(np.nanmean(eda))
 
-        records.append({
-            "heart_rate": hr_val,
-            "hrv": hrv_val,
-            "spo2": None,
-            "temperature": temp_val,
-            "systolic_pressure": None,
-            "diastolic_pressure": None,
-            "sleep_hours": None,
-        })
+        records.append(
+            {
+                "heart_rate": hr_val,
+                "hrv": hrv_val,
+                "spo2": None,
+                "temperature": temp_val,
+                "systolic_pressure": None,
+                "diastolic_pressure": None,
+                "sleep_hours": None,
+            }
+        )
     print(f"WESAD: subjects={len(records)}")
     return pd.DataFrame(records)
 
@@ -406,14 +450,18 @@ def process_wesad() -> pd.DataFrame:
 # ------------------------------------------------------------------
 # WESAD labels
 # ------------------------------------------------------------------
-def _wesad_label_record(data: dict) -> dict[str, float | None] | None:
+def _wesad_label_record(data: dict) -> dict[str, float | None | str] | None:
     wrist = data.get("signal", {}).get("wrist", {})
     labels = data.get("label")
     if labels is None:
         return None
 
     temp = wrist.get("TEMP")
-    temp_val = to_float(np.nanmean(temp)) if temp is not None and hasattr(temp, "mean") else None
+    temp_val = (
+        to_float(np.nanmean(temp))
+        if temp is not None and hasattr(temp, "mean")
+        else None
+    )
 
     bvp = wrist.get("BVP")
     hr_val = None
@@ -474,7 +522,9 @@ def _extract_wesd_zip(dataset_dir: Path) -> Path | None:
     return extract_dir
 
 
-def _process_wesd_participant(participant_dir: Path, max_rows_per_file: int | None = None) -> pd.DataFrame | None:
+def _process_wesd_participant(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> pd.DataFrame | None:
     hr_files = sorted(participant_dir.glob(HR_CSV))
     temp_files = sorted(participant_dir.glob(TEMP_CSV))
     ibi_files = sorted(participant_dir.glob(IBI_CSV))
@@ -484,7 +534,11 @@ def _process_wesd_participant(participant_dir: Path, max_rows_per_file: int | No
     return df if not df.empty else None
 
 
-def _iter_wesd_participants(search_roots: list[Path], max_participants: int, max_rows_per_file: int | None = None) -> tuple[list[pd.DataFrame], int]:
+def _iter_wesd_participants(
+    search_roots: list[Path],
+    max_participants: int,
+    max_rows_per_file: int | None = None,
+) -> tuple[list[pd.DataFrame], int]:
     records: list[pd.DataFrame] = []
     count = 0
     for root in search_roots:
@@ -502,7 +556,9 @@ def _iter_wesd_participants(search_roots: list[Path], max_participants: int, max
     return records, count
 
 
-def process_wesd(max_participants: int = 50, max_rows_per_file: int | None = None) -> pd.DataFrame:
+def process_wesd(
+    max_participants: int = 50, max_rows_per_file: int | None = None
+) -> pd.DataFrame:
     dataset_dir = RAW_ROOT / "WESD"
     if not dataset_dir.exists():
         print("WESD: missing")
@@ -516,7 +572,9 @@ def process_wesd(max_participants: int = 50, max_rows_per_file: int | None = Non
     raw_dir = RAW_ROOT / "WESD"
     if raw_dir.exists():
         search_roots.append(raw_dir)
-    records, count = _iter_wesd_participants(search_roots, max_participants, max_rows_per_file)
+    records, count = _iter_wesd_participants(
+        search_roots, max_participants, max_rows_per_file
+    )
     print(f"WESD: participants={count}, rows={sum(len(r) for r in records)}")
     if records:
         return pd.concat(records, ignore_index=True)
@@ -556,7 +614,9 @@ def _extract_stress_nurse_zips(participant_dir: Path) -> list[Path]:
     return session_dirs
 
 
-def _process_stress_nurse_session(session_dir: Path, max_rows_per_file: int | None = None) -> pd.DataFrame | None:
+def _process_stress_nurse_session(
+    session_dir: Path, max_rows_per_file: int | None = None
+) -> pd.DataFrame | None:
     hr_files = sorted(session_dir.glob(HR_CSV))
     temp_files = sorted(session_dir.glob(TEMP_CSV))
     ibi_files = sorted(session_dir.glob(IBI_CSV))
@@ -566,7 +626,9 @@ def _process_stress_nurse_session(session_dir: Path, max_rows_per_file: int | No
     return df if not df.empty else None
 
 
-def process_stress_nurses(max_participants: int = 50, max_rows_per_file: int | None = None) -> pd.DataFrame:
+def process_stress_nurses(
+    max_participants: int = 50, max_rows_per_file: int | None = None
+) -> pd.DataFrame:
     dataset_dir = RAW_ROOT / "stress_detection_nurses_hospital"
     if not dataset_dir.exists():
         print("stress_nurses: missing")
@@ -598,7 +660,9 @@ def process_stress_nurses(max_participants: int = 50, max_rows_per_file: int | N
 # ------------------------------------------------------------------
 # in-gauge_en-gage
 # ------------------------------------------------------------------
-def _iter_in_gauge_sessions(participant_dir: Path, max_rows_per_file: int | None = None) -> list[pd.DataFrame]:
+def _iter_in_gauge_sessions(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> list[pd.DataFrame]:
     records: list[pd.DataFrame] = []
     for session_dir in participant_dir.iterdir():
         if not session_dir.is_dir():
@@ -609,7 +673,9 @@ def _iter_in_gauge_sessions(participant_dir: Path, max_rows_per_file: int | None
     return records
 
 
-def process_in_gauge_en_gage(max_participants: int = 200, max_rows_per_file: int | None = None) -> pd.DataFrame:
+def process_in_gauge_en_gage(
+    max_participants: int = 200, max_rows_per_file: int | None = None
+) -> pd.DataFrame:
     dataset_dir = RAW_ROOT / "in-gauge_en-gage"
     if not dataset_dir.exists():
         print("in-gauge_en-gage: missing")
@@ -670,38 +736,46 @@ def _process_ppg_dalia_pkl(data: dict) -> dict[str, float | None] | None:
 def _add_ppg_dalia_hr(records, hr_files):
     if not hr_files:
         return
-    hr_series = read_signal_values(hr_files[0], ["HR"] + HEART_RATE_NAMES, max_rows=20000)
+    hr_series = read_signal_values(
+        hr_files[0], ["HR"] + HEART_RATE_NAMES, max_rows=20000
+    )
     if hr_series is None or hr_series.dropna().empty:
         return
     for hr_val in hr_series.dropna():
         if 20 <= hr_val <= 220:
-            records.append({
-                "heart_rate": float(hr_val),
-                "hrv": None,
-                "spo2": None,
-                "temperature": None,
-                "systolic_pressure": None,
-                "diastolic_pressure": None,
-                "sleep_hours": None,
-            })
+            records.append(
+                {
+                    "heart_rate": float(hr_val),
+                    "hrv": None,
+                    "spo2": None,
+                    "temperature": None,
+                    "systolic_pressure": None,
+                    "diastolic_pressure": None,
+                    "sleep_hours": None,
+                }
+            )
 
 
 def _add_ppg_dalia_temp(records, temp_files):
     if not temp_files:
         return
-    temp_series = read_signal_values(temp_files[0], ["TEMP", "temperature", "temp"], max_rows=20000)
+    temp_series = read_signal_values(
+        temp_files[0], ["TEMP", "temperature", "temp"], max_rows=20000
+    )
     if temp_series is None or temp_series.dropna().empty:
         return
     temp_mean = float(temp_series.dropna().mean())
-    records.append({
-        "heart_rate": None,
-        "hrv": None,
-        "spo2": None,
-        "temperature": temp_mean,
-        "systolic_pressure": None,
-        "diastolic_pressure": None,
-        "sleep_hours": None,
-    })
+    records.append(
+        {
+            "heart_rate": None,
+            "hrv": None,
+            "spo2": None,
+            "temperature": temp_mean,
+            "systolic_pressure": None,
+            "diastolic_pressure": None,
+            "sleep_hours": None,
+        }
+    )
 
 
 def _add_ppg_dalia_ibi(records, ibi_files):
@@ -716,15 +790,17 @@ def _add_ppg_dalia_ibi(records, ibi_files):
     sdnn_ms = float(np.std(ibi_vals)) * 1000.0
     if not (5 < sdnn_ms < 500):
         return
-    records.append({
-        "heart_rate": None,
-        "hrv": sdnn_ms,
-        "spo2": None,
-        "temperature": None,
-        "systolic_pressure": None,
-        "diastolic_pressure": None,
-        "sleep_hours": None,
-    })
+    records.append(
+        {
+            "heart_rate": None,
+            "hrv": sdnn_ms,
+            "spo2": None,
+            "temperature": None,
+            "systolic_pressure": None,
+            "diastolic_pressure": None,
+            "sleep_hours": None,
+        }
+    )
 
 
 def _add_ppg_dalia_bvp(records, bvp_files):
@@ -739,23 +815,28 @@ def _add_ppg_dalia_bvp(records, bvp_files):
     fs = 64.0
     try:
         from scipy.signal import find_peaks
+
         bvp_detrend = bvp_arr - np.mean(bvp_arr)
-        peaks, _ = find_peaks(bvp_detrend, height=np.std(bvp_detrend) * 0.8, distance=int(fs * 0.3))
+        peaks, _ = find_peaks(
+            bvp_detrend, height=np.std(bvp_detrend) * 0.8, distance=int(fs * 0.3)
+        )
         if len(peaks) <= 1:
             return
         rr = np.diff(peaks) / fs
         hr = 60.0 / np.mean(rr)
         if not (20 < hr < 220):
             return
-        records.append({
-            "heart_rate": float(hr),
-            "hrv": None,
-            "spo2": None,
-            "temperature": None,
-            "systolic_pressure": None,
-            "diastolic_pressure": None,
-            "sleep_hours": None,
-        })
+        records.append(
+            {
+                "heart_rate": float(hr),
+                "hrv": None,
+                "spo2": None,
+                "temperature": None,
+                "systolic_pressure": None,
+                "diastolic_pressure": None,
+                "sleep_hours": None,
+            }
+        )
     except Exception:
         pass
 
@@ -808,7 +889,9 @@ def process_ppg_dalia(max_subjects: int = 15) -> pd.DataFrame:
 # ------------------------------------------------------------------
 # WEEE (E4 + VO2 + EARBUDS + Fitbit/Apple watch extras)
 # ------------------------------------------------------------------
-def _process_weee_e4(participant_dir: Path, max_rows_per_file: int | None = None) -> pd.DataFrame | None:
+def _process_weee_e4(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> pd.DataFrame | None:
     e4_dir = participant_dir / "E4"
     if not e4_dir.exists():
         return None
@@ -816,25 +899,35 @@ def _process_weee_e4(participant_dir: Path, max_rows_per_file: int | None = None
     return df if not df.empty else None
 
 
-def _process_weee_vo2(participant_dir: Path, max_rows_per_file: int | None = None) -> pd.DataFrame | None:
+def _process_weee_vo2(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> pd.DataFrame | None:
     vo2_hr = participant_dir / "VO2" / "HeartRateMonitor-Data.csv"
     if not vo2_hr.exists():
         return None
-    hr_series = read_signal_values(vo2_hr, ["HR[bpm]", "HR"] + HEART_RATE_NAMES, max_rows=max_rows_per_file)
+    hr_series = read_signal_values(
+        vo2_hr, ["HR[bpm]", "HR"] + HEART_RATE_NAMES, max_rows=max_rows_per_file
+    )
     if hr_series is None or hr_series.dropna().empty:
         return None
     return pd.DataFrame({"heart_rate": hr_series.dropna().reset_index(drop=True)})
 
 
-def _process_weee_earbuds(participant_dir: Path, max_rows_per_file: int | None = None) -> pd.DataFrame | None:
+def _process_weee_earbuds(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> pd.DataFrame | None:
     earbuds = participant_dir / "EARBUDS"
     if not earbuds.exists():
         return None
     for p in earbuds.iterdir():
         if "ppg" in p.name.lower() and p.suffix == ".csv":
-            hr_series = read_signal_values(p, ["PPG_HR", "hr"] + HEART_RATE_NAMES, max_rows=max_rows_per_file)
+            hr_series = read_signal_values(
+                p, ["PPG_HR", "hr"] + HEART_RATE_NAMES, max_rows=max_rows_per_file
+            )
             if hr_series is not None and not hr_series.dropna().empty:
-                return pd.DataFrame({"heart_rate": hr_series.dropna().reset_index(drop=True)})
+                return pd.DataFrame(
+                    {"heart_rate": hr_series.dropna().reset_index(drop=True)}
+                )
             break
     return None
 
@@ -891,7 +984,9 @@ def _parse_weee_metric(metrics: list[dict], name: str) -> list[float]:
     return vals
 
 
-def _process_weee_apple(participant_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+def _process_weee_apple(
+    participant_dir: Path,
+) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
     apple_dir = participant_dir / "Apple watch"
     if not apple_dir.exists():
         return None, None
@@ -921,7 +1016,11 @@ def _process_weee_zephyr_summary(zephyr_dir: Path, records: list[pd.DataFrame]) 
         df_sum = pd.read_csv(summary_files[0])
         hr_col = first_existing(df_sum, ["HR", "heart_rate", "HeartRate"])
         if hr_col:
-            hr_vals = pd.to_numeric(df_sum[hr_col], errors="coerce").replace(0, np.nan).dropna()
+            hr_vals = (
+                pd.to_numeric(df_sum[hr_col], errors="coerce")
+                .replace(0, np.nan)
+                .dropna()
+            )
             hr_vals = hr_vals[(hr_vals > 20) & (hr_vals < 220)]
             if not hr_vals.empty:
                 records.append(pd.DataFrame({"heart_rate": hr_vals.tolist()}))
@@ -959,7 +1058,9 @@ def _process_weee_zephyr_ecg(zephyr_dir: Path, records: list[pd.DataFrame]) -> N
     if not ecg_files:
         return
     try:
-        ecg_series = read_signal_values(ecg_files[0], ["EcgWaveform", "ECG", "ecg"], max_rows=20000)
+        ecg_series = read_signal_values(
+            ecg_files[0], ["EcgWaveform", "ECG", "ecg"], max_rows=20000
+        )
         if ecg_series is None or ecg_series.dropna().empty:
             return
         ecg_arr = ecg_series.dropna().values.flatten()
@@ -968,8 +1069,11 @@ def _process_weee_zephyr_ecg(zephyr_dir: Path, records: list[pd.DataFrame]) -> N
         fs = 256.0
         try:
             from scipy.signal import find_peaks
+
             ecg_detrend = ecg_arr - np.mean(ecg_arr)
-            peaks, _ = find_peaks(ecg_detrend, height=np.std(ecg_detrend) * 0.8, distance=int(fs * 0.3))
+            peaks, _ = find_peaks(
+                ecg_detrend, height=np.std(ecg_detrend) * 0.8, distance=int(fs * 0.3)
+            )
             if len(peaks) > 1:
                 rr = np.diff(peaks) / fs
                 hr = 60.0 / np.mean(rr)
@@ -981,14 +1085,18 @@ def _process_weee_zephyr_ecg(zephyr_dir: Path, records: list[pd.DataFrame]) -> N
         pass
 
 
-def _process_weee_zephyr_breathing(zephyr_dir: Path, records: list[pd.DataFrame]) -> None:
+def _process_weee_zephyr_breathing(
+    zephyr_dir: Path, records: list[pd.DataFrame]
+) -> None:
     br_files = sorted(zephyr_dir.glob("*_Breathing.csv"))
     if not br_files:
         br_files = sorted(zephyr_dir.glob("Breathing.csv"))
     if not br_files:
         return
     try:
-        br_series = read_signal_values(br_files[0], ["BreathingWaveform", "Breathing", "breathing"], max_rows=20000)
+        br_series = read_signal_values(
+            br_files[0], ["BreathingWaveform", "Breathing", "breathing"], max_rows=20000
+        )
         if br_series is None or br_series.dropna().empty:
             return
         br_mean = float(br_series.dropna().mean())
@@ -1011,7 +1119,9 @@ def _process_weee_zephyr(participant_dir: Path) -> list[pd.DataFrame]:
     return records
 
 
-def _collect_weee_participant_records(participant_dir: Path, max_rows_per_file: int | None = None) -> list[pd.DataFrame]:
+def _collect_weee_participant_records(
+    participant_dir: Path, max_rows_per_file: int | None = None
+) -> list[pd.DataFrame]:
     records: list[pd.DataFrame] = []
     e4_df = _process_weee_e4(participant_dir, max_rows_per_file)
     if e4_df is not None:
@@ -1043,7 +1153,9 @@ def _collect_weee_participant_records(participant_dir: Path, max_rows_per_file: 
     return records
 
 
-def process_weee(max_sessions: int = 200, max_rows_per_file: int | None = None) -> pd.DataFrame:
+def process_weee(
+    max_sessions: int = 200, max_rows_per_file: int | None = None
+) -> pd.DataFrame:
     dataset_dir = RAW_ROOT / "WEEE"
     if not dataset_dir.exists():
         print("WEEE: missing")
@@ -1052,10 +1164,16 @@ def process_weee(max_sessions: int = 200, max_rows_per_file: int | None = None) 
     records: list[pd.DataFrame] = []
     count = 0
     for participant_dir in dataset_dir.iterdir():
-        if not participant_dir.is_dir() or participant_dir.name in {"Demographics.csv", "Study_Information.csv", "Questionnaires"}:
+        if not participant_dir.is_dir() or participant_dir.name in {
+            "Demographics.csv",
+            "Study_Information.csv",
+            "Questionnaires",
+        }:
             continue
 
-        records.extend(_collect_weee_participant_records(participant_dir, max_rows_per_file))
+        records.extend(
+            _collect_weee_participant_records(participant_dir, max_rows_per_file)
+        )
         count += 1
         if count >= max_sessions:
             break
@@ -1089,7 +1207,11 @@ def apply_label_overrides(df: pd.DataFrame) -> pd.DataFrame:
     if "_label_override" not in df.columns:
         return df
     df["label"] = df.apply(
-        lambda row: row["_label_override"] if pd.notna(row["_label_override"]) else rule_based_label(row),
+        lambda row: (
+            row["_label_override"]
+            if pd.notna(row["_label_override"])
+            else rule_based_label(row)
+        ),
         axis=1,
     )
     return df.drop(columns=["_label_override"])
@@ -1105,8 +1227,14 @@ def main() -> None:
 
     processors = [
         ("bidmc", process_bidmc()),
-        ("E4SelfLearning_ADARP", process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999)),
-        ("E4SelfLearning_big-ideas", process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999)),
+        (
+            "E4SelfLearning_ADARP",
+            process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999),
+        ),
+        (
+            "E4SelfLearning_big-ideas",
+            process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999),
+        ),
         ("in-gauge_en-gage", process_in_gauge_en_gage(max_participants=9999)),
         ("PPG_DaLiA", process_ppg_dalia(max_subjects=999)),
         ("SPD", process_e4_like_dir(RAW_ROOT / "SPD", max_sessions=9999)),

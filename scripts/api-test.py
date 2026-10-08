@@ -308,7 +308,12 @@ def test_training(t):
 def test_chat(t):
     section("6. Chat")
     chat_resp = t.test(
-        "Chat", "POST", "/api/v1/chat", token=t.token, expected=200, json={"message": "plan"}
+        "Chat",
+        "POST",
+        "/api/v1/chat",
+        token=t.token,
+        expected=200,
+        json={"message": "plan"},
     )
     if isinstance(chat_resp, dict) and chat_resp.get("answer"):
         print(f"       {GRAY}answer: {chat_resp['answer'][:50]}...{RESET}")

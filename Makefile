@@ -94,9 +94,9 @@ frontend-test:
 	@echo "Frontend tests complete."
 
 frontend-build:
- 	@echo "Building frontend..."
- 	@npm --prefix web run build
- 	@echo "Frontend build complete."
+	@echo "Building frontend..."
+	@npm --prefix web run build
+	@echo "Frontend build complete."
 
 help:
 	@echo "Available commands:"

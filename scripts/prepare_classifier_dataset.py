@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Prepare classifier dataset from existing processed data or generate synthetic fallback."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -129,7 +130,9 @@ def main() -> None:
         print(f"After cleaning: {len(df)} samples")
 
         if len(df) < MIN_DATASET_SIZE:
-            print(f"WARNING: Dataset too small after cleaning ({len(df)} < {MIN_DATASET_SIZE}). Generating synthetic fallback.")
+            print(
+                f"WARNING: Dataset too small after cleaning ({len(df)} < {MIN_DATASET_SIZE}). Generating synthetic fallback."
+            )
             df = generate_synthetic_dataset()
     else:
         print("No existing dataset found. Generating synthetic dataset.")

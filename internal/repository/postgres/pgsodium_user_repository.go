@@ -1391,10 +1391,8 @@ func (r *PgsodiumUserRepository) UpdateProfilePhoto(ctx context.Context, userID,
 		}
 
 		_, err = r.db.ExecContext(ctx,
-
 			"UPDATE users SET profile_photo_url_encrypted = "+db.PgsodiumRandomEncryptParam(1, 2)+", profile_photo_url_nonce = $3, updated_at = NOW() WHERE id = $4",
-
-			photoURL, nonce, userID)
+			photoURL, nonce, userID) // #nosec G202
 
 	} else {
 

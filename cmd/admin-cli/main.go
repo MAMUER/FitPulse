@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +28,13 @@ const (
 	requesterIDDescription      = "ID администратора (опционально, если задан ADMIN_CLI_JWT)"
 	requesterAndUserIDRequired  = "Ошибка: --requester-id и --id обязательны"
 )
+
+func toInt32(v int) int32 {
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		panic(fmt.Sprintf("admin-cli: value %d overflows int32", v))
+	}
+	return int32(v)
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -199,7 +207,7 @@ func createInvite(args []string) {
 
 	resp, err := client.AdminCreateInvite(ctx, &pb.AdminCreateInviteRequest{
 		Role:    *role,
-		MaxUses: int32(*maxUses),
+		MaxUses: toInt32(*maxUses),
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
@@ -238,8 +246,8 @@ func listInvites(args []string) {
 	defer cancel()
 
 	resp, err := client.AdminListInvites(ctx, &pb.AdminListInvitesRequest{
-		Page:     int32(*page),
-		PageSize: int32(*pageSize),
+		Page:     toInt32(*page),
+		PageSize: toInt32(*pageSize),
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
@@ -335,8 +343,8 @@ func listUsers(args []string) {
 
 	resp, err := client.ListUsers(ctx, &pb.ListUsersRequest{
 		RequesterUserId: requesterIDValue,
-		Page:            int32(*page),
-		PageSize:        int32(*pageSize),
+		Page:            toInt32(*page),
+		PageSize:        toInt32(*pageSize),
 		Role:            *role,
 	})
 	if err != nil {

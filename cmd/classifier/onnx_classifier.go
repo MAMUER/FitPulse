@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ONNXClassifier загружает простую линейную модель, экспортированную из Python,
@@ -26,7 +27,11 @@ type ONNXWeights struct {
 
 // NewONNXClassifier загружает веса модели из указанного JSON-пути.
 func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
-	data, err := os.ReadFile(weightsPath)
+	clean := filepath.Clean(weightsPath)
+	if strings.Contains(clean, "..") {
+		return nil, fmt.Errorf("read onnx weights: invalid path")
+	}
+	data, err := os.ReadFile(clean)
 	if err != nil {
 		return nil, fmt.Errorf("read onnx weights: %w", err)
 	}

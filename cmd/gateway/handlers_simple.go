@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -62,7 +63,7 @@ func (s *simpleStore) addMeal(userID, name string, calories int) meal {
 	defer s.mu.Unlock()
 	s.nextMeal++
 	m := meal{
-		ID:        "meal-" + string(rune(s.nextMeal)),
+		ID:        "meal-" + strconv.FormatInt(int64(s.nextMeal), 10),
 		Name:      name,
 		Calories:  calories,
 		Time:      time.Now().Format("15:04"),
@@ -99,7 +100,7 @@ func (s *simpleStore) addEvent(userID, title, date, eventType, description strin
 	defer s.mu.Unlock()
 	s.nextEvent++
 	e := calendarEvent{
-		ID:          "event-" + string(rune(s.nextEvent)),
+		ID:          "event-" + strconv.FormatInt(int64(s.nextEvent), 10),
 		Title:       title,
 		Date:        date,
 		Type:        eventType,

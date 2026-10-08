@@ -1,14 +1,18 @@
-from fastapi import FastAPI, Request, HTTPException  # type: ignore
-from fastapi.responses import JSONResponse  # type: ignore
-from telegram import Update  # type: ignore
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes  # type: ignore
-from telegram.constants import ParseMode  # type: ignore
-import os
-import yaml  # type: ignore
 import logging
-import requests  # type: ignore
+import os
 from datetime import datetime, timezone
 from typing import Optional
+
+import requests  # type: ignore
+import yaml  # type: ignore
+from fastapi import FastAPI, Request  # type: ignore
+from telegram import Update  # type: ignore
+from telegram.constants import ParseMode  # type: ignore
+from telegram.ext import (  # type: ignore
+    Application,
+    CommandHandler,
+    ContextTypes,
+)
 
 logger = logging.getLogger("oncall-bot")
 
@@ -16,7 +20,9 @@ app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-ALERTMANAGER_URL = os.getenv("ALERTMANAGER_URL", "http://alertmanager.monitoring.svc.cluster.local:9093")
+ALERTMANAGER_URL = os.getenv(
+    "ALERTMANAGER_URL", "http://alertmanager.monitoring.svc.cluster.local:9093"
+)
 ONCALL_SCHEDULE = "/config/oncall-schedule.yaml"
 ESCALATION_ACK_TIMEOUT = int(os.getenv("ESCALATION_ACK_TIMEOUT", "300"))
 ESCALATION_TIMEOUT = int(os.getenv("ESCALATION_TIMEOUT", "600"))
