@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 3
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: user-service
@@ -47,7 +47,13 @@ spec:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: user-service
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: user-service-sa
@@ -58,18 +64,14 @@ spec:
           secret:
             secretName: app-secrets
             items:
-              - key: POSTGRES_USER
-                path: POSTGRES_USER
-              - key: POSTGRES_PASSWORD
-                path: POSTGRES_PASSWORD
               - key: POSTGRES_DB
                 path: POSTGRES_DB
               - key: JWT_PRIVATE_KEY_PEM
                 path: JWT_PRIVATE_KEY_PEM
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
               - key: SMTP_HOST
                 path: SMTP_HOST
               - key: SMTP_PORT
@@ -82,32 +84,24 @@ spec:
                 path: SMTP_FROM
               - key: APP_BASE_URL
                 path: APP_BASE_URL
-              - key: GOOGLE_CLIENT_ID
-                path: GOOGLE_CLIENT_ID
-              - key: GOOGLE_CLIENT_SECRET
-                path: GOOGLE_CLIENT_SECRET
-              - key: GOOGLE_REDIRECT_URL
-                path: GOOGLE_REDIRECT_URL
+              - key: YANDEX_CLIENT_ID
+                path: YANDEX_CLIENT_ID
+              - key: YANDEX_CLIENT_SECRET
+                path: YANDEX_CLIENT_SECRET
+              - key: YANDEX_REDIRECT_URL
+                path: YANDEX_REDIRECT_URL
               - key: TOTP_ENCRYPTION_KEY
                 path: TOTP_ENCRYPTION_KEY
         - name: grpc-tls
           secret:
-            secretName: app-secrets
-            items:
-              - key: GRPC_TLS_CERT
-                path: tls.crt
-              - key: GRPC_TLS_KEY
-                path: tls.key
-              - key: GRPC_TLS_CA_CERT
-                path: ca.crt
-              - key: GRPC_TLS_CLIENT_CERT
-                path: client.crt
-              - key: GRPC_TLS_CLIENT_KEY
-                path: client.key
+            secretName: grpc-server-tls
+        - name: db-credentials
+          secret:
+            secretName: user-service-db-credentials
       containers:
         - name: user-service
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
-          image: ghcr.io/mamuer/project/user-service:${{ steps.sha.outputs.short_sha }}
+          image: ghcr.io/mamuer/project/user-service:0.0.0-dev
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -133,6 +127,9 @@ spec:
             - name: grpc-tls
               mountPath: /etc/grpc-tls
               readOnly: true
+            - name: db-credentials
+              mountPath: /etc/db-credentials
+              readOnly: true
           env:
             - name: DB_HOST
               valueFrom:
@@ -145,11 +142,11 @@ spec:
                   name: app-config
                   key: DB_PORT
             - name: POSTGRES_USER_FILE
-              value: "/etc/secrets/POSTGRES_USER"
+              value: "/etc/db-credentials/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
-              value: "/etc/secrets/POSTGRES_PASSWORD"
+              value: "/etc/db-credentials/POSTGRES_PASSWORD"
             - name: POSTGRES_DB_FILE
-              value: "/etc/secrets/POSTGRES_DB"
+              value: "/etc/db-credentials/POSTGRES_DB"
             - name: DB_SSLMODE
               valueFrom:
                 configMapKeyRef:
@@ -159,10 +156,10 @@ spec:
               value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: SMTP_HOST_FILE
               value: "/etc/secrets/SMTP_HOST"
             - name: SMTP_PORT_FILE
@@ -175,14 +172,22 @@ spec:
               value: "/etc/secrets/SMTP_FROM"
             - name: APP_BASE_URL_FILE
               value: "/etc/secrets/APP_BASE_URL"
-            - name: GOOGLE_CLIENT_ID_FILE
-              value: "/etc/secrets/GOOGLE_CLIENT_ID"
-            - name: GOOGLE_CLIENT_SECRET_FILE
-              value: "/etc/secrets/GOOGLE_CLIENT_SECRET"
-            - name: GOOGLE_REDIRECT_URL_FILE
-              value: "/etc/secrets/GOOGLE_REDIRECT_URL"
+            - name: YANDEX_CLIENT_ID_FILE
+              value: "/etc/secrets/YANDEX_CLIENT_ID"
+            - name: YANDEX_CLIENT_SECRET_FILE
+              value: "/etc/secrets/YANDEX_CLIENT_SECRET"
+            - name: YANDEX_REDIRECT_URL_FILE
+              value: "/etc/secrets/YANDEX_REDIRECT_URL"
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "user-service"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50051"
           livenessProbe:
@@ -202,6 +207,8 @@ spec:
             requests:
               cpu: "25m"
               memory: "64Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "150m"
               memory: "128Mi"
+              ephemeral-storage: "200Mi"

@@ -1,66 +1,118 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import Achievements from './components/Achievements/Achievements';
-import Admin from './components/Admin/Admin';
-import AuthScreen from './components/Auth/AuthScreen';
-import Confirm from './components/Auth/Confirm';
-import Dashboard from './components/Dashboard/Dashboard';
-import Devices from './components/Devices/Devices';
-import Diet from './components/Diet/Diet';
-import Health from './components/Health/Health';
-import Layout from './components/Layout/Layout';
-import Privacy from './components/Legal/Privacy';
-import Terms from './components/Legal/Terms';
-import MLComponent from './components/ML/ML';
-import Profile from './components/Profile/Profile';
-import Training from './components/Training/Training';
-import { useAuth } from './contexts/AuthContext';
+import CookieConsent from './components/CookieConsent';
+import { useApp } from './contexts/AppContext';
+import Ai from './screens/AI';
+import Body from './screens/Body';
+import Calendar from './screens/Calendar';
+import Chat from './screens/Chat';
+import Confirm from './screens/Confirm';
+import Home from './screens/Home';
+import Integrations from './screens/Integrations';
+import Landing from './screens/Landing';
+import Legal from './screens/Legal';
+import Login from './screens/Login';
+import Menstrual from './screens/Menstrual';
+import Nutrition from './screens/Nutrition';
+import Profile from './screens/Profile';
+import Register from './screens/Register';
+import Reset from './screens/Reset';
+import Training from './screens/Training';
+import TwoFASetup from './screens/TwoFASetup';
+import TwoFAVerify from './screens/TwoFAVerify';
+import Videos from './screens/Videos';
+
+function TabBar() {
+  const { state, t, go } = useApp();
+  const tabs = [
+    { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-home' },
+    {
+      key: 'nutrition',
+      label: t('Питание', 'Nutrition'),
+      icon: 'fas fa-apple-alt',
+    },
+    {
+      key: 'calendar',
+      label: t('Календарь', 'Calendar'),
+      icon: 'fas fa-calendar',
+    },
+    {
+      key: 'training',
+      label: t('Тренировки', 'Training'),
+      icon: 'fas fa-dumbbell',
+    },
+    {
+      key: 'integrations',
+      label: t('Интеграции', 'Integrations'),
+      icon: 'fas fa-microchip',
+    },
+    { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
+    { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
+    {
+      key: 'menstrual',
+      label: t('Цикл', 'Cycle'),
+      icon: 'fas fa-venus',
+    },
+  ];
+
+  return (
+    <nav className='tab-bar'>
+      {tabs.map((tab) => (
+        <button
+          type='button'
+          key={tab.key}
+          className={`tab${state.screen === tab.key ? ' active' : ''}`}
+          onClick={() => go(tab.key)}
+        >
+          <i className={tab.icon}></i>
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 export default function App() {
-  const { token, loading } = useAuth();
+  const { state } = useApp();
+  const authScreens = ['login', 'register', 'reset'];
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100dvh',
-          background: 'var(--bg-primary)',
-          color: 'var(--text-primary)',
-          fontSize: '18px',
-        }}
-      >
-        Загрузка...
-      </div>
-    );
-  }
-
-  if (!token) {
+  if (authScreens.includes(state.screen)) {
     return (
       <Routes>
-        <Route path='/confirm' element={<Confirm />} />
-        <Route path='/privacy' element={<Privacy />} />
-        <Route path='/terms' element={<Terms />} />
-        <Route path='*' element={<AuthScreen />} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+        <Route path='/reset' element={<Reset />} />
+        <Route path='/' element={<Navigate to='/login' replace />} />
+        <Route path='*' element={<Navigate to='/login' replace />} />
       </Routes>
     );
   }
 
   return (
-    <Layout>
+    <>
       <Routes>
-        <Route path='/' element={<Dashboard />} />
-        <Route path='/profile' element={<Profile />} />
+        <Route path='/' element={<Landing />} />
+        <Route path='/home' element={<Home />} />
+        <Route path='/nutrition' element={<Nutrition />} />
+        <Route path='/calendar' element={<Calendar />} />
         <Route path='/training' element={<Training />} />
-        <Route path='/devices' element={<Devices />} />
-        <Route path='/achievements' element={<Achievements />} />
-        <Route path='/diet' element={<Diet />} />
-        <Route path='/health' element={<Health />} />
-        <Route path='/ml' element={<MLComponent />} />
-        <Route path='/admin' element={<Admin />} />
+        <Route path='/integrations' element={<Integrations />} />
+        <Route path='/videos' element={<Videos />} />
+        <Route path='/ai' element={<Ai />} />
+        <Route path='/body' element={<Body />} />
+        <Route path='/menstrual' element={<Menstrual />} />
+        <Route path='/profile' element={<Profile />} />
+        <Route path='/chat' element={<Chat />} />
+        <Route path='/legal' element={<Legal />} />
+        <Route path='/privacy' element={<Legal />} />
+        <Route path='/terms' element={<Legal />} />
+        <Route path='/consent' element={<Legal />} />
+        <Route path='/twofa-setup' element={<TwoFASetup />} />
+        <Route path='/twofa-verify' element={<TwoFAVerify />} />
+        <Route path='/confirm' element={<Confirm />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
-    </Layout>
+      <CookieConsent />
+      <TabBar />
+    </>
   );
 }

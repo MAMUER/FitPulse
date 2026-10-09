@@ -7,6 +7,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -50,13 +51,6 @@ spec:
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "100m"
-              memory: "128Mi"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -67,4 +61,13 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
   backoffLimit: 3

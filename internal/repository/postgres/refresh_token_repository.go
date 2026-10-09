@@ -1,3 +1,5 @@
+// Package postgres provides PostgreSQL repository implementations.
+
 package postgres
 
 import (
@@ -5,14 +7,9 @@ import (
 	"database/sql"
 
 	"github.com/MAMUER/project/internal/apperrors"
+	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/domain/port"
 )
-
-type RefreshTokenRepository interface {
-	GetValid(ctx context.Context, token string) (*port.RefreshToken, error)
-	Create(ctx context.Context, rt *port.RefreshToken) error
-	MarkUsed(ctx context.Context, token string) error
-}
 
 type refreshTokenRepository struct {
 	db *sql.DB
@@ -23,14 +20,17 @@ func NewRefreshTokenRepository(db *sql.DB) port.RefreshTokenRepository {
 }
 
 func (r *refreshTokenRepository) GetValid(ctx context.Context, token string) (*port.RefreshToken, error) {
+	tokenHash := db.BlindIndex(token)
+
 	query := `
-		SELECT id, user_id, token, used, expires_at, created_at
+		SELECT id, user_id, ` + db.PgsodiumDecryptParam("token_encrypted", "token_nonce", "token") + `, revoked, expires_at, created_at
 		FROM refresh_tokens
-		WHERE token = $1 AND used = FALSE AND expires_at > NOW()
+		WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
 	`
+
 	rt := &port.RefreshToken{}
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&rt.ID, &rt.UserID, &rt.Token, &rt.Used, &rt.ExpiresAt, &rt.CreatedAt,
+	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan( // NOSONAR
+		&rt.ID, &rt.UserID, &rt.Token, &rt.Revoked, &rt.ExpiresAt, &rt.CreatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -42,21 +42,26 @@ func (r *refreshTokenRepository) GetValid(ctx context.Context, token string) (*p
 }
 
 func (r *refreshTokenRepository) Create(ctx context.Context, rt *port.RefreshToken) error {
-	query := `
-		INSERT INTO refresh_tokens (user_id, token, expires_at)
-		VALUES ($1, $2, $3)
-	`
-	_, err := r.db.ExecContext(ctx, query, rt.UserID, rt.Token, rt.ExpiresAt)
+	tokenHash := db.BlindIndex(rt.Token)
+	nonce, err := db.GenerateNonce()
+	if err != nil {
+		return apperrors.Internal("failed to generate nonce", err)
+	}
+
+	query := db.PgsodiumRefreshTokenInsertQuery()
+	// #nosec G202
+	_, err = r.db.ExecContext(ctx, query, tokenHash, rt.Token, nonce, rt.UserID, rt.ExpiresAt)
 	if err != nil {
 		return apperrors.Internal("failed to create refresh token", err)
 	}
 	return nil
 }
 
-func (r *refreshTokenRepository) MarkUsed(ctx context.Context, token string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE refresh_tokens SET used = TRUE WHERE token = $1`, token)
+func (r *refreshTokenRepository) MarkRevoked(ctx context.Context, token string) error {
+	tokenHash := db.BlindIndex(token)
+	_, err := r.db.ExecContext(ctx, `UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = $1`, tokenHash)
 	if err != nil {
-		return apperrors.Internal("failed to mark refresh token as used", err)
+		return apperrors.Internal("failed to mark refresh token as revoked", err)
 	}
 	return nil
 }

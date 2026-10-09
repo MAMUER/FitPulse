@@ -43,7 +43,7 @@ install_tools() {
 
 	echo "Installing cosign..."
 	for i in 1 2 3; do
-		if go install github.com/sigstore/cosign/v2/cmd/cosign@latest; then
+		if go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5; then
 			break
 		fi
 		echo "cosign install attempt $i failed; retrying..."

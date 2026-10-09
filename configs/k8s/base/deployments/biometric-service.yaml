@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 3
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: biometric-service
@@ -38,16 +38,22 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: biometric-service
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: biometric-service-sa
@@ -58,38 +64,26 @@ spec:
           secret:
             secretName: app-secrets
             items:
-              - key: POSTGRES_USER
-                path: POSTGRES_USER
-              - key: POSTGRES_PASSWORD
-                path: POSTGRES_PASSWORD
               - key: POSTGRES_DB
                 path: POSTGRES_DB
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
-              - key: REDIS_PASSWORD
-                path: REDIS_PASSWORD
+              - key: VALKEY_PASSWORD
+                path: VALKEY_PASSWORD
               - key: JWT_PUBLIC_KEY_PEM
                 path: JWT_PUBLIC_KEY_PEM
               - key: OPEN_WEARABLES_WEBHOOK_SECRET
                 path: OPEN_WEARABLES_WEBHOOK_SECRET
         - name: grpc-tls
           secret:
-            secretName: app-secrets
-            items:
-              - key: GRPC_TLS_CERT
-                path: tls.crt
-              - key: GRPC_TLS_KEY
-                path: tls.key
-              - key: GRPC_TLS_CA_CERT
-                path: ca.crt
-              - key: GRPC_TLS_CLIENT_CERT
-                path: client.crt
-              - key: GRPC_TLS_CLIENT_KEY
-                path: client.key
+            secretName: grpc-server-tls
+        - name: db-credentials
+          secret:
+            secretName: biometric-service-db-credentials
       containers:
         - name: biometric-service
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
-          image: ghcr.io/mamuer/project/biometric-service:${{ steps.sha.outputs.short_sha }}
+          image: ghcr.io/mamuer/project/biometric-service:0.0.0-dev
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -117,6 +111,9 @@ spec:
             - name: grpc-tls
               mountPath: /etc/grpc-tls
               readOnly: true
+            - name: db-credentials
+              mountPath: /etc/db-credentials
+              readOnly: true
           env:
             - name: DB_HOST
               valueFrom:
@@ -129,9 +126,9 @@ spec:
                   name: app-config
                   key: DB_PORT
             - name: POSTGRES_USER_FILE
-              value: "/etc/secrets/POSTGRES_USER"
+              value: "/etc/db-credentials/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
-              value: "/etc/secrets/POSTGRES_PASSWORD"
+              value: "/etc/db-credentials/POSTGRES_PASSWORD"
             - name: POSTGRES_DB_FILE
               value: "/etc/secrets/POSTGRES_DB"
             - name: DB_SSLMODE
@@ -151,16 +148,24 @@ spec:
                   key: BIOMETRIC_METRICS_PORT
             - name: JWT_PUBLIC_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
-            - name: REDIS_HOST
-              value: "valkey"
-            - name: REDIS_PASSWORD_FILE
-              value: "/etc/secrets/REDIS_PASSWORD"
+            - name: VALKEY_ADDR
+              value: "valkey:6379"
+            - name: VALKEY_PASSWORD_FILE
+              value: "/etc/secrets/VALKEY_PASSWORD"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50052"
             - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
               value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "biometric-service"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
           livenessProbe:
             grpc:
               port: 50052
@@ -177,6 +182,8 @@ spec:
             requests:
               cpu: "25m"
               memory: "64Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "150m"
               memory: "128Mi"
+              ephemeral-storage: "200Mi"

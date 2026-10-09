@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: valkey-exporter
+  namespace: fitness-platform-production
+  labels:
+    app: valkey-exporter
+spec:
+  selector:
+    matchLabels:
+      app: valkey-exporter
+  namespaceSelector:
+    matchNames:
+      - fitness-platform-production
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

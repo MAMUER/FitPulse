@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/actions/runner/main/.github/actions-schemas/composite-action.json
 name: "SSH Setup"
 description: "Set up SSH agent and known hosts"
 inputs:

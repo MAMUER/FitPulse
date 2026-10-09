@@ -15,6 +15,7 @@ spec:
       labels:
         app: loki
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -45,9 +46,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "128Mi"
+              ephemeral-storage: "1Gi" # NOSONAR
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "2Gi" # NOSONAR
       volumes:
         - name: config
           configMap:

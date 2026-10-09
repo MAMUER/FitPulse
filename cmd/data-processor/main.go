@@ -23,6 +23,8 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/queue"
+	"github.com/MAMUER/project/internal/telemetry"
+	"github.com/MAMUER/project/internal/validator"
 )
 
 type biometricEvent struct {
@@ -42,6 +44,13 @@ const (
 func main() {
 	log := logger.New(serviceName)
 	defer func() { _ = log.Sync() }()
+
+	shutdownTraces := telemetry.InitTracer()
+	defer func() {
+		if err := shutdownTraces(context.Background()); err != nil {
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+		}
+	}()
 
 	config.InitViper("data-processor")
 	_ = config.GetViper()
@@ -129,11 +138,15 @@ func run(ctx context.Context, log *logger.Logger) error {
 		return errors.New("RABBITMQ_URL is required")
 	}
 
-	consumer, err := queue.NewConsumer(rabbitURL, "biometric_events", log)
+	queueName := config.GetEnv("BIOMETRIC_QUEUE_NAME", "biometric_events")
+	consumer, err := queue.NewConsumer(rabbitURL, queueName, log)
 	if err != nil {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
 	defer func() { _ = consumer.Close() }()
+
+	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), queueName)
+	defer stopDepthReporter()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -243,7 +256,7 @@ func validateBiometricEvent(event biometricEvent) error {
 		return errors.New("value cannot be negative")
 	}
 
-	rules, ok := getMetricRules(event.MetricType)
+	rules, ok := validator.GetMetricRules(event.MetricType)
 	if !ok {
 		return fmt.Errorf("unknown metric_type: %s", event.MetricType)
 	}
@@ -252,25 +265,6 @@ func validateBiometricEvent(event biometricEvent) error {
 	}
 
 	return nil
-}
-
-type MetricRules struct {
-	Min, Max float64
-	Name     string
-}
-
-func getMetricRules(metricType string) (MetricRules, bool) {
-	rules := map[string]MetricRules{
-		"heart_rate":               {30, 220, "heart_rate"},
-		"spo2":                     {70, 100, "spo2"},
-		"temperature":              {35.5, 38.5, "temperature"},
-		"blood_pressure_systolic":  {80, 200, "blood_pressure_systolic"},
-		"blood_pressure_diastolic": {50, 130, "blood_pressure_diastolic"},
-		"steps":                    {0, 100000, "steps"},
-		"hrv":                      {0, 200, "hrv"},
-	}
-	r, ok := rules[metricType]
-	return r, ok
 }
 
 func insertBiometricRecord(ctx context.Context, database *sql.DB, event biometricEvent) error {

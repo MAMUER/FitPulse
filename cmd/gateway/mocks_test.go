@@ -27,10 +27,12 @@ import (
 // ========== Mock Biometric Client ==========
 
 type mockBiometricClient struct {
-	records map[string]*biometricpb.BiometricRecord
-	latest  *biometricpb.BiometricRecord
-	addErr  error
-	getErr  error
+	records       map[string]*biometricpb.BiometricRecord
+	latest        *biometricpb.BiometricRecord
+	sources       []*biometricpb.SourceInfo
+	addErr        error
+	getErr        error
+	getSourcesErr error
 }
 
 func newMockBiometricClient() *mockBiometricClient {
@@ -97,6 +99,13 @@ func (m *mockBiometricClient) BatchAddRecords(ctx context.Context, req *biometri
 
 func (m *mockBiometricClient) DeleteRecord(ctx context.Context, req *biometricpb.DeleteRecordRequest, opts ...grpc.CallOption) (*biometricpb.DeleteRecordResponse, error) {
 	return &biometricpb.DeleteRecordResponse{Deleted: true}, nil
+}
+
+func (m *mockBiometricClient) GetSources(ctx context.Context, req *biometricpb.GetSourcesRequest, opts ...grpc.CallOption) (*biometricpb.GetSourcesResponse, error) {
+	if m.getSourcesErr != nil {
+		return nil, m.getSourcesErr
+	}
+	return &biometricpb.GetSourcesResponse{Sources: m.sources}, nil
 }
 
 // ========== Mock Training Client ==========
@@ -206,26 +215,18 @@ func withOAuth(g *gateway) {
 		ClientID:     "test-client-id",
 		ClientSecret: "test-secret",
 		RedirectURL:  "http://localhost/callback",
-		Scopes:       []string{"openid", "profile", "email"},
+		Scopes:       []string{"login:info", "login:email"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "http://localhost/auth",
 			TokenURL: "http://localhost/token",
 		},
 	}
-	g.googleOAuthConfig = conf
+	g.yandexOAuthConfig = conf
 }
 
 func withProxy(g *gateway, targetURL string) {
 	u, _ := url.Parse(targetURL)
 	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(u)
-}
-
-func withClassifierURL(g *gateway, url string) {
-	g.classifierURL = url
-}
-
-func withMLGeneratorURL(g *gateway, url string) {
-	g.mlGeneratorURL = url
 }
 
 func grpcError(code codes.Code, msg string) error {

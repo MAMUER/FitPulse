@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -135,6 +137,54 @@ func TestVerifyPasswordArgon2id(t *testing.T) {
 	assert.False(t, verifyPasswordArgon2id(hash, "wrongpassword"))
 	assert.False(t, verifyPasswordArgon2id("invalid", "password123"))
 	assert.False(t, verifyPasswordArgon2id("$argon2id$v=19$m=65536,t=3,p=1$salt", "password123"))
+}
+
+func TestVerifyPasswordArgon2idFormat(t *testing.T) {
+	hash, err := hashPasswordArgon2id("testpassword")
+	require.NoError(t, err)
+
+	parts := strings.Split(hash, "$")
+	require.Len(t, parts, 6, "хеш должен содержать 6 частей, разделенных $")
+	assert.Equal(t, "argon2id", parts[1])
+	assert.Equal(t, "v=19", parts[2])
+	assert.Equal(t, "m=65536,t=3,p=1", parts[3])
+
+	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	require.NoError(t, err)
+	assert.Len(t, salt, 16, "соль должна быть 16 байт")
+
+	storedHash, err := base64.RawStdEncoding.DecodeString(parts[5])
+	require.NoError(t, err)
+	assert.Len(t, storedHash, 32, "хеш должен быть 32 байта")
+}
+
+func TestVerifyPasswordArgon2idDifferentPasswords(t *testing.T) {
+	hash1, err := hashPasswordArgon2id("password1")
+	require.NoError(t, err)
+	hash2, err := hashPasswordArgon2id("password2")
+	require.NoError(t, err)
+
+	assert.True(t, verifyPasswordArgon2id(hash1, "password1"))
+	assert.False(t, verifyPasswordArgon2id(hash1, "password2"))
+	assert.True(t, verifyPasswordArgon2id(hash2, "password2"))
+	assert.False(t, verifyPasswordArgon2id(hash2, "password1"))
+	assert.NotEqual(t, hash1, hash2, "разные пароли должны давать разные хеши")
+}
+
+func TestVerifyPasswordArgon2idEdgeCases(t *testing.T) {
+	assert.False(t, verifyPasswordArgon2id("", "password"))
+	assert.False(t, verifyPasswordArgon2id("$argon2id$v=19$m=65536,t=3,p=1$", "password"))
+	assert.False(t, verifyPasswordArgon2id("$argon2id$v=19$m=65536,t=3,p=1$invalid$invalid", "password"))
+	assert.False(t, verifyPasswordArgon2id("$argon2id$v=19$m=65536,t=3,p=1$invalid$invalid", ""))
+}
+
+func TestHashPasswordArgon2idUniqueSalt(t *testing.T) {
+	hash1, err := hashPasswordArgon2id("samepassword")
+	require.NoError(t, err)
+	hash2, err := hashPasswordArgon2id("samepassword")
+	require.NoError(t, err)
+
+	assert.NotEqual(t, hash1, hash2, "хеши одного пароля должны отличаться из-за уникальной соли")
 }
 
 func TestToString(t *testing.T) {

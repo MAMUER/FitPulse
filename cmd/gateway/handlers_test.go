@@ -35,7 +35,7 @@ func (m *mockUserServiceClient) ConfirmEmail(ctx context.Context, req *userpb.Co
 func (m *mockUserServiceClient) Login(ctx context.Context, req *userpb.LoginRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
 	return &userpb.LoginResponse{AccessToken: "token", UserId: "user-123", Role: "client"}, nil
 }
-func (m *mockUserServiceClient) AuthenticateGoogle(ctx context.Context, req *userpb.AuthenticateGoogleRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
+func (m *mockUserServiceClient) AuthenticateYandex(ctx context.Context, req *userpb.AuthenticateYandexRequest, opts ...grpc.CallOption) (*userpb.LoginResponse, error) {
 	return &userpb.LoginResponse{AccessToken: "token", UserId: "user-123"}, nil
 }
 func (m *mockUserServiceClient) GetProfile(ctx context.Context, req *userpb.GetProfileRequest, opts ...grpc.CallOption) (*userpb.UserProfile, error) {
@@ -137,6 +137,10 @@ func (m *mockUserServiceClient) DeleteProfile(ctx context.Context, req *userpb.D
 	return &userpb.DeleteProfileResponse{Status: "deleted"}, nil
 }
 
+func (m *mockUserServiceClient) ExportUserData(ctx context.Context, req *userpb.ExportUserDataRequest, opts ...grpc.CallOption) (*userpb.ExportUserDataResponse, error) {
+	return &userpb.ExportUserDataResponse{UserId: req.UserId, Email: "test@example.com"}, nil
+}
+
 func (m *mockUserServiceClient) AdminListInvites(ctx context.Context, req *userpb.AdminListInvitesRequest, opts ...grpc.CallOption) (*userpb.AdminListInvitesResponse, error) {
 	return &userpb.AdminListInvitesResponse{}, nil
 }
@@ -147,6 +151,26 @@ func (m *mockUserServiceClient) AdminCreateInvite(ctx context.Context, req *user
 
 func (m *mockUserServiceClient) AdminRevokeInvite(ctx context.Context, req *userpb.AdminRevokeInviteRequest, opts ...grpc.CallOption) (*userpb.AdminRevokeInviteResponse, error) {
 	return &userpb.AdminRevokeInviteResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) AdminDeleteUser(ctx context.Context, req *userpb.AdminDeleteUserRequest, opts ...grpc.CallOption) (*userpb.AdminDeleteUserResponse, error) {
+	return &userpb.AdminDeleteUserResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) AdminBanUser(ctx context.Context, req *userpb.AdminBanUserRequest, opts ...grpc.CallOption) (*userpb.AdminBanUserResponse, error) {
+	return &userpb.AdminBanUserResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) AdminUnbanUser(ctx context.Context, req *userpb.AdminUnbanUserRequest, opts ...grpc.CallOption) (*userpb.AdminUnbanUserResponse, error) {
+	return &userpb.AdminUnbanUserResponse{Success: true}, nil
+}
+
+func (m *mockUserServiceClient) SaveSurvey(ctx context.Context, req *userpb.SaveSurveyRequest, opts ...grpc.CallOption) (*userpb.SaveSurveyResponse, error) {
+	return &userpb.SaveSurveyResponse{Status: "ok"}, nil
+}
+
+func (m *mockUserServiceClient) LoadSurvey(ctx context.Context, req *userpb.LoadSurveyRequest, opts ...grpc.CallOption) (*userpb.LoadSurveyResponse, error) {
+	return &userpb.LoadSurveyResponse{Status: "ok"}, nil
 }
 
 func setupGateway() *gateway {
@@ -201,7 +225,18 @@ func TestLoginHandler_Success(t *testing.T) {
 	g.loginHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "access_token")
+
+	cookies := w.Result().Cookies()
+	var accessCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == "fitpulse-access-token" {
+			accessCookie = c
+			break
+		}
+	}
+	assert.NotNil(t, accessCookie, "fitpulse-access-token cookie should be set")
+	assert.True(t, accessCookie.HttpOnly)
+	assert.Equal(t, http.SameSiteStrictMode, accessCookie.SameSite)
 }
 
 func TestLoginHandler_InvalidJSON(t *testing.T) {

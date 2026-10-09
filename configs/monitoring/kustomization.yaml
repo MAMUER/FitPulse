@@ -9,6 +9,7 @@ resources:
   - jaeger
   - pg-exporter
   - rabbitmq-exporter
+  - valkey-exporter
 namespace: fitness-platform-production
 labels:
   - pairs:

@@ -29,6 +29,7 @@ env/
 # Logs and temp files
 *.log
 *.tmp
+train_output.txt
 
 # IDE and editor settings
 .vscode/
@@ -52,6 +53,10 @@ yarn-error.log*
 web/coverage/
 coverage/
 internal/webhook/coverage
+
+# Playwright reports
+web/playwright-report/
+playwright-report/
 
 # Vite build output
 web/dist/
@@ -107,5 +112,17 @@ results.json
 
 .kilo
 
+
+# ML model artifacts (use Git LFS or object storage for versioning)
+models/*.onnx
+models/*.pkl
+models/*.bin
+
 # Raw datasets (too large for git)
 datasets/raw/
+
+web/test-results/
+
+pgp-private-key.asc
+
+*.csv

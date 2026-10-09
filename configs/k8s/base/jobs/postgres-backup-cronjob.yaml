@@ -17,15 +17,18 @@ spec:
       backoffLimit: 2
       template:
         spec:
+          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-            fsGroup: 999
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
           containers:
             - name: backup
+              # checkov:skip=CKV_K8S_43: Public image tag resolved at runtime; digest not pinned for ephemeral job
+              # checkov:skip=CKV_K8S_35: Backup script requires secrets as environment variables for pg_dump authentication
               image: postgres:18-alpine
-              imagePullPolicy: IfNotPresent
+              imagePullPolicy: Always
               command:
                 - /bin/sh
                 - -c
@@ -35,14 +38,10 @@ spec:
                   BACKUP_DIR=/backups
                   mkdir -p "${BACKUP_DIR}"
                   echo "Starting PostgreSQL backup at ${TIMESTAMP}"
-                  pg_dump -h postgres-service -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-                    -F c -f "${BACKUP_DIR}/fitness_${TIMESTAMP}.dump"
-                  echo "Backup completed: fitness_${TIMESTAMP}.dump"
-                  if [ -d "/wal-archive" ] && [ "$(ls -A /wal-archive 2>/dev/null)" ]; then
-                    tar -czf "${BACKUP_DIR}/wal_${TIMESTAMP}.tar.gz" -C /wal-archive .
-                    echo "WAL archive backed up: wal_${TIMESTAMP}.tar.gz"
-                  fi
-                  ls -lh "${BACKUP_DIR}"
+                  
+                  # Run backup with MinIO upload
+                  /scripts/backup-db-with-minio.sh full
+                  
                   echo "Backup job finished successfully"
               env:
                 - name: POSTGRES_USER
@@ -62,26 +61,35 @@ spec:
                       key: POSTGRES_PASSWORD
               securityContext:
                 allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: false
+                readOnlyRootFilesystem: true
                 capabilities:
                   drop: ["ALL"]
-               volumeMounts:
-                 - name: backup-storage
-                   mountPath: /backups
-                 - name: wal-archive-storage
-                   mountPath: /wal-archive
-               resources:
-                 requests:
-                   cpu: "50m"
-                   memory: "64Mi"
-                 limits:
-                   cpu: "200m"
-                   memory: "256Mi"
-           restartPolicy: Never
-           volumes:
-             - name: backup-storage
-               persistentVolumeClaim:
-                 claimName: postgres-backup-pvc
-             - name: wal-archive-storage
-               persistentVolumeClaim:
-                 claimName: postgres-wal-archive
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                - name: wal-archive-storage
+                  mountPath: /wal-archive
+                - name: backup-scripts
+                  mountPath: /scripts
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+          restartPolicy: Never
+      volumes:
+        - name: backup-storage
+          persistentVolumeClaim:
+            claimName: postgres-backup-pvc
+        - name: wal-archive-storage
+          persistentVolumeClaim:
+            claimName: postgres-wal-archive
+        - name: backup-scripts
+          configMap:
+            name: backup-scripts
+            defaultMode: 0755

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,25 @@ func setupBiometricRepo(t *testing.T) (*pgx.BiometricRepositoryPGX, func()) {
 	connStr := fmt.Sprintf("postgres://testuser:testpass@%s:%d/testdb?sslmode=disable",
 		ctr.PostgresHost, ctr.PostgresPort)
 	pool, err := pgxpool.New(ctx, connStr)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS biometric_data (
+			id          VARCHAR(36) PRIMARY KEY,
+			user_id     VARCHAR(255) NOT NULL,
+			metric_type VARCHAR(100) NOT NULL,
+			value       DOUBLE PRECISION NOT NULL,
+			timestamp   TIMESTAMPTZ NOT NULL,
+			device_type VARCHAR(100),
+			source      VARCHAR(100),
+			created_at  TIMESTAMPTZ DEFAULT NOW()
+		)
+	`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		CREATE UNIQUE INDEX IF NOT EXISTS biometric_data_user_metric_time_source_key
+		ON biometric_data (user_id, metric_type, timestamp, source)
+	`)
 	require.NoError(t, err)
 
 	repo := pgx.NewBiometricRepositoryPGX(pool)
@@ -169,9 +189,10 @@ func TestBiometricRepositoryPGX_BatchCreate(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	now := time.Now()
 	records := []*entity.BiometricRecord{
-		{UserID: "user-1", MetricType: "heart_rate", Value: 70, Timestamp: time.Now(), DeviceType: "apple_watch", Source: "test"},
-		{UserID: "user-1", MetricType: "heart_rate", Value: 71, Timestamp: time.Now(), DeviceType: "apple_watch", Source: "test"},
+		{ID: uuid.New().String(), UserID: "user-1", MetricType: "heart_rate", Value: 70, Timestamp: now, DeviceType: "apple_watch", Source: "test"},
+		{ID: uuid.New().String(), UserID: "user-1", MetricType: "heart_rate", Value: 71, Timestamp: now.Add(time.Millisecond), DeviceType: "apple_watch", Source: "test"},
 	}
 
 	inserted, err := repo.BatchCreate(ctx, records)

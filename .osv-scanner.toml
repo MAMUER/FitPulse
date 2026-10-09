@@ -1,3 +1,7 @@
 [[IgnoredVulns]]
 id = "PYSEC-2026-3624"
 reason = "False positive: lightning 2.6.5 is the latest upstream release (https://pypi.org/project/lightning/). The OSV advisory incorrectly references an older version string (2022.6.15) due to historical package naming (pytorch-lightning vs lightning). No newer fixed version exists."
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = "False positive: golang.org/x/crypto v0.57.0 is already the latest version. The advisory has no fixed version. The govulncheck failure in CI is caused by Go toolchain version mismatch in the scanner environment (project requires Go 1.27, scanner uses Go 1.26), not by an actual unfixed vulnerability."

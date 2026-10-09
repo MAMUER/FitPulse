@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/MAMUER/project/internal/domain/entity"
 )
@@ -20,6 +21,8 @@ type UserService interface {
 	ListDevices(ctx context.Context, userID string) ([]*entity.Device, error)
 	AddDevice(ctx context.Context, device *entity.Device) (*entity.Device, error)
 	RemoveDevice(ctx context.Context, userID, deviceID string) error
+	SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error
+	LoadSurvey(ctx context.Context, userID string) (map[string]interface{}, bool, *time.Time, error)
 }
 
 type BiometricService interface {

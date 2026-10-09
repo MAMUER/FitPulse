@@ -1,0 +1,70 @@
+{
+  "index": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "codec": "best_compression"
+  },
+  "settings": {
+    "index": {
+      "lifecycle": {
+        "name": "fitpulse-logs-policy",
+        "rollover_alias": "fitpulse-logs"
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "timestamp": {
+        "type": "date"
+      },
+      "service": {
+        "type": "keyword"
+      },
+      "level": {
+        "type": "keyword"
+      },
+      "message": {
+        "type": "text"
+      },
+      "user_id": {
+        "type": "keyword"
+      },
+      "request_id": {
+        "type": "keyword"
+      },
+      "correlation_id": {
+        "type": "keyword"
+      },
+      "http_method": {
+        "type": "keyword"
+      },
+      "http_path": {
+        "type": "keyword"
+      },
+      "http_status": {
+        "type": "integer"
+      },
+      "duration_ms": {
+        "type": "integer"
+      },
+      "source_ip": {
+        "type": "ip"
+      },
+      "user_agent": {
+        "type": "text"
+      },
+      "grpc_method": {
+        "type": "keyword"
+      },
+      "grpc_status": {
+        "type": "keyword"
+      },
+      "pii_fields": {
+        "type": "keyword"
+      },
+      "event_type": {
+        "type": "keyword"
+      }
+    }
+  }
+}

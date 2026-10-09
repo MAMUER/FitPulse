@@ -21,7 +21,7 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	}
 
 	log := logger.New("classifier-test")
-	s := &server{log: log}
+	s := &classifierServer{log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/classify", s.classifyHandler)
@@ -93,7 +93,7 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 		assert.NotNil(t, result.FatigueLevel)
 		assert.NotNil(t, result.MotivationScore)
 		assert.NotNil(t, result.RecoveryQuality)
-		assert.Len(t, result.Probabilities, 6)
+		assert.Len(t, result.Probabilities, 7)
 	})
 
 	t.Run("classify invalid json", func(t *testing.T) {

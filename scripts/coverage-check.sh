@@ -2,7 +2,7 @@
 set -euo pipefail
 
 coverage_file="coverage.out"
-min_coverage="${COVERAGE_THRESHOLD:-50}"
+min_coverage="${COVERAGE_THRESHOLD:-80}"
 
 if [ ! -f "$coverage_file" ]; then
 	echo "ERROR: coverage.out not found. Run 'go test -coverprofile=coverage.out ./...' first."

@@ -3,7 +3,14 @@ breaking:
   ignore:
     - FIELD_NO_DELETE
     - FIELD_NAMES_NO_UNDERSCORE
+  use:
+    - FILE
 lint:
-  deny:
-    - PACKAGE_VERSION_SUFFIXES
-    - ENUM_ZERO_VALUE_DEFAULT_ONLY
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  file_only: true
+  rpc_allow_same_request_response: true
+  enum_zero_value_suffix: _UNSPECIFIED
+  enum_zero_value_capitalized: true

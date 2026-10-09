@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     nickname_nonce          BYTEA,
     nickname_hash           VARCHAR(64),
     profile_photo_url       VARCHAR(500),
+    profile_photo_url_encrypted BYTEA,
+    profile_photo_url_nonce BYTEA,
     role                    VARCHAR(50) NOT NULL DEFAULT 'client'
                                 CHECK (role IN ('client', 'admin')),
     email_confirmed         BOOLEAN NOT NULL DEFAULT FALSE,
@@ -30,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
     totp_enabled            BOOLEAN NOT NULL DEFAULT FALSE,
     totp_backup_codes_hash  TEXT[],
     totp_backup_codes_remaining INT NOT NULL DEFAULT 0,
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMPTZ DEFAULT NOW(),
     updated_at              TIMESTAMPTZ DEFAULT NOW()
 );
@@ -39,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_totp_enabled ON users(totp_enabled) WHERE totp_enabled = TRUE;
 CREATE INDEX IF NOT EXISTS idx_users_full_name_hash ON users(full_name_hash);
 CREATE INDEX IF NOT EXISTS idx_users_nickname_hash ON users(nickname_hash);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external ON users(provider, external_id) WHERE external_id IS NOT NULL;
 
 -- ===================== Email Verifications =====================
@@ -61,16 +65,19 @@ CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(u
 
 -- ===================== Refresh Tokens =====================
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    token       VARCHAR(255) UNIQUE NOT NULL,
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    revoked     BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_hash      VARCHAR(64) UNIQUE NOT NULL,
+    token_encrypted BYTEA,
+    token_nonce     BYTEA,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    revoked         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
 -- Fix: rename legacy "used" column to "revoked" if it exists from old init-db.sql
 DO $$
@@ -113,9 +120,16 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     fitness_level   VARCHAR(50) CHECK (fitness_level IS NULL OR fitness_level IN ('beginner', 'intermediate', 'advanced')),
     nutrition       TEXT,
     sleep_hours     REAL CHECK (sleep_hours IS NULL OR (sleep_hours >= 0 AND sleep_hours <= 24)),
+    survey_data     JSONB DEFAULT '{}'::jsonb,
+    survey_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    survey_completed_at TIMESTAMPTZ,
+    ai_assistant_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_profiles_survey_data
+    ON user_profiles USING GIN (survey_data);
 
 CREATE TABLE IF NOT EXISTS user_goals (
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -153,11 +167,28 @@ CREATE TABLE IF NOT EXISTS biometric_data (
     value       DOUBLE PRECISION NOT NULL CHECK (value >= 0),
     timestamp   TIMESTAMPTZ NOT NULL,
     device_type VARCHAR(50),
+    source      VARCHAR(100) NOT NULL DEFAULT 'unknown',  -- NOSONAR: S1192
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp, source);
 CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_data(timestamp);
+
+-- Add check constraint for source values
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'biometric_data_source_check'
+    ) THEN
+        ALTER TABLE biometric_data
+            ADD CONSTRAINT biometric_data_source_check
+            CHECK (source IN (
+                'apple_health', 'garmin', 'health_connect', 'open_wearables',
+                'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown'  -- NOSONAR: S1192
+            ));
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS device_ingest_log (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -175,7 +206,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name                VARCHAR(255),
-    classification_class VARCHAR(255),
+    classification VARCHAR(255),
     training_goal       VARCHAR(50) CHECK (training_goal IS NULL OR training_goal IN (
         'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility', 'general_fitness',
         'recovery', 'endurance_e1e2', 'threshold_e3', 'strength_hiit'
@@ -183,6 +214,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
     training_location   VARCHAR(50) CHECK (training_location IS NULL OR training_location IN ('home', 'gym', 'pool', 'outdoor')),
     available_time      VARCHAR(20) CHECK (available_time IS NULL OR available_time IN ('morning', 'afternoon', 'evening')),
     duration_weeks      INT CHECK (duration_weeks IS NULL OR (duration_weeks > 0 AND duration_weeks <= 52)),
+    template_version    VARCHAR(50) DEFAULT 'v1',
     generated_at        TIMESTAMPTZ DEFAULT NOW(),
     start_date          DATE,
     end_date            DATE,
@@ -192,7 +224,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
 
 CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_plans_status ON training_plans(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_training_plans_classification_class ON training_plans(classification_class);
+CREATE INDEX IF NOT EXISTS idx_training_plans_classification ON training_plans(classification);
 
 CREATE TABLE IF NOT EXISTS training_plan_weeks (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -303,7 +335,7 @@ CREATE TABLE IF NOT EXISTS user_body_composition (
     water_percentage        NUMERIC(4,2) CHECK (water_percentage IS NULL OR (water_percentage >= 1 AND water_percentage <= 100)),
     visceral_fat_rating     INT CHECK (visceral_fat_rating IS NULL OR (visceral_fat_rating >= 1 AND visceral_fat_rating <= 59)),
     metabolic_age           INT CHECK (metabolic_age IS NULL OR (metabolic_age >= 10 AND metabolic_age <= 100)),
-    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('okok','manual')),
+    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('apple_health', 'garmin', 'health_connect', 'open_wearables', 'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown')),  -- NOSONAR: S1192
     created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -340,55 +372,84 @@ CREATE INDEX IF NOT EXISTS idx_user_menstrual_cycles_user ON user_menstrual_cycl
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_symptoms_cycle ON user_menstrual_symptoms(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_user_menstrual_moods_cycle ON user_menstrual_moods(cycle_id);
 
--- ===================== Device Providers / OAuth =====================
-CREATE TABLE IF NOT EXISTS oauth_states (
-    state       VARCHAR(255) PRIMARY KEY,
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider    VARCHAR(50) NOT NULL,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+-- ===================== Classifier Logs =====================
+CREATE TABLE IF NOT EXISTS classifier_logs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    input_features  JSONB NOT NULL,
+    predicted_class VARCHAR(50) NOT NULL,
+    confidence      REAL NOT NULL,
+    actual_class    VARCHAR(50),
+    feedback_rating INT CHECK (feedback_rating IS NULL OR (feedback_rating >= 1 AND feedback_rating <= 5)),
+    source          VARCHAR(50) NOT NULL DEFAULT 'rule-based',
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+CREATE INDEX IF NOT EXISTS idx_classifier_logs_user ON classifier_logs(user_id, created_at);
 
-CREATE TABLE IF NOT EXISTS device_provider_accounts (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider                VARCHAR(50) NOT NULL,
-    provider_user_id        VARCHAR(255) NOT NULL,
-    access_token            TEXT NOT NULL,
-    refresh_token           TEXT,
-    token_expires_at        TIMESTAMPTZ,
-    scopes                  TEXT[],
-    webhook_subscription_id VARCHAR(255),
-    last_sync_at            TIMESTAMPTZ,
-    is_active               BOOLEAN DEFAULT TRUE,
-    created_at              TIMESTAMPTZ DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, provider)
+-- ===================== Webhook Nonces =====================
+CREATE TABLE IF NOT EXISTS webhook_nonces (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nonce UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, nonce)
 );
 
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_user ON device_provider_accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON device_provider_accounts(provider);
+CREATE OR REPLACE FUNCTION purge_old_webhook_nonces()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM webhook_nonces
+    WHERE created_at < NOW() - INTERVAL '1 hour';
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TABLE IF NOT EXISTS device_sync_log (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider_account_id UUID REFERENCES device_provider_accounts(id) ON DELETE CASCADE,
-    sync_type           VARCHAR(50) NOT NULL,
-    records_count       INT DEFAULT 0,
-    started_at          TIMESTAMPTZ DEFAULT NOW(),
-    completed_at        TIMESTAMPTZ,
-    status              VARCHAR(20) DEFAULT 'pending',
-    error_message       TEXT,
-    created_at          TIMESTAMPTZ DEFAULT NOW()
+-- ===================== External Secrets =====================
+CREATE TABLE IF NOT EXISTS external_secrets (
+    id          BIGSERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_sync_log_provider_account ON device_sync_log(provider_account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_external_secrets_name
+    ON external_secrets (name);
 
--- ===================== Biometric Dedup =====================
-ALTER TABLE biometric_data
-    ADD CONSTRAINT IF NOT EXISTS uq_biometric_user_metric_time_device
-    UNIQUE (user_id, metric_type, timestamp, device_type);
+CREATE OR REPLACE FUNCTION update_external_secrets_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_external_secrets_updated_at ON external_secrets;
+
+CREATE TRIGGER trg_external_secrets_updated_at
+    BEFORE UPDATE ON external_secrets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_external_secrets_updated_at();
+
+INSERT INTO external_secrets (name, value) VALUES
+    ('fitpulse/production/app-secrets/JWT_PRIVATE_KEY_PEM',
+     'REPLACE_WITH_REAL_JWT_PRIVATE_KEY_PEM'),
+    ('fitpulse/production/app-secrets/JWT_PUBLIC_KEY_PEM',
+     'REPLACE_WITH_REAL_JWT_PUBLIC_KEY_PEM'),
+    ('fitpulse/production/app-secrets/RABBITMQ_URL',
+     'REPLACE_WITH_REAL_RABBITMQ_URL'),
+    ('fitpulse/production/app-secrets/VALKEY_PASSWORD',
+     'REPLACE_WITH_REAL_VALKEY_PASSWORD'),
+    ('fitpulse/production/app-secrets/POSTGRES_PASSWORD',
+     'REPLACE_WITH_REAL_POSTGRES_PASSWORD'),
+    ('fitpulse/production/app-secrets/YANDEX_CLIENT_ID',
+     'REPLACE_WITH_REAL_YANDEX_CLIENT_ID'),
+    ('fitpulse/production/app-secrets/YANDEX_CLIENT_SECRET',
+     'REPLACE_WITH_REAL_YANDEX_CLIENT_SECRET'),
+    ('fitpulse/production/app-secrets/SMTP_PASSWORD',
+     'REPLACE_WITH_REAL_SMTP_PASSWORD'),
+    ('fitpulse/production/app-secrets/TOTP_ENCRYPTION_KEY',
+     'REPLACE_WITH_REAL_TOTP_ENCRYPTION_KEY')
+ON CONFLICT (name) DO NOTHING;
 
 -- ===================== Views =====================
 CREATE OR REPLACE VIEW invite_code_stats AS
@@ -432,7 +493,7 @@ CREATE OR REPLACE FUNCTION create_invite_code(
     p_valid_days INT
 ) RETURNS VARCHAR AS $$
 DECLARE
-    v_code VARCHAR(100);
+    v_code TEXT;
 BEGIN
     v_code := UPPER(p_role) || '-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
               UPPER(REPLACE(
@@ -472,22 +533,22 @@ DECLARE
     v_record RECORD;
     v_used_count INT;
 BEGIN
-    SELECT * INTO v_record FROM invite_codes WHERE code = p_code AND is_active = TRUE;
+    SELECT code, role, specialty, max_uses, is_active, expires_at INTO v_record FROM invite_codes WHERE code = p_code AND is_active;
 
     IF NOT FOUND THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code not found or inactive';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     IF v_record.expires_at IS NOT NULL AND v_record.expires_at < NOW() THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has expired';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     SELECT COUNT(*) INTO v_used_count FROM invite_code_uses WHERE invite_code_id = v_record.id;
     IF v_used_count >= v_record.max_uses THEN
         is_valid := FALSE; role := NULL; specialty := NULL; error_msg := 'Invite code has reached its usage limit';
-        RETURN NEXT; RETURN;
+        RETURN NEXT;
     END IF;
 
     is_valid := TRUE;

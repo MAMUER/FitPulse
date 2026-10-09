@@ -8,7 +8,8 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-staging
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/server-snippet: | # checkov:skip=CKV_K8S_153: Static security headers only
+    nginx.ingress.kubernetes.io/server-snippet:
+      | # checkov:skip=CKV_K8S_153: Static security headers only
       more_set_headers "X-Frame-Options: DENY";
       more_set_headers "X-Content-Type-Options: nosniff";
       more_set_headers "X-XSS-Protection: 1; mode=block";
@@ -20,10 +21,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - staging.fittpulse.duckdns.org
-      secretName: staging-fittpulse-duckdns-org-tls
+        - fittpulse.duckdns.org
+      secretName: staging-fittpulse-ru-tls
   rules:
-    - host: staging.fittpulse.duckdns.org
+    - host: fittpulse.duckdns.org
       http:
         paths:
           - path: /

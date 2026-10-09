@@ -602,7 +602,7 @@ func TestValidateGeneratePlanRequest(t *testing.T) {
 				UserId:              "user-123",
 				DurationWeeks:       4,
 				AvailableDays:       []int32{1, 3, 5},
-				ClassificationClass: "endurance",
+				Classification: "endurance",
 			},
 			wantCode: codes.OK,
 		},

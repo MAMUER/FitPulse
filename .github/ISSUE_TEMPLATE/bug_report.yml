@@ -72,8 +72,8 @@ body:
     id: environment
     attributes:
       label: Окружение
-      description: OS, версия Docker, Go, Python
-      placeholder: "Ubuntu 26.04, Docker 24.0, Go 1.26.3, Python 3.14"
+      description: OS, версия Docker, Go, Python, способ запуска (Docker/K8s/local)
+      placeholder: "Ubuntu 26.04, Docker 24.0, Go 1.27.0, Python 3.14, Kubernetes 1.36"
     validations:
       required: false
 

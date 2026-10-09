@@ -2,33 +2,44 @@
 set -euo pipefail
 
 create_secrets() {
-	echo "Generating gRPC mTLS certificates..."
-	mkdir -p /tmp/grpc-certs
-	cd /tmp/grpc-certs
-	openssl genrsa -out ca.key 4096
-	openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/CN=fitpulse-ca"
-	openssl genrsa -out server.key 2048
-	openssl req -new -key server.key -out server.csr -subj "/CN=*.fitness-platform-production.svc.cluster.local"
-	cat >server-ext.cnf <<'EOF'
-[v3_ext]
-subjectAltName = DNS:*.fitness-platform-production.svc.cluster.local,DNS:fitness-platform-production.svc.cluster.local
-EOF
-	openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile server-ext.cnf -extensions v3_ext
-	openssl genrsa -out client.key 2048
-	openssl req -new -key client.key -out client.csr -subj "/CN=fitpulse-client"
-	openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 365 -sha256
-	echo "✅ gRPC mTLS certificates generated"
+	echo "Creating gRPC mTLS certificates via cert-manager..."
+	kubectl apply -f configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml
+	kubectl apply -f configs/k8s/base/deployments/grpc-server-cert.yaml -n fitness-platform-production
+	echo "Waiting for gRPC certificates to be ready..."
+	kubectl wait --for=condition=ready certificate/grpc-server-cert -n fitness-platform-production --timeout=300s || true
+	echo "✅ gRPC mTLS certificates managed by cert-manager"
 
-	echo "Creating grpc-tls secret..."
-	kubectl create secret generic grpc-tls \
-		-n fitness-platform-production \
-		--from-file=server.crt=/tmp/grpc-certs/server.crt \
-		--from-file=server.key=/tmp/grpc-certs/server.key \
-		--from-file=ca.crt=/tmp/grpc-certs/ca.crt \
-		--from-file=client.crt=/tmp/grpc-certs/client.crt \
-		--from-file=client.key=/tmp/grpc-certs/client.key \
+	echo "Creating argocd-secret..."
+	if [ -n "${ARGOCD_ADMIN_PASSWORD:-}" ]; then
+		ARGOCD_BCRYPT=$(python3 -c "import bcrypt; print(bcrypt.hashpw('${ARGOCD_ADMIN_PASSWORD}'.encode(), bcrypt.gensalt(rounds=12)).decode())" 2>/dev/null || echo "")
+		if [ -z "$ARGOCD_BCRYPT" ]; then
+			ARGOCD_BCRYPT=$(node -e "console.log(require('bcrypt').hashSync('${ARGOCD_ADMIN_PASSWORD}', 12))" 2>/dev/null || echo "")
+		fi
+		if [ -n "$ARGOCD_BCRYPT" ]; then
+			kubectl create secret generic argocd-secret \
+				-n argocd \
+				--from-literal=admin.password="$ARGOCD_BCRYPT" \
+				--from-literal=admin.passwordMTime="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+				--dry-run=client -o yaml | kubectl apply --validate=false -f -
+			echo "✅ argocd-secret created/updated"
+		else
+			echo "⚠️  bcrypt not available (python3-bcrypt/node-bcrypt), skipping argocd-secret update"
+		fi
+	else
+		echo "⚠️  ARGOCD_ADMIN_PASSWORD is empty, skipping argocd-secret update"
+	fi
+
+	echo "Creating external-secrets-db-credentials secret..."
+	if [ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]; then
+		echo "❌ EXTERNAL_SECRETS_DB_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic external-secrets-db-credentials \
+		-n external-secrets \
+		--from-literal=username=external_secrets \
+		--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ grpc-tls secret created"
+	echo "✅ external-secrets-db-credentials created"
 
 	echo "Applying ExternalSecret manifests..."
 	kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production
@@ -41,11 +52,66 @@ EOF
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
 
+	echo "Creating minio-credentials secret..."
+	kubectl create secret generic minio-credentials \
+		-n minio \
+		--from-literal=root-user=fitpulse-admin \
+		--from-literal=root-password="${MINIO_SECRET_KEY}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ minio-credentials created"
+
+	echo "Creating grafana-credentials secret..."
+	if [ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]; then
+		echo "❌ GRAFANA_ADMIN_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic grafana-credentials \
+		-n monitoring \
+		--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ grafana-credentials created"
+
+	echo "Creating oncall-bot-credentials secret..."
+	if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+		echo "❌ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty!"
+		exit 1
+	fi
+	kubectl create secret generic oncall-bot-credentials \
+		-n monitoring \
+		--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
+		--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ oncall-bot-credentials created"
+
+	echo "Creating elk-credentials secret..."
+	if [ -z "${ELASTICSEARCH_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]; then
+		echo "❌ ELASTICSEARCH_PASSWORD, ELASTICSEARCH_PLATFORM_PASSWORD or ELASTICSEARCH_AUDITOR_PASSWORD is empty!"
+		exit 1
+	fi
+	kubectl create secret generic elk-credentials \
+		-n elk \
+		--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
+		--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
+		--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	echo "✅ elk-credentials created"
+
 	echo "Creating monitoring-secrets..."
 	kubectl create secret generic monitoring-secrets -n fitness-platform-production \
 		--from-literal=grafana-admin-password="${GRAFANA_ADMIN_PASSWORD}" \
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
 	echo "✅ monitoring-secrets created"
+
+	if [ -n "${CLOUDFLARE_TURNSTILE_SECRET_KEY:-}" ]; then
+		echo "Creating captcha-secrets..."
+		kubectl create secret generic captcha-secrets \
+			--namespace=fitness-platform-production \
+			--from-literal=CLOUDFLARE_TURNSTILE_SECRET_KEY="$CLOUDFLARE_TURNSTILE_SECRET_KEY" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f -
+		echo "✅ captcha-secrets created"
+	else
+		echo "⚠️  CLOUDFLARE_TURNSTILE_SECRET_KEY is empty, skipping captcha-secrets"
+	fi
 }
 
 ensure_service_account() {
@@ -53,9 +119,15 @@ ensure_service_account() {
 	kubectl create serviceaccount app-service-account \
 		-n fitness-platform-production \
 		--dry-run=client -o yaml | kubectl apply -f -
-	kubectl create clusterrolebinding app-service-account-binding \
-		--clusterrole=edit \
+	kubectl create role app-service-account-role \
+		-n fitness-platform-production \
+		--verb=get,list \
+		--resource=configmaps,secrets \
+		--dry-run=client -o yaml | kubectl apply -f - || true
+	kubectl create rolebinding app-service-account-binding \
+		--role=app-service-account-role \
 		--serviceaccount=fitness-platform-production:app-service-account \
+		-n fitness-platform-production \
 		--dry-run=client -o yaml | kubectl apply -f - || true
 	echo "ServiceAccount ready"
 }

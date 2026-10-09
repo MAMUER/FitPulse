@@ -47,7 +47,6 @@ curl -k https://localhost:8443/health
 - **Kubernetes**: k3s (рекомендуется для VPS)
 - **Сеть**: HTTPS (порт 8443), TLS 1.3
 
-
 ## Развертывание на Kubernetes
 
 ### 1. Установка k3s (рекомендуется для VPS)
@@ -97,7 +96,7 @@ kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=SMTP_PASSWORD=<app-password> \
     --from-literal=SMTP_FROM=<your-email> \
     --from-literal=SMTP_TLS=true \
-    --from-literal=APP_BASE_URL=https://your-domain.com \
+    --from-literal=APP_BASE_URL=https://fittpulse.duckdns.org \
     --from-literal=SEED_ADMIN_EMAIL=<admin-email> \
     --from-literal=SEED_ADMIN_PASSWORD=<admin-password> \
     --from-literal=TOTP_ENCRYPTION_KEY=<32-byte-key>
@@ -220,9 +219,61 @@ openssl req -x509 -nodes -days 365 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
 
 > **Примечание:** директория `deploy/tls/certs/` в репозитории отсутствует; создайте её локально перед генерацией сертификатов.
 
+## Secrets Management
+
+**Current state:** External Secrets Operator уже развёрнут. Backend — PostgreSQL (таблица `external_secrets`), не AWS Secrets Manager.
+
+**Vault:** Vault deployment присутствует в `configs/k8s/base/vault/`. External Secrets Operator синхронизирует секреты из Vault в Kubernetes Secrets.
+
+См. `FREE_STACK.md` для полного стека и деталей миграции.
+
+## Backup Setup
+
+Бэкапы настроены через MinIO (S3-compatible) и ежедневный CronJob:
+
+```bash
+# Применить ConfigMap с скриптами бэкапа
+kubectl apply -f configs/k8s/base/jobs/backup-scripts-configmap.yaml -n fitness-platform-production
+
+# Применить CronJob для ежедневных бэкапов
+kubectl apply -f configs/k8s/base/jobs/backup-cronjob.yaml -n fitness-platform-production
+
+# Проверить, что CronJob создан
+kubectl get cronjob -n fitness-platform-production
+```
+
+Бэкапы хранятся в MinIO bucket `fitpulse-db-backups`. Восстановление: см. `OPERATIONS_RUNBOOK.md` → «Восстановление данных».
+
+## Device Aggregator Deployment
+
+Device Aggregator развёрнут как Deployment в `fitness-platform-production` namespace:
+
+```bash
+# Проверить статус
+kubectl get pods -n fitness-platform-production -l app=device-aggregator
+
+# Логи
+kubectl logs -f deployment=device-aggregator -n fitness-platform-production
+```
+
+Health endpoint: `http://device-aggregator:8084/health`.
+
+## Admin CLI
+
+Admin CLI — клиентский инструмент (`cmd/admin-cli`). Не развёрнут как сервис в K8s. Используется локально или из CI/CD для административных операций.
+
+```bash
+# Проверить конфигурацию
+admin-cli --check-config
+
+# Проверить соединение с Vault
+admin-cli --verify-vault-connection
+```
+
 ## Рекомендации
 
 - Используйте **PersistentVolume** для PostgreSQL и RabbitMQ (не in-memory) — в текущих манифестах уже настроено через `volumeClaimTemplates`
 - Настройте **ResourceQuota** и **LimitRange** для namespace
 - Используйте **HorizontalPodAutoscaler** для Gateway при высокой нагрузке
-- Настройте **backup** PostgreSQL через WAL-архивацию
+- Настройте **cert-manager** для автоматической выдачи TLS-сертификатов (Let's Encrypt)
+- Настройте **WAF** (Ingress NGINX + ModSecurity CRS v4) для защиты от OWASP Top 10

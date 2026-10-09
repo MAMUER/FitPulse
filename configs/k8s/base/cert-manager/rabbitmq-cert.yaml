@@ -1,0 +1,22 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rabbitmq-cert
+  namespace: fitness-platform-production
+spec:
+  secretName: rabbitmq-tls
+  duration: 2160h # 90 days
+  renewBefore: 720h # 30 days before expiry
+  issuerRef:
+    name: grpc-selfsigned-ca
+    kind: ClusterIssuer
+  commonName: "rabbitmq.fitness-platform-production.svc.cluster.local"
+  dnsNames:
+    - "rabbitmq"
+    - "rabbitmq.fitness-platform-production.svc.cluster.local"
+    - "localhost"
+  keySize: 2048
+  keyAlgorithm: rsa
+  usages:
+    - server auth
+    - client auth

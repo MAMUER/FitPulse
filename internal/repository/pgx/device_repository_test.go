@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +36,38 @@ func newMockRows(rows [][]interface{}, scanFunc func(dest ...interface{}) error)
 	return &mockRows{rows: rows, scanFunc: scanFunc}
 }
 
+func scanValue(dest interface{}, value interface{}) error {
+	switch ptr := dest.(type) {
+	case *string:
+		if s, ok := value.(string); ok {
+			*ptr = s
+		}
+	case *int:
+		if n, ok := value.(int); ok {
+			*ptr = n
+		}
+	case *int64:
+		if n, ok := value.(int64); ok {
+			*ptr = n
+		}
+	case *bool:
+		if b, ok := value.(bool); ok {
+			*ptr = b
+		}
+	case *time.Time:
+		if t, ok := value.(time.Time); ok {
+			*ptr = t
+		}
+	case *[]byte:
+		if b, ok := value.([]byte); ok {
+			*ptr = b
+		}
+	default:
+		return fmt.Errorf("unsupported scan type: %T", dest)
+	}
+	return nil
+}
+
 func (m *mockRows) Next() bool {
 	if m.idx < len(m.rows) {
 		m.idx++
@@ -51,33 +84,8 @@ func (m *mockRows) Scan(dest ...interface{}) error {
 		row := m.rows[m.idx-1]
 		for i, d := range dest {
 			if i < len(row) {
-				switch ptr := d.(type) {
-				case *string:
-					if s, ok := row[i].(string); ok {
-						*ptr = s
-					}
-				case *int:
-					if n, ok := row[i].(int); ok {
-						*ptr = n
-					}
-				case *int64:
-					if n, ok := row[i].(int64); ok {
-						*ptr = n
-					}
-				case *bool:
-					if b, ok := row[i].(bool); ok {
-						*ptr = b
-					}
-				case *time.Time:
-					if t, ok := row[i].(time.Time); ok {
-						*ptr = t
-					}
-				case *[]byte:
-					if b, ok := row[i].([]byte); ok {
-						*ptr = b
-					}
-				default:
-					return fmt.Errorf("unsupported scan type: %T", d)
+				if err := scanValue(d, row[i]); err != nil {
+					return err
 				}
 			}
 		}
@@ -111,6 +119,10 @@ func (m *mockRows) RawValues() [][]byte {
 }
 
 func (m *mockRows) Conn() *pgx.Conn {
+	return nil
+}
+
+func (m *mockRows) TypeMap() *pgtype.Map {
 	return nil
 }
 
@@ -198,6 +210,26 @@ func setupDeviceRepo(t *testing.T) (*DeviceRepositoryPGX, *mockDB) {
 	mock := &mockDB{}
 	repo := NewDeviceRepositoryPGX(mock)
 	return repo, mock
+}
+
+func newDeviceRow(now time.Time) *mockRow {
+	return &mockRow{scanFunc: func(dest ...interface{}) error {
+		return scanRow(dest, []interface{}{
+			"dev-1", "user-1", "watch", "Apple Watch", true, now,
+		})
+	}}
+}
+
+func scanRow(dest []interface{}, values []interface{}) error {
+	if len(dest) < len(values) {
+		return nil
+	}
+	for i, v := range values {
+		if err := scanValue(dest[i], v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func TestDeviceRepositoryPGX_List_Success(t *testing.T) {
@@ -307,29 +339,7 @@ func TestDeviceRepositoryPGX_GetByID_Success(t *testing.T) {
 	now := time.Now()
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
-		return &mockRow{scanFunc: func(dest ...interface{}) error {
-			if len(dest) >= 6 {
-				if s, ok := dest[0].(*string); ok {
-					*s = "dev-1"
-				}
-				if s, ok := dest[1].(*string); ok {
-					*s = "user-1"
-				}
-				if s, ok := dest[2].(*string); ok {
-					*s = "watch"
-				}
-				if s, ok := dest[3].(*string); ok {
-					*s = "Apple Watch"
-				}
-				if b, ok := dest[4].(*bool); ok {
-					*b = true
-				}
-				if t, ok := dest[5].(*time.Time); ok {
-					*t = now
-				}
-			}
-			return nil
-		}}
+		return newDeviceRow(now)
 	}
 
 	result, err := repo.GetByID(ctx, "user-1", "dev-1")

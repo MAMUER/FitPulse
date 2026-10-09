@@ -17,6 +17,7 @@ spec:
         app: rabbitmq-exporter
         tier: monitoring
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -48,9 +49,11 @@ spec:
             requests:
               cpu: "5m"
               memory: "16Mi"
+              ephemeral-storage: "1Gi"
             limits:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "2Gi"
           livenessProbe:
             httpGet:
               path: /metrics

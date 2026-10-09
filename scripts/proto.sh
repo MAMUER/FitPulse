@@ -40,9 +40,4 @@ echo "Using protoc: $PROTOC_CMD"
 	--go-grpc_out=api/gen/training --go-grpc_opt=paths=source_relative \
 	api/proto/training.proto
 
-"$PROTOC_CMD" --proto_path=api/proto \
-	--go_out=api/gen/ml --go_opt=paths=source_relative \
-	--go-grpc_out=api/gen/ml --go-grpc_opt=paths=source_relative \
-	api/proto/ml.proto
-
 echo "Proto generation complete"

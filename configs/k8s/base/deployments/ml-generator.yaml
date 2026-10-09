@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   revisionHistoryLimit: 3
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: ml-generator
@@ -34,16 +34,22 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 60
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: ml-generator
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: ml-generator-sa
@@ -54,7 +60,7 @@ spec:
       containers:
         - name: ml-generator
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
-          image: ghcr.io/mamuer/project/ml-generator:${{ steps.sha.outputs.short_sha }}
+          image: ghcr.io/mamuer/project/ml-generator:0.0.0-dev
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
@@ -84,6 +90,14 @@ spec:
               value: "2"
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "ml-generator"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
           livenessProbe:
             httpGet:
               path: /health
@@ -104,6 +118,8 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "256Mi"
             limits:
               cpu: "250m"
               memory: "256Mi"
+              ephemeral-storage: "512Mi"

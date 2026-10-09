@@ -22,7 +22,7 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 });
 
-if (globalThis.crypto === undefined) {
+if (!globalThis.crypto) {
   const mockCrypto = {
     getRandomValues: (arr) => {
       for (let i = 0; i < arr.length; i++) {
@@ -37,3 +37,21 @@ if (globalThis.crypto === undefined) {
     configurable: true,
   });
 }
+
+Object.defineProperty(globalThis, 'alert', {
+  value: () => {},
+  writable: true,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'confirm', {
+  value: () => true,
+  writable: true,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'prompt', {
+  value: () => null,
+  writable: true,
+  configurable: true,
+});

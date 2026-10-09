@@ -19,6 +19,6 @@ runs:
         cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
     - run: |
         npm config set registry https://registry.npmjs.org
-        NPM_CONFIG_MIN_RELEASE_AGE=0 npm ci --ignore-scripts --legacy-peer-deps
+        NPM_CONFIG_MIN_RELEASE_AGE=0 npm ci --ignore-scripts
       working-directory: ${{ inputs.working-directory }}
       shell: bash

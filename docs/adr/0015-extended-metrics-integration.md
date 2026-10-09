@@ -1,0 +1,71 @@
+# ADR 0015: Интеграция расширенных Prometheus-метрик
+
+## Статус
+
+Принято
+
+## Контекст
+
+Система требовала единой наблюдаемости по ключевым бизнес-путиям: ML-классификация, пул PostgreSQL, RabbitMQ очереди и задержка синхронизации биометрических данных. Ранее метрики были разбросаны, частично отсутствовали, часть объявлений дублировалась между файлами. Это мешало и сборке, и операционному дашбордингу.
+
+## Решение
+
+Разделить метрики на два файла в пакете `internal/metrics`:
+
+- `metrics.go` — core HTTP/Prometheus метрики (`RequestsTotal`, `RequestDuration`, `ActiveRequests`, `ErrorTotal`).
+- `extended.go` — доменные метрики:
+  - `ClassificationConfidence` (`model_version`, `class_name`)
+  - `DBConnectionPoolUsage` (`service`, `pool_name`)
+  - `NotificationQueueDepth` (`queue_name`, `priority`)
+  - `BiometricSyncLagSeconds` (`device_type`, `user_segment`)
+  - `BackupSuccess` (`type`, `job`)
+
+- `ClassificationConfidence` (`model_version`, `class`) — уверенность классификатора (rule-based).
+
+### База данных
+
+В `internal/db/db.go` при открытии соединения вызывается `metrics.DBConnectionPoolUsage.WithLabelValues(dbName, "main").Set(usage)` внутри `poolMetricOnce.Do`, что исключает фоновые горутины и таймеры.
+
+```text
+usage = InUse / max(MaxOpenConnections, 1)
+```
+
+### RabbitMQ
+
+В `internal/queue/queue.go`:
+
+- добавлен `QueueMetrics` + `registerQueueMetrics()` кэш по `(queue, priority)`;
+- `StartDepthReporter()` раз в 10 секунд через `QueueDeclarePassive` обновляет gauge глубины очереди. Вызывается в `cmd/data-processor/main.go` после создания consumer.
+
+### Biometric service
+
+В `cmd/biometric-service/main.go` в `AddRecord` замеряется `time.Now()` до и после INSERT, после записи вызывается:
+
+```text
+metrics.BiometricSyncLagSeconds.WithLabelValues(req.DeviceType, "default").Set(lag)
+```
+
+## Последствия
+
+- Метрики начинают собираться сразу после старта, без ручной конфигурации.
+- В Grafana/Prometheus появляются 5 новых временных рядов (`classification_confidence`, `db_connection_pool_usage`, `notification_queue_depth`, `biometric_sync_lag_seconds`, `backup_success`), которые покрывают 5 блоков требований.
+- Дубли метрик устранены: одна метрика = одна переменная = один файл.
+- Device Aggregator: добавлен standalone `webhooks.go`; основной код остаётся в `main.go`.
+
+## Реализация
+
+- `internal/metrics/metrics.go`
+- `internal/metrics/extended.go`
+- `internal/db/db.go`
+- `internal/queue/queue.go`
+- `cmd/biometric-service/main.go`
+- `cmd/data-processor/main.go`
+- `cmd/device-aggregator/main.go`
+- `cmd/device-aggregator/webhooks.go`
+- `cmd/device-aggregator/webhooks_test.go`
+
+## Рассмотренные альтернативы
+
+- Оставить все метрики в одном файле — рост конфликтов имён при добавлении новых доменных метрик.
+- Сделать отдельный пакет `metrics/ml`, `metrics/db` — избыточная модульность для текущего объёма (5 метрик).
+- Мониторить lag через external exporter polling DB — выше latency, больше нагрузки на БД.

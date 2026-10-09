@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Enhanced backup script with MinIO/S3 upload
+# Usage: backup-db-with-minio.sh [full|wal]
+#   full - Full database backup
+#   wal  - WAL archive upload
+
+BACKUP_TYPE="${1:-full}"
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+BACKUP_KEY="${BACKUP_KEY:-}"
+PROMETHEUS_TEXTFILE_DIR="${PROMETHEUS_TEXTFILE_DIR:-./prometheus-textfile-collector}"
+S3_ENDPOINT="${S3_ENDPOINT:-http://minio.minio.svc.cluster.local:9000}"
+S3_BUCKET="${S3_BUCKET:-postgres-backups}"
+S3_WAL_BUCKET="${S3_WAL_BUCKET:-postgres-wal-archive}"
+S3_WAL_PATH="${S3_WAL_PATH:-wal}"
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-}}"
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-}}"
+
+mkdir -p "$BACKUP_DIR"
+
+if [[ -z "${PGDATABASE:-}" ]]; then
+	echo "ERROR: PGDATABASE environment variable must be set"
+	exit 1
+fi
+
+if [[ -z "$BACKUP_KEY" ]]; then
+	echo "ERROR: BACKUP_KEY environment variable must be set"
+	exit 1
+fi
+
+if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set for S3 upload"
+	exit 1
+fi
+
+export AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY
+export PGPASSWORD="${PGPASSWORD:-}"
+
+TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
+if [[ "$BACKUP_TYPE" == "full" ]]; then
+	FILENAME="${BACKUP_DIR}/backup-${PGDATABASE}-${TIMESTAMP}.dump"
+	ENCRYPTED="${FILENAME}.enc"
+	CHECKSUM="${ENCRYPTED}.sha256"
+	S3_KEY="backups/${PGDATABASE}/backup-${PGDATABASE}-${TIMESTAMP}.dump.enc"
+	S3_CHECKSUM_KEY="${S3_KEY}.sha256"
+
+	echo "Starting full backup at ${TIMESTAMP}"
+
+	set +e
+	pg_dump --format=custom --file="$FILENAME" \
+		--host="${PGHOST:-localhost}" \
+		--port="${PGPORT:-5432}" \
+		--username="${PGUSER:-postgres}" \
+		"${PGDATABASE}"
+	PG_DUMP_STATUS=$?
+	set -e
+
+	if [[ $PG_DUMP_STATUS -ne 0 ]]; then
+		echo "ERROR: pg_dump failed with exit code $PG_DUMP_STATUS"
+		exit $PG_DUMP_STATUS
+	fi
+
+	echo "Encrypting backup..."
+	openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$BACKUP_KEY" -in "$FILENAME" -out "$ENCRYPTED"
+	sha256sum "$ENCRYPTED" >"$CHECKSUM"
+	rm -f "$FILENAME"
+
+	echo "Uploading to S3: ${S3_BUCKET}/${S3_KEY}"
+	if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$ENCRYPTED" "s3://${S3_BUCKET}/${S3_KEY}" --only-show-errors; then
+		echo "Backup uploaded to S3 successfully"
+	else
+		echo "ERROR: Failed to upload backup to S3"
+		exit 1
+	fi
+
+	echo "Uploading checksum to S3: ${S3_BUCKET}/${S3_CHECKSUM_KEY}"
+	if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$CHECKSUM" "s3://${S3_BUCKET}/${S3_CHECKSUM_KEY}" --only-show-errors; then
+		echo "Checksum uploaded to S3 successfully"
+	else
+		echo "ERROR: Failed to upload checksum to S3"
+		exit 1
+	fi
+
+	echo "Creating LATEST pointer..."
+	aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://${S3_BUCKET}/${S3_KEY}" "s3://${S3_BUCKET}/backups/${PGDATABASE}/backup-LATEST.dump.enc" --only-show-errors
+	aws --endpoint-url "$S3_ENDPOINT" s3 cp "$CHECKSUM" "s3://${S3_BUCKET}/backups/${PGDATABASE}/backup-LATEST.dump.enc.sha256" --only-show-errors
+
+	echo "Backup completed and uploaded to S3: ${S3_KEY}"
+
+elif [[ "$BACKUP_TYPE" == "wal" ]]; then
+	WAL_DIR="${WAL_DIR:-/var/lib/postgresql/wal-archive}"
+	S3_WAL_DIR="${S3_WAL_PATH}"
+
+	if [[ ! -d "$WAL_DIR" ]]; then
+		echo "WARNING: WAL directory not found: $WAL_DIR"
+		exit 0
+	fi
+
+	if [[ -z "$(ls -A "$WAL_DIR" 2>/dev/null)" ]]; then
+		echo "No WAL files to archive"
+		exit 0
+	fi
+
+	echo "Archiving WAL files to S3..."
+	ARCHIVED=0
+	FAILED=0
+
+	for wal_file in "$WAL_DIR"/*; do
+		if [[ -f "$wal_file" ]]; then
+			filename=$(basename "$wal_file")
+			S3_WAL_KEY="${S3_WAL_DIR}/${filename}"
+
+			if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$wal_file" "s3://${S3_WAL_BUCKET}/${S3_WAL_KEY}" --only-show-errors; then
+				ARCHIVED=$((ARCHIVED + 1))
+			else
+				echo "ERROR: Failed to upload WAL file: $filename"
+				FAILED=$((FAILED + 1))
+			fi
+		fi
+	done
+
+	echo "WAL archive completed: ${ARCHIVED} files uploaded, ${FAILED} failed"
+
+	if [[ $FAILED -gt 0 ]]; then
+		exit 1
+	fi
+else
+	echo "ERROR: Unknown backup type: $BACKUP_TYPE"
+	echo "Usage: $0 [full|wal]"
+	exit 1
+fi
+
+# Update Prometheus metrics
+if [[ -n "$PROMETHEUS_TEXTFILE_DIR" ]]; then
+	mkdir -p "$PROMETHEUS_TEXTFILE_DIR"
+	TEXTFILE="$PROMETHEUS_TEXTFILE_DIR/backup_success.prom.$$"
+	echo "# TYPE backup_success counter" >"$TEXTFILE"
+	echo "backup_success{type=\"$BACKUP_TYPE\",job=\"backup-db\"} 1" >>"$TEXTFILE"
+	mv "$TEXTFILE" "${PROMETHEUS_TEXTFILE_DIR}/backup_success.prom"
+fi
+
+echo "Backup job finished successfully"

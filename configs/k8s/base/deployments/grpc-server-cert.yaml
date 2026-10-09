@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grpc-server-cert
+  namespace: fitness-platform-production
+spec:
+  secretName: grpc-server-tls
+  duration: 2160h # 90 days
+  renewBefore: 720h # 30 days before expiry
+  issuerRef:
+    name: grpc-selfsigned-ca
+    kind: ClusterIssuer
+  commonName: "*.fitness-platform-production.svc.cluster.local"
+  dnsNames:
+    - "*.fitness-platform-production.svc.cluster.local"
+    - "fitness-platform-production.svc.cluster.local"
+  keySize: 2048
+  keyAlgorithm: rsa
+  usages:
+    - server auth
+    - client auth

@@ -1,0 +1,134 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: vault
+  labels:
+    app: vault
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/component: secrets
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  template:
+    metadata:
+      labels:
+        app: vault
+        app.kubernetes.io/name: vault
+        app.kubernetes.io/instance: vault
+        app.kubernetes.io/component: secrets
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      serviceAccountName: vault
+      containers:
+        - name: vault-init
+          image: hashicorp/vault:1.15.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              set -e
+              
+              echo "Waiting for Vault to be ready..."
+              for i in $(seq 1 60); do
+                if vault status > /dev/null 2>&1; then
+                  echo "Vault is ready"
+                  break
+                fi
+                if [ "$i" -eq 60 ]; then
+                  echo "Vault did not become ready in time"
+                  exit 1
+                fi
+                sleep 2
+              done
+              
+              if [ -f /vault/keys/unseal.key ]; then
+                echo "Vault already initialized, unsealing..."
+                VAULT_TOKEN=$(cat /vault/keys/root.token)
+                export VAULT_TOKEN
+                vault unseal $(cat /vault/keys/unseal.key)
+              else
+                echo "Initializing Vault..."
+                vault operator init -key-shares=1 -key-threshold=1 -format=json > /vault/keys/init.json
+                
+                UNSEAL_KEY=$(cat /vault/keys/init.json | grep -o '"unseal_keys_b64":\["[^"]*"' | cut -d'"' -f4)
+                ROOT_TOKEN=$(cat /vault/keys/init.json | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
+                
+                echo "$UNSEAL_KEY" > /vault/keys/unseal.key
+                echo "$ROOT_TOKEN" > /vault/keys/root.token
+                
+                export VAULT_TOKEN="$ROOT_TOKEN"
+                
+                echo "Unsealing Vault..."
+                vault unseal "$UNSEAL_KEY"
+                
+                echo "Enabling Kubernetes auth..."
+                vault auth enable kubernetes
+                
+                echo "Configuring Kubernetes auth..."
+                vault write auth/kubernetes/config \
+                  kubernetes_host="https://kubernetes.default.svc.cluster.local:443" \
+                  token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+                  kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                
+                echo "Enabling PostgreSQL secrets engine..."
+                vault secrets enable database
+                
+                echo "Configuring PostgreSQL connection..."
+                vault write database/config/postgres \
+                  plugin_name=postgresql-database-plugin \
+                  connection_url="postgresql://{{username}}:{{password}}@postgres-service:5432/postgres?sslmode=disable" \
+                  allowed_roles="user-service-role,training-service-role,biometric-service-role,data-processor-role"
+                
+                echo "Creating PostgreSQL roles..."
+                for role in user-service training-service biometric-service data-processor; do
+                  vault write database/roles/${role}-role \
+                    db_name=postgres \
+                    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL ON SCHEMA public TO \"{{name}}\"; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"{{name}}\"; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";" \
+                    default_ttl="1h" \
+                    max_ttl="24h"
+                done
+                
+                echo "Creating Vault policies..."
+                vault policy write app-db-access - /vault/policies/user-service.hcl
+                
+                echo "Creating Kubernetes service account roles..."
+                for role in user-service training-service biometric-service data-processor; do
+                  vault write auth/kubernetes/role/${role}-vault-role \
+                    bound_service_account_names=${role}-vault-sa \
+                    bound_service_account_namespaces=fitness-platform-production \
+                    policies=app-db-access \
+                    ttl=24h
+                done
+                
+                echo "Vault initialization complete"
+              fi
+          volumeMounts:
+            - name: vault-data
+              mountPath: /vault
+            - name: vault-policies
+              mountPath: /vault/policies
+            - name: vault-keys
+              mountPath: /vault/keys
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
+      volumes:
+        - name: vault-data
+          emptyDir: {}
+        - name: vault-policies
+          configMap:
+            name: vault-postgres-policy
+        - name: vault-keys
+          emptyDir: {}

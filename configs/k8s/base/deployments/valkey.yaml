@@ -34,16 +34,22 @@ spec:
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: valkey
       imagePullSecrets:
         - name: ghcr-pull-secret
       serviceAccountName: app-service-account
@@ -64,7 +70,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 999
+            runAsUser: 10001
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
@@ -94,6 +100,8 @@ spec:
             requests:
               cpu: "15m"
               memory: "32Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "20m"
               memory: "48Mi"
+              ephemeral-storage: "200Mi"

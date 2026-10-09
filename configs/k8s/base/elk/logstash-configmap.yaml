@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: elk
+  labels:
+    app: logstash
+    component: logging
+data:
+  logstash.yml: |
+    http.host: 0.0.0.0
+    pipeline.workers: 2
+    pipeline.batch.size: 125
+    pipeline.batch.delay: 5
+    config.reload.automatic: true
+    config.reload.interval: 3s
+  pipelines.yml: |
+    - pipeline.id: fitpulse
+      path.config: "/usr/share/logstash/pipeline/fitpulse.conf"
+  fitpulse.conf: |
+    input {
+      stdin { }
+    }
+    filter {
+      json {
+        source => "message"
+        target => "log"
+        skip_on_invalid_json => true
+      }
+      if [log][service] {
+        mutate {
+          add_field => { "service" => "%{[log][service]}" }
+        }
+      }
+      if [log][timestamp] {
+        date {
+          match => ["[log][timestamp]", "ISO8601"]
+          target => "@timestamp"
+        }
+      }
+      if [log][level] {
+        mutate {
+          add_field => { "level" => "%{[log][level]}" }
+        }
+      }
+      if [log][user_id] {
+        mutate {
+          add_field => { "user_id" => "%{[log][user_id]}" }
+        }
+      }
+      if [log][request_id] {
+        mutate {
+          add_field => { "request_id" => "%{[log][request_id]}" }
+        }
+      }
+      if [log][correlation_id] {
+        mutate {
+          add_field => { "correlation_id" => "%{[log][correlation_id]}" }
+        }
+      }
+      if [log][pii_fields] {
+        mutate {
+          add_field => { "pii_fields" => "%{[log][pii_fields]}" }
+        }
+      } else {
+        grok {
+          match => { "message" => "%{DATA:email}" }
+          tag_on_failure => []
+        }
+        if [email] {
+          mutate {
+            add_field => { "pii_fields" => "email" }
+          }
+        }
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => ["${ELASTICSEARCH_HOSTS}"]
+        index => "fitpulse-logs-%{+YYYY.MM.dd}"
+        document_type => "_doc"
+        user => "${ELASTICSEARCH_USER}"
+        password => "${ELASTICSEARCH_PASSWORD}"
+        ssl => false
+        ilm_enabled => true
+        ilm_policy => "fitpulse-logs-policy"
+        template_name => "fitpulse-logs-template"
+      }
+    }

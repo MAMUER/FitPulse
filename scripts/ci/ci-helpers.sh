@@ -35,16 +35,15 @@ install_golangci_lint() {
 }
 
 install_python_deps() {
-	python -m pip install --upgrade pip==25.0
-	pip install --only-binary :all: -r cmd/ml_generator/requirements.lock.txt
+	python -m pip install --only-binary :all: --upgrade pip==25.0
 }
 
 run_coverage() {
 	set +e
-	mkdir -p coverage
+	mkdir -p bin
 
 	echo "-> Running Go tests with coverage..."
-	go test -count=1 -coverprofile=coverage/coverage.out ./...
+	go test -count=1 -coverprofile=bin/coverage.out ./...
 	GO_TEST_EXIT=$?
 
 	echo "-> Running frontend tests with coverage..."
@@ -59,23 +58,23 @@ run_coverage() {
 	echo "npm test exit code: $NPM_TEST_EXIT"
 
 	pwd
-	ls -la coverage || true
-	if [ -f coverage/lcov.info ]; then
+	ls -la bin || true
+	if [ -f web/coverage/lcov.info ]; then
 		echo "--- original lcov head ---"
-		head -20 coverage/lcov.info || true
-		sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' coverage/lcov.info >../coverage/lcov.info
+		head -20 web/coverage/lcov.info || true
+		sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' web/coverage/lcov.info >bin/lcov.info
 		echo "--- transformed lcov head ---"
-		head -20 ../coverage/lcov.info || true
+		head -20 bin/lcov.info || true
 	else
 		echo "lcov.info not found in web/coverage"
 	fi
-	if [ -f coverage/coverage.out ]; then
+	if [ -f bin/coverage.out ]; then
 		echo "--- fixing Go coverage paths ---"
-		sed -i 's|github.com/MAMUER/project/||g' coverage/coverage.out
-		sed -i '/^api\/gen\//d' coverage/coverage.out
-		head -5 coverage/coverage.out || true
+		sed -i 's|github.com/MAMUER/project/||g' bin/coverage.out
+		sed -i '/^api\/gen\//d' bin/coverage.out
+		head -5 bin/coverage.out || true
 		echo "--- checking Go coverage threshold (80%) ---"
-		GO_COVERAGE=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+		GO_COVERAGE=$(go tool cover -func=bin/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
 		echo "Go coverage: ${GO_COVERAGE}%"
 		GO_COVERAGE_INT=${GO_COVERAGE%.*}
 		if [ "$GO_COVERAGE_INT" -lt 80 ]; then
@@ -84,7 +83,7 @@ run_coverage() {
 		fi
 		echo "Go coverage threshold met: ${GO_COVERAGE}% >= 80%"
 	else
-		echo "WARNING: coverage/coverage.out not found, skipping coverage threshold check"
+		echo "WARNING: bin/coverage.out not found, skipping coverage threshold check"
 	fi
 
 	if [ "$GO_TEST_EXIT" -ne 0 ] || [ "$NPM_TEST_EXIT" -ne 0 ]; then
@@ -308,22 +307,6 @@ echo '✅ Daily health check cron configured (9 AM UTC)'
 "
 }
 
-setup_duckdns() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo '-> Setting up DuckDNS auto-updater...'
-echo '${DUCKDNS_TOKEN}' | sudo tee /etc/duckdns/token > /dev/null
-sudo chmod 600 /etc/duckdns/token
-sudo mkdir -p /etc/duckdns
-"
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/duckdns-update.sh "${VPS_USER}@${VPS_HOST}:/usr/local/bin/duckdns-update.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-sudo chmod +x /usr/local/bin/duckdns-update.sh
-(sudo crontab -l 2>/dev/null | grep -v duckdns-update; echo '*/5 * * * * /usr/local/bin/duckdns-update.sh >> /var/log/duckdns.log 2>&1') | sudo crontab -
-sudo /usr/local/bin/duckdns-update.sh
-echo '✅ DuckDNS auto-updater configured (every 5 minutes)'
-"
-}
-
 setup_ml_dirs() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 echo '-> Creating directories for ML storage...'
@@ -493,7 +476,6 @@ main() {
 		check_connectivity
 		deploy_health_script
 		setup_health_cron
-		setup_duckdns
 		setup_ml_dirs
 		deploy_mlflow
 		check_commits
@@ -521,7 +503,6 @@ main() {
 	show_codeql_diagnostics) show_codeql_diagnostics ;;
 	deploy_health_script) deploy_health_script ;;
 	setup_health_cron) setup_health_cron ;;
-	setup_duckdns) setup_duckdns ;;
 	setup_ml_dirs) setup_ml_dirs ;;
 	deploy_mlflow) deploy_mlflow ;;
 	check_commits) check_commits ;;

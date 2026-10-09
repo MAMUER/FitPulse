@@ -32,7 +32,7 @@ const (
 
 	checkWebhookNonceQuery = `
 		SELECT created_at FROM webhook_nonces
-		WHERE user_id = $1 AND nonce = $2
+		WHERE user_id = $1 AND nonce = $2 AND created_at > NOW() - INTERVAL '1 hour'
 	`
 
 	getSourcesQuery = `
@@ -46,6 +46,8 @@ const (
 		DELETE FROM biometric_data
 		WHERE user_id = $1 AND source = $2 AND device_type = 'open_wearables'
 	`
+
+	deleteExpiredWebhookNoncesQuery = "DELETE FROM webhook_nonces WHERE created_at < NOW() - INTERVAL '1 hour'"
 )
 
 // Storage handles persistence of webhook metrics
@@ -57,6 +59,7 @@ type Storage struct {
 // DB is an interface for database operations
 type DB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error)
 	GetSources(ctx context.Context, userID string) ([]SourceInfo, error)
 	DeleteBySource(ctx context.Context, userID, source string) (int64, error)
 }
@@ -186,6 +189,15 @@ func (s *Storage) CheckAndSaveNonce(ctx context.Context, userID, nonce string, t
 	return nil
 }
 
+// PurgeExpiredNonces removes webhook nonces older than the TTL.
+func (s *Storage) PurgeExpiredNonces(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, deleteExpiredWebhookNoncesQuery)
+	if err != nil {
+		return fmt.Errorf("purge expired nonces: %w", err)
+	}
+	return nil
+}
+
 // SQLDBAdapter adapts *sql.DB to webhook.DB
 type SQLDBAdapter struct {
 	db *sql.DB
@@ -201,6 +213,14 @@ func (a *SQLDBAdapter) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, er
 		return nil, err
 	}
 	return &SQLTxAdapter{tx: tx}, nil
+}
+
+func (a *SQLDBAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+	result, err := a.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &SQLResultAdapter{result: result}, nil
 }
 
 func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
