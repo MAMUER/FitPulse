@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,17 +18,27 @@ import (
 	"github.com/MAMUER/project/internal/auth/claims"
 )
 
-func generateTestKeyPair() (string, string) {
-	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+func generateTestKeyPair() (string, string, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", "", fmt.Errorf("generate key: %w", err)
+	}
+	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal private key: %w", err)
+	}
 	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
-	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal public key: %w", err)
+	}
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
-	return privateKeyPEM, publicKeyPEM
+	return privateKeyPEM, publicKeyPEM, nil
 }
 
 func TestGenerateAccessToken(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateTestKeyPair()
+	require.NoError(t, kpErr)
 	token, err := GenerateAccessToken("user-123", "test@example.com", "client", privateKeyPEM, 15*time.Minute)
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
@@ -41,7 +52,8 @@ func TestGenerateAccessToken(t *testing.T) {
 }
 
 func TestValidateAccessToken_Errors(t *testing.T) {
-	_, publicKeyPEM := generateTestKeyPair()
+	_, publicKeyPEM, kpErr := generateTestKeyPair()
+	require.NoError(t, kpErr)
 
 	t.Run("empty token", func(t *testing.T) {
 		_, err := ValidateAccessToken("", publicKeyPEM)
@@ -54,8 +66,10 @@ func TestValidateAccessToken_Errors(t *testing.T) {
 	})
 
 	t.Run("wrong key", func(t *testing.T) {
-		wrongPrivate, _ := generateTestKeyPair()
-		token, _ := GenerateAccessToken("u", "e@e.com", "client", wrongPrivate, 15*time.Minute)
+		wrongPrivate, _, kpErr := generateTestKeyPair()
+		require.NoError(t, kpErr)
+		token, signErr := GenerateAccessToken("u", "e@e.com", "client", wrongPrivate, 15*time.Minute)
+		require.NoError(t, signErr)
 		_, err := ValidateAccessToken(token, publicKeyPEM)
 		assert.Error(t, err)
 	})
@@ -91,17 +105,19 @@ func TestGenerateES256KeyPair(t *testing.T) {
 }
 
 func TestExpiredAccessToken(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateTestKeyPair()
+	require.NoError(t, kpErr)
 	token, err := GenerateAccessToken("user-1", "a@b.com", "client", privateKeyPEM, -1*time.Hour)
 	require.NoError(t, err)
 
 	_, err = ValidateAccessToken(token, publicKeyPEM)
 	assert.Error(t, err)
-	_ = publicKeyPEM
+
 }
 
 func TestTokenStructure(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateTestKeyPair()
+	privateKeyPEM, _, kpErr := generateTestKeyPair()
+	require.NoError(t, kpErr)
 	token, err := GenerateAccessToken("user-123", "test@example.com", "client", privateKeyPEM, 15*time.Minute)
 	require.NoError(t, err)
 
@@ -117,11 +133,12 @@ func TestTokenStructure(t *testing.T) {
 	assert.Equal(t, "user-123", parsedClaims.UserID)
 	assert.Equal(t, "test@example.com", parsedClaims.Email)
 	assert.Equal(t, "client", parsedClaims.Role)
-	_ = publicKeyPEM
+
 }
 
 func TestPublicKeyPEMToJWKS(t *testing.T) {
-	_, publicKeyPEM := generateTestKeyPair()
+	_, publicKeyPEM, kpErr := generateTestKeyPair()
+	require.NoError(t, kpErr)
 	jsonBytes, err := PublicKeyPEMToJWKS(publicKeyPEM)
 	require.NoError(t, err)
 	assert.NotEmpty(t, jsonBytes)

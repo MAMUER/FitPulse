@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/MAMUER/project/internal/logger"
 )
 
@@ -99,7 +101,9 @@ func TestClassifyHandler_ValidRequest(t *testing.T) {
 		},
 	}
 
-	body, _ := json.Marshal(reqBody)
+	body, err := json.Marshal(reqBody)
+
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "POST", "/classify", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -110,8 +114,7 @@ func TestClassifyHandler_ValidRequest(t *testing.T) {
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 	var resp classifyResponse
-	err := json.NewDecoder(w.Body).Decode(&resp)
-	assert.NoError(t, err)
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	assert.Equal(t, "success", resp.Status)
 	assert.NotEmpty(t, resp.State)
 	assert.Greater(t, resp.Confidence, float64(0))
@@ -132,7 +135,9 @@ func TestClassifyHandler_DefaultValues(t *testing.T) {
 		},
 	}
 
-	body, _ := json.Marshal(reqBody)
+	body, err := json.Marshal(reqBody)
+
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "POST", "/classify", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -161,7 +166,8 @@ func TestClassifyHandler_ValidationErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reqBody := classifyRequest{PhysiologicalData: tt.payload}
-			body, _ := json.Marshal(reqBody)
+			body, err := json.Marshal(reqBody)
+			require.NoError(t, err)
 			w := httptest.NewRecorder()
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/classify", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")

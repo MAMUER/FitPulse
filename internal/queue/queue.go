@@ -122,7 +122,23 @@ type rabbitConsumer struct {
 	reconnectBackoff time.Duration
 }
 
-func dialAndDeclare(url, queueName string) (*amqp.Connection, *amqp.Channel, error) {
+// closeAMQPResources закрывает канал и соединение RabbitMQ, логируя ошибки.
+// Ошибки закрытия уже используемого канала/соединения некритичны, поэтому
+// они логируются как предупреждение, а не теряются молча.
+func closeAMQPResources(log *logger.Logger, conn *amqp.Connection, channel *amqp.Channel) {
+	if channel != nil {
+		if closeErr := channel.Close(); closeErr != nil && !isClosedError(closeErr) {
+			log.Warn("failed to close AMQP channel", zap.Error(closeErr))
+		}
+	}
+	if conn != nil {
+		if closeErr := conn.Close(); closeErr != nil && !isClosedError(closeErr) {
+			log.Warn("failed to close AMQP connection", zap.Error(closeErr))
+		}
+	}
+}
+
+func dialAndDeclare(url, queueName string, log *logger.Logger) (*amqp.Connection, *amqp.Channel, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
@@ -130,13 +146,12 @@ func dialAndDeclare(url, queueName string) (*amqp.Connection, *amqp.Channel, err
 
 	ch, err := conn.Channel()
 	if err != nil {
-		_ = conn.Close()
+		closeAMQPResources(log, conn, nil)
 		return nil, nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
 	if err := DeclareQueueWithDLQ(ch, queueName); err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+		closeAMQPResources(log, conn, ch)
 		return nil, nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
@@ -147,7 +162,7 @@ func dialAndDeclare(url, queueName string) (*amqp.Connection, *amqp.Channel, err
 func NewPublisher(url, queueName string, log *logger.Logger, opts ...PublisherOption) (Publisher, error) {
 	log = ensureLogger(log)
 
-	conn, ch, err := dialAndDeclare(url, queueName)
+	conn, ch, err := dialAndDeclare(url, queueName, log)
 	if err != nil {
 		return nil, err
 	}
@@ -176,9 +191,9 @@ func (p *rabbitPublisher) reconnect() error {
 		return errors.New("publisher is closed")
 	}
 
-	closeResourcesKeepClosedFlag(&p.mu, p.conn, p.channel)
+	closeResourcesKeepClosedFlag(p.log, &p.mu, p.conn, p.channel)
 
-	conn, ch, err := dialAndDeclare(p.url, p.queue)
+	conn, ch, err := dialAndDeclare(p.url, p.queue, p.log)
 	if err != nil {
 		return fmt.Errorf("failed to reconnect publisher: %w", err)
 	}
@@ -197,23 +212,21 @@ func (c *rabbitConsumer) reconnect() error {
 		return errors.New("consumer is closed")
 	}
 
-	closeResourcesKeepClosedFlag(&c.mu, c.conn, c.channel)
+	closeResourcesKeepClosedFlag(c.log, &c.mu, c.conn, c.channel)
 
-	conn, ch, err := dialAndDeclare(c.url, c.queue)
+	conn, ch, err := dialAndDeclare(c.url, c.queue, c.log)
 	if err != nil {
 		return fmt.Errorf("failed to reconnect consumer: %w", err)
 	}
 
 	if qosErr := ch.Qos(1, 0, false); qosErr != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+		closeAMQPResources(c.log, conn, ch)
 		return fmt.Errorf("failed to set QoS on reconnect: %w", qosErr)
 	}
 
 	msgs, err := ch.Consume(c.queue, "", false, false, false, false, nil)
 	if err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+		closeAMQPResources(c.log, conn, ch)
 		return fmt.Errorf("failed to consume on reconnect: %w", err)
 	}
 
@@ -319,36 +332,29 @@ func closeResources(mu *sync.RWMutex, closed *bool, conn *amqp.Connection, chann
 	return nil
 }
 
-func closeResourcesKeepClosedFlag(mu *sync.RWMutex, conn *amqp.Connection, channel *amqp.Channel) {
+func closeResourcesKeepClosedFlag(log *logger.Logger, mu *sync.RWMutex, conn *amqp.Connection, channel *amqp.Channel) {
 	mu.Lock()
 	defer mu.Unlock()
-	if channel != nil {
-		_ = channel.Close()
-	}
-	if conn != nil {
-		_ = conn.Close()
-	}
+	closeAMQPResources(log, conn, channel)
 }
 
 // NewConsumer создаёт нового потребителя
 func NewConsumer(url, queueName string, log *logger.Logger, opts ...ConsumerOption) (Consumer, error) {
 	log = ensureLogger(log)
 
-	conn, ch, err := dialAndDeclare(url, queueName)
+	conn, ch, err := dialAndDeclare(url, queueName, log)
 	if err != nil {
 		return nil, err
 	}
 
 	if qosErr := ch.Qos(1, 0, false); qosErr != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+		closeAMQPResources(log, conn, ch)
 		return nil, fmt.Errorf("failed to set QoS: %w", qosErr)
 	}
 
 	msgs, err := ch.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+		closeAMQPResources(log, conn, ch)
 		return nil, fmt.Errorf("failed to consume: %w", err)
 	}
 

@@ -50,7 +50,7 @@ func (r *BiometricRepository) BatchCreate(ctx context.Context, records []*entity
 
 	}
 
-	defer func() { _ = tx.Rollback() }()
+	defer shared.RollbackTx(tx)
 
 	query := shared.BiometricBatchCreateQuery
 
@@ -105,7 +105,7 @@ func (r *BiometricRepository) GetByUserID(ctx context.Context, userID, metricTyp
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	return shared.ScanBiometricRows(rows)
 

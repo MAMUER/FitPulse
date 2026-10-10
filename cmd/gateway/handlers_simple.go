@@ -158,7 +158,7 @@ func (g *gateway) listMealsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	meals := globalStore.getMeals(userID)
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 		"meals":  meals,
 	})
@@ -190,9 +190,7 @@ func (g *gateway) createMealHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	meal := globalStore.addMeal(userID, req.Name, req.Calories)
 	meal.Time = req.Time
-	w.Header().Set(headerContentType, contentTypeJSON)
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "success",
 		"meal":   meal,
 	})
@@ -214,7 +212,7 @@ func (g *gateway) deleteMealHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 	})
 }
@@ -227,7 +225,7 @@ func (g *gateway) listCalendarEventsHandler(w http.ResponseWriter, r *http.Reque
 	}
 	events := globalStore.getEvents(userID)
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 		"events": events,
 	})
@@ -256,9 +254,7 @@ func (g *gateway) createCalendarEventHandler(w http.ResponseWriter, r *http.Requ
 		req.Date = time.Now().Format("2006-01-02")
 	}
 	event := globalStore.addEvent(userID, req.Title, req.Date, req.Type, req.Description)
-	w.Header().Set(headerContentType, contentTypeJSON)
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "success",
 		"event":  event,
 	})
@@ -291,7 +287,7 @@ func (g *gateway) updateCalendarEventHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 		"event":  event,
 	})
@@ -313,7 +309,7 @@ func (g *gateway) deleteCalendarEventHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 	})
 }
@@ -326,7 +322,7 @@ func (g *gateway) listVideosHandler(w http.ResponseWriter, r *http.Request) {
 		{ID: "v4", Title: "Растяжка", Minutes: 15, Kcal: 90, Type: "stretching", VideoURL: "https://example.com/stretching.mp4"},
 	}
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 		"videos": videos,
 	})

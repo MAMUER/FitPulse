@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -177,10 +178,19 @@ func (m *mockTrainingClient) GetProgress(ctx context.Context, req *trainingpb.Ge
 
 func newTestGateway() *gateway {
 	log := &logger.Logger{Logger: zap.NewNop()}
-	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+	privateKey, keygenErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if keygenErr != nil {
+		panic(fmt.Sprintf("generate test key: %v", keygenErr))
+	}
+	privateKeyBytes, marshalErr := x509.MarshalECPrivateKey(privateKey)
+	if marshalErr != nil {
+		panic(fmt.Sprintf("marshal private key: %v", marshalErr))
+	}
 	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
-	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyBytes, pubMarshalErr := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if pubMarshalErr != nil {
+		panic(fmt.Sprintf("marshal public key: %v", pubMarshalErr))
+	}
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
 
 	return &gateway{
@@ -225,7 +235,10 @@ func withOAuth(g *gateway) {
 }
 
 func withProxy(g *gateway, targetURL string) {
-	u, _ := url.Parse(targetURL)
+	u, urlErr := url.Parse(targetURL)
+	if urlErr != nil {
+		panic(fmt.Sprintf("parse target url: %v", urlErr))
+	}
 	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(u)
 }
 

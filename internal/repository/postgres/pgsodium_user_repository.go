@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/repository/shared"
 	"strings"
 	"time"
 
@@ -802,7 +803,7 @@ func (r *PgsodiumUserRepository) List(ctx context.Context, page, pageSize int) (
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var users []*entity.User
 
@@ -864,7 +865,7 @@ func (r *PgsodiumUserRepository) ListByRole(ctx context.Context, role string, pa
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var users []*entity.User
 

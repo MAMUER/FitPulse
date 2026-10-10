@@ -71,7 +71,7 @@ func TestCheckGRPCService(t *testing.T) {
 
 func TestCheckTCPService(t *testing.T) {
 	t.Run("empty address returns down", func(t *testing.T) {
-		got := checkTCPService("")
+		got := checkTCPService(zap.NewNop(), "")
 		assert.Equal(t, "down", got)
 	})
 }

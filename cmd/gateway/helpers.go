@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -35,6 +38,17 @@ func safeIntToInt32(v int) int32 {
 		return -2147483648
 	}
 	return int32(v)
+}
+
+// writeJSON отправляет JSON-ответ с указанным статусом.
+// Ошибка кодирования логируется: ответ уже начат, поэтому повторно
+// отправить ошибку клиенту нельзя.
+func (g *gateway) writeJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set(headerContentType, contentTypeJSON)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
+	}
 }
 
 // parsePagination extracts page and page_size from query parameters

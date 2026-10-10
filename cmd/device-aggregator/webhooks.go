@@ -63,6 +63,11 @@ func handleAggregatorWebhook(w http.ResponseWriter, r *http.Request, extractFiel
 }
 
 func readBody(r *http.Request) ([]byte, error) {
-	defer func() { _ = r.Body.Close() }()
+	defer func() {
+		if closeErr := r.Body.Close(); closeErr != nil {
+			log := logger.New("device-aggregator-webhook")
+			log.Warn("Failed to close webhook request body", zap.Error(closeErr))
+		}
+	}()
 	return io.ReadAll(r.Body)
 }

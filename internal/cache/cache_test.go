@@ -94,8 +94,8 @@ func TestDel(t *testing.T) {
 	defer mr.Close()
 
 	ctx := context.Background()
-	_ = client.Set(ctx, "key1", "val1", 10*time.Second)
-	_ = client.Set(ctx, "key2", "val2", 10*time.Second)
+	require.NoError(t, client.Set(ctx, "key1", "val1", 10*time.Second))
+	require.NoError(t, client.Set(ctx, "key2", "val2", 10*time.Second))
 
 	err := client.Del(ctx, "key1", "key2")
 	assert.NoError(t, err)

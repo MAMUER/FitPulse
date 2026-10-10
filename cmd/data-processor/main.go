@@ -53,7 +53,6 @@ func main() {
 	}()
 
 	config.InitViper("data-processor")
-	_ = config.GetViper()
 
 	port := config.GetEnv("DATA_PROCESSOR_PORT", "8084")
 	metricsPort := config.GetEnv("DATA_PROCESSOR_METRICS_PORT", "9092")
@@ -69,7 +68,9 @@ func main() {
 	healthMux := http.NewServeMux()
 	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"healthy"}`))
+		if _, err := w.Write([]byte(`{"status":"healthy"}`)); err != nil {
+			log.Warn("Failed to write health response", zap.Error(err))
+		}
 	})
 	healthSrv := &http.Server{
 		Addr:              ":" + port,
@@ -107,11 +108,15 @@ func main() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = healthSrv.Shutdown(shutdownCtx)
+		if shutdownErr := healthSrv.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Warn("Health server shutdown returned an error", zap.Error(shutdownErr))
+		}
 	}()
 	go func() {
 		defer wg.Done()
-		_ = metricsSrv.Shutdown(shutdownCtx)
+		if shutdownErr := metricsSrv.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Warn("Metrics server shutdown returned an error", zap.Error(shutdownErr))
+		}
 	}()
 	wg.Wait()
 }
@@ -131,7 +136,11 @@ func run(ctx context.Context, log *logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
 	}
-	defer func() { _ = database.Close() }()
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			log.Warn("Failed to close database connection", zap.Error(closeErr))
+		}
+	}()
 
 	rabbitURL := config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
 	if rabbitURL == "" {
@@ -143,7 +152,11 @@ func run(ctx context.Context, log *logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
-	defer func() { _ = consumer.Close() }()
+	defer func() {
+		if closeErr := consumer.Close(); closeErr != nil {
+			log.Warn("Failed to close queue consumer", zap.Error(closeErr))
+		}
+	}()
 
 	stopDepthReporter := queue.StartDepthReporter(ctx, consumer.Channel(), queueName)
 	defer stopDepthReporter()

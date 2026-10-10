@@ -18,10 +18,12 @@ func TestBiometricServer_BatchAddRecords_Empty(t *testing.T) {
 	db, _, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.BatchAddRecords(context.Background(), &pb.BatchAddRecordsRequest{
+	_, err = s.BatchAddRecords(context.Background(), &pb.BatchAddRecordsRequest{
 		UserId: "user-123",
 	})
 	require.Error(t, err)
@@ -35,10 +37,12 @@ func TestBiometricServer_UpdateRecord_Validation(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
+		_, err = s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
 			Id:    "",
 			Value: 75.0,
 		})
@@ -52,10 +56,12 @@ func TestBiometricServer_UpdateRecord_Validation(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
+		_, err = s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
 			Id:    "record-1",
 			Value: -10.0,
 		})
@@ -70,10 +76,12 @@ func TestBiometricServer_DeleteRecord_EmptyID(t *testing.T) {
 	db, _, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
+	_, err = s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
 		Id: "",
 	})
 	require.Error(t, err)

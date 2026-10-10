@@ -121,7 +121,10 @@ func (c *ONNXClassifier) FeatureKeys() []string {
 // DefaultONNXWeightsPath возвращает ожидаемый путь к экспортированным весам.
 func DefaultONNXWeightsPath() string {
 	// Assuming binary runs from repo root or cmd/classifier
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
 	if filepath.Base(cwd) == "cmd" || filepath.Base(cwd) == "classifier" {
 		return filepath.Join("..", "..", "models", "classifier_weights.json")
 	}

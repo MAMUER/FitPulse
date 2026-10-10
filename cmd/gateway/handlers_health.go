@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -40,7 +40,7 @@ func checkGRPCService(conn *grpc.ClientConn, serviceName string) string {
 // checkTCPService performs a simple TCP dial to check if the service port is open.
 // This is used as a fallback when gRPC health check is not available or for
 // services that use lazy client initialization (biometric, training).
-func checkTCPService(addr string) string {
+func checkTCPService(log *zap.Logger, addr string) string {
 	if addr == "" {
 		return statusDown
 	}
@@ -53,7 +53,11 @@ func checkTCPService(addr string) string {
 	if err != nil {
 		return statusDown
 	}
-	_ = conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Warn("Failed to close health probe connection", zap.Error(closeErr))
+		}
+	}()
 	return statusUp
 }
 
@@ -89,14 +93,14 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	if g.biometricClient != nil {
 		services["biometric"] = statusUp
 	} else {
-		services["biometric"] = checkTCPService(g.biometricAddr)
+		services["biometric"] = checkTCPService(g.log.Logger, g.biometricAddr)
 	}
 
 	// Check training service (optional) — same approach as biometric.
 	if g.trainingClient != nil {
 		services["training"] = statusUp
 	} else {
-		services["training"] = checkTCPService(g.trainingAddr)
+		services["training"] = checkTCPService(g.log.Logger, g.trainingAddr)
 	}
 
 	// Status is "ok" only if user service is healthy (biometric/training are optional)
@@ -105,8 +109,7 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 		status = "degraded"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":       status,
 		"service":      "gateway",
 		"timestamp":    time.Now().UTC().Format(time.RFC3339),

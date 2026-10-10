@@ -100,7 +100,11 @@ func (s *Storage) SaveMetrics(ctx context.Context, payload *OpenWearablesWebhook
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Warn("Failed to rollback metrics transaction", zap.Error(rollbackErr))
+		}
+	}()
 
 	for _, metric := range payload.Metrics {
 		if err := s.saveMetric(ctx, tx, payload, metric); err != nil {
@@ -166,7 +170,11 @@ func (s *Storage) CheckAndSaveNonce(ctx context.Context, userID, nonce string, t
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			s.log.Warn("Failed to rollback nonce transaction", zap.Error(rollbackErr))
+		}
+	}()
 
 	var createdAt time.Time
 	err = tx.QueryRowContext(ctx, checkWebhookNonceQuery, userID, nonce).Scan(&createdAt)
@@ -223,16 +231,17 @@ func (a *SQLDBAdapter) ExecContext(ctx context.Context, query string, args ...in
 	return &SQLResultAdapter{result: result}, nil
 }
 
-func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) (sources []SourceInfo, err error) {
 	rows, err := a.db.QueryContext(ctx, getSourcesQuery, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query sources: %w", err)
 	}
 	defer func() {
-		_ = rows.Close()
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close sources rows: %w", closeErr)
+		}
 	}()
 
-	var sources []SourceInfo
 	for rows.Next() {
 		var source string
 		var connectedAt time.Time
@@ -246,9 +255,12 @@ func (a *SQLDBAdapter) GetSources(ctx context.Context, userID string) ([]SourceI
 		})
 	}
 
-	return sources, rows.Err()
-}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, fmt.Errorf("iterate sources: %w", rowsErr)
+	}
 
+	return sources, nil
+}
 func (a *SQLDBAdapter) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
 	result, err := a.db.ExecContext(ctx, deleteBySourceQuery, userID, source)
 	if err != nil {

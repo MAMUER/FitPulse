@@ -178,8 +178,40 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		"training_goal":  trainingGoal,
 		"weeks":          weeks,
 	}
-	planStruct, _ := structpb.NewStruct(planData)
+	planStruct, err := structpb.NewStruct(planData)
+	if err != nil {
+		s.log.Error("Не удалось сериализовать план", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to serialize plan data")
+	}
 	return &pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil
+}
+
+// buildPlanSummaries сериализует доменные планы в protobuf-структуры для ListPlans.
+func buildPlanSummaries(log *logger.Logger, plans []*entity.TrainingPlan) ([]*pb.TrainingPlan, error) {
+	pbPlans := make([]*pb.TrainingPlan, 0, len(plans))
+	for _, plan := range plans {
+		planData := map[string]interface{}{
+			"name":           personalizedPlanName,
+			"training_goal":  "recovery",
+			"duration_weeks": toInt32(int64(plan.DurationWeeks)),
+		}
+		planDataStruct, err := structpb.NewStruct(planData)
+		if err != nil {
+			log.Error("Не удалось сериализовать план", zap.Error(err), zap.String("plan_id", plan.ID))
+			return nil, status.Error(codes.Internal, "failed to serialize plan data")
+		}
+
+		pbPlans = append(pbPlans, &pb.TrainingPlan{
+			Id:          plan.ID,
+			UserId:      plan.UserID,
+			PlanData:    planDataStruct,
+			GeneratedAt: timestamppb.New(plan.CreatedAt),
+			StartDate:   timestamppb.New(plan.CreatedAt),
+			EndDate:     timestamppb.New(plan.UpdatedAt),
+			Status:      "active",
+		})
+	}
+	return pbPlans, nil
 }
 
 func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID string) {
@@ -434,24 +466,9 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
-		var pbPlans []*pb.TrainingPlan
-		for _, plan := range plans {
-			planData := map[string]interface{}{
-				"name":           personalizedPlanName,
-				"training_goal":  "recovery",
-				"duration_weeks": toInt32(int64(plan.DurationWeeks)),
-			}
-			planDataStruct, _ := structpb.NewStruct(planData)
-
-			pbPlans = append(pbPlans, &pb.TrainingPlan{
-				Id:          plan.ID,
-				UserId:      plan.UserID,
-				PlanData:    planDataStruct,
-				GeneratedAt: timestamppb.New(plan.CreatedAt),
-				StartDate:   timestamppb.New(plan.CreatedAt),
-				EndDate:     timestamppb.New(plan.UpdatedAt),
-				Status:      "active",
-			})
+		pbPlans, err := buildPlanSummaries(s.log, plans)
+		if err != nil {
+			return nil, err
 		}
 
 		return &pb.ListPlansResponse{Plans: pbPlans, Total: toInt32(int64(len(pbPlans)))}, nil
@@ -581,11 +598,13 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 	}
 
 	if achievementID != "" {
-		_, _ = s.db.ExecContext(ctx, `
+		if _, execErr := s.db.ExecContext(ctx, `
 			INSERT INTO user_achievements (user_id, achievement_id)
 			VALUES ($1, $2)
 			ON CONFLICT (user_id, achievement_id) DO NOTHING
-		`, req.UserId, achievementID)
+		`, req.UserId, achievementID); execErr != nil {
+			s.log.Warn("Не удалось записать достижение", zap.Error(execErr), zap.String("achievement_id", achievementID))
+		}
 	}
 
 	return &pb.CompleteWorkoutResponse{Success: true, AchievementId: achievementID}, nil
@@ -720,7 +739,7 @@ func populatePlanWeeks(ctx context.Context, db *sql.DB, planID string, log *logg
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
-		dayData, dayErr := loadDayWithExercises(ctx, db, planID, dayID)
+		dayData, dayErr := loadDayWithExercises(ctx, db, log, planID, dayID)
 		if dayErr != nil {
 			return nil, dayErr
 		}
@@ -797,7 +816,7 @@ func assembleWeeks(weeksMap map[int32]map[string]interface{}, log *logger.Logger
 	return weeks, nil
 }
 
-func loadDayWithExercises(ctx context.Context, db *sql.DB, planID string, dayID string) (map[string]interface{}, error) {
+func loadDayWithExercises(ctx context.Context, db *sql.DB, log *logger.Logger, planID string, dayID string) (map[string]interface{}, error) {
 	var dayOfWeek, duration int32
 	var trainingDate sql.NullTime
 	var trainingType, notes sql.NullString
@@ -840,7 +859,7 @@ func loadDayWithExercises(ctx context.Context, db *sql.DB, planID string, dayID 
 	}
 	defer func() {
 		if closeErr := exRows.Close(); closeErr != nil {
-			_ = closeErr
+			log.Warn("Не удалось закрыть выборку упражнений", zap.Error(closeErr))
 		}
 	}()
 
@@ -1250,7 +1269,9 @@ func main() {
 	}()
 	go func() {
 		defer wg.Done()
-		_ = metricsSrv.Shutdown(shutdownCtx)
+		if shutdownErr := metricsSrv.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Warn("Metrics server shutdown returned an error", zap.Error(shutdownErr))
+		}
 	}()
 	wg.Wait()
 	log.Info("Training service остановлен")

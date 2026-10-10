@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpenWearablesWebhookHandler(t *testing.T) {
@@ -33,7 +35,8 @@ func TestOpenWearablesWebhookHandler(t *testing.T) {
 			"source":  "open_wearables",
 			"metrics": []map[string]interface{}{{"metric_type": "heart_rate", "value": 72.0}},
 		}
-		body, _ := json.Marshal(payload)
+		body, err := json.Marshal(payload)
+		require.NoError(t, err)
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
 		openWearablesWebhookHandler(w, r)
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -49,7 +52,8 @@ func TestHandleAggregatorWebhookSignature(t *testing.T) {
 		"source":  "open_wearables",
 		"metrics": []map[string]interface{}{{"metric_type": "heart_rate", "value": 72.0}},
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
 
 	t.Run("valid payload is accepted", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -93,7 +97,8 @@ func TestHandleAggregatorWebhook_WriteResponseError(t *testing.T) {
 		"user_id": "user-1",
 		"source":  "open_wearables",
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
 
 	w := &failingWriter{ResponseWriter: httptest.NewRecorder()}
 	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))

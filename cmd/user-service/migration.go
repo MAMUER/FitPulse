@@ -257,7 +257,10 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 	if err != nil {
 		log.Error("Failed to backfill PII in users", zap.Error(err))
 	} else {
-		rows, _ := res.RowsAffected()
+		rows, rowsErr := res.RowsAffected()
+		if rowsErr != nil {
+			log.Warn("Failed to count backfilled PII rows in users", zap.Error(rowsErr))
+		}
 		log.Info("PII backfill complete for users", zap.Int64("updated", rows))
 	}
 

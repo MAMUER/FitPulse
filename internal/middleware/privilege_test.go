@@ -147,7 +147,9 @@ func TestRequirePrivilege_RoleMatch(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 
 	mock.ExpectQuery("SELECT role FROM users WHERE id = $1").
 		WithArgs("user-1").

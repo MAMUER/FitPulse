@@ -13,8 +13,12 @@ import (
 
 func TestServiceName_FromOTEL_SERVICE_NAME(t *testing.T) {
 	original := os.Getenv("OTEL_SERVICE_NAME")
-	_ = os.Setenv("OTEL_SERVICE_NAME", "my-service")
-	defer func() { _ = os.Setenv("OTEL_SERVICE_NAME", original) }()
+	require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", "my-service"))
+	defer func() {
+		if err := os.Setenv("OTEL_SERVICE_NAME", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	name := serviceName()
 	assert.Equal(t, "my-service", name)
@@ -23,11 +27,11 @@ func TestServiceName_FromOTEL_SERVICE_NAME(t *testing.T) {
 func TestServiceName_FromSERVICE_NAME(t *testing.T) {
 	originalOTEL := os.Getenv("OTEL_SERVICE_NAME")
 	originalSERVICE := os.Getenv("SERVICE_NAME")
-	_ = os.Unsetenv("OTEL_SERVICE_NAME")
-	_ = os.Setenv("SERVICE_NAME", "fallback-service")
+	require.NoError(t, os.Unsetenv("OTEL_SERVICE_NAME"))
+	require.NoError(t, os.Setenv("SERVICE_NAME", "fallback-service"))
 	defer func() {
-		_ = os.Setenv("OTEL_SERVICE_NAME", originalOTEL)
-		_ = os.Setenv("SERVICE_NAME", originalSERVICE)
+		require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", originalOTEL))
+		require.NoError(t, os.Setenv("SERVICE_NAME", originalSERVICE))
 	}()
 
 	name := serviceName()
@@ -37,11 +41,11 @@ func TestServiceName_FromSERVICE_NAME(t *testing.T) {
 func TestServiceName_Default(t *testing.T) {
 	originalOTEL := os.Getenv("OTEL_SERVICE_NAME")
 	originalSERVICE := os.Getenv("SERVICE_NAME")
-	_ = os.Unsetenv("OTEL_SERVICE_NAME")
-	_ = os.Unsetenv("SERVICE_NAME")
+	require.NoError(t, os.Unsetenv("OTEL_SERVICE_NAME"))
+	require.NoError(t, os.Unsetenv("SERVICE_NAME"))
 	defer func() {
-		_ = os.Setenv("OTEL_SERVICE_NAME", originalOTEL)
-		_ = os.Setenv("SERVICE_NAME", originalSERVICE)
+		require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", originalOTEL))
+		require.NoError(t, os.Setenv("SERVICE_NAME", originalSERVICE))
 	}()
 
 	name := serviceName()
@@ -50,8 +54,12 @@ func TestServiceName_Default(t *testing.T) {
 
 func TestInitTracer_EmptyEndpoint(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -62,8 +70,12 @@ func TestInitTracer_EmptyEndpoint(t *testing.T) {
 
 func TestInitTracer_InvalidEndpoint(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -79,8 +91,12 @@ func TestShutdown_NoopWhenNotInitialized(t *testing.T) {
 
 func TestShutdown_MultipleCalls(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -113,8 +129,12 @@ func TestClientHandlerOption_ReturnsOption(t *testing.T) {
 
 func TestInitTracer_ReturnsNoopOnError(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "bad-endpoint")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "bad-endpoint"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)

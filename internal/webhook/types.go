@@ -10,8 +10,11 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/sanitize"
 )
+
+var pkgLog = logger.New("webhook")
 
 var (
 	ErrInvalidSignature  = errors.New("invalid signature")
@@ -180,7 +183,9 @@ func DecodePayload(body []byte) (*OpenWearablesWebhookPayload, error) {
 func WriteResponse(w http.ResponseWriter, statusCode int, response WebhookResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		pkgLog.Warn("failed to encode response", zap.Error(err))
+	}
 }
 
 // LogFields returns zap fields for logging

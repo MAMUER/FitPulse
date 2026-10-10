@@ -5,6 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/logger"
@@ -30,7 +31,6 @@ func main() {
 	defer func() { _ = log.Sync() }()
 
 	config.InitViper("device-aggregator")
-	_ = config.GetViper()
 
 	port := config.GetEnv("DEVICE_AGGREGATOR_PORT", "8083")
 	metricsPort := config.GetEnv("DEVICE_AGGREGATOR_METRICS_PORT", "9093")
@@ -39,7 +39,9 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"healthy","service":"device-aggregator"}`))
+		if _, err := w.Write([]byte(`{"status":"healthy","service":"device-aggregator"}`)); err != nil {
+			log.Warn("Failed to write health response", zap.Error(err))
+		}
 	})
 	mux.HandleFunc("/api/v1/integrations/open-wearables/webhook", openWearablesWebhookHandler)
 

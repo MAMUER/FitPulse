@@ -62,9 +62,7 @@ func (g *gateway) handleMLFeedback(w http.ResponseWriter, r *http.Request) {
 		Timestamp:   timestamp,
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	g.writeJSON(w, http.StatusOK, resp)
 }
 
 // generateID generates a simple unique ID for feedback

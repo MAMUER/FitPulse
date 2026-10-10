@@ -95,5 +95,7 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.WriteString(w, `{}`)
+	if _, err := io.WriteString(w, `{}`); err != nil {
+		g.log.Warn("Failed to write CSP report response", zap.Error(err))
+	}
 }

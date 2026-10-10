@@ -43,10 +43,12 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
+		_, err = s.AddRecord(context.Background(), &pb.AddRecordRequest{
 			UserId:     "",
 			MetricType: "heart_rate",
 			Value:      75.0,
@@ -61,10 +63,12 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
+		_, err = s.AddRecord(context.Background(), &pb.AddRecordRequest{
 			UserId:     "user-123",
 			MetricType: "heart_rate",
 			Value:      -10.0,
@@ -81,10 +85,12 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 
 		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE id = \$1\)`).WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
+		_, err = s.AddRecord(context.Background(), &pb.AddRecordRequest{
 			UserId:     "00000000-0000-0000-0000-000000000000",
 			MetricType: "heart_rate",
 			Value:      75.0,
@@ -99,10 +105,12 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
+		_, err = s.AddRecord(context.Background(), &pb.AddRecordRequest{
 			UserId:     "user-123",
 			MetricType: "heart_rate",
 			Value:      300.0,
@@ -117,10 +125,12 @@ func TestBiometricServer_AddRecord_InvalidRequest(t *testing.T) {
 		db, _, cleanup := setupTestDB(t)
 		defer cleanup()
 
-		log, _ := zap.NewDevelopment()
+		log, err := zap.NewDevelopment()
+
+		require.NoError(t, err)
 		s := newTestServer(db, log)
 
-		_, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
+		_, err = s.AddRecord(context.Background(), &pb.AddRecordRequest{
 			UserId:     "user-123",
 			MetricType: "spo2",
 			Value:      60.0,
@@ -142,7 +152,9 @@ func TestBiometricServer_AddRecord_Success(t *testing.T) {
 		sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 	).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("generated-record-id"))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
 	resp, err := s.AddRecord(context.Background(), &pb.AddRecordRequest{
@@ -165,7 +177,9 @@ func TestBiometricServer_GetRecords_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
 			AddRow("record-1", "user-123", "heart_rate", 75.0, time.Now(), "test", time.Now()))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
 	resp, err := s.GetRecords(context.Background(), &pb.GetRecordsRequest{
@@ -187,10 +201,12 @@ func TestBiometricServer_GetRecords_QueryError(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("query failed"))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.GetRecords(context.Background(), &pb.GetRecordsRequest{
+	_, err = s.GetRecords(context.Background(), &pb.GetRecordsRequest{
 		UserId:     "user-123",
 		MetricType: "heart_rate",
 	})
@@ -210,7 +226,9 @@ func TestBiometricServer_GetLatest_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
 			AddRow("record-1", "user-123", "heart_rate", 75.0, now, "test", now))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
 	resp, err := s.GetLatest(context.Background(), &pb.GetLatestRequest{
@@ -230,10 +248,12 @@ func TestBiometricServer_GetLatest_NotFound(t *testing.T) {
 		WithArgs("user-123", "heart_rate").
 		WillReturnError(sql.ErrNoRows)
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.GetLatest(context.Background(), &pb.GetLatestRequest{
+	_, err = s.GetLatest(context.Background(), &pb.GetLatestRequest{
 		UserId:     "user-123",
 		MetricType: "heart_rate",
 	})
@@ -256,7 +276,9 @@ func TestBiometricServer_BatchAddRecords_Success(t *testing.T) {
 	}
 	mock.ExpectCommit()
 
-	log, _ := zap.NewDevelopment()
+	log, logErr := zap.NewDevelopment()
+
+	require.NoError(t, logErr)
 	s := newTestServer(db, log)
 
 	resp, err := s.BatchAddRecords(context.Background(), &pb.BatchAddRecordsRequest{
@@ -281,7 +303,9 @@ func TestBiometricServer_UpdateRecord_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "metric_type", "value", "timestamp", "device_type", "created_at"}).
 			AddRow("record-1", "user-123", "heart_rate", 80.0, ts.AsTime(), "new-device", ts.AsTime()))
 
-	log, _ := zap.NewDevelopment()
+	log, logErr := zap.NewDevelopment()
+
+	require.NoError(t, logErr)
 	s := newTestServer(db, log)
 
 	resp, err := s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
@@ -303,10 +327,12 @@ func TestBiometricServer_UpdateRecord_NotFound(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
+	_, err = s.UpdateRecord(context.Background(), &pb.UpdateRecordRequest{
 		Id:    "missing",
 		Value: 80.0,
 	})
@@ -324,10 +350,12 @@ func TestBiometricServer_DeleteRecord_Success(t *testing.T) {
 		WithArgs("record-1").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
+	_, err = s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
 		Id: "record-1",
 	})
 	require.NoError(t, err)
@@ -341,10 +369,12 @@ func TestBiometricServer_DeleteRecord_NotFound(t *testing.T) {
 		WithArgs("missing").
 		WillReturnResult(sqlmock.NewResult(1, 0))
 
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	s := newTestServer(db, log)
 
-	_, err := s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
+	_, err = s.DeleteRecord(context.Background(), &pb.DeleteRecordRequest{
 		Id: "missing",
 	})
 	require.Error(t, err)

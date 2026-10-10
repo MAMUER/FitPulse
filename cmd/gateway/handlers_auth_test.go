@@ -516,6 +516,7 @@ func TestAuth_SetupTOTPHandler_RateLimited(t *testing.T) {
 
 	for i := 0; i < 6; i++ {
 
+		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
 		_ = g.enforceTOTPRateLimit(ctx, "setup:user-123")
 
 	}
@@ -782,10 +783,10 @@ func TestAuth_EnforceTOTPRateLimit_ExceedsLimit(t *testing.T) {
 
 	for i := 0; i < 6; i++ {
 
+		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
 		_ = g.enforceTOTPRateLimit(ctx, "user-456")
 
 	}
-
 	err := g.enforceTOTPRateLimit(ctx, "user-456")
 
 	assert.Error(t, err)
@@ -1660,6 +1661,7 @@ func TestAuth_VerifyTOTPHandler_RateLimited(t *testing.T) {
 
 	for i := 0; i < 6; i++ {
 
+		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
 		_ = g.enforceTOTPRateLimit(ctx, "verify:user-123")
 
 	}

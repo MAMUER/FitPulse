@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,17 +17,27 @@ import (
 	"github.com/MAMUER/project/internal/auth/claims"
 )
 
-func generateAdapterTestKeyPair() (string, string) {
-	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+func generateAdapterTestKeyPair() (string, string, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", "", fmt.Errorf("generate key: %w", err)
+	}
+	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal private key: %w", err)
+	}
 	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
-	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal public key: %w", err)
+	}
 	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
-	return privateKeyPEM, publicKeyPEM
+	return privateKeyPEM, publicKeyPEM, nil
 }
 
 func TestNewJWTAdapter(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 	assert.NotNil(t, adapter)
 	assert.Equal(t, privateKeyPEM, adapter.privateKeyPEM)
@@ -34,7 +45,8 @@ func TestNewJWTAdapter(t *testing.T) {
 }
 
 func TestJWTAdapter_GenerateAccessToken(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 
 	token, err := adapter.GenerateAccessToken("user-123", "test@example.com", "client", 15*time.Minute)
@@ -50,7 +62,8 @@ func TestJWTAdapter_GenerateAccessToken(t *testing.T) {
 }
 
 func TestJWTAdapter_GenerateRefreshToken(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 
 	token := adapter.GenerateRefreshToken()
@@ -59,7 +72,8 @@ func TestJWTAdapter_GenerateRefreshToken(t *testing.T) {
 }
 
 func TestJWTAdapter_ValidateAccessToken(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 
 	token, err := GenerateAccessToken("user-123", "test@example.com", "client", privateKeyPEM, 15*time.Minute)
@@ -71,7 +85,8 @@ func TestJWTAdapter_ValidateAccessToken(t *testing.T) {
 }
 
 func TestJWTAdapter_ValidateAccessToken_Invalid(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 
 	_, err := adapter.ValidateAccessToken("invalid.token")
@@ -79,7 +94,8 @@ func TestJWTAdapter_ValidateAccessToken_Invalid(t *testing.T) {
 }
 
 func TestJWTAdapter_ComputeTokenFingerprint(t *testing.T) {
-	privateKeyPEM, publicKeyPEM := generateAdapterTestKeyPair()
+	privateKeyPEM, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter(privateKeyPEM, publicKeyPEM)
 
 	fp1 := adapter.ComputeTokenFingerprint("token-abc")
@@ -92,7 +108,8 @@ func TestJWTAdapter_ComputeTokenFingerprint(t *testing.T) {
 }
 
 func TestJWTAdapter_PublicKeyPEMToJWKS(t *testing.T) {
-	_, publicKeyPEM := generateAdapterTestKeyPair()
+	_, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter("", publicKeyPEM)
 
 	jsonBytes, err := adapter.PublicKeyPEMToJWKS(publicKeyPEM)
@@ -117,7 +134,8 @@ func TestJWTAdapter_PublicKeyPEMToJWKS_EmptyPEM(t *testing.T) {
 }
 
 func TestJWTAdapter_PublicKeyPEM(t *testing.T) {
-	_, publicKeyPEM := generateAdapterTestKeyPair()
+	_, publicKeyPEM, kpErr := generateAdapterTestKeyPair()
+	require.NoError(t, kpErr)
 	adapter := NewJWTAdapter("", publicKeyPEM)
 	assert.Equal(t, publicKeyPEM, adapter.PublicKeyPEM())
 }

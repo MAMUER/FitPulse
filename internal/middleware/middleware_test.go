@@ -579,7 +579,9 @@ func setupRequireRoleDB(t *testing.T, expectedRole string, userID string) (*sql.
 			WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow(expectedRole))
 	}
 
-	logger, _ := zap.NewDevelopment()
+	logger, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	return db, logger
 }
 
@@ -857,7 +859,8 @@ func TestCorrelationID(t *testing.T) {
 // ==========================================
 
 func TestRecoveryGRPC_ReturnsErrorOnPanic(t *testing.T) {
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+	require.NoError(t, err)
 
 	interceptor := RecoveryGRPC(log)
 
@@ -876,7 +879,8 @@ func TestRecoveryGRPC_ReturnsErrorOnPanic(t *testing.T) {
 }
 
 func TestRecoveryGRPC_NoPanic(t *testing.T) {
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+	require.NoError(t, err)
 
 	interceptor := RecoveryGRPC(log)
 
@@ -892,7 +896,8 @@ func TestRecoveryGRPC_NoPanic(t *testing.T) {
 }
 
 func TestRecoveryGRPC_PanicWithStringValue(t *testing.T) {
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+	require.NoError(t, err)
 
 	interceptor := RecoveryGRPC(log)
 
@@ -907,7 +912,8 @@ func TestRecoveryGRPC_PanicWithStringValue(t *testing.T) {
 }
 
 func TestRecoveryGRPC_PanicWithIntValue(t *testing.T) {
-	log, _ := zap.NewDevelopment()
+	log, err := zap.NewDevelopment()
+	require.NoError(t, err)
 
 	interceptor := RecoveryGRPC(log)
 

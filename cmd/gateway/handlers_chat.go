@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/MAMUER/project/internal/chat"
 	"github.com/MAMUER/project/internal/middleware"
 	userpb "github.com/MAMUER/project/api/gen/user"
@@ -52,11 +54,13 @@ func (g *gateway) chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"message":   req.Message,
 		"answer":    answer,
 		"user_id":   userID,
 		"timestamp": time.Now().Unix(),
-	})
+	}); err != nil {
+		g.log.Error("Failed to encode chat response", zap.Error(err))
+	}
 }

@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/repository/shared"
 	"time"
 
 	"github.com/MAMUER/project/internal/apperrors"
@@ -48,7 +49,7 @@ func (r *userBodyCompositionRepository) List(ctx context.Context, userID string,
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	records, err := ScanRows(rows, func(rows *sql.Rows) (*port.UserBodyComposition, error) {
 

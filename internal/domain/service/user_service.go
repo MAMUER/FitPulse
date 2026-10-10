@@ -144,13 +144,9 @@ func (s *userService) UpdateProfile(ctx context.Context, userID, fullName string
 }
 
 func (s *userService) DeleteProfile(ctx context.Context, userID, password string) error {
-	user, err := s.users.GetByID(ctx, userID)
-	if err != nil {
+	if _, err := s.users.GetByID(ctx, userID); err != nil {
 		return err
 	}
-
-	// Password verification should be done here
-	_ = user
 
 	return s.users.Delete(ctx, userID)
 }

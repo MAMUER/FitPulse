@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/repository/shared"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/port"
@@ -44,7 +45,7 @@ func (r *inviteCodeRepository) List(ctx context.Context, page, pageSize int) ([]
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var invites []*port.InviteCode
 

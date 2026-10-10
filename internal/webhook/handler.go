@@ -75,7 +75,11 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 
 		w.WriteHeader(http.StatusOK)
 
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+
+			s.log.Warn("Failed to write webhook health response", zap.Error(err))
+
+		}
 
 	})
 
@@ -216,12 +220,16 @@ func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 
 		"status": "ok",
 
 		"providers": sources,
-	})
+	}); err != nil {
+
+		s.log.Warn("Failed to encode providers response", zap.Error(err))
+
+	}
 
 }
 
@@ -482,11 +490,15 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func readBody(r *http.Request) ([]byte, error) {
+func readBody(r *http.Request) (body []byte, err error) {
 
 	limited := http.MaxBytesReader(nil, r.Body, 1<<20)
 
-	defer func() { _ = limited.Close() }()
+	defer func() {
+		if closeErr := limited.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close request body: %w", closeErr)
+		}
+	}()
 
 	return io.ReadAll(limited)
 

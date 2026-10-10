@@ -78,7 +78,9 @@ func TestBiometricServiceIntegration(t *testing.T) {
 	err = database.QueryRowContext(ctx, `INSERT INTO users (email, role) VALUES ($1, $2) RETURNING id`, "test@example.com", "client").Scan(&userID)
 	require.NoError(t, err)
 
-	zapLog, _ := zap.NewDevelopment()
+	zapLog, err := zap.NewDevelopment()
+
+	require.NoError(t, err)
 	log := &logger.Logger{Logger: zapLog}
 
 	rabbitURL := "amqp://testuser:testpass@" + infra.RabbitMQHost + ":" + strconv.Itoa(infra.RabbitMQPort) + "/"

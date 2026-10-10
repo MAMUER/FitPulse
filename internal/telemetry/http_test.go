@@ -17,7 +17,9 @@ func TestHTTPMiddleware_PassesThrough(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom", "value")
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte("accepted"))
+		if _, err := w.Write([]byte("accepted")); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
 	})
 
 	handler := HTTPMiddleware(log)(next)

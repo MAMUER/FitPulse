@@ -52,7 +52,10 @@ func (c *turnstileConfig) Verify(responseToken, clientIP string) (bool, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return false, fmt.Errorf("turnstile response read: %w", readErr)
+	}
 	var result struct {
 		Success     bool     `json:"success"`
 		ChallengeTS string   `json:"challenge_ts"`
@@ -90,11 +93,13 @@ type captchaResponse struct {
 func (m *captchaMiddleware) WriteCaptchaRequired(w http.ResponseWriter, siteKey string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusTooManyRequests)
-	_ = json.NewEncoder(w).Encode(captchaResponse{
+	if err := json.NewEncoder(w).Encode(captchaResponse{
 		Error:           "Rate limit exceeded. Please complete CAPTCHA.",
 		CaptchaRequired: true,
 		SiteKey:         siteKey,
-	})
+	}); err != nil && m.log != nil {
+		m.log.Error("Failed to encode captcha challenge response", zap.Error(err))
+	}
 }
 
 // VerifyCaptchaToken verifies the CAPTCHA token from request.
@@ -172,7 +177,10 @@ func (c *hCaptchaConfig) Verify(responseToken, clientIP string) (bool, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return false, fmt.Errorf("hcaptcha response read: %w", readErr)
+	}
 	var result struct {
 		Success     bool     `json:"success"`
 		ChallengeTS string   `json:"challenge_ts"`

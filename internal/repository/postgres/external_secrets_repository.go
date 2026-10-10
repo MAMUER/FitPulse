@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/repository/shared"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/port"
@@ -43,7 +44,7 @@ func (r *externalSecretsRepository) List(ctx context.Context) ([]*port.ExternalS
 	if err != nil {
 		return nil, apperrors.Internal("failed to list external secrets", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var secrets []*port.ExternalSecret
 	for rows.Next() {

@@ -110,9 +110,13 @@ func GenerateAccessToken(userID, email, role, privateKeyPEM string, ttl time.Dur
 }
 
 // GenerateRefreshToken creates a cryptographically secure refresh token.
+// Ошибка чтения криптографического источника случайности означает нехватку
+// энтропии: молча выдать слабый токен нельзя, поэтому вызывается panic.
 func GenerateRefreshToken() string {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand is unavailable: %v", err))
+	}
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 

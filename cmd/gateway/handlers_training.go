@@ -51,7 +51,11 @@ type generatePlanPayload struct {
 }
 
 func (g *gateway) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() { _ = r.Body.Close() }()
+	defer func() {
+		if closeErr := r.Body.Close(); closeErr != nil {
+			g.log.Warn("Failed to close request body", zap.Error(closeErr))
+		}
+	}()
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
 		g.log.Error(errUnauthorized, zap.String("handler", "generatePlan"))

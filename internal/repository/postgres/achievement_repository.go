@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/repository/shared"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/port"
@@ -42,7 +43,7 @@ func (r *achievementRepositoryEx) ListWithEarnedStatus(ctx context.Context, user
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var achievements []*port.AchievementInfo
 

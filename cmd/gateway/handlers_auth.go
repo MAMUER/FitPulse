@@ -224,7 +224,11 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 
 	pipe.Del(ctx, refreshFingerprintPrefix+oldFingerprint)
 
-	_, _ = pipe.Exec(ctx)
+	if _, err := pipe.Exec(ctx); err != nil {
+
+		g.log.Warn("Failed to persist refresh token rotation state", zap.Error(err))
+
+	}
 
 	newRefresh, err := g.issueRefreshToken(ctx, userID)
 
@@ -250,7 +254,11 @@ func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) 
 
 	if g.sessionStore != nil {
 
-		_ = g.sessionStore.InvalidateUserSession(ctx, userID)
+		if err := g.sessionStore.InvalidateUserSession(ctx, userID); err != nil {
+
+			g.log.Warn("Failed to invalidate user session", zap.Error(err))
+
+		}
 
 	}
 
@@ -289,7 +297,11 @@ func (g *gateway) invalidateAllUserSessions(ctx context.Context, userID string) 
 
 	if len(keys) > 0 {
 
-		_ = g.valkeyDB.Del(ctx, keys...).Err()
+		if err := g.valkeyDB.Del(ctx, keys...).Err(); err != nil {
+
+			g.log.Warn("Failed to delete user session keys", zap.Error(err))
+
+		}
 
 	}
 
@@ -307,7 +319,11 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 
 			if count == 1 {
 
-				_ = g.valkeyDB.Expire(ctx, valkeyKey, time.Minute).Err()
+				if err := g.valkeyDB.Expire(ctx, valkeyKey, time.Minute).Err(); err != nil {
+
+					g.log.Warn("Failed to set 2FA rate limit expiry", zap.Error(err))
+
+				}
 
 			}
 
@@ -871,7 +887,11 @@ func (g *gateway) writeTwoFARequired(ctx context.Context, w http.ResponseWriter,
 
 	tempToken := uuid.New().String()
 
-	_ = g.valkeyDB.Set(ctx, twoFATempPrefix+tempToken, userID, 5*time.Minute).Err()
+	if err := g.valkeyDB.Set(ctx, twoFATempPrefix+tempToken, userID, 5*time.Minute).Err(); err != nil {
+
+		g.log.Error("Failed to store 2FA temporary token", zap.Error(err))
+
+	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
@@ -886,8 +906,6 @@ func (g *gateway) writeTwoFARequired(ctx context.Context, w http.ResponseWriter,
 
 		g.log.Error(encodeErrorMessage, zap.Error(err))
 
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
 	}
 
 }
@@ -901,14 +919,22 @@ func (g *gateway) writeLoginSuccess(ctx context.Context, w http.ResponseWriter, 
 
 		setRefreshCookie(w, refreshToken)
 
+	} else {
+
+		g.log.Warn("Failed to issue refresh token", zap.Error(err))
+
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":     "ok",
 		"token_type": resp.GetTokenType(),
 		"expires_in": 900,
-	})
+	}); err != nil {
+
+		g.log.Error("Failed to encode login response", zap.Error(err))
+
+	}
 
 }
 
@@ -984,7 +1010,11 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "logged_out"}); err != nil {
+
+		g.log.Error("Failed to encode logout response", zap.Error(err))
+
+	}
 
 }
 
@@ -1087,9 +1117,7 @@ func (g *gateway) confirmEmailHandler(w http.ResponseWriter, r *http.Request) {
 
 // @Router       /confirm [get]
 
-func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, r *http.Request) {
-
-	_ = r.URL.Query().Get("token")
+func (g *gateway) emailConfirmPageHandler(w http.ResponseWriter, _ *http.Request) {
 
 	indexPath := "./web/dist/index.html"
 
@@ -1298,11 +1326,15 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	http.SetCookie(w, accessCookie)
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "ok",
 		"user_id": grpcResp.GetUserId(),
 		"role":    grpcResp.GetRole(),
-	})
+	}); err != nil {
+
+		g.log.Error("Failed to encode Yandex login response", zap.Error(err))
+
+	}
 
 }
 
@@ -1696,41 +1728,17 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
-	var req struct {
-		TempToken string `json:"temp_token"`
+	req, ok := g.decodeVerifyTOTPRequest(w, r)
 
-		Passcode string `json:"passcode"`
-
-		IsBackupCode bool `json:"is_backup_code"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-
-		g.log.Error("Failed to decode verify TOTP request", zap.Error(err))
-
-		http.Error(w, errBadRequest, http.StatusBadRequest)
+	if !ok {
 
 		return
 
 	}
 
-	if req.TempToken == "" || req.Passcode == "" {
+	userID, ok := g.resolveTwoFATempToken(w, r, req.TempToken)
 
-		g.log.Error("Missing temp_token or passcode in verify TOTP request")
-
-		http.Error(w, "temp_token and passcode are required", http.StatusBadRequest)
-
-		return
-
-	}
-
-	userID, err := g.valkeyDB.Get(r.Context(), twoFATempPrefix+req.TempToken).Result()
-
-	if err != nil {
-
-		g.log.Error("Invalid or expired 2FA session", zap.Error(err))
-
-		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
+	if !ok {
 
 		return
 
@@ -1779,19 +1787,82 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	_ = g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken)
+	if err := g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken).Err(); err != nil {
+
+		g.log.Warn("Failed to delete 2FA temporary token", zap.Error(err))
+
+	}
 
 	g.writeSessionCookies(r.Context(), w, userID)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":                 "ok",
 		"token_type":             "Bearer",
 		"expires_in":             900,
 		"backup_codes_remaining": resp.BackupCodesRemaining,
-	})
+	}); err != nil {
 
+		g.log.Error("Failed to encode 2FA verify response", zap.Error(err))
+
+	}
+
+}
+
+// verifyTOTPRequest содержит тело запроса проверки TOTP-кода.
+type verifyTOTPRequest struct {
+	TempToken    string `json:"temp_token"`
+	Passcode     string `json:"passcode"`
+	IsBackupCode bool   `json:"is_backup_code"`
+}
+
+// decodeVerifyTOTPRequest разбирает и валидирует тело запроса проверки TOTP.
+// Если запрос некорректен, пишет ответ клиенту и возвращает false.
+func (g *gateway) decodeVerifyTOTPRequest(w http.ResponseWriter, r *http.Request) (*verifyTOTPRequest, bool) {
+
+	var req verifyTOTPRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+		g.log.Error("Failed to decode verify TOTP request", zap.Error(err))
+
+		http.Error(w, errBadRequest, http.StatusBadRequest)
+
+		return nil, false
+
+	}
+
+	if req.TempToken == "" || req.Passcode == "" {
+
+		g.log.Error("Missing temp_token or passcode in verify TOTP request")
+
+		http.Error(w, "temp_token and passcode are required", http.StatusBadRequest)
+
+		return nil, false
+
+	}
+
+	return &req, true
+}
+
+// resolveTwoFATempToken возвращает userID по временному токену 2FA.
+// Если токен недействителен, пишет ответ клиенту и возвращает false.
+func (g *gateway) resolveTwoFATempToken(w http.ResponseWriter, r *http.Request, tempToken string) (string, bool) {
+
+	userID, err := g.valkeyDB.Get(r.Context(), twoFATempPrefix+tempToken).Result()
+
+	if err != nil {
+
+		g.log.Error("Invalid or expired 2FA session", zap.Error(err))
+
+		http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
+
+		return "", false
+
+	}
+
+	return userID, true
 }
 
 // writeSessionCookies выдаёт access и refresh cookie после успешной проверки 2FA.
@@ -2109,11 +2180,15 @@ func (g *gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":     "ok",
 		"token_type": "Bearer",
 		"expires_in": 900,
-	})
+	}); err != nil {
+
+		g.log.Error("Failed to encode refresh response", zap.Error(err))
+
+	}
 
 }
 
@@ -2161,14 +2236,18 @@ func (g *gateway) forgotPasswordHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 
 		"status": "ok",
 
 		"message": "Код отправлен на email",
 
 		"debug_code": code,
-	})
+	}); err != nil {
+
+		g.log.Error("Failed to encode password reset response", zap.Error(err))
+
+	}
 
 }
 
@@ -2224,12 +2303,8 @@ func (g *gateway) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-
-		"status": "ok",
-
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "ok",
 		"message": "Пароль изменён",
 	})
 

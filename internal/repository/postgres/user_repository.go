@@ -191,7 +191,7 @@ func (r *UserRepository) List(ctx context.Context, page, pageSize int) ([]*entit
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var users []*entity.User
 
@@ -236,7 +236,7 @@ func (r *UserRepository) ListByRole(ctx context.Context, role string, page, page
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var users []*entity.User
 
@@ -395,7 +395,7 @@ func (r *inviteRepository) List(ctx context.Context, page, pageSize int) ([]*por
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var invites []*port.Invite
 
@@ -515,7 +515,7 @@ func (r *healthConditionRepository) List(ctx context.Context, userID, conditionT
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var conditions []*entity.HealthCondition
 
@@ -626,7 +626,7 @@ func (r *bodyCompositionRepository) List(ctx context.Context, userID string, fro
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	records, err := ScanRows(rows, func(rows *sql.Rows) (*entity.BodyComposition, error) {
 
@@ -710,7 +710,7 @@ func (r *menstrualCycleRepository) List(ctx context.Context, userID string) ([]*
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var cycles []*entity.MenstrualCycle
 
@@ -834,7 +834,7 @@ func (r *achievementRepository) List(ctx context.Context, userID string) ([]*ent
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	return shared.ScanAchievements(rows)
 
@@ -868,7 +868,7 @@ func (r *deviceRepository) List(ctx context.Context, userID string) ([]*entity.D
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	return ScanRows(rows, func(rows *sql.Rows) (*entity.Device, error) {
 		d := &entity.Device{}

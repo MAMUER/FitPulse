@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/repository/shared"
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/port"
@@ -72,7 +73,7 @@ func (r *userMenstrualRepository) ListCycles(ctx context.Context, userID string)
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	var cycles []*port.UserMenstrualCycle
 
@@ -251,7 +252,7 @@ func (r *userMenstrualRepository) listStrings(ctx context.Context, query, errMsg
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	items := make([]string, 0)
 
@@ -353,7 +354,7 @@ func (r *userMenstrualRepository) CreateCycleWithDetails(ctx context.Context, cy
 
 	}
 
-	defer func() { _ = tx.Rollback() }()
+	defer shared.RollbackTx(tx)
 
 	var cycleEndDate interface{}
 
@@ -427,7 +428,7 @@ func (r *userMenstrualRepository) UpdateCycleWithDetails(ctx context.Context, cy
 
 	}
 
-	defer func() { _ = tx.Rollback() }()
+	defer shared.RollbackTx(tx)
 
 	var cycleEndDate interface{}
 

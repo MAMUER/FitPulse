@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -191,22 +190,28 @@ type healthResponse struct {
 
 func (s *classifierServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(healthResponse{
+	if err := json.NewEncoder(w).Encode(healthResponse{
 		Status:       "healthy",
 		ModelLoaded:  true,
 		ScalerLoaded: true,
 		AsyncEnabled: false,
-	})
+	}); err != nil {
+		s.log.Error("Failed to encode health response", zap.Error(err))
+	}
 }
 
 func (s *classifierServer) classesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(trainingClasses)
+	if err := json.NewEncoder(w).Encode(trainingClasses); err != nil {
+		s.log.Error("Failed to encode classes response", zap.Error(err))
+	}
 }
 
 func (s *classifierServer) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, "text/plain; version=0.0.4")
-	_, _ = w.Write([]byte("# Classifier metrics\n"))
+	if _, err := w.Write([]byte("# Classifier metrics\n")); err != nil {
+		s.log.Warn("Failed to write metrics response", zap.Error(err))
+	}
 }
 
 func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Request) {
@@ -217,14 +222,16 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 		modelName = "onnx-linear-classifier"
 		totalParams = len(s.onnxClassifier.Weights)
 	}
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"model_name":       modelName,
 		"input_shape":      []int{1, 7},
 		"output_shape":     []int{1, trainingClassCount},
 		"total_params":     totalParams,
 		"training_classes": trainingClasses,
 		"loaded_at":        time.Now().UTC().Format(time.RFC3339),
-	})
+	}); err != nil {
+		s.log.Error("Failed to encode model info response", zap.Error(err))
+	}
 }
 
 func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
@@ -233,9 +240,6 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
 
 	var req classifyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -251,8 +255,6 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	_ = ctx
 
 	data := req.PhysiologicalData
 	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
@@ -325,7 +327,9 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.log.Error("Failed to encode classification response", zap.Error(err))
+	}
 }
 
 func validateClassifyRequest(req classifyRequest) error {
@@ -703,7 +707,6 @@ func main() {
 	log := logger.New("classifier")
 
 	config.InitViper("classifier")
-	_ = config.GetViper()
 
 	s := &classifierServer{log: log}
 	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {

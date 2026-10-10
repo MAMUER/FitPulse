@@ -1714,7 +1714,7 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 
 	// Валидация invite-кода
 
-	isValid, role, specialty, errMsg, err := s.inviteCodeRepo.ValidateInviteCodeUse(ctx, req.GetInviteCode())
+	isValid, role, _, errMsg, err := s.inviteCodeRepo.ValidateInviteCodeUse(ctx, req.GetInviteCode())
 
 	if err != nil {
 
@@ -1729,8 +1729,6 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 		return nil, status.Errorf(codes.InvalidArgument, "invite code error: %s", errMsg)
 
 	}
-
-	_ = specialty
 
 	// Определяем роль: приоритет у invite_code role
 
@@ -2842,7 +2840,15 @@ func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataR
 // exportHealthConditions собирает заболевания пользователя для экспорта.
 func (s *userServer) exportHealthConditions(ctx context.Context, userID string) []*pb.HealthCondition {
 
-	conditions, _ := s.userHealthRepo.List(ctx, userID)
+	conditions, err := s.userHealthRepo.List(ctx, userID)
+
+	if err != nil {
+
+		s.log.Warn("Failed to load health conditions for export", zap.Error(err), zap.String("user_id", userID))
+
+		return nil
+
+	}
 
 	pbConditions := make([]*pb.HealthCondition, 0, len(conditions))
 
@@ -2863,7 +2869,15 @@ func (s *userServer) exportHealthConditions(ctx context.Context, userID string) 
 // exportBodyComposition собирает записи состава тела для экспорта.
 func (s *userServer) exportBodyComposition(ctx context.Context, userID string) []*pb.BodyCompositionRecord {
 
-	bodyRecords, _ := s.userBodyCompRepo.List(ctx, userID, nil, nil, 1000)
+	bodyRecords, err := s.userBodyCompRepo.List(ctx, userID, nil, nil, 1000)
+
+	if err != nil {
+
+		s.log.Warn("Failed to load body composition for export", zap.Error(err), zap.String("user_id", userID))
+
+		return nil
+
+	}
 
 	pbBodyRecords := make([]*pb.BodyCompositionRecord, 0, len(bodyRecords))
 
@@ -2892,15 +2906,35 @@ func (s *userServer) exportBodyComposition(ctx context.Context, userID string) [
 // exportMenstrualCycles собирает менструальные циклы для экспорта.
 func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) []*pb.MenstrualCycle {
 
-	cycles, _ := s.userMenstrualRepo.ListCycles(ctx, userID)
+	cycles, err := s.userMenstrualRepo.ListCycles(ctx, userID)
+
+	if err != nil {
+
+		s.log.Warn("Failed to load menstrual cycles for export", zap.Error(err), zap.String("user_id", userID))
+
+		return nil
+
+	}
 
 	pbCycles := make([]*pb.MenstrualCycle, 0, len(cycles))
 
 	for _, c := range cycles {
 
-		symptoms, _ := s.userMenstrualRepo.ListSymptoms(ctx, c.ID)
+		symptoms, err := s.userMenstrualRepo.ListSymptoms(ctx, c.ID)
 
-		moods, _ := s.userMenstrualRepo.ListMoods(ctx, c.ID)
+		if err != nil {
+
+			s.log.Warn("Failed to load cycle symptoms for export", zap.Error(err), zap.String("cycle_id", c.ID))
+
+		}
+
+		moods, err := s.userMenstrualRepo.ListMoods(ctx, c.ID)
+
+		if err != nil {
+
+			s.log.Warn("Failed to load cycle moods for export", zap.Error(err), zap.String("cycle_id", c.ID))
+
+		}
 
 		pbCycles = append(pbCycles, &pb.MenstrualCycle{
 
@@ -2921,7 +2955,15 @@ func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) [
 // exportDevices собирает подключённые устройства для экспорта.
 func (s *userServer) exportDevices(ctx context.Context, userID string) []*pb.Device {
 
-	devices, _ := s.deviceRepo.List(ctx, userID)
+	devices, err := s.deviceRepo.List(ctx, userID)
+
+	if err != nil {
+
+		s.log.Warn("Failed to load devices for export", zap.Error(err), zap.String("user_id", userID))
+
+		return nil
+
+	}
 
 	pbDevices := make([]*pb.Device, 0, len(devices))
 
@@ -3162,7 +3204,17 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	}
 
-	code := "INV-" + generateInviteCode()
+	inviteCode, err := generateInviteCode()
+
+	if err != nil {
+
+		s.log.Error("Failed to generate invite code", zap.Error(err))
+
+		return nil, status.Error(codes.Internal, errInternalError)
+
+	}
+
+	code := "INV-" + inviteCode
 
 	invite := &port.InviteCode{
 
@@ -3782,7 +3834,7 @@ func serveUserService(log *logger.Logger, s *grpc.Server, lis net.Listener, port
 }
 
 // gracefulStopUserService останавливает gRPC и metrics серверы.
-func gracefulStopUserService(s *grpc.Server, metricsSrv *http.Server) {
+func gracefulStopUserService(log *logger.Logger, s *grpc.Server, metricsSrv *http.Server) {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -3804,7 +3856,11 @@ func gracefulStopUserService(s *grpc.Server, metricsSrv *http.Server) {
 
 		defer wg.Done()
 
-		_ = metricsSrv.Shutdown(shutdownCtx)
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+
+			log.Warn("Metrics server shutdown returned an error", zap.Error(err))
+
+		}
 
 	}()
 
@@ -3865,18 +3921,22 @@ func main() {
 
 	log.Info("Shutting down user service")
 
-	gracefulStopUserService(s, metricsSrv)
+	gracefulStopUserService(log, s, metricsSrv)
 
 	log.Info("User service stopped")
 
 }
 
-func generateInviteCode() string {
+// generateInviteCode создаёт криптографически случайный код приглашения.
+func generateInviteCode() (string, error) {
 
 	b := make([]byte, 6)
 
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
 
-	return base64.URLEncoding.EncodeToString(b)[:8]
+		return "", fmt.Errorf("generate invite code: %w", err)
 
+	}
+
+	return base64.URLEncoding.EncodeToString(b)[:8], nil
 }

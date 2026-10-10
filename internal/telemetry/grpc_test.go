@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stretchr/testify/require"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/MAMUER/project/internal/logger"
@@ -36,7 +38,7 @@ func TestGRPC_LogTraceFromContext_WithValidSpan(t *testing.T) {
 
 	tracerProvider := sdktrace.NewTracerProvider()
 	defer func() {
-		_ = tracerProvider.Shutdown(context.Background())
+		require.NoError(t, tracerProvider.Shutdown(context.Background()))
 	}()
 
 	tracer := tracerProvider.Tracer("test")

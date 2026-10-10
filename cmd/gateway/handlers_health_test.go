@@ -18,7 +18,7 @@ func TestHealth_CheckGRPCServiceNilConnection(t *testing.T) {
 }
 
 func TestHealth_CheckTCPServiceEmptyAddress(t *testing.T) {
-	got := checkTCPService("")
+	got := checkTCPService(zap.NewNop(), "")
 	assert.Equal(t, "down", got)
 }
 

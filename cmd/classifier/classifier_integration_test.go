@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
 )
@@ -53,7 +55,8 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	t.Run("health check", func(t *testing.T) {
-		req, _ := http.NewRequestWithContext(ctx, "GET", baseURL+"/health", nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/health", nil)
+		require.NoError(t, err)
 		resp, err := client.Do(req)
 		assert.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
@@ -77,8 +80,10 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 				Goals:        []string{"endurance"},
 			},
 		}
-		payload, _ := json.Marshal(reqBody)
-		req, _ := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader(payload))
+		payload, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader(payload))
+		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
@@ -98,7 +103,8 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 	})
 
 	t.Run("classify invalid json", func(t *testing.T) {
-		req, _ := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader([]byte(`{invalid`)))
+		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader([]byte(`{invalid`)))
+		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
@@ -109,8 +115,10 @@ func TestClassifierIntegration_EndToEnd(t *testing.T) {
 
 	t.Run("classify validation error", func(t *testing.T) {
 		reqBody := classifyRequest{PhysiologicalData: physiologicalData{HeartRate: 500}}
-		payload, _ := json.Marshal(reqBody)
-		req, _ := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader(payload))
+		payload, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/classify", bytes.NewReader(payload))
+		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)

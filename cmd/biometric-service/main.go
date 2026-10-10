@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -244,18 +245,37 @@ func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRec
 		s.log.Error("Failed to begin transaction", zap.Error(err))
 		return 0, status.Error(codes.Internal, "database error")
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
+	defer rollbackBiometricTx(s.log, tx)
 
 	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 			ON CONFLICT (user_id, metric_type, timestamp, source) DO NOTHING`
 
+	inserted, err := s.insertRecordsInTx(ctx, tx, query, req)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.log.Error("Failed to commit transaction", zap.Error(err))
+		return 0, status.Error(codes.Internal, "database commit error")
+	}
+	return inserted, nil
+}
+
+// rollbackBiometricTx логирует ошибку отката транзакции biometric-service.
+func rollbackBiometricTx(log *logger.Logger, tx *sql.Tx) {
+	if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+		log.Warn("Failed to rollback biometric transaction", zap.Error(rollbackErr))
+	}
+}
+
+// insertRecordsInTx вставляет записи внутри транзакции и возвращает их количество.
+func (s *biometricServer) insertRecordsInTx(ctx context.Context, tx *sql.Tx, query string, req *pb.BatchAddRecordsRequest) (int, error) {
 	inserted := 0
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
-			_ = tx.Rollback()
+			rollbackBiometricTx(s.log, tx)
 			return 0, status.Error(codes.Canceled, "request canceled")
 		}
 
@@ -269,21 +289,20 @@ func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRec
 			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, "unknown",
 		)
 		if err != nil {
-			_ = tx.Rollback()
+			rollbackBiometricTx(s.log, tx)
 			s.log.Error("Failed to insert biometric record",
 				zap.Error(err),
 				zap.String("metric_type", rec.MetricType),
 			)
 			return 0, status.Error(codes.Internal, "failed to save records")
 		}
-		if n, _ := result.RowsAffected(); n > 0 {
+		n, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			s.log.Warn("Failed to read inserted rows count", zap.Error(rowsErr))
+		}
+		if n > 0 {
 			inserted++
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		s.log.Error("Failed to commit transaction", zap.Error(err))
-		return 0, status.Error(codes.Internal, "database commit error")
 	}
 	return inserted, nil
 }
@@ -587,7 +606,11 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 		return nil, status.Error(codes.Internal, "failed to delete record")
 	}
 
-	affected, _ := result.RowsAffected()
+	affected, rowsErr := result.RowsAffected()
+	if rowsErr != nil {
+		s.log.Error("Failed to read affected rows count", zap.Error(rowsErr))
+		return nil, status.Error(codes.Internal, "failed to delete record")
+	}
 	if affected == 0 {
 		return nil, status.Error(codes.NotFound, errRecordNotFound)
 	}

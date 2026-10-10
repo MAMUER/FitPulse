@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
@@ -55,7 +56,9 @@ func TestDataProcessorIntegration(t *testing.T) {
 	processCtx, processCancel := context.WithCancel(ctx)
 	log := logger.New("data-processor-test")
 	go func() {
-		_ = run(processCtx, log)
+		if runErr := run(processCtx, log); runErr != nil {
+			t.Logf("data processor run returned: %v", runErr)
+		}
 	}()
 
 	amqpConn, err := amqp.Dial(rabbitURL)
@@ -82,7 +85,8 @@ func TestDataProcessorIntegration(t *testing.T) {
 		Timestamp:  time.Now().UTC(),
 		DeviceType: ptrString("test-device"),
 	}
-	body, _ := json.Marshal(event)
+	body, err := json.Marshal(event)
+	require.NoError(t, err)
 
 	if err := amqpCh.Publish("", "biometric_events", false, false, amqp.Publishing{
 		ContentType:  "application/json",

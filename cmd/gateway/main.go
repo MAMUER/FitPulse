@@ -130,8 +130,6 @@ func main() {
 
 	config.InitViper("gateway")
 
-	_ = config.GetViper()
-
 	ctx := context.Background()
 
 	metrics := newGatewayMetrics()
@@ -747,9 +745,17 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 
 	}
 
-	_, _ = rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil)
+	if _, err := rmqCh.QueueDeclare("ml.classify", true, false, false, false, nil); err != nil {
 
-	_, _ = rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil)
+		log.Warn("Failed to declare ml.classify queue", zap.Error(err))
+
+	}
+
+	if _, err := rmqCh.QueueDeclare("ml.generate", true, false, false, false, nil); err != nil {
+
+		log.Warn("Failed to declare ml.generate queue", zap.Error(err))
+
+	}
 
 	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", maskRabbitMQURL(rabbitmqURL)))
 
@@ -894,7 +900,13 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		corsOrigins: opts.cfg.corsOrigins,
 	}
 
-	biometricWebhookTarget, _ := url.Parse("http://biometric-service:8085")
+	biometricWebhookTarget, err := url.Parse("http://biometric-service:8085")
+
+	if err != nil {
+
+		opts.log.Fatal("Failed to parse biometric service webhook target", zap.Error(err))
+
+	}
 
 	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(biometricWebhookTarget)
 
@@ -1026,11 +1038,19 @@ func waitForShutdown(log *logger.Logger, httpSrv, httpsSrv *http.Server, tlsAvai
 
 	defer cancel()
 
-	_ = httpSrv.Shutdown(ctx)
+	if shutdownErr := httpSrv.Shutdown(ctx); shutdownErr != nil {
+
+		log.Warn("HTTP server shutdown returned an error", zap.Error(shutdownErr))
+
+	}
 
 	if tlsAvailable {
 
-		_ = httpsSrv.Shutdown(ctx)
+		if shutdownErr := httpsSrv.Shutdown(ctx); shutdownErr != nil {
+
+			log.Warn("HTTPS server shutdown returned an error", zap.Error(shutdownErr))
+
+		}
 
 	}
 
@@ -1089,7 +1109,11 @@ func buildHTTPRedirectHandler(log *zap.Logger, publicHost, port string) http.Han
 
 			w.WriteHeader(http.StatusOK)
 
-			_, _ = w.Write([]byte(`{"status":"ok","service":"gateway"}`))
+			if _, err := w.Write([]byte(`{"status":"ok","service":"gateway"}`)); err != nil {
+
+				log.Warn("Failed to write redirect health response", zap.Error(err))
+
+			}
 
 			return
 
@@ -1695,7 +1719,11 @@ func (g *gateway) jwksHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = w.Write(body)
+	if _, err := w.Write(body); err != nil {
+
+		g.log.Error("Failed to write JWKS response", zap.Error(err))
+
+	}
 
 }
 
@@ -1773,7 +1801,11 @@ func (g *gateway) captchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = w.Write([]byte(`{"success": true}`))
+	if _, err := w.Write([]byte(`{"success": true}`)); err != nil {
+
+		g.log.Warn("Failed to write CAPTCHA verify response", zap.Error(err))
+
+	}
 
 }
 

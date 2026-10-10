@@ -127,8 +127,7 @@ func (g *gateway) withingsCallbackHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":  "ok",
 		"source":  "withings",
 		"user_id": userID,
@@ -187,8 +186,7 @@ func (g *gateway) withingsSyncHandler(w http.ResponseWriter, r *http.Request) {
 		g.log.Warn("Failed to update Withings device last_sync", zap.Error(updateErr))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":  "ok",
 		"source":  "withings",
 		"user_id": userID,

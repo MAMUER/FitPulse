@@ -177,7 +177,7 @@ func (r *TrainingRepository) ListPlans(ctx context.Context, userID string, page,
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	return shared.ScanTrainingPlans(rows)
 
@@ -252,7 +252,7 @@ func (r *TrainingRepository) GetAchievements(ctx context.Context, userID string)
 
 	}
 
-	defer func() { _ = rows.Close() }()
+	defer shared.CloseRows(rows)
 
 	achievements, err := shared.ScanAchievements(rows)
 

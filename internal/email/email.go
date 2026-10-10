@@ -271,7 +271,7 @@ var smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string,
 
 // Tests can override this to avoid real network connections.
 
-var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg string) error {
+var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg string) (sendErr error) {
 
 	tlsConfig := &tls.Config{
 
@@ -303,7 +303,11 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 
 	}
 
-	defer func() { _ = conn.Close() }()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil && sendErr == nil {
+			sendErr = fmt.Errorf("close SMTP connection failed: %w", closeErr)
+		}
+	}()
 
 	client, err := smtp.NewClient(conn, cfg.Host) // NOSONAR go:S5332 - conn is already a TLS connection created by tls.Dialer with MinVersion TLS 1.2; clear-text traffic is not used here
 
@@ -313,7 +317,11 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 
 	}
 
-	defer func() { _ = client.Quit() }()
+	defer func() {
+		if quitErr := client.Quit(); quitErr != nil && sendErr == nil {
+			sendErr = fmt.Errorf("SMTP QUIT failed: %w", quitErr)
+		}
+	}()
 
 	if cfg.User != "" && cfg.Password != "" {
 
@@ -326,6 +334,19 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 		}
 
 	}
+
+	if err := deliverSMTPSession(client, cfg, toEmail, msg); err != nil {
+
+		return err
+
+	}
+
+	return nil
+
+}
+
+// deliverSMTPSession проводит SMTP-сессию: MAIL FROM, RCPT TO и тело письма.
+func deliverSMTPSession(client *smtp.Client, cfg Config, toEmail, msg string) error {
 
 	if mailErr := client.Mail(cfg.From); mailErr != nil {
 
@@ -362,7 +383,6 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 	}
 
 	return nil
-
 }
 
 func buildMessage(from, to, subject, body string) string {

@@ -17,8 +17,12 @@ import (
 
 func TestTraceServiceName_FromOTEL_SERVICE_NAME(t *testing.T) {
 	original := os.Getenv("OTEL_SERVICE_NAME")
-	_ = os.Setenv("OTEL_SERVICE_NAME", "my-service")
-	defer func() { _ = os.Setenv("OTEL_SERVICE_NAME", original) }()
+	require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", "my-service"))
+	defer func() {
+		if err := os.Setenv("OTEL_SERVICE_NAME", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	name := serviceName()
 	assert.Equal(t, "my-service", name)
@@ -27,11 +31,11 @@ func TestTraceServiceName_FromOTEL_SERVICE_NAME(t *testing.T) {
 func TestTraceServiceName_FromSERVICE_NAME(t *testing.T) {
 	originalOTEL := os.Getenv("OTEL_SERVICE_NAME")
 	originalSERVICE := os.Getenv("SERVICE_NAME")
-	_ = os.Unsetenv("OTEL_SERVICE_NAME")
-	_ = os.Setenv("SERVICE_NAME", "fallback-service")
+	require.NoError(t, os.Unsetenv("OTEL_SERVICE_NAME"))
+	require.NoError(t, os.Setenv("SERVICE_NAME", "fallback-service"))
 	defer func() {
-		_ = os.Setenv("OTEL_SERVICE_NAME", originalOTEL)
-		_ = os.Setenv("SERVICE_NAME", originalSERVICE)
+		require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", originalOTEL))
+		require.NoError(t, os.Setenv("SERVICE_NAME", originalSERVICE))
 	}()
 
 	name := serviceName()
@@ -41,11 +45,11 @@ func TestTraceServiceName_FromSERVICE_NAME(t *testing.T) {
 func TestTraceServiceName_Default(t *testing.T) {
 	originalOTEL := os.Getenv("OTEL_SERVICE_NAME")
 	originalSERVICE := os.Getenv("SERVICE_NAME")
-	_ = os.Unsetenv("OTEL_SERVICE_NAME")
-	_ = os.Unsetenv("SERVICE_NAME")
+	require.NoError(t, os.Unsetenv("OTEL_SERVICE_NAME"))
+	require.NoError(t, os.Unsetenv("SERVICE_NAME"))
 	defer func() {
-		_ = os.Setenv("OTEL_SERVICE_NAME", originalOTEL)
-		_ = os.Setenv("SERVICE_NAME", originalSERVICE)
+		require.NoError(t, os.Setenv("OTEL_SERVICE_NAME", originalOTEL))
+		require.NoError(t, os.Setenv("SERVICE_NAME", originalSERVICE))
 	}()
 
 	name := serviceName()
@@ -54,8 +58,12 @@ func TestTraceServiceName_Default(t *testing.T) {
 
 func TestTraceInitTracer_EmptyEndpoint(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -66,8 +74,12 @@ func TestTraceInitTracer_EmptyEndpoint(t *testing.T) {
 
 func TestTraceInitTracer_InvalidEndpoint(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "invalid:endpoint:123"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -91,8 +103,12 @@ func TestTraceShutdown_NoopWhenNotInitialized(t *testing.T) {
 
 func TestTraceShutdown_MultipleCalls(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -106,8 +122,12 @@ func TestTraceShutdown_MultipleCalls(t *testing.T) {
 
 func TestTraceInitTracer_ReturnsNoopOnError(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "bad-endpoint")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "bad-endpoint"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -118,8 +138,12 @@ func TestTraceInitTracer_ReturnsNoopOnError(t *testing.T) {
 
 func TestTraceInitTracer_ReturnsNoopOnResourceError(t *testing.T) {
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://[::1]:4317")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://[::1]:4317"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := InitTracer()
 	require.NotNil(t, shutdownFn)
@@ -133,8 +157,12 @@ func TestTraceInitTracerWithContext_ReturnsNoopOnExporterError(t *testing.T) {
 	defer cancel()
 
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := initTracerWithFactories(ctx, func(ctx context.Context, opts ...otlptracegrpc.Option) (*otlptrace.Exporter, error) {
 		return nil, errors.New("exporter error")
@@ -152,8 +180,12 @@ func TestTraceInitTracerWithContext_ReturnsNoopOnResourceError(t *testing.T) {
 	defer cancel()
 
 	original := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	defer func() { _ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original) }()
+	require.NoError(t, os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"))
+	defer func() {
+		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", original); err != nil {
+			t.Logf("failed to restore state: %v", err)
+		}
+	}()
 
 	shutdownFn := initTracerWithFactories(ctx, func(ctx context.Context, opts ...otlptracegrpc.Option) (*otlptrace.Exporter, error) {
 		return otlptracegrpc.New(ctx, opts...)
