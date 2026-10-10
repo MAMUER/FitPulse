@@ -26,7 +26,7 @@ type Biometrics struct {
 }
 
 func toInt32(v int) int32 {
-	if v < int(^uint(0)>>1) {
+	if v < math.MinInt32 || v > math.MaxInt32 {
 		panic(fmt.Sprintf("planner: value %d overflows int32", v))
 	}
 	return int32(v)

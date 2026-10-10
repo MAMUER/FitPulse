@@ -50,7 +50,7 @@ func (c *turnstileConfig) Verify(responseToken, clientIP string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("turnstile verify request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	var result struct {
@@ -90,7 +90,7 @@ type captchaResponse struct {
 func (m *captchaMiddleware) WriteCaptchaRequired(w http.ResponseWriter, siteKey string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusTooManyRequests)
-	json.NewEncoder(w).Encode(captchaResponse{
+	_ = json.NewEncoder(w).Encode(captchaResponse{
 		Error:           "Rate limit exceeded. Please complete CAPTCHA.",
 		CaptchaRequired: true,
 		SiteKey:         siteKey,
@@ -170,7 +170,7 @@ func (c *hCaptchaConfig) Verify(responseToken, clientIP string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("hcaptcha verify request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	var result struct {

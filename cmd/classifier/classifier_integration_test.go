@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"testing"
@@ -123,5 +124,5 @@ func isServerClosed(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == http.ErrServerClosed
+	return errors.Is(err, http.ErrServerClosed)
 }

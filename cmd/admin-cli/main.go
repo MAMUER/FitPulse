@@ -121,7 +121,7 @@ func validateJWT() (*claims.Claims, error) {
 		return nil, fmt.Errorf("JWT токен невалиден: %w", err)
 	}
 
-	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
 		return nil, errors.New("JWT токен истёк")
 	}
 
@@ -141,7 +141,6 @@ func connectUserService() (*grpc.ClientConn, pb.UserServiceClient, error) {
 			Timeout:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.WithBlock(),
 	}
 
 	if jwtToken := os.Getenv("ADMIN_CLI_JWT"); jwtToken != "" {
@@ -159,7 +158,7 @@ func connectUserService() (*grpc.ClientConn, pb.UserServiceClient, error) {
 
 	conn, err := grpc.NewClient(addr, dialOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Не удалось подключиться к user-service по адресу %s: %w", addr, err)
+		return nil, nil, fmt.Errorf("не удалось подключиться к user-service по адресу %s: %w", addr, err)
 	}
 
 	client := pb.NewUserServiceClient(conn)
@@ -180,11 +179,58 @@ func (c *jwtCredentials) GetRequestMetadata(ctx context.Context, uri ...string) 
 	}, nil
 }
 
+// parseFlags разбирает аргументы команды, завершая выполнение при ошибке.
+func parseFlags(fs *flag.FlagSet, args []string) {
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Ошибка разбора аргументов: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// runUserServiceCommand подключается к user-service, выполняет команду с
+// контекстом с таймаутом и закрывает соединение после завершения.
+func runUserServiceCommand(run func(ctx context.Context, client pb.UserServiceClient)) {
+	conn, client, err := connectUserService()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = conn.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
+	defer cancel()
+
+	run(ctx, client)
+}
+
+// resolveRequesterID определяет ID администратора из флага или JWT.
+func resolveRequesterID(requesterID string) string {
+	if requesterID == "" {
+		if claims, err := validateJWT(); err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка валидации JWT: %v\n", err)
+			os.Exit(1)
+		} else if claims != nil {
+			requesterID = claims.UserID
+		}
+	}
+	return requesterID
+}
+
+// resolveRequesterAndUserID определяет ID администратора и целевого пользователя.
+func resolveRequesterAndUserID(requesterID, userID string) (string, string) {
+	requesterID = resolveRequesterID(requesterID)
+	if requesterID == "" || userID == "" {
+		fmt.Fprintln(os.Stderr, requesterAndUserIDRequired)
+		os.Exit(1)
+	}
+	return requesterID, userID
+}
+
 func createInvite(args []string) {
 	fs := flag.NewFlagSet("create-invite", flag.ExitOnError)
 	role := fs.String("role", "client", "Роль для кода приглашения (client|admin)")
 	maxUses := fs.Int("max-uses", 1, "Максимальное количество использований")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
 	if *role != "client" && *role != "admin" {
 		fmt.Fprintln(os.Stderr, "Ошибка: роль должна быть 'client' или 'admin'")
@@ -195,38 +241,30 @@ func createInvite(args []string) {
 		os.Exit(1)
 	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminCreateInvite(ctx, &pb.AdminCreateInviteRequest{
+			Role:    *role,
+			MaxUses: toInt32(*maxUses),
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
+			os.Exit(1)
+		}
 
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminCreateInvite(ctx, &pb.AdminCreateInviteRequest{
-		Role:    *role,
-		MaxUses: toInt32(*maxUses),
+		fmt.Printf("Код приглашения создан:\n")
+		fmt.Printf("  Код:      %s\n", resp.Code)
+		fmt.Printf("  Роль:      %s\n", resp.Role)
+		fmt.Printf("  Макс. использований:  %d\n", resp.MaxUses)
+		fmt.Printf("  Ссылка: %s\n", resp.InviteUrl)
+		fmt.Printf("  Создан: %s\n", resp.CreatedAt)
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	fmt.Printf("Код приглашения создан:\n")
-	fmt.Printf("  Код:      %s\n", resp.Code)
-	fmt.Printf("  Роль:      %s\n", resp.Role)
-	fmt.Printf("  Макс. использований:  %d\n", resp.MaxUses)
-	fmt.Printf("  Ссылка: %s\n", resp.InviteUrl)
-	fmt.Printf("  Создан: %s\n", resp.CreatedAt)
 }
 
 func listInvites(args []string) {
 	fs := flag.NewFlagSet("list-invites", flag.ExitOnError)
 	page := fs.Int("page", 1, "Номер страницы")
 	pageSize := fs.Int("page-size", 20, "Размер страницы")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
 	if *page < 1 {
 		*page = 1
@@ -235,72 +273,56 @@ func listInvites(args []string) {
 		*pageSize = 20
 	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminListInvites(ctx, &pb.AdminListInvitesRequest{
-		Page:     toInt32(*page),
-		PageSize: toInt32(*pageSize),
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	fmt.Printf("Всего приглашений: %d\n\n", resp.Total)
-	fmt.Printf("%-20s %-10s %-10s %-10s %-10s %-10s\n", "КОД", "РОЛЬ", "МАКС", "ИСПОЛЬЗОВАНО", "АКТИВНО", "СОЗДАНО")
-	fmt.Println(strings.Repeat("-", 80))
-	for _, inv := range resp.Invites {
-		active := "Нет"
-		if inv.IsActive {
-			active = "Да"
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminListInvites(ctx, &pb.AdminListInvitesRequest{
+			Page:     toInt32(*page),
+			PageSize: toInt32(*pageSize),
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
+			os.Exit(1)
 		}
-		fmt.Printf("%-20s %-10s %-10d %-10d %-10s %-10s\n",
-			inv.Code, inv.Role, inv.MaxUses, inv.UsedCount, active, inv.CreatedAt)
-	}
+
+		fmt.Printf("Всего приглашений: %d\n\n", resp.Total)
+		fmt.Printf("%-20s %-10s %-10s %-10s %-10s %-10s\n", "КОД", "РОЛЬ", "МАКС", "ИСПОЛЬЗОВАНО", "АКТИВНО", "СОЗДАНО")
+		fmt.Println(strings.Repeat("-", 80))
+		for _, inv := range resp.Invites {
+			active := "Нет"
+			if inv.IsActive {
+				active = "Да"
+			}
+			fmt.Printf("%-20s %-10s %-10d %-10d %-10s %-10s\n",
+				inv.Code, inv.Role, inv.MaxUses, inv.UsedCount, active, inv.CreatedAt)
+		}
+	})
 }
 
 func revokeInvite(args []string) {
 	fs := flag.NewFlagSet("revoke-invite", flag.ExitOnError)
 	code := fs.String("code", "", "Код приглашения для отзыва")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
 	if *code == "" {
 		fmt.Fprintln(os.Stderr, "Ошибка: --code обязателен")
 		os.Exit(1)
 	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminRevokeInvite(ctx, &pb.AdminRevokeInviteRequest{
+			Code: *code,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
+			os.Exit(1)
+		}
 
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminRevokeInvite(ctx, &pb.AdminRevokeInviteRequest{
-		Code: *code,
+		if resp.Success {
+			fmt.Printf("Код приглашения %s успешно отозван\n", *code)
+		} else {
+			fmt.Fprintf(os.Stderr, "Не удалось отозвать приглашение: %s\n", resp.Message)
+			os.Exit(1)
+		}
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	if resp.Success {
-		fmt.Printf("Код приглашения %s успешно отозван\n", *code)
-	} else {
-		fmt.Fprintf(os.Stderr, "Не удалось отозвать приглашение: %s\n", resp.Message)
-		os.Exit(1)
-	}
 }
 
 func listUsers(args []string) {
@@ -309,17 +331,9 @@ func listUsers(args []string) {
 	page := fs.Int("page", 1, "Номер страницы")
 	pageSize := fs.Int("page-size", 20, "Размер страницы")
 	role := fs.String("role", "", "Фильтр по роли (client|admin)")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
-	requesterIDValue := *requesterID
-	if requesterIDValue == "" {
-		if claims, err := validateJWT(); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка валидации JWT: %v\n", err)
-			os.Exit(1)
-		} else if claims != nil {
-			requesterIDValue = claims.UserID
-		}
-	}
+	requesterIDValue := resolveRequesterID(*requesterID)
 	if requesterIDValue == "" {
 		fmt.Fprintln(os.Stderr, "Ошибка: --requester-id обязателен или задайте ADMIN_CLI_JWT")
 		os.Exit(1)
@@ -331,180 +345,112 @@ func listUsers(args []string) {
 		*pageSize = 20
 	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.ListUsers(ctx, &pb.ListUsersRequest{
-		RequesterUserId: requesterIDValue,
-		Page:            toInt32(*page),
-		PageSize:        toInt32(*pageSize),
-		Role:            *role,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	fmt.Printf("Всего пользователей: %d\n\n", resp.Total)
-	fmt.Printf("%-36s %-20s %-10s %-10s %-20s\n", "ID ПОЛЬЗОВАТЕЛЯ", "EMAIL", "РОЛЬ", "ПОДТВ.", "СОЗДАНО")
-	fmt.Println(strings.Repeat("-", 100))
-	for _, u := range resp.Users {
-		verified := "Нет"
-		if u.EmailConfirmed {
-			verified = "Да"
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.ListUsers(ctx, &pb.ListUsersRequest{
+			RequesterUserId: requesterIDValue,
+			Page:            toInt32(*page),
+			PageSize:        toInt32(*pageSize),
+			Role:            *role,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
+			os.Exit(1)
 		}
-		email := obfuscateEmail(u.Email)
-		fmt.Printf("%-36s %-20s %-10s %-10s %-20s\n",
-			u.UserId, email, u.Role, verified, u.CreatedAt)
-	}
+
+		fmt.Printf("Всего пользователей: %d\n\n", resp.Total)
+		fmt.Printf("%-36s %-20s %-10s %-10s %-20s\n", "ID ПОЛЬЗОВАТЕЛЯ", "EMAIL", "РОЛЬ", "ПОДТВ.", "СОЗДАНО")
+		fmt.Println(strings.Repeat("-", 100))
+		for _, u := range resp.Users {
+			verified := "Нет"
+			if u.EmailConfirmed {
+				verified = "Да"
+			}
+			email := obfuscateEmail(u.Email)
+			fmt.Printf("%-36s %-20s %-10s %-10s %-20s\n",
+				u.UserId, email, u.Role, verified, u.CreatedAt)
+		}
+	})
 }
 
 func deleteUser(args []string) {
 	fs := flag.NewFlagSet("delete-user", flag.ExitOnError)
 	requesterID := fs.String(requesterIDFlag, "", requesterIDDescription)
 	userID := fs.String("id", "", "ID пользователя для удаления")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
-	requesterIDValue := *requesterID
-	if requesterIDValue == "" {
-		if claims, err := validateJWT(); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка валидации JWT: %v\n", err)
+	requesterIDValue, userIDValue := resolveRequesterAndUserID(*requesterID, *userID)
+
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminDeleteUser(ctx, &pb.AdminDeleteUserRequest{
+			RequesterUserId: requesterIDValue,
+			UserId:          userIDValue,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
 			os.Exit(1)
-		} else if claims != nil {
-			requesterIDValue = claims.UserID
 		}
-	}
-	if requesterIDValue == "" || *userID == "" {
-		fmt.Fprintln(os.Stderr, requesterAndUserIDRequired)
-		os.Exit(1)
-	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminDeleteUser(ctx, &pb.AdminDeleteUserRequest{
-		RequesterUserId: requesterIDValue,
-		UserId:          *userID,
+		if resp.Success {
+			fmt.Printf("Пользователь %s успешно удалён\n", userIDValue)
+		} else {
+			fmt.Fprintf(os.Stderr, "Не удалось удалить пользователя: %s\n", resp.Message)
+			os.Exit(1)
+		}
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	if resp.Success {
-		fmt.Printf("Пользователь %s успешно удалён\n", *userID)
-	} else {
-		fmt.Fprintf(os.Stderr, "Не удалось удалить пользователя: %s\n", resp.Message)
-		os.Exit(1)
-	}
 }
 
 func banUser(args []string) {
 	fs := flag.NewFlagSet("ban-user", flag.ExitOnError)
 	requesterID := fs.String(requesterIDFlag, "", requesterIDDescription)
 	userID := fs.String("id", "", "ID пользователя для бана")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
-	requesterIDValue := *requesterID
-	if requesterIDValue == "" {
-		if claims, err := validateJWT(); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка валидации JWT: %v\n", err)
+	requesterIDValue, userIDValue := resolveRequesterAndUserID(*requesterID, *userID)
+
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminBanUser(ctx, &pb.AdminBanUserRequest{
+			RequesterUserId: requesterIDValue,
+			UserId:          userIDValue,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
 			os.Exit(1)
-		} else if claims != nil {
-			requesterIDValue = claims.UserID
 		}
-	}
-	if requesterIDValue == "" || *userID == "" {
-		fmt.Fprintln(os.Stderr, requesterAndUserIDRequired)
-		os.Exit(1)
-	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminBanUser(ctx, &pb.AdminBanUserRequest{
-		RequesterUserId: requesterIDValue,
-		UserId:          *userID,
+		if resp.Success {
+			fmt.Printf("Пользователь %s успешно забанен\n", userIDValue)
+		} else {
+			fmt.Fprintf(os.Stderr, "Не удалось забанить пользователя: %s\n", resp.Message)
+			os.Exit(1)
+		}
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	if resp.Success {
-		fmt.Printf("Пользователь %s успешно забанен\n", *userID)
-	} else {
-		fmt.Fprintf(os.Stderr, "Не удалось забанить пользователя: %s\n", resp.Message)
-		os.Exit(1)
-	}
 }
 
 func unbanUser(args []string) {
 	fs := flag.NewFlagSet("unban-user", flag.ExitOnError)
 	requesterID := fs.String(requesterIDFlag, "", requesterIDDescription)
 	userID := fs.String("id", "", "ID пользователя для разбана")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
-	requesterIDValue := *requesterID
-	if requesterIDValue == "" {
-		if claims, err := validateJWT(); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка валидации JWT: %v\n", err)
+	requesterIDValue, userIDValue := resolveRequesterAndUserID(*requesterID, *userID)
+
+	runUserServiceCommand(func(ctx context.Context, client pb.UserServiceClient) {
+		resp, err := client.AdminUnbanUser(ctx, &pb.AdminUnbanUserRequest{
+			RequesterUserId: requesterIDValue,
+			UserId:          userIDValue,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
 			os.Exit(1)
-		} else if claims != nil {
-			requesterIDValue = claims.UserID
 		}
-	}
-	if requesterIDValue == "" || *userID == "" {
-		fmt.Fprintln(os.Stderr, requesterAndUserIDRequired)
-		os.Exit(1)
-	}
 
-	conn, client, err := connectUserService()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), getTimeout())
-	defer cancel()
-
-	resp, err := client.AdminUnbanUser(ctx, &pb.AdminUnbanUserRequest{
-		RequesterUserId: requesterIDValue,
-		UserId:          *userID,
+		if resp.Success {
+			fmt.Printf("Пользователь %s успешно разбанен\n", userIDValue)
+		} else {
+			fmt.Fprintf(os.Stderr, "Не удалось разбанить пользователя: %s\n", resp.Message)
+			os.Exit(1)
+		}
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", status.Convert(err).Message())
-		os.Exit(1)
-	}
-
-	if resp.Success {
-		fmt.Printf("Пользователь %s успешно разбанен\n", *userID)
-	} else {
-		fmt.Fprintf(os.Stderr, "Не удалось разбанить пользователя: %s\n", resp.Message)
-		os.Exit(1)
-	}
 }
 
 func obfuscateEmail(email string) string {

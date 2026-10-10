@@ -3,7 +3,7 @@ package audit
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"time"
 
 	"go.uber.org/zap"
@@ -138,16 +138,16 @@ func (e Event) WithMetadata(key string, value interface{}) Event {
 // Validate ensures the event has required fields.
 func (e Event) Validate() error {
 	if e.Service == "" {
-		return fmt.Errorf("audit event requires service")
+		return errors.New("audit event requires service")
 	}
 	if e.EventType == "" {
-		return fmt.Errorf("audit event requires event_type")
+		return errors.New("audit event requires event_type")
 	}
 	if e.Action == "" {
-		return fmt.Errorf("audit event requires action")
+		return errors.New("audit event requires action")
 	}
 	if e.Resource == "" {
-		return fmt.Errorf("audit event requires resource")
+		return errors.New("audit event requires resource")
 	}
 	return nil
 }

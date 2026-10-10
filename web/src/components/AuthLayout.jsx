@@ -1,7 +1,7 @@
 import { useApp } from '../contexts/AppContext';
 
 export default function AuthLayout({ children }) {
-  const { state } = useApp();
+  const { state, t, toggleHighContrast, toggleLanguage } = useApp();
 
   return (
     <section className='auth'>
@@ -18,16 +18,16 @@ export default function AuthLayout({ children }) {
         <button
           type='button'
           className='secondary auth-control'
-          onClick={() => state.toggleHighContrast()}
+          onClick={toggleHighContrast}
           style={{ fontSize: 9 }}
         >
           <i className='fas fa-eye'></i>{' '}
-          {state.t('Режим высокой контрастности', 'High contrast mode')}
+          {t('Режим высокой контрастности', 'High contrast mode')}
         </button>
         <button
           type='button'
           className='secondary auth-control lang-control'
-          onClick={() => state.toggleLanguage()}
+          onClick={toggleLanguage}
           style={{ fontSize: 9, marginLeft: 6 }}
         >
           <i className='fas fa-globe'></i>{' '}

@@ -23,11 +23,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-
-	os.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "test-secret")
-
+	if err := os.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "test-secret"); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
-
 }
 
 func parseTime(t *testing.T, value string) time.Time { //nolint:unparam

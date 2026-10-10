@@ -269,6 +269,7 @@ type SQLTxAdapter struct {
 }
 
 func (a *SQLTxAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+	//nolint:gosec // G701: query всегда константный SQL, данные передаются параметрами
 	return a.tx.ExecContext(ctx, query, args...)
 }
 

@@ -258,43 +258,64 @@ func (s *trainingServer) savePlannerPlan(ctx context.Context, tx *sql.Tx, opts s
 
 	for _, week := range weeks {
 		weekID := uuid.New().String()
-		totalDays := len(week.Days)
-		totalDuration := 0
-		for _, day := range week.Days {
-			totalDuration += int(day.TotalDurationMinutes)
+		if err := s.savePlanWeek(ctx, tx, opts, planID, weekID, week); err != nil {
+			return err
 		}
+	}
 
+	return nil
+}
+
+// savePlanWeek сохраняет неделю плана со связанными днями и упражнениями.
+func (s *trainingServer) savePlanWeek(ctx context.Context, tx *sql.Tx, opts savePlannerPlanOptions, planID, weekID string, week *entity.PlanWeek) error {
+	totalDays := len(week.Days)
+	totalDuration := 0
+	for _, day := range week.Days {
+		totalDuration += int(day.TotalDurationMinutes)
+	}
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO training_plan_weeks (id, training_plan_id, week_number, total_training_days, total_duration_minutes)
+		VALUES ($1, $2, $3, $4, $5)
+	`, weekID, planID, week.WeekNumber, totalDays, totalDuration)
+	if err != nil {
+		return status.Error(codes.Internal, "failed to save plan weeks")
+	}
+
+	for _, day := range week.Days {
+		if err := s.savePlanDay(ctx, tx, opts, week, weekID, day); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// savePlanDay сохраняет день плана вместе с его упражнениями.
+func (s *trainingServer) savePlanDay(ctx context.Context, tx *sql.Tx, opts savePlannerPlanOptions, week *entity.PlanWeek, weekID string, day *entity.PlanDay) error {
+	dayID := uuid.New().String()
+	trainingType := "training"
+	if day.IsRestDay {
+		trainingType = "rest"
+	}
+
+	trainingDate := opts.startDate.AddDate(0, 0, int(week.WeekNumber-1)*7+int(day.DayOfWeek))
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO training_plan_days (id, week_id, day_of_week, training_date, training_type, is_rest_day, total_duration_minutes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, dayID, weekID, day.DayOfWeek, trainingDate, trainingType, day.IsRestDay, day.TotalDurationMinutes)
+	if err != nil {
+		return status.Error(codes.Internal, "failed to save plan days")
+	}
+
+	for _, ex := range day.Exercises {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO training_plan_weeks (id, training_plan_id, week_number, total_training_days, total_duration_minutes)
-			VALUES ($1, $2, $3, $4, $5)
-		`, weekID, planID, week.WeekNumber, totalDays, totalDuration)
+			INSERT INTO training_exercises (id, day_id, exercise_name, duration_minutes, intensity, sets, reps, rest_seconds, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`, uuid.New().String(), dayID, ex.ExerciseName, ex.DurationMinutes, ex.Intensity, ex.Sets, ex.Reps, ex.RestSeconds, ex.SortOrder)
 		if err != nil {
-			return status.Error(codes.Internal, "failed to save plan weeks")
-		}
-
-		for _, day := range week.Days {
-			dayID := uuid.New().String()
-			trainingType := "training"
-			if day.IsRestDay {
-				trainingType = "rest"
-			}
-			_, err := tx.ExecContext(ctx, `
-				INSERT INTO training_plan_days (id, week_id, day_of_week, training_date, training_type, is_rest_day, total_duration_minutes)
-				VALUES ($1, $2, $3, $4, $5, $6, $7)
-			`, dayID, weekID, day.DayOfWeek, startDate.AddDate(0, 0, int(week.WeekNumber-1)*7+int(day.DayOfWeek)), trainingType, day.IsRestDay, day.TotalDurationMinutes)
-			if err != nil {
-				return status.Error(codes.Internal, "failed to save plan days")
-			}
-
-			for _, ex := range day.Exercises {
-				_, err := tx.ExecContext(ctx, `
-					INSERT INTO training_exercises (id, day_id, exercise_name, duration_minutes, intensity, sets, reps, rest_seconds, sort_order)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-				`, uuid.New().String(), dayID, ex.ExerciseName, ex.DurationMinutes, ex.Intensity, ex.Sets, ex.Reps, ex.RestSeconds, ex.SortOrder)
-				if err != nil {
-					return status.Error(codes.Internal, "failed to save exercises")
-				}
-			}
+			return status.Error(codes.Internal, "failed to save exercises")
 		}
 	}
 

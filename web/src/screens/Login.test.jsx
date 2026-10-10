@@ -56,7 +56,7 @@ describe('Login', () => {
   it('renders guest and social buttons', () => {
     renderLogin();
     expect(screen.getByText('Продолжить как гость')).toBeInTheDocument();
-    expect(screen.getByText('Yandex')).toBeInTheDocument();
+    expect(screen.getByText('Яндекс')).toBeInTheDocument();
   });
 
   it('switches language', () => {

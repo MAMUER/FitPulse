@@ -487,7 +487,7 @@ def process_wesad_labels(max_subjects: int = 15) -> pd.DataFrame:
         print("WESAD_labels: missing")
         return pd.DataFrame()
 
-    records: list[dict[str, float | None]] = []
+    records: list[dict[str, float | None | str]] = []
     for pkl_file in sorted(dataset_dir.glob("S*.pkl"))[:max_subjects]:
         try:
             with pkl_file.open("rb") as f:

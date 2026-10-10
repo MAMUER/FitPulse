@@ -48,7 +48,7 @@ describe('Register', () => {
 
   it('renders social login buttons', () => {
     renderRegister();
-    expect(screen.getByText('Yandex')).toBeInTheDocument();
+    expect(screen.getByText('Яндекс')).toBeInTheDocument();
   });
 
   it('navigates to login', () => {

@@ -135,7 +135,7 @@ const (
 
 	errFailedToGenerateJWT = "failed to generate token"
 
-	errInvalidCredentials = "invalid credentials"
+	errInvalidCredentials = "invalid credentials" //nolint:gosec // G101: error message text, not a credential
 
 	errUserNotFound = "user not found"
 
@@ -146,16 +146,6 @@ const (
 	errDatabaseError = "database error"
 
 	errInternalError = "internal error"
-
-	sqlValuesPrefix = "VALUES ($1, "
-
-	sqlComma4Prefix = ", $4, "
-
-	sql56Prefix = "$5, $6, "
-
-	sqlSelectPrefix = "SELECT "
-
-	sqlCommaNewlinePrefix = ",\n               "
 
 	errFailedToValidateTOTP = "failed to validate TOTP code"
 
@@ -294,10 +284,6 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	fullName := sanitize.String(req.FullName)
 
-	emailHash := db.EmailHash(email)
-
-	var exists bool
-
 	exists, err := s.userRepo.ExistsByEmail(ctx, email)
 
 	if err != nil {
@@ -314,13 +300,45 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	}
 
+	userID, err := s.createRegisteredUser(ctx, req, email, fullName)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+	verificationToken, err := s.createEmailVerification(ctx, userID, email)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+	sendVerificationEmailIfNeeded(ctx, s, email, verificationToken)
+
+	s.createInitialProfile(ctx, userID)
+
+	return &pb.RegisterResponse{
+
+		UserId: userID,
+
+		Message: "user created successfully. Please check your email to verify your account.",
+	}, nil
+
+}
+
+// createRegisteredUser хеширует пароль, создаёт пользователя и пишет аудит-событие.
+func (s *userServer) createRegisteredUser(ctx context.Context, req *pb.RegisterRequest, email, fullName string) (string, error) {
+
 	hashed, err := hashPasswordArgon2id(req.Password)
 
 	if err != nil {
 
 		s.log.Error("Failed to hash password", zap.Error(err))
 
-		return nil, status.Error(codes.Internal, "failed to hash password")
+		return "", status.Error(codes.Internal, "failed to hash password")
 
 	}
 
@@ -345,18 +363,29 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 		s.log.Error("Failed to create user", zap.Error(err))
 
-		return nil, status.Error(codes.Internal, "failed to create user")
+		return "", status.Error(codes.Internal, "failed to create user")
 
 	}
 
 	if s.auditLogger != nil {
 
 		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIAccess, "register", "user").
+
 			WithUser(userID).
+
 			WithFields("email", "full_name", "role").
-			WithMetadata("email_hash", emailHash))
+
+			WithMetadata("email_hash", db.EmailHash(email)))
 
 	}
+
+	return userID, nil
+}
+
+// createEmailVerification создаёт запись подтверждения email и возвращает токен верификации.
+func (s *userServer) createEmailVerification(ctx context.Context, userID, email string) (string, error) {
+
+	emailHash := db.EmailHash(email)
 
 	verificationToken := generateVerificationToken()
 
@@ -366,7 +395,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 		s.log.Error(logFailedToGenerateNonce, zap.Error(err))
 
-		return nil, status.Error(codes.Internal, errFailedToGenerateNonce)
+		return "", status.Error(codes.Internal, errFailedToGenerateNonce)
 
 	}
 
@@ -376,7 +405,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 		s.log.Error(logFailedToGenerateNonce, zap.Error(err))
 
-		return nil, status.Error(codes.Internal, errFailedToGenerateNonce)
+		return "", status.Error(codes.Internal, errFailedToGenerateNonce)
 
 	}
 
@@ -384,11 +413,15 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 		s.log.Error("Failed to create email verification record", zap.Error(err))
 
-		return nil, status.Error(codes.Internal, "failed to create verification token")
+		return "", status.Error(codes.Internal, "failed to create verification token")
 
 	}
 
-	sendVerificationEmailIfNeeded(ctx, s, email, verificationToken)
+	return verificationToken, nil
+}
+
+// createInitialProfile создаёт пустой профиль пользователя.
+func (s *userServer) createInitialProfile(ctx context.Context, userID string) {
 
 	if err := s.profileRepo.CreateProfile(ctx, userID); err != nil {
 
@@ -399,13 +432,6 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 			zap.String("user_id", userID))
 
 	}
-
-	return &pb.RegisterResponse{
-
-		UserId: userID,
-
-		Message: "user created successfully. Please check your email to verify your account.",
-	}, nil
 
 }
 
@@ -531,7 +557,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 			s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypeAuthFailure, "login", "user").
 				WithUser(user.ID).
 				WithFields("email").
-				WithError(fmt.Errorf("invalid credentials")))
+				WithError(errors.New("invalid credentials")))
 
 		}
 
@@ -2754,87 +2780,15 @@ func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataR
 
 	}
 
-	conditions, _ := s.userHealthRepo.List(ctx, req.UserId)
+	pbConditions := s.exportHealthConditions(ctx, req.UserId)
 
-	pbConditions := make([]*pb.HealthCondition, 0, len(conditions))
+	pbBodyRecords := s.exportBodyComposition(ctx, req.UserId)
 
-	for _, c := range conditions {
+	pbCycles := s.exportMenstrualCycles(ctx, req.UserId)
 
-		pbConditions = append(pbConditions, &pb.HealthCondition{
+	pbDevices := s.exportDevices(ctx, req.UserId)
 
-			Id: c.ID, UserId: c.UserID, ConditionType: c.ConditionType, ConditionName: c.ConditionName,
-
-			Severity: c.Severity, DiagnosedAt: "", IsActive: c.IsActive, Notes: toString(c.Notes),
-		})
-
-	}
-
-	bodyRecords, _ := s.userBodyCompRepo.List(ctx, req.UserId, nil, nil, 1000)
-
-	pbBodyRecords := make([]*pb.BodyCompositionRecord, 0, len(bodyRecords))
-
-	for _, r := range bodyRecords {
-
-		pbBodyRecords = append(pbBodyRecords, &pb.BodyCompositionRecord{
-
-			Id: r.ID, UserId: r.UserID, RecordedAt: r.RecordedAt.Format(time.RFC3339), WeightKg: r.WeightKG,
-
-			HeightCm: int32(r.HeightCM), Bmi: r.BMI,
-
-			BodyFatPercentage: toFloat64(r.BodyFatPercentage), MuscleMassPercentage: toFloat64(r.MuscleMassPercentage),
-
-			BoneMassPercentage: toFloat64(r.BoneMassPercentage), WaterPercentage: toFloat64(r.WaterPercentage),
-
-			VisceralFatRating: int32(toFloat64(r.VisceralFatRating)), MetabolicAge: int32(toFloat64(r.MetabolicAge)),
-
-			Source: r.Source,
-		})
-
-	}
-
-	cycles, _ := s.userMenstrualRepo.ListCycles(ctx, req.UserId)
-
-	pbCycles := make([]*pb.MenstrualCycle, 0, len(cycles))
-
-	for _, c := range cycles {
-
-		symptoms, _ := s.userMenstrualRepo.ListSymptoms(ctx, c.ID)
-
-		moods, _ := s.userMenstrualRepo.ListMoods(ctx, c.ID)
-
-		pbCycles = append(pbCycles, &pb.MenstrualCycle{
-
-			Id: c.ID, UserId: c.UserID, CycleStartDate: c.CycleStartDate,
-
-			CycleEndDate: c.CycleEndDate, FlowIntensity: c.FlowIntensity,
-
-			Notes: c.Notes, Symptoms: symptoms, Moods: moods,
-
-			CreatedAt: c.CreatedAt.Format(time.RFC3339), UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
-		})
-
-	}
-
-	devices, _ := s.deviceRepo.List(ctx, req.UserId)
-
-	pbDevices := make([]*pb.Device, 0, len(devices))
-
-	for _, d := range devices {
-
-		pbDevices = append(pbDevices, &pb.Device{
-
-			DeviceId: d.ID, DeviceType: d.DeviceType, DeviceName: d.DeviceName,
-		})
-
-	}
-
-	if s.auditLogger != nil {
-
-		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIExport, "export_user_data", "user").
-			WithUser(req.UserId).
-			WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles", "devices"))
-
-	}
+	s.logPIIExport(req.UserId)
 
 	return &pb.ExportUserDataResponse{
 
@@ -2883,6 +2837,115 @@ func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataR
 		ExportedAt: time.Now().UTC().Format(time.RFC3339),
 	}, nil
 
+}
+
+// exportHealthConditions собирает заболевания пользователя для экспорта.
+func (s *userServer) exportHealthConditions(ctx context.Context, userID string) []*pb.HealthCondition {
+
+	conditions, _ := s.userHealthRepo.List(ctx, userID)
+
+	pbConditions := make([]*pb.HealthCondition, 0, len(conditions))
+
+	for _, c := range conditions {
+
+		pbConditions = append(pbConditions, &pb.HealthCondition{
+
+			Id: c.ID, UserId: c.UserID, ConditionType: c.ConditionType, ConditionName: c.ConditionName,
+
+			Severity: c.Severity, DiagnosedAt: "", IsActive: c.IsActive, Notes: toString(c.Notes),
+		})
+
+	}
+
+	return pbConditions
+}
+
+// exportBodyComposition собирает записи состава тела для экспорта.
+func (s *userServer) exportBodyComposition(ctx context.Context, userID string) []*pb.BodyCompositionRecord {
+
+	bodyRecords, _ := s.userBodyCompRepo.List(ctx, userID, nil, nil, 1000)
+
+	pbBodyRecords := make([]*pb.BodyCompositionRecord, 0, len(bodyRecords))
+
+	for _, r := range bodyRecords {
+
+		pbBodyRecords = append(pbBodyRecords, &pb.BodyCompositionRecord{
+
+			Id: r.ID, UserId: r.UserID, RecordedAt: r.RecordedAt.Format(time.RFC3339), WeightKg: r.WeightKG,
+
+			HeightCm: int32(r.HeightCM), Bmi: r.BMI,
+
+			BodyFatPercentage: toFloat64(r.BodyFatPercentage), MuscleMassPercentage: toFloat64(r.MuscleMassPercentage),
+
+			BoneMassPercentage: toFloat64(r.BoneMassPercentage), WaterPercentage: toFloat64(r.WaterPercentage),
+
+			VisceralFatRating: int32(toFloat64(r.VisceralFatRating)), MetabolicAge: int32(toFloat64(r.MetabolicAge)),
+
+			Source: r.Source,
+		})
+
+	}
+
+	return pbBodyRecords
+}
+
+// exportMenstrualCycles собирает менструальные циклы для экспорта.
+func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) []*pb.MenstrualCycle {
+
+	cycles, _ := s.userMenstrualRepo.ListCycles(ctx, userID)
+
+	pbCycles := make([]*pb.MenstrualCycle, 0, len(cycles))
+
+	for _, c := range cycles {
+
+		symptoms, _ := s.userMenstrualRepo.ListSymptoms(ctx, c.ID)
+
+		moods, _ := s.userMenstrualRepo.ListMoods(ctx, c.ID)
+
+		pbCycles = append(pbCycles, &pb.MenstrualCycle{
+
+			Id: c.ID, UserId: c.UserID, CycleStartDate: c.CycleStartDate,
+
+			CycleEndDate: c.CycleEndDate, FlowIntensity: c.FlowIntensity,
+
+			Notes: c.Notes, Symptoms: symptoms, Moods: moods,
+
+			CreatedAt: c.CreatedAt.Format(time.RFC3339), UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
+		})
+
+	}
+
+	return pbCycles
+}
+
+// exportDevices собирает подключённые устройства для экспорта.
+func (s *userServer) exportDevices(ctx context.Context, userID string) []*pb.Device {
+
+	devices, _ := s.deviceRepo.List(ctx, userID)
+
+	pbDevices := make([]*pb.Device, 0, len(devices))
+
+	for _, d := range devices {
+
+		pbDevices = append(pbDevices, &pb.Device{
+
+			DeviceId: d.ID, DeviceType: d.DeviceType, DeviceName: d.DeviceName,
+		})
+
+	}
+
+	return pbDevices
+}
+
+// logPIIExport фиксирует экспорт персональных данных в аудите (152-ФЗ).
+func (s *userServer) logPIIExport(userID string) {
+	if s.auditLogger == nil {
+		return
+	}
+
+	s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIExport, "export_user_data", "user").
+		WithUser(userID).
+		WithFields("email", "full_name", "profile", "health_conditions", "body_composition", "menstrual_cycles", "devices"))
 }
 
 func (s *userServer) requireAdminRole(ctx context.Context, requesterID string) error {
@@ -3091,45 +3154,15 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	}
 
-	role := req.GetRole()
+	role, maxUses, err := validateInviteRequest(req.GetRole(), req.GetMaxUses())
 
-	if role == "" {
+	if err != nil {
 
-		role = "client"
-
-	}
-
-	if role != "client" && role != "admin" {
-
-		return nil, status.Error(codes.InvalidArgument, "role must be 'client' or 'admin'")
-
-	}
-
-	maxUses := req.GetMaxUses()
-
-	if maxUses <= 0 {
-
-		maxUses = 1
-
-	}
-
-	if maxUses > 100 {
-
-		return nil, status.Error(codes.InvalidArgument, "max_uses must be between 1 and 100")
+		return nil, err
 
 	}
 
 	code := "INV-" + generateInviteCode()
-
-	var specialty *string
-
-	if req.GetSpecialty() != "" {
-
-		s := req.GetSpecialty()
-
-		specialty = &s
-
-	}
 
 	invite := &port.InviteCode{
 
@@ -3137,7 +3170,7 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 		Role: role,
 
-		Specialty: specialty,
+		Specialty: optionalString(req.GetSpecialty()),
 
 		MaxUses: int(maxUses),
 
@@ -3158,15 +3191,7 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	}
 
-	baseURL := s.baseURL
-
-	if baseURL == "" {
-
-		baseURL = "https://fittpulse.duckdns.org"
-
-	}
-
-	inviteURL := fmt.Sprintf("%s/register?invite=%s", baseURL, code)
+	inviteURL := fmt.Sprintf("%s/register?invite=%s", s.inviteBaseURL(), code)
 
 	s.log.Info("Invite code created",
 
@@ -3192,6 +3217,52 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}, nil
 
+}
+
+// validateInviteRequest проверяет и нормализует роль и число использований приглашения.
+func validateInviteRequest(role string, maxUses int32) (string, int32, error) {
+
+	if role == "" {
+
+		role = "client"
+
+	}
+
+	if role != "client" && role != "admin" {
+
+		return "", 0, status.Error(codes.InvalidArgument, "role must be 'client' or 'admin'")
+
+	}
+
+	if maxUses <= 0 {
+
+		maxUses = 1
+
+	}
+
+	if maxUses > 100 {
+
+		return "", 0, status.Error(codes.InvalidArgument, "max_uses must be between 1 and 100")
+
+	}
+
+	return role, maxUses, nil
+}
+
+// optionalString возвращает указатель на строку, если она не пустая.
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+// inviteBaseURL возвращает базовый URL для ссылок-приглашений.
+func (s *userServer) inviteBaseURL() string {
+	if s.baseURL == "" {
+		return "https://fittpulse.duckdns.org"
+	}
+	return s.baseURL
 }
 
 func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeInviteRequest) (*pb.AdminRevokeInviteResponse, error) {
@@ -3465,130 +3536,130 @@ func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
 
 }
 
+// userServiceSecrets содержит обязательные параметры конфигурации из окружения.
+type userServiceSecrets struct {
+	jwtPrivateKeyPEM   string
+	jwtPublicKeyPEM    string
+	totpEncryptor      *crypto.AESGCMEncryptor
+	baseURL            string
+	yandexClientID     string
+	yandexClientSecret string
+}
+
+// loadUserServiceSecrets загружает обязательные переменные окружения user-service.
+func loadUserServiceSecrets(log *logger.Logger) userServiceSecrets {
+
+	secrets := userServiceSecrets{
+		jwtPrivateKeyPEM: requireEnv(log, "JWT_PRIVATE_KEY_PEM", "JWT_PRIVATE_KEY_PEM environment variable is required"),
+		jwtPublicKeyPEM:  requireEnv(log, "JWT_PUBLIC_KEY_PEM", "JWT_PUBLIC_KEY_PEM environment variable is required"),
+		baseURL:          config.GetEnv("BASE_URL", "https://localhost:8443"),
+		yandexClientID: requireEnv(log, "YANDEX_CLIENT_ID",
+			"YANDEX_CLIENT_ID environment variable is required for Yandex ID auth"),
+		yandexClientSecret: requireEnv(log, "YANDEX_CLIENT_SECRET",
+			"YANDEX_CLIENT_SECRET environment variable is required for Yandex ID auth"),
+	}
+
+	totpEncryptor, err := crypto.NewAESGCMEncryptor(
+		requireEnv(log, "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY environment variable is required"))
+
+	if err != nil {
+
+		log.Fatal("Failed to initialize TOTP encryption", zap.Error(err))
+
+	}
+
+	secrets.totpEncryptor = totpEncryptor
+
+	return secrets
+}
+
+// requireEnv возвращает значение обязательной переменной окружения.
+func requireEnv(log *logger.Logger, key, message string) string {
+
+	value := config.GetEnv(key)
+
+	if value == "" {
+
+		log.Fatal(message)
+
+	}
+
+	return value
+}
+
+// userServiceRepos объединяет все репозитории, используемые user-service.
+type userServiceRepos struct {
+	deviceRepo          port.DeviceRepository
+	userRepo            *postgres.PgsodiumUserRepository
+	profileRepo         port.ProfileRepository
+	inviteRepo          port.InviteRepository
+	inviteCodeRepo      port.InviteCodeRepository
+	healthRepo          port.HealthConditionRepository
+	userHealthRepo      port.UserHealthConditionRepository
+	bodyCompRepo        port.BodyCompositionRepository
+	userBodyCompRepo    port.UserBodyCompositionRepository
+	menstrualRepo       port.MenstrualCycleRepository
+	userMenstrualRepo   port.UserMenstrualRepository
+	achievementRepo     port.AchievementRepository
+	achievementExRepo   port.AchievementRepositoryEx
+	emailVerifRepo      port.EmailVerificationRepository
+	refreshTokenRepo    port.RefreshTokenRepository
+	externalSecretsRepo port.ExternalSecretRepository
+}
+
+// newUserServiceRepos создаёт все репозитории user-service поверх одной БД.
+func newUserServiceRepos(database *sql.DB) userServiceRepos {
+
+	return userServiceRepos{
+		deviceRepo:          postgres.NewDeviceRepository(database),
+		userRepo:            postgres.NewPgsodiumUserRepository(database),
+		profileRepo:         postgres.NewProfileRepository(database),
+		inviteRepo:          postgres.NewInviteRepository(database),
+		inviteCodeRepo:      postgres.NewInviteCodeRepository(database),
+		healthRepo:          postgres.NewHealthConditionRepository(database),
+		userHealthRepo:      postgres.NewUserHealthConditionRepository(database),
+		bodyCompRepo:        postgres.NewBodyCompositionRepository(database),
+		userBodyCompRepo:    postgres.NewUserBodyCompositionRepository(database),
+		menstrualRepo:       postgres.NewMenstrualCycleRepository(database),
+		userMenstrualRepo:   postgres.NewUserMenstrualRepository(database),
+		achievementRepo:     postgres.NewAchievementRepository(database),
+		achievementExRepo:   postgres.NewAchievementRepositoryEx(database),
+		emailVerifRepo:      postgres.NewEmailVerificationRepository(database),
+		refreshTokenRepo:    postgres.NewRefreshTokenRepository(database),
+		externalSecretsRepo: postgres.NewExternalSecretsRepository(database),
+	}
+}
+
+// buildDomainUserService собирает доменный сервис пользователей из репозиториев.
+func buildDomainUserService(repos userServiceRepos) service.UserService {
+
+	return service.NewUserService(service.UserServiceConfig{
+		Users:           repos.userRepo,
+		Profiles:        repos.profileRepo,
+		Invites:         repos.inviteRepo,
+		InviteCodes:     repos.inviteCodeRepo,
+		Health:          repos.healthRepo,
+		UserHealth:      repos.userHealthRepo,
+		BodyComp:        repos.bodyCompRepo,
+		UserBodyComp:    repos.userBodyCompRepo,
+		Menstrual:       repos.menstrualRepo,
+		UserMenstrual:   repos.userMenstrualRepo,
+		Achievements:    repos.achievementRepo,
+		AchievementsEx:  repos.achievementExRepo,
+		Devices:         repos.deviceRepo,
+		EmailVerifs:     repos.emailVerifRepo,
+		RefreshTokens:   repos.refreshTokenRepo,
+		ExternalSecrets: repos.externalSecretsRepo,
+	})
+}
+
 func initializeUserService(ctx context.Context, log *logger.Logger, database *sql.DB) *userServer {
 
-	jwtPrivateKeyPEM := config.GetEnv("JWT_PRIVATE_KEY_PEM")
+	secrets := loadUserServiceSecrets(log)
 
-	if jwtPrivateKeyPEM == "" {
+	repos := newUserServiceRepos(database)
 
-		log.Fatal("JWT_PRIVATE_KEY_PEM environment variable is required")
-
-	}
-
-	jwtPublicKeyPEM := config.GetEnv("JWT_PUBLIC_KEY_PEM")
-
-	if jwtPublicKeyPEM == "" {
-
-		log.Fatal("JWT_PUBLIC_KEY_PEM environment variable is required")
-
-	}
-
-	totpEncryptionKey := config.GetEnv("TOTP_ENCRYPTION_KEY")
-
-	if totpEncryptionKey == "" {
-
-		log.Fatal("TOTP_ENCRYPTION_KEY environment variable is required")
-
-	}
-
-	totpEncryptor, initErr := crypto.NewAESGCMEncryptor(totpEncryptionKey)
-
-	if initErr != nil {
-
-		log.Fatal("Failed to initialize TOTP encryption", zap.Error(initErr))
-
-	}
-
-	emailCfg := email.LoadConfig()
-
-	emailSender := email.NewSMTPClient(emailCfg)
-
-	baseURL := config.GetEnv("BASE_URL", "https://localhost:8443")
-
-	yandexClientID := config.GetEnv("YANDEX_CLIENT_ID")
-
-	if yandexClientID == "" {
-
-		log.Fatal("YANDEX_CLIENT_ID environment variable is required for Yandex ID auth")
-
-	}
-
-	yandexClientSecret := config.GetEnv("YANDEX_CLIENT_SECRET")
-
-	if yandexClientSecret == "" {
-
-		log.Fatal("YANDEX_CLIENT_SECRET environment variable is required for Yandex ID auth")
-
-	}
-
-	tokenProvider := jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM)
-
-	deviceRepo := postgres.NewDeviceRepository(database)
-
-	userRepo := postgres.NewPgsodiumUserRepository(database)
-
-	profileRepo := postgres.NewProfileRepository(database)
-
-	inviteRepo := postgres.NewInviteRepository(database)
-
-	inviteCodeRepo := postgres.NewInviteCodeRepository(database)
-
-	healthRepo := postgres.NewHealthConditionRepository(database)
-
-	userHealthRepo := postgres.NewUserHealthConditionRepository(database)
-
-	bodyCompRepo := postgres.NewBodyCompositionRepository(database)
-
-	userBodyCompRepo := postgres.NewUserBodyCompositionRepository(database)
-
-	menstrualRepo := postgres.NewMenstrualCycleRepository(database)
-
-	userMenstrualRepo := postgres.NewUserMenstrualRepository(database)
-
-	achievementRepo := postgres.NewAchievementRepository(database)
-
-	achievementExRepo := postgres.NewAchievementRepositoryEx(database)
-
-	emailVerifRepo := postgres.NewEmailVerificationRepository(database)
-
-	refreshTokenRepo := postgres.NewRefreshTokenRepository(database)
-
-	externalSecretsRepo := postgres.NewExternalSecretsRepository(database)
-
-	userSvc := service.NewUserService(service.UserServiceConfig{
-
-		Users: userRepo,
-
-		Profiles: profileRepo,
-
-		Invites: inviteRepo,
-
-		InviteCodes: inviteCodeRepo,
-
-		Health: healthRepo,
-
-		UserHealth: userHealthRepo,
-
-		BodyComp: bodyCompRepo,
-
-		UserBodyComp: userBodyCompRepo,
-
-		Menstrual: menstrualRepo,
-
-		UserMenstrual: userMenstrualRepo,
-
-		Achievements: achievementRepo,
-
-		AchievementsEx: achievementExRepo,
-
-		Devices: deviceRepo,
-
-		EmailVerifs: emailVerifRepo,
-
-		RefreshTokens: refreshTokenRepo,
-
-		ExternalSecrets: externalSecretsRepo,
-	})
+	userSvc := buildDomainUserService(repos)
 
 	svc := buildUserServer(userServerConfig{
 
@@ -3598,42 +3669,43 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 		auditLogger: audit.NewConsoleAuditLogger(log.Logger),
 
-		tokenProvider: tokenProvider,
+		tokenProvider: jwt.NewJWTAdapter(secrets.jwtPrivateKeyPEM, secrets.jwtPublicKeyPEM),
 
-		baseURL: baseURL,
+		baseURL: secrets.baseURL,
 
-		yandexClientID:     yandexClientID,
+		yandexClientID:     secrets.yandexClientID,
 
-		yandexClientSecret: yandexClientSecret,
+		yandexClientSecret: secrets.yandexClientSecret,
 
-		emailSender: emailSender,
+		emailSender: email.NewSMTPClient(email.LoadConfig()),
 
-		totpService: totp.NewService(totpEncryptor),
+		totpService: totp.NewService(secrets.totpEncryptor),
 
 		userSvc: userSvc,
 
-		userRepo: userRepo,
+		userRepo: repos.userRepo,
 
-		profileRepo: profileRepo,
+		profileRepo: repos.profileRepo,
 
-		emailVerifRepo: emailVerifRepo,
+		emailVerifRepo: repos.emailVerifRepo,
 
-		refreshTokenRepo: refreshTokenRepo,
+		refreshTokenRepo: repos.refreshTokenRepo,
 
-		achievementExRepo: achievementExRepo,
+		achievementExRepo: repos.achievementExRepo,
 
-		inviteCodeRepo: inviteCodeRepo,
+		inviteCodeRepo: repos.inviteCodeRepo,
 
-		userHealthRepo: userHealthRepo,
+		userHealthRepo: repos.userHealthRepo,
 
-		userBodyCompRepo: userBodyCompRepo,
+		userBodyCompRepo: repos.userBodyCompRepo,
 
-		userMenstrualRepo: userMenstrualRepo,
+		userMenstrualRepo: repos.userMenstrualRepo,
 
-		deviceRepo: deviceRepo,
+		deviceRepo: repos.deviceRepo,
 
-		externalSecretsRepo: externalSecretsRepo,
+		externalSecretsRepo: repos.externalSecretsRepo,
 	})
+
 	if err := ensurePgsodiumKey(ctx, database, log); err != nil {
 
 		log.Fatal("Failed to initialize pgsodium keyring", zap.Error(err))
@@ -3648,31 +3720,10 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 }
 
-func main() {
+// buildDBConfig собирает конфигурацию подключения к БД из окружения.
+func buildDBConfig() db.Config {
 
-	log := logger.New(serviceName)
-
-	defer func() { _ = log.Sync() }()
-
-	shutdownTraces := telemetry.InitTracer()
-
-	defer func() {
-
-		if err := shutdownTraces(context.Background()); err != nil {
-
-			log.Warn("Failed to shutdown traces", zap.Error(err))
-
-		}
-
-	}()
-
-	port := config.GetEnv("USER_SERVICE_PORT", "50051")
-
-	metricsPort := config.GetEnv("USER_SERVICE_METRICS_PORT", "9096")
-
-	metricsSrv := createMetricsServer(metricsPort)
-
-	dbCfg := db.Config{
+	return db.Config{
 
 		Host: config.GetEnv("DB_HOST", "localhost"),
 
@@ -3686,20 +3737,10 @@ func main() {
 
 		SSLMode: config.GetEnv("DB_SSLMODE", "disable"),
 	}
+}
 
-	database := connectDatabase(dbCfg, log)
-
-	defer func() {
-
-		if closeErr := database.Close(); closeErr != nil {
-
-			log.Error("Failed to close database connection", zap.Error(closeErr))
-
-		}
-
-	}()
-
-	svc := initializeUserService(context.Background(), log, database)
+// listenUserService открывает TCP-порт user-service.
+func listenUserService(port string, log *logger.Logger) net.Listener {
 
 	lc := net.ListenConfig{}
 
@@ -3711,39 +3752,37 @@ func main() {
 
 	}
 
-	s := setupGRPCServer(log, svc)
+	return lis
+}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+// serveMetricsServer запускает сервер Prometheus метрик.
+func serveMetricsServer(log *logger.Logger, metricsSrv *http.Server, metricsPort string) {
 
-	defer stop()
+	log.Info("Starting metrics server", zap.String("port", metricsPort))
 
-	go func() {
+	if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 
-		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		log.Fatal("Metrics server failed", zap.Error(err))
 
-		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
+	}
 
-			log.Fatal("Metrics server failed", zap.Error(err))
+}
 
-		}
+// serveUserService запускает gRPC сервер.
+func serveUserService(log *logger.Logger, s *grpc.Server, lis net.Listener, port string) {
 
-	}()
+	log.Info("User service starting", zap.String("port", port))
 
-	go func() {
+	if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
 
-		log.Info("User service starting", zap.String("port", port))
+		log.Fatal("Failed to serve", zap.Error(err))
 
-		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
+	}
 
-			log.Fatal("Failed to serve", zap.Error(err))
+}
 
-		}
-
-	}()
-
-	<-ctx.Done()
-
-	log.Info("Shutting down user service")
+// gracefulStopUserService останавливает gRPC и metrics серверы.
+func gracefulStopUserService(s *grpc.Server, metricsSrv *http.Server) {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -3770,6 +3809,63 @@ func main() {
 	}()
 
 	wg.Wait()
+}
+
+func main() {
+
+	log := logger.New(serviceName)
+
+	defer func() { _ = log.Sync() }()
+
+	shutdownTraces := telemetry.InitTracer()
+
+	defer func() {
+
+		if err := shutdownTraces(context.Background()); err != nil {
+
+			log.Warn("Failed to shutdown traces", zap.Error(err))
+
+		}
+
+	}()
+
+	port := config.GetEnv("USER_SERVICE_PORT", "50051")
+
+	metricsPort := config.GetEnv("USER_SERVICE_METRICS_PORT", "9096")
+
+	metricsSrv := createMetricsServer(metricsPort)
+
+	database := connectDatabase(buildDBConfig(), log)
+
+	defer func() {
+
+		if closeErr := database.Close(); closeErr != nil {
+
+			log.Error("Failed to close database connection", zap.Error(closeErr))
+
+		}
+
+	}()
+
+	svc := initializeUserService(context.Background(), log, database)
+
+	lis := listenUserService(port, log)
+
+	s := setupGRPCServer(log, svc)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
+	defer stop()
+
+	go serveMetricsServer(log, metricsSrv, metricsPort)
+
+	go serveUserService(log, s, lis, port)
+
+	<-ctx.Done()
+
+	log.Info("Shutting down user service")
+
+	gracefulStopUserService(s, metricsSrv)
 
 	log.Info("User service stopped")
 

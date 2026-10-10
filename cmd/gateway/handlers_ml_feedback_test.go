@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"github.com/MAMUER/project/internal/logger"
 )
@@ -33,7 +34,7 @@ func TestHandleMLFeedback_Success(t *testing.T) {
 	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	assert.Equal(t, "success", resp["status"])
 	assert.NotEmpty(t, resp["feedback_id"])
 }

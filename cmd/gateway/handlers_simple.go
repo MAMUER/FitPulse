@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -12,10 +11,6 @@ import (
 
 	"github.com/MAMUER/project/internal/middleware"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 type meal struct {
 	ID        string    `json:"id"`

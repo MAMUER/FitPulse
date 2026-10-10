@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 )
 
 // CORSConfig содержит конфигурацию CORS.
@@ -73,9 +74,5 @@ func joinStrings(ss []string) string {
 	if len(ss) == 0 {
 		return ""
 	}
-	result := ss[0]
-	for i := 1; i < len(ss); i++ {
-		result += ", " + ss[i]
-	}
-	return result
+	return strings.Join(ss, ", ")
 }

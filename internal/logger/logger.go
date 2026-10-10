@@ -11,9 +11,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// ContextKey is the type for the keys stored in context.Context. Using a
+// dedicated type instead of the built-in string prevents collisions between
+// keys defined in different packages.
+type ContextKey string
+
 const (
-	CorrelationIDKey = "correlation_id"
-	userIDKey        = "user_id"
+	CorrelationIDKey ContextKey = "correlation_id"
+	userIDKey        ContextKey = "user_id"
 )
 
 // Logger структура для обёртки над zap.Logger

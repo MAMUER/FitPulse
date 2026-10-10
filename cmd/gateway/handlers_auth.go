@@ -832,11 +832,13 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		httpCode, errMsg := grpcToHTTPStatus(err)
 
-		g.log.Error("Login failed", zap.Error(err), zap.String("email", html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))))
+		email := html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))
+
+		g.log.Error("Login failed", zap.Error(err), zap.String("email", email))
 
 		if httpCode == http.StatusUnauthorized && strings.Contains(errMsg, "Email not confirmed") {
 
-			g.log.Warn("Login attempt with unconfirmed email", zap.String("email", html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))))
+			g.log.Warn("Login attempt with unconfirmed email", zap.String("email", email))
 
 			http.Error(w, "Email не подтверждён. Проверьте вашу почту.", httpCode)
 
@@ -854,59 +856,51 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if g.userTOTPEnabled(r.Context(), resp.GetUserId()) {
 
-		tempToken := uuid.New().String()
-
-		_ = g.valkeyDB.Set(r.Context(), twoFATempPrefix+tempToken, resp.GetUserId(), 5*time.Minute).Err()
-
-		w.Header().Set(headerContentType, contentTypeJSON)
-
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
-			"requires_2fa": true,
-
-			"temp_token": tempToken,
-
-			"message": "Please provide your 2FA code",
-		}); err != nil {
-
-			g.log.Error("Failed to encode 2FA response", zap.Error(err))
-
-			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-			return
-
-		}
+		g.writeTwoFARequired(r.Context(), w, resp.GetUserId(), "Failed to encode 2FA response")
 
 		return
 
 	}
 
-	accessToken := resp.GetAccessToken()
-	refreshToken, rtErr := g.issueRefreshToken(r.Context(), resp.GetUserId())
+	g.writeLoginSuccess(r.Context(), w, resp)
 
-	accessCookie := &http.Cookie{
-		Name:     accessTokenCookieName,
-		Value:    accessToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   900,
-	}
-	http.SetCookie(w, accessCookie)
+}
 
-	var refreshCookie *http.Cookie
-	if rtErr == nil {
-		refreshCookie = &http.Cookie{
-			Name:     refreshTokenCookieName,
-			Value:    refreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
-		MaxAge:   7 * 24 * 60 * 60,
+// writeTwoFARequired сохраняет временный токен 2FA и отвечает запросом кода.
+func (g *gateway) writeTwoFARequired(ctx context.Context, w http.ResponseWriter, userID, encodeErrorMessage string) {
+
+	tempToken := uuid.New().String()
+
+	_ = g.valkeyDB.Set(ctx, twoFATempPrefix+tempToken, userID, 5*time.Minute).Err()
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+
+		"requires_2fa": true,
+
+		"temp_token": tempToken,
+
+		"message": "Please provide your 2FA code",
+	}); err != nil {
+
+		g.log.Error(encodeErrorMessage, zap.Error(err))
+
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
+
 	}
-	http.SetCookie(w, refreshCookie)
+
+}
+
+// writeLoginSuccess устанавливает access и refresh cookie для успешного входа.
+func (g *gateway) writeLoginSuccess(ctx context.Context, w http.ResponseWriter, resp *userpb.LoginResponse) {
+
+	setAccessCookie(w, resp.GetAccessToken())
+
+	if refreshToken, err := g.issueRefreshToken(ctx, resp.GetUserId()); err == nil {
+
+		setRefreshCookie(w, refreshToken)
+
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -1230,6 +1224,102 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	}
 
+	accessToken, ok := g.yandexAccessToken(w, r)
+
+	if !ok {
+
+		return
+
+	}
+
+	yandexUserInfo, err := g.fetchYandexUserInfo(r.Context(), accessToken)
+
+	if err != nil {
+
+		g.log.Error("Failed to fetch Yandex userinfo", zap.Error(err))
+
+		http.Error(w, "failed to get user info", http.StatusBadRequest)
+
+		return
+
+	}
+
+	emailVal := yandexUserInfo.DefaultEmail
+
+	if emailVal == "" {
+
+		emailVal = yandexUserInfo.Email
+
+	}
+
+	grpcResp, err := g.userClient.AuthenticateYandex(r.Context(), &userpb.AuthenticateYandexRequest{
+
+		YandexId:  yandexUserInfo.ID,
+
+		Email:     emailVal,
+
+		Login:     yandexUserInfo.Login,
+
+		FirstName: yandexUserInfo.FirstName,
+
+		LastName:  yandexUserInfo.LastName,
+	})
+
+	if err != nil {
+
+		httpCode, errMsg := grpcToHTTPStatus(err)
+
+		g.log.Error("Yandex auth failed", zap.Error(err))
+
+		http.Error(w, errMsg, httpCode)
+
+		return
+
+	}
+
+	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
+
+		g.writeTwoFARequired(r.Context(), w, grpcResp.GetUserId(), "Failed to encode Yandex 2FA response")
+
+		return
+
+	}
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+
+	accessCookie := &http.Cookie{
+		Name:     accessTokenCookieName,
+		Value:    grpcResp.GetAccessToken(),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   900,
+	}
+	http.SetCookie(w, accessCookie)
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"user_id": grpcResp.GetUserId(),
+		"role":    grpcResp.GetRole(),
+	})
+
+}
+
+// yandexUserInfo представляет профиль пользователя, полученный от Yandex ID.
+type yandexUserInfo struct {
+	ID           string `json:"id"`
+	Login        string `json:"login"`
+	DefaultEmail string `json:"default_email"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Email        string `json:"email"`
+}
+
+// yandexAccessToken проверяет OAuth state, обменивает код на токен и возвращает access token.
+// При ошибке пишет ответ клиенту и возвращает false.
+func (g *gateway) yandexAccessToken(w http.ResponseWriter, r *http.Request) (string, bool) {
+
 	state := r.URL.Query().Get("state")
 
 	cookie, err := r.Cookie(yandexOAuthStateCookie)
@@ -1240,7 +1330,7 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 		http.Error(w, "invalid oauth state", http.StatusBadRequest)
 
-		return
+		return "", false
 
 	}
 
@@ -1271,7 +1361,7 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 		http.Error(w, "missing authorization code", http.StatusBadRequest)
 
-		return
+		return "", false
 
 	}
 
@@ -1283,7 +1373,7 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 		http.Error(w, "failed to exchange authorization code", http.StatusBadRequest)
 
-		return
+		return "", false
 
 	}
 
@@ -1295,19 +1385,21 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 		http.Error(w, "missing access_token from Yandex", http.StatusBadRequest)
 
-		return
+		return "", false
 
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), "GET", "https://login.yandex.ru/info?format=json", nil)
+	return accessToken, true
+}
+
+// fetchYandexUserInfo запрашивает профиль пользователя Yandex по access token.
+func (g *gateway) fetchYandexUserInfo(ctx context.Context, accessToken string) (*yandexUserInfo, error) {
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://login.yandex.ru/info?format=json", nil)
 
 	if err != nil {
 
-		g.log.Error("Failed to create Yandex userinfo request", zap.Error(err))
-
-		http.Error(w, "failed to create user info request", http.StatusBadRequest)
-
-		return
+		return nil, fmt.Errorf("create user info request: %w", err)
 
 	}
 
@@ -1319,125 +1411,33 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 
-		g.log.Error("Failed to fetch Yandex userinfo with token", zap.Error(err))
-
-		http.Error(w, "failed to get user info", http.StatusBadRequest)
-
-		return
+		return nil, fmt.Errorf("fetch user info: %w", err)
 
 	}
 
-	defer userInfoResp.Body.Close()
+	defer func() { _ = userInfoResp.Body.Close() }()
 
 	if userInfoResp.StatusCode != http.StatusOK {
 
-		g.log.Error("Yandex userinfo returned non-200", zap.Int("status", userInfoResp.StatusCode))
-
-		http.Error(w, "failed to get user info", http.StatusBadRequest)
-
-		return
+		return nil, fmt.Errorf("user info returned status %d", userInfoResp.StatusCode)
 
 	}
 
-	var yandexUserInfo struct {
-		ID          string `json:"id"`
-		Login       string `json:"login"`
-		DefaultEmail string `json:"default_email"`
-		FirstName   string `json:"first_name"`
-		LastName    string `json:"last_name"`
-		Email       string `json:"email"`
-	}
+	var info yandexUserInfo
 
-	if err := json.NewDecoder(userInfoResp.Body).Decode(&yandexUserInfo); err != nil {
+	if err := json.NewDecoder(userInfoResp.Body).Decode(&info); err != nil {
 
-		g.log.Error("Failed to decode Yandex userinfo response", zap.Error(err))
-
-		http.Error(w, "failed to decode user info", http.StatusBadRequest)
-
-		return
+		return nil, fmt.Errorf("decode user info: %w", err)
 
 	}
 
-	if yandexUserInfo.ID == "" || yandexUserInfo.DefaultEmail == "" {
+	if info.ID == "" || info.DefaultEmail == "" {
 
-		g.log.Error("Yandex userinfo missing required fields",
-			zap.String("id", yandexUserInfo.ID),
-			zap.String("email", yandexUserInfo.DefaultEmail))
-
-		http.Error(w, "Yandex token missing required claims", http.StatusBadRequest)
-
-		return
+		return nil, errors.New("user info missing required fields")
 
 	}
 
-	emailVal := yandexUserInfo.DefaultEmail
-	if emailVal == "" {
-		emailVal = yandexUserInfo.Email
-	}
-
-	grpcResp, err := g.userClient.AuthenticateYandex(r.Context(), &userpb.AuthenticateYandexRequest{
-		YandexId:  yandexUserInfo.ID,
-		Email:     emailVal,
-		Login:     yandexUserInfo.Login,
-		FirstName: yandexUserInfo.FirstName,
-		LastName:  yandexUserInfo.LastName,
-	})
-
-	if err != nil {
-
-		httpCode, errMsg := grpcToHTTPStatus(err)
-
-		g.log.Error("Yandex auth failed", zap.Error(err))
-
-		http.Error(w, errMsg, httpCode)
-
-		return
-
-	}
-
-	if g.userTOTPEnabled(r.Context(), grpcResp.GetUserId()) {
-
-		tempToken := uuid.New().String()
-
-		_ = g.valkeyDB.Set(r.Context(), twoFATempPrefix+tempToken, grpcResp.GetUserId(), 5*time.Minute).Err()
-
-		w.Header().Set(headerContentType, contentTypeJSON)
-
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"requires_2fa": true,
-			"temp_token": tempToken,
-			"message": "Please provide your 2FA code",
-		}); err != nil {
-
-			g.log.Error("Failed to encode Yandex 2FA response", zap.Error(err))
-
-			http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
-		}
-
-		return
-
-	}
-
-	w.Header().Set(headerContentType, contentTypeJSON)
-
-	accessCookie := &http.Cookie{
-		Name:     accessTokenCookieName,
-		Value:    grpcResp.GetAccessToken(),
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   900,
-	}
-	http.SetCookie(w, accessCookie)
-
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"user_id": grpcResp.GetUserId(),
-		"role":    grpcResp.GetRole(),
-	})
-
+	return &info, nil
 }
 
 
@@ -1781,7 +1781,23 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = g.valkeyDB.Del(r.Context(), twoFATempPrefix+req.TempToken)
 
-	accessToken, err := g.issueJWT(r.Context(), userID)
+	g.writeSessionCookies(r.Context(), w, userID)
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":                 "ok",
+		"token_type":             "Bearer",
+		"expires_in":             900,
+		"backup_codes_remaining": resp.BackupCodesRemaining,
+	})
+
+}
+
+// writeSessionCookies выдаёт access и refresh cookie после успешной проверки 2FA.
+func (g *gateway) writeSessionCookies(ctx context.Context, w http.ResponseWriter, userID string) {
+
+	accessToken, err := g.issueJWT(ctx, userID)
 
 	if err != nil {
 
@@ -1793,7 +1809,7 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	refreshToken, rtErr := g.issueRefreshToken(r.Context(), userID)
+	refreshToken, rtErr := g.issueRefreshToken(ctx, userID)
 
 	if rtErr != nil {
 
@@ -1801,7 +1817,20 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	accessCookie := &http.Cookie{
+	setAccessCookie(w, accessToken)
+
+	if rtErr == nil {
+
+		setRefreshCookie(w, refreshToken)
+
+	}
+
+}
+
+// setAccessCookie устанавливает access token cookie.
+func setAccessCookie(w http.ResponseWriter, accessToken string) {
+
+	http.SetCookie(w, &http.Cookie{
 		Name:     accessTokenCookieName,
 		Value:    accessToken,
 		Path:     "/",
@@ -1809,32 +1838,21 @@ func (g *gateway) verifyTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   900,
-	}
-	http.SetCookie(w, accessCookie)
-
-	var refreshCookie *http.Cookie
-	if rtErr == nil {
-		refreshCookie = &http.Cookie{
-			Name:     refreshTokenCookieName,
-			Value:    refreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
-		MaxAge:   7 * 24 * 60 * 60,
-	}
-	http.SetCookie(w, refreshCookie)
-	}
-
-	w.Header().Set(headerContentType, contentTypeJSON)
-
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":                 "ok",
-		"token_type":             "Bearer",
-		"expires_in":             900,
-		"backup_codes_remaining": resp.BackupCodesRemaining,
 	})
+}
 
+// setRefreshCookie устанавливает refresh token cookie.
+func setRefreshCookie(w http.ResponseWriter, refreshToken string) {
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookieName,
+		Value:    refreshToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   7 * 24 * 60 * 60,
+	})
 }
 
 // @Summary      Disable TOTP two-factor authentication

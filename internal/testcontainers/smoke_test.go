@@ -73,7 +73,7 @@ func TestInfrastructureSmoke(t *testing.T) {
 			Password: "",
 			DB:       0,
 		})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -99,11 +99,11 @@ func TestInfrastructureSmoke(t *testing.T) {
 
 		conn, err := amqp091.Dial(url)
 		require.NoError(t, err)
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		ch, err := conn.Channel()
 		require.NoError(t, err)
-		defer ch.Close()
+		defer func() { _ = ch.Close() }()
 
 		queue, err := ch.QueueDeclare("smoke-test-queue", true, false, false, false, nil)
 		require.NoError(t, err)

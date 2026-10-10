@@ -61,7 +61,7 @@ func (g *gateway) saveSurveyHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
 }
 
 // @Summary      Загрузить анкету
@@ -97,7 +97,7 @@ func (g *gateway) loadSurveyHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":           resp.Status,
 		"survey":           survey,
 		"survey_completed": resp.SurveyCompleted,

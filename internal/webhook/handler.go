@@ -286,7 +286,9 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
+// authenticateWebhook проверяет метод и подпись вебхука.
+// Возвращает false, если ответ клиенту уже записан.
+func (s *Server) authenticateWebhook(w http.ResponseWriter, r *http.Request) bool {
 
 	if r.Method != http.MethodPost {
 
@@ -297,7 +299,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			Message: msgMethodNotAllowed,
 		})
 
-		return
+		return false
 
 	}
 
@@ -316,11 +318,18 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				Message: "invalid signature",
 			})
 
-			return
+			return false
 
 		}
 
 	}
+
+	return true
+}
+
+// decodeWebhookPayload читает тело, декодирует и первично проверяет вебхук.
+// Возвращает false, если ответ клиенту уже записан.
+func (s *Server) decodeWebhookPayload(w http.ResponseWriter, r *http.Request) (*OpenWearablesWebhookPayload, bool) {
 
 	body, err := readBody(r)
 
@@ -335,7 +344,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			Message: "invalid request body",
 		})
 
-		return
+		return nil, false
 
 	}
 
@@ -352,7 +361,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			Message: fmt.Sprintf("invalid payload: %v", err),
 		})
 
-		return
+		return nil, false
 
 	}
 
@@ -369,7 +378,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			Message: "timestamp out of range",
 		})
 
-		return
+		return nil, false
 
 	}
 
@@ -390,11 +399,18 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				Message: "duplicate webhook nonce",
 			})
 
-			return
+			return nil, false
 
 		}
 
 	}
+
+	return payload, true
+}
+
+// saveWebhookMetrics валидирует и сохраняет метрики вебхука.
+// Возвращает false, если ответ клиенту уже записан.
+func (s *Server) saveWebhookMetrics(w http.ResponseWriter, r *http.Request, payload *OpenWearablesWebhookPayload) bool {
 
 	if err := payload.Validate(); err != nil {
 
@@ -407,7 +423,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			Message: fmt.Sprintf("validation failed: %v", err),
 		})
 
-		return
+		return false
 
 	}
 
@@ -425,6 +441,31 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 			Message: "failed to save metrics",
 		})
+
+		return false
+
+	}
+
+	return true
+}
+
+func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
+
+	if !s.authenticateWebhook(w, r) {
+
+		return
+
+	}
+
+	payload, ok := s.decodeWebhookPayload(w, r)
+
+	if !ok {
+
+		return
+
+	}
+
+	if !s.saveWebhookMetrics(w, r, payload) {
 
 		return
 

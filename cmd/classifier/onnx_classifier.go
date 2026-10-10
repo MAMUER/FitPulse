@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -29,7 +30,7 @@ type ONNXWeights struct {
 func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 	clean := filepath.Clean(weightsPath)
 	if strings.Contains(clean, "..") {
-		return nil, fmt.Errorf("read onnx weights: invalid path")
+		return nil, errors.New("read onnx weights: invalid path")
 	}
 	data, err := os.ReadFile(clean)
 	if err != nil {
@@ -54,7 +55,7 @@ func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 // Predict возвращает индекс предсказанного класса и уверенность для заданной карты признаков.
 func (c *ONNXClassifier) Predict(features map[string]float64) (int, float64, error) {
 	if len(features) == 0 {
-		return 0, 0, fmt.Errorf("empty features")
+		return 0, 0, errors.New("empty features")
 	}
 
 	x := c.extractFeatures(features)
@@ -62,7 +63,7 @@ func (c *ONNXClassifier) Predict(features map[string]float64) (int, float64, err
 	numClasses := len(c.Labels)
 	numFeatures := len(c.featureKeys)
 	if !c.isValidConfig(numClasses, numFeatures) {
-		return 0, 0, fmt.Errorf("unsupported onnx model configuration")
+		return 0, 0, errors.New("unsupported onnx model configuration")
 	}
 
 	scores := c.computeScores(x, numClasses, numFeatures)

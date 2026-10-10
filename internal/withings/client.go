@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,7 +79,7 @@ func (c *WithingsClient) ExchangeCode(ctx context.Context, code string) (*TokenR
 	if err != nil {
 		return nil, fmt.Errorf("token request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
@@ -115,103 +116,51 @@ type WithingsMeasureResponse struct {
 	} `json:"body"`
 }
 
-func (c *WithingsClient) GetMeasures(ctx context.Context, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
-	u := fmt.Sprintf("%s%s", c.config.APIBaseURL, v2Measure)
+// postV2 отправляет form-запрос к одному из v2 эндпоинтов Withings
+// (measure / sleep / activity), принимающих action и access_token.
+func (c *WithingsClient) postV2(ctx context.Context, endpoint string, action, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
+	u := c.config.APIBaseURL + endpoint
 	form := url.Values{}
-	form.Set("action", "getmeas")
+	form.Set("action", action)
 	form.Set("access_token", accessToken)
 	if !since.IsZero() {
-		form.Set("lastupdate", fmt.Sprintf("%d", since.Unix()))
+		form.Set("lastupdate", strconv.FormatInt(since.Unix(), 10))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("build measure request: %w", err)
+		return nil, fmt.Errorf("build %s request: %w", action, err)
 	}
 	req.Header.Set(headerContentType, contentTypeFormEncoded)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("measure request failed: %w", err)
+		return nil, fmt.Errorf("%s request failed: %w", action, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
-	var measureResp WithingsMeasureResponse
-	if err := json.NewDecoder(resp.Body).Decode(&measureResp); err != nil {
-		return nil, fmt.Errorf("decode measure response: %w", err)
-	}
-
-	if measureResp.Status != 0 {
-		return nil, fmt.Errorf("withings measure error status=%d", measureResp.Status)
+	var out WithingsMeasureResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode %s response: %w", action, err)
 	}
 
-	return &measureResp, nil
+	if out.Status != 0 {
+		return nil, fmt.Errorf("withings %s error status=%d", action, out.Status)
+	}
+
+	return &out, nil
+}
+
+func (c *WithingsClient) GetMeasures(ctx context.Context, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
+	return c.postV2(ctx, v2Measure, "getmeas", accessToken, since)
 }
 
 func (c *WithingsClient) GetSleep(ctx context.Context, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
-	u := fmt.Sprintf("%s%s", c.config.APIBaseURL, v2Sleep)
-	form := url.Values{}
-	form.Set("action", "get")
-	form.Set("access_token", accessToken)
-	if !since.IsZero() {
-		form.Set("lastupdate", fmt.Sprintf("%d", since.Unix()))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("build sleep request: %w", err)
-	}
-	req.Header.Set(headerContentType, contentTypeFormEncoded)
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("sleep request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var sleepResp WithingsMeasureResponse
-	if err := json.NewDecoder(resp.Body).Decode(&sleepResp); err != nil {
-		return nil, fmt.Errorf("decode sleep response: %w", err)
-	}
-
-	if sleepResp.Status != 0 {
-		return nil, fmt.Errorf("withings sleep error status=%d", sleepResp.Status)
-	}
-
-	return &sleepResp, nil
+	return c.postV2(ctx, v2Sleep, "get", accessToken, since)
 }
 
 func (c *WithingsClient) GetActivity(ctx context.Context, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
-	u := fmt.Sprintf("%s%s", c.config.APIBaseURL, v2Activity)
-	form := url.Values{}
-	form.Set("action", "getactivity")
-	form.Set("access_token", accessToken)
-	if !since.IsZero() {
-		form.Set("lastupdate", fmt.Sprintf("%d", since.Unix()))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("build activity request: %w", err)
-	}
-	req.Header.Set(headerContentType, contentTypeFormEncoded)
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("activity request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var activityResp WithingsMeasureResponse
-	if err := json.NewDecoder(resp.Body).Decode(&activityResp); err != nil {
-		return nil, fmt.Errorf("decode activity response: %w", err)
-	}
-
-	if activityResp.Status != 0 {
-		return nil, fmt.Errorf("withings activity error status=%d", activityResp.Status)
-	}
-
-	return &activityResp, nil
+	return c.postV2(ctx, v2Activity, "getactivity", accessToken, since)
 }
 
 func (c *WithingsClient) RefreshAccessToken(ctx context.Context, refreshToken string) (*TokenResponse, error) {
@@ -232,7 +181,7 @@ func (c *WithingsClient) RefreshAccessToken(ctx context.Context, refreshToken st
 	if err != nil {
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {

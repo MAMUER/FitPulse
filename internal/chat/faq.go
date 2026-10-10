@@ -30,10 +30,7 @@ type FAQEntry struct {
 	Keywords []string
 }
 
-var FAQDatabase []FAQEntry
-
-func init() {
-	FAQDatabase = []FAQEntry{
+var FAQDatabase = []FAQEntry{
 		{
 			Keywords: []string{"изменить", "поменять", "план"},
 			Answer:   "Чтобы изменить план, перейдите в раздел Тренировки и нажмите 'Сгенерировать новый'.",
@@ -140,7 +137,6 @@ func init() {
 			Category: "ai",
 		},
 	}
-}
 
 func FindAnswer(question string) string {
 	lower := strings.ToLower(question)

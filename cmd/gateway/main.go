@@ -190,25 +190,11 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	valkeyDB, valkeyConnected := connectValkey(ctx, log, cfg.valkeyAddr, valkeyPassword, 0, valkeyMaxRetries, valkeyRetryDelay)
 
-	var sessionStore *cache.SessionStore
-
-	if valkeyConnected {
-
-		sessionStore = cache.NewSessionStoreFromRedis(valkeyDB)
-
-	}
+	sessionStore := newSessionStore(valkeyConnected, valkeyDB)
 
 	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
 
-	defer func() {
-
-		if closeErr := userConn.Close(); closeErr != nil {
-
-			log.Error("Failed to close user service connection", zap.Error(closeErr))
-
-		}
-
-	}()
+	defer closeUserServiceConn(log, userConn)
 
 	tokenProvider, err := initJWTProvider()
 
@@ -218,40 +204,9 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	}
 
-	captchaProvider, captchaSiteKey, err := loadCaptchaProvider()
+	captchaProvider, captchaSiteKey := loadGatewayCaptcha(log)
 
-	if err != nil {
-
-		log.Warn("CAPTCHA provider not configured", zap.Error(err))
-
-	}
-
-	var database *sql.DB
-
-	if cfg.dbHost != "" && cfg.dbUser != "" && cfg.dbPassword != "" && cfg.dbName != "" {
-
-		database, err = db.NewConnection(db.Config{
-
-			Host:     cfg.dbHost,
-
-			Port:     cfg.dbPort,
-
-			User:     cfg.dbUser,
-
-			Password: cfg.dbPassword,
-
-			DBName:   cfg.dbName,
-
-			SSLMode:  cfg.dbSSLMode,
-		})
-
-		if err != nil {
-
-			log.Warn("Failed to connect to database for device integrations", zap.Error(err))
-
-		}
-
-	}
+	database := connectGatewayDatabase(log, cfg)
 
 	g := buildGateway(gatewayBuildOptions{
 
@@ -287,6 +242,59 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 	}
 
 	return g, nil
+}
+
+// newSessionStore создаёт хранилище сессий, если Valkey доступен.
+func newSessionStore(valkeyConnected bool, valkeyDB *redis.Client) *cache.SessionStore {
+	if !valkeyConnected {
+		return nil
+	}
+	return cache.NewSessionStoreFromRedis(valkeyDB)
+}
+
+// loadGatewayCaptcha загружает CAPTCHA провайдера, логируя предупреждение при неверной конфигурации.
+func loadGatewayCaptcha(log *logger.Logger) (CaptchaProvider, string) {
+	captchaProvider, captchaSiteKey, err := loadCaptchaProvider()
+	if err != nil {
+		log.Warn("CAPTCHA provider not configured", zap.Error(err))
+	}
+	return captchaProvider, captchaSiteKey
+}
+
+// connectGatewayDatabase подключается к БД для интеграций с устройствами, если она сконфигурирована.
+func connectGatewayDatabase(log *logger.Logger, cfg gatewayConfig) *sql.DB {
+	if cfg.dbHost == "" || cfg.dbUser == "" || cfg.dbPassword == "" || cfg.dbName == "" {
+		return nil
+	}
+
+	database, err := db.NewConnection(db.Config{
+
+		Host:     cfg.dbHost,
+
+		Port:     cfg.dbPort,
+
+		User:     cfg.dbUser,
+
+		Password: cfg.dbPassword,
+
+		DBName:   cfg.dbName,
+
+		SSLMode:  cfg.dbSSLMode,
+	})
+
+	if err != nil {
+		log.Warn("Failed to connect to database for device integrations", zap.Error(err))
+		return nil
+	}
+
+	return database
+}
+
+// closeUserServiceConn закрывает соединение с user-service, логируя ошибку.
+func closeUserServiceConn(log *logger.Logger, conn *grpc.ClientConn) {
+	if closeErr := conn.Close(); closeErr != nil {
+		log.Error("Failed to close user service connection", zap.Error(closeErr))
+	}
 }
 
 func initAsyncValkey(ctx context.Context, log *logger.Logger, cfg gatewayConfig, valkeyPassword string, valkeyMaxRetries int, valkeyRetryDelay time.Duration, mlAsync bool) (*redis.Client, bool) {
@@ -422,7 +430,7 @@ func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 
 		Scopes: []string{"login:info", "login:email"},
 
-		Endpoint: oauth2.Endpoint{
+		Endpoint: oauth2.Endpoint{ //nolint:gosec // G101: public OAuth endpoint URLs, not credentials
 
 			AuthURL:  "https://oauth.yandex.ru/authorize",
 
@@ -836,10 +844,6 @@ type gatewayBuildOptions struct {
 
 	userClient userpb.UserServiceClient
 
-	biometricClient biometricpb.BiometricServiceClient
-
-	trainingClient trainingpb.TrainingServiceClient
-
 	mlAsync bool
 
 	tokenProvider ports.TokenProvider
@@ -912,21 +916,6 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 
 	tlsCfg := detectTLSMode(log, cfg)
 
-	httpsSrv := &http.Server{
-
-		Addr: ":8443",
-
-		Handler: mainRouter,
-
-		ReadTimeout: 15 * time.Second,
-
-		WriteTimeout: 30 * time.Second,
-
-		IdleTimeout: 60 * time.Second,
-
-		ReadHeaderTimeout: 15 * time.Second,
-	}
-
 	httpHandler := mainRouter
 
 	if tlsCfg.available {
@@ -954,47 +943,77 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 		Handler: httpHandler,
 	}
 
-	go func() {
+	httpsSrv := newHTTPSServer(mainRouter)
 
-		log.Info("HTTP server starting", zap.String("port", cfg.port), zap.Bool("redirect_to_https", tlsCfg.available))
-
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-
-			log.Error("HTTP server failed", zap.Error(err))
-
-		}
-
-	}()
+	go serveHTTP(log, httpSrv, cfg.port, tlsCfg.available)
 
 	if tlsCfg.available {
 
-		go func() {
-
-			log.Info("HTTPS server starting",
-
-			zap.String("port", "8443"),
-
-			zap.String("cert", tlsCfg.certFile),
-
-			zap.String("classifier", cfg.classifierURL))
-
-			httpsSrv.TLSConfig = &tls.Config{
-
-				MinVersion: tls.VersionTLS13,
-
-				MaxVersion: tls.VersionTLS13,
-			}
-
-			if err := httpsSrv.ListenAndServeTLS(tlsCfg.certFile, tlsCfg.keyFile); err != nil && err != http.ErrServerClosed {
-
-				log.Fatal("Failed to start HTTPS server", zap.Error(err))
-
-			}
-
-		}()
+		go serveHTTPS(log, httpsSrv, tlsCfg, cfg.classifierURL)
 
 	}
 
+	waitForShutdown(log, httpSrv, httpsSrv, tlsCfg.available)
+
+}
+
+// newHTTPSServer создаёт HTTPS сервер с жёсткой фиксацией TLS 1.3.
+func newHTTPSServer(handler http.Handler) *http.Server {
+	return &http.Server{
+
+		Addr: ":8443",
+
+		Handler: handler,
+
+		ReadTimeout: 15 * time.Second,
+
+		WriteTimeout: 30 * time.Second,
+
+		IdleTimeout: 60 * time.Second,
+
+		ReadHeaderTimeout: 15 * time.Second,
+	}
+}
+
+// serveHTTP запускает HTTP сервер и логирует фатальные ошибки.
+func serveHTTP(log *logger.Logger, srv *http.Server, port string, redirectToHTTPS bool) {
+	log.Info("HTTP server starting", zap.String("port", port), zap.Bool("redirect_to_https", redirectToHTTPS))
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+
+		log.Error("HTTP server failed", zap.Error(err))
+
+	}
+
+}
+
+// serveHTTPS запускает HTTPS сервер на TLS 1.3.
+func serveHTTPS(log *logger.Logger, srv *http.Server, tlsCfg gatewayTLSConfig, classifierURL string) {
+	log.Info("HTTPS server starting",
+
+		zap.String("port", "8443"),
+
+		zap.String("cert", tlsCfg.certFile),
+
+		zap.String("classifier", classifierURL))
+
+	srv.TLSConfig = &tls.Config{
+
+		MinVersion: tls.VersionTLS13,
+
+		MaxVersion: tls.VersionTLS13,
+	}
+
+	if err := srv.ListenAndServeTLS(tlsCfg.certFile, tlsCfg.keyFile); err != nil && err != http.ErrServerClosed {
+
+		log.Fatal("Failed to start HTTPS server", zap.Error(err))
+
+	}
+
+}
+
+// waitForShutdown ожидает сигнал завершения и останавливает серверы.
+func waitForShutdown(log *logger.Logger, httpSrv, httpsSrv *http.Server, tlsAvailable bool) {
 	quit := make(chan os.Signal, 1)
 
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -1009,7 +1028,7 @@ func startGatewayServers(log *logger.Logger, cfg gatewayConfig, mainRouter http.
 
 	_ = httpSrv.Shutdown(ctx)
 
-	if tlsCfg.available {
+	if tlsAvailable {
 
 		_ = httpsSrv.Shutdown(ctx)
 
@@ -1325,137 +1344,186 @@ func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http
 
 		r.Use(middleware.UserRateLimit(g.log.Logger))
 
-		// Profile
+		g.registerAccountRoutes(r)
 
-		r.Get(profilePath, g.getProfileHandler)
+		g.registerHealthFeatureRoutes(r)
 
-		r.Put(profilePath, g.updateProfileHandler)
+		g.registerTFARoutes(r)
 
-		r.Delete(profilePath, g.deleteProfileHandler)
+		g.registerBiometricRoutes(r)
 
-		r.Get(profilePath+"/export", g.exportUserDataHandler)
+		g.registerTrainingRoutes(r)
 
-		// Survey
+		g.registerMealCalendarRoutes(r)
 
-		r.Get("/survey", g.loadSurveyHandler)
+		g.registerIntegrationRoutes(r)
 
-		r.Post("/survey", g.saveSurveyHandler)
+	})
 
-		// Chat
+}
 
-		r.Post("/chat", g.chatHandler)
+// registerAccountRoutes регистрирует маршруты профиля, анкеты и чата.
+func (g *gateway) registerAccountRoutes(r chi.Router) {
 
-		// Health features
+	// Profile
 
-		r.Get("/health/conditions", g.listHealthConditionsHandler)
+	r.Get(profilePath, g.getProfileHandler)
 
-		r.Post("/health/conditions", g.upsertHealthConditionHandler)
+	r.Put(profilePath, g.updateProfileHandler)
 
-		r.Delete("/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
+	r.Delete(profilePath, g.deleteProfileHandler)
 
-		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+	r.Get(profilePath+"/export", g.exportUserDataHandler)
 
-		r.Post("/health/body-composition", g.createBodyCompositionHandler)
+	// Survey
 
-		r.Get("/health/menstrual-cycles", g.listMenstrualCyclesHandler)
+	r.Get("/survey", g.loadSurveyHandler)
 
-		r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
+	r.Post("/survey", g.saveSurveyHandler)
 
-		r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
+	// Chat
 
-		r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
+	r.Post("/chat", g.chatHandler)
 
-		// 2FA TOTP (protected routes - require auth)
+}
 
-		r.Post("/auth/2fa/setup", g.setupTOTPHandler)
+// registerHealthFeatureRoutes регистрирует маршруты состояния здоровья.
+func (g *gateway) registerHealthFeatureRoutes(r chi.Router) {
 
-		r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
+	// Health features
 
-		r.Get("/auth/2fa/status", g.totpStatusHandler)
+	r.Get("/health/conditions", g.listHealthConditionsHandler)
 
-		r.Post("/auth/2fa/disable", g.disableTOTPHandler)
+	r.Post("/health/conditions", g.upsertHealthConditionHandler)
 
-		r.Post("/auth/critical-session", g.criticalSessionHandler)
+	r.Delete("/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
 
-		// Biometrics
+	r.Get("/health/body-composition", g.listBodyCompositionHandler)
 
-		r.Post("/biometrics", g.addBiometricRecordHandler)
+	r.Post("/health/body-composition", g.createBodyCompositionHandler)
 
-		r.Get("/biometrics", g.getBiometricRecordsHandler)
+	r.Get("/health/menstrual-cycles", g.listMenstrualCyclesHandler)
 
-		// Integrations
+	r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
 
-		r.Post("/integrations/withings/sync", g.withingsSyncHandler)
+	r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
 
-		// Training
+	r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
 
-		r.Get("/training/plans", g.listPlansHandler)
+}
 
-		r.Post("/training/generate", g.generatePlanHandler)
+// registerTFARoutes регистрирует защищённые маршруты двухфакторной аутентификации.
+func (g *gateway) registerTFARoutes(r chi.Router) {
 
-		r.Get("/training/plans/{plan_id}", g.getPlanHandler)
+	// 2FA TOTP (protected routes - require auth)
 
-		r.Get("/training/progress", g.getProgressHandler)
+	r.Post("/auth/2fa/setup", g.setupTOTPHandler)
 
-		r.Post("/training/complete", g.completeWorkoutHandler)
+	r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
 
-		r.Get("/achievements", g.getAchievementsHandler)
+	r.Get("/auth/2fa/status", g.totpStatusHandler)
 
-		// ML
+	r.Post("/auth/2fa/disable", g.disableTOTPHandler)
 
-		r.Post("/ml/feedback", g.handleMLFeedback)
+	r.Post("/auth/critical-session", g.criticalSessionHandler)
 
-		// Nutrition
+}
 
-		r.Get("/nutrition/meals", g.listMealsHandler)
+// registerBiometricRoutes регистрирует маршруты биометрических показателей.
+func (g *gateway) registerBiometricRoutes(r chi.Router) {
 
-		r.Post("/nutrition/meals", g.createMealHandler)
+	// Biometrics
 
-		r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
+	r.Post("/biometrics", g.addBiometricRecordHandler)
 
-		// Calendar
+	r.Get("/biometrics", g.getBiometricRecordsHandler)
 
-		r.Get("/calendar/events", g.listCalendarEventsHandler)
+}
 
-		r.Post("/calendar/events", g.createCalendarEventHandler)
+// registerTrainingRoutes регистрирует маршруты тренировок и достижений.
+func (g *gateway) registerTrainingRoutes(r chi.Router) {
 
-		r.Put("/calendar/events/{event_id}", g.updateCalendarEventHandler)
+	// Training
 
-		r.Delete("/calendar/events/{event_id}", g.deleteCalendarEventHandler)
+	r.Get("/training/plans", g.listPlansHandler)
 
-		// Videos
+	r.Post("/training/generate", g.generatePlanHandler)
 
-		r.Get("/videos", g.listVideosHandler)
+	r.Get("/training/plans/{plan_id}", g.getPlanHandler)
 
-		// Body composition
+	r.Get("/training/progress", g.getProgressHandler)
 
-		r.Get("/health/body-composition", g.listBodyCompositionHandler)
+	r.Post("/training/complete", g.completeWorkoutHandler)
 
-		r.Post("/health/body-composition", g.createBodyCompositionHandler)
+	r.Get("/achievements", g.getAchievementsHandler)
 
-		// Logout
+	// ML
 
-		r.Post("/logout", g.logoutHandler)
+	r.Post("/ml/feedback", g.handleMLFeedback)
 
-		// Open Wearables integration management (requires auth)
+}
 
-		r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+// registerMealCalendarRoutes регистрирует маршруты питания, календаря, видео и logout.
+func (g *gateway) registerMealCalendarRoutes(r chi.Router) {
 
-		r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
+	// Nutrition
 
-			r.Post("/disconnect", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/nutrition/meals", g.listMealsHandler)
 
-				source := chi.URLParam(r, "source")
+	r.Post("/nutrition/meals", g.createMealHandler)
 
-				q := r.URL.Query()
+	r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
 
-				q.Set("source", source)
+	// Calendar
 
-				r.URL.RawQuery = q.Encode()
+	r.Get("/calendar/events", g.listCalendarEventsHandler)
 
-				g.proxyToBiometricWithUser(w, r)
+	r.Post("/calendar/events", g.createCalendarEventHandler)
 
-			})
+	r.Put("/calendar/events/{event_id}", g.updateCalendarEventHandler)
+
+	r.Delete("/calendar/events/{event_id}", g.deleteCalendarEventHandler)
+
+	// Videos
+
+	r.Get("/videos", g.listVideosHandler)
+
+	// Body composition
+
+	r.Get("/health/body-composition", g.listBodyCompositionHandler)
+
+	r.Post("/health/body-composition", g.createBodyCompositionHandler)
+
+	// Logout
+
+	r.Post("/logout", g.logoutHandler)
+
+}
+
+// registerIntegrationRoutes регистрирует маршруты интеграций с внешними сервисами.
+func (g *gateway) registerIntegrationRoutes(r chi.Router) {
+
+	// Integrations
+
+	r.Post("/integrations/withings/sync", g.withingsSyncHandler)
+
+	// Open Wearables integration management (requires auth)
+
+	r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+
+	r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
+
+		r.Post("/disconnect", func(w http.ResponseWriter, r *http.Request) {
+
+			source := chi.URLParam(r, "source")
+
+			q := r.URL.Query()
+
+			q.Set("source", source)
+
+			r.URL.RawQuery = q.Encode()
+
+			g.proxyToBiometricWithUser(w, r)
 
 		})
 

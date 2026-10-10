@@ -270,7 +270,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	var predictedClass int
 	var confidence float64
 	var probs map[string]float64
-	modelUsed := modelRuleBased
+	var modelUsed string
 
 	if s.onnxClassifier != nil {
 		features := map[string]float64{
