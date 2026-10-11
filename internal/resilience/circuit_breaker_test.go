@@ -57,9 +57,10 @@ func TestCircuitBreakerHalfOpenAfterTimeout(t *testing.T) {
 	cb := NewCircuitBreaker("test", config)
 
 	for i := 0; i < 2; i++ {
-		_ = cb.Execute(func() error {
+		execErr := cb.Execute(func() error {
 			return errors.New("service error")
 		})
+		assert.Error(t, execErr)
 	}
 
 	assert.Equal(t, StateOpen, cb.State())
@@ -81,9 +82,10 @@ func TestCircuitBreakerClosesAfterSuccessInHalfOpen(t *testing.T) {
 	cb := NewCircuitBreaker("test", config)
 
 	for i := 0; i < 2; i++ {
-		_ = cb.Execute(func() error {
+		execErr := cb.Execute(func() error {
 			return errors.New("service error")
 		})
+		assert.Error(t, execErr)
 	}
 
 	time.Sleep(60 * time.Millisecond)

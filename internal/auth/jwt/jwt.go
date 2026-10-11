@@ -4,6 +4,7 @@
 package jwt
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -49,9 +50,20 @@ func GenerateES256KeyPair() (string, string, error) {
 	return string(privateKeyPEM), string(publicKeyPEM), nil
 }
 
+// decodeFirstPEMBlock декодирует первый PEM-блок ключа.
+// Данные после блока (кроме пробельных символов) считаются ошибкой формата:
+// ключ должен состоять ровно из одного PEM-блока.
+func decodeFirstPEMBlock(data []byte) *pem.Block {
+	block, rest := pem.Decode(data)
+	if block == nil || len(bytes.TrimSpace(rest)) != 0 {
+		return nil
+	}
+	return block
+}
+
 // ParseECPrivateKey parses an EC private key from PEM format.
 func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(privateKeyPEM))
+	block := decodeFirstPEMBlock([]byte(privateKeyPEM))
 	if block == nil {
 		return nil, errors.New("failed to decode PEM block containing EC private key")
 	}
@@ -64,7 +76,7 @@ func ParseECPrivateKey(privateKeyPEM string) (*ecdsa.PrivateKey, error) {
 
 // ParseECPublicKey parses an EC public key from PEM format.
 func ParseECPublicKey(publicKeyPEM string) (*ecdsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(publicKeyPEM))
+	block := decodeFirstPEMBlock([]byte(publicKeyPEM))
 	if block == nil {
 		return nil, errors.New("failed to decode PEM block containing public key")
 	}

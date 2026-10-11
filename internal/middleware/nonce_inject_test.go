@@ -14,7 +14,9 @@ func TestHTMLNonceInject_ServesNonHTML(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"ok":true}`))
+		if _, err := w.Write([]byte(`{"ok":true}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := HTMLNonceInject(next)
@@ -31,7 +33,9 @@ func TestHTMLNonceInject_NoNonce(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`<html><body>Hello</body></html>`))
+		if _, err := w.Write([]byte(`<html><body>Hello</body></html>`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := HTMLNonceInject(next)
@@ -47,7 +51,9 @@ func TestHTMLNonceInject_NoNonce(t *testing.T) {
 func TestHTMLNonceInject_WithNonce(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(`<html><script src="/app.js"></script></html>`))
+		if _, err := w.Write([]byte(`<html><script src="/app.js"></script></html>`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -65,7 +71,9 @@ func TestHTMLNonceInject_WithNonce(t *testing.T) {
 func TestHTMLNonceInject_AlreadyHasNonce(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(`<script nonce="existing">alert(1)</script>`))
+		if _, err := w.Write([]byte(`<script nonce="existing">alert(1)</script>`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -514,12 +515,17 @@ func TestAuth_SetupTOTPHandler_RateLimited(t *testing.T) {
 
 	ctx := context.Background()
 
-	for i := 0; i < 6; i++ {
+	for i := 0; i < totpRateLimitAttempts; i++ {
 
-		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
-		_ = g.enforceTOTPRateLimit(ctx, "setup:user-123")
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "setup:user-123"))
 
 	}
+
+	err := g.enforceTOTPRateLimit(ctx, "setup:user-123")
+
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "too many 2FA attempts")
 
 	w := httptest.NewRecorder()
 
@@ -781,12 +787,12 @@ func TestAuth_EnforceTOTPRateLimit_ExceedsLimit(t *testing.T) {
 
 	ctx := context.Background()
 
-	for i := 0; i < 6; i++ {
+	for i := 0; i < totpRateLimitAttempts; i++ {
 
-		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
-		_ = g.enforceTOTPRateLimit(ctx, "user-456")
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "user-456"))
 
 	}
+
 	err := g.enforceTOTPRateLimit(ctx, "user-456")
 
 	assert.Error(t, err)
@@ -1659,12 +1665,17 @@ func TestAuth_VerifyTOTPHandler_RateLimited(t *testing.T) {
 
 	}
 
-	for i := 0; i < 6; i++ {
+	for i := 0; i < totpRateLimitAttempts; i++ {
 
-		// Счётчик может быть уже исчерпан предыдущими тестами — это не ошибка теста.
-		_ = g.enforceTOTPRateLimit(ctx, "verify:user-123")
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "verify:user-123"))
 
 	}
+
+	err = g.enforceTOTPRateLimit(ctx, "verify:user-123")
+
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "too many 2FA attempts")
 
 	w := httptest.NewRecorder()
 

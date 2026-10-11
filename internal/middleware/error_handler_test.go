@@ -103,12 +103,14 @@ func TestErrorHandler_Logs400Error(t *testing.T) {
 }
 
 func TestErrorHandler_DefaultStatusCode(t *testing.T) {
-	core, _ := observer.New(zapcore.WarnLevel)
+	core := newObserverCore(t, zapcore.WarnLevel)
 	log := zap.New(core)
 
 	handler := ErrorHandler(log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Do not call WriteHeader — default should be 200
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
@@ -288,7 +290,9 @@ func TestResponseWriter_Write_SetsWrittenFlag(t *testing.T) {
 	rr := httptest.NewRecorder()
 	rw := &responseWriter{ResponseWriter: rr, statusCode: http.StatusOK}
 
-	_, _ = rw.Write([]byte("data"))
+	if _, err := rw.Write([]byte("data")); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
 
 	assert.True(t, rw.written)
 	// statusCode remains default since WriteHeader was not called
@@ -300,8 +304,12 @@ func TestResponseWriter_WriteHeader_CalledOnceEvenWithMultipleWrites(t *testing.
 	rw := &responseWriter{ResponseWriter: rr, statusCode: http.StatusOK}
 
 	rw.WriteHeader(http.StatusAccepted)
-	_, _ = rw.Write([]byte("first"))
-	_, _ = rw.Write([]byte("second"))
+	if _, err := rw.Write([]byte("first")); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
+	if _, err := rw.Write([]byte("second")); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
 
 	assert.Equal(t, http.StatusAccepted, rw.statusCode)
 	assert.Equal(t, "firstsecond", rr.Body.String())
@@ -312,7 +320,9 @@ func TestResponseWriter_Write_WithoutWriteHeader(t *testing.T) {
 	rw := &responseWriter{ResponseWriter: rr, statusCode: http.StatusOK}
 
 	// Write without calling WriteHeader first — should set written flag but not call underlying WriteHeader
-	_, _ = rw.Write([]byte("body"))
+	if _, err := rw.Write([]byte("body")); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
 
 	assert.True(t, rw.written)
 	assert.Equal(t, http.StatusOK, rw.statusCode)

@@ -28,7 +28,7 @@ func setupTrainingRepo(t *testing.T) (*TrainingRepository, sqlmock.Sqlmock) {
 
 func TestTrainingRepository_CreatePlan_JSONMarshalError(t *testing.T) {
 
-	repo, _ := setupTrainingRepo(t)
+	repo, mock := setupTrainingRepo(t)
 
 	ctx := context.Background()
 
@@ -48,6 +48,8 @@ func TestTrainingRepository_CreatePlan_JSONMarshalError(t *testing.T) {
 	assert.Nil(t, result)
 
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
 
 }
 

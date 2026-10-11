@@ -188,7 +188,9 @@ func TestNonceInjectAddsNonceToAllScriptTags(t *testing.T) {
 
 	handler := HTMLNonceInject(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(html))
+		if _, err := w.Write([]byte(html)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 
 	nonce := "test-nonce-123"

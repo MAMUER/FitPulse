@@ -135,7 +135,7 @@ func TestService(t *testing.T) {
 }
 
 func TestService_DirectAccess(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	underlying := zap.New(core)
 	l := &Logger{Logger: underlying, service: "direct-test"}
 
@@ -362,7 +362,7 @@ func TestErrorOutputPaths_MultiplePaths(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	l := &Logger{Logger: zap.New(core), service: "test-sync"}
 
 	l.Info("message before sync")
@@ -372,7 +372,7 @@ func TestSync(t *testing.T) {
 }
 
 func TestSync_CalledMultipleTimes(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	l := &Logger{Logger: zap.New(core), service: "test-sync"}
 
 	err1 := l.Sync()
@@ -383,7 +383,7 @@ func TestSync_CalledMultipleTimes(t *testing.T) {
 }
 
 func TestWithRequestID_PreservesService(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	l := &Logger{Logger: zap.New(core), service: "original-service"}
 
 	child := l.WithRequestID("req-123")
@@ -447,7 +447,7 @@ func TestWithMetadata(t *testing.T) {
 }
 
 func TestWithCallerSkip(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	baseLogger := zap.New(core)
 	l := &Logger{Logger: baseLogger, service: "test-svc"}
 
@@ -535,7 +535,7 @@ func TestFromContext(t *testing.T) {
 }
 
 func TestFromContext_PreservesService(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t)
 	baseLogger := &Logger{Logger: zap.New(core), service: "original-service"}
 
 	ctx := context.WithValue(context.Background(), CorrelationIDKey, "corr-123")

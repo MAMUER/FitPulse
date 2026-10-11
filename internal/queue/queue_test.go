@@ -33,7 +33,11 @@ func TestNewPublisher(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available")
 	}
-	defer func() { _ = pub.Close() }()
+	defer func() {
+		if err := pub.Close(); err != nil {
+			t.Logf("close publisher: %v", err)
+		}
+	}()
 
 	assert.NotNil(t, pub)
 }
@@ -56,7 +60,11 @@ func TestPublish(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	defer func() { _ = pub.Close() }()
+	defer func() {
+		if err := pub.Close(); err != nil {
+			t.Logf("close publisher: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name  string
@@ -97,13 +105,19 @@ func TestNewConsumer(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	_ = pub.Close()
+	if closeErr := pub.Close(); closeErr != nil {
+		t.Logf("close publisher: %v", closeErr)
+	}
 
 	consumer, err := NewConsumer(url, queueName, logger.New("test"))
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	defer func() { _ = consumer.Close() }()
+	defer func() {
+		if closeErr := consumer.Close(); closeErr != nil {
+			t.Logf("close consumer: %v", closeErr)
+		}
+	}()
 
 	assert.NotNil(t, consumer)
 }
@@ -120,13 +134,21 @@ func TestPublishAndConsume(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	defer func() { _ = pub.Close() }()
+	defer func() {
+		if err := pub.Close(); err != nil {
+			t.Logf("close publisher: %v", err)
+		}
+	}()
 
 	consumer, err := NewConsumer(url, queueName, logger.New("test"))
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	defer func() { _ = consumer.Close() }()
+	defer func() {
+		if err := consumer.Close(); err != nil {
+			t.Logf("close consumer: %v", err)
+		}
+	}()
 
 	received := make(chan map[string]interface{}, 1)
 
@@ -135,7 +157,9 @@ func TestPublishAndConsume(t *testing.T) {
 			var data map[string]interface{}
 			if json.Unmarshal(msg.Body, &data) == nil {
 				received <- data
-				_ = msg.Ack(false)
+				if ackErr := msg.Ack(false); ackErr != nil {
+					t.Logf("ack message: %v", ackErr)
+				}
 			}
 		}
 	}()
@@ -192,7 +216,9 @@ func TestConsumerClose(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available, skipping test")
 	}
-	_ = pub.Close()
+	if closeErr := pub.Close(); closeErr != nil {
+		t.Logf("close publisher: %v", closeErr)
+	}
 
 	consumer, err := NewConsumer(url, queueName, logger.New("test"))
 	if err != nil {
@@ -282,7 +308,11 @@ func TestConsumerAck(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available")
 	}
-	defer func() { _ = consumer.Close() }()
+	defer func() {
+		if err := consumer.Close(); err != nil {
+			t.Logf("close consumer: %v", err)
+		}
+	}()
 
 	err = consumer.Ack(1, false)
 	assert.NoError(t, err)
@@ -297,7 +327,11 @@ func TestConsumerNack(t *testing.T) {
 	if err != nil {
 		t.Skip("RabbitMQ not available")
 	}
-	defer func() { _ = consumer.Close() }()
+	defer func() {
+		if err := consumer.Close(); err != nil {
+			t.Logf("close consumer: %v", err)
+		}
+	}()
 
 	err = consumer.Nack(1, false, true)
 	assert.NoError(t, err)

@@ -51,7 +51,11 @@ func TestDataProcessorIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create test table: %v", err)
 	}
-	defer func() { _, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS biometric_data") }()
+	defer func() {
+		if _, dropErr := db.ExecContext(ctx, "DROP TABLE IF EXISTS biometric_data"); dropErr != nil {
+			t.Logf("cleanup drop table: %v", dropErr)
+		}
+	}()
 
 	processCtx, processCancel := context.WithCancel(ctx)
 	log := logger.New("data-processor-test")
@@ -125,7 +129,11 @@ func setupPostgres(ctx context.Context, t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
-	_ = pgContainer.Terminate(ctx)
+	t.Cleanup(func() {
+		if err := pgContainer.Terminate(ctx); err != nil {
+			t.Logf("terminate postgres container: %v", err)
+		}
+	})
 
 	pgHost, err := pgContainer.Host(ctx)
 	if err != nil {
@@ -151,7 +159,11 @@ func setupRabbitMQ(ctx context.Context, t *testing.T) (string, string, string) {
 	if err != nil {
 		t.Fatalf("failed to start rabbitmq container: %v", err)
 	}
-	_ = rabbitContainer.Terminate(ctx)
+	t.Cleanup(func() {
+		if err := rabbitContainer.Terminate(ctx); err != nil {
+			t.Logf("terminate rabbitmq container: %v", err)
+		}
+	})
 
 	rabbitHost, err := rabbitContainer.Host(ctx)
 	if err != nil {

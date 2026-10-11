@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"github.com/MAMUER/project/internal/logger"
 )
 
 func TestHandleMLFeedback_Success(t *testing.T) {
@@ -74,9 +74,10 @@ func TestHandleMLFeedback_MissingFeedback(t *testing.T) {
 	g := newTestGateway()
 	g.log = &logger.Logger{Logger: zap.NewNop()}
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"prediction_id": "pred-123",
 	})
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

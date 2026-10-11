@@ -223,8 +223,15 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		durationWeeks, _ := planData["duration_weeks"].(float64)
-		trainingGoal, _ := planData["training_goal"].(string)
+		var durationWeeks float64
+		if weeks, ok := planData["duration_weeks"].(float64); ok {
+			durationWeeks = weeks
+		}
+
+		var trainingGoal string
+		if goal, ok := planData["training_goal"].(string); ok {
+			trainingGoal = goal
+		}
 
 		plans[i] = map[string]interface{}{
 			"plan_id":        plan.Id,

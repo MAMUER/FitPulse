@@ -8,8 +8,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// grpcStatusFromError извлекает gRPC-статус из ошибки.
+// Если ошибка не является gRPC-статусом, она классифицируется как Unknown.
+func grpcStatusFromError(err error) *status.Status {
+	if st, ok := status.FromError(err); ok {
+		return st
+	}
+	return status.New(codes.Unknown, err.Error())
+}
 
 var (
 	rpcRequestsTotal = promauto.NewCounterVec(
@@ -53,7 +63,7 @@ func UnaryServerInterceptor(serviceName string) grpc.UnaryServerInterceptor {
 		statusCode := "ok"
 		errorCode := ""
 		if err != nil {
-			st, _ := status.FromError(err)
+			st := grpcStatusFromError(err)
 			statusCode = "error"
 			errorCode = st.Code().String()
 			rpcErrorsTotal.WithLabelValues(serviceName, info.FullMethod, errorCode).Inc()
@@ -83,7 +93,7 @@ func UnaryClientInterceptor(serviceName string) grpc.UnaryClientInterceptor {
 		statusCode := "ok"
 		errorCode := ""
 		if err != nil {
-			st, _ := status.FromError(err)
+			st := grpcStatusFromError(err)
 			statusCode = "error"
 			errorCode = st.Code().String()
 			rpcErrorsTotal.WithLabelValues(serviceName, method, errorCode).Inc()

@@ -4,7 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+
+	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
+
+// nonceInjectLog используется в обёртке ResponseWriter, где логгер недоступен.
+var nonceInjectLog = logger.New("middleware")
 
 // scriptTagRE находит открывающие <script ...> теги, у которых ещё нет атрибута nonce.
 var scriptTagRE = regexp.MustCompile(`(?i)<script\b([^>]*?)>`)
@@ -46,7 +53,9 @@ func (w *nonceInjectWriter) WriteHeader(status int) {
 		w.buf = nil
 		w.ResponseWriter.Header().Del("Content-Length")
 		w.ResponseWriter.WriteHeader(status)
-		_, _ = w.ResponseWriter.Write([]byte(injected))
+		if _, writeErr := w.ResponseWriter.Write([]byte(injected)); writeErr != nil {
+			nonceInjectLog.Warn("Failed to write nonce-injected response", zap.Error(writeErr))
+		}
 		return
 	}
 	w.ResponseWriter.WriteHeader(status)

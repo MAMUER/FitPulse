@@ -8,7 +8,13 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
+
+// errorHandlerLog используется функциями без достарёпного логгера: к моменту
+// записи ответа заголовки уже отправлены, поэтому остаётся только залогировать.
+var errorHandlerLog = logger.New("middleware")
 
 // ErrorHandler — единая точка обработки ошибок для всех ответов
 func ErrorHandler(log *zap.Logger) func(http.Handler) http.Handler {
@@ -75,7 +81,9 @@ func JSONError(w http.ResponseWriter, r *http.Request, code int, message string)
 		"correlationId": GetCorrelationID(r.Context()),
 	}
 
-	_ = json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		errorHandlerLog.Warn("Failed to encode JSON error response", zap.Error(err))
+	}
 }
 
 // GetRequestID extracts correlation ID from context.

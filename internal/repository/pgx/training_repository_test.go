@@ -51,8 +51,13 @@ func TestTrainingRepositoryPGX_CreatePlan_Success(t *testing.T) {
 }
 
 func TestTrainingRepositoryPGX_CreatePlan_JSONMarshalError(t *testing.T) {
-	repo, _ := setupTrainingRepo(t)
+	repo, mock := setupTrainingRepo(t)
 	ctx := context.Background()
+
+	mock.execFunc = func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+		t.Errorf("unexpected exec for unmarshalable plan data: %s", query)
+		return pgconn.NewCommandTag(""), nil
+	}
 
 	planData := map[string]interface{}{}
 	planData["invalid"] = make(chan int)
@@ -86,7 +91,8 @@ func TestTrainingRepositoryPGX_GetPlan_Success(t *testing.T) {
 	repo, mock := setupTrainingRepo(t)
 	ctx := context.Background()
 
-	planData, _ := json.Marshal(map[string]interface{}{"weeks": 4})
+	planData, marshalErr := json.Marshal(map[string]interface{}{"weeks": 4})
+	require.NoError(t, marshalErr)
 
 	mock.queryRowFunc = func(ctx context.Context, query string, args ...interface{}) pgx.Row {
 		return &mockRow{scanFunc: newTrainingPlanScanFunc([]interface{}{"plan-1", "user-1", "strength", 4, []int{1, 3, 5}, planData, time.Now(), time.Now(), nil})}
@@ -149,7 +155,8 @@ func TestTrainingRepositoryPGX_ListPlans_Success(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 	planData := map[string]interface{}{"weeks": 4}
-	planDataJSON, _ := json.Marshal(planData)
+	planDataJSON, marshalErr := json.Marshal(planData)
+	require.NoError(t, marshalErr)
 
 	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 		assert.Contains(t, query, "FROM training_plans")

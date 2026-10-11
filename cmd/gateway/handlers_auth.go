@@ -206,7 +206,11 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 
 	}
 
-	_ = g.valkeyDB.Del(ctx, refreshTokenPrefix+oldToken).Err()
+	if err := g.valkeyDB.Del(ctx, refreshTokenPrefix+oldToken).Err(); err != nil {
+
+		g.log.Warn("Failed to delete rotated refresh token key", zap.Error(err))
+
+	}
 
 	oldFingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
 
@@ -353,16 +357,22 @@ func (g *gateway) enforceTOTPRateLimit(ctx context.Context, key string) error {
 
 func countOverLimit(g *gateway, key string) bool {
 
-	v, _ := g.totpRateLimiters.LoadOrStore(key, &totpRateLimiter{
+	v, loaded := g.totpRateLimiters.LoadOrStore(key, &totpRateLimiter{
 
 		limiter: rate.NewLimiter(totpRateLimitAttempts, totpRateLimitAttempts),
 
 		expiresAt: time.Now().Add(time.Minute),
 	})
 
-	limiter := v.(*totpRateLimiter)
+	limiter, ok := v.(*totpRateLimiter)
 
-	if time.Now().After(limiter.expiresAt) {
+	if !ok {
+
+		return false
+
+	}
+
+	if !loaded || time.Now().After(limiter.expiresAt) {
 
 		limiter = &totpRateLimiter{
 
@@ -1282,15 +1292,15 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 
 	grpcResp, err := g.userClient.AuthenticateYandex(r.Context(), &userpb.AuthenticateYandexRequest{
 
-		YandexId:  yandexUserInfo.ID,
+		YandexId: yandexUserInfo.ID,
 
-		Email:     emailVal,
+		Email: emailVal,
 
-		Login:     yandexUserInfo.Login,
+		Login: yandexUserInfo.Login,
 
 		FirstName: yandexUserInfo.FirstName,
 
-		LastName:  yandexUserInfo.LastName,
+		LastName: yandexUserInfo.LastName,
 	})
 
 	if err != nil {
@@ -1471,7 +1481,6 @@ func (g *gateway) fetchYandexUserInfo(ctx context.Context, accessToken string) (
 
 	return &info, nil
 }
-
 
 // 2FA TOTP endpoints
 

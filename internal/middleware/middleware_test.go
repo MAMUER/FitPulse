@@ -477,7 +477,7 @@ func TestRecoveryMiddlewarePanicWithIntValue(t *testing.T) {
 }
 
 func TestRecoveryMiddlewarePanicWithNilValue(t *testing.T) {
-	core, _ := observer.New(zap.ErrorLevel)
+	core := newObserverCore(t, zap.ErrorLevel)
 	log := zap.New(core)
 
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -495,7 +495,7 @@ func TestRecoveryMiddlewarePanicWithNilValue(t *testing.T) {
 }
 
 func TestRecoveryMiddlewareResponseHeadersSet(t *testing.T) {
-	core, _ := observer.New(zap.ErrorLevel)
+	core := newObserverCore(t, zap.ErrorLevel)
 	log := zap.New(core)
 
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -539,7 +539,7 @@ func TestRecoveryMiddlewareMultiplePanics(t *testing.T) {
 }
 
 func TestRecoveryMiddlewareNextHandlerCompletes(t *testing.T) {
-	core, _ := observer.New(zap.ErrorLevel)
+	core := newObserverCore(t, zap.ErrorLevel)
 	log := zap.New(core)
 
 	completed := false
@@ -732,7 +732,7 @@ func TestRequireRole_NilDB(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t, zap.InfoLevel)
 	log := zap.New(core)
 
 	handler := RequireRole(nil, log, "admin")(nextHandler)
@@ -762,7 +762,7 @@ func TestRequireRole_DBQueryError(t *testing.T) {
 		WithArgs(testUserID).
 		WillReturnError(errors.New("connection refused"))
 
-	core, _ := observer.New(zap.InfoLevel)
+	core := newObserverCore(t, zap.InfoLevel)
 	log := zap.New(core)
 
 	handler := RequireRole(db, log, "admin")(nextHandler)

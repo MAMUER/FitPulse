@@ -4,25 +4,33 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestParsePort(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected int
+		name        string
+		input       string
+		expected    int
+		expectError bool
 	}{
-		{"standard port", "5432", 5432},
-		{"small port", "1", 1},
-		{"large port", "65535", 65535},
-		{"invalid port", "not-a-port", 0},
-		{"empty string", "", 0},
+		{"standard port", "5432", 5432, false},
+		{"small port", "1", 1, false},
+		{"large port", "65535", 65535, false},
+		{"invalid port", "not-a-port", 0, true},
+		{"empty string", "", 0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parsePort(tt.input)
-			assert.Equal(t, tt.expected, result)
+			port, err := parsePort(tt.input)
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, port)
 		})
 	}
 }

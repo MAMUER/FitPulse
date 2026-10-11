@@ -559,8 +559,13 @@ func TestDeviceRepositoryPGX_BatchCreate_Success(t *testing.T) {
 }
 
 func TestDeviceRepositoryPGX_BatchCreate_Empty(t *testing.T) {
-	repo, _ := setupDeviceRepo(t)
+	repo, mock := setupDeviceRepo(t)
 	ctx := context.Background()
+
+	mock.execFunc = func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+		t.Errorf("unexpected exec for empty batch: %s", query)
+		return pgconn.NewCommandTag(""), nil
+	}
 
 	inserted, err := repo.BatchCreate(ctx, []*entity.Device{})
 	require.NoError(t, err)

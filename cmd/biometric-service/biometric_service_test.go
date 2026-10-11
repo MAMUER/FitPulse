@@ -25,7 +25,9 @@ func setupTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock, func()) {
 	require.NoError(t, err)
 
 	cleanup := func() {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close test db: %v", closeErr)
+		}
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Logf("Mock expectations not met: %v", err)
 		}

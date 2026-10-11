@@ -128,7 +128,7 @@ func (r *inviteCodeRepository) Revoke(ctx context.Context, code string) error {
 
 	}
 
-	rowsAffected, _ := result.RowsAffected()
+	rowsAffected := shared.RowsAffected(result)
 
 	if rowsAffected == 0 {
 
@@ -193,7 +193,7 @@ func (r *inviteCodeRepository) UseInviteCode(ctx context.Context, code string) e
 
 	}
 
-	rowsAffected, _ := result.RowsAffected()
+	rowsAffected := shared.RowsAffected(result)
 
 	if rowsAffected == 0 {
 

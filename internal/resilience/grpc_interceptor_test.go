@@ -124,7 +124,8 @@ func TestUnaryClientInterceptor(t *testing.T) {
 		}
 
 		for i := 0; i < 5; i++ {
-			_ = interceptor(context.Background(), "/test.Service/Method", nil, nil, nil, failingInvoker)
+			execErr := interceptor(context.Background(), "/test.Service/Method", nil, nil, nil, failingInvoker)
+			assert.Error(t, execErr)
 		}
 
 		err := interceptor(context.Background(), "/test.Service/Method", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {

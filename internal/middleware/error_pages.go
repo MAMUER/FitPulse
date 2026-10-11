@@ -6,7 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
+
+// errorPagesLog используется в путях, где ответ уже начат и логгер недоступен.
+var errorPagesLog = logger.New("middleware")
 
 type errorPageRecorder struct {
 	http.ResponseWriter
@@ -46,7 +53,9 @@ func (r *errorPageRecorder) replay(code int, body []byte) {
 		}
 	}
 	r.ResponseWriter.WriteHeader(code)
-	_, _ = r.ResponseWriter.Write(body)
+	if _, writeErr := r.ResponseWriter.Write(body); writeErr != nil {
+		errorPagesLog.Warn("Failed to replay error page response", zap.Error(writeErr))
+	}
 }
 
 const errorPageDir = "./web/static/errors"
@@ -76,7 +85,9 @@ func serveErrorPage(w http.ResponseWriter, recorder *errorPageRecorder, status i
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.WriteHeader(status)
-	_, _ = w.Write(data)
+	if _, writeErr := w.Write(data); writeErr != nil {
+		errorPagesLog.Warn("Failed to write error page", zap.Error(writeErr))
+	}
 }
 
 func ErrorPages(next http.Handler) http.Handler {

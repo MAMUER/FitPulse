@@ -136,7 +136,11 @@ func TestInsertBiometricRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create test table: %v", err)
 	}
-	defer func() { _, _ = database.ExecContext(ctx, `DROP TABLE IF EXISTS biometric_data_test`) }()
+	defer func() {
+		if _, dropErr := database.ExecContext(ctx, `DROP TABLE IF EXISTS biometric_data_test`); dropErr != nil {
+			t.Logf("cleanup drop table: %v", dropErr)
+		}
+	}()
 
 	event := biometricEvent{
 		UserID:     "test-user",

@@ -91,8 +91,15 @@ func mapMetricTypeToClassifierKey(metricType string) string {
 }
 
 func transformClassifierResponse(result map[string]interface{}) map[string]interface{} {
-	predictedClass, _ := result["predicted_class"].(string)
-	confidence, _ := result["confidence"].(float64)
+	var predictedClass string
+	if class, ok := result["predicted_class"].(string); ok {
+		predictedClass = class
+	}
+
+	var confidence float64
+	if conf, ok := result["confidence"].(float64); ok {
+		confidence = conf
+	}
 
 	var recommendations []interface{}
 	if recs, ok := result["recommendations"].([]interface{}); ok {
@@ -130,4 +137,3 @@ func mapClassToScores(predictedClass string) (float64, float64, float64) {
 		return 0.5, 0.5, 0.5
 	}
 }
-

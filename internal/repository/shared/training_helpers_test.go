@@ -135,7 +135,10 @@ func (m *mockTrainingRows) Scan(dest ...interface{}) error {
 		*updatedAt = plan.UpdatedAt
 		*totalCount = m.total
 		if plan.PlanData != nil {
-			data, _ := json.Marshal(plan.PlanData)
+			data, marshalErr := json.Marshal(plan.PlanData)
+			if marshalErr != nil {
+				panic("test helper: failed to marshal plan data: " + marshalErr.Error())
+			}
 			*planDataJSON = data
 		}
 	}

@@ -94,7 +94,10 @@ type nonceContextKey struct{}
 
 // GetNonce извлекает CSP nonce из контекста запроса
 func GetNonce(r *http.Request) string {
-	v, _ := r.Context().Value(nonceContextKey{}).(string)
+	v, ok := r.Context().Value(nonceContextKey{}).(string)
+	if !ok {
+		return ""
+	}
 	return v
 }
 

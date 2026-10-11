@@ -164,8 +164,8 @@ func RateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 func UserRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, _ := r.Context().Value(UserIDKey).(string)
-			if userID == "" {
+			userID, ok := r.Context().Value(UserIDKey).(string)
+			if !ok || userID == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -173,11 +173,12 @@ func UserRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			v, ok := UserRateLimiterInstance.visitors.Load(userID)
-			if !ok {
+			v, loaded := UserRateLimiterInstance.visitors.Load(userID)
+			if !loaded {
 				limiter := rate.NewLimiter(100, 200)
-				UserRateLimiterInstance.visitors.Store(userID, &userVisitor{limiter: limiter, lastSeen: time.Now()})
-				v, _ = UserRateLimiterInstance.visitors.Load(userID)
+				stored := &userVisitor{limiter: limiter, lastSeen: time.Now()}
+				UserRateLimiterInstance.visitors.Store(userID, stored)
+				v = stored
 			}
 			vis := v.(*userVisitor)
 			vis.lastSeen = time.Now()

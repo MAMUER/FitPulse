@@ -13,9 +13,14 @@ import (
 
 func openWearablesWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	handleAggregatorWebhook(w, r, func(notification map[string]interface{}) map[string]string {
-		userID, _ := notification["user_id"].(string)
-		source, _ := notification["source"].(string)
-		return map[string]string{"user_id": userID, "source": source}
+		fields := map[string]string{}
+		if userID, ok := notification["user_id"].(string); ok {
+			fields["user_id"] = userID
+		}
+		if source, ok := notification["source"].(string); ok {
+			fields["source"] = source
+		}
+		return fields
 	})
 }
 

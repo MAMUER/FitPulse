@@ -231,7 +231,10 @@ func TestValidateSignature(t *testing.T) {
 
 		mac := hmac.New(sha256.New, secret)
 
-		_, _ = mac.Write(body)
+		// hash.Hash.Write документирован как никогда не возвращающий ошибку.
+		if _, err := mac.Write(body); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 
 		signature := hex.EncodeToString(mac.Sum(nil))
 
@@ -297,7 +300,10 @@ func signTestBody(t *testing.T, secret []byte, body []byte) string {
 
 	mac := hmac.New(sha256.New, secret)
 
-	_, _ = mac.Write(body)
+	// hash.Hash.Write документирован как никогда не возвращающий ошибку.
+	if _, err := mac.Write(body); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
 
 	return hex.EncodeToString(mac.Sum(nil))
 
@@ -1001,7 +1007,9 @@ func TestServerHealthEndpoint(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 
 	})
 
@@ -1041,7 +1049,9 @@ func TestServerStartStop(t *testing.T) {
 
 		}
 
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("close body: %v", err)
+		}
 
 		return resp.StatusCode == http.StatusOK
 

@@ -14,7 +14,9 @@ import (
 func TestErrorPages_NotFoundHTML(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("not found"))
+		if _, err := w.Write([]byte("not found")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -31,7 +33,9 @@ func TestErrorPages_NotFoundHTML(t *testing.T) {
 func TestErrorPages_NotFoundJSON(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("not found"))
+		if _, err := w.Write([]byte("not found")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -48,7 +52,9 @@ func TestErrorPages_NotFoundJSON(t *testing.T) {
 func TestErrorPages_InternalServerErrorHTML(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("server error"))
+		if _, err := w.Write([]byte("server error")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -65,7 +71,9 @@ func TestErrorPages_InternalServerErrorHTML(t *testing.T) {
 func TestErrorPages_ForbiddenHTML(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte("forbidden"))
+		if _, err := w.Write([]byte("forbidden")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -82,7 +90,9 @@ func TestErrorPages_ForbiddenHTML(t *testing.T) {
 func TestErrorPages_OKResponse(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -98,7 +108,9 @@ func TestErrorPages_OKResponse(t *testing.T) {
 func TestErrorPages_UnknownStatusHTML(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
-		_, _ = w.Write([]byte("teapot"))
+		if _, err := w.Write([]byte("teapot")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)
@@ -207,7 +219,9 @@ func TestErrorPages_WriteHeadersPreserved(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom-Header", "custom-value")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("bad request"))
+		if _, err := w.Write([]byte("bad request")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := ErrorPages(next)

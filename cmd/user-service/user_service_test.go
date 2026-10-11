@@ -24,10 +24,13 @@ import (
 	"github.com/MAMUER/project/internal/repository/postgres"
 )
 
-func setupUserService(db *sql.DB) *userServer {
-	zapLog, _ := zap.NewDevelopment()
-	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+func setupUserService(t *testing.T, db *sql.DB) *userServer {
+	t.Helper()
+	zapLog := zap.NewNop()
+	privateKey, keygenErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, keygenErr)
+	privateKeyBytes, marshalErr := x509.MarshalECPrivateKey(privateKey)
+	require.NoError(t, marshalErr)
 	privateKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes}))
 	return &userServer{
 		db:            db,
@@ -40,9 +43,13 @@ func setupUserService(db *sql.DB) *userServer {
 func TestUserServer_Register_InvalidInput(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	tests := []struct {
 		name    string
@@ -76,11 +83,15 @@ func TestUserServer_Register_InvalidInput(t *testing.T) {
 func TestUserServer_GetProfile_NotFound(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
 	mock.ExpectQuery("SELECT u.id").WithArgs("missing-id").WillReturnError(sql.ErrNoRows)
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	_, err = s.GetProfile(context.Background(), &pb.GetProfileRequest{UserId: "missing-id"})
 	require.Error(t, err)
@@ -92,9 +103,13 @@ func TestUserServer_GetProfile_NotFound(t *testing.T) {
 func TestUserServer_ChangePassword_Validation(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	tests := []struct {
 		name     string
@@ -149,11 +164,15 @@ func TestUserServer_ChangePassword_Validation(t *testing.T) {
 func TestUserServer_ChangePassword_UserNotFound(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
 	mock.ExpectQuery("SELECT password_hash FROM users WHERE id = \\$1").WithArgs("missing-id").WillReturnError(sql.ErrNoRows)
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	_, err = s.ChangePassword(context.Background(), &pb.ChangePasswordRequest{
 		UserId: "missing-id", CurrentPassword: "old", NewPassword: "NewPass1",
@@ -167,11 +186,15 @@ func TestUserServer_ChangePassword_UserNotFound(t *testing.T) {
 func TestUserServer_Register_UserAlreadyExists(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
 	mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM users WHERE email_hash = \\$1\\)").WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	_, err = s.Register(context.Background(), &pb.RegisterRequest{
 		Email: "test@example.com", Password: "password123", FullName: "Test User", Role: "client",
@@ -186,11 +209,15 @@ func TestUserServer_Register_UserAlreadyExists(t *testing.T) {
 func TestUserServer_ConfirmEmail_InvalidToken(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
 	mock.ExpectQuery(`SELECT user_id, .* FROM email_verifications WHERE token = \$1`).WithArgs(sqlmock.AnyArg()).WillReturnError(sql.ErrNoRows)
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	_, err = s.ConfirmEmail(context.Background(), &pb.ConfirmEmailRequest{Token: "invalid-token"})
 	require.Error(t, err)
@@ -203,11 +230,15 @@ func TestUserServer_ConfirmEmail_InvalidToken(t *testing.T) {
 func TestUserServer_ConfirmEmail_DatabaseError(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
 
 	mock.ExpectQuery(`SELECT user_id, .* FROM email_verifications WHERE token = \$1`).WithArgs(sqlmock.AnyArg()).WillReturnError(errors.New("database error"))
 
-	s := setupUserService(db)
+	s := setupUserService(t, db)
 
 	_, err = s.ConfirmEmail(context.Background(), &pb.ConfirmEmailRequest{Token: "some-token"})
 	require.Error(t, err)

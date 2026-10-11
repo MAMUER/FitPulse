@@ -340,20 +340,29 @@ func TestLogString_Empty(t *testing.T) {
 func BenchmarkString(b *testing.B) {
 	input := "<script>alert('xss')</script> & more content here"
 	for b.Loop() {
-		_ = String(input)
+		result := String(input)
+		if result == "" {
+			b.Fatal("String() returned empty result")
+		}
 	}
 }
 
 func BenchmarkStrings(b *testing.B) {
 	input := []string{"<b>bold</b>", "rock & roll", "normal text", "<script>x</script>"}
 	for b.Loop() {
-		_ = Strings(input)
+		result := Strings(input)
+		if len(result) != len(input) {
+			b.Fatalf("Strings() returned %d items, want %d", len(result), len(input))
+		}
 	}
 }
 
 func BenchmarkLogString(b *testing.B) {
 	input := "user input with\nnewlines\r\nand\ttabs"
 	for b.Loop() {
-		_ = LogString(input)
+		result := LogString(input)
+		if result == "" {
+			b.Fatal("LogString() returned empty result")
+		}
 	}
 }

@@ -4,6 +4,7 @@ package testcontainers
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -99,9 +100,15 @@ func StartInfrastructure(t *testing.T) *Container {
 	}
 
 	t.Cleanup(func() {
-		_ = pgContainer.Terminate(ctx)
-		_ = valkeyContainer.Terminate(ctx)
-		_ = rabbitContainer.Terminate(ctx)
+		if err := pgContainer.Terminate(ctx); err != nil {
+			t.Logf("failed to terminate postgres container: %v", err)
+		}
+		if err := valkeyContainer.Terminate(ctx); err != nil {
+			t.Logf("failed to terminate valkey container: %v", err)
+		}
+		if err := rabbitContainer.Terminate(ctx); err != nil {
+			t.Logf("failed to terminate rabbitmq container: %v", err)
+		}
 	})
 
 	return &Container{
@@ -109,16 +116,30 @@ func StartInfrastructure(t *testing.T) *Container {
 		Valkey:       valkeyContainer,
 		RabbitMQ:     rabbitContainer,
 		PostgresHost: pgHost,
-		PostgresPort: parsePort(pgPort.Port()),
+		PostgresPort: mustParsePort(t, pgPort.Port()),
 		ValkeyHost:   valkeyHost,
-		ValkeyPort:   parsePort(valkeyPort.Port()),
+		ValkeyPort:   mustParsePort(t, valkeyPort.Port()),
 		RabbitMQHost: rabbitHost,
-		RabbitMQPort: parsePort(rabbitPort.Port()),
+		RabbitMQPort: mustParsePort(t, rabbitPort.Port()),
 	}
 }
 
-func parsePort(s string) int {
-	port, _ := strconv.Atoi(s)
+// parsePort преобразует строковый порт контейнера в число.
+func parsePort(s string) (int, error) {
+	port, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port %q: %w", s, err)
+	}
+	return port, nil
+}
+
+// mustParsePort возвращает порт, завершая тест при некорректном значении.
+func mustParsePort(t *testing.T, s string) int {
+	t.Helper()
+	port, err := parsePort(s)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 	return port
 }
 
