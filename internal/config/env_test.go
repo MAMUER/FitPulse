@@ -157,21 +157,17 @@ func TestGetEnvRequired(t *testing.T) {
 	})
 }
 
-func TestGetEnvInt(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		defaultValue int
-		expected     int
-	}{
-		{"valid int", "TEST_INT_VALID", "42", 0, 42},
-		{"invalid int returns default", "TEST_INT_INVALID", "abc", 10, 10},
-		{"empty returns default", "TEST_INT_EMPTY", "", 99, 99},
-		{"negative int", "TEST_INT_NEGATIVE", "-5", 0, -5},
-	}
+type envGetterCase[T any] struct {
+	name         string
+	key          string
+	value        string
+	defaultValue T
+	expected     T
+}
 
-	for _, tt := range tests {
+func runEnvGetterCases[T any](t *testing.T, get func(string, T) T, cases []envGetterCase[T]) {
+	t.Helper()
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != "" {
 				require.NoError(t, os.Setenv(tt.key, tt.value))
@@ -180,132 +176,62 @@ func TestGetEnvInt(t *testing.T) {
 				require.NoError(t, os.Unsetenv(tt.key))
 			}
 
-			result := GetEnvInt(tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.expected, get(tt.key, tt.defaultValue))
 		})
 	}
 }
 
-func TestGetEnvInt64(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		defaultValue int64
-		expected     int64
-	}{
-		{"valid int64", "TEST_INT64_VALID", "9223372036854775807", 0, 9223372036854775807},
-		{"invalid int64 returns default", "TEST_INT64_INVALID", "abc", 10, 10},
-		{"empty returns default", "TEST_INT64_EMPTY", "", 99, 99},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.value != "" {
-				require.NoError(t, os.Setenv(tt.key, tt.value))
-				t.Cleanup(func() { require.NoError(t, os.Unsetenv(tt.key)) })
-			} else {
-				require.NoError(t, os.Unsetenv(tt.key))
-			}
-
-			result := GetEnvInt64(tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, result)
+func TestEnvTypedGetters(t *testing.T) {
+	t.Run("GetEnvInt", func(t *testing.T) {
+		runEnvGetterCases(t, GetEnvInt, []envGetterCase[int]{
+			{name: "valid int", key: "TEST_INT_VALID", value: "42", defaultValue: 0, expected: 42},
+			{name: "invalid int returns default", key: "TEST_INT_INVALID", value: "abc", defaultValue: 10, expected: 10},
+			{name: "empty returns default", key: "TEST_INT_EMPTY", value: "", defaultValue: 99, expected: 99},
+			{name: "negative int", key: "TEST_INT_NEGATIVE", value: "-5", defaultValue: 0, expected: -5},
 		})
-	}
-}
+	})
 
-func TestGetEnvBool(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		defaultValue bool
-		expected     bool
-	}{
-		{"true", "TEST_BOOL_TRUE", "true", false, true},
-		{"false", "TEST_BOOL_FALSE", "false", true, false},
-		{"1", "TEST_BOOL_1", "1", false, true},
-		{"0", "TEST_BOOL_0", "0", true, false},
-		{"yes", "TEST_BOOL_YES", "yes", false, true},
-		{"no", "TEST_BOOL_NO", "no", true, false},
-		{"on", "TEST_BOOL_ON", "on", false, true},
-		{"off", "TEST_BOOL_OFF", "off", true, false},
-		{"invalid returns default", "TEST_BOOL_INVALID", "maybe", true, true},
-		{"empty returns default", "TEST_BOOL_EMPTY", "", false, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.value != "" {
-				require.NoError(t, os.Setenv(tt.key, tt.value))
-				t.Cleanup(func() { require.NoError(t, os.Unsetenv(tt.key)) })
-			} else {
-				require.NoError(t, os.Unsetenv(tt.key))
-			}
-
-			result := GetEnvBool(tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, result)
+	t.Run("GetEnvInt64", func(t *testing.T) {
+		runEnvGetterCases(t, GetEnvInt64, []envGetterCase[int64]{
+			{name: "valid int64", key: "TEST_INT64_VALID", value: "9223372036854775807", defaultValue: 0, expected: 9223372036854775807},
+			{name: "invalid int64 returns default", key: "TEST_INT64_INVALID", value: "abc", defaultValue: 10, expected: 10},
+			{name: "empty returns default", key: "TEST_INT64_EMPTY", value: "", defaultValue: 99, expected: 99},
 		})
-	}
-}
+	})
 
-func TestGetEnvDuration(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		defaultValue time.Duration
-		expected     time.Duration
-	}{
-		{"valid seconds", "TEST_DURATION_SEC", "5s", 0, 5 * time.Second},
-		{"valid milliseconds", "TEST_DURATION_MS", "100ms", 0, 100 * time.Millisecond},
-		{"valid hours", "TEST_DURATION_HOUR", "1h", 0, time.Hour},
-		{"invalid returns default", "TEST_DURATION_INVALID", "abc", 10 * time.Second, 10 * time.Second},
-		{"empty returns default", "TEST_DURATION_EMPTY", "", 99 * time.Second, 99 * time.Second},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.value != "" {
-				require.NoError(t, os.Setenv(tt.key, tt.value))
-				t.Cleanup(func() { require.NoError(t, os.Unsetenv(tt.key)) })
-			} else {
-				require.NoError(t, os.Unsetenv(tt.key))
-			}
-
-			result := GetEnvDuration(tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, result)
+	t.Run("GetEnvBool", func(t *testing.T) {
+		runEnvGetterCases(t, GetEnvBool, []envGetterCase[bool]{
+			{name: "true", key: "TEST_BOOL_TRUE", value: "true", defaultValue: false, expected: true},
+			{name: "false", key: "TEST_BOOL_FALSE", value: "false", defaultValue: true, expected: false},
+			{name: "1", key: "TEST_BOOL_1", value: "1", defaultValue: false, expected: true},
+			{name: "0", key: "TEST_BOOL_0", value: "0", defaultValue: true, expected: false},
+			{name: "yes", key: "TEST_BOOL_YES", value: "yes", defaultValue: false, expected: true},
+			{name: "no", key: "TEST_BOOL_NO", value: "no", defaultValue: true, expected: false},
+			{name: "on", key: "TEST_BOOL_ON", value: "on", defaultValue: false, expected: true},
+			{name: "off", key: "TEST_BOOL_OFF", value: "off", defaultValue: true, expected: false},
+			{name: "invalid returns default", key: "TEST_BOOL_INVALID", value: "maybe", defaultValue: true, expected: true},
+			{name: "empty returns default", key: "TEST_BOOL_EMPTY", value: "", defaultValue: false, expected: false},
 		})
-	}
-}
+	})
 
-func TestGetEnvFloat64(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		defaultValue float64
-		expected     float64
-	}{
-		{"valid float", "TEST_FLOAT_VALID", "3.14", 0, 3.14},
-		{"invalid float returns default", "TEST_FLOAT_INVALID", "abc", 10.5, 10.5},
-		{"empty returns default", "TEST_FLOAT_EMPTY", "", 99.9, 99.9},
-		{"negative float", "TEST_FLOAT_NEGATIVE", "-2.5", 0, -2.5},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.value != "" {
-				require.NoError(t, os.Setenv(tt.key, tt.value))
-				t.Cleanup(func() { require.NoError(t, os.Unsetenv(tt.key)) })
-			} else {
-				require.NoError(t, os.Unsetenv(tt.key))
-			}
-
-			result := GetEnvFloat64(tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, result)
+	t.Run("GetEnvDuration", func(t *testing.T) {
+		runEnvGetterCases(t, GetEnvDuration, []envGetterCase[time.Duration]{
+			{name: "valid seconds", key: "TEST_DURATION_SEC", value: "5s", defaultValue: 0, expected: 5 * time.Second},
+			{name: "valid milliseconds", key: "TEST_DURATION_MS", value: "100ms", defaultValue: 0, expected: 100 * time.Millisecond},
+			{name: "valid hours", key: "TEST_DURATION_HOUR", value: "1h", defaultValue: 0, expected: time.Hour},
+			{name: "invalid returns default", key: "TEST_DURATION_INVALID", value: "abc", defaultValue: 10 * time.Second, expected: 10 * time.Second},
+			{name: "empty returns default", key: "TEST_DURATION_EMPTY", value: "", defaultValue: 99 * time.Second, expected: 99 * time.Second},
 		})
-	}
+	})
+
+	t.Run("GetEnvFloat64", func(t *testing.T) {
+		runEnvGetterCases(t, GetEnvFloat64, []envGetterCase[float64]{
+			{name: "valid float", key: "TEST_FLOAT_VALID", value: "3.14", defaultValue: 0, expected: 3.14},
+			{name: "invalid float returns default", key: "TEST_FLOAT_INVALID", value: "abc", defaultValue: 10.5, expected: 10.5},
+			{name: "empty returns default", key: "TEST_FLOAT_EMPTY", value: "", defaultValue: 99.9, expected: 99.9},
+			{name: "negative float", key: "TEST_FLOAT_NEGATIVE", value: "-2.5", defaultValue: 0, expected: -2.5},
+		})
+	})
 }
 
 func TestGetEnv_AbsPathFailure(t *testing.T) {

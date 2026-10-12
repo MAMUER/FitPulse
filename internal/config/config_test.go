@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/MAMUER/project/internal/logger"
 )
 
 func TestCacheConfig_Validate(t *testing.T) {
@@ -327,4 +329,294 @@ func TestViperHelpers(t *testing.T) {
 	assert.Equal(t, 1*time.Second, GetViperDuration(v, "missing_duration", "1s"))
 	assert.Equal(t, 3.14, GetViperFloat64(v, "existing_float", 0.0))
 	assert.Equal(t, 0.0, GetViperFloat64(v, "missing_float", 0.0))
+}
+
+func TestGetViperDurationInvalidValue(t *testing.T) {
+	v := viper.New()
+	v.Set("invalid_duration", "not-a-duration")
+
+	assert.Equal(t, time.Duration(0), GetViperDuration(v, "invalid_duration", "1s"))
+}
+
+func TestDatabaseConfigValidateMissingFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(cfg *DatabaseConfig)
+		wantErr string
+	}{
+		{
+			name:    "missing host",
+			mutate:  func(cfg *DatabaseConfig) { cfg.Host = "" },
+			wantErr: "db host is required",
+		},
+		{
+			name:    "missing port",
+			mutate:  func(cfg *DatabaseConfig) { cfg.Port = "" },
+			wantErr: "db port is required",
+		},
+		{
+			name:    "missing user",
+			mutate:  func(cfg *DatabaseConfig) { cfg.User = "" },
+			wantErr: "db user is required",
+		},
+		{
+			name:    "missing password",
+			mutate:  func(cfg *DatabaseConfig) { cfg.Password = "" },
+			wantErr: "db password is required",
+		},
+		{
+			name:    "missing dbname",
+			mutate:  func(cfg *DatabaseConfig) { cfg.DBName = "" },
+			wantErr: "db name is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DatabaseConfig{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "secret",
+				DBName:   "mydb",
+				SSLMode:  "disable",
+			}
+			tt.mutate(&cfg)
+
+			err := cfg.Validate()
+			require.Error(t, err)
+			assert.Equal(t, tt.wantErr, err.Error())
+		})
+	}
+}
+
+func TestConfigValidateNestedErrors(t *testing.T) {
+	validConfig := func() Config {
+		return Config{
+			App:    "fitpulse",
+			Server: ServerConfig{Addr: ":8080"},
+			Database: DatabaseConfig{
+				Host:     "localhost",
+				Port:     "5432",
+				User:     "postgres",
+				Password: "secret",
+				DBName:   "mydb",
+				SSLMode:  "disable",
+			},
+			Cache: CacheConfig{Addr: "localhost:6379", DB: 0},
+			JWT:   JWTConfig{PrivateKeyPEM: "private", PublicKeyPEM: "public"},
+		}
+	}
+
+	t.Run("invalid cache", func(t *testing.T) {
+		cfg := validConfig()
+		cfg.Cache.Addr = ""
+
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cache: cache addr is required")
+	})
+
+	t.Run("invalid jwt", func(t *testing.T) {
+		cfg := validConfig()
+		cfg.JWT.PrivateKeyPEM = ""
+
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "jwt: JWT private key is required")
+	})
+
+	t.Run("invalid database", func(t *testing.T) {
+		cfg := validConfig()
+		cfg.Database.DBName = ""
+
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "database: db name is required")
+	})
+
+	t.Run("valid config", func(t *testing.T) {
+		require.NoError(t, validConfig().Validate())
+	})
+}
+
+func TestRedactSecretsDatabaseConfig(t *testing.T) {
+	cfg := DatabaseConfig{
+		Host:     "localhost",
+		Port:     "5432",
+		User:     "postgres",
+		Password: "supersecret",
+		DBName:   "mydb",
+		SSLMode:  "disable",
+	}
+
+	redacted := redactSecrets(cfg)
+	dbCfg, ok := redacted.(struct {
+		Host     string
+		Port     string
+		User     string
+		Password string
+		DBName   string
+		SSLMode  string
+	})
+	require.True(t, ok)
+	assert.Equal(t, "localhost", dbCfg.Host)
+	assert.Equal(t, "5432", dbCfg.Port)
+	assert.Equal(t, "postgres", dbCfg.User)
+	assert.Equal(t, "mydb", dbCfg.DBName)
+	assert.Equal(t, "disable", dbCfg.SSLMode)
+	assert.Equal(t, "[REDACTED]", dbCfg.Password)
+}
+
+func TestRedactSecretsFullConfig(t *testing.T) {
+	cfg := Config{
+		App:    "fitpulse",
+		Server: ServerConfig{Addr: ":8080"},
+		Database: DatabaseConfig{
+			Host:     "localhost",
+			Port:     "5432",
+			User:     "postgres",
+			Password: "supersecret",
+			DBName:   "mydb",
+			SSLMode:  "disable",
+		},
+		Cache: CacheConfig{Addr: "localhost:6379", Password: "redissecret", DB: 1},
+		JWT:   JWTConfig{PrivateKeyPEM: "private", PublicKeyPEM: "public"},
+	}
+
+	redacted := redactSecrets(cfg)
+	redactedCfg, ok := redacted.(struct {
+		App      string
+		Server   ServerConfig
+		Database interface{}
+		Cache    interface{}
+		JWT      interface{}
+	})
+	require.True(t, ok)
+	assert.Equal(t, "fitpulse", redactedCfg.App)
+	assert.Equal(t, ":8080", redactedCfg.Server.Addr)
+
+	database, ok := redactedCfg.Database.(struct {
+		Host     string
+		Port     string
+		User     string
+		Password string
+		DBName   string
+		SSLMode  string
+	})
+	require.True(t, ok)
+	assert.Equal(t, "[REDACTED]", database.Password)
+
+	cache, ok := redactedCfg.Cache.(struct {
+		Addr     string
+		Password string
+		DB       int
+	})
+	require.True(t, ok)
+	assert.Equal(t, "localhost:6379", cache.Addr)
+	assert.Equal(t, "[REDACTED]", cache.Password)
+	assert.Equal(t, 1, cache.DB)
+
+	jwt, ok := redactedCfg.JWT.(struct {
+		PrivateKeyPEM string
+		PublicKeyPEM  string
+	})
+	require.True(t, ok)
+	assert.Equal(t, "[REDACTED]", jwt.PrivateKeyPEM)
+	assert.Equal(t, "[REDACTED]", jwt.PublicKeyPEM)
+}
+
+func TestLoadConfigDefaultsFromEmptyViper(t *testing.T) {
+	cfg := LoadConfig(viper.New())
+
+	assert.Equal(t, "fitpulse", cfg.App)
+	assert.Equal(t, ":8080", cfg.Server.Addr)
+	assert.Equal(t, "localhost", cfg.Database.Host)
+	assert.Equal(t, "5432", cfg.Database.Port)
+	assert.Equal(t, "postgres", cfg.Database.User)
+	assert.Empty(t, cfg.Database.Password)
+	assert.Equal(t, "postgres", cfg.Database.DBName)
+	assert.Equal(t, "disable", cfg.Database.SSLMode)
+	assert.Equal(t, "localhost:6379", cfg.Cache.Addr)
+	assert.Empty(t, cfg.Cache.Password)
+	assert.Equal(t, 0, cfg.Cache.DB)
+	assert.Empty(t, cfg.JWT.PrivateKeyPEM)
+	assert.Empty(t, cfg.JWT.PublicKeyPEM)
+}
+
+func TestMustLoadConfig(t *testing.T) {
+	t.Run("returns valid config", func(t *testing.T) {
+		v := viper.New()
+		v.Set("server.addr", ":8080")
+		v.Set("database.host", "localhost")
+		v.Set("database.port", "5432")
+		v.Set("database.user", "postgres")
+		v.Set("database.password", "secret")
+		v.Set("database.dbname", "mydb")
+		v.Set("cache.addr", "localhost:6379")
+		v.Set("jwt.private_key_pem", "private")
+		v.Set("jwt.public_key_pem", "public")
+
+		cfg := MustLoadConfig(v)
+		require.NoError(t, cfg.Validate())
+		assert.Equal(t, ":8080", cfg.Server.Addr)
+	})
+
+	t.Run("panics on invalid config", func(t *testing.T) {
+		assert.Panics(t, func() {
+			_ = MustLoadConfig(viper.New())
+		})
+	})
+}
+
+func TestGetViperWithoutInit(t *testing.T) {
+	previous := globalViper
+	globalViper = nil
+	t.Cleanup(func() { globalViper = previous })
+
+	v := GetViper()
+	require.NotNil(t, v)
+}
+
+func TestInitViperSetsGlobalViper(t *testing.T) {
+	InitViper("app")
+	require.NotNil(t, globalViper)
+	assert.Same(t, globalViper, GetViper())
+}
+
+func TestLogConfig(t *testing.T) {
+	cfg := Config{
+		App:    "fitpulse",
+		Server: ServerConfig{Addr: ":8080"},
+		Database: DatabaseConfig{
+			Host:     "localhost",
+			Port:     "5432",
+			User:     "postgres",
+			Password: "supersecret",
+			DBName:   "mydb",
+			SSLMode:  "disable",
+		},
+		Cache: CacheConfig{Addr: "localhost:6379", Password: "redissecret", DB: 0},
+		JWT:   JWTConfig{PrivateKeyPEM: "private", PublicKeyPEM: "public"},
+	}
+
+	t.Run("logs full config", func(t *testing.T) {
+		LogConfig(logger.New("test"), cfg)
+	})
+
+	t.Run("logs cache config", func(t *testing.T) {
+		LogConfig(logger.New("test"), cfg.Cache)
+	})
+
+	t.Run("logs jwt config", func(t *testing.T) {
+		LogConfig(logger.New("test"), cfg.JWT)
+	})
+
+	t.Run("logs database config", func(t *testing.T) {
+		LogConfig(logger.New("test"), cfg.Database)
+	})
+
+	t.Run("logs unknown config", func(t *testing.T) {
+		LogConfig(logger.New("test"), "not-a-config")
+	})
 }

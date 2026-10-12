@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,7 +31,8 @@ type Server struct {
 	secret   []byte
 	server   *http.Server
 	shutdown context.CancelFunc
-	ctx      context.Context
+	stopOnce sync.Once
+	done     chan struct{}
 }
 
 // NewServer creates a new webhook server
@@ -58,7 +60,7 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 
 		shutdown: cancel,
 
-		ctx: ctx,
+		done: make(chan struct{}),
 	}
 
 	mux := http.NewServeMux()
@@ -133,26 +135,47 @@ func (s *Server) Start() {
 	}()
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				storage := NewStorage(s.db, s.log)
-				if err := storage.PurgeExpiredNonces(s.ctx); err != nil {
-					s.log.Warn("failed to purge expired webhook nonces", zap.Error(err))
-				}
-			case <-s.ctx.Done():
-				return
-			}
-		}
+
+		s.purgeExpiredNonces()
+
 	}()
+
+}
+
+func (s *Server) purgeExpiredNonces() {
+
+	ticker := time.NewTicker(5 * time.Minute)
+
+	defer ticker.Stop()
+
+	for {
+
+		select {
+
+		case <-ticker.C:
+			storage := NewStorage(s.db, s.log)
+			purgeCtx, purgeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			err := storage.PurgeExpiredNonces(purgeCtx)
+			purgeCancel()
+
+			if err != nil {
+				s.log.Warn("failed to purge expired webhook nonces", zap.Error(err))
+			}
+
+		case <-s.done:
+			return
+
+		}
+
+	}
 
 }
 
 // Stop gracefully shuts down the webhook server
 
 func (s *Server) Stop(ctx context.Context) error {
+
+	s.stopOnce.Do(func() { close(s.done) })
 
 	if s.shutdown != nil {
 

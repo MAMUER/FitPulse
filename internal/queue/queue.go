@@ -262,7 +262,9 @@ func (p *rabbitPublisher) Publish(ctx context.Context, event interface{}) error 
 	if err != nil {
 		queueMessagesTotal.WithLabelValues(p.queue, "publish_error").Inc()
 		if isClosedError(err) {
-			if reconnectErr := p.reconnect(); reconnectErr == nil {
+			reconnectErr := p.reconnect()
+
+			if reconnectErr == nil {
 				p.mu.RLock()
 				ch = p.channel
 				p.mu.RUnlock()

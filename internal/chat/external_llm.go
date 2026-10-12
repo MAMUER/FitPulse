@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// ExternalLLMClient defines the interface for external LLM providers.
-type ExternalLLMClient interface {
+// ExternalLLMSender defines the interface for external LLM providers.
+type ExternalLLMSender interface {
 	// Send sends a message to the external LLM and returns the response.
 	Send(ctx context.Context, userID, message string) (string, error)
 }
@@ -31,7 +31,7 @@ type ExternalLLMConfig struct {
 // ExternalLLMService manages external LLM interactions with fallback to rule-based chat.
 type ExternalLLMService struct {
 	config ExternalLLMConfig
-	client ExternalLLMClient
+	client ExternalLLMSender
 	log    *zap.Logger
 }
 
@@ -55,7 +55,7 @@ func NewExternalLLMService(cfg ExternalLLMConfig, log *zap.Logger) *ExternalLLMS
 }
 
 // SetClient sets the external LLM client for the service.
-func (s *ExternalLLMService) SetClient(client ExternalLLMClient) {
+func (s *ExternalLLMService) SetClient(client ExternalLLMSender) {
 	s.client = client
 }
 
@@ -99,7 +99,7 @@ func (s *ExternalLLMService) QueryWithFallback(ctx context.Context, userID, mess
 	return response, nil
 }
 
-// ExternalLLMClientImpl is a stub implementation of ExternalLLMClient.
+// ExternalLLMClientImpl is a stub implementation of ExternalLLMSender.
 // In a real implementation, this would integrate with OpenAI, Claude, or other LLM providers.
 type ExternalLLMClientImpl struct {
 	apiKey string

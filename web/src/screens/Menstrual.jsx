@@ -182,13 +182,13 @@ export default function Menstrual() {
             )}
           </p>
 
-          {nextPeriodEstimate && (
+          {nextPeriodEstimate() && (
             <div className='metric-row'>
               <div className='metric-card'>
                 <div className='metric-label'>
                   {t('Следующий период примерно', 'Next period approx')}
                 </div>
-                <div className='metric-value'>{nextPeriodEstimate}</div>
+                <div className='metric-value'>{nextPeriodEstimate()}</div>
               </div>
             </div>
           )}
@@ -215,10 +215,8 @@ export default function Menstrual() {
                 id='end_date'
                 type='date'
                 value={form.end_date}
-                onChange={(_e) =>
-                  setForm((e) =>
-                    setForm((f) => ({ ...f, end_date: e.target.value }))
-                  )
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, end_date: e.target.value }))
                 }
               />
             </div>

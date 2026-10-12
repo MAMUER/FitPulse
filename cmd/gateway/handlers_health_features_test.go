@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,21 +13,51 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/logger"
-	"github.com/MAMUER/project/internal/middleware"
 )
 
-func TestHealthFeatures_ListHealthConditionsHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
+func newHealthFeatureGateway() *gateway {
+	return &gateway{
+		log:        &logger.Logger{Logger: zap.NewNop()},
 		userClient: &mockUserServiceClient{},
 	}
+}
+
+func healthRequest(t *testing.T, method, target, body string) *http.Request {
+	t.Helper()
+
+	var reader io.Reader
+
+	if body != "" {
+		reader = bytes.NewBufferString(body)
+	}
+
+	req := httptest.NewRequestWithContext(withUserID(context.Background(), "user-123"), method, target, reader)
+
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	return req
+}
+
+func healthRequestWithParam(t *testing.T, method, target, body, param, value string) *http.Request {
+	t.Helper()
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add(param, value)
+
+	req := healthRequest(t, method, target, body)
+
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
+func TestHealthFeatures_ListHealthConditionsHandler(t *testing.T) {
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/health/conditions", nil)
 
-		g.listHealthConditionsHandler(w, req)
+		g.listHealthConditionsHandler(w, healthRequest(t, "GET", "/health/conditions", ""))
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Body.String(), "status")
@@ -43,17 +74,11 @@ func TestHealthFeatures_ListHealthConditionsHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_UpsertHealthConditionHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`{"condition_type":"allergy","condition_name":"Peanuts","severity":"medium","is_active":true}`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/conditions", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/conditions", `{"condition_type":"allergy","condition_name":"Peanuts","severity":"medium","is_active":true}`)
 
 		g.upsertHealthConditionHandler(w, req)
 
@@ -63,9 +88,7 @@ func TestHealthFeatures_UpsertHealthConditionHandler(t *testing.T) {
 
 	t.Run("bad_request", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`invalid json`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/conditions", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/conditions", `invalid json`)
 
 		g.upsertHealthConditionHandler(w, req)
 
@@ -74,19 +97,11 @@ func TestHealthFeatures_UpsertHealthConditionHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_DeleteHealthConditionHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("condition_id", "cond-123")
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		req := httptest.NewRequestWithContext(ctx, "DELETE", "/health/conditions/cond-123", nil)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req := healthRequestWithParam(t, "DELETE", "/health/conditions/cond-123", "", "condition_id", "cond-123")
 
 		g.deleteHealthConditionHandler(w, req)
 
@@ -96,15 +111,11 @@ func TestHealthFeatures_DeleteHealthConditionHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_DeleteEntityHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("missing_param", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "DELETE", "/health/conditions/", nil)
+		req := healthRequest(t, "DELETE", "/health/conditions/", "")
 
 		g.deleteEntityHandler(w, req, "condition_id", func(id string) error {
 			return nil
@@ -115,11 +126,7 @@ func TestHealthFeatures_DeleteEntityHandler(t *testing.T) {
 
 	t.Run("delete_error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("condition_id", "cond-123")
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		req := httptest.NewRequestWithContext(ctx, "DELETE", "/health/conditions/cond-123", nil)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req := healthRequestWithParam(t, "DELETE", "/health/conditions/cond-123", "", "condition_id", "cond-123")
 
 		g.deleteEntityHandler(w, req, "condition_id", func(id string) error {
 			return assert.AnError
@@ -130,17 +137,11 @@ func TestHealthFeatures_DeleteEntityHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_CreateBodyCompositionHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`{"recorded_at":"2024-01-01","weight_kg":70.5,"height_cm":175}`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/body-composition", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/body-composition", `{"recorded_at":"2024-01-01","weight_kg":70.5,"height_cm":175}`)
 
 		g.createBodyCompositionHandler(w, req)
 
@@ -150,9 +151,7 @@ func TestHealthFeatures_CreateBodyCompositionHandler(t *testing.T) {
 
 	t.Run("bad_request", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`invalid json`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/body-composition", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/body-composition", `invalid json`)
 
 		g.createBodyCompositionHandler(w, req)
 
@@ -161,17 +160,12 @@ func TestHealthFeatures_CreateBodyCompositionHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_ListBodyCompositionHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/health/body-composition?from=2024-01-01&to=2024-12-31", nil)
 
-		g.listBodyCompositionHandler(w, req)
+		g.listBodyCompositionHandler(w, healthRequest(t, "GET", "/health/body-composition?from=2024-01-01&to=2024-12-31", ""))
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Body.String(), "status")
@@ -188,17 +182,12 @@ func TestHealthFeatures_ListBodyCompositionHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_ListMenstrualCyclesHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/health/menstrual-cycles", nil)
 
-		g.listMenstrualCyclesHandler(w, req)
+		g.listMenstrualCyclesHandler(w, healthRequest(t, "GET", "/health/menstrual-cycles", ""))
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Body.String(), "status")
@@ -215,17 +204,11 @@ func TestHealthFeatures_ListMenstrualCyclesHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_CreateMenstrualCycleHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`{"cycle_start_date":"2024-01-01","flow_intensity":"medium"}`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/menstrual-cycles", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/menstrual-cycles", `{"cycle_start_date":"2024-01-01","flow_intensity":"medium"}`)
 
 		g.createMenstrualCycleHandler(w, req)
 
@@ -235,9 +218,7 @@ func TestHealthFeatures_CreateMenstrualCycleHandler(t *testing.T) {
 
 	t.Run("bad_request", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		body := bytes.NewBufferString(`invalid json`)
-		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/health/menstrual-cycles", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "POST", "/health/menstrual-cycles", `invalid json`)
 
 		g.createMenstrualCycleHandler(w, req)
 
@@ -246,21 +227,11 @@ func TestHealthFeatures_CreateMenstrualCycleHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_UpdateMenstrualCycleHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("cycle_id", "cycle-123")
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		body := bytes.NewBufferString(`{"cycle_start_date":"2024-01-01","flow_intensity":"light"}`)
-		req := httptest.NewRequestWithContext(ctx, "PUT", "/health/menstrual-cycles/cycle-123", body)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequestWithParam(t, "PUT", "/health/menstrual-cycles/cycle-123", `{"cycle_start_date":"2024-01-01","flow_intensity":"light"}`, "cycle_id", "cycle-123")
 
 		g.updateMenstrualCycleHandler(w, req)
 
@@ -270,10 +241,7 @@ func TestHealthFeatures_UpdateMenstrualCycleHandler(t *testing.T) {
 
 	t.Run("missing_cycle_id", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		body := bytes.NewBufferString(`{"cycle_start_date":"2024-01-01"}`)
-		req := httptest.NewRequestWithContext(ctx, "PUT", "/health/menstrual-cycles/", body)
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequest(t, "PUT", "/health/menstrual-cycles/", `{"cycle_start_date":"2024-01-01"}`)
 
 		g.updateMenstrualCycleHandler(w, req)
 
@@ -282,13 +250,7 @@ func TestHealthFeatures_UpdateMenstrualCycleHandler(t *testing.T) {
 
 	t.Run("bad_request", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("cycle_id", "cycle-123")
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		body := bytes.NewBufferString(`invalid json`)
-		req := httptest.NewRequestWithContext(ctx, "PUT", "/health/menstrual-cycles/cycle-123", body)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-		req.Header.Set("Content-Type", "application/json")
+		req := healthRequestWithParam(t, "PUT", "/health/menstrual-cycles/cycle-123", `invalid json`, "cycle_id", "cycle-123")
 
 		g.updateMenstrualCycleHandler(w, req)
 
@@ -297,19 +259,11 @@ func TestHealthFeatures_UpdateMenstrualCycleHandler(t *testing.T) {
 }
 
 func TestHealthFeatures_DeleteMenstrualCycleHandler(t *testing.T) {
-	log := &logger.Logger{Logger: zap.NewNop()}
-	g := &gateway{
-		log:        log,
-		userClient: &mockUserServiceClient{},
-	}
+	g := newHealthFeatureGateway()
 
 	t.Run("success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("cycle_id", "cycle-123")
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
-		req := httptest.NewRequestWithContext(ctx, "DELETE", "/health/menstrual-cycles/cycle-123", nil)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req := healthRequestWithParam(t, "DELETE", "/health/menstrual-cycles/cycle-123", "", "cycle_id", "cycle-123")
 
 		g.deleteMenstrualCycleHandler(w, req)
 

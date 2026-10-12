@@ -3,32 +3,57 @@ const BACKEND_CONFIG = {
   production: localStorage.getItem('fitpulse-production') === '1',
 };
 
-async function backendRequest(path, options = {}) {
-  if (!BACKEND_CONFIG.baseUrl) {
+const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
+
+function resolveBaseUrl(rawUrl) {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
     return null;
   }
-  const url = `${BACKEND_CONFIG.baseUrl.replace(/\/$/, '')}${path}`;
-  const res = await fetch(url, {
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+    return null;
+  }
+  let pathname = parsed.pathname;
+
+  if (pathname === '/') {
+    pathname = '';
+  } else {
+    while (pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1);
+    }
+  }
+
+  return `${parsed.origin}${pathname}`;
+}
+
+async function backendRequest(path, options = {}) {
+  const baseUrl = resolveBaseUrl(BACKEND_CONFIG.baseUrl);
+  if (!baseUrl) {
+    return null;
+  }
+  const url = `${baseUrl}${path}`;
+  const buildRequestInit = () => ({
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers || {}), // NOSONAR: S7744
+      ...options.headers,
     },
   });
+
+  const res = await fetch(url, buildRequestInit());
   if (res.status === 401) {
     const refreshed = await backendRequest('/api/v1/auth/refresh', {
       method: 'POST',
     });
     if (refreshed !== null) {
-      const retry = await fetch(url, {
-        ...options,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {}),
-        },
-      });
+      const retry = await fetch(url, buildRequestInit());
       if (!retry.ok) {
         throw new Error(`Backend ${retry.status}`);
       }
@@ -41,4 +66,4 @@ async function backendRequest(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-export { BACKEND_CONFIG, backendRequest };
+export { BACKEND_CONFIG, backendRequest, resolveBaseUrl };

@@ -86,223 +86,147 @@ func TestMustLoadViper(t *testing.T) {
 	})
 }
 
-func TestGetString(t *testing.T) {
-	tests := []struct {
-		name       string
-		key        string
-		defaultVal string
-		setup      func() *viper.Viper
-		expected   string
-	}{
-		{
-			name:       "returns value when set",
-			key:        "app.name",
-			defaultVal: "default",
-			setup: func() *viper.Viper {
-				v := viper.New()
-				v.Set("app.name", "myapp")
-				return v
-			},
-			expected: "myapp",
-		},
-		{
-			name:       "returns default when missing",
-			key:        "app.name",
-			defaultVal: "default",
-			setup: func() *viper.Viper {
-				return viper.New()
-			},
-			expected: "default",
-		},
-		{
-			name:       "returns empty default when missing and default is empty",
-			key:        "app.name",
-			defaultVal: "",
-			setup: func() *viper.Viper {
-				return viper.New()
-			},
-			expected: "",
-		},
-	}
+type viperGetterCase[T any] struct {
+	name       string
+	key        string
+	defaultVal T
+	value      any
+	expected   T
+}
 
-	for _, tt := range tests {
+func runViperGetterCases[T any](t *testing.T, get func(*viper.Viper, string, T) T, cases []viperGetterCase[T]) {
+	t.Helper()
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			v := tt.setup()
-			assert.Equal(t, tt.expected, GetString(v, tt.key, tt.defaultVal))
+			v := viper.New()
+			if tt.value != nil {
+				v.Set(tt.key, tt.value)
+			}
+			assert.Equal(t, tt.expected, get(v, tt.key, tt.defaultVal))
 		})
 	}
 }
 
-func TestGetInt(t *testing.T) {
-	tests := []struct {
-		name       string
-		key        string
-		defaultVal int
-		setup      func() *viper.Viper
-		expected   int
-	}{
-		{
-			name:       "returns value when set",
-			key:        "app.port",
-			defaultVal: 8080,
-			setup: func() *viper.Viper {
-				v := viper.New()
-				v.Set("app.port", 9090)
-				return v
+func TestViperTypedGetters(t *testing.T) {
+	t.Run("GetString", func(t *testing.T) {
+		runViperGetterCases(t, GetString, []viperGetterCase[string]{
+			{
+				name:       "returns value when set",
+				key:        "app.name",
+				defaultVal: "default",
+				value:      "myapp",
+				expected:   "myapp",
 			},
-			expected: 9090,
-		},
-		{
-			name:       "returns default when missing",
-			key:        "app.port",
-			defaultVal: 8080,
-			setup: func() *viper.Viper {
-				return viper.New()
+			{
+				name:       "returns default when missing",
+				key:        "app.name",
+				defaultVal: "default",
+				expected:   "default",
 			},
-			expected: 8080,
-		},
-		{
-			name:       "returns zero default when missing and default is zero",
-			key:        "app.port",
-			defaultVal: 0,
-			setup: func() *viper.Viper {
-				return viper.New()
+			{
+				name:       "returns empty default when missing and default is empty",
+				key:        "app.name",
+				defaultVal: "",
+				expected:   "",
 			},
-			expected: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := tt.setup()
-			assert.Equal(t, tt.expected, GetInt(v, tt.key, tt.defaultVal))
 		})
-	}
-}
+	})
 
-func TestGetBool(t *testing.T) {
-	tests := []struct {
-		name       string
-		key        string
-		defaultVal bool
-		setup      func() *viper.Viper
-		expected   bool
-	}{
-		{
-			name:       "returns value when set",
-			key:        "app.debug",
-			defaultVal: false,
-			setup: func() *viper.Viper {
-				v := viper.New()
-				v.Set("app.debug", true)
-				return v
+	t.Run("GetInt", func(t *testing.T) {
+		runViperGetterCases(t, GetInt, []viperGetterCase[int]{
+			{
+				name:       "returns value when set",
+				key:        "app.port",
+				defaultVal: 8080,
+				value:      9090,
+				expected:   9090,
 			},
-			expected: true,
-		},
-		{
-			name:       "returns default when missing",
-			key:        "app.debug",
-			defaultVal: true,
-			setup: func() *viper.Viper {
-				return viper.New()
+			{
+				name:       "returns default when missing",
+				key:        "app.port",
+				defaultVal: 8080,
+				expected:   8080,
 			},
-			expected: true,
-		},
-		{
-			name:       "returns false default when missing",
-			key:        "app.debug",
-			defaultVal: false,
-			setup: func() *viper.Viper {
-				return viper.New()
+			{
+				name:       "returns zero default when missing and default is zero",
+				key:        "app.port",
+				defaultVal: 0,
+				expected:   0,
 			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := tt.setup()
-			assert.Equal(t, tt.expected, GetBool(v, tt.key, tt.defaultVal))
 		})
-	}
+	})
+
+	t.Run("GetBool", func(t *testing.T) {
+		runViperGetterCases(t, GetBool, []viperGetterCase[bool]{
+			{
+				name:       "returns value when set",
+				key:        "app.debug",
+				defaultVal: false,
+				value:      true,
+				expected:   true,
+			},
+			{
+				name:       "returns default when missing",
+				key:        "app.debug",
+				defaultVal: true,
+				expected:   true,
+			},
+			{
+				name:       "returns false default when missing",
+				key:        "app.debug",
+				defaultVal: false,
+				expected:   false,
+			},
+		})
+	})
+
+	t.Run("GetFloat64", func(t *testing.T) {
+		runViperGetterCases(t, GetFloat64, []viperGetterCase[float64]{
+			{
+				name:       "returns value when set",
+				key:        "app.rate",
+				defaultVal: 1.0,
+				value:      2.5,
+				expected:   2.5,
+			},
+			{
+				name:       "returns default when missing",
+				key:        "app.rate",
+				defaultVal: 1.0,
+				expected:   1.0,
+			},
+			{
+				name:       "returns zero default when missing and default is zero",
+				key:        "app.rate",
+				defaultVal: 0.0,
+				expected:   0.0,
+			},
+		})
+	})
 }
 
 func TestGetDuration(t *testing.T) {
-	t.Run("returns parsed duration when set", func(t *testing.T) {
-		v := viper.New()
-		v.Set("app.timeout", "5s")
-
-		result := GetDuration(v, "app.timeout", "1s")
-		assert.Equal(t, 5*time.Second, result)
-	})
-
-	t.Run("returns default when missing", func(t *testing.T) {
-		v := viper.New()
-
-		result := GetDuration(v, "app.timeout", "1s")
-		assert.Equal(t, 1*time.Second, result)
-	})
-
-	t.Run("returns zero duration when invalid value and default", func(t *testing.T) {
-		v := viper.New()
-		v.Set("app.timeout", "invalid")
-
-		result := GetDuration(v, "app.timeout", "1s")
-		assert.Equal(t, time.Duration(0), result)
-	})
-
-	t.Run("returns zero duration when invalid value and empty default", func(t *testing.T) {
-		v := viper.New()
-		v.Set("app.timeout", "invalid")
-
-		result := GetDuration(v, "app.timeout", "")
-		assert.Equal(t, time.Duration(0), result)
-	})
-}
-
-func TestGetFloat64(t *testing.T) {
 	tests := []struct {
 		name       string
-		key        string
-		defaultVal float64
-		setup      func() *viper.Viper
-		expected   float64
+		defaultVal string
+		value      string
+		expected   time.Duration
 	}{
-		{
-			name:       "returns value when set",
-			key:        "app.rate",
-			defaultVal: 1.0,
-			setup: func() *viper.Viper {
-				v := viper.New()
-				v.Set("app.rate", 2.5)
-				return v
-			},
-			expected: 2.5,
-		},
-		{
-			name:       "returns default when missing",
-			key:        "app.rate",
-			defaultVal: 1.0,
-			setup: func() *viper.Viper {
-				return viper.New()
-			},
-			expected: 1.0,
-		},
-		{
-			name:       "returns zero default when missing and default is zero",
-			key:        "app.rate",
-			defaultVal: 0.0,
-			setup: func() *viper.Viper {
-				return viper.New()
-			},
-			expected: 0.0,
-		},
+		{name: "returns parsed duration when set", defaultVal: "1s", value: "5s", expected: 5 * time.Second},
+		{name: "returns default when missing", defaultVal: "1s", expected: time.Second},
+		{name: "returns zero duration when invalid value and default", defaultVal: "1s", value: "invalid", expected: 0},
+		{name: "returns zero duration when invalid value and empty default", defaultVal: "", value: "invalid", expected: 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := tt.setup()
-			assert.Equal(t, tt.expected, GetFloat64(v, tt.key, tt.defaultVal))
+			v := viper.New()
+			if tt.value != "" {
+				v.Set("app.timeout", tt.value)
+			}
+
+			result := GetDuration(v, "app.timeout", tt.defaultVal)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

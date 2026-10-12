@@ -2,7 +2,6 @@ package contract
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"testing"
 
@@ -14,65 +13,60 @@ import (
 	userpb "github.com/MAMUER/project/api/gen/user"
 )
 
-func TestUserServiceContract(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping contract test in short mode")
-	}
+type contractMethod struct {
+	name string
+	fn   func(ctx context.Context) (interface{}, error)
+}
 
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+func nilRequestContract[Req any, Resp any](
+	name string,
+	call func(ctx context.Context, req *Req, opts ...grpc.CallOption) (*Resp, error),
+) contractMethod {
+	return contractMethod{
+		name: name,
+		fn: func(ctx context.Context) (interface{}, error) {
+			return call(ctx, nil)
+		},
+	}
+}
+
+func dialContractService(t *testing.T, addr, name string) *grpc.ClientConn {
+	t.Helper()
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("user-service not reachable: %v", err)
+		t.Fatalf("%s not reachable: %v", name, err)
 	}
-	defer func() { _ = conn.Close() }()
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
+}
 
-	client := userpb.NewUserServiceClient(conn)
-
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"Register", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.Register(ctx, req.(*userpb.RegisterRequest))
-		}},
-		{"Login", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.Login(ctx, req.(*userpb.LoginRequest))
-		}},
-		{"GetProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GetProfile(ctx, req.(*userpb.GetProfileRequest))
-		}},
-		{"UpdateProfile", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.UpdateProfile(ctx, req.(*userpb.UpdateProfileRequest))
-		}},
-		{"ListDevices", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.ListDevices(ctx, req.(*userpb.ListDevicesRequest))
-		}},
-	}
-
-	ctx := context.Background()
+func runNilRequestContract(t *testing.T, methods []contractMethod) {
+	t.Helper()
 	for _, m := range methods {
 		t.Run(m.name, func(t *testing.T) {
-			_, err := m.fn(ctx, nil)
+			_, err := m.fn(context.Background())
 			if err == nil {
 				t.Errorf("%s: expected error with nil request, got nil", m.name)
 			}
 			t.Logf("%s contract validation: %v", m.name, err)
 		})
 	}
+}
+
+func TestUserServiceContract(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping contract test in short mode")
+	}
+
+	client := userpb.NewUserServiceClient(dialContractService(t, "localhost:50051", "user-service"))
+
+	runNilRequestContract(t, []contractMethod{
+		nilRequestContract("Register", client.Register),
+		nilRequestContract("Login", client.Login),
+		nilRequestContract("GetProfile", client.GetProfile),
+		nilRequestContract("UpdateProfile", client.UpdateProfile),
+		nilRequestContract("ListDevices", client.ListDevices),
+	})
 }
 
 func TestBiometricServiceContract(t *testing.T) {
@@ -80,48 +74,13 @@ func TestBiometricServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
-	conn, err := grpc.NewClient("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("biometric-service not reachable: %v", err)
-	}
-	defer func() { _ = conn.Close() }()
+	client := biometricpb.NewBiometricServiceClient(dialContractService(t, "localhost:50052", "biometric-service"))
 
-	client := biometricpb.NewBiometricServiceClient(conn)
-
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"AddRecord", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.AddRecord(ctx, req.(*biometricpb.AddRecordRequest))
-		}},
-		{"GetRecords", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GetRecords(ctx, req.(*biometricpb.GetRecordsRequest))
-		}},
-		{"GetLatest", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GetLatest(ctx, req.(*biometricpb.GetLatestRequest))
-		}},
-	}
-
-	ctx := context.Background()
-	for _, m := range methods {
-		t.Run(m.name, func(t *testing.T) {
-			_, err := m.fn(ctx, nil)
-			if err == nil {
-				t.Errorf("%s: expected error with nil request, got nil", m.name)
-			}
-			t.Logf("%s contract validation: %v", m.name, err)
-		})
-	}
+	runNilRequestContract(t, []contractMethod{
+		nilRequestContract("AddRecord", client.AddRecord),
+		nilRequestContract("GetRecords", client.GetRecords),
+		nilRequestContract("GetLatest", client.GetLatest),
+	})
 }
 
 func TestTrainingServiceContract(t *testing.T) {
@@ -129,60 +88,15 @@ func TestTrainingServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
-	conn, err := grpc.NewClient("localhost:50053", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("training-service not reachable: %v", err)
-	}
-	defer func() { _ = conn.Close() }()
+	client := trainingpb.NewTrainingServiceClient(dialContractService(t, "localhost:50053", "training-service"))
 
-	client := trainingpb.NewTrainingServiceClient(conn)
-
-	methods := []struct {
-		name string
-		fn   func(ctx context.Context, req interface{}) (interface{}, error)
-	}{
-		{"GeneratePlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GeneratePlan(ctx, req.(*trainingpb.GeneratePlanRequest))
-		}},
-		{"GetPlan", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GetPlan(ctx, req.(*trainingpb.GetPlanRequest))
-		}},
-		{"ListPlans", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.ListPlans(ctx, req.(*trainingpb.ListPlansRequest))
-		}},
-		{"CompleteWorkout", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.CompleteWorkout(ctx, req.(*trainingpb.CompleteWorkoutRequest))
-		}},
-		{"GetProgress", func(ctx context.Context, req interface{}) (interface{}, error) {
-			if req == nil {
-				return nil, errors.New("nil request")
-			}
-			return client.GetProgress(ctx, req.(*trainingpb.GetProgressRequest))
-		}},
-	}
-
-	ctx := context.Background()
-	for _, m := range methods {
-		t.Run(m.name, func(t *testing.T) {
-			_, err := m.fn(ctx, nil)
-			if err == nil {
-				t.Errorf("%s: expected error with nil request, got nil", m.name)
-			}
-			t.Logf("%s contract validation: %v", m.name, err)
-		})
-	}
+	runNilRequestContract(t, []contractMethod{
+		nilRequestContract("GeneratePlan", client.GeneratePlan),
+		nilRequestContract("GetPlan", client.GetPlan),
+		nilRequestContract("ListPlans", client.ListPlans),
+		nilRequestContract("CompleteWorkout", client.CompleteWorkout),
+		nilRequestContract("GetProgress", client.GetProgress),
+	})
 }
 
 func TestClassifierContract(t *testing.T) {

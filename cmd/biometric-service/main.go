@@ -247,7 +247,11 @@ func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRec
 		s.log.Error("Failed to begin transaction", zap.Error(err))
 		return 0, status.Error(codes.Internal, "database error")
 	}
-	defer rollbackBiometricTx(s.log, tx)
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			s.log.Warn("Failed to rollback biometric transaction", zap.Error(rbErr))
+		}
+	}()
 
 	const query = `INSERT INTO biometric_data (id, user_id, metric_type, value, timestamp, device_type, source, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())

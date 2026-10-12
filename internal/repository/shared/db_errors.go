@@ -20,11 +20,12 @@ func CloseRows(rows *sql.Rows) {
 	}
 }
 
-// RollbackTx откатывает транзакцию и логирует ошибку.
-// sql.ErrTxDone означает, что транзакция уже зафиксирована или откачена,
-// и не является ошибкой.
-func RollbackTx(tx *sql.Tx) {
-	if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+// LogTxRollback логирует ошибку отката транзакции.
+// Вызывается с результатом tx.Rollback() внутри defer, чтобы сохранить
+// диагностику при неявном откате: sql.ErrTxDone означает, что транзакция
+// уже зафиксирована или откачена, и не является ошибкой.
+func LogTxRollback(rollbackErr error) {
+	if !errors.Is(rollbackErr, sql.ErrTxDone) {
 		dbLog.Warn("failed to rollback transaction", zap.Error(rollbackErr))
 	}
 }

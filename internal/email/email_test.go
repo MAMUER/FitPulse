@@ -1,12 +1,27 @@
 package email
 
 import (
+	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
+	"net"
+	"net/smtp"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -841,5 +856,658 @@ func TestNewSMTPClientWithFullConfig(t *testing.T) {
 func TestEmailSenderInterface(t *testing.T) {
 
 	var _ EmailSender = (*SMTPClient)(nil)
+
+}
+
+func TestSendVerificationEmailPlainTextSuccess(t *testing.T) {
+
+	cfg := Config{Host: "localhost", Port: 1025, From: "test@test.com"}
+
+	client := NewSMTPClient(cfg)
+
+	origSend := smtpSendMailFn
+
+	var gotAddr, gotFrom string
+
+	var gotTo []string
+
+	var gotMsg string
+
+	smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+
+		gotAddr = addr
+
+		gotFrom = from
+
+		gotTo = to
+
+		gotMsg = string(msg)
+
+		return nil
+
+	}
+
+	t.Cleanup(func() { smtpSendMailFn = origSend })
+
+	require.NoError(t, client.SendVerificationEmail(context.Background(), "user@example.com", "tok123", "http://localhost:8080"))
+
+	assert.Equal(t, "localhost:1025", gotAddr)
+
+	assert.Equal(t, "test@test.com", gotFrom)
+
+	require.Len(t, gotTo, 1)
+
+	assert.Equal(t, "user@example.com", gotTo[0])
+
+	assert.Contains(t, gotMsg, "Subject: Подтвердите ваш email — FitPulse")
+
+	assert.Contains(t, gotMsg, "http://localhost:8080/confirm?token=tok123")
+
+	assert.Contains(t, gotMsg, "user@example.com")
+
+	assert.Equal(t, 1, client.dailySent)
+
+}
+
+func TestSendVerificationEmailPlainTextWithAuth(t *testing.T) {
+
+	cfg := Config{
+		Host: "localhost",
+
+		Port: 1025,
+
+		User: "user@test.com",
+
+		Password: "password",
+
+		From: "test@test.com",
+	}
+
+	client := NewSMTPClient(cfg)
+
+	origSend := smtpSendMailFn
+
+	var gotAuth smtp.Auth
+
+	smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+
+		gotAuth = auth
+
+		return nil
+
+	}
+
+	t.Cleanup(func() { smtpSendMailFn = origSend })
+
+	require.NoError(t, client.SendVerificationEmail(context.Background(), "user@example.com", "tok123", "http://localhost"))
+
+	assert.NotNil(t, gotAuth)
+
+	assert.Equal(t, 1, client.dailySent)
+
+}
+
+func TestSendVerificationEmailPlainTextError(t *testing.T) {
+
+	cfg := Config{Host: "localhost", Port: 1025, From: "test@test.com"}
+
+	client := NewSMTPClient(cfg)
+
+	origSend := smtpSendMailFn
+
+	smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+
+		return errors.New("smtp server down")
+
+	}
+
+	t.Cleanup(func() { smtpSendMailFn = origSend })
+
+	err := client.SendVerificationEmail(context.Background(), "user@example.com", "tok123", "http://localhost")
+
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "send mail")
+
+	assert.Equal(t, 0, client.dailySent)
+
+}
+
+func TestDefaultSMTPSendMailFn(t *testing.T) {
+
+	err := smtpSendMailFn("127.0.0.1:1", nil, "test@test.com", []string{"user@example.com"}, []byte("Subject: hi\r\n\r\nbody"))
+
+	require.Error(t, err)
+
+}
+
+func TestSendWithTLSImplDialFailure(t *testing.T) {
+
+	cfg := Config{Host: "127.0.0.1", Port: 1}
+
+	t.Run("without deadline", func(t *testing.T) {
+
+		err := sendWithTLSImpl(context.Background(), cfg, "127.0.0.1:1", "user@example.com", "message body")
+
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "TLS connect to SMTP server (127.0.0.1:1) failed")
+
+	})
+
+	t.Run("with deadline", func(t *testing.T) {
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+
+		defer cancel()
+
+		err := sendWithTLSImpl(ctx, cfg, "127.0.0.1:1", "user@example.com", "message body")
+
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "TLS connect to SMTP server")
+
+	})
+
+}
+
+func TestSendWithTLSImplSession(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		failOn  string
+		wantErr string
+	}{
+		{name: "session completes", failOn: "", wantErr: "close SMTP connection failed"},
+		{name: "auth failure", failOn: "auth", wantErr: "SMTP authentication failed"},
+		{name: "mail rejected", failOn: "mail", wantErr: "set sender failed"},
+		{name: "rcpt rejected", failOn: "rcpt", wantErr: "set recipient (user@example.com) failed"},
+		{name: "data rejected", failOn: "data", wantErr: "begin data transfer failed"},
+		{name: "body rejected", failOn: "close", wantErr: "close data writer failed"},
+		{name: "quit rejected", failOn: "quit", wantErr: "SMTP QUIT failed"},
+		{name: "greeting missing", failOn: "greeting", wantErr: "create SMTP client failed"},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+
+			addr := startFakeTLSSMTPServerForEmailTest(t, tt.failOn)
+
+			cfg := Config{
+
+				Host: "127.0.0.1",
+
+				Port: 1025,
+
+				User: "user@test.com",
+
+				Password: "password",
+
+				From: "test@test.com",
+
+				UseTLS: true,
+			}
+
+			err := sendWithTLSImpl(context.Background(), cfg, addr, "user@example.com", "Subject: hi\r\n\r\nbody")
+
+			require.Error(t, err)
+
+			assert.Contains(t, err.Error(), tt.wantErr)
+
+		})
+
+	}
+
+}
+
+func TestSendVerificationEmailWithRealTLSServer(t *testing.T) {
+
+	addr := startFakeTLSSMTPServerForEmailTest(t, "")
+
+	_, portStr, err := net.SplitHostPort(addr)
+
+	require.NoError(t, err)
+
+	port, err := strconv.Atoi(portStr)
+
+	require.NoError(t, err)
+
+	cfg := Config{
+
+		Host: "127.0.0.1",
+
+		Port: port,
+
+		User: "user@test.com",
+
+		Password: "password",
+
+		From: "test@test.com",
+
+		UseTLS: true,
+	}
+
+	client := NewSMTPClient(cfg)
+
+	sendErr := client.SendVerificationEmail(context.Background(), "user@example.com", "tok123", "http://localhost:8080")
+
+	require.Error(t, sendErr)
+
+	assert.Contains(t, sendErr.Error(), "close SMTP connection failed")
+
+	assert.Equal(t, 0, client.dailySent)
+}
+
+func startFakeTLSSMTPServerForEmailTest(t *testing.T, failOn string) string {
+
+	t.Helper()
+
+	certPEM, keyPEM := selfSignedCertForEmailTest(t)
+
+	certFile := fakeTLSCAFileForEmailTest()
+
+	t.Setenv("SSL_CERT_FILE", certFile)
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+
+	require.NoError(t, err)
+
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{Certificates: []tls.Certificate{cert}})
+
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+
+	go func() {
+
+		defer close(done)
+
+		serveFakeTLSSMTPForEmailTest(listener, failOn)
+
+	}()
+
+	t.Cleanup(func() {
+
+		_ = listener.Close()
+
+		<-done
+
+	})
+
+	return listener.Addr().String()
+
+}
+
+func selfSignedCertForEmailTest(t *testing.T) (certPEM, keyPEM []byte) {
+
+	t.Helper()
+
+	certPEM, keyPEM = sharedSelfSignedCertForEmailTest()
+
+	require.NotEmpty(t, certPEM)
+
+	require.NotEmpty(t, keyPEM)
+
+	return certPEM, keyPEM
+
+}
+
+func fakeTLSCAFileForEmailTest() string {
+
+	certPEM, _ := sharedSelfSignedCertForEmailTest()
+
+	file := filepath.Join(os.TempDir(), "fitpulse-email-smtp-ca.pem")
+
+	if err := os.WriteFile(file, certPEM, 0o600); err != nil {
+
+		return ""
+
+	}
+
+	return file
+
+}
+
+var sharedSelfSignedCertForEmailTest = sync.OnceValues(func() ([]byte, []byte) {
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	if err != nil {
+
+		return nil, nil
+
+	}
+
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+
+	if err != nil {
+
+		return nil, nil
+
+	}
+
+	template := x509.Certificate{
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: "127.0.0.1"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:              []string{"127.0.0.1", "localhost"},
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+
+	if err != nil {
+
+		return nil, nil
+
+	}
+
+	keyDER, err := x509.MarshalECPrivateKey(key)
+
+	if err != nil {
+
+		return nil, nil
+
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+	return certPEM, keyPEM
+
+})
+
+func fakeSMTPCommandResponse(command, failOn string, advertiseAuth bool) string {
+	switch {
+	case strings.HasPrefix(command, "EHLO"), strings.HasPrefix(command, "HELO"):
+		if advertiseAuth {
+			return "250-smtp.test.local\r\n250-AUTH PLAIN\r\n250 HELP\r\n"
+		}
+
+		return "250-smtp.test.local\r\n250 HELP\r\n"
+
+	case strings.HasPrefix(command, "AUTH"):
+		if failOn == "auth" {
+			return "535 authentication failed\r\n"
+		}
+
+		return "235 OK authenticated\r\n"
+
+	case strings.HasPrefix(command, "MAIL"):
+		if failOn == "mail" {
+			return "550 sender rejected\r\n"
+		}
+
+		return "250 OK\r\n"
+
+	case strings.HasPrefix(command, "RCPT"):
+		if failOn == "rcpt" {
+			return "550 recipient rejected\r\n"
+		}
+
+		return "250 OK\r\n"
+
+	case strings.HasPrefix(command, "DATA"):
+		if failOn == "data" {
+			return "550 data rejected\r\n"
+		}
+
+		return "354 End data with <CR><LF>.<CR><LF>\r\n"
+
+	case strings.HasPrefix(command, "QUIT"):
+		if failOn == "quit" {
+			return "500 quit rejected\r\n"
+		}
+
+		return "221 bye\r\n"
+
+	default:
+		return "250 OK\r\n"
+	}
+}
+
+func fakeSMTPDataResponse(failOn string) string {
+	if failOn == "close" {
+		return "550 message rejected\r\n"
+	}
+
+	return "250 OK queued\r\n"
+}
+
+func serveFakeTLSSMTPForEmailTest(listener net.Listener, failOn string) {
+
+	conn, err := listener.Accept()
+
+	if err != nil {
+
+		return
+	}
+
+	defer func() { _ = conn.Close() }()
+
+	tlsConn, ok := conn.(*tls.Conn)
+
+	if !ok {
+
+		return
+	}
+
+	if err := tlsConn.Handshake(); err != nil {
+
+		return
+	}
+
+	if failOn == "greeting" {
+
+		return
+	}
+
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+
+	if _, err := conn.Write([]byte("220 smtp.test.local ESMTP ready\r\n")); err != nil {
+
+		return
+	}
+
+	reader := bufio.NewReader(conn)
+
+	inData := false
+
+	for {
+
+		line, err := reader.ReadString('\n')
+
+		if err != nil {
+
+			return
+		}
+
+		command := strings.ToUpper(strings.TrimSpace(line))
+
+		if inData {
+
+			if command != "." {
+
+				continue
+			}
+
+			inData = false
+
+			_, _ = conn.Write([]byte(fakeSMTPDataResponse(failOn)))
+
+			continue
+
+		}
+
+		_, _ = conn.Write([]byte(fakeSMTPCommandResponse(command, failOn, true)))
+
+		inData = strings.HasPrefix(command, "DATA") && failOn != "data"
+
+	}
+
+}
+
+func TestDeliverSMTPSession(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		failOn  string
+		wantErr string
+	}{
+		{name: "success", failOn: "", wantErr: ""},
+		{name: "mail rejected", failOn: "mail", wantErr: "set sender failed"},
+		{name: "rcpt rejected", failOn: "rcpt", wantErr: "set recipient (user@example.com) failed"},
+		{name: "data rejected", failOn: "data", wantErr: "begin data transfer failed"},
+		{name: "body rejected", failOn: "close", wantErr: "close data writer failed"},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+
+			server := startFakeSMTPServerForEmailTest(t, tt.failOn)
+
+			conn, err := net.Dial("tcp", server.addr())
+
+			require.NoError(t, err)
+
+			client, err := smtp.NewClient(conn, "127.0.0.1")
+
+			require.NoError(t, err)
+
+			defer func() { _ = client.Close() }()
+
+			cfg := Config{Host: "127.0.0.1", Port: 1025, From: "test@test.com"}
+
+			err = deliverSMTPSession(client, cfg, "user@example.com", "Subject: hi\r\n\r\nbody")
+
+			if tt.wantErr == "" {
+
+				require.NoError(t, err)
+
+				return
+
+			}
+
+			require.Error(t, err)
+
+			assert.Contains(t, err.Error(), tt.wantErr)
+
+		})
+
+	}
+
+}
+
+type fakeSMTPServerForEmailTest struct {
+	listener net.Listener
+
+	failOn string
+
+	done chan struct{}
+}
+
+func startFakeSMTPServerForEmailTest(t *testing.T, failOn string) *fakeSMTPServerForEmailTest {
+
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+
+	require.NoError(t, err)
+
+	server := &fakeSMTPServerForEmailTest{
+
+		listener: listener,
+
+		failOn: failOn,
+
+		done: make(chan struct{}),
+	}
+
+	go server.serve()
+
+	t.Cleanup(func() {
+
+		_ = listener.Close()
+
+		<-server.done
+
+	})
+
+	return server
+
+}
+
+func (s *fakeSMTPServerForEmailTest) addr() string {
+
+	return s.listener.Addr().String()
+
+}
+
+func (s *fakeSMTPServerForEmailTest) serve() {
+
+	defer close(s.done)
+
+	conn, err := s.listener.Accept()
+
+	if err != nil {
+
+		return
+
+	}
+
+	defer func() { _ = conn.Close() }()
+
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+
+	if _, err := conn.Write([]byte("220 fake.smtp.local ESMTP ready\r\n")); err != nil {
+
+		return
+	}
+
+	reader := bufio.NewReader(conn)
+
+	inData := false
+
+	for {
+
+		line, err := reader.ReadString('\n')
+
+		if err != nil {
+
+			return
+
+		}
+
+		command := strings.ToUpper(strings.TrimSpace(line))
+
+		if inData {
+
+			if command != "." {
+
+				continue
+
+			}
+
+			inData = false
+
+			_, _ = conn.Write([]byte(fakeSMTPDataResponse(s.failOn)))
+
+			continue
+
+		}
+
+		_, _ = conn.Write([]byte(fakeSMTPCommandResponse(command, s.failOn, false)))
+
+		inData = strings.HasPrefix(command, "DATA") && s.failOn != "data"
+
+	}
 
 }

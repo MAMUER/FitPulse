@@ -114,7 +114,9 @@ func applyModifiers(baseIntensity float64, user *entity.User, survey map[string]
 		intensity *= 0.8
 	}
 
-	if bmi := float64(user.WeightKg) / math.Pow(float64(user.HeightCm)/100, 2); bmi > 35 {
+	bmi := float64(user.WeightKg) / math.Pow(float64(user.HeightCm)/100, 2)
+
+	if bmi > 35 {
 		intensity *= 0.7
 	}
 

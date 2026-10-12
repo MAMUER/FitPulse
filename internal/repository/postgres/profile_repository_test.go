@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -279,6 +280,313 @@ func TestProfileRepository_UpsertProfile_Error(t *testing.T) {
 	err := repo.UpsertProfile(ctx, "user-1", &port.ProfileData{})
 
 	require.Error(t, err)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func setupProfileRepoDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+
+	t.Helper()
+
+	db, mock, err := sqlmock.New()
+
+	require.NoError(t, err)
+
+	return db, mock
+
+}
+
+func TestProfileRepository_NewProfileRepository(t *testing.T) {
+
+	db, mock := setupProfileRepoDB(t)
+
+	repo := NewProfileRepository(db)
+
+	require.NotNil(t, repo)
+
+	profileRepo, ok := repo.(*profileRepository)
+
+	require.True(t, ok)
+
+	assert.Same(t, db, profileRepo.db)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_SaveSurvey_Success(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	survey := map[string]interface{}{"fitness_level": "advanced"}
+
+	surveyJSON, err := json.Marshal(survey)
+
+	require.NoError(t, err)
+
+	mock.ExpectExec("UPDATE user_profiles").
+		WithArgs(surveyJSON, true, nil, "user-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.SaveSurvey(ctx, "user-1", survey, true, nil)
+
+	require.NoError(t, err)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_SaveSurvey_WithCompletedAt(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	completedAt := time.Now()
+
+	survey := map[string]interface{}{}
+
+	surveyJSON, err := json.Marshal(survey)
+
+	require.NoError(t, err)
+
+	mock.ExpectExec("UPDATE user_profiles").
+		WithArgs(surveyJSON, false, completedAt, "user-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.SaveSurvey(ctx, "user-1", survey, false, &completedAt)
+
+	require.NoError(t, err)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_SaveSurvey_MarshalError(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	survey := map[string]interface{}{"invalid": make(chan int)}
+
+	err := repo.SaveSurvey(ctx, "user-1", survey, true, nil)
+
+	require.Error(t, err)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_SaveSurvey_Error(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	mock.ExpectExec("UPDATE user_profiles").WillReturnError(assert.AnError)
+
+	err := repo.SaveSurvey(ctx, "user-1", map[string]interface{}{}, true, nil)
+
+	require.Error(t, err)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_WithData(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	completedAt := time.Now().UTC().Truncate(time.Second)
+
+	rows := sqlmock.NewRows([]string{"survey_data", "survey_completed", "survey_completed_at"}).
+		AddRow([]byte(`{"fitness_level":"advanced"}`), true, completedAt)
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.NoError(t, err)
+
+	assert.Equal(t, "advanced", survey["fitness_level"])
+
+	assert.True(t, completed)
+
+	require.NotNil(t, loadedAt)
+
+	assert.Equal(t, completedAt, *loadedAt)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_EmptySurveyData(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"survey_data", "survey_completed", "survey_completed_at"}).
+		AddRow([]byte{}, false, nil)
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.NoError(t, err)
+
+	assert.Empty(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_NilSurveyData(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"survey_data", "survey_completed", "survey_completed_at"}).
+		AddRow(nil, false, nil)
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.NoError(t, err)
+
+	assert.Empty(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_NoRows(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnError(sql.ErrNoRows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.NoError(t, err)
+
+	assert.Empty(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_QueryError(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	mock.ExpectQuery("SELECT survey_data").WillReturnError(assert.AnError)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.Error(t, err)
+
+	assert.Nil(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_ScanError(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"survey_data", "survey_completed", "survey_completed_at"}).
+		AddRow([]byte(`{}`), "not-a-bool", nil)
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.Error(t, err)
+
+	assert.Nil(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestProfileRepository_LoadSurvey_UnmarshalError(t *testing.T) {
+
+	repo, mock := setupProfileRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"survey_data", "survey_completed", "survey_completed_at"}).
+		AddRow([]byte(`{"fitness_level":`), true, nil)
+
+	mock.ExpectQuery("SELECT survey_data").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	survey, completed, loadedAt, err := repo.LoadSurvey(ctx, "user-1")
+
+	require.Error(t, err)
+
+	assert.Nil(t, survey)
+
+	assert.False(t, completed)
+
+	assert.Nil(t, loadedAt)
 
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
 
