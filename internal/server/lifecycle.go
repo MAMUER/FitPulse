@@ -3,8 +3,8 @@
 package server
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 	"os/signal"
 	"strings"
@@ -122,7 +122,7 @@ func serveWithContext(ctx context.Context, log *logger.Logger, cfg Config, metri
 
 	log.Info("Shutting down service")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.ShutdownTimeout)
 
 	defer cancel()
 
