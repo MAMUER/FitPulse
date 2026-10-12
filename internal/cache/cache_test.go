@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -642,7 +643,7 @@ func TestCacheConcurrentAccess(t *testing.T) {
 
 				val, err := client.Get(ctx, key)
 				assert.NoError(t, err)
-				assert.Equal(t, fmt.Sprintf("%d", worker), val)
+				assert.Equal(t, strconv.Itoa(worker), val)
 
 				stored := payload{Name: key, Value: worker}
 				err = client.SetDecoded(ctx, key+"_json", stored, time.Minute)
@@ -689,11 +690,16 @@ func TestConcurrentGetOrSetDecodedFetchesOnce(t *testing.T) {
 
 	var mu sync.Mutex
 	fetchCalls := 0
+	var fetchErr error
 	fetchFn := func() (interface{}, error) {
 		mu.Lock()
 		fetchCalls++
+		failure := fetchErr
 		mu.Unlock()
 		time.Sleep(5 * time.Millisecond)
+		if failure != nil {
+			return nil, failure
+		}
 		return map[string]int{"value": 1}, nil
 	}
 
@@ -712,10 +718,18 @@ func TestConcurrentGetOrSetDecodedFetchesOnce(t *testing.T) {
 	wg.Wait()
 
 	mu.Lock()
-	defer mu.Unlock()
 	assert.Equal(t, workers, fetchCalls)
+	mu.Unlock()
 
 	var out map[string]int
 	require.NoError(t, client.GetOrSetDecoded(ctx, "shared_fetch", time.Minute, fetchFn, &out))
+	assert.Equal(t, map[string]int{"value": 1}, out)
+
+	mu.Lock()
 	assert.Equal(t, workers, fetchCalls)
+	fetchErr = errors.New("fetch failed")
+	mu.Unlock()
+
+	var outErr map[string]int
+	require.Error(t, client.GetOrSetDecoded(ctx, "other_fetch", time.Minute, fetchFn, &outErr))
 }

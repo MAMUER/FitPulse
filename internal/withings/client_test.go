@@ -254,14 +254,13 @@ func TestExchangeCode(t *testing.T) {
 
 	t.Run("http error status", func(t *testing.T) {
 		client, _ := newClientForServer(t, func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte("boom"))
+			writeJSON(t, w, http.StatusInternalServerError, map[string]interface{}{"status": 500})
 		})
 
 		token, err := client.ExchangeCode(context.Background(), "code")
 		require.Error(t, err)
 		assert.Nil(t, token)
-		assert.Contains(t, err.Error(), "decode token response")
+		assert.Contains(t, err.Error(), "token error status=500")
 	})
 
 	t.Run("malformed json", func(t *testing.T) {
