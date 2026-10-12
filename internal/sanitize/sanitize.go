@@ -40,6 +40,8 @@ func String(s string) string {
 // It strips all ASCII control characters (0x00-0x1F, 0x7F) to prevent log injection,
 // including newlines, carriage returns, tabs, and other non-printable characters.
 func LogString(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
 	return strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7F {
 			return -1

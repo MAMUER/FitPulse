@@ -1601,7 +1601,7 @@ func (r *PgsodiumUserRepository) ReplaceUserGoals(ctx context.Context, userID st
 
 	for _, goal := range goals {
 
-		if err := r.insertListItem(ctx, userID, "user_goals", "goal", goal); err != nil {
+		if err := r.insertListItem(ctx, userID, "user_goals", goal); err != nil {
 
 			return err
 
@@ -1623,7 +1623,7 @@ func (r *PgsodiumUserRepository) ReplaceUserContraindications(ctx context.Contex
 
 	for _, contra := range contraindications {
 
-		if err := r.insertListItem(ctx, userID, "user_contraindications", "contraindication", contra); err != nil {
+		if err := r.insertListItem(ctx, userID, "user_contraindications", contra); err != nil {
 
 			return err
 
@@ -1635,9 +1635,27 @@ func (r *PgsodiumUserRepository) ReplaceUserContraindications(ctx context.Contex
 
 }
 
+var listItemDeleteQueries = map[string]string{
+	"user_goals":             "DELETE FROM user_goals WHERE user_id = $1",
+	"user_contraindications": "DELETE FROM user_contraindications WHERE user_id = $1",
+}
+
+var listItemInsertQueries = map[string]string{
+	"user_goals":             "INSERT INTO user_goals (user_id, goal) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+	"user_contraindications": "INSERT INTO user_contraindications (user_id, contraindication) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+}
+
 func (r *PgsodiumUserRepository) deleteListItems(ctx context.Context, userID, tableName string) error {
 
-	_, err := r.db.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE user_id = $1", tableName), userID) // NOSONAR go:S2077 - tableName is a hardcoded allow-listed constant, not user input
+	query, ok := listItemDeleteQueries[tableName]
+
+	if !ok {
+
+		return apperrors.InvalidArgument("unsupported list table: " + tableName)
+
+	}
+
+	_, err := r.db.ExecContext(ctx, query, userID)
 
 	if err != nil {
 
@@ -1649,11 +1667,17 @@ func (r *PgsodiumUserRepository) deleteListItems(ctx context.Context, userID, ta
 
 }
 
-func (r *PgsodiumUserRepository) insertListItem(ctx context.Context, userID, tableName, columnName, value string) error {
+func (r *PgsodiumUserRepository) insertListItem(ctx context.Context, userID, tableName, value string) error {
 
-	query := fmt.Sprintf("INSERT INTO %s (user_id, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING", tableName, columnName) // #nosec G202 // tableName and columnName are hardcoded allow-listed constants, not user input // NOSONAR go:S2077
+	query, ok := listItemInsertQueries[tableName]
 
-	_, err := r.db.ExecContext(ctx, query, userID, value) // NOSONAR go:S2077
+	if !ok {
+
+		return apperrors.InvalidArgument("unsupported list table: " + tableName)
+
+	}
+
+	_, err := r.db.ExecContext(ctx, query, userID, value)
 
 	if err != nil {
 
