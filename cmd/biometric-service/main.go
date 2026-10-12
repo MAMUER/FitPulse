@@ -43,8 +43,9 @@ import (
 )
 
 const (
-	errRecordNotFound = "record not found"
-	serviceName       = "biometric-service"
+	errRecordNotFound       = "record not found"
+	errMsgDeleteRecordFailed = "failed to delete record"
+	serviceName             = "biometric-service"
 )
 
 type biometricServer struct {
@@ -586,7 +587,7 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 			if apperrors.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, errRecordNotFound)
 			}
-			return nil, status.Error(codes.Internal, "failed to delete record")
+			return nil, status.Error(codes.Internal, errMsgDeleteRecordFailed)
 		}
 
 		s.log.Info("BIOMETRIC_DELETED",
@@ -604,13 +605,13 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 	result, err := s.db.ExecContext(ctx, `DELETE FROM biometric_data WHERE id = $1`, req.Id)
 	if err != nil {
 		s.log.Error("Failed to delete record", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to delete record")
+		return nil, status.Error(codes.Internal, errMsgDeleteRecordFailed)
 	}
 
 	affected, rowsErr := result.RowsAffected()
 	if rowsErr != nil {
 		s.log.Error("Failed to read affected rows count", zap.Error(rowsErr))
-		return nil, status.Error(codes.Internal, "failed to delete record")
+		return nil, status.Error(codes.Internal, errMsgDeleteRecordFailed)
 	}
 	if affected == 0 {
 		return nil, status.Error(codes.NotFound, errRecordNotFound)

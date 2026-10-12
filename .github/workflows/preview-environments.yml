@@ -1,4 +1,4 @@
-name: Preview Environment
+﻿name: Preview Environment
 
 on:
   pull_request:
@@ -31,7 +31,6 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           SHA=$(git rev-parse --short HEAD)
           IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
 
@@ -61,7 +60,6 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           GH_ACTOR: ${{ github.actor }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply --validate=false -f -
           kubectl create secret docker-registry ghcr-pull-secret \
@@ -75,7 +73,6 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           SHA=$(git rev-parse --short HEAD)
           IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
@@ -92,7 +89,6 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl wait --for=condition=ready pod -l app=gateway -n "${NAMESPACE}" --timeout=180s || true
           kubectl get pods -n "${NAMESPACE}"
@@ -105,9 +101,8 @@ jobs:
           PR_NUMBER_REF: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.duckdns.org"
-          gh pr comment "$PR_NUMBER_REF" --repo "$REPO" --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
+          gh pr comment "$PR_NUMBER_REF" --repo "$REPO" --body "рџљЂ Preview environment deployed: ${PREVIEW_URL}"
 
   cleanup:
     name: Cleanup Preview Environment
@@ -133,6 +128,5 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true --timeout=60s || true
