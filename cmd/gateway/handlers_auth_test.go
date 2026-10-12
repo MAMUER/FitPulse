@@ -444,7 +444,7 @@ func TestAuth_YandexCallbackHandler_ValidStateMissingCode(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc", nil)
-	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
 	g.yandexCallbackHandler(w, req)
 
@@ -474,7 +474,7 @@ func TestAuth_YandexCallbackHandler_ExchangeThenUserInfoFailure(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
-	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 
 	g.yandexCallbackHandler(w, req)
 
@@ -766,7 +766,7 @@ func TestAuth_RefreshHandler_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(ctx, "POST", "/api/v1/refresh", nil)
-	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token, Secure: true, HttpOnly: true})
 
 	g.refreshHandler(w, req)
 
@@ -788,7 +788,7 @@ func TestAuth_RefreshHandler_EncodeFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequestWithContext(ctx, "POST", "/api/v1/refresh", nil)
-	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token, Secure: true, HttpOnly: true})
 
 	w := &authFailingWriter{status: http.StatusOK}
 	g.refreshHandler(w, req)
@@ -2729,7 +2729,7 @@ func TestAuth_RefreshHandler_InvalidRefreshToken(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/refresh", nil)
-	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "unknown-token"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "unknown-token", Secure: true, HttpOnly: true})
 
 	g.refreshHandler(w, req)
 

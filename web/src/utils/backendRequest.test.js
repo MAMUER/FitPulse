@@ -91,7 +91,10 @@ describe('backendRequest', () => {
 
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
     await mod.backendRequest('/api/v1/profile');
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/profile', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/profile',
+      expect.any(Object)
+    );
   });
 
   it('returns parsed json for a successful request', async () => {

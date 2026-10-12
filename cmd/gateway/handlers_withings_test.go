@@ -192,7 +192,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsRequest("GET", "/api/v1/integrations/withings/callback?state=other&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "expected-state"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "expected-state", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -204,7 +204,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsRequest("GET", "/api/v1/integrations/withings/callback?code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "expected-state"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "expected-state", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -216,7 +216,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsRequest("GET", "/api/v1/integrations/withings/callback?state=s&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: ""})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -228,7 +228,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsRequest("GET", "/api/v1/integrations/withings/callback?state=s")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -241,7 +241,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsRequest("GET", "/api/v1/integrations/withings/callback?state=s&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -255,7 +255,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsAuthedRequest("/api/v1/integrations/withings/callback?state=s&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -273,7 +273,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsAuthedRequest("/api/v1/integrations/withings/callback?state=s&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
@@ -293,7 +293,7 @@ func TestWithingsCallbackHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req := withingsAuthedRequest("/api/v1/integrations/withings/callback?state=s&code=c")
-		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s"})
+		req.AddCookie(&http.Cookie{Name: withingsOAuthStateCookie, Value: "s", Secure: true, HttpOnly: true})
 
 		g.withingsCallbackHandler(w, req)
 
