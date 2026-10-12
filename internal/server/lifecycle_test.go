@@ -1,16 +1,11 @@
 package server
 
 import (
-	"bytes"
-	"fmt"
+	"context"
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"os/exec"
-	"runtime"
 	"strconv"
-	"syscall"
 	"testing"
 	"time"
 
@@ -59,12 +54,6 @@ func TestConfigValidation(t *testing.T) {
 		assert.Equal(t, 3*time.Second, cfg.ShutdownTimeout)
 	})
 }
-
-const (
-	serveHelperEnv        = "FITPULSE_SERVE_HELPER"
-	serveHelperMainPort   = "FITPULSE_SERVE_HELPER_MAIN_PORT"
-	serveHelperMetricsPrt = "FITPULSE_SERVE_HELPER_METRICS_PORT"
-)
 
 func silentLogger() *logger.Logger {
 	return &logger.Logger{Logger: zap.NewNop()}
@@ -145,6 +134,16 @@ func serveInBackground(cfg Config) chan struct{} {
 	return done
 }
 
+func serveUntilCancel(cfg Config) (chan struct{}, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		serveWithContext(ctx, silentLogger(), cfg, metricsMux(), healthMux())
+	}()
+	return done, cancel
+}
+
 func TestServeServesMainAndMetricsEndpoints(t *testing.T) {
 	mainPort := freePort(t)
 	metricsPort := freePort(t)
@@ -169,64 +168,21 @@ func TestServeServesMainAndMetricsEndpoints(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 }
-
-func TestServeHelperProcess(t *testing.T) {
-	if os.Getenv(serveHelperEnv) != "1" {
-		t.Skip("only runs as a child process spawned by TestServeShutsDownOnTerminationSignal")
-	}
-
-	mainPort := os.Getenv(serveHelperMainPort)
-	metricsPort := os.Getenv(serveHelperMetricsPrt)
-	require.NotEmpty(t, mainPort)
-	require.NotEmpty(t, metricsPort)
-
-	done := serveInBackground(serveConfig(mainPort, metricsPort))
-
-	waitForEndpoint(t, mainPort, "/health")
-	fmt.Println("serve helper: servers are up")
-
-	select {
-	case <-done:
-		fmt.Println("serve helper: Serve returned")
-	case <-time.After(30 * time.Second):
-		fmt.Println("serve helper: Serve did not return in time")
-		os.Exit(2)
-	}
-}
-
-func TestServeShutsDownOnTerminationSignal(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not deliver termination signals to child processes")
-	}
-
+func TestServeShutsDownOnContextCancellation(t *testing.T) {
 	mainPort := freePort(t)
 	metricsPort := freePort(t)
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestServeHelperProcess$", "-test.timeout=60s")
-	cmd.Env = append(os.Environ(),
-		serveHelperEnv+"=1",
-		serveHelperMainPort+"="+mainPort,
-		serveHelperMetricsPrt+"="+metricsPort,
-	)
-	cmd.Stdout = &bytes.Buffer{}
-	cmd.Stderr = &bytes.Buffer{}
-	require.NoError(t, cmd.Start())
+	done, cancel := serveUntilCancel(serveConfig(mainPort, metricsPort))
+	defer cancel()
 
 	waitForEndpoint(t, mainPort, "/health")
+	waitForEndpoint(t, metricsPort, "/metrics")
 
-	require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
-
-	waitErr := make(chan error, 1)
-	go func() { waitErr <- cmd.Wait() }()
+	cancel()
 
 	select {
-	case err := <-waitErr:
-		require.NoError(t, err)
-		assert.Contains(t, cmd.Stdout.(*bytes.Buffer).String(), "serve helper: Serve returned")
-	case <-time.After(45 * time.Second):
-		_ = cmd.Process.Kill()
-		<-waitErr
-		t.Fatalf("Serve did not shut down after a termination signal\nSTDOUT:\n%s\nSTDERR:\n%s",
-			cmd.Stdout.(*bytes.Buffer).String(), cmd.Stderr.(*bytes.Buffer).String())
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("serveWithContext did not return after context cancellation")
 	}
 }

@@ -1,26 +1,20 @@
-const BACKEND_CONFIG = {
-  baseUrl: localStorage.getItem('fitpulse-api-base') || '',
-  production: localStorage.getItem('fitpulse-production') === '1',
-};
-
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
 
 function resolveBaseUrl(rawUrl) {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
-    return null;
+    return '';
   }
   let parsed;
   try {
     parsed = new URL(trimmed);
   } catch {
-    return null;
+    return '';
   }
   if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
-    return null;
+    return '';
   }
   let pathname = parsed.pathname;
-
   if (pathname === '/') {
     pathname = '';
   } else {
@@ -28,16 +22,16 @@ function resolveBaseUrl(rawUrl) {
       pathname = pathname.slice(0, -1);
     }
   }
-
   return `${parsed.origin}${pathname}`;
 }
 
+const BACKEND_CONFIG = {
+  baseUrl: resolveBaseUrl(import.meta.env.VITE_API_BASE_URL || ''),
+  production: import.meta.env.PROD === true,
+};
+
 async function backendRequest(path, options = {}) {
-  const baseUrl = resolveBaseUrl(BACKEND_CONFIG.baseUrl);
-  if (!baseUrl) {
-    return null;
-  }
-  const url = `${baseUrl}${path}`;
+  const url = `${BACKEND_CONFIG.baseUrl}${path}`;
   const buildRequestInit = () => ({
     ...options,
     credentials: 'include',

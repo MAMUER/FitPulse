@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/MAMUER/project/internal/logger"
 )
@@ -18,8 +20,8 @@ func TestHTTPMiddleware_PassesThrough(t *testing.T) {
 		w.Header().Set("X-Custom", "value")
 		w.WriteHeader(http.StatusAccepted)
 		if _, err := w.Write([]byte("accepted")); err != nil {
-		t.Fatalf("write response: %v", err)
-	}
+			t.Fatalf("write response: %v", err)
+		}
 	})
 
 	handler := HTTPMiddleware(log)(next)
@@ -34,6 +36,10 @@ func TestHTTPMiddleware_PassesThrough(t *testing.T) {
 }
 
 func TestHTTPMiddleware_NoSpan(t *testing.T) {
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(noop.NewTracerProvider())
+	t.Cleanup(func() { otel.SetTracerProvider(previous) })
+
 	log := logger.New("test")
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

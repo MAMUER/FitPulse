@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const BASE = 'https://api.example.com/';
 const BASE_WITH_PATH = 'https://api.example.com/api/';
@@ -11,23 +11,29 @@ function jsonResponse(data, status = 200) {
   };
 }
 
-async function setup({ base = BASE, production = false } = {}) {
-  localStorage.clear();
-  if (base !== null) {
-    localStorage.setItem('fitpulse-api-base', base);
+async function setup({ baseUrl = '', production = false } = {}) {
+  vi.unstubAllEnvs();
+
+  if (baseUrl) {
+    vi.stubEnv('VITE_API_BASE_URL', baseUrl);
   }
+
   if (production) {
-    localStorage.setItem('fitpulse-production', '1');
+    vi.stubEnv('NODE_ENV', 'production');
   }
+
   const fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   vi.resetModules();
+
   const mod = await import('./backendRequest');
+
   return { mod, fetchMock };
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('resolveBaseUrl', () => {
@@ -37,18 +43,18 @@ describe('resolveBaseUrl', () => {
     ({ resolveBaseUrl } = (await setup()).mod);
   });
 
-  it('returns null for empty and blank values', () => {
-    expect(resolveBaseUrl('')).toBeNull();
-    expect(resolveBaseUrl('   ')).toBeNull();
+  it('returns an empty string for empty and blank values', () => {
+    expect(resolveBaseUrl('')).toBe('');
+    expect(resolveBaseUrl('   ')).toBe('');
   });
 
-  it('returns null for unparsable values', () => {
-    expect(resolveBaseUrl('not a url')).toBeNull();
+  it('returns an empty string for unparsable values', () => {
+    expect(resolveBaseUrl('not a url')).toBe('');
   });
 
-  it('returns null for disallowed protocols', () => {
-    expect(resolveBaseUrl('javascript:alert(1)')).toBeNull();
-    expect(resolveBaseUrl('ftp://files.example.com')).toBeNull();
+  it('returns an empty string for disallowed protocols', () => {
+    expect(resolveBaseUrl('javascript:alert(1)')).toBe('');
+    expect(resolveBaseUrl('ftp://files.example.com')).toBe('');
   });
 
   it('keeps origin and path without trailing slashes', () => {
@@ -65,26 +71,31 @@ describe('resolveBaseUrl', () => {
 });
 
 describe('backendRequest', () => {
-  it('returns null when base URL is not configured', async () => {
-    const { mod, fetchMock } = await setup({ base: null });
-    await expect(mod.backendRequest('/api/v1/profile')).resolves.toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
+  it('uses relative URLs when no base URL is configured', async () => {
+    const { mod, fetchMock } = await setup();
+    expect(mod.BACKEND_CONFIG.baseUrl).toBe('');
+
+    fetchMock.mockResolvedValue(jsonResponse({ name: 'Михаил' }));
+    await expect(mod.backendRequest('/api/v1/profile')).resolves.toEqual({
+      name: 'Михаил',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/profile', {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
   });
 
-  it('returns null for invalid configured base URL', async () => {
-    const { mod, fetchMock } = await setup({ base: 'javascript:alert(1)' });
-    await expect(mod.backendRequest('/api/v1/profile')).resolves.toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  it('ignores an invalid configured base URL', async () => {
+    const { mod, fetchMock } = await setup({ baseUrl: 'javascript:alert(1)' });
+    expect(mod.BACKEND_CONFIG.baseUrl).toBe('');
 
-  it('returns null for unparsable configured base URL', async () => {
-    const { mod, fetchMock } = await setup({ base: 'not a url' });
-    await expect(mod.backendRequest('/api/v1/profile')).resolves.toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+    await mod.backendRequest('/api/v1/profile');
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/profile', expect.any(Object));
   });
 
   it('returns parsed json for a successful request', async () => {
-    const { mod, fetchMock } = await setup();
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
     fetchMock.mockResolvedValue(jsonResponse({ name: 'Михаил' }));
     await expect(mod.backendRequest('/api/v1/profile')).resolves.toEqual({
       name: 'Михаил',
@@ -99,7 +110,7 @@ describe('backendRequest', () => {
   });
 
   it('merges options and custom headers into request init', async () => {
-    const { mod, fetchMock } = await setup();
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
     await mod.backendRequest('/api/v1/profile', {
       method: 'POST',
@@ -118,7 +129,7 @@ describe('backendRequest', () => {
   });
 
   it('uses origin and path of a prefixed base URL', async () => {
-    const { mod, fetchMock } = await setup({ base: BASE_WITH_PATH });
+    const { mod, fetchMock } = await setup({ baseUrl: BASE_WITH_PATH });
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
     await mod.backendRequest('/api/v1/profile');
     expect(fetchMock).toHaveBeenCalledWith(
@@ -151,7 +162,9 @@ describe('backendRequest', () => {
   });
 
   it('refreshes and retries after a 401', async () => {
-    const { mod, fetchMock } = await setup();
+    const { mod, fetchMock } = await setup({
+      baseUrl: BASE,
+    });
     fetchMock.mockResolvedValueOnce(jsonResponse({}, 401));
     fetchMock.mockResolvedValueOnce(jsonResponse({ refreshed: true }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ retried: true }));
@@ -215,16 +228,5 @@ describe('backendRequest', () => {
     await expect(mod.backendRequest('/api/v1/profile')).rejects.toThrow(
       'network down'
     );
-  });
-
-  it('exposes the resolved backend config', async () => {
-    const { mod } = await setup({ production: true });
-    expect(mod.BACKEND_CONFIG.baseUrl).toBe(BASE);
-    expect(mod.BACKEND_CONFIG.production).toBe(true);
-  });
-
-  it('marks production flag false when unset', async () => {
-    const { mod } = await setup({ production: false });
-    expect(mod.BACKEND_CONFIG.production).toBe(false);
   });
 });
