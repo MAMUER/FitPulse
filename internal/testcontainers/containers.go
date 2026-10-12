@@ -31,6 +31,28 @@ type Container struct {
 	RabbitMQPort int
 }
 
+// retryStart runs fn until it succeeds or the attempts are exhausted.
+// Container startup on shared CI runners can fail transit because the
+// testcontainers reaper (Ryuk) takes longer than its connection timeout
+// on the very first request of a session.
+func retryStart[T any](t *testing.T, attempts int, name string, fn func() (T, error)) (T, error) {
+	t.Helper()
+	var zero T
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		res, err := fn()
+		if err == nil {
+			return res, nil
+		}
+		lastErr = err
+		t.Logf("attempt %d/%d to start %s container failed: %v", attempt, attempts, name, err)
+		if attempt < attempts {
+			time.Sleep(time.Duration(attempt) * 2 * time.Second)
+		}
+	}
+	return zero, lastErr
+}
+
 // StartInfrastructure starts PostgreSQL, Valkey and RabbitMQ containers
 // and returns a Container struct with connection details.
 // Containers are automatically terminated when the test ends.
@@ -38,36 +60,42 @@ func StartInfrastructure(t *testing.T) *Container {
 	t.Helper()
 	ctx := context.Background()
 
-	pgContainer, err := postgres.Run(ctx, "postgres:18-alpine",
-		testcontainers.WithEnv(map[string]string{
-			"POSTGRES_USER":     "testuser",
-			"POSTGRES_PASSWORD": "testpass",
-			"POSTGRES_DB":       "testdb",
-		}),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
+	pgContainer, err := retryStart(t, 3, "postgres", func() (*postgres.PostgresContainer, error) {
+		return postgres.Run(ctx, "postgres:18-alpine",
+			testcontainers.WithEnv(map[string]string{
+				"POSTGRES_USER":     "testuser",
+				"POSTGRES_PASSWORD": "testpass",
+				"POSTGRES_DB":       "testdb",
+			}),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("database system is ready to accept connections").
+					WithOccurrence(2).WithStartupTimeout(60*time.Second)),
+		)
+	})
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
-	valkeyContainer, err := valkey.Run(ctx, "valkey/valkey:9-alpine",
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("Ready to accept connections").WithStartupTimeout(30*time.Second)),
-	)
+	valkeyContainer, err := retryStart(t, 3, "valkey", func() (*valkey.ValkeyContainer, error) {
+		return valkey.Run(ctx, "valkey/valkey:9-alpine",
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("Ready to accept connections").WithStartupTimeout(30*time.Second)),
+		)
+	})
 	if err != nil {
 		t.Fatalf("failed to start valkey container: %v", err)
 	}
 
-	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
-		testcontainers.WithEnv(map[string]string{
-			"RABBITMQ_DEFAULT_USER": "testuser",
-			"RABBITMQ_DEFAULT_PASS": "testpass",
-		}),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("Server startup complete").WithStartupTimeout(60*time.Second)),
-	)
+	rabbitContainer, err := retryStart(t, 3, "rabbitmq", func() (*rabbitmq.RabbitMQContainer, error) {
+		return rabbitmq.Run(ctx, "rabbitmq:4.3-management-alpine",
+			testcontainers.WithEnv(map[string]string{
+				"RABBITMQ_DEFAULT_USER": "testuser",
+				"RABBITMQ_DEFAULT_PASS": "testpass",
+			}),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("Server startup complete").WithStartupTimeout(60*time.Second)),
+		)
+	})
 	if err != nil {
 		t.Fatalf("failed to start rabbitmq container: %v", err)
 	}
