@@ -3,18 +3,26 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
 	"github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/auth/claims"
+	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/middleware"
 )
 
@@ -193,6 +201,875 @@ func TestAuth_LoginHandler_Success(t *testing.T) {
 	assert.Equal(t, http.SameSiteStrictMode, accessCookie.SameSite)
 }
 
+func authValkeyGateway(t *testing.T) *gateway {
+	t.Helper()
+	g := newTestGateway()
+	mr, mrErr := miniredis.Run()
+	require.NoError(t, mrErr)
+	t.Cleanup(mr.Close)
+	g.valkeyDB = redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	return g
+}
+
+func authGatewayWithSession(t *testing.T) *gateway {
+	t.Helper()
+	g := authValkeyGateway(t)
+	g.sessionStore = cache.NewSessionStoreFromRedis(g.valkeyDB)
+	return g
+}
+
+func authUserRequest() *http.Request {
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+	return httptest.NewRequestWithContext(ctx, "POST", "/api/v1/auth", nil)
+}
+
+func authJSONRequest(target, body string) *http.Request {
+	req := httptest.NewRequestWithContext(context.Background(), "POST", target, bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func authUserJSONRequest(body string) *http.Request {
+	req := authJSONRequest("/api/v1/auth", body)
+	*req = *req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, "user-123"))
+	return req
+}
+
+func authCookieValue(t *testing.T, w *httptest.ResponseRecorder, name string) string {
+	t.Helper()
+	for _, c := range w.Result().Cookies() {
+		if c.Name == name {
+			return c.Value
+		}
+	}
+	return ""
+}
+
+type authFailingWriter struct {
+	header http.Header
+	status int
+}
+
+func (w *authFailingWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *authFailingWriter) Write(_ []byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func (w *authFailingWriter) WriteHeader(statusCode int) {
+	w.status = statusCode
+}
+
+type authMessageUserClient struct {
+	totpEnabledUserClient
+}
+
+func (m *authMessageUserClient) Register(ctx context.Context, req *user.RegisterRequest, opts ...grpc.CallOption) (*user.RegisterResponse, error) {
+	return &user.RegisterResponse{UserId: "user-123", Message: "Registration complete"}, nil
+}
+
+func (m *authMessageUserClient) RegisterWithInvite(ctx context.Context, req *user.RegisterWithInviteRequest, opts ...grpc.CallOption) (*user.RegisterResponse, error) {
+	return &user.RegisterResponse{UserId: "invited-1", Message: "Invite accepted"}, nil
+}
+
+type authClaimsFailingClient struct {
+	totpEnabledUserClient
+}
+
+func (m *authClaimsFailingClient) GetUserClaims(ctx context.Context, req *user.GetUserClaimsRequest, opts ...grpc.CallOption) (*user.GetUserClaimsResponse, error) {
+	return nil, grpcError(codes.Internal, "claims unavailable")
+}
+
+type authInvalidTOTPClient struct {
+	totpEnabledUserClient
+}
+
+func (m *authInvalidTOTPClient) VerifyTOTP(ctx context.Context, req *user.VerifyTOTPRequest, opts ...grpc.CallOption) (*user.VerifyTOTPResponse, error) {
+	return &user.VerifyTOTPResponse{Valid: false, BackupCodesRemaining: 1}, nil
+}
+
+type authBadQRUserClient struct {
+	totpEnabledUserClient
+}
+
+func (m *authBadQRUserClient) SetupTOTP(ctx context.Context, req *user.SetupTOTPRequest, opts ...grpc.CallOption) (*user.SetupTOTPResponse, error) {
+	return &user.SetupTOTPResponse{QrCodeUrl: "://bad-qr", Secret: "SECRET", BackupCodes: []string{"code-1"}}, nil
+}
+
+type authBrokenTokenProvider struct{}
+
+func (authBrokenTokenProvider) GenerateAccessToken(userID, email, role string, ttl time.Duration) (string, error) {
+	return "", errors.New("token provider unavailable")
+}
+
+func (authBrokenTokenProvider) GenerateRefreshToken() string {
+	return "refresh-token"
+}
+
+func (authBrokenTokenProvider) ValidateAccessToken(token string) (*claims.Claims, error) {
+	return nil, errors.New("token provider unavailable")
+}
+
+func (authBrokenTokenProvider) ComputeTokenFingerprint(token string) string {
+	return "fingerprint"
+}
+
+func (authBrokenTokenProvider) PublicKeyPEMToJWKS(publicKeyPEM string) ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+func (authBrokenTokenProvider) PublicKeyPEM() string {
+	return ""
+}
+
+func TestAuth_RegisterHandler_WithMessage(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &authMessageUserClient{}
+
+	w := httptest.NewRecorder()
+	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Registration complete")
+}
+
+func TestAuth_RegisterHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_RegisterWithInviteHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "invite service down")}
+
+	w := httptest.NewRecorder()
+	g.registerWithInviteHandler(w, authJSONRequest("/api/v1/register/invite", `{"email":"test@example.com","invite_code":"INV-1"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_RegisterWithInviteHandler_WithMessage(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &authMessageUserClient{}
+
+	w := httptest.NewRecorder()
+	g.registerWithInviteHandler(w, authJSONRequest("/api/v1/register/invite", `{"email":"test@example.com","invite_code":"INV-1"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Invite accepted")
+}
+
+func TestAuth_RegisterWithInviteHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.registerWithInviteHandler(w, authJSONRequest("/api/v1/register/invite", `{"email":"test@example.com","invite_code":"INV-1"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_ValidateInviteCodeHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.NotFound, "user not found")}
+
+	w := httptest.NewRecorder()
+	g.validateInviteCodeHandler(w, authJSONRequest("/api/v1/invite/validate", `{"code":"INV-1"}`))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestAuth_ValidateInviteCodeHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.validateInviteCodeHandler(w, authJSONRequest("/api/v1/invite/validate", `{"code":"INV-1"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_ConfirmEmailHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.NotFound, "token not found")}
+
+	w := httptest.NewRecorder()
+	g.confirmEmailHandler(w, authJSONRequest("/api/v1/confirm-email", `{"token":"expired"}`))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestAuth_ConfirmEmailHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.confirmEmailHandler(w, authJSONRequest("/api/v1/confirm-email", `{"token":"valid"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_EmailConfirmPageHandler_Success(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	repoRoot := filepath.Join(wd, "..", "..")
+	if _, statErr := os.Stat(filepath.Join(repoRoot, "web", "dist", "index.html")); statErr != nil {
+		t.Skip("web/dist/index.html is not available")
+	}
+	require.NoError(t, os.Chdir(repoRoot))
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/confirm-email?token=valid", nil)
+
+	g.emailConfirmPageHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	assert.NotEmpty(t, w.Body.String())
+}
+
+func TestAuth_YandexCallbackHandler_ValidStateMissingCode(t *testing.T) {
+	g := newTestGateway()
+	withOAuth(g)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc"})
+
+	g.yandexCallbackHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "missing authorization code")
+}
+
+func TestAuth_YandexCallbackHandler_ExchangeThenUserInfoFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		if _, err := w.Write([]byte(`{"access_token":"yandex-access","token_type":"bearer","expires_in":3600}`)); err != nil {
+			t.Errorf("write token response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	g := newTestGateway()
+	g.userClient = &mockUserServiceClient{}
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  server.URL + "/authorize",
+			TokenURL: server.URL + "/token",
+		},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc"})
+
+	g.yandexCallbackHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to get user info")
+}
+
+func TestAuth_LoginHandler_IssuesRefreshCookie(t *testing.T) {
+	g := authValkeyGateway(t)
+
+	w := httptest.NewRecorder()
+	g.loginHandler(w, authJSONRequest("/api/v1/login", `{"email":"test@example.com","password":"password123"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	refreshValue := authCookieValue(t, w, refreshTokenCookieName)
+	require.NotEmpty(t, refreshValue)
+
+	userID, err := g.valkeyDB.Get(context.Background(), refreshTokenPrefix+refreshValue).Result()
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", userID)
+}
+
+func TestAuth_LoginHandler_EncodeFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+
+	w := &authFailingWriter{status: http.StatusOK}
+	g.loginHandler(w, authJSONRequest("/api/v1/login", `{"email":"test@example.com","password":"password123"}`))
+
+	assert.Equal(t, http.StatusOK, w.status)
+}
+
+func TestAuth_LoginHandler_TwoFARequiresCode_EncodeFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.userClient = &totpEnabledUserClient{}
+
+	w := &authFailingWriter{status: http.StatusOK}
+	g.loginHandler(w, authJSONRequest("/api/v1/login", `{"email":"test@example.com","password":"password123"}`))
+
+	assert.Equal(t, http.StatusOK, w.status)
+}
+
+func TestAuth_LogoutHandler_InvalidatesSession(t *testing.T) {
+	g := authGatewayWithSession(t)
+	ctx := context.Background()
+	require.NoError(t, g.sessionStore.AddUserSession(ctx, "user-123", "session-token", time.Hour))
+
+	w := httptest.NewRecorder()
+	g.logoutHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, authCookieValue(t, w, accessTokenCookieName))
+	assert.Empty(t, authCookieValue(t, w, refreshTokenCookieName))
+
+	exists, err := g.valkeyDB.Exists(ctx, "user_sessions:user-123").Result()
+	require.NoError(t, err)
+	assert.Zero(t, exists)
+}
+
+func TestAuth_LogoutHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.logoutHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusOK, w.status)
+}
+
+func TestAuth_CriticalSessionHandler_Success(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := httptest.NewRecorder()
+	g.criticalSessionHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "critical_session_token")
+}
+
+func TestAuth_RequireCriticalSession_MissingHeader(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	err := g.requireCriticalSession(authUserRequest(), "user-123")
+
+	assert.NoError(t, err)
+}
+
+func TestAuth_RequireCriticalSession_ValidToken(t *testing.T) {
+	g := authGatewayWithSession(t)
+	ctx := context.Background()
+	token, err := g.sessionStore.CreateCriticalSession(ctx, "user-123")
+	require.NoError(t, err)
+
+	req := authUserRequest()
+	req.Header.Set("X-Critical-Session-Token", token)
+
+	require.NoError(t, g.requireCriticalSession(req, "user-123"))
+
+	_, getErr := g.valkeyDB.Get(ctx, "critical_session:"+token).Result()
+	assert.Error(t, getErr)
+}
+
+func TestAuth_SetupTOTPHandler_CriticalSessionRequired(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	req := authUserRequest()
+	req.Header.Set("X-Critical-Session-Token", "unknown-token")
+
+	w := httptest.NewRecorder()
+	g.setupTOTPHandler(w, req)
+
+	assert.Equal(t, http.StatusPreconditionRequired, w.Code)
+}
+
+func TestAuth_SetupTOTPHandler_WithCriticalSession(t *testing.T) {
+	g := authGatewayWithSession(t)
+	ctx := context.Background()
+	token, err := g.sessionStore.CreateCriticalSession(ctx, "user-123")
+	require.NoError(t, err)
+
+	req := authUserRequest()
+	req.Header.Set("X-Critical-Session-Token", token)
+
+	w := httptest.NewRecorder()
+	g.setupTOTPHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "qr_code_url")
+}
+
+func TestAuth_SetupTOTPHandler_GRPCError(t *testing.T) {
+	g := authGatewayWithSession(t)
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "totp unavailable")}
+
+	w := httptest.NewRecorder()
+	g.setupTOTPHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_SetupTOTPHandler_QRCodeFailure(t *testing.T) {
+	g := authGatewayWithSession(t)
+	g.userClient = &authBadQRUserClient{}
+
+	w := httptest.NewRecorder()
+	g.setupTOTPHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "qr_code_url")
+	assert.Contains(t, w.Body.String(), "code-1")
+}
+
+func TestAuth_SetupTOTPHandler_EncodeFailure(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := &authFailingWriter{}
+	g.setupTOTPHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_ConfirmTOTPHandler_Success(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := httptest.NewRecorder()
+	req := authUserJSONRequest(`{"passcode":"123456","temp_secret":"SECRET","backup_codes":["code-1"]}`)
+	g.confirmTOTPHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "success")
+}
+
+func TestAuth_ConfirmTOTPHandler_CriticalSessionRequired(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	req := authUserJSONRequest(`{"passcode":"123456"}`)
+	req.Header.Set("X-Critical-Session-Token", "unknown-token")
+
+	w := httptest.NewRecorder()
+	g.confirmTOTPHandler(w, req)
+
+	assert.Equal(t, http.StatusPreconditionRequired, w.Code)
+}
+
+func TestAuth_ConfirmTOTPHandler_RateLimited(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	for i := 0; i < totpRateLimitAttempts; i++ {
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "confirm:user-123"))
+	}
+
+	w := httptest.NewRecorder()
+	g.confirmTOTPHandler(w, authUserJSONRequest(`{"passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+}
+
+func TestAuth_ConfirmTOTPHandler_EncodeFailure(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := &authFailingWriter{}
+	g.confirmTOTPHandler(w, authUserJSONRequest(`{"passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_DisableTOTPHandler_Success(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := httptest.NewRecorder()
+	g.disableTOTPHandler(w, authUserJSONRequest(`{"passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "success")
+}
+
+func TestAuth_DisableTOTPHandler_CriticalSessionRequired(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	req := authUserJSONRequest(`{"passcode":"123456"}`)
+	req.Header.Set("X-Critical-Session-Token", "unknown-token")
+
+	w := httptest.NewRecorder()
+	g.disableTOTPHandler(w, req)
+
+	assert.Equal(t, http.StatusPreconditionRequired, w.Code)
+}
+
+func TestAuth_DisableTOTPHandler_RateLimited(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	for i := 0; i < totpRateLimitAttempts; i++ {
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "disable:user-123"))
+	}
+
+	w := httptest.NewRecorder()
+	g.disableTOTPHandler(w, authUserJSONRequest(`{"passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+}
+
+func TestAuth_DisableTOTPHandler_EncodeFailure(t *testing.T) {
+	g := authGatewayWithSession(t)
+
+	w := &authFailingWriter{}
+	g.disableTOTPHandler(w, authUserJSONRequest(`{"passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_TOTPStatusHandler_ClaimsError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &authClaimsFailingClient{}
+
+	w := httptest.NewRecorder()
+	g.totpStatusHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_TOTPStatusHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	g.totpStatusHandler(w, authUserRequest())
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_TOTPStatusHandler_EmptyUserID(t *testing.T) {
+	g := newTestGateway()
+
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/api/v1/totp/status", nil)
+
+	w := httptest.NewRecorder()
+	g.totpStatusHandler(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuth_RefreshHandler_Success(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	token, err := g.issueRefreshToken(ctx, "user-123")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(ctx, "POST", "/api/v1/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token})
+
+	g.refreshHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	newRefresh := authCookieValue(t, w, refreshTokenCookieName)
+	require.NotEmpty(t, newRefresh)
+	assert.NotEqual(t, token, newRefresh)
+
+	_, getErr := g.valkeyDB.Get(ctx, refreshTokenPrefix+token).Result()
+	assert.Error(t, getErr)
+}
+
+func TestAuth_RefreshHandler_EncodeFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	token, err := g.issueRefreshToken(ctx, "user-123")
+	require.NoError(t, err)
+
+	req := httptest.NewRequestWithContext(ctx, "POST", "/api/v1/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: token})
+
+	w := &authFailingWriter{status: http.StatusOK}
+	g.refreshHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.status)
+	assert.Contains(t, w.Header().Get("Set-Cookie"), accessTokenCookieName)
+}
+
+func TestAuth_ForgotPasswordHandler_InvalidJSON(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.forgotPasswordHandler(w, authJSONRequest("/api/v1/auth/forgot-password", `{invalid`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_ForgotPasswordHandler_MissingEmail(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.forgotPasswordHandler(w, authJSONRequest("/api/v1/auth/forgot-password", `{}`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_ForgotPasswordHandler_Success(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.forgotPasswordHandler(w, authJSONRequest("/api/v1/auth/forgot-password", `{"email":"test@example.com"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "debug_code")
+}
+
+func TestAuth_ForgotPasswordHandler_EncodeFailure(t *testing.T) {
+	g := newTestGateway()
+
+	w := &authFailingWriter{status: http.StatusOK}
+	g.forgotPasswordHandler(w, authJSONRequest("/api/v1/auth/forgot-password", `{"email":"test@example.com"}`))
+
+	assert.Equal(t, http.StatusOK, w.status)
+}
+
+func TestAuth_ResetPasswordHandler_InvalidJSON(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.resetPasswordHandler(w, authJSONRequest("/api/v1/auth/reset", `{invalid`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_ResetPasswordHandler_MissingFields(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.resetPasswordHandler(w, authJSONRequest("/api/v1/auth/reset", `{"email":"test@example.com"}`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_ResetPasswordHandler_ShortPassword(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.resetPasswordHandler(w, authJSONRequest("/api/v1/auth/reset", `{"email":"test@example.com","code":"123456","new_password":"12345"}`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_ResetPasswordHandler_Success(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	g.resetPasswordHandler(w, authJSONRequest("/api/v1/auth/reset", `{"email":"test@example.com","code":"123456","new_password":"newpassword"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "ok")
+}
+
+func TestAuth_EncodeQRCodeBase64_InvalidURL(t *testing.T) {
+	out, err := encodeQRCodeBase64("://bad-qr")
+
+	assert.Error(t, err)
+	assert.Empty(t, out)
+}
+
+func TestAuth_EncodeQRCodeBase64_ValidURL(t *testing.T) {
+	out, err := encodeQRCodeBase64("otpauth://totp/FitPulse:user@example.com?algorithm=SHA1&digits=6&issuer=FitPulse&period=30&secret=JBSWY3DPEHPK3PXP")
+
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(out, "data:image/png;base64,"))
+}
+
+func TestAuth_IssueJWT_ClaimsError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &authClaimsFailingClient{}
+
+	token, err := g.issueJWT(context.Background(), "user-123")
+
+	assert.Empty(t, token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "query user for JWT")
+}
+
+func TestAuth_IssueJWT_TokenProviderError(t *testing.T) {
+	g := newTestGateway()
+	g.tokenProvider = authBrokenTokenProvider{}
+
+	token, err := g.issueJWT(context.Background(), "user-123")
+
+	assert.Empty(t, token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "issue jwt")
+}
+
+func TestAuth_IssueJWT_Success(t *testing.T) {
+	g := newTestGateway()
+
+	token, err := g.issueJWT(context.Background(), "user-123")
+
+	require.NoError(t, err)
+	assert.NotEmpty(t, token)
+}
+
+func TestAuth_UserTOTPEnabled_ClaimsError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &authClaimsFailingClient{}
+
+	assert.False(t, g.userTOTPEnabled(context.Background(), "user-123"))
+}
+
+func TestAuth_EnforceTOTPRateLimit_ValkeyBackend(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	for i := 0; i < totpRateLimitAttempts; i++ {
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "valkey:user-123"))
+	}
+
+	err := g.enforceTOTPRateLimit(ctx, "valkey:user-123")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "too many 2FA attempts")
+}
+
+func TestAuth_RotateRefreshToken_Success(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	token, err := g.issueRefreshToken(ctx, "user-123")
+	require.NoError(t, err)
+
+	access, refresh, err := g.rotateRefreshToken(ctx, token)
+	require.NoError(t, err)
+	assert.NotEmpty(t, access)
+	assert.NotEmpty(t, refresh)
+
+	_, getErr := g.valkeyDB.Get(ctx, refreshTokenPrefix+token).Result()
+	assert.Error(t, getErr)
+
+	revoked, err := g.valkeyDB.SIsMember(ctx, refreshRevokedPrefix+"user-123", g.tokenProvider.ComputeTokenFingerprint(token)).Result()
+	require.NoError(t, err)
+	assert.True(t, revoked)
+}
+
+func TestAuth_RotateRefreshToken_ReuseDetected_Valkey(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+
+	oldToken := "reused-refresh-token"
+	fingerprint := g.tokenProvider.ComputeTokenFingerprint(oldToken)
+
+	require.NoError(t, g.valkeyDB.Set(ctx, refreshFingerprintPrefix+fingerprint, "user-123", time.Hour).Err())
+	require.NoError(t, g.valkeyDB.SAdd(ctx, refreshRevokedPrefix+"user-123", fingerprint).Err())
+
+	access, refresh, err := g.rotateRefreshToken(ctx, oldToken)
+
+	assert.Empty(t, access)
+	assert.Empty(t, refresh)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reuse detected")
+}
+
+func TestAuth_InvalidateAllUserSessions_WithSessionStore(t *testing.T) {
+	g := authGatewayWithSession(t)
+	ctx := context.Background()
+
+	require.NoError(t, g.valkeyDB.Set(ctx, refreshIssuedPrefix+"user-123", "token-1", time.Hour).Err())
+	require.NoError(t, g.sessionStore.AddUserSession(ctx, "user-123", "session-token", time.Hour))
+
+	g.invalidateAllUserSessions(ctx, "user-123")
+
+	_, issuedErr := g.valkeyDB.Get(ctx, refreshIssuedPrefix+"user-123").Result()
+	assert.Error(t, issuedErr)
+
+	_, sessionErr := g.valkeyDB.Get(ctx, "user_sessions:user-123").Result()
+	assert.Error(t, sessionErr)
+}
+
+func TestAuth_VerifyTOTPHandler_SuccessEstablishesSession(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"123456","is_backup_code":false}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "backup_codes_remaining")
+	assert.NotEmpty(t, authCookieValue(t, w, accessTokenCookieName))
+	assert.NotEmpty(t, authCookieValue(t, w, refreshTokenCookieName))
+
+	_, tempErr := g.valkeyDB.Get(ctx, twoFATempPrefix+"temp").Result()
+	assert.Error(t, tempErr)
+}
+
+func TestAuth_VerifyTOTPHandler_BackupCode(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"backup-code","is_backup_code":true}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotEmpty(t, authCookieValue(t, w, refreshTokenCookieName))
+}
+
+func TestAuth_VerifyTOTPHandler_InvalidPasscode(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.userClient = &authInvalidTOTPClient{}
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"000000"}`))
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "Invalid TOTP code")
+}
+
+func TestAuth_VerifyTOTPHandler_RateLimited_Valkey(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	for i := 0; i < totpRateLimitAttempts; i++ {
+		require.NoError(t, g.enforceTOTPRateLimit(ctx, "verify:user-123"))
+	}
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+}
+
+func TestAuth_VerifyTOTPHandler_TokenIssueFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.tokenProvider = authBrokenTokenProvider{}
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_VerifyTOTPHandler_EncodeFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := &authFailingWriter{status: http.StatusOK}
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusOK, w.status)
+}
 func TestAuth_LoginHandler_InvalidCredentials(t *testing.T) {
 
 	g := newTestGateway()
@@ -1804,4 +2681,57 @@ func TestAuth_VerifyTOTPHandler_Success(t *testing.T) {
 	assert.NotNil(t, accessCookie, "fitpulse-access-token cookie should be set")
 	assert.True(t, accessCookie.HttpOnly)
 	assert.Equal(t, http.SameSiteStrictMode, accessCookie.SameSite)
+}
+
+type authVerifyFailingClient struct {
+	totpEnabledUserClient
+}
+
+func (m *authVerifyFailingClient) VerifyTOTP(ctx context.Context, req *user.VerifyTOTPRequest, opts ...grpc.CallOption) (*user.VerifyTOTPResponse, error) {
+	return nil, grpcError(codes.Internal, "verify unavailable")
+}
+
+func TestAuth_EmailConfirmPageHandler_WriteFailure(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	repoRoot := filepath.Join(wd, "..", "..")
+	if _, statErr := os.Stat(filepath.Join(repoRoot, "web", "dist", "index.html")); statErr != nil {
+		t.Skip("web/dist/index.html is not available")
+	}
+	require.NoError(t, os.Chdir(repoRoot))
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	g := newTestGateway()
+
+	w := &authFailingWriter{}
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/confirm-email?token=valid", nil)
+
+	g.emailConfirmPageHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.status)
+}
+
+func TestAuth_VerifyTOTPHandler_VerifyUpstreamError(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.userClient = &authVerifyFailingClient{}
+	ctx := context.Background()
+	require.NoError(t, g.valkeyDB.Set(ctx, twoFATempPrefix+"temp", "user-123", 5*time.Minute).Err())
+
+	w := httptest.NewRecorder()
+	g.verifyTOTPHandler(w, authJSONRequest("/api/v1/totp/verify", `{"temp_token":"temp","passcode":"123456"}`))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_RefreshHandler_InvalidRefreshToken(t *testing.T) {
+	g := authValkeyGateway(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "unknown-token"})
+
+	g.refreshHandler(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

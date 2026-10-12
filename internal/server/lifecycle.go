@@ -55,10 +55,20 @@ func DefaultConfig(port, metricsPort string) Config {
 }
 
 // Serve starts the main and metrics servers and handles graceful shutdown.
-
+//
 // It blocks until a termination signal is received.
 
 func Serve(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, mainHandler http.Handler) {
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
+	defer stop()
+
+	serveWithContext(ctx, log, cfg, metricsMux, mainHandler)
+
+}
+
+func serveWithContext(ctx context.Context, log *logger.Logger, cfg Config, metricsMux *http.ServeMux, mainHandler http.Handler) {
 
 	metricsSrv := &http.Server{
 
@@ -107,10 +117,6 @@ func Serve(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, m
 		}
 
 	}()
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-
-	defer stop()
 
 	<-ctx.Done()
 
