@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/sanitize"
 )
 
 // mlFeedbackRequest represents the request body for ml feedback
@@ -51,9 +53,9 @@ func (g *gateway) handleMLFeedback(w http.ResponseWriter, r *http.Request) {
 	timestamp := time.Now().UTC()
 
 	g.log.Info("ML feedback received",
-		zap.String("prediction_id", req.PredictionID),
-		zap.String("feedback_id", feedbackID),
-		zap.String("user_id", req.UserID),
+		zap.String("prediction_id", sanitize.LogString(req.PredictionID)),
+		zap.String("feedback_id", sanitize.LogString(feedbackID)),
+		zap.String("user_id", sanitize.LogString(req.UserID)),
 	)
 
 	resp := mlFeedbackResponse{

@@ -2,6 +2,7 @@
 package resilience
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"errors"
 	"sync"
 	"time"
@@ -198,8 +199,8 @@ func (lcb *LoggingCircuitBreaker) Execute(fn func() error) error {
 	state := lcb.cb.State()
 	if state == StateOpen {
 		lcb.log.Warn("circuit breaker open, request rejected",
-			zap.String("name", lcb.cb.name),
-			zap.String("state", state.String()),
+			zap.String("name", sanitize.LogString(lcb.cb.name)),
+			zap.String("state", sanitize.LogString(state.String())),
 		)
 		return ErrCircuitOpen
 	}
@@ -207,13 +208,13 @@ func (lcb *LoggingCircuitBreaker) Execute(fn func() error) error {
 	err := lcb.cb.Execute(fn)
 	if err != nil {
 		lcb.log.Warn("circuit breaker recorded failure",
-			zap.String("name", lcb.cb.name),
+			zap.String("name", sanitize.LogString(lcb.cb.name)),
 			zap.Error(err),
-			zap.String("state", lcb.cb.State().String()),
+			zap.String("state", sanitize.LogString(lcb.cb.State().String())),
 		)
 	} else if lcb.cb.State() == StateClosed && state == StateHalfOpen {
 		lcb.log.Info("circuit breaker closed",
-			zap.String("name", lcb.cb.name),
+			zap.String("name", sanitize.LogString(lcb.cb.name)),
 		)
 	}
 

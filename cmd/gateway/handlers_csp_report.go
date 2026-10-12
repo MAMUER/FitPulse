@@ -54,7 +54,7 @@ type CSPViolationBody struct {
 
 func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		g.log.Warn("CSP report received with non-POST method", zap.String("method", r.Method))
+		g.log.Warn("CSP report received with non-POST method", zap.String("method", sanitize.LogString(r.Method)))
 		http.Error(w, msgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}

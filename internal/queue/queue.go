@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"encoding/json"
 	"errors"
@@ -200,7 +201,7 @@ func (p *rabbitPublisher) reconnect() error {
 
 	p.conn = conn
 	p.channel = ch
-	p.log.Info("publisher reconnected", zap.String("queue", p.queue))
+	p.log.Info("publisher reconnected", zap.String("queue", sanitize.LogString(p.queue)))
 	return nil
 }
 
@@ -233,7 +234,7 @@ func (c *rabbitConsumer) reconnect() error {
 	c.conn = conn
 	c.channel = ch
 	c.msgs = msgs
-	c.log.Info("consumer reconnected", zap.String("queue", c.queue))
+	c.log.Info("consumer reconnected", zap.String("queue", sanitize.LogString(c.queue)))
 	return nil
 }
 

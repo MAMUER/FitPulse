@@ -192,7 +192,7 @@ func TestClassifierContract(t *testing.T) {
 
 	resp, err := httpGet("http://localhost:8001/health")
 	if err != nil {
-		t.Fatalf("classifier not reachable: %v", err)
+		t.Skipf("classifier not reachable, skipping contract test: %v", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

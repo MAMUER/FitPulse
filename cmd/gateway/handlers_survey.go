@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -54,7 +55,7 @@ func (g *gateway) saveSurveyHandler(w http.ResponseWriter, r *http.Request) {
 		SurveyCompletedAt: mustTimestamp(completedAt),
 	})
 	if err != nil {
-		g.log.Error("Failed to save survey", zap.Error(err), zap.String("user_id", userID))
+		g.log.Error("Failed to save survey", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		http.Error(w, "failed to save survey", http.StatusInternalServerError)
 		return
 	}
@@ -83,7 +84,7 @@ func (g *gateway) loadSurveyHandler(w http.ResponseWriter, r *http.Request) {
 		UserId: userID,
 	})
 	if err != nil {
-		g.log.Error("Failed to load survey", zap.Error(err), zap.String("user_id", userID))
+		g.log.Error("Failed to load survey", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		http.Error(w, "failed to load survey", http.StatusInternalServerError)
 		return
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -116,12 +117,12 @@ func (g *gateway) deleteEntityHandler(w http.ResponseWriter, r *http.Request, pa
 	}
 	entityID := chi.URLParam(r, paramName)
 	if entityID == "" {
-		g.log.Error("Missing entity ID in request", zap.String("param", paramName))
+		g.log.Error("Missing entity ID in request", zap.String("param", sanitize.LogString(paramName)))
 		http.Error(w, paramName+" требуется", http.StatusBadRequest)
 		return
 	}
 	if err := deleteFn(entityID); err != nil {
-		g.log.Error("Failed to delete entity", zap.String("param", paramName), zap.Error(err))
+		g.log.Error("Failed to delete entity", zap.String("param", sanitize.LogString(paramName)), zap.Error(err))
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		http.Error(w, errMsg, httpCode)
 		return

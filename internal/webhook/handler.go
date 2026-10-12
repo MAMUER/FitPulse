@@ -122,7 +122,7 @@ func (s *Server) Start() {
 
 	go func() {
 
-		s.log.Info("Open Wearables webhook server starting", zap.String("port", s.port))
+		s.log.Info("Open Wearables webhook server starting", zap.String("port", sanitize.LogString(s.port)))
 
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 

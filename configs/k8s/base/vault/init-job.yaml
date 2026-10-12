@@ -115,6 +115,16 @@ spec:
               mountPath: /vault/policies
             - name: vault-keys
               mountPath: /vault/keys
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 100
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               cpu: "50m"

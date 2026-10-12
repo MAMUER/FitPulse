@@ -403,8 +403,9 @@ jobs:
 
       - name: Update Go version
         if: steps.go.outputs.latest != steps.go.outputs.current
+        env:
+          LATEST: ${{ steps.go.outputs.latest }}
         run: |
-          LATEST=${{ steps.go.outputs.latest }}
           sed -i "s/^go [0-9]\+\.[0-9]\+\.[0-9]\+/go $LATEST/" go.mod
           sed -i "s/^GO_VERSION := [0-9]\+\.[0-9]\+\.[0-9]\+/GO_VERSION := $LATEST/" Makefile
           sed -i "s/GO_VERSION: \"[0-9.]*\"/GO_VERSION: \"$LATEST\"/" .github/workflows/ci.yml
@@ -412,8 +413,9 @@ jobs:
 
       - name: Update Node.js version
         if: steps.node.outputs.latest != steps.node.outputs.current
+        env:
+          LATEST: ${{ steps.node.outputs.latest }}
         run: |
-          LATEST=${{ steps.node.outputs.latest }}
           echo "$LATEST" > .nvmrc
           jq --arg version "$LATEST" 'if .engines then .engines.node = ">=" + $version else . + {engines: {node: ">=" + $version}} end' web/package.json > web/package.json.tmp && mv web/package.json.tmp web/package.json
           sed -i "s/node-version: \"26\"/node-version: \"$LATEST\"/" .github/workflows/ci.yml

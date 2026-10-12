@@ -119,3 +119,10 @@ func PgsodiumDecryptParam(ciphertextColumn, nonceColumn, alias string) string {
 func PgsodiumRefreshTokenInsertQuery() string {
 	return fmt.Sprintf(`INSERT INTO refresh_tokens (token_hash, token_encrypted, token_nonce, user_id, expires_at) VALUES ($1, %s, $4, $5)`, PgsodiumRandomEncryptParam(2, 3))
 }
+
+// PgsodiumRefreshTokenSelectQuery возвращает безопасный SELECT для refresh_tokens
+// с параметризованной расшифровкой pgsodium. Все внешние значения передаются
+// через $N-плейсхолдеры и не конкатенируются с SQL напрямую.
+func PgsodiumRefreshTokenSelectQuery() string {
+	return fmt.Sprintf(`SELECT id, user_id, %s, revoked, expires_at, created_at FROM refresh_tokens WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()`, PgsodiumDecryptParam("token_encrypted", "token_nonce", "token"))
+}

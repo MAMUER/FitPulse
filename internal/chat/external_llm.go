@@ -2,6 +2,7 @@
 package chat
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"fmt"
 	"time"
@@ -43,8 +44,8 @@ func NewExternalLLMService(cfg ExternalLLMConfig, log *zap.Logger) *ExternalLLMS
 	}
 
 	log.Info("External LLM service initialized",
-		zap.String("provider", cfg.Provider),
-		zap.String("model", cfg.Model),
+		zap.String("provider", sanitize.LogString(cfg.Provider)),
+		zap.String("model", sanitize.LogString(cfg.Model)),
 	)
 
 	return &ExternalLLMService{
@@ -86,7 +87,7 @@ func (s *ExternalLLMService) QueryWithFallback(ctx context.Context, userID, mess
 	if err != nil {
 		s.log.Warn("External LLM query failed, falling back to rule-based",
 			zap.Error(err),
-			zap.String("user_id", userID),
+			zap.String("user_id", sanitize.LogString(userID)),
 		)
 		return FindAnswer(message), nil
 	}

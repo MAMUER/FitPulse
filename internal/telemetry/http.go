@@ -19,8 +19,8 @@ func HTTPMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 				if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
 					traceID := span.SpanContext().TraceID().String()
 					log.Info("request tracing",
-						zap.String("trace_id", traceID),
-						zap.String("method", r.Method),
+						zap.String("trace_id", sanitize.LogString(traceID)),
+						zap.String("method", sanitize.LogString(r.Method)),
 						zap.String("path", sanitize.LogString(r.URL.Path)),
 					)
 					w.Header().Set("X-Trace-ID", traceID)

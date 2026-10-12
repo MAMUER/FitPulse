@@ -416,7 +416,7 @@ func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 
 	}
 
-	log.Info("Yandex OAuth configured", zap.String("redirect_url", redirectURL))
+	log.Info("Yandex OAuth configured", zap.String("redirect_url", sanitize.LogString(redirectURL)))
 
 	return &oauth2.Config{
 
@@ -464,7 +464,7 @@ func buildWithingsClient(log *logger.Logger, cfg gatewayConfig) *withings.Within
 
 	}
 
-	log.Info("Withings integration configured", zap.String("redirect_url", redirectURL), zap.String("api_base_url", apiBaseURL))
+	log.Info("Withings integration configured", zap.String("redirect_url", sanitize.LogString(redirectURL)), zap.String("api_base_url", sanitize.LogString(apiBaseURL)))
 
 	return withings.NewClient(&withings.Config{
 
@@ -643,7 +643,7 @@ func waitForValkey(ctx context.Context, log *logger.Logger, rdb *redis.Client, v
 
 		if pingErr == nil {
 
-			log.Info("Valkey connected", zap.String("addr", valkeyAddr), zap.Int("attempt", attempt))
+			log.Info("Valkey connected", zap.String("addr", sanitize.LogString(valkeyAddr)), zap.Int("attempt", attempt))
 
 			return true
 
@@ -757,7 +757,7 @@ func connectRabbitMQ(log *logger.Logger, rabbitmqURL string, mlAsync bool) (*amq
 
 	}
 
-	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", maskRabbitMQURL(rabbitmqURL)))
+	log.Info("RabbitMQ connected for async ML jobs", zap.String("url", sanitize.LogString(maskRabbitMQURL(rabbitmqURL))))
 
 	return rmqCh, func() {
 
@@ -989,7 +989,7 @@ func newHTTPSServer(handler http.Handler) *http.Server {
 
 // serveHTTP запускает HTTP сервер и логирует фатальные ошибки.
 func serveHTTP(log *logger.Logger, srv *http.Server, port string, redirectToHTTPS bool) {
-	log.Info("HTTP server starting", zap.String("port", port), zap.Bool("redirect_to_https", redirectToHTTPS))
+	log.Info("HTTP server starting", zap.String("port", sanitize.LogString(port)), zap.Bool("redirect_to_https", redirectToHTTPS))
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 
@@ -1005,9 +1005,9 @@ func serveHTTPS(log *logger.Logger, srv *http.Server, tlsCfg gatewayTLSConfig, c
 
 		zap.String("port", "8443"),
 
-		zap.String("cert", tlsCfg.certFile),
+		zap.String("cert", sanitize.LogString(tlsCfg.certFile)),
 
-		zap.String("classifier", classifierURL))
+		zap.String("classifier", sanitize.LogString(classifierURL)))
 
 	srv.TLSConfig = &tls.Config{
 
@@ -1077,7 +1077,7 @@ func detectTLSMode(log *logger.Logger, _ gatewayConfig) gatewayTLSConfig {
 
 		log.Warn("TLS certificate file not found, falling back to HTTP-only mode",
 
-			zap.String("cert_file", mode.certFile), zap.Error(err))
+			zap.String("cert_file", sanitize.LogString(mode.certFile)), zap.Error(err))
 
 		return gatewayTLSConfig{}
 
@@ -1087,7 +1087,7 @@ func detectTLSMode(log *logger.Logger, _ gatewayConfig) gatewayTLSConfig {
 
 		log.Warn("TLS key file not found, falling back to HTTP-only mode",
 
-			zap.String("key_file", mode.keyFile), zap.Error(err))
+			zap.String("key_file", sanitize.LogString(mode.keyFile)), zap.Error(err))
 
 		return gatewayTLSConfig{}
 
@@ -1595,7 +1595,7 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 
 	g.biometricClient = biometricpb.NewBiometricServiceClient(conn)
 
-	g.log.Info("Biometric client initialized on first use", zap.String("addr", g.biometricAddr))
+	g.log.Info("Biometric client initialized on first use", zap.String("addr", sanitize.LogString(g.biometricAddr)))
 
 	return g.biometricClient, nil
 
@@ -1637,7 +1637,7 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 
 	g.trainingClient = trainingpb.NewTrainingServiceClient(conn)
 
-	g.log.Info("Training client initialized on first use", zap.String("addr", g.trainingAddr))
+	g.log.Info("Training client initialized on first use", zap.String("addr", sanitize.LogString(g.trainingAddr)))
 
 	return g.trainingClient, nil
 

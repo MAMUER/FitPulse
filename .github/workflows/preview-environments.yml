@@ -28,8 +28,10 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Build and push preview images
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           SHA=$(git rev-parse --short HEAD)
           IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
 
@@ -56,20 +58,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCKER_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          GH_ACTOR: ${{ github.actor }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply --validate=false -f -
           kubectl create secret docker-registry ghcr-pull-secret \
             --docker-server=ghcr.io \
-            --docker-username="${{ github.actor }}" \
-            --docker-password="${{ env.DOCKER_PASSWORD }}" \
+            --docker-username="$GH_ACTOR" \
+            --docker-password="$DOCKER_PASSWORD" \
             -n "${NAMESPACE}" \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
       - name: Deploy to preview namespace
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           SHA=$(git rev-parse --short HEAD)
           IMAGE_TAG="pr-${PR_NUMBER}-${SHA}"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
@@ -83,8 +89,10 @@ jobs:
           sed "s/namespace: fitness-platform-production/namespace: ${NAMESPACE}/g" /tmp/preview-manifests.yaml | kubectl apply --validate=false -f -
 
       - name: Wait for preview deployment
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl wait --for=condition=ready pod -l app=gateway -n "${NAMESPACE}" --timeout=180s || true
           kubectl get pods -n "${NAMESPACE}"
@@ -93,10 +101,13 @@ jobs:
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          PR_NUMBER_REF: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.duckdns.org"
-          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
+          gh pr comment "$PR_NUMBER_REF" --repo "$REPO" --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
 
   cleanup:
     name: Cleanup Preview Environment
@@ -119,7 +130,9 @@ jobs:
           chmod 600 ~/.kube/config
 
       - name: Delete preview namespace
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          PR_NUMBER=${{ github.event.number }}
+          PR_NUMBER="$PR_NUMBER"
           NAMESPACE="fitness-platform-preview-${PR_NUMBER}"
           kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true --timeout=60s || true

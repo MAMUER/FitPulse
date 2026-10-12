@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,7 +18,7 @@ import (
 
 func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[string]interface{}, error) {
 	if !isValidServiceURL(g.classifierURL, "http://classifier:", "http://classifier-service:", "http://127.0.0.1:") {
-		g.log.Error("Некорректный URL классификатора", zap.String("url", g.classifierURL))
+		g.log.Error("Некорректный URL классификатора", zap.String("url", sanitize.LogString(g.classifierURL)))
 		return nil, errors.New("некорректный URL классификатора")
 	}
 

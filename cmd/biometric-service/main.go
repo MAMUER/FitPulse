@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"errors"
@@ -72,8 +73,8 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 	start := time.Now()
 	s.log.Info("BIOMETRIC_DATA_RECEIVED",
 		zap.String("action", "BIOMETRIC_DATA_RECEIVED"),
-		zap.String("user_id", req.UserId),
-		zap.String("metric_type", req.MetricType),
+		zap.String("user_id", sanitize.LogString(req.UserId)),
+		zap.String("metric_type", sanitize.LogString(req.MetricType)),
 		zap.Float64("value", req.Value),
 	)
 
@@ -122,11 +123,11 @@ func (s *biometricServer) AddRecord(ctx context.Context, req *pb.AddRecordReques
 	var userExists bool
 	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", req.UserId).Scan(&userExists)
 	if err != nil {
-		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 		return nil, status.Error(codes.Internal, "failed to verify user")
 	}
 	if !userExists {
-		s.log.Warn("User not found", zap.String("user_id", req.UserId))
+		s.log.Warn("User not found", zap.String("user_id", sanitize.LogString(req.UserId)))
 		return nil, status.Error(codes.NotFound, "user not found")
 	}
 
@@ -218,7 +219,7 @@ func validateBatchRequest(req *pb.BatchAddRecordsRequest) error {
 func (s *biometricServer) checkUserExists(ctx context.Context, userID string) error {
 	var userExists bool
 	if err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&userExists); err != nil {
-		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", userID))
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		return status.Error(codes.Internal, "failed to verify user")
 	}
 	if !userExists {
@@ -292,7 +293,7 @@ func (s *biometricServer) insertRecordsInTx(ctx context.Context, tx *sql.Tx, que
 			rollbackBiometricTx(s.log, tx)
 			s.log.Error("Failed to insert biometric record",
 				zap.Error(err),
-				zap.String("metric_type", rec.MetricType),
+				zap.String("metric_type", sanitize.LogString(rec.MetricType)),
 			)
 			return 0, status.Error(codes.Internal, "failed to save records")
 		}
@@ -359,8 +360,8 @@ func (s *biometricServer) buildGetRecordsQuery(req *pb.GetRecordsRequest) record
 
 func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
 	s.log.Debug("GetRecords",
-		zap.String("user_id", req.UserId),
-		zap.String("metric_type", req.MetricType),
+		zap.String("user_id", sanitize.LogString(req.UserId)),
+		zap.String("metric_type", sanitize.LogString(req.MetricType)),
 	)
 
 	if req.From != nil && req.To != nil && req.From.AsTime().After(req.To.AsTime()) {
@@ -401,12 +402,12 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 
 	q := s.buildGetRecordsQuery(req)
 	s.log.Debug("GetRecords query",
-		zap.String("query", q.query),
+		zap.String("query", sanitize.LogString(q.query)),
 		zap.Any("args", q.args),
 	)
 	rows, err := s.db.QueryContext(ctx, q.query, q.args...)
 	if err != nil {
-		s.log.Error("Failed to query records", zap.Error(err), zap.String("query", q.query))
+		s.log.Error("Failed to query records", zap.Error(err), zap.String("query", sanitize.LogString(q.query)))
 		return nil, status.Error(codes.Internal, "failed to query records")
 	}
 	defer func() {
@@ -440,8 +441,8 @@ func (s *biometricServer) GetRecords(ctx context.Context, req *pb.GetRecordsRequ
 
 func (s *biometricServer) GetLatest(ctx context.Context, req *pb.GetLatestRequest) (*pb.BiometricRecord, error) {
 	s.log.Debug("GetLatest",
-		zap.String("user_id", req.UserId),
-		zap.String("metric_type", req.MetricType),
+		zap.String("user_id", sanitize.LogString(req.UserId)),
+		zap.String("metric_type", sanitize.LogString(req.MetricType)),
 	)
 
 	if s.biometricSvc != nil {
@@ -495,7 +496,7 @@ func (s *biometricServer) GetLatest(ctx context.Context, req *pb.GetLatestReques
 func (s *biometricServer) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) (*pb.BiometricRecord, error) {
 	s.log.Info("BIOMETRIC_UPDATE",
 		zap.String("action", "BIOMETRIC_UPDATE"),
-		zap.String("id", req.Id),
+		zap.String("id", sanitize.LogString(req.Id)),
 	)
 
 	if s.biometricSvc != nil {
@@ -517,7 +518,7 @@ func (s *biometricServer) UpdateRecord(ctx context.Context, req *pb.UpdateRecord
 
 		s.log.Info("BIOMETRIC_UPDATED",
 			zap.String("action", "BIOMETRIC_UPDATED"),
-			zap.String("id", stored.ID),
+			zap.String("id", sanitize.LogString(stored.ID)),
 		)
 
 		return &pb.BiometricRecord{
@@ -567,7 +568,7 @@ func (s *biometricServer) UpdateRecord(ctx context.Context, req *pb.UpdateRecord
 
 	s.log.Info("BIOMETRIC_UPDATED",
 		zap.String("action", "BIOMETRIC_UPDATED"),
-		zap.String("id", record.Id),
+		zap.String("id", sanitize.LogString(record.Id)),
 	)
 
 	return &record, nil
@@ -576,7 +577,7 @@ func (s *biometricServer) UpdateRecord(ctx context.Context, req *pb.UpdateRecord
 func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (*pb.DeleteRecordResponse, error) {
 	s.log.Info("BIOMETRIC_DELETE",
 		zap.String("action", "BIOMETRIC_DELETE"),
-		zap.String("id", req.Id),
+		zap.String("id", sanitize.LogString(req.Id)),
 	)
 
 	if s.biometricSvc != nil {
@@ -590,7 +591,7 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 
 		s.log.Info("BIOMETRIC_DELETED",
 			zap.String("action", "BIOMETRIC_DELETED"),
-			zap.String("id", req.Id),
+			zap.String("id", sanitize.LogString(req.Id)),
 		)
 
 		return &pb.DeleteRecordResponse{Deleted: true}, nil
@@ -617,7 +618,7 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 
 	s.log.Info("BIOMETRIC_DELETED",
 		zap.String("action", "BIOMETRIC_DELETED"),
-		zap.String("id", req.Id),
+		zap.String("id", sanitize.LogString(req.Id)),
 	)
 
 	return &pb.DeleteRecordResponse{Deleted: true}, nil
@@ -644,7 +645,7 @@ func createMetricsServer(metricsPort string) *http.Server {
 
 func startMetricsServer(srv *http.Server, log *logger.Logger) {
 	go func() {
-		log.Info("Metrics HTTP server starting", zap.String("port", srv.Addr))
+		log.Info("Metrics HTTP server starting", zap.String("port", sanitize.LogString(srv.Addr)))
 		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 			log.Error("Metrics server failed", zap.Error(err))
 		}
@@ -720,7 +721,7 @@ func main() {
 
 	setupGracefulShutdown(log, grpcServer, metricsSrv, database, pgxPool, rabbitQueue, webhookSrv)
 
-	log.Info("Biometric service starting", zap.String("port", port))
+	log.Info("Biometric service starting", zap.String("port", sanitize.LogString(port)))
 	if err := grpcServer.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
 		log.Fatal("Failed to serve", zap.Error(err))
 	}
@@ -791,7 +792,7 @@ func initBiometricDependencies(dbCfg db.Config, log *logger.Logger) (*sql.DB, *p
 		if err != nil {
 			log.Warn("Failed to connect to RabbitMQ", zap.Error(err))
 		} else {
-			log.Info("RabbitMQ connected", zap.String("queue", queueName))
+			log.Info("RabbitMQ connected", zap.String("queue", sanitize.LogString(queueName)))
 		}
 	}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"encoding/hex"
@@ -127,7 +128,7 @@ type piiMigrationContext struct {
 
 func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, t piiTable, key string, id int64) {
 	if err := validatePiiTable(t); err != nil {
-		log.Error("Invalid PII migration target", zap.Error(err), zap.String("table", t.name))
+		log.Error("Invalid PII migration target", zap.Error(err), zap.String("table", sanitize.LogString(t.name)))
 		return
 	}
 	cols := []string{t.idCol}
@@ -147,12 +148,12 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	// Values are passed as parameterized arguments below.
 	rows, err := database.QueryContext(ctx, selectBuilder.String()) // NOSONAR go:S2077
 	if err != nil {
-		log.Error("Failed to scan PII rows for migration", zap.Error(err), zap.String("table", t.name))
+		log.Error("Failed to scan PII rows for migration", zap.Error(err), zap.String("table", sanitize.LogString(t.name)))
 		return
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Error("Failed to iterate PII rows for migration", zap.Error(err), zap.String("table", t.name))
+		log.Error("Failed to iterate PII rows for migration", zap.Error(err), zap.String("table", sanitize.LogString(t.name)))
 		return
 	}
 
@@ -182,14 +183,14 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 		}
 	}
 	if rowErr := rows.Err(); rowErr != nil {
-		log.Error("Failed to iterate PII rows for migration", zap.Error(rowErr), zap.String("table", t.name))
+		log.Error("Failed to iterate PII rows for migration", zap.Error(rowErr), zap.String("table", sanitize.LogString(t.name)))
 		return
 	}
 	if closeErr := rows.Close(); closeErr != nil {
-		log.Error("Failed to close rows during PII migration", zap.Error(closeErr), zap.String("table", t.name))
+		log.Error("Failed to close rows during PII migration", zap.Error(closeErr), zap.String("table", sanitize.LogString(t.name)))
 	}
 	if migrated > 0 {
-		log.Info("Re-encrypted PII from pgcrypto to pgsodium", zap.String("table", t.name), zap.Int64("rows", migrated))
+		log.Info("Re-encrypted PII from pgcrypto to pgsodium", zap.String("table", sanitize.LogString(t.name)), zap.Int64("rows", migrated))
 	}
 }
 
@@ -208,7 +209,7 @@ func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string
 		var plain sql.NullString
 		if dErr := migCtx.database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
 			migCtx.log.Warn("Failed to pgcrypto-decrypt during PII migration",
-				zap.Error(dErr), zap.String("table", migCtx.t.name), zap.String("col", p.enc))
+				zap.Error(dErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
 			return false
 		}
 		args = append(args, plain.String)
@@ -232,7 +233,7 @@ func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string
 	query := queryBuilder.String()
 
 	if _, uErr := migCtx.database.ExecContext(ctx, query, args...); uErr != nil { // NOSONAR go:S2077
-		migCtx.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", migCtx.t.name), zap.String("id", rowID))
+		migCtx.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("id", sanitize.LogString(rowID)))
 		return false
 	}
 	return true

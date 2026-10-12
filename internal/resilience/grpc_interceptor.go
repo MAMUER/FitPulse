@@ -2,6 +2,7 @@
 package resilience
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"errors"
 	"strings"
@@ -32,8 +33,8 @@ func UnaryClientInterceptor(log CircuitBreakerLogger) grpc.UnaryClientIntercepto
 		if err != nil {
 			if errors.Is(err, ErrCircuitOpen) {
 				log.Warn("gRPC circuit breaker open",
-					zap.String("service", service),
-					zap.String("method", method),
+					zap.String("service", sanitize.LogString(service)),
+					zap.String("method", sanitize.LogString(method)),
 				)
 			}
 			return err

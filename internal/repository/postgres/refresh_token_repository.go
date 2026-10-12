@@ -22,14 +22,10 @@ func NewRefreshTokenRepository(db *sql.DB) port.RefreshTokenRepository {
 func (r *refreshTokenRepository) GetValid(ctx context.Context, token string) (*port.RefreshToken, error) {
 	tokenHash := db.BlindIndex(token)
 
-	query := `
-		SELECT id, user_id, ` + db.PgsodiumDecryptParam("token_encrypted", "token_nonce", "token") + `, revoked, expires_at, created_at
-		FROM refresh_tokens
-		WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
-	`
+	query := db.PgsodiumRefreshTokenSelectQuery()
 
 	rt := &port.RefreshToken{}
-	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan( // NOSONAR
+	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(
 		&rt.ID, &rt.UserID, &rt.Token, &rt.Revoked, &rt.ExpiresAt, &rt.CreatedAt,
 	)
 	if err != nil {

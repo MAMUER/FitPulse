@@ -93,8 +93,8 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	}
 
 	s.log.Info("Получен запрос GeneratePlan",
-		zap.String("user_id", req.UserId),
-		zap.String("class", req.Classification),
+		zap.String("user_id", sanitize.LogString(req.UserId)),
+		zap.String("class", sanitize.LogString(req.Classification)),
 		zap.Int32("duration_weeks", req.DurationWeeks),
 		zap.Int("available_days", len(req.AvailableDays)),
 	)
@@ -197,7 +197,7 @@ func buildPlanSummaries(log *logger.Logger, plans []*entity.TrainingPlan) ([]*pb
 		}
 		planDataStruct, err := structpb.NewStruct(planData)
 		if err != nil {
-			log.Error("Не удалось сериализовать план", zap.Error(err), zap.String("plan_id", plan.ID))
+			log.Error("Не удалось сериализовать план", zap.Error(err), zap.String("plan_id", sanitize.LogString(plan.ID)))
 			return nil, status.Error(codes.Internal, "failed to serialize plan data")
 		}
 
@@ -218,13 +218,13 @@ func (s *trainingServer) deleteExistingActivePlan(ctx context.Context, userID st
 	var existingPlanID string
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM training_plans WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`, userID).Scan(&existingPlanID)
 	if err == nil && existingPlanID != "" {
-		s.log.Info("Удаление существующего плана для замены", zap.String("user_id", userID), zap.String("old_plan_id", existingPlanID))
+		s.log.Info("Удаление существующего плана для замены", zap.String("user_id", sanitize.LogString(userID)), zap.String("old_plan_id", sanitize.LogString(existingPlanID)))
 		_, delErr := s.db.ExecContext(ctx, `DELETE FROM training_plans WHERE id = $1`, existingPlanID)
 		if delErr != nil {
 			s.log.Error("Не удалось удалить старый план", zap.Error(delErr))
 		}
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("Не удалось выполнить запрос существующего плана", zap.Error(err), zap.String("user_id", userID))
+		s.log.Error("Не удалось выполнить запрос существующего плана", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 	}
 }
 
@@ -284,7 +284,7 @@ func (s *trainingServer) savePlannerPlan(ctx context.Context, tx *sql.Tx, opts s
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`, planID, userID, "Персонализированная программа", trainingGoal, classificationClass, plan.DurationWeeks, "v1", time.Now(), startDate.Truncate(24*time.Hour), endDate.Truncate(24*time.Hour), "active", time.Now())
 	if err != nil {
-		s.log.Error("Не удалось сохранить план", zap.Error(err), zap.String("planID", planID))
+		s.log.Error("Не удалось сохранить план", zap.Error(err), zap.String("planID", sanitize.LogString(planID)))
 		return status.Error(codes.Internal, "не удалось сохранить план")
 	}
 
@@ -375,7 +375,7 @@ func (s *trainingServer) publishPlanEvent(ctx context.Context, userID, planID st
 }
 
 func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.TrainingPlan, error) {
-	s.log.Debug("GetPlan", zap.String("plan_id", req.PlanId))
+	s.log.Debug("GetPlan", zap.String("plan_id", sanitize.LogString(req.PlanId)))
 
 	if s.trainingSvc != nil {
 		plan, err := s.trainingSvc.GetPlan(ctx, "", req.PlanId)
@@ -383,7 +383,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, status.Error(codes.NotFound, "plan not found")
 			}
-			s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", req.PlanId))
+			s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", sanitize.LogString(req.PlanId)))
 			return nil, status.Error(codes.Internal, errDatabaseError)
 		}
 
@@ -418,7 +418,7 @@ func (s *trainingServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*
 		return nil, status.Error(codes.NotFound, "plan not found")
 	}
 	if err != nil {
-		s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", req.PlanId))
+		s.log.Error("Не удалось выполнить запрос плана", zap.Error(err), zap.String("plan_id", sanitize.LogString(req.PlanId)))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -457,7 +457,7 @@ func (s *trainingServer) ListPlans(ctx context.Context, req *pb.ListPlansRequest
 		return nil, fmt.Errorf("validate list plans request: %w", err)
 	}
 
-	s.log.Debug("ListPlans", zap.String("user_id", req.UserId))
+	s.log.Debug("ListPlans", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	if s.trainingSvc != nil {
 		plans, _, err := s.trainingSvc.ListPlans(ctx, req.UserId, int(req.Page), int(req.PageSize))
@@ -547,9 +547,9 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 	}
 
 	s.log.Info("Завершение тренировки",
-		zap.String("user_id", req.UserId),
-		zap.String("plan_id", req.PlanId),
-		zap.String("workout_id", req.WorkoutId),
+		zap.String("user_id", sanitize.LogString(req.UserId)),
+		zap.String("plan_id", sanitize.LogString(req.PlanId)),
+		zap.String("workout_id", sanitize.LogString(req.WorkoutId)),
 	)
 
 	feedback := sanitize.String(req.Feedback)
@@ -603,7 +603,7 @@ func (s *trainingServer) CompleteWorkout(ctx context.Context, req *pb.CompleteWo
 			VALUES ($1, $2)
 			ON CONFLICT (user_id, achievement_id) DO NOTHING
 		`, req.UserId, achievementID); execErr != nil {
-			s.log.Warn("Не удалось записать достижение", zap.Error(execErr), zap.String("achievement_id", achievementID))
+			s.log.Warn("Не удалось записать достижение", zap.Error(execErr), zap.String("achievement_id", sanitize.LogString(achievementID)))
 		}
 	}
 
@@ -616,7 +616,7 @@ func (s *trainingServer) GetProgress(ctx context.Context, req *pb.GetProgressReq
 		return nil, fmt.Errorf("validate get progress request: %w", err)
 	}
 
-	s.log.Debug("GetProgress", zap.String("user_id", req.UserId))
+	s.log.Debug("GetProgress", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	if s.trainingSvc != nil {
 		progress, err := s.trainingSvc.GetProgress(ctx, req.UserId)
@@ -1178,7 +1178,7 @@ func createRabbitQueue(rabbitURL, queueName string, log *logger.Logger) queue.Pu
 		log.Warn("Не удалось подключиться к RabbitMQ", zap.Error(err))
 		return nil
 	}
-	log.Info("RabbitMQ connected", zap.String("queue", queueName))
+	log.Info("RabbitMQ connected", zap.String("queue", sanitize.LogString(queueName)))
 	return rabbitQueue
 }
 
@@ -1242,14 +1242,14 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Info("Запуск сервера метрик", zap.String("port", metricsPort))
+		log.Info("Запуск сервера метрик", zap.String("port", sanitize.LogString(metricsPort)))
 		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 			log.Fatal("Сервер метрик завершил работу с ошибкой", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		log.Info("Запуск training-service", zap.String("port", port))
+		log.Info("Запуск training-service", zap.String("port", sanitize.LogString(port)))
 		if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
 			log.Fatal("Не удалось запустить сервер", zap.Error(err))
 		}

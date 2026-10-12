@@ -474,8 +474,9 @@ paths:
                     type: string
                   services:
                     type: object
-                   classifier:
-                     type: object
+                    properties:
+                      classifier:
+                        type: object
 
   /metrics:
     get:

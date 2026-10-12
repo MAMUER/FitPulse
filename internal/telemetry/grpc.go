@@ -2,6 +2,7 @@
 package telemetry
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 
 	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -25,7 +26,7 @@ func ClientHandlerOption() grpc.DialOption {
 // LogTraceFromContext logs the trace ID from the current span if valid.
 func LogTraceFromContext(ctx context.Context, log *logger.Logger) {
 	if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
-		log.Info("gRPC tracing", zap.String("trace_id", span.SpanContext().TraceID().String()))
+		log.Info("gRPC tracing", zap.String("trace_id", sanitize.LogString(span.SpanContext().TraceID().String())))
 	}
 }
 

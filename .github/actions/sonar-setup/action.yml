@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: "Sonar Setup"
 description: "Set up environment for SonarCloud scan with coverage"
 inputs:
@@ -34,7 +35,7 @@ runs:
       shell: bash
     - run: |
         mkdir -p bin
-        go test ${{ inputs.test-tags }} -coverprofile=bin/coverage.out ./...
+        go test $TEST_TAGS -coverprofile=bin/coverage.out ./...
         cd web && npm run test
         pwd
         ls -la bin || true
@@ -54,3 +55,5 @@ runs:
           head -5 bin/coverage.out || true
         fi
       shell: bash
+      env:
+        TEST_TAGS: ${{ inputs.test-tags }}

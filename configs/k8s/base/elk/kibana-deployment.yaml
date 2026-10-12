@@ -40,6 +40,17 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
       containers:
         - name: kibana
           image: docker.elastic.co/kibana/kibana:8.12.0
@@ -63,6 +74,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           livenessProbe:
             httpGet:
               path: /api/status

@@ -270,7 +270,7 @@ func float64Ptr(v float64) *float64 {
 
 func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 
-	s.log.Info("Register request", zap.String("email", req.Email))
+	s.log.Info("Register request", zap.String("email", sanitize.LogString(req.Email)))
 
 	if err := validator.ValidateRegisterRequest(req); err != nil {
 
@@ -429,7 +429,7 @@ func (s *userServer) createInitialProfile(ctx context.Context, userID string) {
 
 			zap.Error(err),
 
-			zap.String("user_id", userID))
+			zap.String("user_id", sanitize.LogString(userID)))
 
 	}
 
@@ -449,11 +449,11 @@ func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, ve
 
 			zap.Error(sendErr),
 
-			zap.String("email", email))
+			zap.String("email", sanitize.LogString(email)))
 
 	} else {
 
-		s.log.Info("Verification email sent", zap.String("email", email))
+		s.log.Info("Verification email sent", zap.String("email", sanitize.LogString(email)))
 
 	}
 
@@ -461,7 +461,7 @@ func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, ve
 
 func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailRequest) (*pb.ConfirmEmailResponse, error) {
 
-	s.log.Info("Confirm email request", zap.String("token", req.Token))
+	s.log.Info("Confirm email request", zap.String("token", sanitize.LogString(req.Token)))
 
 	if req.Token == "" {
 
@@ -501,7 +501,7 @@ func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailReque
 
 	}
 
-	s.log.Info("Email confirmed", zap.String("user_id", userID), zap.String("email", email))
+	s.log.Info("Email confirmed", zap.String("user_id", sanitize.LogString(userID)), zap.String("email", sanitize.LogString(email)))
 
 	return &pb.ConfirmEmailResponse{
 
@@ -514,7 +514,7 @@ func (s *userServer) ConfirmEmail(ctx context.Context, req *pb.ConfirmEmailReque
 
 func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 
-	s.log.Info("Login request", zap.String("email", req.Email))
+	s.log.Info("Login request", zap.String("email", sanitize.LogString(req.Email)))
 
 	if err := validator.ValidateLoginRequest(req); err != nil {
 
@@ -530,7 +530,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 		if apperrors.IsUnauthorized(err) {
 
-			s.log.Info("Login attempt with unconfirmed email", zap.String("email", req.Email))
+			s.log.Info("Login attempt with unconfirmed email", zap.String("email", sanitize.LogString(req.Email)))
 
 			return nil, status.Error(codes.Unauthenticated, "Email not confirmed. Please check your inbox.")
 
@@ -550,7 +550,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 	if !verifyPasswordArgon2id(user.PasswordHash, req.Password) {
 
-		s.log.Info("Invalid login attempt", zap.String("email", req.Email))
+		s.log.Info("Invalid login attempt", zap.String("email", sanitize.LogString(req.Email)))
 
 		if s.auditLogger != nil {
 
@@ -649,7 +649,7 @@ func (s *userServer) AuthenticateYandex(ctx context.Context, req *pb.Authenticat
 
 	}
 
-	s.log.Info("Yandex auth successful", zap.String("user_id", userID), zap.String("email", emailVal))
+	s.log.Info("Yandex auth successful", zap.String("user_id", sanitize.LogString(userID)), zap.String("email", sanitize.LogString(emailVal)))
 
 	return &pb.LoginResponse{
 
@@ -719,7 +719,7 @@ func (s *userServer) findYandexUserByID(ctx context.Context, yandexID string) (u
 
 			if markErr != nil {
 
-				s.log.Warn("Failed to mark Yandex user email as confirmed", zap.Error(markErr), zap.String("user_id", user.ID))
+				s.log.Warn("Failed to mark Yandex user email as confirmed", zap.Error(markErr), zap.String("user_id", sanitize.LogString(user.ID)))
 
 			} else {
 
@@ -749,7 +749,7 @@ func (s *userServer) linkYandexToEmailUser(ctx context.Context, yandexID, emailH
 
 		if linkErr := s.userRepo.LinkYandexAccount(ctx, yandexID, user.ID); linkErr != nil {
 
-			s.log.Warn("Failed to link Yandex account", zap.Error(linkErr), zap.String("user_id", user.ID))
+			s.log.Warn("Failed to link Yandex account", zap.Error(linkErr), zap.String("user_id", sanitize.LogString(user.ID)))
 
 		}
 
@@ -787,7 +787,7 @@ func (s *userServer) createYandexUser(ctx context.Context, yandexID, emailHash, 
 
 	if err := s.profileRepo.CreateProfile(ctx, userID); err != nil {
 
-		s.log.Warn("Failed to create profile for OAuth user", zap.Error(err), zap.String("user_id", userID))
+		s.log.Warn("Failed to create profile for OAuth user", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 	}
 
@@ -807,7 +807,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 
 		}
 
-		s.log.Error("Database error getting profile", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Database error getting profile", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -874,7 +874,7 @@ func (s *userServer) SaveSurvey(ctx context.Context, req *pb.SaveSurveyRequest) 
 	}
 
 	if err := s.userSvc.SaveSurvey(ctx, req.UserId, survey, completed, completedAt); err != nil {
-		s.log.Error("Failed to save survey", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to save survey", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -888,7 +888,7 @@ func (s *userServer) LoadSurvey(ctx context.Context, req *pb.LoadSurveyRequest) 
 
 	survey, completed, completedAt, err := s.userSvc.LoadSurvey(ctx, req.UserId)
 	if err != nil {
-		s.log.Error("Failed to load survey", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to load survey", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 		return nil, status.Error(codes.Internal, errDatabaseError)
 	}
 
@@ -1065,7 +1065,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 		if err := s.userRepo.UpdateUserDetails(ctx, req.UserId, toString(req.FullName), toString(req.Nickname)); err != nil {
 
-			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", req.UserId))
+			s.log.Error("Failed to update user details", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 			return nil, status.Error(codes.Internal, "failed to update user details")
 
@@ -1079,7 +1079,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	if err != nil {
 
-		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to check user existence", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -1087,7 +1087,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 
 	if !userExists {
 
-		s.log.Error("User not found during profile update", zap.String("user_id", req.UserId))
+		s.log.Error("User not found during profile update", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.NotFound, errUserNotFound)
 
@@ -1110,7 +1110,7 @@ func (s *userServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileReq
 		SleepHours: toFloat32(req.SleepHours),
 	}); err != nil {
 
-		s.log.Error("Failed to update profile", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to update profile", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to update profile")
 
@@ -1190,7 +1190,7 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 
 		}
 
-		s.log.Error("Failed to fetch password hash", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to fetch password hash", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -1200,7 +1200,7 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 
 	if !verifyPasswordArgon2id(currentHash, req.CurrentPassword) {
 
-		s.log.Warn("Password change failed: incorrect current password", zap.String("user_id", req.UserId))
+		s.log.Warn("Password change failed: incorrect current password", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
 
@@ -1222,13 +1222,13 @@ func (s *userServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordR
 
 	if err := s.userRepo.UpdatePassword(ctx, req.UserId, string(newHash)); err != nil {
 
-		s.log.Error("Failed to update password", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to update password", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to update password")
 
 	}
 
-	s.log.Info("Password changed successfully", zap.String("user_id", req.UserId))
+	s.log.Info("Password changed successfully", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.ChangePasswordResponse{Message: "Password changed successfully"}, nil
 
@@ -1284,13 +1284,13 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 
 	if err := s.userRepo.UpdateNicknameWithPgsodium(ctx, req.UserId, req.NewNickname, nicknameNonce, nicknameHash); err != nil {
 
-		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to update nickname", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to update nickname")
 
 	}
 
-	s.log.Info("Nickname changed", zap.String("user_id", req.UserId), zap.String("new_nickname", req.NewNickname))
+	s.log.Info("Nickname changed", zap.String("user_id", sanitize.LogString(req.UserId)), zap.String("new_nickname", sanitize.LogString(req.NewNickname)))
 
 	return &pb.ChangeNicknameResponse{Message: "Nickname changed successfully"}, nil
 
@@ -1332,13 +1332,13 @@ func (s *userServer) UploadProfilePhoto(ctx context.Context, req *pb.UploadProfi
 
 	if err := s.userRepo.UpdateProfilePhoto(ctx, req.UserId, photoURL); err != nil {
 
-		s.log.Error("Failed to update profile photo URL", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to update profile photo URL", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to update profile photo")
 
 	}
 
-	s.log.Info("Profile photo uploaded", zap.String("user_id", req.UserId), zap.String("photo_url", photoURL))
+	s.log.Info("Profile photo uploaded", zap.String("user_id", sanitize.LogString(req.UserId)), zap.String("photo_url", sanitize.LogString(photoURL)))
 
 	return &pb.UploadProfilePhotoResponse{PhotoUrl: photoURL}, nil
 
@@ -1358,13 +1358,13 @@ func (s *userServer) RemoveProfilePhoto(ctx context.Context, req *pb.RemoveProfi
 
 	if err := s.userRepo.RemoveProfilePhoto(ctx, req.UserId); err != nil {
 
-		s.log.Error("Failed to remove profile photo", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to remove profile photo", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to remove profile photo")
 
 	}
 
-	s.log.Info("Profile photo removed", zap.String("user_id", req.UserId))
+	s.log.Info("Profile photo removed", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.RemoveProfilePhotoResponse{Message: "Profile photo removed successfully"}, nil
 
@@ -1481,7 +1481,7 @@ func (s *userServer) AddDevice(ctx context.Context, req *pb.AddDeviceRequest) (*
 
 	}
 
-	s.log.Info("Device added", zap.String("user_id", req.UserId), zap.String("device_id", device.ID))
+	s.log.Info("Device added", zap.String("user_id", sanitize.LogString(req.UserId)), zap.String("device_id", sanitize.LogString(device.ID)))
 
 	return &pb.AddDeviceResponse{
 
@@ -1519,7 +1519,7 @@ func (s *userServer) RemoveDevice(ctx context.Context, req *pb.RemoveDeviceReque
 
 	}
 
-	s.log.Info("Device removed", zap.String("user_id", req.UserId), zap.String("device_id", req.DeviceId))
+	s.log.Info("Device removed", zap.String("user_id", sanitize.LogString(req.UserId)), zap.String("device_id", sanitize.LogString(req.DeviceId)))
 
 	return &pb.RemoveDeviceResponse{Message: "Device removed successfully"}, nil
 
@@ -1710,7 +1710,7 @@ func generateVerificationToken() string {
 
 func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWithInviteRequest) (*pb.RegisterResponse, error) {
 
-	s.log.Info("Register with invite code", zap.String("email", req.GetEmail()))
+	s.log.Info("Register with invite code", zap.String("email", sanitize.LogString(req.GetEmail())))
 
 	// Валидация invite-кода
 
@@ -1786,11 +1786,11 @@ func (s *userServer) RegisterWithInvite(ctx context.Context, req *pb.RegisterWit
 
 	s.log.Info("User registered via invite code",
 
-		zap.String("user_id", userID),
+		zap.String("user_id", sanitize.LogString(userID)),
 
-		zap.String("email", req.GetEmail()),
+		zap.String("email", sanitize.LogString(req.GetEmail())),
 
-		zap.String("role", finalRole),
+		zap.String("role", sanitize.LogString(finalRole)),
 	)
 
 	return &pb.RegisterResponse{
@@ -1851,7 +1851,7 @@ func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*
 
 		}
 
-		s.log.Error("Database error getting email for TOTP setup", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Database error getting email for TOTP setup", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -1873,7 +1873,7 @@ func (s *userServer) SetupTOTP(ctx context.Context, req *pb.SetupTOTPRequest) (*
 
 	}
 
-	s.log.Info("TOTP setup generated", zap.String("user_id", req.UserId))
+	s.log.Info("TOTP setup generated", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.SetupTOTPResponse{
 
@@ -1910,7 +1910,7 @@ func (s *userServer) ConfirmTOTP(ctx context.Context, req *pb.ConfirmTOTPRequest
 
 	if err != nil {
 
-		s.log.Warn("TOTP code validation error", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Warn("TOTP code validation error", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errFailedToValidateTOTP)
 
@@ -1936,13 +1936,13 @@ func (s *userServer) ConfirmTOTP(ctx context.Context, req *pb.ConfirmTOTPRequest
 
 	if err := s.userRepo.EnableTOTP(ctx, req.UserId, encryptedSecret, hashedCodes, intToInt32(len(req.BackupCodes))); err != nil {
 
-		s.log.Error("Failed to enable TOTP", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to enable TOTP", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to enable TOTP")
 
 	}
 
-	s.log.Info("TOTP enabled successfully", zap.String("user_id", req.UserId))
+	s.log.Info("TOTP enabled successfully", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.ConfirmTOTPResponse{Success: true, Message: "TOTP enabled successfully"}, nil
 
@@ -1988,7 +1988,7 @@ func (s *userServer) VerifyTOTP(ctx context.Context, req *pb.VerifyTOTPRequest) 
 
 		if backupErr != nil {
 
-			s.log.Warn("Invalid backup code", zap.Error(backupErr), zap.String("user_id", req.UserId))
+			s.log.Warn("Invalid backup code", zap.Error(backupErr), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 			return nil, status.Error(codes.Unauthenticated, "invalid backup code")
 
@@ -2032,7 +2032,7 @@ func (s *userServer) VerifyTOTP(ctx context.Context, req *pb.VerifyTOTPRequest) 
 
 	}
 
-	s.log.Info("TOTP verified", zap.String("user_id", req.UserId), zap.Bool("valid", valid))
+	s.log.Info("TOTP verified", zap.String("user_id", sanitize.LogString(req.UserId)), zap.Bool("valid", valid))
 
 	return &pb.VerifyTOTPResponse{Valid: valid, BackupCodesRemaining: backupCodesRemaining}, nil
 
@@ -2106,7 +2106,7 @@ func (s *userServer) DisableTOTP(ctx context.Context, req *pb.DisableTOTPRequest
 
 	}
 
-	s.log.Info("TOTP disabled", zap.String("user_id", req.UserId))
+	s.log.Info("TOTP disabled", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.DisableTOTPResponse{Success: true, Message: "TOTP disabled successfully"}, nil
 
@@ -2486,7 +2486,7 @@ func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstr
 
 		if err != nil {
 
-			s.log.Error("Failed to query menstrual symptoms", zap.Error(err), zap.String("cycle_id", c.ID))
+			s.log.Error("Failed to query menstrual symptoms", zap.Error(err), zap.String("cycle_id", sanitize.LogString(c.ID)))
 
 			return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -2496,7 +2496,7 @@ func (s *userServer) ListMenstrualCycles(ctx context.Context, req *pb.ListMenstr
 
 		if err != nil {
 
-			s.log.Error("Failed to query menstrual moods", zap.Error(err), zap.String("cycle_id", c.ID))
+			s.log.Error("Failed to query menstrual moods", zap.Error(err), zap.String("cycle_id", sanitize.LogString(c.ID)))
 
 			return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -2673,7 +2673,7 @@ func (s *userServer) GetUserClaims(ctx context.Context, req *pb.GetUserClaimsReq
 
 		}
 
-		s.log.Error("Failed to get user claims", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to get user claims", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -2720,7 +2720,7 @@ func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileReq
 
 		}
 
-		s.log.Error("Failed to load user for deletion", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to load user for deletion", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -2734,7 +2734,7 @@ func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileReq
 
 	if err := s.userRepo.DeleteProfileData(ctx, req.UserId); err != nil {
 
-		s.log.Error("Failed to delete profile", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to delete profile", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to delete profile")
 
@@ -2748,7 +2748,7 @@ func (s *userServer) DeleteProfile(ctx context.Context, req *pb.DeleteProfileReq
 
 	}
 
-	s.log.Info("Profile deleted (GDPR)", zap.String("user_id", req.UserId))
+	s.log.Info("Profile deleted (GDPR)", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.DeleteProfileResponse{Status: "deleted", Message: "Profile deleted successfully"}, nil
 
@@ -2772,7 +2772,7 @@ func (s *userServer) ExportUserData(ctx context.Context, req *pb.ExportUserDataR
 
 		}
 
-		s.log.Error("Database error exporting user data", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Database error exporting user data", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, errDatabaseError)
 
@@ -2844,7 +2844,7 @@ func (s *userServer) exportHealthConditions(ctx context.Context, userID string) 
 
 	if err != nil {
 
-		s.log.Warn("Failed to load health conditions for export", zap.Error(err), zap.String("user_id", userID))
+		s.log.Warn("Failed to load health conditions for export", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		return nil
 
@@ -2873,7 +2873,7 @@ func (s *userServer) exportBodyComposition(ctx context.Context, userID string) [
 
 	if err != nil {
 
-		s.log.Warn("Failed to load body composition for export", zap.Error(err), zap.String("user_id", userID))
+		s.log.Warn("Failed to load body composition for export", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		return nil
 
@@ -2910,7 +2910,7 @@ func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) [
 
 	if err != nil {
 
-		s.log.Warn("Failed to load menstrual cycles for export", zap.Error(err), zap.String("user_id", userID))
+		s.log.Warn("Failed to load menstrual cycles for export", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		return nil
 
@@ -2924,7 +2924,7 @@ func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) [
 
 		if err != nil {
 
-			s.log.Warn("Failed to load cycle symptoms for export", zap.Error(err), zap.String("cycle_id", c.ID))
+			s.log.Warn("Failed to load cycle symptoms for export", zap.Error(err), zap.String("cycle_id", sanitize.LogString(c.ID)))
 
 		}
 
@@ -2932,7 +2932,7 @@ func (s *userServer) exportMenstrualCycles(ctx context.Context, userID string) [
 
 		if err != nil {
 
-			s.log.Warn("Failed to load cycle moods for export", zap.Error(err), zap.String("cycle_id", c.ID))
+			s.log.Warn("Failed to load cycle moods for export", zap.Error(err), zap.String("cycle_id", sanitize.LogString(c.ID)))
 
 		}
 
@@ -2959,7 +2959,7 @@ func (s *userServer) exportDevices(ctx context.Context, userID string) []*pb.Dev
 
 	if err != nil {
 
-		s.log.Warn("Failed to load devices for export", zap.Error(err), zap.String("user_id", userID))
+		s.log.Warn("Failed to load devices for export", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		return nil
 
@@ -3012,7 +3012,7 @@ func (s *userServer) requireAdminRole(ctx context.Context, requesterID string) e
 
 		}
 
-		s.log.Error("Failed to verify admin role", zap.Error(err), zap.String("requester_id", requesterID))
+		s.log.Error("Failed to verify admin role", zap.Error(err), zap.String("requester_id", sanitize.LogString(requesterID)))
 
 		return status.Error(codes.Internal, errDatabaseError)
 
@@ -3247,9 +3247,9 @@ func (s *userServer) AdminCreateInvite(ctx context.Context, req *pb.AdminCreateI
 
 	s.log.Info("Invite code created",
 
-		zap.String("code", code),
+		zap.String("code", sanitize.LogString(code)),
 
-		zap.String("role", role),
+		zap.String("role", sanitize.LogString(role)),
 
 		zap.Int("max_uses", int(maxUses)),
 	)
@@ -3339,7 +3339,7 @@ func (s *userServer) AdminRevokeInvite(ctx context.Context, req *pb.AdminRevokeI
 
 	}
 
-	s.log.Info("Invite code revoked", zap.String("code", req.GetCode()))
+	s.log.Info("Invite code revoked", zap.String("code", sanitize.LogString(req.GetCode())))
 
 	return &pb.AdminRevokeInviteResponse{Success: true, Message: "Invite revoked successfully"}, nil
 
@@ -3361,7 +3361,7 @@ func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUse
 
 	if err := s.userRepo.Delete(ctx, req.UserId); err != nil {
 
-		s.log.Error("Failed to delete user", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to delete user", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to delete user")
 
@@ -3375,7 +3375,7 @@ func (s *userServer) AdminDeleteUser(ctx context.Context, req *pb.AdminDeleteUse
 
 	}
 
-	s.log.Info("User deleted", zap.String("user_id", req.UserId))
+	s.log.Info("User deleted", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.AdminDeleteUserResponse{Success: true, Message: "User deleted successfully"}, nil
 
@@ -3397,13 +3397,13 @@ func (s *userServer) AdminBanUser(ctx context.Context, req *pb.AdminBanUserReque
 
 	if err := s.userRepo.BanUser(ctx, req.UserId); err != nil {
 
-		s.log.Error("Failed to ban user", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to ban user", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to ban user")
 
 	}
 
-	s.log.Info("User banned", zap.String("user_id", req.UserId))
+	s.log.Info("User banned", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.AdminBanUserResponse{Success: true, Message: "User banned successfully"}, nil
 
@@ -3425,13 +3425,13 @@ func (s *userServer) AdminUnbanUser(ctx context.Context, req *pb.AdminUnbanUserR
 
 	if err := s.userRepo.UnbanUser(ctx, req.UserId); err != nil {
 
-		s.log.Error("Failed to unban user", zap.Error(err), zap.String("user_id", req.UserId))
+		s.log.Error("Failed to unban user", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
 
 		return nil, status.Error(codes.Internal, "failed to unban user")
 
 	}
 
-	s.log.Info("User unbanned", zap.String("user_id", req.UserId))
+	s.log.Info("User unbanned", zap.String("user_id", sanitize.LogString(req.UserId)))
 
 	return &pb.AdminUnbanUserResponse{Success: true, Message: "User unbanned successfully"}, nil
 
@@ -3810,7 +3810,7 @@ func listenUserService(port string, log *logger.Logger) net.Listener {
 // serveMetricsServer запускает сервер Prometheus метрик.
 func serveMetricsServer(log *logger.Logger, metricsSrv *http.Server, metricsPort string) {
 
-	log.Info("Starting metrics server", zap.String("port", metricsPort))
+	log.Info("Starting metrics server", zap.String("port", sanitize.LogString(metricsPort)))
 
 	if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 
@@ -3823,7 +3823,7 @@ func serveMetricsServer(log *logger.Logger, metricsSrv *http.Server, metricsPort
 // serveUserService запускает gRPC сервер.
 func serveUserService(log *logger.Logger, s *grpc.Server, lis net.Listener, port string) {
 
-	log.Info("User service starting", zap.String("port", port))
+	log.Info("User service starting", zap.String("port", sanitize.LogString(port)))
 
 	if err := s.Serve(lis); err != nil && !strings.Contains(err.Error(), "Server closed") {
 

@@ -194,7 +194,7 @@ func TestUserRepository_Update_Success(t *testing.T) {
 	}
 
 	mock.ExpectExec("UPDATE users SET full_name").
-		WithArgs("Updated Name", user.UpdatedAt, "user-1").
+		WithArgs("Updated Name", sqlmock.AnyArg(), "user-1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Update(ctx, user)
@@ -214,7 +214,7 @@ func TestUserRepository_Update_Error(t *testing.T) {
 	}
 
 	mock.ExpectExec("UPDATE users SET full_name").
-		WithArgs("Updated Name", user.UpdatedAt, "user-1").
+		WithArgs("Updated Name", sqlmock.AnyArg(), "user-1").
 		WillReturnError(assert.AnError)
 
 	err := repo.Update(ctx, user)

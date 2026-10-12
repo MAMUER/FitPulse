@@ -94,7 +94,7 @@ func (g *gateway) userTOTPEnabled(ctx context.Context, userID string) bool {
 
 	if err != nil {
 
-		g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", userID))
+		g.log.Warn("Could not check TOTP status", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		return false
 
@@ -194,7 +194,7 @@ func (g *gateway) rotateRefreshToken(ctx context.Context, oldToken string) (stri
 
 				g.log.Warn("Refresh token reuse detected, all sessions invalidated",
 
-					zap.String("user_id", fpUserID))
+					zap.String("user_id", sanitize.LogString(fpUserID)))
 
 				return "", "", errors.New("refresh token reuse detected")
 
@@ -860,11 +860,11 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		email := html.EscapeString(strings.ReplaceAll(strings.ReplaceAll(req.Email, "\n", ""), "\r", ""))
 
-		g.log.Error("Login failed", zap.Error(err), zap.String("email", email))
+		g.log.Error("Login failed", zap.Error(err), zap.String("email", sanitize.LogString(email)))
 
 		if httpCode == http.StatusUnauthorized && strings.Contains(errMsg, "Email not confirmed") {
 
-			g.log.Warn("Login attempt with unconfirmed email", zap.String("email", email))
+			g.log.Warn("Login attempt with unconfirmed email", zap.String("email", sanitize.LogString(email)))
 
 			http.Error(w, "Email не подтверждён. Проверьте вашу почту.", httpCode)
 
@@ -872,7 +872,7 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		g.log.Error("Login request failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
+		g.log.Error("Login request failed", zap.Int("http_code", httpCode), zap.String("error", sanitize.LogString(errMsg)))
 
 		http.Error(w, errMsg, httpCode)
 
@@ -976,7 +976,7 @@ func (g *gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err := g.sessionStore.InvalidateUserSession(r.Context(), userID); err != nil {
 
-			g.log.Warn("Failed to invalidate server session", zap.String("user_id", userID), zap.Error(err))
+			g.log.Warn("Failed to invalidate server session", zap.String("user_id", sanitize.LogString(userID)), zap.Error(err))
 
 		}
 
@@ -1881,7 +1881,7 @@ func (g *gateway) writeSessionCookies(ctx context.Context, w http.ResponseWriter
 
 	if err != nil {
 
-		g.log.Error("Failed to issue JWT after 2FA", zap.Error(err), zap.String("user_id", userID))
+		g.log.Error("Failed to issue JWT after 2FA", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		http.Error(w, "Failed to issue token", http.StatusInternalServerError)
 
@@ -2085,7 +2085,7 @@ func (g *gateway) totpStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 
-		g.log.Error("Failed to load TOTP status", zap.Error(err), zap.String("user_id", userID))
+		g.log.Error("Failed to load TOTP status", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 
 		http.Error(w, "Failed to load TOTP status", http.StatusInternalServerError)
 

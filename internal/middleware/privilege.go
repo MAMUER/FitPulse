@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"net/http"
@@ -30,7 +31,7 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 			).Scan(&actualRole)
 
 			if err == sql.ErrNoRows {
-				log.Warn("User not found during privilege check", zap.String("user_id", userID))
+				log.Warn("User not found during privilege check", zap.String("user_id", sanitize.LogString(userID)))
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
@@ -42,9 +43,9 @@ func RequirePrivilege(db *sql.DB, requiredRole string, log *zap.Logger) func(htt
 
 			if actualRole != requiredRole {
 				log.Warn("Insufficient privileges",
-					zap.String("user_id", userID),
-					zap.String("required_role", requiredRole),
-					zap.String("actual_role", actualRole),
+					zap.String("user_id", sanitize.LogString(userID)),
+					zap.String("required_role", sanitize.LogString(requiredRole)),
+					zap.String("actual_role", sanitize.LogString(actualRole)),
 				)
 				log.Error("Access denied: insufficient privileges")
 				http.Error(w, msgNotFound, http.StatusNotFound)

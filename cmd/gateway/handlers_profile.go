@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,7 +38,7 @@ func (g *gateway) getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		UserId: userID,
 	})
 	if err != nil {
-		g.log.Error("Failed to get profile", zap.Error(err), zap.String("user_id", userID))
+		g.log.Error("Failed to get profile", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		http.Error(w, errMsg, httpCode)
 		return
@@ -117,7 +118,7 @@ func (g *gateway) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Сервис пользователей временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 			return
 		}
-		g.log.Error("Profile update failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
+		g.log.Error("Profile update failed", zap.Int("http_code", httpCode), zap.String("error", sanitize.LogString(errMsg)))
 		http.Error(w, errMsg, httpCode)
 		return
 	}

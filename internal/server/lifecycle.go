@@ -3,6 +3,7 @@
 package server
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"net/http"
 	"os/signal"
@@ -85,7 +86,7 @@ func Serve(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, m
 
 	go func() {
 
-		log.Info("Starting metrics server", zap.String("port", cfg.MetricsPort))
+		log.Info("Starting metrics server", zap.String("port", sanitize.LogString(cfg.MetricsPort)))
 
 		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 
@@ -97,7 +98,7 @@ func Serve(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, m
 
 	go func() {
 
-		log.Info("Starting service", zap.String("port", cfg.Port))
+		log.Info("Starting service", zap.String("port", sanitize.LogString(cfg.Port)))
 
 		if err := srv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 

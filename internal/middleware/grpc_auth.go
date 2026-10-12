@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"strings"
 
@@ -19,7 +20,7 @@ func GRPCAuthInterceptor(publicKeyPEM string, log *zap.Logger) grpc.UnaryServerI
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			log.Warn("Missing gRPC metadata", zap.String("method", info.FullMethod))
+			log.Warn("Missing gRPC metadata", zap.String("method", sanitize.LogString(info.FullMethod)))
 			return nil, status.Error(codes.Unauthenticated, "missing metadata")
 		}
 
@@ -32,20 +33,20 @@ func GRPCAuthInterceptor(publicKeyPEM string, log *zap.Logger) grpc.UnaryServerI
 		}
 
 		if authHeader == "" {
-			log.Warn("Missing authorization header", zap.String("method", info.FullMethod))
+			log.Warn("Missing authorization header", zap.String("method", sanitize.LogString(info.FullMethod)))
 			return nil, status.Error(codes.Unauthenticated, "missing authorization header")
 		}
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-			log.Warn("Invalid authorization format", zap.String("method", info.FullMethod))
+			log.Warn("Invalid authorization format", zap.String("method", sanitize.LogString(info.FullMethod)))
 			return nil, status.Error(codes.Unauthenticated, "invalid authorization format")
 		}
 
 		token := parts[1]
 		claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 		if err != nil {
-			log.Warn("Invalid access token", zap.Error(err), zap.String("method", info.FullMethod))
+			log.Warn("Invalid access token", zap.Error(err), zap.String("method", sanitize.LogString(info.FullMethod)))
 			return nil, status.Error(codes.Unauthenticated, "invalid token")
 		}
 

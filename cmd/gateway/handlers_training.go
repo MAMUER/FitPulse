@@ -168,7 +168,7 @@ func writeGeneratePlanError(g *gateway, w http.ResponseWriter, err error, userID
 		http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 		return
 	}
-	g.log.Error("Plan generation failed", zap.Int("http_code", httpCode), zap.String("error", errMsg))
+	g.log.Error("Plan generation failed", zap.Int("http_code", httpCode), 		zap.String("error", sanitize(errMsg)))
 	http.Error(w, errMsg, httpCode)
 }
 

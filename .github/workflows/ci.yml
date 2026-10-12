@@ -1663,8 +1663,10 @@ jobs:
       - name: Health check
         run: bash scripts/ci/verify.sh health_check
       - name: Run UAT tests
+        env:
+          BASE_URL: ${{ steps.target.outputs.target }}
         run: |
-          python scripts/api-test.py --base-url "${{ steps.target.outputs.target }}"
+          python scripts/api-test.py --base-url "$BASE_URL"
       - name: Performance test (k6)
         uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec
         with:

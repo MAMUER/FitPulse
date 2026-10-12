@@ -319,11 +319,11 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
 
 	s.log.Info("Классификация завершена",
-		zap.String("user_id", req.UserID),
-		zap.String("predicted_class", classInfo.Name),
+		zap.String("user_id", sanitize.LogString(req.UserID)),
+		zap.String("predicted_class", sanitize.LogString(classInfo.Name)),
 		zap.Float64("confidence", confidence),
-		zap.String("state", classInfo.Name),
-		zap.String("model", modelUsed),
+		zap.String("state", sanitize.LogString(classInfo.Name)),
+		zap.String("model", sanitize.LogString(modelUsed)),
 	)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -694,7 +694,7 @@ func classifierLoggingMiddleware(log *zap.Logger) func(http.Handler) http.Handle
 			}
 
 			log.Info("HTTP_REQUEST",
-				zap.String("method", r.Method),
+				zap.String("method", sanitize.LogString(r.Method)),
 				zap.String("path", sanitize.LogString(r.URL.Path)),
 				zap.Int("status", rw.statusCode),
 				zap.Int64("duration_ms", duration.Milliseconds()),
@@ -711,7 +711,7 @@ func main() {
 	s := &classifierServer{log: log}
 	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
 		s.onnxClassifier = clf
-		log.Info("ONNX-классификатор загружен", zap.String("weights", DefaultONNXWeightsPath()))
+		log.Info("ONNX-классификатор загружен", zap.String("weights", sanitize.LogString(DefaultONNXWeightsPath())))
 	} else {
 		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
 	}

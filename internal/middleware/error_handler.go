@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,9 +27,9 @@ func ErrorHandler(log *zap.Logger) func(http.Handler) http.Handler {
 			if rw.statusCode >= 400 {
 				log.Warn("Error response",
 					zap.Int("status", rw.statusCode),
-					zap.String("path", sanitizeLogValue(r.URL.Path)),
-					zap.String("method", sanitizeLogValue(r.Method)),
-					zap.String("correlationId", sanitizeLogValue(GetCorrelationID(r.Context()))),
+					zap.String("path", sanitize.LogString(sanitizeLogValue(r.URL.Path))),
+					zap.String("method", sanitize.LogString(sanitizeLogValue(r.Method))),
+					zap.String("correlationId", sanitize.LogString(sanitizeLogValue(GetCorrelationID(r.Context())))),
 				)
 			}
 		})

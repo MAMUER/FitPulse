@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"errors"
@@ -57,13 +58,13 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractToken(r)
 			if token == "" {
-				log.Debug("Missing authorization header and access token cookie", zap.String("path", sanitizeLogValue(r.URL.Path)))
+				log.Debug("Missing authorization header and access token cookie", zap.String("path", sanitize.LogString(sanitizeLogValue(r.URL.Path))))
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
 			claims, err := jwt.ValidateAccessToken(token, publicKeyPEM)
 			if err != nil {
-				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitizeLogValue(r.URL.Path)))
+				log.Debug("Invalid token", zap.Error(err), zap.String("path", sanitize.LogString(sanitizeLogValue(r.URL.Path))))
 				http.Error(w, msgNotFound, http.StatusNotFound)
 				return
 			}
@@ -84,7 +85,7 @@ type requireRoleHandler struct {
 func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok || userID == "" {
-		h.log.Error("Missing user ID in context", zap.String("path", sanitizeLogValue(r.URL.Path)))
+		h.log.Error("Missing user ID in context", zap.String("path", sanitize.LogString(sanitizeLogValue(r.URL.Path))))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}
@@ -99,7 +100,7 @@ func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isRoleAllowed(actualRole, h.allowed) {
-		h.log.Error("Role not allowed", zap.String("user_id", userID), zap.Strings("allowed_roles", h.allowed))
+		h.log.Error("Role not allowed", zap.String("user_id", sanitize.LogString(userID)), zap.Strings("allowed_roles", h.allowed))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}
@@ -108,11 +109,11 @@ func (h *requireRoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func writeRoleVerificationError(w http.ResponseWriter, err error, userID string, log *zap.Logger) {
 	if errors.Is(err, sql.ErrNoRows) {
-		log.Error("Role verification error", zap.Error(err), zap.String("user_id", userID))
+		log.Error("Role verification error", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 		http.Error(w, msgNotFound, http.StatusNotFound)
 		return
 	}
-	log.Error("Role verification DB error", zap.Error(err), zap.String("user_id", userID))
+	log.Error("Role verification DB error", zap.Error(err), zap.String("user_id", sanitize.LogString(userID)))
 	http.Error(w, "Сервис временно недоступен", http.StatusServiceUnavailable)
 }
 
@@ -170,15 +171,15 @@ func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec
 
 			// Log in structured format
 			log.Info("HTTP_REQUEST",
-				zap.String("correlationId", sanitizeLogValue(cid)),
-				zap.String("userId", userID),
+				zap.String("correlationId", sanitize.LogString(sanitizeLogValue(cid))),
+				zap.String("userId", sanitize.LogString(userID)),
 				zap.String("action", "HTTP_REQUEST"),
 				zap.Int64("durationMs", duration.Milliseconds()),
-				zap.String("endpoint", sanitizeLogValue(r.URL.Path)),
-				zap.String("method", sanitizeLogValue(r.Method)),
+				zap.String("endpoint", sanitize.LogString(sanitizeLogValue(r.URL.Path))),
+				zap.String("method", sanitize.LogString(sanitizeLogValue(r.Method))),
 				zap.Int("statusCode", rw.statusCode),
-				zap.String("userAgent", sanitizeLogValue(r.Header.Get("User-Agent"))),
-				zap.String("ip", sanitizeLogValue(getClientIP(r))),
+				zap.String("userAgent", sanitize.LogString(sanitizeLogValue(r.Header.Get("User-Agent")))),
+				zap.String("ip", sanitize.LogString(sanitizeLogValue(getClientIP(r)))),
 			)
 		})
 	}
@@ -220,8 +221,8 @@ func RecoveryMiddleware(log *zap.Logger) func(http.Handler) http.Handler {
 				if rec := recover(); rec != nil {
 					log.Error("Panic recovered",
 						zap.Any("panic", rec),
-						zap.String("path", sanitizeLogValue(r.URL.Path)),
-						zap.String("stack", string(debug.Stack())),
+						zap.String("path", sanitize.LogString(sanitizeLogValue(r.URL.Path))),
+						zap.String("stack", sanitize.LogString(string(debug.Stack()))),
 					)
 					w.Header().Set("Content-Type", "text/plain")
 					w.WriteHeader(http.StatusInternalServerError)
@@ -243,8 +244,8 @@ func RecoveryGRPC(log *zap.Logger) grpc.UnaryServerInterceptor {
 			if rec := recover(); rec != nil {
 				log.Error("gRPC panic recovered",
 					zap.Any("panic", rec),
-					zap.String("method", info.FullMethod),
-					zap.String("stack", string(debug.Stack())),
+					zap.String("method", sanitize.LogString(info.FullMethod)),
+					zap.String("stack", sanitize.LogString(string(debug.Stack()))),
 				)
 				err = status.Error(codes.Internal, "panic recovered")
 				resp = nil

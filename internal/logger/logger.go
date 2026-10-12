@@ -2,6 +2,7 @@
 package logger
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"log"
 	"os"
@@ -73,7 +74,7 @@ func newLogger(service string, development bool, configOverride *zap.Config) *Lo
 	}
 
 	return &Logger{
-		Logger:  logger.With(zap.String("service", service)),
+		Logger:  logger.With(zap.String("service", sanitize.LogString(service))),
 		service: service,
 	}
 }
@@ -92,17 +93,17 @@ func (l *Logger) withFields(fields ...zap.Field) *Logger {
 
 // WithRequestID добавляет correlationId к контексту логгера
 func (l *Logger) WithRequestID(correlationID string) *Logger {
-	return l.withFields(zap.String("correlationId", correlationID))
+	return l.withFields(zap.String("correlationId", sanitize.LogString(correlationID)))
 }
 
 // WithUserID добавляет userId к контексту логгера
 func (l *Logger) WithUserID(userID string) *Logger {
-	return l.withFields(zap.String("userId", userID))
+	return l.withFields(zap.String("userId", sanitize.LogString(userID)))
 }
 
 // WithAction добавляет action к контексту логгера
 func (l *Logger) WithAction(action string) *Logger {
-	return l.withFields(zap.String("action", action))
+	return l.withFields(zap.String("action", sanitize.LogString(action)))
 }
 
 // WithDuration добавляет durationMs к контексту логгера

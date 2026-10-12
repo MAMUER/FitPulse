@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -82,14 +83,14 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Info("Starting metrics server", zap.String("port", metricsPort))
+		log.Info("Starting metrics server", zap.String("port", sanitize.LogString(metricsPort)))
 		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 			log.Fatal("Metrics server failed", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		log.Info("Starting health server", zap.String("port", port))
+		log.Info("Starting health server", zap.String("port", sanitize.LogString(port)))
 		if err := healthSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
 			log.Fatal("Health server failed", zap.Error(err))
 		}
@@ -190,7 +191,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue.Consumer, log *logger.Logger, msg amqp.Delivery) {
 	event, err := parseBiometricEvent(msg.Body)
 	if err != nil {
-		log.Error("Failed to parse biometric event", zap.Error(err), zap.String("body", string(msg.Body)))
+		log.Error("Failed to parse biometric event", zap.Error(err), zap.String("body", sanitize.LogString(string(msg.Body))))
 		metrics.ErrorTotal.WithLabelValues(serviceName, "parse_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
 			log.Error(logFailedToNack, zap.Error(nackErr))
@@ -199,7 +200,7 @@ func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue
 	}
 
 	if err := validateBiometricEvent(event); err != nil {
-		log.Error("Invalid biometric event", zap.Error(err), zap.String("user_id", event.UserID))
+		log.Error("Invalid biometric event", zap.Error(err), zap.String("user_id", sanitize.LogString(event.UserID)))
 		metrics.ErrorTotal.WithLabelValues(serviceName, "validation_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, false); nackErr != nil {
 			log.Error(logFailedToNack, zap.Error(nackErr))
@@ -210,8 +211,8 @@ func processBiometricEvent(ctx context.Context, database *sql.DB, consumer queue
 	if err := insertBiometricRecord(ctx, database, event); err != nil {
 		log.Error("Failed to insert biometric record",
 			zap.Error(err),
-			zap.String("user_id", event.UserID),
-			zap.String("metric_type", event.MetricType),
+			zap.String("user_id", sanitize.LogString(event.UserID)),
+			zap.String("metric_type", sanitize.LogString(event.MetricType)),
 		)
 		metrics.ErrorTotal.WithLabelValues(serviceName, "insert_error").Inc()
 		if nackErr := consumer.Nack(msg.DeliveryTag, false, true); nackErr != nil {
