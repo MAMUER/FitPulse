@@ -2,8 +2,10 @@ package contract
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,6 +42,19 @@ func dialContractService(t *testing.T, addr, name string) *grpc.ClientConn {
 	return conn
 }
 
+// ensureServiceReachable skips the test when the service is not running.
+// Without this check a transport error ("connection refused") is indistinguishable
+// from a server-side validation error and nil-request assertions pass vacuously.
+func ensureServiceReachable(t *testing.T, addr, name string) {
+	t.Helper()
+	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		t.Skipf("%s not reachable at %s (%v): contract assertions require a running service", name, addr, err)
+		return
+	}
+	_ = conn.Close()
+}
+
 func runNilRequestContract(t *testing.T, methods []contractMethod) {
 	t.Helper()
 	for _, m := range methods {
@@ -58,6 +73,8 @@ func TestUserServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
+	ensureServiceReachable(t, "localhost:50051", "user-service")
+
 	client := userpb.NewUserServiceClient(dialContractService(t, "localhost:50051", "user-service"))
 
 	runNilRequestContract(t, []contractMethod{
@@ -74,6 +91,8 @@ func TestBiometricServiceContract(t *testing.T) {
 		t.Skip("skipping contract test in short mode")
 	}
 
+	ensureServiceReachable(t, "localhost:50052", "biometric-service")
+
 	client := biometricpb.NewBiometricServiceClient(dialContractService(t, "localhost:50052", "biometric-service"))
 
 	runNilRequestContract(t, []contractMethod{
@@ -87,6 +106,8 @@ func TestTrainingServiceContract(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping contract test in short mode")
 	}
+
+	ensureServiceReachable(t, "localhost:50053", "training-service")
 
 	client := trainingpb.NewTrainingServiceClient(dialContractService(t, "localhost:50053", "training-service"))
 

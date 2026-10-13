@@ -65,19 +65,27 @@ build_go_binaries() {
 	echo "-> Building Go services in parallel..."
 	GOMAXPROCS=$(nproc)
 	export GOMAXPROCS
+	# Discover every Go main package under cmd/ so new services are picked up
+	# automatically (e.g. admin-cli, classifier, data-processor).
+	services=()
+	while IFS= read -r svc; do
+		[ -n "$svc" ] && services+=("$svc")
+	done < <(find cmd -mindepth 2 -maxdepth 2 -name main.go -printf '%h\n' | sed 's|^cmd/||' | sort)
 	pids=()
-	for svc in user-service biometric-service training-service gateway device-aggregator; do
+	names=()
+	for svc in "${services[@]}"; do
 		echo "  Building $svc..."
 		go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
 		pids+=($!)
+		names+=("$svc")
 	done
-	for pid in "${pids[@]}"; do
-		wait "$pid" || {
-			echo "❌ Build failed for PID $pid"
+	for i in "${!pids[@]}"; do
+		wait "${pids[$i]}" || {
+			echo "❌ Build failed for ${names[$i]}"
 			exit 1
 		}
 	done
-	echo "✅ All binaries built successfully"
+	echo "✅ All binaries built successfully (${#services[@]} services)"
 	ls -lh bin/
 }
 

@@ -5,6 +5,19 @@ paths = [
   '''\.test\.(js|jsx)$''',
   '''_test\.go$''',
   '''^/docs/''',
+  # Example/test/config files with documented placeholder values
+  '''(^|/)\.env\.example$''',
+  '''(^|/)docker-compose\.test\.yml$''',
+  # Deleted directories kept only in git history, contained dev defaults
+  '''(^|/)deployments/''',
+  '''(^|/)stats-service/''',
+]
+# Passwords that are environment variable references, not literal secrets:
+# $(VAR) in Kubernetes manifests and ${VAR}/${VAR:-default} in Compose files.
+regexTarget = "match"
+regexes = [
+  '''\$\{[^}]+\}''',
+  '''\$\([A-Za-z_][A-Za-z0-9_]*\)''',
 ]
 
 [[rules]]

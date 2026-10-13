@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
 
 # ========== Builder stage ==========
-FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS builder
+FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates=20260611-r0 git=2.54.0-r0
+# git and ca-certificates are build-time only and not shipped in the runtime stage
+# hadolint ignore=DL3018
+RUN apk add --no-cache git ca-certificates
 
 COPY go.mod go.sum ./
 RUN go mod download

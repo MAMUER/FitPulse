@@ -364,13 +364,15 @@ security_gate() {
 		fi
 	fi
 	if [ -f sarif-results/gitleaks.sarif ]; then
-		GITLEAKS=$(jq '[.runs[].results[] | select(.level == "error" or .level == "warning")] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
+		# Gitleaks does not populate the SARIF "level" field (gitleaks/gitleaks#1858),
+		# so findings must be counted from all results, not filtered by level.
+		GITLEAKS=$(jq '[.runs[].results[]] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
 		GITLEAKS=$(printf '%s' "$GITLEAKS")
 		if [ -z "$GITLEAKS" ]; then GITLEAKS=0; fi
 		echo "gitleaks: $GITLEAKS secrets found"
 		if [ "$GITLEAKS" -gt 0 ]; then
 			echo "❌ FAIL: Gitleaks found $GITLEAKS potential secrets"
-			jq -r '.runs[].results[] | select(.level == "error" or .level == "warning") | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gitleaks.sarif 2>/dev/null | head -10 || true
+			jq -r '.runs[].results[] | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gitleaks.sarif 2>/dev/null | head -10 || true
 			FAIL=1
 		fi
 	fi
