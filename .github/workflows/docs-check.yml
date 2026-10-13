@@ -29,10 +29,17 @@ on:
     - cron: "0 0 * * 0" # Weekly Sunday midnight
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docs-check:
     name: Documentation Consistency Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -376,6 +383,7 @@ jobs:
   runtime-version-update:
     name: Runtime Version Update Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
@@ -408,8 +416,23 @@ jobs:
         run: |
           sed -i "s/^go [0-9]\+\.[0-9]\+\.[0-9]\+/go $LATEST/" go.mod
           sed -i "s/^GO_VERSION := [0-9]\+\.[0-9]\+\.[0-9]\+/GO_VERSION := $LATEST/" Makefile
-          sed -i "s/GO_VERSION: \"[0-9.]*\"/GO_VERSION: \"$LATEST\"/" .github/workflows/ci.yml
-          sed -i "s/GO_VERSION: [0-9.]*/GO_VERSION: $LATEST/" .github/workflows/ci.yml
+          sed -i "s/GO_VERSION: \"[0-9][0-9.]*\"/GO_VERSION: \"$LATEST\"/" .github/workflows/ci.yml
+          sed -i "s/GO_VERSION: [0-9][0-9.]*/GO_VERSION: $LATEST/" .github/workflows/ci.yml
+          for action in go-setup sonar-setup; do
+            sed -i "0,/default: \"[0-9][0-9.]*\"/s//default: \"$LATEST\"/" ".github/actions/$action/action.yml"
+          done
+          sed -i -E "s/Go [0-9]+\.[0-9]+\.[0-9]+/Go $LATEST/" .github/ISSUE_TEMPLATE/bug_report.yml
+          GOLANG_DIGEST=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/golang:pull" | jq -r .token \
+            | xargs -I{} curl -sI -H "Authorization: Bearer {}" -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+              "https://registry-1.docker.io/v2/library/golang/manifests/$LATEST" \
+            | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}')
+          if [ -n "$GOLANG_DIGEST" ]; then
+            for dockerfile in cmd/*/Dockerfile; do
+              sed -i -E "s|FROM golang:[^@]*@sha256:[a-f0-9]+|FROM golang:$LATEST@$GOLANG_DIGEST|" "$dockerfile"
+            done
+          else
+            echo "::warning::Could not resolve digest for golang:$LATEST, Dockerfiles not updated"
+          fi
 
       - name: Update Node.js version
         if: steps.node.outputs.latest != steps.node.outputs.current

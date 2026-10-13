@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang@sha256:f86f1a6701e3dcc445fec097a42f78b758f15950ccf032c2d3e54e2754d32fdb AS builder
+FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS builder
 
 ENV GOPROXY=https://proxy.golang.org,direct
 

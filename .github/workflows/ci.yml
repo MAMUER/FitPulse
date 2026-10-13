@@ -66,8 +66,12 @@ on:
   issues:
     types: [opened, labeled, unlabeled]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
-  GO_VERSION: "1.27.0"
+  GO_VERSION: "1.27.2"
   REGISTRY: ghcr.io
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
@@ -78,19 +82,11 @@ jobs:
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: github.event_name != 'release' && github.event_name != 'issues'
     outputs:
-      gateway: ${{ steps.filter.outputs.gateway }}
-      user: ${{ steps.filter.outputs.user }}
-      biometric: ${{ steps.filter.outputs.biometric }}
-      training: ${{ steps.filter.outputs.training }}
-      device: ${{ steps.filter.outputs.device }}
-      ml: ${{ steps.filter.outputs.ml }}
-      k8s: ${{ steps.filter.outputs.k8s }}
-      workflow: ${{ steps.filter.outputs.workflow }}
-      db: ${{ steps.filter.outputs.db }}
-      infra: ${{ steps.filter.outputs.infra }}
-      any_code: ${{ steps.filter.outputs.any_code }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - run: git config --global init.defaultBranch main
@@ -101,44 +97,6 @@ jobs:
         id: filter
         with:
           filters: |
-            gateway:
-              - 'cmd/gateway/**'
-              - 'internal/gateway/**'
-              - 'api/proto/gateway/**'
-            user:
-              - 'cmd/user-service/**'
-              - 'internal/user/**'
-            biometric:
-              - 'cmd/biometric-service/**'
-              - 'internal/biometric/**'
-            training:
-              - 'cmd/training-service/**'
-              - 'internal/training/**'
-            device:
-              - 'cmd/device-aggregator/**'
-              - 'internal/device/**'
-            classifier:
-              - 'cmd/classifier/**'
-              - 'models/**'
-              - 'datasets/**'
-            k8s:
-              - 'configs/k8s/**'
-            workflow:
-              - '.github/workflows/**'
-            db:
-              - 'db/migrations/**'
-              - 'configs/k8s/base/jobs/**'
-            infra:
-              - 'scripts/**'
-              - 'deploy/**'
-              - 'Makefile'
-            any_code:
-              - 'cmd/**'
-              - 'internal/**'
-              - 'api/**'
-              - 'go.mod'
-              - 'go.sum'
-              - '*.py'
             frontend:
               - 'web/**'
               - '!web/node_modules/**'
@@ -150,6 +108,10 @@ jobs:
   issue-automation:
     name: Issue Automation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
     if: github.event_name == 'issues'
     steps:
       - name: Add triage label
@@ -299,6 +261,9 @@ jobs:
   frontend:
     name: Frontend (Lint + Test + Build)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
     needs: [detect-changes]
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     steps:
@@ -329,6 +294,9 @@ jobs:
   validate-workflow:
     name: Validate Workflow Syntax
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -342,6 +310,9 @@ jobs:
   dockerfile-lint:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -353,6 +324,7 @@ jobs:
   super-linter:
     name: Super Linter
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       statuses: write
@@ -366,7 +338,7 @@ jobs:
       - name: Lint Code Base
         uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918
         env:
-          GO_VERSION: 1.27.0
+          GO_VERSION: 1.27.2
           REGISTRY: ghcr.io
           FITPULSE_DOMAIN: fittpulse.duckdns.org
           PYTHON_BLACK_VERSION: "26.5.1"
@@ -403,6 +375,7 @@ jobs:
   codeql:
     name: CodeQL Analysis (${{ matrix.language }})
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    timeout-minutes: 30
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -450,6 +423,9 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     if: |
       github.event_name == 'push' ||
       github.event_name == 'pull_request'
@@ -469,6 +445,7 @@ jobs:
   kubescape:
     name: Kubescape K8s Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [validate-workflow]
     permissions:
       actions: read
@@ -495,6 +472,7 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -518,6 +496,7 @@ jobs:
   osv-scanner:
     name: OSV Scanner
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -542,6 +521,7 @@ jobs:
   fuzz-tests:
     name: Fuzz Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [validate-workflow]
     permissions:
       contents: read
@@ -561,6 +541,9 @@ jobs:
   osv-audit:
     name: OSV Dependency Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -569,7 +552,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install osv-scanner
+      - name: Install security tools
         run: bash scripts/ci/security.sh install_tools
       - name: Run osv-scanner
         run: bash scripts/ci/security.sh run_osv_scanner
@@ -687,6 +670,7 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [security-scan, check, super-linter]
     permissions:
       contents: read
@@ -740,6 +724,9 @@ jobs:
   conventional-commits:
     name: Conventional Commits Check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
     needs: [validate-workflow]
     steps:
       - run: git config --global init.defaultBranch main
@@ -755,6 +742,7 @@ jobs:
   kube-bench:
     name: Kube-Bench CIS Benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -771,6 +759,7 @@ jobs:
   kube-hunter:
     name: Kube-Hunter Penetration Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -787,6 +776,7 @@ jobs:
   checkov:
     name: Checkov IaC Scanner
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [validate-workflow]
     permissions:
       security-events: write
@@ -811,6 +801,7 @@ jobs:
   cosign-verify:
     name: Cosign Verify Images
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [docker, validate-workflow]
     if: github.event_name == 'pull_request'
     permissions:
@@ -839,6 +830,8 @@ jobs:
   check:
     name: Make Check (Lint + Build)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [validate-workflow, dockerfile-lint]
     timeout-minutes: 30
     steps:
@@ -878,6 +871,8 @@ jobs:
   test:
     name: Tests (Unit + Integration)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check]
     timeout-minutes: 30
     services:
@@ -919,6 +914,8 @@ jobs:
   contract:
     name: Contract Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [test]
     timeout-minutes: 30
     services:
@@ -956,8 +953,16 @@ jobs:
           cache: true
       - name: Install grpcurl
         run: |
-          go install github.com/fullstorydev/grpcurl/cmd/grpcurl@v1.9.4
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          curl --proto "=https" --tlsv1.2 -sSfL "https://github.com/fullstorydev/grpcurl/releases/download/v1.9.4/grpcurl_1.9.4_linux_x86_64.tar.gz" -o /tmp/grpcurl.tar.gz
+          echo "97e13d58d2733a0e62cd2571d1d5f0c02823f0d25282f08bddedf1ad9c5d1736  /tmp/grpcurl.tar.gz" | sha256sum --check --status || {
+            echo "Hash verification failed"
+            exit 1
+          }
+          mkdir -p /tmp/grpcurl-bin
+          tar -xzf /tmp/grpcurl.tar.gz -C /tmp/grpcurl-bin grpcurl
+          chmod +x /tmp/grpcurl-bin/grpcurl
+          echo "/tmp/grpcurl-bin" >> "$GITHUB_PATH"
+          /tmp/grpcurl-bin/grpcurl --version
       - name: Build services
         run: |
           go build -o /tmp/user-service ./cmd/user-service
@@ -1013,6 +1018,8 @@ jobs:
   binary_build:
     name: Build Binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [detect-changes, check, test, frontend, conventional-commits]
     timeout-minutes: 30
     steps:
@@ -1107,6 +1114,7 @@ jobs:
   slsa-provenance:
     name: SLSA Provenance
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'release' && github.event.action == 'created'
     permissions:
       contents: read
@@ -1411,6 +1419,7 @@ jobs:
   health-check:
     name: Server Health Check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [deploy-production]
     if: always() && needs.deploy-production.result == 'success'
     steps:
@@ -1446,6 +1455,7 @@ jobs:
   csp-headers-check:
     name: CSP Headers Check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [provision-k8s-vps, health-check]
     if: always() && needs.provision-k8s-vps.result == 'success' && needs.health-check.result == 'success'
     steps:
@@ -1461,6 +1471,8 @@ jobs:
   smoke-test:
     name: Smoke Test (testcontainers-go)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [detect-changes, binary_build, check]
     timeout-minutes: 20
     steps:
@@ -1681,6 +1693,7 @@ jobs:
   notify:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: always()
     needs:
       [
@@ -1798,6 +1811,7 @@ jobs:
   dependabot-auto-merge:
     name: Dependabot auto-merge
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.actor == 'dependabot[bot]'
     permissions:
       pull-requests: write

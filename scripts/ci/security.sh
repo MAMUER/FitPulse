@@ -346,7 +346,14 @@ run_osv_python_requirements() {
 }
 
 run_osv_scanner() {
-	osv-scanner scan . 2>&1 || true
+	echo "Scanning dependencies with osv-scanner..."
+	if docker run --rm -v "${GITHUB_WORKSPACE}:/repo" -w /repo \
+		ghcr.io/google/osv-scanner:v2.3.8 \
+		scan .; then
+		echo "✅ osv-scanner completed: no vulnerabilities found"
+	else
+		echo "⚠️ osv-scanner reported findings (see above); check .osv-scanner.toml for exemptions"
+	fi
 }
 
 main() {

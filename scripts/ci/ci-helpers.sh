@@ -13,10 +13,24 @@ validate_workflow() {
 }
 
 run_hadolint() {
-	find cmd -maxdepth 2 -type f -name Dockerfile -print0 | sort -z | while IFS= read -r -d '' dockerfile; do
+	local failed=0
+	while IFS= read -r -d '' dockerfile; do
+		dockerfile=${dockerfile#./}
 		echo "Linting $dockerfile"
-		docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint:v2.12.0 hadolint -c .hadolint.yaml "$dockerfile"
-	done
+		if ! docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint:v2.12.0 hadolint -c .hadolint.yaml "$dockerfile"; then
+			failed=1
+		fi
+	done < <(find . -type f -name Dockerfile \
+		-not -path './.git/*' \
+		-not -path './web/node_modules/*' \
+		-not -path './web/dist/*' \
+		-not -path './bin/*' \
+		-print0 | sort -z)
+
+	if [ "$failed" -ne 0 ]; then
+		echo "Hadolint reported failures"
+		exit 1
+	fi
 }
 
 install_dependencies() {

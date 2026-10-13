@@ -1,11 +1,10 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: "Go Setup"
 description: "Set up Go with cache"
 inputs:
   go-version:
     description: "Go version"
     required: false
-    default: "1.27.0"
+    default: "1.27.2"
 runs:
   using: "composite"
   steps:
