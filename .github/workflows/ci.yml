@@ -481,7 +481,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Semgrep
-        run: "pip install --only-binary :all: 'semgrep==1.172.0'"
+        run: "pip install --only-binary :all: 'semgrep==1.180.0'"
       - name: Run Semgrep scan
         run: bash scripts/ci/security.sh run_semgrep
       - name: Upload Semgrep SARIF
@@ -510,7 +510,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Run OSV Scanner (Go dependencies)
-        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36
+        env:
+          GOTOOLCHAIN: auto
         with:
            scan-args: -r ./ --config .osv-scanner.toml
       - name: Run OSV Scanner (Python requirements)
@@ -535,27 +537,6 @@ jobs:
           cache: true
       - name: Run fuzz tests
         run: bash scripts/ci/test.sh run_fuzz_tests
-  # ============================================================================
-  # OSV AUDIT (manual)
-  # ============================================================================
-  osv-audit:
-    name: OSV Dependency Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Install security tools
-        run: bash scripts/ci/security.sh install_tools
-      - name: Run osv-scanner
-        run: bash scripts/ci/security.sh run_osv_scanner
   # ============================================================================
   # SECURITY SCAN
   # ============================================================================
@@ -1725,7 +1706,6 @@ jobs:
         semgrep,
         osv-scanner,
         fuzz-tests,
-        osv-audit,
         dependency-review,
       ]
     steps:
@@ -1761,7 +1741,6 @@ jobs:
           JOB_STATUS_SEMGREP: ${{ needs.semgrep.result }}
           JOB_STATUS_OSV_SCANNER: ${{ needs.osv-scanner.result }}
           JOB_STATUS_FUZZ_TESTS: ${{ needs.fuzz-tests.result }}
-          JOB_STATUS_OSV_AUDIT: ${{ needs.osv-audit.result }}
           JOB_STATUS_DEPENDENCY_REVIEW: ${{ needs['dependency-review'].result }}
         run: bash scripts/ci/ci-helpers.sh collect_statuses
       - name: Send to Telegram

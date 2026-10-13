@@ -145,7 +145,77 @@ run_checkov() {
 	echo "-> Running Checkov..."
 	mkdir -p sarif-results
 	pip install --only-binary :all: 'checkov==3.3.9'
-	checkov --directory configs/k8s --directory scripts --output sarif --output-file sarif-results/checkov-results.sarif || true
+	local status=0
+	checkov --directory configs/k8s --directory scripts --output sarif --output-file-path sarif-results --compact || status=$?
+
+	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
+	if [ "$status" -ge 2 ]; then
+		echo "::error::Checkov failed to run (exit $status) - IaC scan did not complete, results are NOT green"
+		exit "$status"
+	fi
+
+	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null || true
+
+	if [ "$status" -eq 1 ]; then
+		echo "::error::Checkov found IaC policy violations - failing the job. Fix the findings below or add a justified skip in .checkov.yaml"
+		python3 - <<-'PY'
+			import collections
+			import json
+			import os
+
+			try:
+			    with open("sarif-results/checkov-results.sarif") as fh:
+			        data = json.load(fh)
+			except OSError as exc:
+			    print(f"Could not read Checkov SARIF: {exc}")
+			    raise SystemExit(0)
+
+			definitions = {}
+			for rule in data["runs"][0]["tool"]["driver"].get("rules", []):
+			    definitions[rule.get("id")] = rule.get("shortDescription", {}).get("text", "")
+
+			counter = collections.Counter(
+			    result["ruleId"]
+			    for run in data.get("runs", [])
+			    for result in run.get("results", [])
+			)
+			total = sum(counter.values())
+			if not total:
+			    print("Checkov: no violations")
+			    raise SystemExit(0)
+
+			print(f"Checkov violations: {total} across {len(counter)} checks")
+			for rule, count in counter.most_common():
+			    title = definitions.get(rule, "")
+			    print(f"  {rule}: {count} - {title}")
+
+			summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+			if not summary_path:
+			    raise SystemExit(0)
+
+			rows = [
+			    "### Checkov: IaC policy violations",
+			    "",
+			    f"**{total} violations** across **{len(counter)} checks**",
+			    "",
+			    "| Check | Count | Description |",
+			    "| --- | --- | --- |",
+			]
+			for rule, count in counter.most_common():
+			    title = definitions.get(rule, "").replace("|", "\\|")
+			    rows.append(f"| `{rule}` | {count} | {title} |")
+			rows += [
+			    "",
+			    "Fix the findings above, or add a justified skip to `.checkov.yaml`.",
+			]
+
+			with open(summary_path, "a", encoding="utf-8") as fh:
+			    fh.write("\n".join(rows) + "\n")
+			print("Full breakdown written to the job summary")
+		PY
+		exit 1
+	fi
+
 	echo "✅ Checkov scan completed"
 }
 
@@ -345,17 +415,6 @@ run_osv_python_requirements() {
 	echo "✅ Python requirements scan completed (some packages may not be fully resolved)"
 }
 
-run_osv_scanner() {
-	echo "Scanning dependencies with osv-scanner..."
-	if docker run --rm -v "${GITHUB_WORKSPACE}:/repo" -w /repo \
-		ghcr.io/google/osv-scanner:v2.3.8 \
-		scan .; then
-		echo "✅ osv-scanner completed: no vulnerabilities found"
-	else
-		echo "⚠️ osv-scanner reported findings (see above); check .osv-scanner.toml for exemptions"
-	fi
-}
-
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -390,7 +449,6 @@ main() {
 	run_kube_hunter) run_kube_hunter ;;
 	verify_cosign) verify_cosign ;;
 	download_cosign_public_key) download_cosign_public_key ;;
-	run_osv_scanner) run_osv_scanner ;;
 	run_osv_python_requirements) run_osv_python_requirements ;;
 	sign_images) sign_images ;;
 	security_gate) security_gate ;;
