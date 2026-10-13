@@ -27,7 +27,7 @@ spec:
       containers:
         - name: vault-init
           image: hashicorp/vault:1.15.0
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - /bin/sh
             - -ec
@@ -115,11 +115,13 @@ spec:
               mountPath: /vault/policies
             - name: vault-keys
               mountPath: /vault/keys
+            - name: vault-tmp
+              mountPath: /tmp
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
             runAsUser: 100
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -141,4 +143,6 @@ spec:
           configMap:
             name: vault-postgres-policy
         - name: vault-keys
+          emptyDir: {}
+        - name: vault-tmp
           emptyDir: {}

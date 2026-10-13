@@ -20,7 +20,7 @@ spec:
       containers:
         - name: fluent-bit
           image: fluent/fluent-bit:3.0.0
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 2020
               name: metrics

@@ -36,7 +36,7 @@ spec:
         runAsUser: 100
         runAsGroup: 1000
         fsGroup: 1000
-        readOnlyRootFilesystem: false
+        readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]
@@ -49,15 +49,17 @@ spec:
             name: vault-config
         - name: vault-data
           emptyDir: {}
+        - name: vault-tmp
+          emptyDir: {}
       containers:
         - name: vault
           image: hashicorp/vault:1.15.0
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
             runAsUser: 100
             runAsGroup: 1000
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
@@ -85,6 +87,8 @@ spec:
               readOnly: true
             - name: vault-data
               mountPath: /vault/data
+            - name: vault-tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               path: /v1/sys/health

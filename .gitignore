@@ -110,6 +110,9 @@ results.json
 *temp
 *.docx
 
+# CI scan artifacts (scripts/ci/security.sh)
+sarif-results/
+
 .kilo
 
 

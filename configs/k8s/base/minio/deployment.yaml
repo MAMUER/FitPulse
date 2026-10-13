@@ -37,6 +37,7 @@ spec:
       containers:
         - name: minio
           image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+          imagePullPolicy: Always
           ports:
             - containerPort: 9000
               name: api
