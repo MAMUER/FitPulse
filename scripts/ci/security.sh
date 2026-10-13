@@ -17,7 +17,7 @@ install_tools() {
 		sleep 5
 	done
 	for i in 1 2 3; do
-		if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@8f3b0c7ed018e57905fbd873c697e0b1ede605a5; then # NOSONAR
+		if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0; then # NOSONAR
 			break
 		fi
 		echo "golangci-lint install attempt $i failed; retrying..."

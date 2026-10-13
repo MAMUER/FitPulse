@@ -35,6 +35,11 @@ function todayKey() {
   return getDateKey(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+function todayDateLabel() {
+  const d = new Date();
+  return `${d.getDate()} ${getMonthName(d.getMonth(), 'ru')}`;
+}
+
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value;
@@ -112,7 +117,7 @@ describe('useNutrition', () => {
             title: 'Курица',
             info: '450 ккал · Б 30 · Ж 10 · У 5',
             time: '13:00',
-            date: '12 Октябрь',
+            date: todayDateLabel(),
             color: '#f5d45d',
           },
         ],

@@ -414,7 +414,6 @@ jobs:
         env:
           LATEST: ${{ steps.go.outputs.latest }}
         run: |
-          sed -i "s/^go [0-9]\+\.[0-9]\+\.[0-9]\+/go $LATEST/" go.mod
           sed -i "s/^GO_VERSION := [0-9]\+\.[0-9]\+\.[0-9]\+/GO_VERSION := $LATEST/" Makefile
           sed -i "s/GO_VERSION: \"[0-9][0-9.]*\"/GO_VERSION: \"$LATEST\"/" .github/workflows/ci.yml
           sed -i "s/GO_VERSION: [0-9][0-9.]*/GO_VERSION: $LATEST/" .github/workflows/ci.yml

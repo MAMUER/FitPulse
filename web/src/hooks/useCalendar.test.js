@@ -42,6 +42,11 @@ function todayKey() {
   return getDateKey(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+function todayDateLabel() {
+  const d = new Date();
+  return `${d.getDate()} ${getMonthName(d.getMonth(), 'ru')}`;
+}
+
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value;
@@ -139,7 +144,7 @@ describe('useCalendar', () => {
           {
             title: 'Тренировка в зале',
             type: 'gym',
-            date: '12 Октябрь',
+            date: todayDateLabel(),
             time: '19:00',
             color: '#6fae20',
           },
