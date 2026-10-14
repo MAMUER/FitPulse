@@ -456,7 +456,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
-        run: curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+        run: |
+          # The official installer puts the binary in ~/.kubescape/bin for
+          # non-root users and only extends PATH inside its own shell, which
+          # does not reach later steps.
+          curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
+          kubescape version || kubescape download
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results
@@ -588,6 +594,10 @@ jobs:
           scan-type: "fs"
           scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
+          # Without this the action unsets TRIVY_SEVERITY when building SARIF
+          # ("Building SARIF report with all severities"), so LOW/MEDIUM
+          # findings would fail the job too.
+          limit-severities-for-sarif: "true"
           exit-code: "1"
           skip-dirs: "configs/k8s/overlays/production"
           scan-ref: "."
@@ -597,7 +607,10 @@ jobs:
           output: "sarif-results/trivy-fs.sarif"
           cache-dir: "/home/runner/work/FitPulse/FitPulse/.cache/trivy"
           list-all-pkgs: false
-          cache: true
+          # A fresh DB and checks bundle on every run: the GH Actions cache
+          # restores stale data, and the repo documents Trivy stale-cache
+          # findings in .trivyignore (KSV-0014).
+          cache: false
           hide-progress: true
         env:
           TRIVY_SKIP_VERSION_CHECK: true

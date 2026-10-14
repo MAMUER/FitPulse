@@ -39,7 +39,7 @@ resources:
   - ../../base/services/classifier-service.yaml
   - ../../base/services/device-aggregator-service.yaml
   - ../../base/services/gateway-service.yaml
-  - ../../base/jobs/migrate-db.yaml
+  - migrate-db.yaml
   - ../../base/jobs/seed-admin.yaml
 
 configMapGenerator:
@@ -51,7 +51,6 @@ configMapGenerator:
 
 patches:
   - path: resource-quota-patch.yaml
-  - path: migrate-db-patch.yaml
 
 # Image tags are set by scripts/deploy-vps.sh via `kustomize edit set image`
 # (same pattern as scripts/ci/deploy-production.sh).

@@ -1,0 +1,114 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-db
+  namespace: fitness-platform-production
+  labels:
+    app: migrate-db
+    zone: app-zone
+    app.kubernetes.io/name: migrate-db
+    app.kubernetes.io/instance: migrate-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/version: "18"
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: migrate-db
+        zone: app-zone
+        app.kubernetes.io/name: migrate-db
+        app.kubernetes.io/instance: migrate-db
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/version: "18"
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: OnFailure
+      serviceAccountName: app-service-account
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      volumes:
+        - name: secrets
+          secret:
+            secretName: app-secrets
+        - name: migrations
+          configMap:
+            name: db-migrations
+      containers:
+        - name: migrate
+          # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
+          image: flyway/flyway:11
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            # POSTGRES_DB comes from repository variables (deploy-vps.sh create_secrets)
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://postgres-service:5432/fitness"
+            - name: FLYWAY_USER_FILE
+              value: "/etc/secrets/POSTGRES_USER"
+            - name: FLYWAY_PASSWORD_FILE
+              value: "/etc/secrets/POSTGRES_PASSWORD"
+            - name: FLYWAY_LOCATIONS
+              value: "filesystem:/flyway/sql"
+            - name: FLYWAY_CONNECT_RETRIES
+              value: "60"
+          command: ["flyway"]
+          args:
+            - "migrate"
+          volumeMounts:
+            - name: migrations
+              mountPath: /flyway/sql
+              readOnly: true
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+              ephemeral-storage: "128Mi"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+              ephemeral-storage: "256Mi"

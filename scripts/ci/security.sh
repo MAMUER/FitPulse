@@ -140,9 +140,14 @@ run_checkov() {
 	mkdir -p sarif-results
 	pip install --only-binary :all: 'checkov==3.3.9'
 	local status=0
-	# --output-file takes the exact file path (no results_sarif.sarif dance).
+	# checkov 3.3.9 only has --output-file-path (a folder); the SARIF lands as
+	# results_sarif.sarif inside it and is renamed for the upload step.
 	checkov --directory configs/k8s --directory scripts --output sarif \
-		--output-file sarif-results/checkov-results.sarif --compact || status=$?
+		--output-file-path sarif-results --compact || status=$?
+
+	# checkov writes results_sarif.sarif inside the output folder; the upload
+	# step expects the fixed name.
+	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null || true
 
 	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
 	if [ "$status" -ge 2 ]; then
