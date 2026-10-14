@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# First-deploy overlay for a small VPS (2 vCPU / 4 GB RAM) that also runs other
+# containers (e.g. VPN). Application tier only: postgres (pgsodium), valkey,
+# rabbitmq, user/biometric/training/classifier/device-aggregator/gateway.
+# Deferred to a later stage: vault, ELK, minio, monitoring, argocd,
+# ingress-nginx, cert-manager, open-wearables, ml-generator, data-processor.
+#
+# Secrets (app-secrets, *-db-credentials, grpc-server-tls, rabbitmq-tls,
+# ghcr-pull-secret) are created by scripts/deploy-vps.sh before apply.
+
+namespace: fitness-platform-production
+
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/resource-quota.yaml
+  - ../../base/limit-range.yaml
+  - ../../base/configmap.yaml
+  - ../../base/serviceaccount.yaml
+  - ../../base/rbac
+  - ../../base/network-policies
+  - ../../base/secrets/rabbitmq-secret.yaml
+  - ../../base/deployments/postgres.yaml
+  - ../../base/deployments/rabbitmq-statefulset.yaml
+  - ../../base/deployments/valkey.yaml
+  - ../../base/deployments/user-service.yaml
+  - ../../base/deployments/biometric-service.yaml
+  - ../../base/deployments/training-service.yaml
+  - ../../base/deployments/classifier.yaml
+  - ../../base/deployments/device-aggregator.yaml
+  - ../../base/deployments/gateway.yaml
+  - ../../base/services/postgres-service.yaml
+  - ../../base/services/valkey-service.yaml
+  - ../../base/services/rabbitmq-service.yaml
+  - ../../base/services/user-service.yaml
+  - ../../base/services/biometric-service.yaml
+  - ../../base/services/training-service.yaml
+  - ../../base/services/classifier-service.yaml
+  - ../../base/services/device-aggregator-service.yaml
+  - ../../base/services/gateway-service.yaml
+  - ../../base/jobs/migrate-db.yaml
+  - ../../base/jobs/seed-admin.yaml
+
+configMapGenerator:
+  - name: db-migrations
+    files:
+      - V1__full_schema.sql=../../../../db/migrations/V1__full_schema.sql
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: resource-quota-patch.yaml
+  - path: migrate-db-patch.yaml
+
+# Image tags are set by scripts/deploy-vps.sh via `kustomize edit set image`
+# (same pattern as scripts/ci/deploy-production.sh).

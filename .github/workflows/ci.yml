@@ -1391,6 +1391,105 @@ jobs:
       - name: Run testcontainers smoke test
         run: bash scripts/ci/test.sh run_smoke_tests
   # ============================================================================
+  # DEPLOY VPS (application tier — first deploy / small VPS)
+  # ============================================================================
+  deploy-vps:
+    name: Deploy App Tier to VPS
+    runs-on: ubuntu-latest
+    needs: [detect-changes, docker, provision-k8s-vps]
+    timeout-minutes: 60
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Make retry script executable
+        run: chmod +x scripts/ssh-retry.sh
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
+      - name: Download kubeconfig artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: kubeconfig
+          path: ./kubeconfig
+      - name: Resolve VPS hostname and add to /etc/hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
+      - name: Configure kubectl
+        run: bash scripts/ci/ci-helpers.sh configure_kubectl
+      - name: Wait for k3s API to be fully ready
+        run: bash scripts/ci/ci-helpers.sh wait_for_k3s_api
+      - name: VPN container guard (abort unless running)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPN_CONTAINER_NAME: amnezia-awg2
+        run: bash scripts/ci/deploy-vps.sh vpn_guard
+      - name: Ensure long-lived secrets (JWT/TOTP/TLS) on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
+          JWT_PUBLIC_KEY_PEM: ${{ secrets.JWT_PUBLIC_KEY_PEM }}
+          TOTP_ENCRYPTION_KEY: ${{ secrets.TOTP_ENCRYPTION_KEY }}
+        run: bash scripts/ci/deploy-vps.sh ensure_remote_secrets
+      - name: Create image pull secret for GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: bash scripts/ci/deploy-vps.sh create_pull_secret
+      - name: Create application secrets
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
+          VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
+          YANDEX_CLIENT_SECRET: ${{ secrets.YANDEX_CLIENT_SECRET }}
+          OPEN_WEARABLES_WEBHOOK_SECRET: ${{ secrets.OPEN_WEARABLES_WEBHOOK_SECRET }}
+          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/deploy-vps.sh create_secrets
+      - name: Apply application tier overlay
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/deploy-vps.sh apply_overlay
+      - name: Verify deployment and VPN container
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPN_CONTAINER_NAME: amnezia-awg2
+        run: bash scripts/ci/deploy-vps.sh verify
+      - name: Post-deploy VPN container check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPN_CONTAINER_NAME: amnezia-awg2
+        run: bash scripts/ci/deploy-vps.sh vpn_check
+  # ============================================================================
   # DEPLOY PRODUCTION
   # ============================================================================
   deploy-production:
@@ -1399,6 +1498,9 @@ jobs:
     needs: [detect-changes, docker, provision-k8s-vps, test-staging]
     timeout-minutes: 90
     environment: production
+    # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
+    # the automatic deploy path is deploy-vps (application tier).
+    if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full'
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
