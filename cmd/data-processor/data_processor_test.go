@@ -62,6 +62,18 @@ func TestValidateBiometricEvent(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("missing user_id", func(t *testing.T) {
+		err := validateBiometricEvent(biometricEvent{MetricType: "heart_rate", Value: 140})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "user_id is required")
+	})
+
+	t.Run("missing metric_type", func(t *testing.T) {
+		err := validateBiometricEvent(biometricEvent{UserID: "user-1", Value: 140})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "metric_type is required")
+	})
+
 	t.Run("negative value", func(t *testing.T) {
 		err := validateBiometricEvent(biometricEvent{UserID: "user-1", MetricType: "heart_rate", Value: -10})
 		assert.Error(t, err)

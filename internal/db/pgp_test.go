@@ -23,3 +23,21 @@ func TestEmailHash_Empty(t *testing.T) {
 	assert.Empty(t, hash)
 	assert.Len(t, hash, 0)
 }
+
+func TestIsHex(t *testing.T) {
+	assert.True(t, isHex("0123456789abcdefABCDEF"))
+	assert.False(t, isHex("xyz"))
+	assert.False(t, isHex("12g4"))
+	assert.False(t, isHex("abc-123"))
+}
+
+func TestEncryptionKey(t *testing.T) {
+	defer ResetTestEncryptionKey()
+
+	// Без оверрайда возвращается продакшен-ключ (в тестах он не задан).
+	assert.Nil(t, EncryptionKey())
+
+	SetTestEncryptionKey([]byte("test-key"))
+	defer ResetTestEncryptionKey()
+	assert.Equal(t, []byte("test-key"), EncryptionKey())
+}

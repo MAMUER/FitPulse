@@ -1,6 +1,7 @@
 package testcontainers
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,4 +49,58 @@ func TestResolveHost_127_0_0_1(t *testing.T) {
 func TestResolveHost_OtherHost(t *testing.T) {
 	result := ResolveHost(t, "some-host")
 	assert.Equal(t, "some-host", result)
+}
+
+func TestRetryStart_SuccessFirstAttempt(t *testing.T) {
+	calls := 0
+	res, err := retryStart(t, 3, "test", func() (string, error) {
+		calls++
+		return "ok", nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "ok", res)
+	assert.Equal(t, 1, calls)
+}
+
+func TestRetryStart_SuccessAfterRetries(t *testing.T) {
+	calls := 0
+	res, err := retryStart(t, 3, "test", func() (string, error) {
+		calls++
+		if calls < 3 {
+			return "", errors.New("temporary failure")
+		}
+		return "finally", nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "finally", res)
+	assert.Equal(t, 3, calls)
+}
+
+func TestRetryStart_AllAttemptsFail(t *testing.T) {
+	calls := 0
+	boom := errors.New("boom")
+	res, err := retryStart(t, 2, "test", func() (string, error) {
+		calls++
+		return "", boom
+	})
+	require.ErrorIs(t, err, boom)
+	assert.Empty(t, res)
+	assert.Equal(t, 2, calls)
+}
+
+func TestRetryStart_ZeroAttempts(t *testing.T) {
+	calls := 0
+	res, err := retryStart(t, 0, "test", func() (string, error) {
+		calls++
+		return "never", nil
+	})
+	require.NoError(t, err)
+	assert.Empty(t, res)
+	assert.Equal(t, 0, calls)
+}
+
+func TestMustParsePort(t *testing.T) {
+	assert.Equal(t, 5432, mustParsePort(t, "5432"))
+	assert.Equal(t, 1, mustParsePort(t, "1"))
+	assert.Equal(t, 65535, mustParsePort(t, "65535"))
 }

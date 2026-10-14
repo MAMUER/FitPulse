@@ -293,9 +293,12 @@ sign_images() {
 				break
 			fi
 			manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
+			# `|| true` is required: under `set -euo pipefail` a failed probe
+			# (missing header, grep exit 1, SIGPIPE from head) would otherwise
+			# abort the whole script before the retry loop can report anything.
 			digest=$(curl --proto =https -s -L -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
 				-H "Authorization: Bearer $GITHUB_TOKEN" \
-				"$manifest_url" -I | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r')
+				"$manifest_url" -I 2>/dev/null | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r' || true)
 			if [ -n "$digest" ]; then
 				break
 			fi
@@ -305,9 +308,11 @@ sign_images() {
 
 		if [ -z "$digest" ]; then
 			echo "❌ Failed to resolve digest for $svc:$IMAGE_TAG after retries" >&2
+			echo "   Проверь: образ существует в $REGISTRY, docker login выполнен, у GITHUB_TOKEN есть read:packages" >&2
 			SIGN_FAILURES=$((SIGN_FAILURES + 1))
 			continue
 		fi
+		echo "   digest: $digest"
 
 		sign_ok=false
 		for attempt in 1 2 3; do
@@ -318,6 +323,7 @@ sign_images() {
 				break
 			else
 				echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..."
+				echo "   Если ключ зашифрован — проверь COSIGN_PASSWORD; если нет — убери COSIGN_PASSWORD из secrets" >&2
 				sleep $((attempt * 3))
 			fi
 		done
