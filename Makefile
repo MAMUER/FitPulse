@@ -42,7 +42,7 @@ coverage:
 
 coverage-check: coverage
 	@echo "Checking coverage threshold..."
-	@go tool cover -func=$(BIN_DIR)/coverage.out | awk -v threshold=80 'NR>1 {gsub(/%/,"",$$4); if ($$4+0 < threshold) {print "Coverage below threshold: "$$4"% < "threshold"%"; exit 1} else {print "Coverage OK: "$$4"%"} }'
+	@bash scripts/ci/coverage-check.sh $(BIN_DIR)/coverage.out
 
 build:
 	@echo "Building Go binaries into $(BIN_DIR)/..."

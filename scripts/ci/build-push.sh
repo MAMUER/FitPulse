@@ -2,17 +2,31 @@
 set -euo pipefail
 
 build_go_services() {
-	services="user-service biometric-service training-service gateway device-aggregator"
+	# gateway and device-aggregator keep their own Dockerfiles (web-builder stage
+	# and Debian base respectively); the rest share Dockerfile.service.
 	SHA=$(git rev-parse --short HEAD)
-	for svc in $services; do
+	for svc in user-service biometric-service training-service gateway device-aggregator; do
 		echo "Building $svc..."
+		dockerfile="Dockerfile.service"
+		build_args=()
+		case "$svc" in
+		user-service) build_args=(--build-arg SERVICE=user-service --build-arg PORTS=50051) ;;
+		biometric-service) build_args=(--build-arg SERVICE=biometric-service --build-arg PORTS=50052) ;;
+		gateway) dockerfile="cmd/gateway/Dockerfile" ;;
+		device-aggregator) dockerfile="cmd/device-aggregator/Dockerfile" ;;
+		*)
+			echo "No build config for $svc"
+			exit 1
+			;;
+		esac
 		docker buildx build \
 			--build-arg GOPROXY=https://proxy.golang.org,direct \
 			--cache-from=type=gha \
 			--cache-to=type=gha,mode=max \
 			-t "$REGISTRY/mamuer/project/$svc:$SHA" \
 			-t "$REGISTRY/mamuer/project/$svc:latest" \
-			-f "cmd/$svc/Dockerfile" . \
+			-f "$dockerfile" . \
+			"${build_args[@]}" \
 			--push
 	done
 }

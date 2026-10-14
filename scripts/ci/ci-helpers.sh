@@ -20,7 +20,7 @@ run_hadolint() {
 		if ! docker run --rm -v "${GITHUB_WORKSPACE}:/workspace" -w /workspace hadolint/hadolint:v2.12.0 hadolint -c .hadolint.yaml "$dockerfile"; then
 			failed=1
 		fi
-	done < <(find . -type f -name Dockerfile \
+	done < <(find . -type f \( -name 'Dockerfile' -o -name 'Dockerfile.service' \) \
 		-not -path './.git/*' \
 		-not -path './web/node_modules/*' \
 		-not -path './web/dist/*' \
@@ -83,26 +83,17 @@ run_coverage() {
 		echo "lcov.info not found in web/coverage"
 	fi
 	if [ -f bin/coverage.out ]; then
-		# Coverage must be computed BEFORE the path rewrites below: `go tool cover -func`
-		# resolves packages via the full module path (github.com/MAMUER/project/...) and
-		# fails with "cover: package X is not in std" on the rewritten relative paths.
-		echo "--- checking Go coverage threshold (80%) ---"
-		GO_COVERAGE=$(go tool cover -func=bin/coverage.out 2>/dev/null | grep total | awk '{print $3}' | sed 's/%//' || true)
-		GO_COVERAGE_INT=${GO_COVERAGE%.*}
-		if ! echo "$GO_COVERAGE_INT" | grep -qE '^[0-9]+$'; then
-			echo "WARNING: could not compute Go coverage total from bin/coverage.out"
-		elif [ "$GO_COVERAGE_INT" -lt 80 ]; then
-			echo "⚠️  WARNING: Go test coverage ${GO_COVERAGE}% is below 80% threshold"
-			echo "   Note: informative only - SonarCloud quality gate is the authority on coverage."
-		else
-			echo "Go coverage threshold met: ${GO_COVERAGE}% >= 80%"
-		fi
+		# Unified coverage accounting (scripts/ci/coverage-check.sh), computed
+		# BEFORE the path rewrites below (go tool cover needs the module paths).
+		# Threshold 0 = report-only: SonarCloud is the authority on coverage.
+		echo "--- Go coverage (report-only) ---"
+		bash scripts/ci/coverage-check.sh bin/coverage.out 0
 		echo "--- fixing Go coverage paths for Sonar ---"
 		sed -i 's|github.com/MAMUER/project/||g' bin/coverage.out
 		sed -i '/^api\/gen\//d' bin/coverage.out
 		head -5 bin/coverage.out || true
 	else
-		echo "WARNING: bin/coverage.out not found, skipping coverage threshold check"
+		echo "WARNING: bin/coverage.out not found, skipping coverage check"
 	fi
 
 	if [ "$GO_TEST_EXIT" -ne 0 ] || [ "$NPM_TEST_EXIT" -ne 0 ]; then

@@ -456,7 +456,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
-        run: bash scripts/ci/security.sh install_tools
+        run: curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results
@@ -571,25 +571,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run govulncheck
         run: bash scripts/ci/security.sh run_govulncheck
-      - name: Run Trivy config scan (misconfigurations)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          version: v0.73.0
-          trivy-config: trivy.yaml
-          trivyignores: .trivyignore
-          scan-type: "config"
-          scanners: "misconfig"
-          severity: "CRITICAL,HIGH"
-          exit-code: "0"
-          skip-dirs: "configs/k8s/overlays/production"
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
       - name: Install system dependencies for canvas
         run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
       - name: Install frontend dependencies for Trivy
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" install_dependencies
         working-directory: web
-
       - name: Install Python dependencies for Trivy
         run: bash scripts/ci/ci-helpers.sh install_python_deps
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
@@ -602,7 +588,7 @@ jobs:
           scan-type: "fs"
           scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
-          exit-code: "0"
+          exit-code: "1"
           skip-dirs: "configs/k8s/overlays/production"
           scan-ref: "."
           ignore-unfixed: false
@@ -615,7 +601,6 @@ jobs:
           hide-progress: true
         env:
           TRIVY_SKIP_VERSION_CHECK: true
-          TRIVY_SKIP_PIP: true
           TRIVY_SKIP_DB_UPDATE: false
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
@@ -624,8 +609,6 @@ jobs:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install Gitleaks
-        run: bash scripts/ci/security.sh install_tools
       - name: Run Gitleaks secret scan
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
@@ -635,12 +618,8 @@ jobs:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install TruffleHog
-        run: bash scripts/ci/security.sh install_tools
       - name: Run TruffleHog secret scan
         run: bash scripts/ci/security.sh run_trufflehog
-      - name: Install syft
-        run: bash scripts/ci/security.sh install_tools
       - name: Generate SBOM with syft
         run: bash scripts/ci/security.sh generate_sbom
       - name: Security Gate — enforce quality thresholds
@@ -887,6 +866,11 @@ jobs:
       - name: Run integration tests
         run: go test -tags integration ./...
       - name: Check coverage threshold
+        env:
+          # Unified definition (excludes only generated api/gen): ~62% today.
+          # Raise as the test suite grows - the number is now comparable
+          # with the SonarCloud job, which reports the same definition.
+          COVERAGE_THRESHOLD: "60"
         run: bash scripts/ci/coverage-check.sh
 
   # ============================================================================

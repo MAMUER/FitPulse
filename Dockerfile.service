@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+# Unified Dockerfile for single-binary Go services.
+#
+#   docker build -f Dockerfile.service \
+#     --build-arg SERVICE=user-service --build-arg PORTS=50051 .
+#
+# gateway (extra node web-builder stage) and device-aggregator (Debian base)
+# keep their own Dockerfiles.
+
+FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
+
+# ARG must be re-declared inside the stage that uses it (docker:S6579):
+# ARGs before FROM are only visible in FROM lines.
+ARG SERVICE
+
+ENV GOPROXY=https://proxy.golang.org,direct
+
+# git and ca-certificates are build-time only and not shipped in the runtime stage
+# hadolint ignore=DL3018
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY "cmd/${SERVICE}/" "./cmd/${SERVICE}/"
+COPY internal/ ./internal/
+COPY api/ ./api/
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o "/app/bin/${SERVICE}" "./cmd/${SERVICE}"
+
+FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+
+ARG APP_UID=1001
+ARG APP_GID=1001
+ARG SERVICE
+ARG PORTS
+
+# hadolint ignore=DL3018
+RUN apk upgrade --no-cache && \
+  apk add --no-cache ca-certificates curl tzdata && \
+  addgroup -g "${APP_GID}" -S appgroup && \
+  adduser -u "${APP_UID}" -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder --chown=appuser:appgroup "/app/bin/${SERVICE}" .
+
+USER ${APP_UID}
+EXPOSE ${PORTS}
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["sh", "-c", "ps | grep -E '${SERVICE}' | grep -v grep || exit 1"]
+
+ENTRYPOINT ["./${SERVICE}"]

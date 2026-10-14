@@ -1,54 +1,50 @@
 #!/bin/bash
 set -euo pipefail
 
-install_tools() {
-	for i in 1 2 3; do
-		if go install github.com/securego/gosec/v2/cmd/gosec@9e75c0576c9878035d4221392108d458abe10fc3; then # NOSONAR
-			break
-		fi
-		echo "gosec install attempt $i failed; retrying..."
-		sleep 5
-	done
-	for i in 1 2 3; do
-		if go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f; then # NOSONAR
-			break
-		fi
-		echo "govulncheck install attempt $i failed; retrying..."
-		sleep 5
-	done
-	for i in 1 2 3; do
-		if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0; then # NOSONAR
-			break
-		fi
-		echo "golangci-lint install attempt $i failed; retrying..."
-		sleep 5
-	done
-	echo "Installing syft..."
-	curl --proto =https -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
+install_gosec() {
+	go install github.com/securego/gosec/v2/cmd/gosec@9e75c0576c9878035d4221392108d458abe10fc3 # NOSONAR
+}
+
+install_govulncheck() {
+	go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f # NOSONAR
+}
+
+install_golangci_lint() {
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 # NOSONAR
+}
+
+install_cosign() {
+	go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5 # NOSONAR
+}
+
+install_syft() {
+	curl --proto =https --retry 3 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
 	bash /tmp/install.sh -b /usr/local/bin
 	rm -f /tmp/install.sh
-	echo "Installing TruffleHog..."
-	curl --proto =https -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz -o /tmp/trufflehog.tar.gz
+}
+
+install_trufflehog() {
+	curl --proto =https --retry 3 --retry-delay 5 -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz -o /tmp/trufflehog.tar.gz
 	tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog
 	chmod +x /usr/local/bin/trufflehog
-	for attempt in 1 2 3 4 5; do
-		if curl --proto =https -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz; then
-			break
-		fi
-		echo "Gitleaks download failed (attempt $attempt), retrying..."
-		sleep $((attempt * 5))
-	done
+}
+
+install_gitleaks() {
+	curl --proto =https --retry 3 --retry-delay 5 -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
 	sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
 	sudo chmod +x /usr/local/bin/gitleaks
+}
 
-	echo "Installing cosign..."
-	for i in 1 2 3; do
-		if go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5; then
-			break
-		fi
-		echo "cosign install attempt $i failed; retrying..."
-		sleep 5
-	done
+# install_tools ставит всё разом — вызывать один раз на job (см. ci.yml).
+# Точечная установка: install_<tool>.
+install_tools() {
+	install_gosec
+	install_govulncheck
+	install_golangci_lint
+	install_syft
+	install_trufflehog
+	install_gitleaks
+	install_cosign
 }
 
 run_gosec() {
@@ -64,26 +60,18 @@ run_govulncheck() {
 	govulncheck ./... >sarif-results/govulncheck.txt 2>&1 || true
 }
 
-run_trivy() {
-	echo "-> Running Trivy config scan (misconfigurations)..."
-	mkdir -p sarif-results
-	pip install --only-binary :all: 'checkov==3.3.9'
-	checkov --directory configs/k8s --directory scripts --output sarif --output-file sarif-results/checkov-results.sarif || true
-	echo "✅ Checkov scan completed"
-}
-
 run_gitleaks() {
 	mkdir -p sarif-results
-	gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif || true
+	# gitleaks exits 1 when leaks are found - that is the enforcement.
+	# The SARIF report is still written for Code Scanning.
+	gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif
 }
 
 run_trufflehog() {
 	mkdir -p sarif-results
-	trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl 2>&1 || true
-	if [ -s sarif-results/trufflehog.jsonl ]; then
-		echo "TruffleHog raw findings:"
-		jq -r '"\(.DetectorName // "unknown") at \(.File // "unknown"):\(.Line // 0) | \(.Description // .Raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -20 || true
-	fi
+	# --only-verified: only verified secrets are reported; trufflehog exits
+	# 194 when findings exist, which fails the job.
+	trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl
 }
 
 generate_sbom() {
@@ -99,6 +87,12 @@ generate_sbom() {
 run_kubescape() {
 	echo "-> Running Kubescape..."
 	mkdir -p sarif-results
+	# Guard against a silent no-op: without kubescape on PATH the scan below
+	# would fail into `|| true` and an empty SARIF would be uploaded.
+	command -v kubescape >/dev/null 2>&1 || {
+		echo "❌ kubescape not found in PATH — install it (ci.yml) before running" >&2
+		exit 1
+	}
 	tmpfile=$(mktemp)
 	kubescape scan configs/k8s/base/ \
 		--format sarif \
@@ -146,15 +140,15 @@ run_checkov() {
 	mkdir -p sarif-results
 	pip install --only-binary :all: 'checkov==3.3.9'
 	local status=0
-	checkov --directory configs/k8s --directory scripts --output sarif --output-file-path sarif-results --compact || status=$?
+	# --output-file takes the exact file path (no results_sarif.sarif dance).
+	checkov --directory configs/k8s --directory scripts --output sarif \
+		--output-file sarif-results/checkov-results.sarif --compact || status=$?
 
 	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
 	if [ "$status" -ge 2 ]; then
 		echo "::error::Checkov failed to run (exit $status) - IaC scan did not complete, results are NOT green"
 		exit "$status"
 	fi
-
-	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null || true
 
 	if [ "$status" -eq 1 ]; then
 		echo "::error::Checkov found IaC policy violations - failing the job. Fix the findings below or add a justified skip in .checkov.yaml"
@@ -320,72 +314,43 @@ sign_images() {
 
 security_gate() {
 	echo "============================================"
-	echo "  Security Gate — Checking scan results"
+	echo "  Security Gate — summary"
 	echo "============================================"
 	FAIL=0
+
+	# gosec: only HIGH/CRITICAL findings (SARIF level=error) block the build.
 	if [ -f sarif-results/gosec.sarif ]; then
 		GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null | head -1 || echo 0)
 		GOSEC_CRITICAL=$(printf '%s' "$GOSEC_CRITICAL")
-		GOSEC_HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/gosec.sarif 2>/dev/null | head -1 || echo 0)
-		GOSEC_HIGH=$(printf '%s' "$GOSEC_HIGH")
-		echo "gosec: $GOSEC_CRITICAL critical, $GOSEC_HIGH high"
+		if [ -z "$GOSEC_CRITICAL" ]; then GOSEC_CRITICAL=0; fi
+		echo "gosec: $GOSEC_CRITICAL high/critical findings"
 		if [ "$GOSEC_CRITICAL" -gt 0 ]; then
-			echo "❌ FAIL: gosec found $GOSEC_CRITICAL critical issues"
-			jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gosec.sarif 2>/dev/null || true
+			echo "❌ FAIL: gosec found $GOSEC_CRITICAL high/critical findings"
+			jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' sarif-results/gosec.sarif 2>/dev/null | head -10 || true
 			FAIL=1
 		fi
 	fi
-	if [ -f sarif-results/trivy-fs.sarif ]; then
-		TRIVY_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/trivy-fs.sarif 2>/dev/null | head -1 || echo 0)
-		TRIVY_CRITICAL=$(printf '%s' "$TRIVY_CRITICAL")
-		echo "trivy-fs: $TRIVY_CRITICAL critical CVEs"
-		if [ "$TRIVY_CRITICAL" -gt 0 ]; then
-			echo "❌ FAIL: Trivy found $TRIVY_CRITICAL critical vulnerabilities in dependencies"
-			jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' sarif-results/trivy-fs.sarif 2>/dev/null | head -10 || true
-			FAIL=1
-		fi
-	fi
-	if [ -f sarif-results/gitleaks.sarif ]; then
-		# Gitleaks does not populate the SARIF "level" field (gitleaks/gitleaks#1858),
-		# so findings must be counted from all results, not filtered by level.
-		GITLEAKS=$(jq '[.runs[].results[]] | length' sarif-results/gitleaks.sarif 2>/dev/null | head -1 || echo 0)
-		GITLEAKS=$(printf '%s' "$GITLEAKS")
-		if [ -z "$GITLEAKS" ]; then GITLEAKS=0; fi
-		echo "gitleaks: $GITLEAKS secrets found"
-		if [ "$GITLEAKS" -gt 0 ]; then
-			echo "❌ FAIL: Gitleaks found $GITLEAKS potential secrets"
-			jq -r '.runs[].results[] | "  - \(.ruleId): \(.message.text) at \(.locations[0].physicalLocation.artifactLocation.uri // "unknown"):\(.locations[0].physicalLocation.region.startLine // 0)"' sarif-results/gitleaks.sarif 2>/dev/null | head -10 || true
-			FAIL=1
-		fi
-	fi
-	if [ -f sarif-results/trufflehog.jsonl ]; then
-		TRUFFLEHOG=$(jq -r 'select(.Verified == true) | 1' sarif-results/trufflehog.jsonl 2>/dev/null | wc -l)
-		TRUFFLEHOG=$(printf '%s' "$TRUFFLEHOG" | tr -d '[:space:]')
-		echo "trufflehog: $TRUFFLEHOG secrets found"
-		if [ "$TRUFFLEHOG" -gt 0 ]; then
-			echo "❌ FAIL: TruffleHog found $TRUFFLEHOG potential secrets"
-			jq -r 'select(.Verified == true) | "  - \(.DetectorName // "unknown"): \(.Description // .Raw // "")"' sarif-results/trufflehog.jsonl 2>/dev/null | head -10 || true
-			FAIL=1
-		fi
-	fi
+
+	# Trivy / Gitleaks / TruffleHog are enforced by the scanners themselves:
+	#   trivy-action runs with exit-code: 1 (fails on CRITICAL/HIGH),
+	#   gitleaks exits 1 when leaks are found,
+	#   trufflehog exits 194 on verified findings.
+	# Their reports are still uploaded to Code Scanning.
+
+	# govulncheck is informational only (Trivy covers CVE scanning).
 	if [ -f sarif-results/govulncheck.txt ]; then
 		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null || true)
 		GOVULNCHECK=${GOVULNCHECK:-0}
-		echo "govulncheck: $GOVULNCHECK vulnerabilities found"
-		if [ "$GOVULNCHECK" -gt 0 ]; then
-			echo "⚠️  WARNING: govulncheck found $GOVULNCHECK potential vulnerabilities"
-			grep -E "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null | head -10 || true
-			echo "   Note: Trivy covers CVE scanning. govulncheck results are informational."
-		fi
+		echo "govulncheck: $GOVULNCHECK vulnerabilities found (informational)"
 	fi
+
 	echo "============================================"
 	if [ "$FAIL" -eq 1 ]; then
 		echo "❌ Security Gate FAILED — pipeline blocked"
 		echo "   Fix the issues above before merging."
 		exit 1
-	else
-		echo "✅ Security Gate PASSED — no critical issues found"
 	fi
+	echo "✅ Security Gate PASSED — no critical issues found"
 }
 
 run_osv_python_requirements() {
@@ -406,7 +371,6 @@ main() {
 		install_tools
 		run_gosec
 		run_govulncheck
-		run_trivy
 		run_gitleaks
 		run_trufflehog
 		generate_sbom
@@ -422,7 +386,6 @@ main() {
 	install_tools) install_tools ;;
 	run_gosec) run_gosec ;;
 	run_govulncheck) run_govulncheck ;;
-	run_trivy) run_trivy ;;
 	run_gitleaks) run_gitleaks ;;
 	run_trufflehog) run_trufflehog ;;
 	generate_sbom) generate_sbom ;;
