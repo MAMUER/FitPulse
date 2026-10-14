@@ -286,50 +286,26 @@ sign_images() {
 	SIGN_FAILURES=0
 	for svc in $services; do
 		echo "Signing $svc..."
-		digest=""
-		for attempt in 1 2 3 4 5; do
-			digest=$(docker buildx imagetools inspect "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" --format '{{.Digest}}' 2>/dev/null || true)
-			if [ -n "$digest" ]; then
-				break
-			fi
-			manifest_url="https://ghcr.io/v2/mamuer/project/$svc/manifests/$IMAGE_TAG"
-			# `|| true` is required: under `set -euo pipefail` a failed probe
-			# (missing header, grep exit 1, SIGPIPE from head) would otherwise
-			# abort the whole script before the retry loop can report anything.
-			digest=$(curl --proto =https -s -L -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-				-H "Authorization: Bearer $GITHUB_TOKEN" \
-				"$manifest_url" -I 2>/dev/null | grep -i 'docker-content-digest' | head -1 | awk '{print $2}' | tr -d '\r' || true)
-			if [ -n "$digest" ]; then
-				break
-			fi
-			echo "⚠️  Digest resolution attempt $attempt for $svc failed, retrying..."
-			sleep $((attempt * 2))
-		done
-
-		if [ -z "$digest" ]; then
-			echo "❌ Failed to resolve digest for $svc:$IMAGE_TAG after retries" >&2
-			echo "   Проверь: образ существует в $REGISTRY, docker login выполнен, у GITHUB_TOKEN есть read:packages" >&2
-			SIGN_FAILURES=$((SIGN_FAILURES + 1))
-			continue
-		fi
-		echo "   digest: $digest"
-
+		# Sign by tag: cosign resolves the digest itself using the registry
+		# credentials from docker/login-action (~/.docker/config.json).
+		# Manual digest resolution via `docker buildx imagetools inspect` or
+		# the GHCR API is fragile (buildx plugin, token exchange for private
+		# packages) and was removed - cosign handles both.
 		sign_ok=false
 		for attempt in 1 2 3; do
-			echo "🔑 Attempt $attempt: signing $svc@$digest"
-			if cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc@$digest" 2>&1; then
+			echo "🔑 Attempt $attempt: signing $svc:$IMAGE_TAG"
+			if cosign sign --yes --key /tmp/cosign.key "$REGISTRY/mamuer/project/$svc:$IMAGE_TAG" 2>&1; then
 				echo "✅ $svc signed successfully"
 				sign_ok=true
 				break
-			else
-				echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..."
-				echo "   Если ключ зашифрован — проверь COSIGN_PASSWORD; если нет — убери COSIGN_PASSWORD из secrets" >&2
-				sleep $((attempt * 3))
 			fi
+			echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..."
+			echo "   Если ключ зашифрован — проверь COSIGN_PASSWORD; если нет — убери COSIGN_PASSWORD из secrets" >&2
+			sleep $((attempt * 3))
 		done
 
 		if [ "$sign_ok" = false ]; then
-			echo "❌ Failed to sign $svc after retries" >&2
+			echo "❌ Failed to sign $svc:$IMAGE_TAG after retries" >&2
 			SIGN_FAILURES=$((SIGN_FAILURES + 1))
 		fi
 	done
