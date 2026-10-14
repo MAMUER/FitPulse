@@ -174,7 +174,7 @@ apply_overlay() {
 		deployment/user-service deployment/biometric-service \
 		deployment/training-service deployment/classifier \
 		deployment/device-aggregator deployment/gateway; do
-		kubectl -n "$NAMESPACE" rollout status "$res" --timeout=300s || \
+		kubectl -n "$NAMESPACE" rollout status "$res" --timeout=300s ||
 			log "::warning::$res not ready yet"
 	done
 
@@ -187,7 +187,7 @@ apply_overlay() {
 	}
 
 	log "waiting for seed-admin"
-	kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-admin --timeout=300s || \
+	kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-admin --timeout=300s ||
 		log "::warning::seed-admin did not complete (admin may already exist)"
 }
 
@@ -196,7 +196,7 @@ verify() {
 	local ip
 	ip=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "hostname -I | awk '{print \$1}'" | tr -d '\r')
 	log "gateway health: http://${ip}:${NODE_PORT}/health"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" || \
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" ||
 		log "::warning::gateway health check failed"
 }
 
