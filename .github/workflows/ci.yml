@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+﻿name: CI/CD Pipeline
 on:
   push:
     branches: [main]
@@ -311,6 +311,9 @@ jobs:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     permissions:
       contents: read
     steps:
@@ -461,6 +464,8 @@ jobs:
           # non-root users and only extends PATH inside its own shell, which
           # does not reach later steps.
           curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+          # GITHUB_PATH only applies to *subsequent* steps, so export it here too.
+          export PATH="$HOME/.kubescape/bin:$PATH"
           echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
           kubescape version || kubescape download
       - name: Run Kubescape scan
@@ -769,6 +774,40 @@ jobs:
           category: checkov
 
   # ============================================================================
+  # CI GATE — blocks the deploy chain when any check or security job failed
+  # ============================================================================
+  ci-gate:
+    name: CI Gate (checks and security passed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only jobs that run on every event are listed here: a skipped dependency
+    # would skip this gate and silently unblock the deploy chain.
+    needs:
+      [
+        validate-workflow,
+        dockerfile-lint,
+        super-linter,
+        check,
+        test,
+        contract,
+        security-scan,
+        codeql,
+        kubescape,
+        semgrep,
+        osv-scanner,
+        fuzz-tests,
+        conventional-commits,
+        kube-bench,
+        kube-hunter,
+        checkov,
+        sonarcloud,
+      ]
+    steps:
+      - name: Confirm all checks passed
+        run: |
+          echo "All CI checks and security scans passed - deploy chain may proceed."
+
+  # ============================================================================
   # COSIGN VERIFY — IMAGE SIGNATURE VERIFICATION
   # ============================================================================
   cosign-verify:
@@ -938,7 +977,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [detect-changes, check, test, frontend, conventional-commits]
+    needs: [detect-changes, check, test, conventional-commits]
     timeout-minutes: 30
     steps:
       - run: git config --global init.defaultBranch main
@@ -1064,7 +1103,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, docker, check, frontend]
+    needs: [detect-changes, binary_build, docker, check, frontend, ci-gate]
     timeout-minutes: 120
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -1238,6 +1277,7 @@ jobs:
         check,
         frontend,
         smoke-test,
+        ci-gate,
       ]
     timeout-minutes: 60
     environment: staging
@@ -1391,7 +1431,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [detect-changes, binary_build, check]
+    needs: [detect-changes, binary_build, check, ci-gate]
     timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
@@ -1409,7 +1449,7 @@ jobs:
   deploy-vps:
     name: Deploy App Tier to VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps]
+    needs: [detect-changes, docker, provision-k8s-vps, ci-gate]
     timeout-minutes: 60
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
@@ -1508,7 +1548,7 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, test-staging]
+    needs: [detect-changes, docker, provision-k8s-vps, test-staging, ci-gate]
     timeout-minutes: 90
     environment: production
     # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
