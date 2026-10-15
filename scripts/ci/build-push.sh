@@ -12,6 +12,7 @@ build_go_services() {
 		case "$svc" in
 		user-service) build_args=(--build-arg SERVICE=user-service --build-arg PORTS=50051) ;;
 		biometric-service) build_args=(--build-arg SERVICE=biometric-service --build-arg PORTS=50052) ;;
+		training-service) build_args=(--build-arg SERVICE=training-service --build-arg PORTS=50053) ;;
 		gateway) dockerfile="cmd/gateway/Dockerfile" ;;
 		device-aggregator) dockerfile="cmd/device-aggregator/Dockerfile" ;;
 		*)
@@ -126,3 +127,4 @@ main() {
 }
 
 main "$@"
+
