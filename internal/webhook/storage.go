@@ -50,7 +50,6 @@ const (
 	deleteExpiredWebhookNoncesQuery = "DELETE FROM webhook_nonces WHERE created_at < NOW() - INTERVAL '1 hour'"
 )
 
-// Storage handles persistence of webhook metrics
 type Storage struct {
 	db  DB
 	log *zap.Logger
