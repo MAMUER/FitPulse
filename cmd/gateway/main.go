@@ -32,7 +32,6 @@ import (
 	"github.com/MAMUER/project/cmd/gateway/ports"
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/cache"
-	"github.com/MAMUER/project/internal/chat"
 	"github.com/MAMUER/project/internal/config"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
@@ -58,8 +57,6 @@ type gateway struct {
 	trainingClient trainingpb.TrainingServiceClient
 
 	classifierURL string
-
-	externalLLM *chat.ExternalLLMService
 
 	log *logger.Logger
 
@@ -915,10 +912,6 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
 
 	}
-
-	g.externalLLM = chat.NewExternalLLMService(chat.ExternalLLMConfig{
-		Enabled: false,
-	}, zap.NewNop())
 
 	return g
 
