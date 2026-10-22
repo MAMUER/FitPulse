@@ -198,12 +198,13 @@ def build_condition(class_index, user_features):
 
 def normalize_plan(plan, plan_min, plan_max):
     """Нормализация плана в диапазон [-1, 1] для Tanh выхода генератора."""
-    return 2.0 * (plan - plan_min) / (plan_max - plan_min) - 1.0
+    eps = 1e-8
+    return 2.0 * (plan - plan_min) / (plan_max - plan_min + eps) - 1.0
 
 
 def denormalize_plan(plan_norm, plan_min, plan_max):
     """Денармализация плана из [-1, 1] в исходный диапазон."""
-    return (plan_norm + 1.0) / 2.0 * (plan_max - plan_min) + plan_min
+    return np.clip((plan_norm + 1.0) / 2.0 * (plan_max - plan_min) + plan_min, 0.0, 1.0)
 
 
 if __name__ == "__main__":

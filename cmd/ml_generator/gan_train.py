@@ -14,6 +14,7 @@ import json
 import os
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 from pathlib import Path
 
 from gan_model import (
@@ -134,12 +135,16 @@ def generate_plan(args):
             "class_index": args.class_index,
         })
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(result, f, indent=2)
+    result_json = json.dumps(result, indent=2)
 
-    print(f"Сгенерировано {args.num_samples} планов: {output_path}")
+    if str(args.output) == "-":
+        print(result_json)
+    else:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(result_json)
+        print(f"Сгенерировано {args.num_samples} планов: {output_path}")
     return result
 
 

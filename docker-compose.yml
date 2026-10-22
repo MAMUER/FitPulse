@@ -45,6 +45,28 @@ services:
       timeout: 10s
       retries: 5
 
+  gan-service:
+    build:
+      context: .
+      dockerfile: cmd/gan-service/Dockerfile
+    ports:
+      - "8004:8004"
+      - "9094:9094"
+    environment:
+      PYTHON_PATH: /usr/local/bin/python
+      GAN_SCRIPT_PATH: /app/cmd/ml_generator/gan_train.py
+      GAN_MODEL_PATH: /app/models/gan_generator.pt
+      GAN_SERVICE_PORT: 8004
+      GAN_SERVICE_METRICS_PORT: 9094
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   gateway:
     build:
       context: .
@@ -61,7 +83,7 @@ services:
       TRAINING_SERVICE_ADDR: training-service:50053
       CLASSIFIER_ADDR: classifier:8001
       DEVICE_AGGREGATOR_ADDR: device-aggregator:8083
-      ML_GENERATOR_ADDR: ml-generator:8002
+      ML_GENERATOR_ADDR: gan-service:8004
       APP_BASE_URL: ${APP_BASE_URL:-https://fittpulse.duckdns.org}
       YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
       YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
