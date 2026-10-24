@@ -42,7 +42,11 @@ func withingsNewDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		if cErr := db.Close(); cErr != nil {
+			t.Logf("db close error: %v", cErr)
+		}
+	})
 	return db, mock
 }
 

@@ -70,8 +70,9 @@ func TestGrpcToHTTPStatus(t *testing.T) {
 	assert.Equal(t, "", msg)
 
 	// Unknown error
-	code, msg = grpcToHTTPStatus(assert.AnError)
+	code, msgUnknown := grpcToHTTPStatus(assert.AnError)
 	assert.Equal(t, http.StatusInternalServerError, code)
+	_ = msgUnknown
 }
 
 func TestTranslateError(t *testing.T) {

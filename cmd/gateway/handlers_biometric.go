@@ -140,10 +140,14 @@ func (g *gateway) getBiometricRecordsHandler(w http.ResponseWriter, r *http.Requ
 
 	var from, to time.Time
 	if fromStr != "" {
-		from, _ = time.Parse(time.RFC3339, fromStr)
+		if tFrom, errParse := time.Parse(time.RFC3339, fromStr); errParse == nil {
+			from = tFrom
+		}
 	}
 	if toStr != "" {
-		to, _ = time.Parse(time.RFC3339, toStr)
+		if tTo, errParse := time.Parse(time.RFC3339, toStr); errParse == nil {
+			to = tTo
+		}
 	}
 	limitInt := int32(100)
 	if limitStr != "" {

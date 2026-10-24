@@ -424,7 +424,12 @@ func TestAuth_EmailConfirmPageHandler_Success(t *testing.T) {
 		t.Skip("web/dist/index.html is not available")
 	}
 	require.NoError(t, os.Chdir(repoRoot))
-	t.Cleanup(func() { _ = os.Chdir(wd) })
+	t.Cleanup(func() {
+		if cErr := os.Chdir(wd); cErr != nil {
+			t.Logf("chdir cleanup error: %v", cErr)
+		}
+	})
+
 
 	g := newTestGateway()
 
@@ -2700,7 +2705,12 @@ func TestAuth_EmailConfirmPageHandler_WriteFailure(t *testing.T) {
 		t.Skip("web/dist/index.html is not available")
 	}
 	require.NoError(t, os.Chdir(repoRoot))
-	t.Cleanup(func() { _ = os.Chdir(wd) })
+	t.Cleanup(func() {
+		if cErr := os.Chdir(wd); cErr != nil {
+			t.Logf("chdir cleanup error: %v", cErr)
+		}
+	})
+
 
 	g := newTestGateway()
 

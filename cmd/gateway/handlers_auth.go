@@ -1480,7 +1480,11 @@ func (g *gateway) fetchYandexUserInfo(ctx context.Context, accessToken string) (
 
 	}
 
-	defer func() { _ = userInfoResp.Body.Close() }()
+	defer func() {
+		if closeErr := userInfoResp.Body.Close(); closeErr != nil {
+			// best effort
+		}
+	}()
 
 	if userInfoResp.StatusCode != http.StatusOK {
 

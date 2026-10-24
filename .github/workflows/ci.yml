@@ -718,16 +718,41 @@ jobs:
     name: Kube-Bench CIS Benchmark
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [validate-workflow]
+    needs: [provision-k8s-vps]
     permissions:
       security-events: write
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Run kube-bench against cluster (if available)
-
-        run: bash scripts/ci/security.sh run_kube_bench
+      - name: Make retry script executable
+        run: chmod +x scripts/ssh-retry.sh
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
+      - name: Run kube-bench on k3s node via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+            set -euo pipefail
+            if ! command -v kube-bench >/dev/null 2>&1; then
+              curl --proto =https --retry 3 --retry-delay 5 -fsSL https://github.com/aquasecurity/kube-bench/releases/download/v0.13.0/kube-bench_0.13.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
+              sudo tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin kube-bench
+              sudo chmod +x /usr/local/bin/kube-bench
+              rm -f /tmp/kube-bench.tar.gz
+            fi
+            mkdir -p ~/security-results
+            sudo kube-bench run --benchmark cis-1.18 --json > ~/security-results/kube-bench-results.json 2>&1
+          EOF
+          mkdir -p security-results
+          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-bench-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
   # ============================================================================
   # KUBE-HUNTER — PENETRATION TESTING
   # ============================================================================
@@ -735,16 +760,43 @@ jobs:
     name: Kube-Hunter Penetration Test
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [validate-workflow]
+    needs: [provision-k8s-vps]
     permissions:
       security-events: write
       contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Make retry script executable
+        run: chmod +x scripts/ssh-retry.sh
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Run kube-hunter (passive scan)
-
-        run: bash scripts/ci/security.sh run_kube_hunter
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+            set -euo pipefail
+            mkdir -p ~/security-results
+            if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
+              pip install --only-binary :all: kube-hunter==0.6.8 2>&1 || pip install kube-hunter==0.6.8 2>&1
+            fi
+            # Passive scan against local API server if reachable
+            if python3 -m kube_hunter --help >/dev/null 2>&1; then
+              python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json 2>&1 || true
+            else
+              kube-hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json 2>&1 || true
+            fi
+          EOF
+          mkdir -p security-results
+          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
   # ============================================================================
   # CHECKOV — IaC SECURITY SCANNER
   # ============================================================================

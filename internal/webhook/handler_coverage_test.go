@@ -197,21 +197,21 @@ func TestServerHealthEndpointWriteError(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.ResponseWriter.(*httptest.ResponseRecorder).Code)
 }
 
-type mockDBWithPurgeError struct{}
+type mockDBWithPurgeErr struct{}
 
-func (m *mockDBWithPurgeError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+func (m *mockDBWithPurgeErr) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 	return &mockTx{}, nil
 }
 
-func (m *mockDBWithPurgeError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+func (m *mockDBWithPurgeErr) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
 	return &mockRower{}, nil
 }
 
-func (m *mockDBWithPurgeError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+func (m *mockDBWithPurgeErr) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
 	return nil, nil
 }
 
-func (m *mockDBWithPurgeError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+func (m *mockDBWithPurgeErr) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
 	return 0, nil
 }
 

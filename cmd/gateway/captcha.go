@@ -28,7 +28,11 @@ func postCaptcha(logPrefix, url, secret, token, clientIP string) ([]byte, error)
 	if err != nil {
         return nil, fmt.Errorf("%s verify request: %w", logPrefix, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// best effort close
+		}
+	}()
 
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {

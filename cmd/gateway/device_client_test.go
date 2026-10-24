@@ -11,7 +11,11 @@ import (
 func TestNewGatewayDeviceClient(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if cErr := db.Close(); cErr != nil {
+			t.Logf("db close error: %v", cErr)
+		}
+	}()
 
 	client := newGatewayDeviceClient(db)
 
