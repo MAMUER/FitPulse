@@ -332,7 +332,17 @@ describe('useCalendar', () => {
     setup({
       selectedCalendarDay: 4,
       calendarEvents: {
-        '4 Октябрь': [{ id: 1, title: 'Старое', type: 'training', info: '', time: '18:00', date: '4 Октябрь', color: '#6fae20' }],
+        '4 Октябрь': [
+          {
+            id: 1,
+            title: 'Старое',
+            type: 'training',
+            info: '',
+            time: '18:00',
+            date: '4 Октябрь',
+            color: '#6fae20',
+          },
+        ],
       },
       calendarEventsList: [{ id: 1, title: 'Старое', dateLabel: '4 Октябрь' }],
     });

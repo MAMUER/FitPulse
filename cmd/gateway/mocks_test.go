@@ -207,7 +207,9 @@ func withRealSessionStore(g *gateway) {
 }
 
 func withBiometricClient(g *gateway) {
-	g.biometricClient = &mockBiometricClient{}
+	g.biometricClient = &mockBiometricClient{
+		records: make(map[string]*biometricpb.BiometricRecord),
+	}
 }
 
 func withTrainingClient(g *gateway) {

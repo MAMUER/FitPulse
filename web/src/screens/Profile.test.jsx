@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Profile from './Profile';
 
@@ -185,13 +185,17 @@ describe('Profile', () => {
 
   it('does not show code input when twoFactor is false', () => {
     renderProfile(baseContext({ state: { profile: { twoFactor: false } } }));
-    expect(screen.queryByLabelText('Код для отключения')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Код для отключения')
+    ).not.toBeInTheDocument();
   });
 
   it('sets up 2FA when clicking Enable', async () => {
     const user = userEvent.setup();
     const setup2FA = vi.fn();
-    renderProfile(baseContext({ state: { profile: { twoFactor: false } }, setup2FA }));
+    renderProfile(
+      baseContext({ state: { profile: { twoFactor: false } }, setup2FA })
+    );
     await user.click(screen.getByText('Включить'));
     expect(setup2FA).toHaveBeenCalled();
   });

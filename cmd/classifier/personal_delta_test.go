@@ -215,7 +215,8 @@ func TestErrors(t *testing.T) {
 	assert.Error(t, errors.New("unsupported onnx model configuration"))
 }
 
-func newTestONNXClassifier(numClasses int) *ONNXClassifier {
+func newTestONNXClassifier() *ONNXClassifier {
+	numClasses := 2
 	numFeatures := 4
 	weights := make([]float64, numClasses*numFeatures)
 	for i := range weights {
@@ -230,7 +231,7 @@ func newTestONNXClassifier(numClasses int) *ONNXClassifier {
 }
 
 func TestNewPersonalDeltaClassifier(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 	assert.NotNil(t, pc)
@@ -239,7 +240,7 @@ func TestNewPersonalDeltaClassifier(t *testing.T) {
 }
 
 func TestPersonalDeltaClassifier_PredictWithDelta(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -282,7 +283,7 @@ func TestPersonalDeltaClassifier_PredictWithDelta_InvalidConfig(t *testing.T) {
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -292,7 +293,7 @@ func TestPersonalDeltaClassifier_UpdateDelta(t *testing.T) {
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta_InvalidClassIndex(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -302,7 +303,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_InvalidClassIndex(t *testing.T) {
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta_InvalidFeaturesLength(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -312,7 +313,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_InvalidFeaturesLength(t *testing.T)
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta_LearningRateDefault(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -322,7 +323,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_LearningRateDefault(t *testing.T) {
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta_ClampsDelta(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -338,7 +339,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_ClampsDelta(t *testing.T) {
 }
 
 func TestClassifyWithDelta_PersonalClassifier(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
@@ -360,7 +361,7 @@ func TestClassifyWithDelta_PersonalClassifier(t *testing.T) {
 }
 
 func TestClassifyWithDelta_ONNXClassifierFallback(t *testing.T) {
-	classifier := newTestONNXClassifier(2)
+	classifier := newTestONNXClassifier()
 	s := &classifierServer{
 		log:            nil,
 		onnxClassifier: classifier,

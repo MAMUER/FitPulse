@@ -1,35 +1,56 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import Integrations from './Integrations'
-import { useApp } from '../contexts/AppContext'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { useApp } from '../contexts/AppContext';
+import Integrations from './Integrations';
 
 vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),
-}))
+}));
 
 describe('Integrations', () => {
   it('loads, disconnects and handles errors', async () => {
-    const loadIntegrationProviders = vi.fn()
-      .mockResolvedValue([{ source: 'withings', source_name: 'Withings', connected: true, connected_at: '2026-01-01T00:00:00Z' }])
-    const disconnectIntegration = vi.fn()
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([
+      {
+        source: 'withings',
+        source_name: 'Withings',
+        connected: true,
+        connected_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    const disconnectIntegration = vi
+      .fn()
       .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(new Error('fail'))
-    const notify = vi.fn()
-    useApp.mockReturnValue({ notify, t: (ru, en) => ru, loadIntegrationProviders, disconnectIntegration })
+      .mockRejectedValueOnce(new Error('fail'));
+    const notify = vi.fn();
+    useApp.mockReturnValue({
+      notify,
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
 
-    render(<Integrations />)
-    await screen.findByText('Отключить')
-    fireEvent.click(screen.getByText('Отключить'))
-    await waitFor(() => expect(disconnectIntegration).toHaveBeenCalledWith('withings'))
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Интеграция отключена'))
-  })
+    render(<Integrations />);
+    await screen.findByText('Отключить');
+    fireEvent.click(screen.getByText('Отключить'));
+    await waitFor(() =>
+      expect(disconnectIntegration).toHaveBeenCalledWith('withings')
+    );
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Интеграция отключена')
+    );
+  });
 
   it('shows empty when no providers', async () => {
-    const loadIntegrationProviders = vi.fn().mockResolvedValue([])
-    const disconnectIntegration = vi.fn()
-    useApp.mockReturnValue({ notify: vi.fn(), t: (ru, en) => ru, loadIntegrationProviders, disconnectIntegration })
-    render(<Integrations />)
-    await screen.findByText('Нет доступных интеграций')
-    expect(screen.queryByText('Отключить')).not.toBeInTheDocument()
-  })
-})
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([]);
+    const disconnectIntegration = vi.fn();
+    useApp.mockReturnValue({
+      notify: vi.fn(),
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
+    render(<Integrations />);
+    await screen.findByText('Нет доступных интеграций');
+    expect(screen.queryByText('Отключить')).not.toBeInTheDocument();
+  });
+});

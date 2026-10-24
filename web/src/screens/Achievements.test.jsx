@@ -1,7 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Achievements from './Achievements';
 
@@ -97,7 +96,9 @@ describe('Achievements', () => {
 
   it('falls back to state.achievements when backend is empty', async () => {
     const achievements = [{ name: 'Тест', desc: 'Описание' }];
-    renderAchievements(baseContext({ state: { achievementsBackend: [], achievements } }));
+    renderAchievements(
+      baseContext({ state: { achievementsBackend: [], achievements } })
+    );
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
@@ -117,7 +118,9 @@ describe('Achievements', () => {
   });
 
   it('renders custom icon when provided', async () => {
-    const achievementsBackend = [{ id: 1, name: 'Со звездой', icon: 'fa-star' }];
+    const achievementsBackend = [
+      { id: 1, name: 'Со звездой', icon: 'fa-star' },
+    ];
     renderAchievements(baseContext({ state: { achievementsBackend } }));
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
@@ -174,7 +177,10 @@ describe('Achievements', () => {
   });
 
   it('uses English translations when language is en', async () => {
-    const enContext = baseContext({ state: { language: 'en' }, t: (_ru, en) => en });
+    const enContext = baseContext({
+      state: { language: 'en' },
+      t: (_ru, en) => en,
+    });
     renderAchievements(enContext);
     await waitFor(() => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument();

@@ -2748,18 +2748,6 @@ func TestAuth_RefreshHandler_InvalidRefreshToken(t *testing.T) {
 
 // ========== Yandex OAuth additional coverage ==========
 
-type yandexMockUserClient struct {
-	totpEnabledUserClient
-	authenticateYandexFn func(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error)
-}
-
-func (m *yandexMockUserClient) AuthenticateYandex(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
-	if m.authenticateYandexFn != nil {
-		return m.authenticateYandexFn(ctx, req, opts...)
-	}
-	return &user.LoginResponse{AccessToken: "token", UserId: "user-123", Role: "client"}, nil
-}
-
 func TestAuth_YandexCallbackHandler_Success(t *testing.T) {
 	// Yandex callback success path requires fetchYandexUserInfo which calls
 	// login.yandex.ru directly (not mockable without source change).

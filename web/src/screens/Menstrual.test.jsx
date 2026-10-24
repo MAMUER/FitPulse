@@ -144,14 +144,28 @@ describe('Menstrual', () => {
         highContrast: false,
         language: 'ru',
         menstrualCycles: [
-          { id: 5, start_date: null, flow_intensity: null, symptoms: [], moods: [], notes: '' },
-          { id: 6, start_date: '2026-01-01', end_date: null, flow_intensity: null },
+          {
+            id: 5,
+            start_date: null,
+            flow_intensity: null,
+            symptoms: [],
+            moods: [],
+            notes: '',
+          },
+          {
+            id: 6,
+            start_date: '2026-01-01',
+            end_date: null,
+            flow_intensity: null,
+          },
         ],
       },
     });
     renderMenstrual(context);
     expect(await screen.findByText('—')).toBeInTheDocument();
-    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Следующий период примерно')
+    ).not.toBeInTheDocument();
   });
 
   it('forecast returns null when only one valid cycle', async () => {
@@ -162,14 +176,23 @@ describe('Menstrual', () => {
         highContrast: false,
         language: 'ru',
         menstrualCycles: [
-          { id: 1, start_date: '2026-01-01', end_date: null, flow_intensity: 'moderate' },
+          {
+            id: 1,
+            start_date: '2026-01-01',
+            end_date: null,
+            flow_intensity: 'moderate',
+          },
         ],
       },
     });
     renderMenstrual(context);
     await waitFor(() => expect(context.loadMenstrualCycles).toHaveBeenCalled());
-    await waitFor(() => expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument());
-    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument()
+    );
+    expect(
+      screen.queryByText('Следующий период примерно')
+    ).not.toBeInTheDocument();
   });
 
   it('forecast handles negative diff', async () => {
@@ -180,15 +203,29 @@ describe('Menstrual', () => {
         highContrast: false,
         language: 'ru',
         menstrualCycles: [
-          { id: 1, start_date: '2026-01-01', end_date: null, flow_intensity: 'moderate' },
-          { id: 2, start_date: '2026-01-01', end_date: null, flow_intensity: 'light' },
+          {
+            id: 1,
+            start_date: '2026-01-01',
+            end_date: null,
+            flow_intensity: 'moderate',
+          },
+          {
+            id: 2,
+            start_date: '2026-01-01',
+            end_date: null,
+            flow_intensity: 'light',
+          },
         ],
       },
     });
     renderMenstrual(context);
     await waitFor(() => expect(context.loadMenstrualCycles).toHaveBeenCalled());
-    await waitFor(() => expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument());
-    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument()
+    );
+    expect(
+      screen.queryByText('Следующий период примерно')
+    ).not.toBeInTheDocument();
   });
 
   it('notifies when start date is missing', async () => {

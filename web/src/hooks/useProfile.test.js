@@ -323,7 +323,17 @@ describe('useProfile', () => {
   });
 
   it('loadProfile merges backend data', async () => {
-    setup({ profile: { name: 'А', email: 'a@b.com', gender: 'other', phone: '1', bio: 'x', status: 'y', devices: ['d'] } });
+    setup({
+      profile: {
+        name: 'А',
+        email: 'a@b.com',
+        gender: 'other',
+        phone: '1',
+        bio: 'x',
+        status: 'y',
+        devices: ['d'],
+      },
+    });
     api.loadProfile.mockResolvedValue({
       profile: {
         full_name: 'Михаил Б',

@@ -5,7 +5,6 @@ module into sys.modules before importing gan_train/gan_model to bypass the
 top-level import. The tested functions only use numpy/stdlib.
 """
 
-import json
 import os
 import sys
 import tempfile
@@ -20,49 +19,51 @@ import numpy as np
 # Inject a fake torch module so that importing gan_train / gan_model succeeds.
 # The functions under test never touch torch at runtime.
 # ---------------------------------------------------------------------------
-_fake_torch = types.ModuleType("torch")
-_fake_torch.device = lambda *a, **k: "cpu"
-_fake_torch.FloatTensor = np.ndarray
-_fake_torch.randn = lambda *a, **k: np.random.randn(*a).astype(np.float32)
-_fake_torch.ones = lambda *a, **k: np.ones(a, dtype=np.float32)
-_fake_torch.zeros = lambda *a, **k: np.zeros(a, dtype=np.float32)
-_fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False)
-sys.modules["torch"] = _fake_torch
+_fake_torch = types.ModuleType("torch")  # type: ignore[attr-defined]
+_fake_torch.device = lambda *a, **k: "cpu"  # type: ignore[attr-defined]
+_fake_torch.FloatTensor = np.ndarray  # type: ignore[attr-defined]
+_fake_torch.randn = (  # type: ignore[attr-defined]
+    lambda *a, **k: np.random.randn(*a).astype(np.float32)
+)
+_fake_torch.ones = lambda *a, **k: np.ones(a, dtype=np.float32)  # type: ignore[attr-defined]
+_fake_torch.zeros = lambda *a, **k: np.zeros(a, dtype=np.float32)  # type: ignore[attr-defined]
+_fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False)  # type: ignore[attr-defined]
+sys.modules["torch"] = _fake_torch  # type: ignore[assignment]
 
-_fake_nn = types.ModuleType("torch.nn")
-_fake_nn.Module = object
-_fake_nn.Sequential = lambda *a, **k: None
-_fake_nn.Linear = lambda *a, **k: None
-_fake_nn.LeakyReLU = lambda *a, **k: None
-_fake_nn.BatchNorm1d = lambda *a, **k: None
-_fake_nn.Tanh = lambda *a, **k: None
-_fake_nn.Dropout = lambda *a, **k: None
-_fake_nn.Sigmoid = lambda *a, **k: None
-_fake_nn.BCELoss = lambda *a, **k: None
-sys.modules["torch.nn"] = _fake_nn
+_fake_nn = types.ModuleType("torch.nn")  # type: ignore[attr-defined]
+_fake_nn.Module = object  # type: ignore[attr-defined]
+_fake_nn.Sequential = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.Linear = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.LeakyReLU = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.BatchNorm1d = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.Tanh = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.Dropout = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.Sigmoid = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_nn.BCELoss = lambda *a, **k: None  # type: ignore[attr-defined]
+sys.modules["torch.nn"] = _fake_nn  # type: ignore[assignment]
 
-_fake_optim = types.ModuleType("torch.optim")
-_fake_optim.Adam = lambda *a, **k: None
-sys.modules["torch.optim"] = _fake_optim
+_fake_optim = types.ModuleType("torch.optim")  # type: ignore[attr-defined]
+_fake_optim.Adam = lambda *a, **k: None  # type: ignore[attr-defined]
+sys.modules["torch.optim"] = _fake_optim  # type: ignore[assignment]
 
-_fake_utils = types.ModuleType("torch.utils")
-_fake_data = types.ModuleType("torch.utils.data")
-_fake_data.DataLoader = lambda *a, **k: None
-_fake_data.Dataset = object
-sys.modules["torch.utils"] = _fake_utils
-sys.modules["torch.utils.data"] = _fake_data
+_fake_utils = types.ModuleType("torch.utils")  # type: ignore[attr-defined]
+_fake_data = types.ModuleType("torch.utils.data")  # type: ignore[attr-defined]
+_fake_data.DataLoader = lambda *a, **k: None  # type: ignore[attr-defined]
+_fake_data.Dataset = object  # type: ignore[attr-defined]
+sys.modules["torch.utils"] = _fake_utils  # type: ignore[assignment]
+sys.modules["torch.utils.data"] = _fake_data  # type: ignore[assignment]
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from gan_train import _safe_path, load_dataset, parse_args, parser  # noqa: E402
+from gan_model import PLAN_DIM  # noqa: E402
 from gan_model import (  # noqa: E402
+    CONDITION_DIM,
+    NUM_CLASSES,
     build_condition,
     denormalize_plan,
     normalize_plan,
-    CONDITION_DIM,
-    NUM_CLASSES,
-    PLAN_DIM,
 )
+from gan_train import _safe_path, load_dataset, parser  # noqa: E402
 
 
 class TestSafePath(unittest.TestCase):
@@ -74,6 +75,7 @@ class TestSafePath(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         if self.models_dir.exists():
             shutil.rmtree(self.models_dir)
 
@@ -105,8 +107,12 @@ class TestLoadDataset(unittest.TestCase):
     def _write_csv(self, rows):
         """Write CSV with ASCII header (np.loadtxt needs numeric data after header)."""
         path = os.path.join(self.tmpdir, "plans.csv")
+        header = (
+            "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,"
+            "klass,age,gender,weight,height,goal\n"
+        )
         with open(path, "w") as f:
-            f.write("c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,klass,age,gender,weight,height,goal\n")
+            f.write(header)
             for row in rows:
                 f.write(",".join(str(v) for v in row) + "\n")
         return path
@@ -232,11 +238,9 @@ class TestDenormalizePlan(unittest.TestCase):
 
         result = denormalize_plan(plan_norm, plan_min, plan_max)
 
-        # (plan_norm + 1) / 2 * (plan_max - plan_min) + plan_min
-        # -1 -> 0, 0 -> 50, 1 -> 100, then clip to [0, 1]
         np.testing.assert_almost_equal(result[0], 0.0)
-        np.testing.assert_almost_equal(result[1], 1.0)  # 50 clipped to 1
-        np.testing.assert_almost_equal(result[2], 1.0)  # 100 clipped to 1
+        np.testing.assert_almost_equal(result[1], 1.0)
+        np.testing.assert_almost_equal(result[2], 1.0)
 
     def test_denormalize_clips_above_one(self):
         """Values above 1.0 are clipped to 1.0."""
@@ -260,7 +264,7 @@ class TestDenormalizePlan(unittest.TestCase):
 class TestParseArgs(unittest.TestCase):
     """Tests for parse_args CLI argument parsing.
 
-    parse_args() reads from sys.argv, so we patch sys.argv.
+    parser.parse_args() reads from sys.argv, so we patch sys.argv.
     """
 
     def _parse(self, argv):
@@ -280,14 +284,22 @@ class TestParseArgs(unittest.TestCase):
 
     def test_train_subcommand_all_args(self):
         """Train subcommand should parse all arguments."""
-        args = self._parse([
-            "train", "--dataset", "data.csv",
-            "--epochs", "50",
-            "--batch-size", "16",
-            "--lr", "0.001",
-            "--cpu",
-            "--output", "models/my_model.pt",
-        ])
+        args = self._parse(
+            [
+                "train",
+                "--dataset",
+                "data.csv",
+                "--epochs",
+                "50",
+                "--batch-size",
+                "16",
+                "--lr",
+                "0.001",
+                "--cpu",
+                "--output",
+                "models/my_model.pt",
+            ]
+        )
         self.assertEqual(args.command, "train")
         self.assertEqual(args.epochs, 50)
         self.assertEqual(args.batch_size, 16)
@@ -312,13 +324,30 @@ class TestParseArgs(unittest.TestCase):
 
     def test_generate_subcommand_all_args(self):
         """Generate subcommand should parse all arguments."""
-        args = self._parse([
-            "generate", "--model", "m.pt", "--class-index", "1",
-            "--age", "40", "--gender", "0", "--weight", "80.5",
-            "--height", "170", "--goal", "2",
-            "--num-samples", "5", "--cpu",
-            "--output", "out.json",
-        ])
+        args = self._parse(
+            [
+                "generate",
+                "--model",
+                "m.pt",
+                "--class-index",
+                "1",
+                "--age",
+                "40",
+                "--gender",
+                "0",
+                "--weight",
+                "80.5",
+                "--height",
+                "170",
+                "--goal",
+                "2",
+                "--num-samples",
+                "5",
+                "--cpu",
+                "--output",
+                "out.json",
+            ]
+        )
         self.assertEqual(args.command, "generate")
         self.assertEqual(args.class_index, 1)
         self.assertEqual(args.age, 40.0)

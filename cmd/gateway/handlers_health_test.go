@@ -29,7 +29,7 @@ func TestHealth_CheckTCPServiceEmptyAddress(t *testing.T) {
 func TestHealth_CheckTCPServiceUp(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	addr := lis.Addr().String()
 	got := checkTCPService(zap.NewNop(), addr)
@@ -39,16 +39,16 @@ func TestHealth_CheckTCPServiceUp(t *testing.T) {
 func TestHealth_CheckGRPCServiceServing(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_SERVING})
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	defer s.Stop()
 
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	got := checkGRPCService(conn, "user.UserService")
 	assert.Equal(t, "up", got)
@@ -57,16 +57,16 @@ func TestHealth_CheckGRPCServiceServing(t *testing.T) {
 func TestHealth_CheckGRPCServiceNotServing(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_NOT_SERVING})
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	defer s.Stop()
 
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	got := checkGRPCService(conn, "user.UserService")
 	assert.Equal(t, "down", got)
@@ -75,7 +75,7 @@ func TestHealth_CheckGRPCServiceNotServing(t *testing.T) {
 func TestHealth_CheckGRPCServiceError(t *testing.T) {
 	conn, err := grpc.NewClient("127.0.0.1:1", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	got := checkGRPCService(conn, "user.UserService")
 	assert.Equal(t, "down", got)
@@ -126,16 +126,16 @@ func TestHealth_HandlerWithGRPCConnDown(t *testing.T) {
 	// Start a gRPC server that returns NOT_SERVING
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_NOT_SERVING})
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	defer s.Stop()
 
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	g := &gateway{log: log, userConn: conn}
 
@@ -153,16 +153,16 @@ func TestHealth_HandlerWithGRPCConnUp(t *testing.T) {
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_SERVING})
-	go s.Serve(lis)
+	go func() { _ = s.Serve(lis) }()
 	defer s.Stop()
 
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	g := &gateway{log: log, userConn: conn}
 

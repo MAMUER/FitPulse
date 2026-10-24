@@ -49,7 +49,9 @@ const defaultContext = {
 };
 
 function renderHome(overrides) {
-  useApp.mockReturnValue(overrides ? { ...defaultContext, ...overrides } : defaultContext);
+  useApp.mockReturnValue(
+    overrides ? { ...defaultContext, ...overrides } : defaultContext
+  );
   return render(
     <BrowserRouter>
       <AppProvider>
@@ -117,8 +119,8 @@ describe('Home', () => {
   it('navigates to consent from policy link in goals panel', () => {
     renderHome();
     screen.getByText('Политика').click();
-    const navigate = useNavigate.mock.results[useNavigate.mock.results.length - 1]
-      .value;
+    const navigate =
+      useNavigate.mock.results[useNavigate.mock.results.length - 1].value;
     expect(navigate).toHaveBeenCalledWith('/consent');
   });
 });

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Training from './Training';
 
@@ -104,7 +104,10 @@ describe('Training', () => {
   it('renders training plans list with details buttons', () => {
     const plans = [
       makePlan({ plan_id: 'p1' }),
-      makePlan({ plan_id: 'p2', plan_data: { name: 'Интенсив', training_goal: 'Сила' } }),
+      makePlan({
+        plan_id: 'p2',
+        plan_data: { name: 'Интенсив', training_goal: 'Сила' },
+      }),
     ];
     renderTraining(baseContext({ state: { trainingPlans: plans } }));
     expect(screen.getByText('Базовый план')).toBeInTheDocument();
@@ -127,7 +130,11 @@ describe('Training', () => {
 
   it('falls back to plan_data.training_goal for subtitle', () => {
     const plans = [
-      makePlan({ plan_id: 'p1', training_goal: null, plan_data: { training_goal: 'Гибкость' } }),
+      makePlan({
+        plan_id: 'p1',
+        training_goal: null,
+        plan_data: { training_goal: 'Гибкость' },
+      }),
     ];
     renderTraining(baseContext({ state: { trainingPlans: plans } }));
     expect(screen.getByText('Гибкость')).toBeInTheDocument();
