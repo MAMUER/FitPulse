@@ -1,4 +1,4 @@
-﻿name: CI/CD Pipeline
+name: CI/CD Pipeline
 on:
   push:
     branches: [main]
@@ -270,7 +270,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "26"
           cache: "npm"
@@ -336,7 +336,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Lint Code Base
-        uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918
+        uses: super-linter/super-linter@2da136927bd4a73596db63044b504547c62cb854
         env:
           GO_VERSION: 1.27.2
           REGISTRY: ghcr.io
@@ -395,14 +395,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql-config.yml
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
@@ -411,7 +411,7 @@ jobs:
         if: always()
         run: bash scripts/ci/ci-helpers.sh show_codeql_diagnostics
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
@@ -468,7 +468,7 @@ jobs:
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         if: always() && hashFiles('sarif-results/kubescape-results.sarif') != ''
         with:
           sarif_file: sarif-results/kubescape-results.sarif
@@ -493,7 +493,7 @@ jobs:
       - name: Run Semgrep scan
         run: bash scripts/ci/security.sh run_semgrep
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -571,7 +571,7 @@ jobs:
       - name: Run gosec SAST scanner
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         if: always()
         with:
           sarif_file: sarif-results/gosec.sarif
@@ -619,7 +619,7 @@ jobs:
           TRIVY_SKIP_DB_UPDATE: false
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -628,7 +628,7 @@ jobs:
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -663,7 +663,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "26"
           cache: "npm"
@@ -677,7 +677,7 @@ jobs:
         continue-on-error: true
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" run_coverage
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f
+        uses: sonarsource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -765,7 +765,7 @@ jobs:
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: sarif-results/checkov-results.sarif
           category: checkov
@@ -988,7 +988,7 @@ jobs:
           cache: true
       - name: Build Go services (parallel)
         run: bash scripts/ci/build-push.sh build_go_binaries
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: binaries
           path: bin/
@@ -1021,7 +1021,7 @@ jobs:
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - name: Build and push Go services
         run: bash scripts/ci/build-push.sh build_go_services
       - name: Build and push ML images (if models exist)
@@ -1047,7 +1047,7 @@ jobs:
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
@@ -1253,7 +1253,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh download_kubeconfig
       - name: Upload kubeconfig artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: kubeconfig
           path: ./k3s-config.yaml
@@ -1293,7 +1293,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1325,7 +1325,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1350,7 +1350,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24"
           cache: "npm"
@@ -1363,7 +1363,7 @@ jobs:
         run: cd web && npm run test:e2e
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: playwright-report
           path: web/playwright-report/
@@ -1468,7 +1468,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1568,7 +1568,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
           path: ./kubeconfig
@@ -1719,7 +1719,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Download kubeconfig artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
           path: ./kubeconfig
