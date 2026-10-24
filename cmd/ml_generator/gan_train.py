@@ -68,7 +68,9 @@ def train(args):
     plans_norm = normalize_plan(plans, plan_min, plan_max)
 
     dataset = TrainingPlanDataset(plans_norm, conditions)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataloader = DataLoader(
+        dataset, batch_size=args.batch_size, shuffle=True, num_workers=0
+    )
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
