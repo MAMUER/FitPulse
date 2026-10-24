@@ -161,7 +161,6 @@ func TestServerStopIsIdempotent(t *testing.T) {
 
 type fatalRecorder struct {
 	called bool
-	msg    string
 }
 
 func TestNewServerMissingSecretFatal(t *testing.T) {

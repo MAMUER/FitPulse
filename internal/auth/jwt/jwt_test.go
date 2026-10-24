@@ -281,6 +281,7 @@ func TestValidateAccessToken_BadTokenFormat(t *testing.T) {
 func TestValidateAccessToken_WrongSigningMethod(t *testing.T) {
 	_, pub, _ := generateTestKeyPair()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"foo": "bar"})
+	//nolint:gosec // test-only signing key
 	signed, err := token.SignedString([]byte("secret"))
 	require.NoError(t, err)
 	_, err = ValidateAccessToken(signed, pub)
@@ -290,6 +291,7 @@ func TestValidateAccessToken_WrongSigningMethod(t *testing.T) {
 func TestValidateAccessToken_InvalidClaimsType(t *testing.T) {
 	_, pub, _ := generateTestKeyPair()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"sub": "x"})
+	//nolint:gosec // test-only signing key
 	signed, err := token.SignedString([]byte("x"))
 	// This will fail at signing; skip if it fails
 	if err != nil {

@@ -41,6 +41,7 @@ func TestHealth_CheckGRPCServiceServing(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
+	//nolint:gosec // test-only local gRPC server
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_SERVING})
 	go func() { _ = s.Serve(lis) }()
@@ -59,6 +60,7 @@ func TestHealth_CheckGRPCServiceNotServing(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
+	//nolint:gosec // test-only local gRPC server
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_NOT_SERVING})
 	go func() { _ = s.Serve(lis) }()
@@ -128,6 +130,7 @@ func TestHealth_HandlerWithGRPCConnDown(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
+	//nolint:gosec // test-only local gRPC server
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_NOT_SERVING})
 	go func() { _ = s.Serve(lis) }()
@@ -155,6 +158,7 @@ func TestHealth_HandlerWithGRPCConnUp(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
+	//nolint:gosec // test-only local gRPC server
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &mockHealthServer{serving: grpc_health_v1.HealthCheckResponse_SERVING})
 	go func() { _ = s.Serve(lis) }()
