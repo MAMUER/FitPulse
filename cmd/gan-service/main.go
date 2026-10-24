@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -116,9 +117,10 @@ func (s *ganService) callPythonGAN(req generatePlanRequest) ([]generatedPlan, er
 
 	stdout, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("python GAN failed: %s", string(exitErr.Stderr))
-		}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return nil, fmt.Errorf("python GAN failed: %s", string(exitErr.Stderr))
+	}
 		return nil, fmt.Errorf("python GAN error: %w", err)
 	}
 
@@ -132,7 +134,9 @@ func (s *ganService) callPythonGAN(req generatePlanRequest) ([]generatedPlan, er
 
 func (s *ganService) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "model": "conditional-gan-local"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "model": "conditional-gan-local"}); err != nil {
+		s.log.Error("Failed to encode health response", zap.Error(err))
+	}
 }
 
 func main() {

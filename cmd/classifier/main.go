@@ -401,12 +401,14 @@ func (s *classifierServer) deltaInfoHandler(w http.ResponseWriter, r *http.Reque
 	_, exists := s.personalClassifier.store.GetDelta(userID)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"user_id":    userID,
 		"has_delta":  exists,
 		"delta_norm": norm,
 		"delta_size": s.personalClassifier.DeltaStoreSize(),
-	})
+	}); err != nil {
+		s.log.Error("Failed to encode response", zap.Error(err))
+	}
 }
 
 func deltaNorm(delta []float64) float64 {

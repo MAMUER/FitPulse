@@ -12,19 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/chat"
 )
-
-type chatUserServiceClient struct {
-	mockUserServiceClient
-	profile *userpb.UserProfile
-	err     error
-}
-
-func (m *chatUserServiceClient) GetProfile(ctx context.Context, req *userpb.GetProfileRequest, opts ...interface{}) (*userpb.UserProfile, error) {
-	return m.profile, m.err
-}
 
 func chatRequest(t *testing.T, userID, body string) *http.Request {
 	t.Helper()

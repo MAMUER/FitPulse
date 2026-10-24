@@ -21,7 +21,7 @@ type CaptchaProvider interface {
 
 // postCaptcha sends a form-encoded POST to a CAPTCHA verify endpoint and returns the body.
 func postCaptcha(url, secret, token, clientIP string) ([]byte, error) {
-	resp, err := http.Post(url,
+	resp, err := http.Post(url, // #nosec G107
 		"application/x-www-form-urlencoded",
 		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
 			secret, token, clientIP)))

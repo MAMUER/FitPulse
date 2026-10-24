@@ -354,7 +354,7 @@ func (r *userMenstrualRepository) CreateCycleWithDetails(ctx context.Context, cy
 
 	}
 
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var cycleEndDate interface{}
 
@@ -428,7 +428,7 @@ func (r *userMenstrualRepository) UpdateCycleWithDetails(ctx context.Context, cy
 
 	}
 
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var cycleEndDate interface{}
 
