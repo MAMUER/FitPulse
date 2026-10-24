@@ -431,6 +431,29 @@ func (g *gateway) requireCriticalSession(r *http.Request, userID string) error {
 
 }
 
+// requireTOTPAuth performs the common authentication, critical session, and rate limit
+// checks for TOTP handlers. Returns the user ID and true if all checks pass,
+// or "" and false if the HTTP response has already been written.
+func (g *gateway) requireTOTPAuth(w http.ResponseWriter, r *http.Request, handlerName, rateLimitPrefix string) (string, bool) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		g.log.Error(errUnauthorized, zap.String("handler", handlerName))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return "", false
+	}
+	if err := g.requireCriticalSession(r, userID); err != nil {
+		g.log.Error(errCriticalSessionRequired, zap.Error(err))
+		http.Error(w, err.Error(), http.StatusPreconditionRequired)
+		return "", false
+	}
+	if err := g.enforceTOTPRateLimit(r.Context(), rateLimitPrefix+":"+userID); err != nil {
+		g.log.Error(errTOTPRateLimitExceeded, zap.Error(err))
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return "", false
+	}
+	return userID, true
+}
+
 // @Summary      Create critical session token
 
 // @Description  Creates a critical session token required for sensitive operations like 2FA setup or disable
@@ -1512,36 +1535,9 @@ func (g *gateway) fetchYandexUserInfo(ctx context.Context, accessToken string) (
 
 func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-
+	userID, ok := g.requireTOTPAuth(w, r, "setupTOTP", "setup")
 	if !ok {
-
-		g.log.Error(errUnauthorized, zap.String("handler", "setupTOTP"))
-
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-
 		return
-
-	}
-
-	if err := g.requireCriticalSession(r, userID); err != nil {
-
-		g.log.Error(errCriticalSessionRequired, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusPreconditionRequired)
-
-		return
-
-	}
-
-	if err := g.enforceTOTPRateLimit(r.Context(), "setup:"+userID); err != nil {
-
-		g.log.Error(errTOTPRateLimitExceeded, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusTooManyRequests)
-
-		return
-
 	}
 
 	resp, err := g.userClient.SetupTOTP(r.Context(), &userpb.SetupTOTPRequest{UserId: userID})
@@ -1619,36 +1615,9 @@ func (g *gateway) setupTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-
+	userID, ok := g.requireTOTPAuth(w, r, "confirmTOTP", "confirm")
 	if !ok {
-
-		g.log.Error(errUnauthorized, zap.String("handler", "confirmTOTP"))
-
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-
 		return
-
-	}
-
-	if err := g.requireCriticalSession(r, userID); err != nil {
-
-		g.log.Error(errCriticalSessionRequired, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusPreconditionRequired)
-
-		return
-
-	}
-
-	if err := g.enforceTOTPRateLimit(r.Context(), "confirm:"+userID); err != nil {
-
-		g.log.Error(errTOTPRateLimitExceeded, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusTooManyRequests)
-
-		return
-
 	}
 
 	var req struct {
@@ -1965,36 +1934,9 @@ func setRefreshCookie(w http.ResponseWriter, refreshToken string) {
 
 func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-
+	userID, ok := g.requireTOTPAuth(w, r, "disableTOTP", "disable")
 	if !ok {
-
-		g.log.Error(errUnauthorized, zap.String("handler", "disableTOTP"))
-
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-
 		return
-
-	}
-
-	if err := g.requireCriticalSession(r, userID); err != nil {
-
-		g.log.Error(errCriticalSessionRequired, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusPreconditionRequired)
-
-		return
-
-	}
-
-	if err := g.enforceTOTPRateLimit(r.Context(), "disable:"+userID); err != nil {
-
-		g.log.Error(errTOTPRateLimitExceeded, zap.Error(err))
-
-		http.Error(w, err.Error(), http.StatusTooManyRequests)
-
-		return
-
 	}
 
 	var req struct {

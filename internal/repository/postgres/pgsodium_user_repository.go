@@ -283,107 +283,32 @@ func (r *PgsodiumUserRepository) decryptUserFields(ctx context.Context, user *en
 }
 
 func (r *PgsodiumUserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-
 	emailHash := db.BlindIndex(email)
-
-	var user entity.User
-
-	var fullNameHash string
-
-	err := r.db.QueryRowContext(ctx, sqlUsersByEmailHashPrefix, emailHash).Scan(
-
-		&user.ID, &user.Email, &user.PasswordHash, &fullNameHash,
-
-		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
-
-	if errors.Is(err, sql.ErrNoRows) {
-
-		return nil, apperrors.NotFound(errUserNotFound)
-
-	}
-
-	if err != nil {
-
-		return nil, apperrors.Internal(errFailedToGetUser+" by email", err)
-
-	}
-
-	if db.PgsodiumKeyID() > 0 {
-
-		var emailVal string
-
-		emailQuery := strings.Builder{}
-
-		emailQuery.WriteString(sqlSelectPrefix)
-
-		emailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
-
-		emailQuery.WriteString(sqlFromUsersByID)
-
-		if err := r.db.QueryRowContext(ctx, emailQuery.String(), user.ID).Scan(&emailVal); err != nil { // NOSONAR go:S2077
-
-			return nil, apperrors.Internal(errFailedToDecryptEmail, err)
-
-		}
-
-		user.Email = emailVal
-
-	}
-
-	return &user, nil
-
+	return r.GetByEmailHash(ctx, emailHash)
 }
 
 func (r *PgsodiumUserRepository) GetByEmailHash(ctx context.Context, emailHash string) (*entity.User, error) {
-
 	var user entity.User
-
 	var fullNameHash string
 
 	err := r.db.QueryRowContext(ctx, sqlUsersByEmailHashPrefix, emailHash).Scan(
-
 		&user.ID, &user.Email, &user.PasswordHash, &fullNameHash,
-
 		&user.Role, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
-
 	if errors.Is(err, sql.ErrNoRows) {
-
 		return nil, apperrors.NotFound(errUserNotFound)
-
 	}
-
 	if err != nil {
-
 		return nil, apperrors.Internal(errFailedToGetUser+" by email hash", err)
-
 	}
 
 	if db.PgsodiumKeyID() > 0 {
-
-		var emailVal string
-
-		emailQuery := strings.Builder{}
-
-		emailQuery.WriteString(sqlSelectPrefix)
-
-		emailQuery.WriteString(db.PgsodiumDecryptParam("email_encrypted", "email_nonce", "email"))
-
-		emailQuery.WriteString(sqlFromUsersByID)
-
-		if err := r.db.QueryRowContext(ctx, emailQuery.String(), user.ID).Scan(&emailVal); err != nil { // NOSONAR go:S2077
-
-			return nil, apperrors.Internal(errFailedToDecryptEmail, err)
-
+		if err := r.decryptUserFields(ctx, &user); err != nil {
+			return nil, err
 		}
-
-		user.Email = emailVal
-
 	}
 
 	return &user, nil
-
 }
 
 func (r *PgsodiumUserRepository) GetEmailByID(ctx context.Context, userID string) (string, bool, error) {

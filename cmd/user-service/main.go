@@ -814,38 +814,22 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 	}
 
 	profile := &pb.UserProfile{
-
-		UserId: user.ID,
-
-		Email: user.Email,
-
-		FullName: user.FullName,
-
-		Nickname: user.Nickname,
-
-		ProfilePhotoUrl: user.ProfilePhotoURL,
-
-		Role: user.Role,
-
-		Age: user.Age,
-
-		Gender: user.Gender,
-
-		HeightCm: user.HeightCm,
-
-		WeightKg: user.WeightKg,
-
-		FitnessLevel: user.FitnessLevel,
-
-		Goals: user.Goals,
-
-		Nutrition: user.Nutrition,
-
-		SleepHours: user.SleepHours,
-
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		UserId:           user.ID,
+		Email:            user.Email,
+		FullName:         user.FullName,
+		Nickname:         user.Nickname,
+		ProfilePhotoUrl:  user.ProfilePhotoURL,
+		Role:             user.Role,
+		Age:              user.Age,
+		Gender:           user.Gender,
+		HeightCm:         user.HeightCm,
+		WeightKg:         user.WeightKg,
+		FitnessLevel:     user.FitnessLevel,
+		Goals:            user.Goals,
+		Nutrition:        user.Nutrition,
+		SleepHours:       user.SleepHours,
+		CreatedAt:        user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        user.UpdatedAt.Format(time.RFC3339),
 	}
 
 	if s.auditLogger != nil {
@@ -1370,6 +1354,28 @@ func (s *userServer) RemoveProfilePhoto(ctx context.Context, req *pb.RemoveProfi
 
 }
 
+// userToProfile converts an entity.User to a pb.UserProfile.
+func userToProfile(user *entity.User) *pb.UserProfile {
+	return &pb.UserProfile{
+		UserId:           user.ID,
+		Email:            user.Email,
+		FullName:         user.FullName,
+		Nickname:         user.Nickname,
+		ProfilePhotoUrl:  user.ProfilePhotoURL,
+		Role:             user.Role,
+		Age:              user.Age,
+		Gender:           user.Gender,
+		HeightCm:         user.HeightCm,
+		WeightKg:         user.WeightKg,
+		FitnessLevel:     user.FitnessLevel,
+		Goals:            user.Goals,
+		Nutrition:        user.Nutrition,
+		SleepHours:       user.SleepHours,
+		CreatedAt:        user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        user.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
 // ListDevices lists the user's connected devices.
 
 func (s *userServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest) (*pb.ListDevicesResponse, error) {
@@ -1412,40 +1418,9 @@ func (s *userServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest
 		}
 
 		return &pb.ListDevicesResponse{Devices: pbDevices}, nil
-
 	}
 
-	devices, err := s.userSvc.ListDevices(ctx, req.UserId)
-
-	if err != nil {
-
-		s.log.Error("Failed to list devices", zap.Error(err))
-
-		return nil, status.Error(codes.Internal, errFailedToListDevices)
-
-	}
-
-	var pbDevices []*pb.Device
-
-	for _, d := range devices {
-
-		pbDevices = append(pbDevices, &pb.Device{
-
-			DeviceId: d.ID,
-
-			DeviceType: d.DeviceType,
-
-			DeviceName: d.DeviceName,
-
-			IsConnected: d.IsConnected,
-
-			LastSync: d.LastSync.Format(time.RFC3339),
-		})
-
-	}
-
-	return &pb.ListDevicesResponse{Devices: pbDevices}, nil
-
+	return nil, status.Error(codes.Internal, "user service not available")
 }
 
 // AddDevice adds a new device for the user.
@@ -3062,40 +3037,7 @@ func (s *userServer) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*
 
 	for _, user := range users {
 
-		pbUsers = append(pbUsers, &pb.UserProfile{
-
-			UserId: user.ID,
-
-			Email: user.Email,
-
-			FullName: user.FullName,
-
-			Nickname: user.Nickname,
-
-			ProfilePhotoUrl: user.ProfilePhotoURL,
-
-			Role: user.Role,
-
-			Age: user.Age,
-
-			Gender: user.Gender,
-
-			HeightCm: user.HeightCm,
-
-			WeightKg: user.WeightKg,
-
-			FitnessLevel: user.FitnessLevel,
-
-			Goals: user.Goals,
-
-			Nutrition: user.Nutrition,
-
-			SleepHours: user.SleepHours,
-
-			CreatedAt: user.CreatedAt.Format(time.RFC3339),
-
-			UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
-		})
+		pbUsers = append(pbUsers, userToProfile(user))
 
 	}
 

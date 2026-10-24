@@ -903,21 +903,9 @@ func convertWeeksToStructpb(weeks []map[string]interface{}) *structpb.ListValue 
 		weekStruct := &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
 		}
-		if val, ok := week["week_number"].(int32); ok {
-			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
-		} else if val, ok := week["week_number"].(int); ok {
-			weekStruct.Fields["week_number"] = structpb.NewNumberValue(float64(val))
-		}
-		if val, ok := week["total_training_days"].(int32); ok {
-			weekStruct.Fields["total_training_days"] = structpb.NewNumberValue(float64(val))
-		} else if val, ok := week["total_training_days"].(int); ok {
-			weekStruct.Fields["total_training_days"] = structpb.NewNumberValue(float64(val))
-		}
-		if val, ok := week["total_duration_minutes"].(int32); ok {
-			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
-		} else if val, ok := week["total_duration_minutes"].(int); ok {
-			weekStruct.Fields["total_duration_minutes"] = structpb.NewNumberValue(float64(val))
-		}
+		setIntNumberField(week, "week_number", weekStruct.Fields)
+		setIntNumberField(week, "total_training_days", weekStruct.Fields)
+		setIntNumberField(week, "total_duration_minutes", weekStruct.Fields)
 		daysSlice := week["days"].([]map[string]interface{})
 		daysList := &structpb.ListValue{
 			Values: make([]*structpb.Value, len(daysSlice)),
@@ -940,11 +928,7 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 	if val, ok := day["day_id"].(string); ok {
 		dayStruct.Fields["day_id"] = structpb.NewStringValue(val)
 	}
-	if val, ok := day["day_of_week"].(int32); ok {
-		dayStruct.Fields["day_of_week"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := day["day_of_week"].(int); ok {
-		dayStruct.Fields["day_of_week"] = structpb.NewNumberValue(float64(val))
-	}
+	setIntNumberField(day, "day_of_week", dayStruct.Fields)
 	if val, ok := day["training_date"].(string); ok {
 		dayStruct.Fields["training_date"] = structpb.NewStringValue(val)
 	}
@@ -954,11 +938,7 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 	if val, ok := day["is_rest_day"].(bool); ok {
 		dayStruct.Fields["is_rest_day"] = structpb.NewBoolValue(val)
 	}
-	if val, ok := day["duration"].(int32); ok {
-		dayStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := day["duration"].(int); ok {
-		dayStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
-	}
+	setIntNumberField(day, "duration", dayStruct.Fields)
 	if val, ok := day["notes"].(string); ok {
 		dayStruct.Fields["notes"] = structpb.NewStringValue(val)
 	}
@@ -977,6 +957,14 @@ func convertDayToStructpb(day map[string]interface{}) *structpb.Struct {
 	return dayStruct
 }
 
+func setIntNumberField(ex map[string]interface{}, key string, fields map[string]*structpb.Value) {
+	if val, ok := ex[key].(int32); ok {
+		fields[key] = structpb.NewNumberValue(float64(val))
+	} else if val, ok := ex[key].(int); ok {
+		fields[key] = structpb.NewNumberValue(float64(val))
+	}
+}
+
 func convertExerciseToStructpb(ex map[string]interface{}) *structpb.Struct {
 	exStruct := &structpb.Struct{
 		Fields: make(map[string]*structpb.Value),
@@ -984,37 +972,17 @@ func convertExerciseToStructpb(ex map[string]interface{}) *structpb.Struct {
 	if val, ok := ex["exercise_name"].(string); ok {
 		exStruct.Fields["exercise_name"] = structpb.NewStringValue(val)
 	}
-	if val, ok := ex["duration"].(int32); ok {
-		exStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := ex["duration"].(int); ok {
-		exStruct.Fields["duration"] = structpb.NewNumberValue(float64(val))
-	}
+	setIntNumberField(ex, "duration", exStruct.Fields)
 	if val, ok := ex["intensity"].(float64); ok {
 		exStruct.Fields["intensity"] = structpb.NewNumberValue(val)
 	}
-	if val, ok := ex["sets"].(int32); ok {
-		exStruct.Fields["sets"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := ex["sets"].(int); ok {
-		exStruct.Fields["sets"] = structpb.NewNumberValue(float64(val))
-	}
-	if val, ok := ex["reps"].(int32); ok {
-		exStruct.Fields["reps"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := ex["reps"].(int); ok {
-		exStruct.Fields["reps"] = structpb.NewNumberValue(float64(val))
-	}
-	if val, ok := ex["rest_seconds"].(int32); ok {
-		exStruct.Fields["rest_seconds"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := ex["rest_seconds"].(int); ok {
-		exStruct.Fields["rest_seconds"] = structpb.NewNumberValue(float64(val))
-	}
+	setIntNumberField(ex, "sets", exStruct.Fields)
+	setIntNumberField(ex, "reps", exStruct.Fields)
+	setIntNumberField(ex, "rest_seconds", exStruct.Fields)
 	if val, ok := ex["description"].(string); ok {
 		exStruct.Fields["description"] = structpb.NewStringValue(val)
 	}
-	if val, ok := ex["sort_order"].(int32); ok {
-		exStruct.Fields["sort_order"] = structpb.NewNumberValue(float64(val))
-	} else if val, ok := ex["sort_order"].(int); ok {
-		exStruct.Fields["sort_order"] = structpb.NewNumberValue(float64(val))
-	}
+	setIntNumberField(ex, "sort_order", exStruct.Fields)
 	return exStruct
 }
 

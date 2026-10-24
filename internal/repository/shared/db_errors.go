@@ -3,6 +3,7 @@ package shared
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -10,6 +11,12 @@ import (
 )
 
 var dbLog = logger.New("repository.postgres")
+
+// EmptySurvey returns an empty, incomplete survey result.
+// Centralized to avoid duplication across repository implementations.
+func EmptySurvey() (map[string]interface{}, bool, *time.Time, error) {
+	return map[string]interface{}{}, false, nil, nil
+}
 
 // CloseRows закрывает результат запроса, логируя ошибку закрытия.
 // Ошибка Close после полного чтения набора строк недействительна для вызывающего

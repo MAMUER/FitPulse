@@ -12,6 +12,7 @@ import (
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
+	"github.com/MAMUER/project/internal/repository/shared"
 )
 
 type profileRepository struct {
@@ -187,13 +188,13 @@ func (r *profileRepository) LoadSurvey(ctx context.Context, userID string) (map[
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return emptySurvey()
+			return shared.EmptySurvey()
 		}
 		return nil, false, nil, apperrors.Internal("failed to load survey", err)
 	}
 
 	if len(surveyJSON) == 0 {
-		return emptySurvey()
+		return shared.EmptySurvey()
 	}
 
 	var survey map[string]interface{}
@@ -202,8 +203,4 @@ func (r *profileRepository) LoadSurvey(ctx context.Context, userID string) (map[
 	}
 
 	return survey, completed, completedAt, nil
-}
-
-func emptySurvey() (map[string]interface{}, bool, *time.Time, error) {
-	return map[string]interface{}{}, false, nil, nil
 }

@@ -26,6 +26,22 @@ from gan_model import (
 )
 from torch.utils.data import DataLoader
 
+_MODELS_DIR = Path("models").resolve()
+
+
+def _safe_path(path: Path) -> Path:
+    """Возвращает путь, гарантированно находящийся внутри models/.
+
+    Защита от path traversal: пользовательские аргументы CLI не могут
+    записать файл вне каталога models/.
+    """
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(_MODELS_DIR)
+    except ValueError:
+        raise ValueError(f"Путь {path} должен находиться внутри {_MODELS_DIR}")
+    return resolved
+
 
 def load_dataset(path):
     """Загрузка датасета планов тренировок."""
@@ -77,7 +93,8 @@ def train(args):
     )
     gan = ConditionalGAN(device=device, lr=args.lr)
 
-    os.makedirs(args.output.parent, exist_ok=True)
+    safe_output = _safe_path(args.output)
+    os.makedirs(safe_output.parent, exist_ok=True)
 
     history = {"d_loss": [], "g_loss": []}
     for epoch in range(args.epochs):
@@ -103,23 +120,25 @@ def train(args):
             )
 
     # Сохраняем модель
-    gan.save(args.output)
+    safe_output = _safe_path(args.output)
+    os.makedirs(safe_output.parent, exist_ok=True)
+    gan.save(safe_output)
 
     # Сохраняем параметры нормализации
     norm_params = {
         "plan_min": plan_min.tolist(),
         "plan_max": plan_max.tolist(),
     }
-    norm_path = args.output.parent / "gan_norm_params.json"
+    norm_path = safe_output.parent / "gan_norm_params.json"
     with open(norm_path, "w") as f:
         json.dump(norm_params, f, indent=2)
 
     # Сохраняем историю обучения
-    history_path = args.output.parent / "gan_history.json"
+    history_path = safe_output.parent / "gan_history.json"
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2)
 
-    print(f"Модель сохранена: {args.output}")
+    print(f"Модель сохранена: {safe_output}")
     print(f"Параметры нормализации: {norm_path}")
     print(f"История обучения: {history_path}")
 
@@ -129,11 +148,10 @@ def generate_plan(args):
     device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
     )
+    safe_model = _safe_path(args.model)
     gan = ConditionalGAN(device=device)
-    gan.load(args.model)
-
-    # Загружаем параметры нормализации
-    norm_path = Path(args.model).parent / "gan_norm_params.json"
+    gan.load(safe_model)
+    norm_path = safe_model.parent / "gan_norm_params.json"
     with open(norm_path, "r") as f:
         norm_params = json.load(f)
     plan_min = np.array(norm_params["plan_min"])
@@ -163,7 +181,7 @@ def generate_plan(args):
     if str(args.output) == "-":
         print(result_json)
     else:
-        output_path = Path(args.output)
+        output_path = _safe_path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             f.write(result_json)

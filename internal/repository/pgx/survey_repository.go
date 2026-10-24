@@ -7,6 +7,7 @@ import (
 
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/port"
+	"github.com/MAMUER/project/internal/repository/shared"
 )
 
 // SurveyRepositoryPGX implements survey operations using pgxpool.Pool.
@@ -52,13 +53,13 @@ func (r *SurveyRepositoryPGX) LoadSurvey(ctx context.Context, userID string) (ma
 
 	if err != nil {
 		if err.Error() == "no rows in result set" {
-			return emptySurvey()
+			return shared.EmptySurvey()
 		}
 		return nil, false, nil, apperrors.Internal("failed to load survey", err)
 	}
 
 	if len(surveyJSON) == 0 {
-		return emptySurvey()
+		return shared.EmptySurvey()
 	}
 
 	var survey map[string]interface{}
@@ -67,10 +68,6 @@ func (r *SurveyRepositoryPGX) LoadSurvey(ctx context.Context, userID string) (ma
 	}
 
 	return survey, completed, completedAt, nil
-}
-
-func emptySurvey() (map[string]interface{}, bool, *time.Time, error) {
-	return map[string]interface{}{}, false, nil, nil
 }
 
 // Ensure SurveyRepositoryPGX implements port.SurveyRepository.
