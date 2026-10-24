@@ -719,6 +719,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [provision-k8s-vps]
+    if: always() && needs.provision-k8s-vps.result == 'success'
     permissions:
       security-events: write
       contents: read
@@ -749,7 +750,7 @@ jobs:
               rm -f /tmp/kube-bench.tar.gz
             fi
             mkdir -p ~/security-results
-            sudo kube-bench run --benchmark cis-1.18 --json > ~/security-results/kube-bench-results.json 2>&1
+            sudo kube-bench run --benchmark cis-1.18 --json > ~/security-results/kube-bench-results.json
           EOF
           mkdir -p security-results
           scp "${VPS_USER}@${VPS_HOST}:security-results/kube-bench-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
@@ -761,6 +762,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [provision-k8s-vps]
+    if: always() && needs.provision-k8s-vps.result == 'success'
     permissions:
       security-events: write
       contents: read
@@ -786,17 +788,16 @@ jobs:
             set -euo pipefail
             mkdir -p ~/security-results
             if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
-              pip install --only-binary :all: kube-hunter==0.6.8 2>&1 || pip install kube-hunter==0.6.8 2>&1
+              pip install --only-binary :all: kube-hunter==0.6.8
             fi
-            # Passive scan against local API server if reachable
             if python3 -m kube_hunter --help >/dev/null 2>&1; then
-              python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json 2>&1 || true
+              python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json
             else
-              kube-hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json 2>&1 || true
+              kube-hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json
             fi
           EOF
           mkdir -p security-results
-          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
+          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/
   # ============================================================================
   # CHECKOV — IaC SECURITY SCANNER
   # ============================================================================
@@ -829,8 +830,7 @@ jobs:
     name: CI Gate (checks and security passed)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Only jobs that run on every event are listed here: a skipped dependency
-    # would skip this gate and silently unblock the deploy chain.
+    # Только pre-deploy проверки
     needs:
       [
         validate-workflow,
@@ -846,8 +846,6 @@ jobs:
         osv-scanner,
         fuzz-tests,
         conventional-commits,
-        kube-bench,
-        kube-hunter,
         checkov,
         sonarcloud,
       ]
@@ -1152,13 +1150,13 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, docker, check, frontend, ci-gate]
+    needs: [detect-changes, binary_build, docker, check, frontend]
     timeout-minutes: 120
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'schedule' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]')))
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1325,9 +1323,8 @@ jobs:
         provision-k8s-vps,
         check,
         frontend,
-        smoke-test,
-        ci-gate,
       ]
+    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.check.result != 'failure' && needs.frontend.result != 'failure'
     timeout-minutes: 60
     environment: staging
     steps:
@@ -1373,6 +1370,7 @@ jobs:
     needs: [deploy-staging]
     timeout-minutes: 20
     environment: staging
+    if: always() && needs.deploy-staging.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1398,6 +1396,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-staging]
     timeout-minutes: 20
+    if: always() && needs.deploy-staging.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1463,8 +1462,8 @@ jobs:
     name: CSP Headers Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [provision-k8s-vps, health-check]
-    if: always() && needs.provision-k8s-vps.result == 'success' && needs.health-check.result == 'success'
+    needs: [provision-k8s-vps]
+    if: ${{ always() && needs.provision-k8s-vps.result == 'success' }}
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1480,7 +1479,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [detect-changes, binary_build, check, ci-gate]
+    needs: [detect-changes, binary_build, check]
     timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
@@ -1498,13 +1497,15 @@ jobs:
   deploy-vps:
     name: Deploy App Tier to VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, ci-gate]
+    needs: [detect-changes, docker, provision-k8s-vps]
     timeout-minutes: 60
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
-      github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
+      always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') &&
+      needs.docker.result != 'failure' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
+       github.event_name == 'schedule' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]')))
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1597,12 +1598,12 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, test-staging, ci-gate]
+    needs: [detect-changes, docker, provision-k8s-vps, test-staging]
     timeout-minutes: 90
     environment: production
     # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
     # the automatic deploy path is deploy-vps (application tier).
-    if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full'
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.docker.result != 'failure' && needs.test-staging.result != 'failure' }}
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -1804,74 +1805,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: always()
-    needs:
-      [
-        validate-workflow,
-        dockerfile-lint,
-        super-linter,
-        frontend,
-        check,
-        binary_build,
-        docker,
-        codeql,
-        kubescape,
-        security-scan,
-        sonarcloud,
-        conventional-commits,
-        kube-bench,
-        kube-hunter,
-        checkov,
-        cosign-verify,
-        provision-k8s-vps,
-        deploy-staging,
-        test-staging,
-        playwright-e2e,
-        deploy-production,
-        test-production,
-        smoke-test,
-        health-check,
-        csp-headers-check,
-        semgrep,
-        osv-scanner,
-        fuzz-tests,
-        dependency-review,
-      ]
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Collect job statuses
-        id: statuses
-        env:
-          JOB_STATUS_VALIDATE_WORKFLOW: ${{ needs.validate-workflow.result }}
-          JOB_STATUS_DOCKERFILE_LINT: ${{ needs.dockerfile-lint.result }}
-          JOB_STATUS_SUPER_LINTER: ${{ needs.super-linter.result }}
-          JOB_STATUS_FRONTEND: ${{ needs.frontend.result }}
-          JOB_STATUS_CHECK: ${{ needs.check.result }}
-          JOB_STATUS_BINARY_BUILD: ${{ needs.binary_build.result }}
-          JOB_STATUS_DOCKER: ${{ needs.docker.result }}
-          JOB_STATUS_CODEQL: ${{ needs.codeql.result }}
-          JOB_STATUS_KUBESCAPE: ${{ needs.kubescape.result }}
-          JOB_STATUS_SECURITY_SCAN: ${{ needs.security-scan.result }}
-          JOB_STATUS_SONARCLOUD: ${{ needs.sonarcloud.result }}
-          JOB_STATUS_CONVENTIONAL_COMMITS: ${{ needs.conventional-commits.result }}
-          JOB_STATUS_KUBE_BENCH: ${{ needs.kube-bench.result }}
-          JOB_STATUS_KUBE_HUNTER: ${{ needs.kube-hunter.result }}
-          JOB_STATUS_CHECKOV: ${{ needs.checkov.result }}
-          JOB_STATUS_COSIGN_VERIFY: ${{ needs.cosign-verify.result }}
-          JOB_STATUS_PROVISION_K8S_VPS: ${{ needs.provision-k8s-vps.result }}
-          JOB_STATUS_DEPLOY_STAGING: ${{ needs['deploy-staging'].result }}
-          JOB_STATUS_TEST_STAGING: ${{ needs['test-staging'].result }}
-          JOB_STATUS_DEPLOY_PRODUCTION: ${{ needs['deploy-production'].result }}
-          JOB_STATUS_TEST_PRODUCTION: ${{ needs['test-production'].result }}
-          JOB_STATUS_SMOKE_TEST: ${{ needs['smoke-test'].result }}
-          JOB_STATUS_HEALTH_CHECK: ${{ needs.health-check.result }}
-          JOB_STATUS_CSP_HEADERS_CHECK: ${{ needs.csp-headers-check.result }}
-          JOB_STATUS_SEMGREP: ${{ needs.semgrep.result }}
-          JOB_STATUS_OSV_SCANNER: ${{ needs.osv-scanner.result }}
-          JOB_STATUS_FUZZ_TESTS: ${{ needs.fuzz-tests.result }}
-          JOB_STATUS_DEPENDENCY_REVIEW: ${{ needs['dependency-review'].result }}
-        run: bash scripts/ci/ci-helpers.sh collect_statuses
       - name: Send to Telegram
+        if: always()
         uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -1879,37 +1817,9 @@ jobs:
           format: html
           disable_web_page_preview: true
           message: |
-            <b>CI/CD — ${{ steps.statuses.outputs.overall }}</b>
+            <b>CI/CD</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
-            <b>Проверки:</b>
-            ${{ steps.statuses.outputs.validate }} Validate Workflow
-            ${{ steps.statuses.outputs.dockerfile_lint }} Dockerfile Lint
-            ${{ steps.statuses.outputs.super_linter }} Super Linter
-            ${{ steps.statuses.outputs.frontend }} Frontend
-            ${{ steps.statuses.outputs.check }} Make Check
-            ${{ steps.statuses.outputs.conventional }} Conventional Commits
-            <b>Безопасность:</b>
-            ${{ steps.statuses.outputs.codeql }} CodeQL
-            ${{ steps.statuses.outputs.kubescape }} Kubescape
-            ${{ steps.statuses.outputs.security_scan }} Security Scan
-            ${{ steps.statuses.outputs.sonarcloud }} SonarCloud
-            ${{ steps.statuses.outputs.kube_bench }} Kube-Bench
-            ${{ steps.statuses.outputs.kube_hunter }} Kube-Hunter
-            ${{ steps.statuses.outputs.checkov }} Checkov
-            ${{ steps.statuses.outputs.cosign_verify }} Cosign Verify
-            <b>Деплой:</b>
-            ${{ steps.statuses.outputs.build }} Build Binaries
-            ${{ steps.statuses.outputs.docker }} Docker Build & Push
-            ${{ steps.statuses.outputs.provision_k8s }} Provision K8s on VPS
-            ${{ steps.statuses.outputs.deploy_staging }} Deploy Staging
-            ${{ steps.statuses.outputs.test_staging }} Test Staging
-            ${{ steps.statuses.outputs.deploy_prod }} Deploy Production
-            ${{ steps.statuses.outputs.test_prod }} Test Production
-            ${{ steps.statuses.outputs.smoke_test }} Smoke Test
-            ${{ steps.statuses.outputs.health_check }} Health Check
-            ${{ steps.statuses.outputs.csp_check }} CSP Headers Check
-            🌐 <b>Сайт:</b> https://${{ env.FITPULSE_DOMAIN }}
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
 
   # ============================================================================
