@@ -9,7 +9,6 @@ import (
 
 	"github.com/MAMUER/project/internal/chat"
 	"github.com/MAMUER/project/internal/middleware"
-	userpb "github.com/MAMUER/project/api/gen/user"
 )
 
 // @Summary      Chat
@@ -41,16 +40,6 @@ func (g *gateway) chatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	answer := chat.FindAnswer(req.Message)
-	if g.externalLLM != nil {
-		ctx := r.Context()
-		profile, err := g.userClient.GetProfile(ctx, &userpb.GetProfileRequest{UserId: userID})
-		if err == nil && profile != nil && profile.AiAssistantEnabled {
-			llmAnswer, llmErr := g.externalLLM.QueryWithFallback(ctx, userID, req.Message)
-			if llmErr == nil && llmAnswer != "" {
-				answer = llmAnswer
-			}
-		}
-	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)

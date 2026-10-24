@@ -21,8 +21,9 @@ import (
 )
 
 type classifierServer struct {
-	log            *logger.Logger
-	onnxClassifier *ONNXClassifier
+	log               *logger.Logger
+	onnxClassifier    *ONNXClassifier
+	personalClassifier *PersonalDeltaClassifier
 }
 
 const (
@@ -32,6 +33,7 @@ const (
 	mlSwitchThreshold  = 0.85
 	modelRuleBased     = "rule-based"
 	modelML            = "ml"
+	errMethodNotSupported = "Метод не поддерживается"
 )
 
 var trainingClasses = map[int]struct {
@@ -236,8 +238,8 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 
 func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		s.log.Error("Метод не поддерживается", zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		s.log.Error(errMethodNotSupported, zap.String("method", sanitize.LogString(r.Method)), zap.String("path", sanitize.LogString(r.URL.Path)))
+		http.Error(w, errMethodNotSupported, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -281,7 +283,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 			"spo2":        data.SpO2,
 			"temperature": data.Temperature,
 		}
-		mlClass, mlConfidence, err := s.onnxClassifier.Predict(features)
+		mlClass, mlConfidence, err := s.classifyWithDelta(features, req.UserID)
 		if err == nil && mlConfidence >= mlSwitchThreshold {
 			predictedClass = mlClass
 			confidence = mlConfidence
@@ -330,6 +332,89 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.log.Error("Failed to encode classification response", zap.Error(err))
 	}
+}
+
+func (s *classifierServer) updateDeltaHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotSupported, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req DeltaUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.log.Warn("Некорректный запрос обновления дельты", zap.Error(err))
+		metrics.ErrorTotal.WithLabelValues("classifier", "invalid_json").Inc()
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID == "" {
+		http.Error(w, "user_id обязателен", http.StatusBadRequest)
+		return
+	}
+
+	if s.personalClassifier == nil {
+		http.Error(w, "Персональная классификация не доступна", http.StatusServiceUnavailable)
+		return
+	}
+
+	delta, err := s.personalClassifier.UpdateDelta(
+		req.UserID,
+		req.ClassIndex,
+		req.TargetValue,
+		req.Features,
+		req.LearningRate,
+	)
+	if err != nil {
+		s.log.Warn("Ошибка обновления дельты", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserID)))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp := DeltaUpdateResponse{
+		Status:     "success",
+		UserID:     req.UserID,
+		ClassIndex: req.ClassIndex,
+		DeltaNorm:  deltaNorm(delta),
+		Applied:    true,
+	}
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.log.Error("Failed to encode delta update response", zap.Error(err))
+	}
+}
+
+func (s *classifierServer) deltaInfoHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id параметр обязателен", http.StatusBadRequest)
+		return
+	}
+
+	if s.personalClassifier == nil {
+		http.Error(w, "Персональная классификация не доступна", http.StatusServiceUnavailable)
+		return
+	}
+
+	norm := s.personalClassifier.DeltaNorm(userID)
+	_, exists := s.personalClassifier.store.GetDelta(userID)
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"user_id":    userID,
+		"has_delta":  exists,
+		"delta_norm": norm,
+		"delta_size": s.personalClassifier.DeltaStoreSize(),
+	})
+}
+
+func deltaNorm(delta []float64) float64 {
+	var norm float64
+	for _, v := range delta {
+		norm += v * v
+	}
+	return math.Sqrt(norm)
 }
 
 func validateClassifyRequest(req classifyRequest) error {
@@ -712,6 +797,9 @@ func main() {
 	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
 		s.onnxClassifier = clf
 		log.Info("ONNX-классификатор загружен", zap.String("weights", sanitize.LogString(DefaultONNXWeightsPath())))
+		deltaStore := NewInMemoryDeltaStore(len(clf.Weights))
+		s.personalClassifier = NewPersonalDeltaClassifier(clf, deltaStore)
+		log.Info("Персональный классификатор с дельтами инициализирован", zap.Int("delta_size", len(clf.Weights)))
 	} else {
 		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
 	}
@@ -720,6 +808,8 @@ func main() {
 	mux.HandleFunc("/health", s.healthHandler)
 	mux.HandleFunc("/classes", s.classesHandler)
 	mux.HandleFunc("/classify", s.classifyHandler)
+	mux.HandleFunc("/classify/delta", s.updateDeltaHandler)
+	mux.HandleFunc("/classify/delta-info", s.deltaInfoHandler)
 	mux.HandleFunc("/metrics", s.metricsHandler)
 	mux.HandleFunc("/model-info", s.modelInfoHandler)
 
