@@ -284,7 +284,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   /* ═══════════════════════════════════════════
    ROOT & THEME VARIABLES
    ═══════════════════════════════════════════ */
@@ -586,7 +585,7 @@ a:not([href]) {
 }
 
 .topbar .icon,
-.profile-stats>div {
+.profile-stats > div {
   cursor: pointer;
 }
 
@@ -622,7 +621,6 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -790,7 +788,6 @@ h3,
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   /* ═══════════════════════════════════════════
    SPLASH SCREEN
    ═══════════════════════════════════════════ */
@@ -805,7 +802,8 @@ h3,
   inset: 0;
   background:
     linear-gradient(#02060455, #020604f2),
-    url("https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200") center / cover;
+    url("https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200")
+    center / cover;
   animation: sceneZoom 5.2s ease;
 }
 
@@ -823,7 +821,8 @@ h3,
   opacity: 0;
   background:
     linear-gradient(#02060455, #020604f2),
-    url("https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200") center / cover;
+    url("https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200")
+    center / cover;
   animation: sceneChange 5.2s 1.5s ease;
 }
 
@@ -872,7 +871,6 @@ h3,
 }
 
 @keyframes neonPulse {
-
   0%,
   100% {
     box-shadow:
@@ -909,7 +907,6 @@ h3,
 }
 
 @keyframes textGlow {
-
   0%,
   100% {
     text-shadow:
@@ -946,7 +943,6 @@ h3,
 }
 
 @keyframes sceneChange {
-
   40%,
   78% {
     opacity: 0.85;
@@ -978,7 +974,6 @@ h3,
 }
 
 @keyframes floatLogo {
-
   0%,
   100% {
     transform: translateY(0) scale(1);
@@ -1011,7 +1006,6 @@ h3,
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   /* ═══════════════════════════════════════════
    SIDE LOGO & NOTIFICATIONS
    ═══════════════════════════════════════════ */
@@ -1195,7 +1189,8 @@ h3,
   border-radius: 25px;
   background:
     linear-gradient(125deg, #06120bc5, #06120bea),
-    url("https://images.unsplash.com/photo-1517964603305-11c0f6f66012?w=800") center / cover;
+    url("https://images.unsplash.com/photo-1517964603305-11c0f6f66012?w=800")
+    center / cover;
 }
 
 .hero h2 {
@@ -1589,7 +1584,6 @@ h3,
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .view-tab,
   .training-tab {
     animation: none;
@@ -1816,7 +1810,6 @@ h3,
 }
 
 @keyframes waterDrop {
-
   0%,
   100% {
     transform: translateY(0);
@@ -2077,7 +2070,6 @@ h3,
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   /* ═══════════════════════════════════════════
    WORKOUT & EXERCISES
    ═══════════════════════════════════════════ */
@@ -2195,7 +2187,6 @@ h3,
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   /* ═══════════════════════════════════════════
    VIDEO CARDS & EQUIPMENT
    ═══════════════════════════════════════════ */
@@ -2881,7 +2872,7 @@ h3,
   background: linear-gradient(transparent 20%, #000e);
 }
 
-.fp-story-card>* {
+.fp-story-card > * {
   position: relative;
   z-index: 1;
 }
@@ -3321,7 +3312,6 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   input,
   select,
   textarea {
@@ -3385,7 +3375,7 @@ textarea:focus {
   border-color: var(--blue);
 }
 
-.setting>i:first-child {
+.setting > i:first-child {
   width: 20px;
   color: var(--blue);
   text-align: center;
@@ -3402,7 +3392,7 @@ textarea:focus {
   font-size: 9px;
 }
 
-.setting>i:last-child {
+.setting > i:last-child {
   margin-left: auto;
   color: var(--muted);
   font-size: 10px;
@@ -4115,10 +4105,12 @@ textarea:focus {
   place-items: center;
   margin: 16px auto;
   border-radius: 50%;
-  background: conic-gradient(var(--blue) 0 25%,
-      var(--green) 25% 70%,
-      var(--orange) 70% 87%,
-      var(--red) 87% 100%);
+  background: conic-gradient(
+    var(--blue) 0 25%,
+    var(--green) 25% 70%,
+    var(--orange) 70% 87%,
+    var(--red) 87% 100%
+  );
   box-shadow: 0 0 25px #19d8da44;
   position: relative;
 }
@@ -4347,7 +4339,6 @@ button:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -4436,10 +4427,8 @@ button:focus-visible {
   line-height: 1.4;
 }
 
-
 /* Respect reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -4449,7 +4438,6 @@ button:focus-visible {
   }
 
   @media (prefers-reduced-motion: reduce) {
-
     *,
     *::before,
     *::after {
