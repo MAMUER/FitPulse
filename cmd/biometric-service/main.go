@@ -269,19 +269,12 @@ func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRec
 	return inserted, nil
 }
 
-// rollbackBiometricTx логирует ошибку отката транзакции biometric-service.
-func rollbackBiometricTx(log *logger.Logger, tx *sql.Tx) {
-	if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-		log.Warn("Failed to rollback biometric transaction", zap.Error(rollbackErr))
-	}
-}
-
 // insertRecordsInTx вставляет записи внутри транзакции и возвращает их количество.
 func (s *biometricServer) insertRecordsInTx(ctx context.Context, tx *sql.Tx, query string, req *pb.BatchAddRecordsRequest) (int, error) {
 	inserted := 0
+	defer tx.Rollback()
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
-			rollbackBiometricTx(s.log, tx)
 			return 0, status.Error(codes.Canceled, "request canceled")
 		}
 
@@ -295,7 +288,6 @@ func (s *biometricServer) insertRecordsInTx(ctx context.Context, tx *sql.Tx, que
 			id, req.UserId, rec.MetricType, rec.Value, ts, rec.DeviceType, "unknown",
 		)
 		if err != nil {
-			rollbackBiometricTx(s.log, tx)
 			s.log.Error("Failed to insert biometric record",
 				zap.Error(err),
 				zap.String("metric_type", sanitize.LogString(rec.MetricType)),

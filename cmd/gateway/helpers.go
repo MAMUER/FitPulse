@@ -170,7 +170,6 @@ func translateError(msg string) string {
 			return translated
 		}
 	}
-	// Если не нашли перевод — возвращаем как есть
 	return msg
 }
 

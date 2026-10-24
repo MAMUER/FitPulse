@@ -50,7 +50,7 @@ func (r *BiometricRepository) BatchCreate(ctx context.Context, records []*entity
 
 	}
 
-	defer func() { shared.LogTxRollback(tx.Rollback()) }()
+	defer tx.Rollback()
 
 	query := shared.BiometricBatchCreateQuery
 
