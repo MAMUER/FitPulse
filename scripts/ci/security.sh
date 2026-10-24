@@ -49,7 +49,7 @@ install_tools() {
 
 run_gosec() {
 	mkdir -p sarif-results
-	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
+	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
 	if [ ! -s sarif-results/gosec.sarif ]; then
 		echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" >sarif-results/gosec.sarif
 	fi
@@ -57,7 +57,7 @@ run_gosec() {
 
 run_govulncheck() {
 	mkdir -p sarif-results
-	govulncheck ./... >sarif-results/govulncheck.txt 2>&1 || true
+	govulncheck ./... >sarif-results/govulncheck.txt 2>&1
 }
 
 run_gitleaks() {
@@ -147,7 +147,7 @@ run_checkov() {
 
 	# checkov writes results_sarif.sarif inside the output folder; the upload
 	# step expects the fixed name.
-	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null || true
+	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null
 
 	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
 	if [ "$status" -ge 2 ]; then
@@ -221,7 +221,7 @@ run_checkov() {
 run_kube_bench() {
 	echo "-> Running kube-bench..."
 	mkdir -p security-results
-	kube-bench run --benchmark cis-1.18 --json >security-results/kube-bench-results.json 2>&1 || true
+	kube-bench run --benchmark cis-1.18 --json >security-results/kube-bench-results.json 2>&1
 	echo "✅ kube-bench scan completed (results in security-results/kube-bench-results.json)"
 }
 
@@ -229,7 +229,7 @@ run_kube_hunter() {
 	echo "-> Running kube-hunter (passive scan)..."
 	mkdir -p security-results
 	pip install --only-binary :all: kube-hunter==0.6.8
-	kube-hunter --remote 127.0.0.1 --json >security-results/kube-hunter-results.json 2>&1 || true
+	kube-hunter --remote 127.0.0.1 --json >security-results/kube-hunter-results.json 2>&1
 	echo "✅ kube-hunter scan completed (results in security-results/kube-hunter-results.json)"
 }
 
@@ -331,7 +331,7 @@ security_gate() {
 		echo "gosec: $GOSEC_CRITICAL high/critical findings"
 		if [ "$GOSEC_CRITICAL" -gt 0 ]; then
 			echo "❌ FAIL: gosec found $GOSEC_CRITICAL high/critical findings"
-			jq -r '.runs[].results[] | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' sarif-results/gosec.sarif 2>/dev/null | head -10 || true
+	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
 			FAIL=1
 		fi
 	fi
@@ -344,7 +344,7 @@ security_gate() {
 
 	# govulncheck is informational only (Trivy covers CVE scanning).
 	if [ -f sarif-results/govulncheck.txt ]; then
-		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null || true)
+		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null)
 		GOVULNCHECK=${GOVULNCHECK:-0}
 		echo "govulncheck: $GOVULNCHECK vulnerabilities found (informational)"
 	fi

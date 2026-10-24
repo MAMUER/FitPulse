@@ -272,7 +272,7 @@ func (s *biometricServer) insertRecords(ctx context.Context, req *pb.BatchAddRec
 // insertRecordsInTx вставляет записи внутри транзакции и возвращает их количество.
 func (s *biometricServer) insertRecordsInTx(ctx context.Context, tx *sql.Tx, query string, req *pb.BatchAddRecordsRequest) (int, error) {
 	inserted := 0
-	defer func() { _ = tx.Rollback() }()
+
 	for _, rec := range req.Records {
 		if err := ctx.Err(); err != nil {
 			return 0, status.Error(codes.Canceled, "request canceled")

@@ -20,19 +20,19 @@ type CaptchaProvider interface {
 }
 
 // postCaptcha sends a form-encoded POST to a CAPTCHA verify endpoint and returns the body.
-func postCaptcha(url, secret, token, clientIP string) ([]byte, error) {
+func postCaptcha(logPrefix, url, secret, token, clientIP string) ([]byte, error) {
 	resp, err := http.Post(url, // #nosec G107
 		"application/x-www-form-urlencoded",
 		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
 			secret, token, clientIP)))
 	if err != nil {
-		return nil, fmt.Errorf("captcha verify request: %w", err)
+        return nil, fmt.Errorf("%s verify request: %w", logPrefix, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
-		return nil, fmt.Errorf("captcha response read: %w", readErr)
+        return nil, fmt.Errorf("%s response read: %w", logPrefix, readErr)
 	}
 	return body, nil
 }
@@ -60,7 +60,7 @@ func (c *turnstileConfig) Verify(responseToken, clientIP string) (bool, error) {
 		return false, nil
 	}
 
-	resp, err := postCaptcha("https://challenges.cloudflare.com/turnstile/v0/siteverify",
+	resp, err := postCaptcha("turnstile", "https://challenges.cloudflare.com/turnstile/v0/siteverify",
 		c.secretKey, responseToken, clientIP)
 	if err != nil {
 		return false, err
@@ -177,7 +177,7 @@ func (c *hCaptchaConfig) Verify(responseToken, clientIP string) (bool, error) {
 		return false, nil
 	}
 
-	body, err := postCaptcha("https://api.hcaptcha.com/siteverify",
+	body, err := postCaptcha("hcaptcha", "https://api.hcaptcha.com/siteverify",
 		c.secretKey, responseToken, clientIP)
 	if err != nil {
 		return false, err

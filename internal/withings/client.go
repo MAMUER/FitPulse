@@ -26,7 +26,7 @@ const (
 )
 
 // postForm sends a form-encoded POST request and returns the response body.
-func (c *WithingsClient) postForm(ctx context.Context, u string, form url.Values) (*http.Response, error) {
+func (c *WithingsClient) postForm(ctx context.Context, u string, form url.Values, action string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
@@ -35,7 +35,7 @@ func (c *WithingsClient) postForm(ctx context.Context, u string, form url.Values
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+        return nil, fmt.Errorf("%s request failed: %w", action, err)
 	}
 	return resp, nil
 }
@@ -84,7 +84,7 @@ func (c *WithingsClient) ExchangeCode(ctx context.Context, code string) (*TokenR
 		form.Set("scope", strings.Join(c.config.Scopes, ","))
 	}
 
-	resp, err := c.postForm(ctx, tokenURL, form)
+	resp, err := c.postForm(ctx, tokenURL, form, "token")
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (c *WithingsClient) postV2(ctx context.Context, endpoint string, action, ac
 		form.Set("lastupdate", strconv.FormatInt(since.Unix(), 10))
 	}
 
-	resp, err := c.postForm(ctx, u, form)
+	resp, err := c.postForm(ctx, u, form, action)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (c *WithingsClient) RefreshAccessToken(ctx context.Context, refreshToken st
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", refreshToken)
 
-	resp, err := c.postForm(ctx, tokenURL, form)
+	resp, err := c.postForm(ctx, tokenURL, form, "refresh")
 	if err != nil {
 		return nil, err
 	}
