@@ -21,6 +21,14 @@ const (
 	errFailedToGetTrainingClient = "Failed to get training client"
 )
 
+// writeJSON writes a JSON response with proper content-type header.
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
+	}
+}
+
 type completeWorkoutRequest struct {
 	PlanID    string `json:"plan_id"`
 	WorkoutID string `json:"workout_id"`
@@ -141,11 +149,7 @@ func writeGeneratePlanResponse(g *gateway, w http.ResponseWriter, resp *training
 		"training_type": req.Class,
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-	}
+	writeJSON(w, response)
 }
 
 func writeGeneratePlanError(g *gateway, w http.ResponseWriter, err error, userID, class string) {
@@ -168,7 +172,7 @@ func writeGeneratePlanError(g *gateway, w http.ResponseWriter, err error, userID
 		http.Error(w, "Сервис тренировок временно недоступен. Попробуйте позже.", http.StatusServiceUnavailable)
 		return
 	}
-	g.log.Error("Plan generation failed", zap.Int("http_code", httpCode), 		zap.String("error", sanitize(errMsg)))
+	g.log.Error("Plan generation failed", zap.Int("http_code", httpCode), zap.String("error", sanitize(errMsg)))
 	http.Error(w, errMsg, httpCode)
 }
 
@@ -251,10 +255,7 @@ func (g *gateway) listPlansHandler(w http.ResponseWriter, r *http.Request) {
 		"total":  resp.Total,
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-	}
+	writeJSON(w, response)
 }
 
 func unmarshalPlanData(planDataProto *structpb.Struct) (map[string]interface{}, error) {
@@ -323,12 +324,7 @@ func (g *gateway) completeWorkoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-		return
-	}
+	writeJSON(w, map[string]interface{}{"status": "ok"})
 }
 
 // @Summary      Get training progress
@@ -367,12 +363,7 @@ func (g *gateway) getProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"}); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-		return
-	}
+	writeJSON(w, map[string]interface{}{"status": "ok"})
 }
 
 // @Summary      Get training plan
@@ -427,14 +418,11 @@ func (g *gateway) getPlanHandler(w http.ResponseWriter, r *http.Request) {
 		planDataMap["end_date"] = resp.GetEndDate().AsTime().Format(dateFormat)
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"status":    "ok",
 		"plan_id":   resp.GetId(),
 		"plan_data": planDataMap,
-	}); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-	}
+	})
 }
 
 // @Summary      Get user achievements
@@ -466,8 +454,5 @@ func (g *gateway) getAchievementsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		g.log.Error(logFailedToEncodeResponse, zap.Error(err))
-	}
+	writeJSON(w, resp)
 }

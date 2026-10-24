@@ -52,13 +52,13 @@ func (r *SurveyRepositoryPGX) LoadSurvey(ctx context.Context, userID string) (ma
 
 	if err != nil {
 		if err.Error() == "no rows in result set" {
-			return map[string]interface{}{}, false, nil, nil
+			return emptySurvey()
 		}
 		return nil, false, nil, apperrors.Internal("failed to load survey", err)
 	}
 
 	if len(surveyJSON) == 0 {
-		return map[string]interface{}{}, false, nil, nil
+		return emptySurvey()
 	}
 
 	var survey map[string]interface{}
@@ -67,6 +67,10 @@ func (r *SurveyRepositoryPGX) LoadSurvey(ctx context.Context, userID string) (ma
 	}
 
 	return survey, completed, completedAt, nil
+}
+
+func emptySurvey() (map[string]interface{}, bool, *time.Time, error) {
+	return map[string]interface{}{}, false, nil, nil
 }
 
 // Ensure SurveyRepositoryPGX implements port.SurveyRepository.

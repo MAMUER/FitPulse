@@ -1,6 +1,6 @@
 .PHONY: proto tidy fmt vet lint test check imports frontend-install frontend-lint frontend-test frontend-build coverage build clean swag
 BIN_DIR := bin
-GO_VERSION := 1.27.2
+GO_VERSION := 1.27.3
 
 imports:
 	@echo "Updating Go imports with gci..."

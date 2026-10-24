@@ -19,7 +19,24 @@ type CaptchaProvider interface {
 	Name() string
 }
 
-// turnstileConfig holds Cloudflare Turnstile configuration.
+// postCaptcha sends a form-encoded POST to a CAPTCHA verify endpoint and returns the body.
+func postCaptcha(url, secret, token, clientIP string) ([]byte, error) {
+	resp, err := http.Post(url,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
+			secret, token, clientIP)))
+	if err != nil {
+		return nil, fmt.Errorf("captcha verify request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return nil, fmt.Errorf("captcha response read: %w", readErr)
+	}
+	return body, nil
+}
+
 type turnstileConfig struct {
 	secretKey string
 	timeout   time.Duration
@@ -43,18 +60,10 @@ func (c *turnstileConfig) Verify(responseToken, clientIP string) (bool, error) {
 		return false, nil
 	}
 
-	resp, err := http.Post("https://challenges.cloudflare.com/turnstile/v0/siteverify",
-		"application/x-www-form-urlencoded",
-		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
-			c.secretKey, responseToken, clientIP)))
+	resp, err := postCaptcha("https://challenges.cloudflare.com/turnstile/v0/siteverify",
+		c.secretKey, responseToken, clientIP)
 	if err != nil {
-		return false, fmt.Errorf("turnstile verify request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return false, fmt.Errorf("turnstile response read: %w", readErr)
+		return false, err
 	}
 	var result struct {
 		Success     bool     `json:"success"`
@@ -65,7 +74,7 @@ func (c *turnstileConfig) Verify(responseToken, clientIP string) (bool, error) {
 		Cdata       string   `json:"cdata"`
 	}
 
-	if err := json.Unmarshal(body, &result); err != nil {
+	if err := json.Unmarshal(resp, &result); err != nil {
 		return false, fmt.Errorf("turnstile response parse: %w", err)
 	}
 
@@ -168,18 +177,10 @@ func (c *hCaptchaConfig) Verify(responseToken, clientIP string) (bool, error) {
 		return false, nil
 	}
 
-	resp, err := http.Post("https://api.hcaptcha.com/siteverify",
-		"application/x-www-form-urlencoded",
-		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
-			c.secretKey, responseToken, clientIP)))
+	body, err := postCaptcha("https://api.hcaptcha.com/siteverify",
+		c.secretKey, responseToken, clientIP)
 	if err != nil {
-		return false, fmt.Errorf("hcaptcha verify request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return false, fmt.Errorf("hcaptcha response read: %w", readErr)
+		return false, err
 	}
 	var result struct {
 		Success     bool     `json:"success"`

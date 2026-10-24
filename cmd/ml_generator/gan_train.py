@@ -12,37 +12,49 @@
 import argparse
 import json
 import os
-import numpy as np
-import torch
-from torch.utils.data import DataLoader
 from pathlib import Path
 
+import numpy as np
+import torch
 from gan_model import (
-    ConditionalGAN, TrainingPlanDataset,
-    PLAN_DIM, NUM_CLASSES, CONDITION_DIM,
-    build_condition, normalize_plan, denormalize_plan,
+    PLAN_DIM,
+    ConditionalGAN,
+    TrainingPlanDataset,
+    build_condition,
+    denormalize_plan,
+    normalize_plan,
 )
+from torch.utils.data import DataLoader
 
 
 def load_dataset(path):
     """Загрузка датасета планов тренировок."""
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Датасет не найден: {path}. Создайте файл {path} с колонками: план (19 значений), класс, возраст, пол, вес, рост, цель.")
+        raise FileNotFoundError(
+            f"Датасет не найден: {path}. Создайте файл {path} с колонками: "
+            "план (19 значений), класс, возраст, пол, вес, рост, цель."
+        )
 
     data = np.loadtxt(path, delimiter=",", skiprows=1)
     plans = data[:, :PLAN_DIM].astype(np.float32)
     class_indices = data[:, PLAN_DIM].astype(int)
-    user_features = data[:, PLAN_DIM + 1:PLAN_DIM + 6].astype(np.float32)
+    user_features = data[:, PLAN_DIM + 1 : PLAN_DIM + 6].astype(np.float32)
 
     # Проверка на отрицательные значения в числовых полях
     if np.any(plans < 0):
-        raise ValueError("Обнаружены отрицательные значения в параметрах плана. Все значения должны быть неотрицательными.")
+        raise ValueError(
+            "Обнаружены отрицательные значения в параметрах плана. "
+            "Все значения должны быть неотрицательными."
+        )
     if np.any(user_features < 0):
-        raise ValueError("Обнаружены отрицательные значения в пользовательских признаках.")
+        raise ValueError(
+            "Обнаружены отрицательные значения в пользовательских признаках."
+        )
 
-    conditions = np.array([
-        build_condition(cls, feat) for cls, feat in zip(class_indices, user_features)
-    ], dtype=np.float32)
+    conditions = np.array(
+        [build_condition(cls, feat) for cls, feat in zip(class_indices, user_features)],
+        dtype=np.float32,
+    )
 
     return plans, conditions
 
@@ -58,7 +70,9 @@ def train(args):
     dataset = TrainingPlanDataset(plans_norm, conditions)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
+    )
     gan = ConditionalGAN(device=device, lr=args.lr)
 
     os.makedirs(args.output.parent, exist_ok=True)
@@ -81,7 +95,10 @@ def train(args):
         history["g_loss"].append(epoch_g_loss)
 
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            print(f"Epoch {epoch+1}/{args.epochs}: D_loss={epoch_d_loss:.4f}, G_loss={epoch_g_loss:.4f}")
+            print(
+                f"Epoch {epoch + 1}/{args.epochs}: "
+                f"D_loss={epoch_d_loss:.4f}, G_loss={epoch_g_loss:.4f}"
+            )
 
     # Сохраняем модель
     gan.save(args.output)
@@ -107,7 +124,9 @@ def train(args):
 
 def generate_plan(args):
     """Генерация одного плана для заданного класса и признаков пользователя."""
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
+    )
     gan = ConditionalGAN(device=device)
     gan.load(args.model)
 
@@ -119,9 +138,9 @@ def generate_plan(args):
     plan_max = np.array(norm_params["plan_max"])
 
     # Построение условия
-    user_features = np.array([
-        args.age, args.gender, args.weight, args.height, args.goal
-    ], dtype=np.float32)
+    user_features = np.array(
+        [args.age, args.gender, args.weight, args.height, args.goal], dtype=np.float32
+    )
     condition = build_condition(args.class_index, user_features)
 
     plans = gan.generate(condition, num_samples=args.num_samples)
@@ -129,11 +148,13 @@ def generate_plan(args):
 
     result = []
     for i, plan in enumerate(plans_denorm):
-        result.append({
-            "sample": i,
-            "plan": plan.tolist(),
-            "class_index": args.class_index,
-        })
+        result.append(
+            {
+                "sample": i,
+                "plan": plan.tolist(),
+                "class_index": args.class_index,
+            }
+        )
 
     result_json = json.dumps(result, indent=2)
 
@@ -148,28 +169,52 @@ def generate_plan(args):
     return result
 
 
-parser = argparse.ArgumentParser(description="Условная ГАН для персонализированных планов тренировок")
+parser = argparse.ArgumentParser(
+    description="Условная ГАН для персонализированных планов тренировок"
+)
 subparsers = parser.add_subparsers(dest="command")
 
 train_parser = subparsers.add_parser("train", help="Обучить ГАН")
-train_parser.add_argument("--dataset", type=Path, required=True, help="Путь к CSV с планами")
+train_parser.add_argument(
+    "--dataset", type=Path, required=True, help="Путь к CSV с планами"
+)
 train_parser.add_argument("--epochs", type=int, default=100, help="Число эпох")
 train_parser.add_argument("--batch-size", type=int, default=32, help="Размер батча")
 train_parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate")
-train_parser.add_argument("--cpu", action="store_true", help="Принудительно использовать CPU")
-train_parser.add_argument("--output", type=Path, default=Path("models/gan_generator.pt"), help="Путь для сохранения модели")
+train_parser.add_argument(
+    "--cpu", action="store_true", help="Принудительно использовать CPU"
+)
+train_parser.add_argument(
+    "--output",
+    type=Path,
+    default=Path("models/gan_generator.pt"),
+    help="Путь для сохранения модели",
+)
 
 gen_parser = subparsers.add_parser("generate", help="Сгенерировать план")
-gen_parser.add_argument("--model", type=Path, required=True, help="Путь к обученной модели")
-gen_parser.add_argument("--class-index", type=int, required=True, help="Класс состояния (0-6)")
+gen_parser.add_argument(
+    "--model", type=Path, required=True, help="Путь к обученной модели"
+)
+gen_parser.add_argument(
+    "--class-index", type=int, required=True, help="Класс состояния (0-6)"
+)
 gen_parser.add_argument("--age", type=float, default=30, help="Возраст")
 gen_parser.add_argument("--gender", type=float, default=1, help="Пол (0/1)")
 gen_parser.add_argument("--weight", type=float, default=75.0, help="Вес")
 gen_parser.add_argument("--height", type=float, default=180.0, help="Рост")
 gen_parser.add_argument("--goal", type=float, default=1, help="Цель (кодировка)")
-gen_parser.add_argument("--num-samples", type=int, default=1, help="Число вариантов плана")
-gen_parser.add_argument("--cpu", action="store_true", help="Принудительно использовать CPU")
-gen_parser.add_argument("--output", type=Path, default=Path("models/generated_plan.json"), help="Путь для сохранения результата")
+gen_parser.add_argument(
+    "--num-samples", type=int, default=1, help="Число вариантов плана"
+)
+gen_parser.add_argument(
+    "--cpu", action="store_true", help="Принудительно использовать CPU"
+)
+gen_parser.add_argument(
+    "--output",
+    type=Path,
+    default=Path("models/generated_plan.json"),
+    help="Путь для сохранения результата",
+)
 
 
 def parse_args():

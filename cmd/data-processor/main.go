@@ -8,10 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os/signal"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +21,7 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/queue"
+	"github.com/MAMUER/project/internal/server"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 )
@@ -60,11 +58,6 @@ func main() {
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
-	metricsSrv := &http.Server{
-		Addr:              ":" + metricsPort,
-		Handler:           metricsMux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
 
 	healthMux := http.NewServeMux()
 	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -73,53 +66,12 @@ func main() {
 			log.Warn("Failed to write health response", zap.Error(err))
 		}
 	})
-	healthSrv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           healthMux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	cfg := server.DefaultConfig(port, metricsPort)
 
-	go func() {
-		log.Info("Starting metrics server", zap.String("port", sanitize.LogString(metricsPort)))
-		if err := metricsSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Metrics server failed", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		log.Info("Starting health server", zap.String("port", sanitize.LogString(port)))
-		if err := healthSrv.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			log.Fatal("Health server failed", zap.Error(err))
-		}
-	}()
-
-	if err := run(ctx, log); err != nil {
-		log.Error("Data processor failed", zap.Error(err))
-	}
-
-	log.Info("Shutting down data processor")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if shutdownErr := healthSrv.Shutdown(shutdownCtx); shutdownErr != nil {
-			log.Warn("Health server shutdown returned an error", zap.Error(shutdownErr))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		if shutdownErr := metricsSrv.Shutdown(shutdownCtx); shutdownErr != nil {
-			log.Warn("Metrics server shutdown returned an error", zap.Error(shutdownErr))
-		}
-	}()
-	wg.Wait()
+	server.ServeWithWork(log, cfg, metricsMux, healthMux, healthMux, func(ctx context.Context) error {
+		return run(ctx, log)
+	})
 }
 
 func run(ctx context.Context, log *logger.Logger) error {

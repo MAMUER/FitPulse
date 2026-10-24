@@ -26,24 +26,24 @@ type ganService struct {
 }
 
 type generatePlanRequest struct {
-	ClassIndex  int     `json:"class_index"`
-	Age         float64 `json:"age"`
-	Gender      float64 `json:"gender"`
-	Weight      float64 `json:"weight"`
-	Height      float64 `json:"height"`
-	Goal        float64 `json:"goal"`
-	NumSamples  int     `json:"num_samples,omitempty"`
+	ClassIndex int     `json:"class_index"`
+	Age        float64 `json:"age"`
+	Gender     float64 `json:"gender"`
+	Weight     float64 `json:"weight"`
+	Height     float64 `json:"height"`
+	Goal       float64 `json:"goal"`
+	NumSamples int     `json:"num_samples,omitempty"`
 }
 
 type generatePlanResponse struct {
-	Status    string               `json:"status"`
-	ClassIndex int                 `json:"class_index"`
-	Plans     []generatedPlan      `json:"plans"`
-	Model     string               `json:"model"`
+	Status     string          `json:"status"`
+	ClassIndex int             `json:"class_index"`
+	Plans      []generatedPlan `json:"plans"`
+	Model      string          `json:"model"`
 }
 
 type generatedPlan struct {
-	Sample int      `json:"sample"`
+	Sample int       `json:"sample"`
 	Plan   []float64 `json:"plan"`
 }
 
@@ -98,6 +98,7 @@ func (s *ganService) generatePlanHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *ganService) callPythonGAN(req generatePlanRequest) ([]generatedPlan, error) {
+	// #nosec G204 -- exec arguments are validated and sourced from trusted config
 	cmd := exec.Command(
 		s.pythonPath,
 		s.ganScript,

@@ -16,13 +16,12 @@ Conditional GAN для генерации персонализированных
 """
 
 import os
-import json
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from pathlib import Path
+from torch.utils.data import Dataset
 
 # Размерность выходного плана (совпадает с PLAN_DIM из 실험ов)
 PLAN_DIM = 19
@@ -55,7 +54,9 @@ class TrainingPlanDataset(Dataset):
 class Generator(nn.Module):
     """Генератор планов тренировок."""
 
-    def __init__(self, latent_dim=LATENT_DIM, condition_dim=CONDITION_DIM, plan_dim=PLAN_DIM):
+    def __init__(
+        self, latent_dim=LATENT_DIM, condition_dim=CONDITION_DIM, plan_dim=PLAN_DIM
+    ):
         super().__init__()
         self.latent_dim = latent_dim
         self.condition_dim = condition_dim
@@ -105,12 +106,21 @@ class ConditionalGAN:
     """Обёртка для обучения и инференса условной ГАН."""
 
     def __init__(self, device=None, lr=2e-4, beta1=0.5):
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.generator = Generator().to(self.device)
         self.discriminator = Discriminator().to(self.device)
 
-        self.opt_g = optim.Adam(self.generator.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=1e-5)
-        self.opt_d = optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=1e-5)
+        self.opt_g = optim.Adam(
+            self.generator.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=1e-5
+        )
+        self.opt_d = optim.Adam(
+            self.discriminator.parameters(),
+            lr=lr,
+            betas=(beta1, 0.999),
+            weight_decay=1e-5,
+        )
         self.criterion = nn.BCELoss()
 
         self.latent_dim = LATENT_DIM
@@ -146,7 +156,9 @@ class ConditionalGAN:
         z = torch.randn(batch_size, self.latent_dim, device=self.device)
         fake_plans = self.generator(z, real_conditions)
         d_fake = self.discriminator(fake_plans, real_conditions)
-        g_loss = self.criterion(d_fake, real_labels)  # хотим, чтобы дискриминатор сказал "реально"
+        g_loss = self.criterion(
+            d_fake, real_labels
+        )  # хотим, чтобы дискриминатор сказал "реально"
 
         g_loss.backward()
         self.opt_g.step()
@@ -169,12 +181,15 @@ class ConditionalGAN:
 
     def save(self, path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save({
-            "generator": self.generator.state_dict(),
-            "discriminator": self.discriminator.state_dict(),
-            "opt_g": self.opt_g.state_dict(),
-            "opt_d": self.opt_d.state_dict(),
-        }, path)
+        torch.save(
+            {
+                "generator": self.generator.state_dict(),
+                "discriminator": self.discriminator.state_dict(),
+                "opt_g": self.opt_g.state_dict(),
+                "opt_d": self.opt_d.state_dict(),
+            },
+            path,
+        )
 
     def load(self, path):
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)
@@ -226,4 +241,6 @@ if __name__ == "__main__":
     condition = build_condition(0, np.array([30, 1, 75.0, 180.0, 1.0]))
     plans = gan.generate(condition, num_samples=2)
     print(f"Generated plans shape: {plans.shape}")
-    print(f"GAN ready. Plan dim: {PLAN_DIM}, Classes: {NUM_CLASSES}, Condition dim: {CONDITION_DIM}")
+    print(
+        f"GAN ready. Plan dim: {PLAN_DIM}, Classes: {NUM_CLASSES}, Condition dim: {CONDITION_DIM}"
+    )

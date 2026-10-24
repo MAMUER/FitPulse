@@ -187,13 +187,13 @@ func (r *profileRepository) LoadSurvey(ctx context.Context, userID string) (map[
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return map[string]interface{}{}, false, nil, nil
+			return emptySurvey()
 		}
 		return nil, false, nil, apperrors.Internal("failed to load survey", err)
 	}
 
 	if len(surveyJSON) == 0 {
-		return map[string]interface{}{}, false, nil, nil
+		return emptySurvey()
 	}
 
 	var survey map[string]interface{}
@@ -202,4 +202,8 @@ func (r *profileRepository) LoadSurvey(ctx context.Context, userID string) (map[
 	}
 
 	return survey, completed, completedAt, nil
+}
+
+func emptySurvey() (map[string]interface{}, bool, *time.Time, error) {
+	return map[string]interface{}{}, false, nil, nil
 }

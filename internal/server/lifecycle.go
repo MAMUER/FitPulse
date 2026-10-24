@@ -59,13 +59,32 @@ func DefaultConfig(port, metricsPort string) Config {
 // It blocks until a termination signal is received.
 
 func Serve(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, mainHandler http.Handler) {
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-
 	defer stop()
+	serveWithContext(ctx, log, cfg, metricsMux, mainHandler)
+}
+
+// ServeWithWork starts the main and metrics servers, runs the work function, and handles graceful shutdown.
+//
+// It blocks until a termination signal is received or the work function returns.
+func ServeWithWork(log *logger.Logger, cfg Config, metricsMux, mainMux *http.ServeMux, mainHandler http.Handler, work func(ctx context.Context) error) {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Run work in background
+	workDone := make(chan error, 1)
+	go func() {
+		workDone <- work(ctx)
+	}()
 
 	serveWithContext(ctx, log, cfg, metricsMux, mainHandler)
 
+	// Wait for work to finish (with timeout)
+	select {
+	case <-workDone:
+	case <-time.After(cfg.ShutdownTimeout):
+		log.Warn("Work did not finish in time")
+	}
 }
 
 func serveWithContext(ctx context.Context, log *logger.Logger, cfg Config, metricsMux *http.ServeMux, mainHandler http.Handler) {

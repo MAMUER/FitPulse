@@ -18,8 +18,8 @@ RUN apk add --no-cache --virtual .build-deps \
     && rm -rf . \
     && apk del .build-deps
 
-HEALTHCHECK CMD pg_isready -U postgres
+HEALTHCHECK CMD ["pg_isready", "-U", "postgres"]
 
-USER postgres
+USER 999
 
 EXPOSE 5432

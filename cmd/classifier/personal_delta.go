@@ -185,12 +185,6 @@ func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, tar
 
 	p.store.SetDelta(userID, delta)
 
-	var norm float64
-	for _, v := range delta {
-		norm += v * v
-	}
-	norm = math.Sqrt(norm)
-
 	return delta, nil
 }
 
