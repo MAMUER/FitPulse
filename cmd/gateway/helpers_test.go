@@ -91,6 +91,7 @@ func TestContainsIgnoreCase(t *testing.T) {
 }
 
 func TestWriteJSONEncodeError(t *testing.T) {
+	t.Parallel()
 	// Test writeJSON with a writer that fails
 	w := &failingResponseWriter{}
 	g := &gateway{}

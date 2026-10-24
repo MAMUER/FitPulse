@@ -266,8 +266,8 @@ run_kube_hunter() {
 		exit 0
 	fi
 
-	if timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',6443)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1 || \
-	   timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',8080)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1; then
+	if timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',6443)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1 ||
+		timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',8080)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1; then
 		kube-hunter --remote 127.0.0.1 --json >security-results/kube-hunter-results.json 2>&1 || true
 	else
 		echo "Локальный кластер не обнаружен — пропускаем kube-hunter"
@@ -387,7 +387,9 @@ security_gate() {
 
 	# govulncheck is informational only (Trivy covers CVE scanning).
 	if [ -f sarif-results/govulncheck.txt ]; then
-		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null)
+		# grep -c exits 1 when there are no matches; under `set -e` that would
+		# abort the gate even though zero findings is a success.
+		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null || true)
 		GOVULNCHECK=${GOVULNCHECK:-0}
 		echo "govulncheck: $GOVULNCHECK vulnerabilities found (informational)"
 	fi

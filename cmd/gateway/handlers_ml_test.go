@@ -180,15 +180,3 @@ func TestML_IsValidServiceURL(t *testing.T) {
 		})
 	}
 }
-
-type errReader struct {
-	err error
-}
-
-func (e *errReader) Read(p []byte) (n int, err error) {
-	return 0, e.err
-}
-
-func (e *errReader) Close() error {
-	return nil
-}

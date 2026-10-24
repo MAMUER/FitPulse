@@ -26,17 +26,17 @@ func postCaptcha(logPrefix, url, secret, token, clientIP string) ([]byte, error)
 		strings.NewReader(fmt.Sprintf("secret=%s&response=%s&remoteip=%s",
 			secret, token, clientIP)))
 	if err != nil {
-        return nil, fmt.Errorf("%s verify request: %w", logPrefix, err)
+		return nil, fmt.Errorf("%s verify request: %w", logPrefix, err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			// best effort close
+			zap.L().Warn("Failed to close captcha response body", zap.Error(closeErr))
 		}
 	}()
 
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
-        return nil, fmt.Errorf("%s response read: %w", logPrefix, readErr)
+		return nil, fmt.Errorf("%s response read: %w", logPrefix, readErr)
 	}
 	return body, nil
 }

@@ -197,24 +197,6 @@ func TestServerHealthEndpointWriteError(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.ResponseWriter.(*httptest.ResponseRecorder).Code)
 }
 
-type mockDBWithPurgeErr struct{}
-
-func (m *mockDBWithPurgeErr) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
-	return &mockTx{}, nil
-}
-
-func (m *mockDBWithPurgeErr) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
-	return &mockRower{}, nil
-}
-
-func (m *mockDBWithPurgeErr) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
-	return nil, nil
-}
-
-func (m *mockDBWithPurgeErr) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
-	return 0, nil
-}
-
 type failingProvidersWriter struct {
 	http.ResponseWriter
 }

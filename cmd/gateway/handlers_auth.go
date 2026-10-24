@@ -1482,7 +1482,7 @@ func (g *gateway) fetchYandexUserInfo(ctx context.Context, accessToken string) (
 
 	defer func() {
 		if closeErr := userInfoResp.Body.Close(); closeErr != nil {
-			// best effort
+			g.log.Warn("Failed to close Yandex user info response body", zap.Error(closeErr))
 		}
 	}()
 
