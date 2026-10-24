@@ -331,7 +331,7 @@ security_gate() {
 		echo "gosec: $GOSEC_CRITICAL high/critical findings"
 		if [ "$GOSEC_CRITICAL" -gt 0 ]; then
 			echo "❌ FAIL: gosec found $GOSEC_CRITICAL high/critical findings"
-	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
+			gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
 			FAIL=1
 		fi
 	fi

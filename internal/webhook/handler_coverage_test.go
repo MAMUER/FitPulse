@@ -175,3 +175,65 @@ func (m *mockDBWithNonceBeginError) GetSources(ctx context.Context, userID strin
 func (m *mockDBWithNonceBeginError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
 	return 0, nil
 }
+
+type failingHealthWriter struct {
+	http.ResponseWriter
+}
+
+func (f *failingHealthWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestServerHealthEndpointWriteError(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+
+	w := &failingHealthWriter{ResponseWriter: httptest.NewRecorder()}
+	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+
+	server.server.Handler.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusOK, w.ResponseWriter.(*httptest.ResponseRecorder).Code)
+}
+
+type mockDBWithPurgeError struct{}
+
+func (m *mockDBWithPurgeError) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+	return &mockTx{}, nil
+}
+
+func (m *mockDBWithPurgeError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+	return &mockRower{}, nil
+}
+
+func (m *mockDBWithPurgeError) GetSources(ctx context.Context, userID string) ([]SourceInfo, error) {
+	return nil, nil
+}
+
+func (m *mockDBWithPurgeError) DeleteBySource(ctx context.Context, userID, source string) (int64, error) {
+	return 0, nil
+}
+
+type failingProvidersWriter struct {
+	http.ResponseWriter
+}
+
+func (f *failingProvidersWriter) WriteHeader(int) {}
+func (f *failingProvidersWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestServerHandleListProvidersWriteError(t *testing.T) {
+	mockDB := &mockDB{}
+	log := zap.NewNop()
+	server := NewServer("8085", mockDB, log)
+
+	w := &failingProvidersWriter{ResponseWriter: httptest.NewRecorder()}
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/providers?user_id=user-1", nil)
+
+	server.handleListProviders(w, r)
+
+	rec := w.ResponseWriter.(*httptest.ResponseRecorder)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}

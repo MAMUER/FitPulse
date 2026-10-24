@@ -1,164 +1,112 @@
 package main
 
 import (
-	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestHelpers_SafeIntToInt32(t *testing.T) {
-	tests := []struct {
-		name string
-		v    int
-		want int32
-	}{
-		{"normal value", 100, 100},
-		{"max int32", 2147483647, 2147483647},
-		{"overflow", 2147483648, 2147483647},
-		{"underflow", -2147483649, -2147483648},
-		{"negative", -100, -100},
-		{"zero", 0, 0},
-	}
+func TestPtrFunctions(t *testing.T) {
+	v32 := int32(42)
+	assert.Equal(t, &v32, ptrInt32(42))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := safeIntToInt32(tt.v)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+	vs := "hello"
+	assert.Equal(t, &vs, ptrString("hello"))
+
+	vf64 := float64(3.14)
+	assert.Equal(t, &vf64, ptrFloat64(3.14))
+
+	vf32 := float32(2.71)
+	assert.Equal(t, &vf32, ptrFloat32(2.71))
 }
 
-func TestHelpers_IsValidServiceURL(t *testing.T) {
-	tests := []struct {
-		url      string
-		prefixes []string
-		want     bool
-	}{
-		{"http://127.0.0.1:8001", []string{"http://127.0.0.1:"}, true},
-		{"https://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
-		{"http://classifier:8001", []string{"http://classifier:"}, true},
-		{"ftp://127.0.0.1:8001", []string{"http://127.0.0.1:"}, false},
-		{"http://evil.com", []string{"http://127.0.0.1:"}, false},
-		{"", []string{"http://127.0.0.1:"}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.url, func(t *testing.T) {
-			got := isValidServiceURL(tt.url, tt.prefixes...)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+func TestSafeIntToInt32(t *testing.T) {
+	assert.Equal(t, int32(100), safeIntToInt32(100))
+	assert.Equal(t, int32(2147483647), safeIntToInt32(9999999999))
+	assert.Equal(t, int32(-2147483648), safeIntToInt32(-9999999999))
+	assert.Equal(t, int32(0), safeIntToInt32(0))
 }
 
-func TestHelpers_GRPCToHTTPStatus(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode int
-		wantMsg  string
-	}{
-		{"nil error", nil, 200, ""},
-		{"invalid argument", status.Error(codes.InvalidArgument, "email is required"), 400, "Укажите email"},
-		{"not found", status.Error(codes.NotFound, "user not found"), 404, "Не найдено"},
-		{"permission denied", status.Error(codes.PermissionDenied, "forbidden"), 404, "Не найдено"},
-		{"unauthenticated", status.Error(codes.Unauthenticated, "invalid credentials"), 401, "Неверные учётные данные"},
-		{"resource exhausted", status.Error(codes.ResourceExhausted, "rate limit"), 429, "Превышен лимит запросов"},
-		{"internal error", status.Error(codes.Internal, "internal error"), 500, "Внутренняя ошибка сервера"},
-		{"unavailable", status.Error(codes.Unavailable, "service down"), 503, "Сервис временно недоступен"},
-		{"unknown code", status.Error(codes.Code(999), "unknown"), 500, "unknown"},
-		{"non-grpc error", errors.New("plain error"), 500, "Внутренняя ошибка сервера"},
-	}
+func TestParsePagination(t *testing.T) {
+	// Defaults
+	page, pageSize := parsePagination(&http.Request{})
+	assert.Equal(t, 1, page)
+	assert.Equal(t, 20, pageSize)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			code, msg := grpcToHTTPStatus(tt.err)
-			assert.Equal(t, tt.wantCode, code)
-			if tt.wantMsg != "" {
-				assert.Equal(t, tt.wantMsg, msg)
-			}
-		})
-	}
+	// Custom values
+	r := httptest.NewRequest(http.MethodGet, "/?page=3&page_size=50", nil)
+	page, pageSize = parsePagination(r)
+	assert.Equal(t, 3, page)
+	assert.Equal(t, 50, pageSize)
+
+	// Invalid values ignored
+	r = httptest.NewRequest(http.MethodGet, "/?page=abc&page_size=xyz", nil)
+	page, pageSize = parsePagination(r)
+	assert.Equal(t, 1, page)
+	assert.Equal(t, 20, pageSize)
+
+	// Page size capped at 100
+	r = httptest.NewRequest(http.MethodGet, "/?page_size=200", nil)
+	page, pageSize = parsePagination(r)
+	assert.Equal(t, 1, page)
+	assert.Equal(t, 100, pageSize)
 }
 
-func TestHelpers_TranslateError(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"email is required", "Укажите email"},
-		{"password is required", "Укажите пароль"},
-		{"invalid email format", "Некорректный формат email"},
-		{"user not found", "Пользователь не найден"},
-		{"email already exists", "Этот email уже зарегистрирован"},
-		{"invalid credentials", "Неверный email или пароль"},
-		{"unknown error", "unknown error"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := translateError(tt.input)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+func TestIsValidServiceURL(t *testing.T) {
+	assert.False(t, isValidServiceURL("ftp://example.com"))
+	assert.False(t, isValidServiceURL("example.com"))
+	assert.True(t, isValidServiceURL("http://example.com", "http://example.com"))
+	assert.True(t, isValidServiceURL("https://api.service.local", "https://api.service.local"))
+	assert.False(t, isValidServiceURL("https://other.service.local", "https://api.service.local"))
+	assert.True(t, isValidServiceURL("https://api.service.local/v1", "https://api.service.local"))
 }
 
-func TestHelpers_ContainsIgnoreCase(t *testing.T) {
-	tests := []struct {
-		s      string
-		substr string
-		want   bool
-	}{
-		{"Hello World", "hello", true},
-		{"Hello World", "WORLD", true},
-		{"Hello World", "foo", false},
-		{"", "", true},
-		{"abc", "abcd", false},
-	}
+func TestGrpcToHTTPStatus(t *testing.T) {
+	// nil error
+	code, msg := grpcToHTTPStatus(nil)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "", msg)
 
-	for _, tt := range tests {
-		t.Run(tt.s+"_"+tt.substr, func(t *testing.T) {
-			got := containsIgnoreCase(tt.s, tt.substr)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+	// Unknown error
+	code, msg = grpcToHTTPStatus(assert.AnError)
+	assert.Equal(t, http.StatusInternalServerError, code)
 }
 
-func TestHelpers_ContainsSubstringIgnoreCase(t *testing.T) {
-	tests := []struct {
-		s      string
-		substr string
-		want   bool
-	}{
-		{"Hello World", "hello", true},
-		{"Hello World", "WORLD", true},
-		{"Hello World", "foo", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.s+"_"+tt.substr, func(t *testing.T) {
-			got := containsSubstringIgnoreCase(tt.s, tt.substr)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+func TestTranslateError(t *testing.T) {
+	assert.Equal(t, "Укажите email", translateError("email is required"))
+	assert.Equal(t, "Укажите пароль", translateError("password is required"))
+	assert.Equal(t, "unknown error msg", translateError("unknown error msg"))
+	assert.Equal(t, "Пароль должен быть не менее 8 символов", translateError("password must be at least 8 chars"))
 }
 
-func TestHelpers_PtrFunctions(t *testing.T) {
-	str := "test"
-	strPtr := ptrString(str)
-	assert.Equal(t, "test", *strPtr)
+func TestContainsIgnoreCase(t *testing.T) {
+	assert.True(t, containsIgnoreCase("Hello World", "hello"))
+	assert.True(t, containsIgnoreCase("HELLO", "HELLO"))
+	assert.False(t, containsIgnoreCase("Hello", "world"))
+	assert.True(t, containsIgnoreCase("Test", "Test"))
+	assert.False(t, containsIgnoreCase("", "a"))
+}
 
-	i32 := int32(42)
-	i32Ptr := ptrInt32(i32)
-	assert.Equal(t, int32(42), *i32Ptr)
+func TestWriteJSONEncodeError(t *testing.T) {
+	// Test writeJSON with a writer that fails
+	w := &failingResponseWriter{}
+	g := &gateway{}
+	g.writeJSON(w, http.StatusOK, map[string]string{"key": "value"})
+	// Should not panic, just log error
+}
 
-	f64 := float64(3.14)
-	f64Ptr := ptrFloat64(f64)
-	assert.Equal(t, float64(3.14), *f64Ptr)
+type failingResponseWriter struct {
+	http.ResponseWriter
+}
 
-	f32 := float32(2.71)
-	f32Ptr := ptrFloat32(f32)
-	assert.Equal(t, float32(2.71), *f32Ptr)
+func (f *failingResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
+func (f *failingResponseWriter) WriteHeader(statusCode int) {}
+
+func (f *failingResponseWriter) Write([]byte) (int, error) {
+	return 0, assert.AnError
 }

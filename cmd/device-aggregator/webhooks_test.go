@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -108,4 +109,23 @@ func TestHandleAggregatorWebhook_WriteResponseError(t *testing.T) {
 
 	rec := w.ResponseWriter.(*httptest.ResponseRecorder)
 	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+type failingCloseBody struct {
+	io.ReadCloser
+}
+
+func (f *failingCloseBody) Close() error {
+	return errors.New("close failed")
+}
+
+func TestHandleAggregatorWebhook_CloseBodyError(t *testing.T) {
+	w := httptest.NewRecorder()
+	body := `{"user_id": "user-1", "source": "open_wearables"}`
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(body)))
+	r.Body = &failingCloseBody{ReadCloser: r.Body}
+	handleAggregatorWebhook(w, r, func(n map[string]interface{}) map[string]string {
+		return map[string]string{"user_id": "user-1", "source": "open_wearables"}
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
 }

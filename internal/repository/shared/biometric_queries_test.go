@@ -127,3 +127,9 @@ func (m *mockBiometricRows) Err() error {
 }
 
 func (m *mockBiometricRows) Close() {}
+
+func TestArgPlaceholder(t *testing.T) {
+	assert.Equal(t, "1", argPlaceholder(0))
+	assert.Equal(t, "$2", argPlaceholder(2))
+	assert.Equal(t, "$5", argPlaceholder(5))
+}

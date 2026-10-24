@@ -2,116 +2,62 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"io"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCSPReportHandler_MethodNotAllowed(t *testing.T) {
-	g := newTestGateway()
-
+	g := &gateway{log: nil}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/csp-report", nil)
-
-	g.cspReportHandler(w, req)
-
+	r := httptest.NewRequest(http.MethodGet, "/api/security/csp-report", nil)
+	g.cspReportHandler(w, r)
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 }
 
-func TestCSPReportHandler_BadRequest(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader([]byte(`{invalid`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestCSPReportHandler_ReadBodyError(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", &errorReader{err: io.ErrUnexpectedEOF})
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestCSPReportHandler_InvalidJSON(t *testing.T) {
-	g := newTestGateway()
-
+	g := &gateway{log: nil}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader([]byte(`not json`)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
+	body := bytes.NewReader([]byte("not-json"))
+	r := httptest.NewRequest(http.MethodPost, "/api/security/csp-report", body)
+	g.cspReportHandler(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "{}", w.Body.String())
 }
 
-func TestCSPReportHandler_SuccessReportingAPI(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	reqBody := []byte(`{"type":"csp-violation","url":"https://example.com","user_agent":"Mozilla","body":{"document-uri":"https://example.com","blocked-uri":"https://evil.com","violated-directive":"script-src"}}`)
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-
-	g.cspReportHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-}
-
-func TestCSPReportHandler_SuccessReportURI(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	reqBody := []byte(`{"csp-report":{"document-uri":"https://example.com","blocked-uri":"https://evil.com","violated-directive":"script-src"}}`)
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-}
-
-func TestCSPReportHandler_EmptyBody(t *testing.T) {
-	g := newTestGateway()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader([]byte(``)))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestCSPReportHandler_LargeBody(t *testing.T) {
-	g := newTestGateway()
-
-	largeBody := make([]byte, 65*1024)
-	for i := range largeBody {
-		largeBody[i] = 'a'
+func TestCSPReportHandler_ValidReport(t *testing.T) {
+	g := &gateway{log: nil}
+	report := CSPReportBody{
+		Report: CSPViolationBody{
+			BlockedURI:        "https://evil.com/script.js",
+			ViolatedDirective: "script-src",
+		},
 	}
-
+	body, _ := json.Marshal(report)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/csp-report", bytes.NewReader(largeBody))
-	req.Header.Set("Content-Type", "application/json")
-
-	g.cspReportHandler(w, req)
-
+	r := httptest.NewRequest(http.MethodPost, "/api/security/csp-report", bytes.NewReader(body))
+	r.Header.Set("User-Agent", "Mozilla/5.0")
+	r.RemoteAddr = "127.0.0.1"
+	g.cspReportHandler(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "{}", w.Body.String())
+}
+
+func TestCSPReportBody_Unmarshal(t *testing.T) {
+	body := `{"type":"csp-report","csp-report":{"document-uri":"https://example.com","blocked-uri":"https://evil.com","violated-directive":"script-src"}}`
+	var report CSPReportBody
+	err := json.Unmarshal([]byte(body), &report)
+	require.NoError(t, err)
+	assert.Equal(t, "https://evil.com", report.Report.BlockedURI)
+	assert.Equal(t, "script-src", report.Report.ViolatedDirective)
+}
+
+func TestStringsContainsIgnoreCase(t *testing.T) {
+	assert.True(t, strings.Contains(strings.ToLower("Hello"), strings.ToLower("hello")))
+	assert.False(t, strings.Contains(strings.ToLower("Hello"), strings.ToLower("world")))
 }

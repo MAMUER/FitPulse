@@ -528,6 +528,10 @@ func TestPgsodiumUserRepo_GetByEmail_DecryptSuccess(t *testing.T) {
 		WithArgs("user-1").
 		WillReturnRows(sqlmock.NewRows([]string{"email"}).AddRow("decrypted@example.com"))
 
+	mock.ExpectQuery("convert_from").
+		WithArgs("user-1").
+		WillReturnRows(sqlmock.NewRows([]string{"full_name"}).AddRow("Decrypted Name"))
+
 	result, err := repo.GetByEmail(ctx, "test@example.com")
 
 	require.NoError(t, err)
@@ -633,6 +637,10 @@ func TestPgsodiumUserRepo_GetByEmailHash_DecryptSuccess(t *testing.T) {
 	mock.ExpectQuery("convert_from").
 		WithArgs("user-1").
 		WillReturnRows(sqlmock.NewRows([]string{"email"}).AddRow("decrypted@example.com"))
+
+	mock.ExpectQuery("convert_from").
+		WithArgs("user-1").
+		WillReturnRows(sqlmock.NewRows([]string{"full_name"}).AddRow("Decrypted Name"))
 
 	result, err := repo.GetByEmailHash(ctx, "email_hash")
 

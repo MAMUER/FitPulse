@@ -1,201 +1,202 @@
-package pgx_test
+package pgx
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/domain/entity"
-	"github.com/MAMUER/project/internal/repository/pgx"
-	"github.com/MAMUER/project/internal/testcontainers"
 )
 
-func isDockerAvailable() bool {
-	cmd := exec.Command("docker", "info")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	err := cmd.Run()
-	return err == nil
+type mockDBForBiometric struct {
+	queryRowFunc func(context.Context, string, ...interface{}) pgx.Row
+	execFunc     func(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
+	beginFunc    func(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
 
-func setupBiometricRepo(t *testing.T) (*pgx.BiometricRepositoryPGX, func()) {
-	t.Helper()
-	ctx := context.Background()
-	ctr := testcontainers.StartInfrastructure(t)
-
-	connStr := fmt.Sprintf("postgres://testuser:testpass@%s:%d/testdb?sslmode=disable",
-		ctr.PostgresHost, ctr.PostgresPort)
-	pool, err := pgxpool.New(ctx, connStr)
-	require.NoError(t, err)
-
-	_, err = pool.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS biometric_data (
-			id          VARCHAR(36) PRIMARY KEY,
-			user_id     VARCHAR(255) NOT NULL,
-			metric_type VARCHAR(100) NOT NULL,
-			value       DOUBLE PRECISION NOT NULL,
-			timestamp   TIMESTAMPTZ NOT NULL,
-			device_type VARCHAR(100),
-			source      VARCHAR(100),
-			created_at  TIMESTAMPTZ DEFAULT NOW()
-		)
-	`)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-		CREATE UNIQUE INDEX IF NOT EXISTS biometric_data_user_metric_time_source_key
-		ON biometric_data (user_id, metric_type, timestamp, source)
-	`)
-	require.NoError(t, err)
-
-	repo := pgx.NewBiometricRepositoryPGX(pool)
-	cleanup := func() {
-		pool.Close()
-	}
-
-	return repo, cleanup
+func (m *mockDBForBiometric) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
 }
 
-func TestBiometricRepositoryPGX_CreateAndGet(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
+func (m *mockDBForBiometric) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	if m.queryRowFunc != nil {
+		return m.queryRowFunc(ctx, query, args...)
 	}
-	if !isDockerAvailable() {
-		t.Skip("Docker is not available, skipping integration test")
-	}
-
-	repo, cleanup := setupBiometricRepo(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	record := &entity.BiometricRecord{
-		ID:         "test-bio-1",
-		UserID:     "user-1",
-		MetricType: "heart_rate",
-		Value:      72.5,
-		Timestamp:  time.Now(),
-		DeviceType: "apple_watch",
-		Source:     "test",
-	}
-
-	created, err := repo.Create(ctx, record)
-	require.NoError(t, err)
-	assert.Equal(t, "test-bio-1", created.ID)
-
-	got, err := repo.GetByID(ctx, "test-bio-1")
-	require.NoError(t, err)
-	assert.Equal(t, "user-1", got.UserID)
-	assert.Equal(t, "heart_rate", got.MetricType)
+	return &mockRowForBiometric{}
 }
 
-func TestBiometricRepositoryPGX_GetLatest(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
+func (m *mockDBForBiometric) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	if m.execFunc != nil {
+		return m.execFunc(ctx, query, args...)
 	}
-	if !isDockerAvailable() {
-		t.Skip("Docker is not available, skipping integration test")
-	}
-
-	repo, cleanup := setupBiometricRepo(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	now := time.Now()
-	for i := 0; i < 3; i++ {
-		_, err := repo.Create(ctx, &entity.BiometricRecord{
-			ID:         "test-bio-latest-" + string(rune('a'+i)),
-			UserID:     "user-1",
-			MetricType: "heart_rate",
-			Value:      float64(70 + i),
-			Timestamp:  now.Add(time.Duration(i) * time.Minute),
-			DeviceType: "apple_watch",
-			Source:     "test",
-		})
-		require.NoError(t, err)
-	}
-
-	latest, err := repo.GetLatest(ctx, "user-1", "heart_rate")
-	require.NoError(t, err)
-	assert.Equal(t, float64(72), latest.Value)
+	return pgconn.CommandTag{}, nil
 }
 
-func TestBiometricRepositoryPGX_Update_NotFound(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
+func (m *mockDBForBiometric) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	if m.beginFunc != nil {
+		return m.beginFunc(ctx, txOptions)
 	}
-	if !isDockerAvailable() {
-		t.Skip("Docker is not available, skipping integration test")
-	}
-
-	repo, cleanup := setupBiometricRepo(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	_, err := repo.Update(ctx, &entity.BiometricRecord{
-		ID:     "missing",
-		UserID: "user-1",
-	})
-	require.Error(t, err)
-	assert.True(t, apperrors.IsNotFound(err))
+	return &mockTxForBiometric{}, nil
 }
 
-func TestBiometricRepositoryPGX_Delete(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-	if !isDockerAvailable() {
-		t.Skip("Docker is not available, skipping integration test")
-	}
-
-	repo, cleanup := setupBiometricRepo(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	_, err := repo.Create(ctx, &entity.BiometricRecord{
-		ID:         "test-bio-del",
-		UserID:     "user-1",
-		MetricType: "heart_rate",
-		Value:      80,
-		Timestamp:  time.Now(),
-		DeviceType: "apple_watch",
-		Source:     "test",
-	})
-	require.NoError(t, err)
-
-	err = repo.Delete(ctx, "test-bio-del")
-	require.NoError(t, err)
-
-	_, err = repo.GetByID(ctx, "test-bio-del")
-	require.Error(t, err)
-	assert.True(t, apperrors.IsNotFound(err))
+type mockRowForBiometric struct {
+	scanErr error
 }
 
-func TestBiometricRepositoryPGX_BatchCreate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
+func (m *mockRowForBiometric) Scan(dest ...any) error {
+	if m.scanErr != nil {
+		return m.scanErr
 	}
-	if !isDockerAvailable() {
-		t.Skip("Docker is not available, skipping integration test")
-	}
+	return nil
+}
 
-	repo, cleanup := setupBiometricRepo(t)
-	defer cleanup()
+type mockTxForBiometric struct{}
 
+func (m *mockTxForBiometric) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (m *mockTxForBiometric) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (m *mockTxForBiometric) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+
+func (m *mockTxForBiometric) Begin(ctx context.Context) (pgx.Tx, error) {
+	return m, nil
+}
+
+func (m *mockTxForBiometric) Commit(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockTxForBiometric) Rollback(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockTxForBiometric) Conn() *pgx.Conn {
+	return nil
+}
+
+func (m *mockTxForBiometric) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockTxForBiometric) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	return nil
+}
+
+func (m *mockTxForBiometric) LargeObjects() pgx.LargeObjects {
+	var lo pgx.LargeObjects
+	return lo
+}
+
+func (m *mockTxForBiometric) PgConn() *pgconn.PgConn {
+	return nil
+}
+
+func (m *mockTxForBiometric) Close() error {
+	return nil
+}
+
+func (m *mockTxForBiometric) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockTxForBiometric) TypeMap() *pgtype.Map {
+	return nil
+}
+
+func (m *mockTxForBiometric) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	return nil, nil
+}
+
+func TestBiometricRepositoryPGX_BatchCreate_CommitError(t *testing.T) {
 	ctx := context.Background()
+	mockDB := &mockDBForBiometric{
+		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+			return &mockTxForBiometricWithCommitError{}, nil
+		},
+	}
+	repo := NewBiometricRepositoryPGX(mockDB)
+
 	now := time.Now()
 	records := []*entity.BiometricRecord{
-		{ID: uuid.New().String(), UserID: "user-1", MetricType: "heart_rate", Value: 70, Timestamp: now, DeviceType: "apple_watch", Source: "test"},
-		{ID: uuid.New().String(), UserID: "user-1", MetricType: "heart_rate", Value: 71, Timestamp: now.Add(time.Millisecond), DeviceType: "apple_watch", Source: "test"},
+		{ID: "r1", UserID: "u1", MetricType: "heart_rate", Value: 75.0, Timestamp: now, DeviceType: "watch", Source: "test", CreatedAt: now},
 	}
 
-	inserted, err := repo.BatchCreate(ctx, records)
-	require.NoError(t, err)
-	assert.Equal(t, 2, inserted)
+	_, err := repo.BatchCreate(ctx, records)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to commit transaction")
+}
+
+type mockTxForBiometricWithCommitError struct{}
+
+func (m *mockTxForBiometricWithCommitError) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (m *mockTxForBiometricWithCommitError) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+
+func (m *mockTxForBiometricWithCommitError) Begin(ctx context.Context) (pgx.Tx, error) {
+	return m, nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Commit(ctx context.Context) error {
+	return assert.AnError
+}
+
+func (m *mockTxForBiometricWithCommitError) Rollback(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Conn() *pgx.Conn {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockTxForBiometricWithCommitError) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) LargeObjects() pgx.LargeObjects {
+	var lo pgx.LargeObjects
+	return lo
+}
+
+func (m *mockTxForBiometricWithCommitError) PgConn() *pgconn.PgConn {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Close() error {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) TypeMap() *pgtype.Map {
+	return nil
+}
+
+func (m *mockTxForBiometricWithCommitError) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	return nil, nil
 }

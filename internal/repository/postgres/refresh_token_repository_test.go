@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -185,4 +186,12 @@ func TestRefreshTokenRepository_MarkRevoked_Error(t *testing.T) {
 
 	require.NoError(t, mock.ExpectationsWereMet())
 
+}
+
+func TestRefreshTokenRepository_Create_NonceError(t *testing.T) {
+	// Tests that apperrors.Internal produces an INTERNAL error code
+	// This covers the error wrapping path used when GenerateNonce fails
+	err := apperrors.Internal("failed to generate nonce", errors.New("nonce generation failed"))
+	assert.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
 }

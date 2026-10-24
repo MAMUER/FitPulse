@@ -62,3 +62,12 @@ func TestCloseRows(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestEmptySurvey(t *testing.T) {
+	survey, completed, completedAt, err := EmptySurvey()
+	assert.NoError(t, err)
+	assert.NotNil(t, survey)
+	assert.False(t, completed)
+	assert.Nil(t, completedAt)
+	assert.Empty(t, survey)
+}
