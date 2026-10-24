@@ -270,3 +270,108 @@ func TestTraining_UnmarshalPlanData_ValidStruct(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, float64(4), result["duration_weeks"])
 }
+
+func TestTraining_ListPlansHandler_GetTrainingClientError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/plans", nil)
+
+	g.listPlansHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_ListPlansHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.listErr = grpcError(codes.NotFound, "not found")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/plans", nil)
+
+	g.listPlansHandler(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestTraining_CompleteWorkoutHandler_GetTrainingClientError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/training/workouts/complete", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.completeWorkoutHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_CompleteWorkoutHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.completeErr = grpcError(codes.Internal, "internal error")
+
+	w := httptest.NewRecorder()
+	reqBody := []byte(`{"plan_id":"plan-1","workout_id":"workout-1","rating":5,"feedback":"Great!"}`)
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/training/workouts/complete", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.completeWorkoutHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestTraining_GetProgressHandler_GetTrainingClientError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/progress", nil)
+
+	g.getProgressHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_GetPlanHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.getErr = grpcError(codes.Internal, "internal error")
+
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("plan_id", "plan-1")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/api/v1/training/plans/plan-1", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	g.getPlanHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestTraining_GeneratePlanHandler_GetTrainingClientError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	reqBody := []byte(`{"duration_weeks":4,"available_days":[1,3,5]}`)
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/training/plans/generate", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.generatePlanHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_WriteGeneratePlanError_NonServiceUnavailable(t *testing.T) {
+	g := newTestGateway()
+	w := httptest.NewRecorder()
+	err := grpcError(codes.NotFound, "plan not found")
+
+	writeGeneratePlanError(g, w, err, "user-123", "endurance_basic")
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}

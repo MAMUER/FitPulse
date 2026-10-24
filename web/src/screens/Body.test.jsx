@@ -1,50 +1,33 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Body from './Body';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Body from './Body'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
-
-const defaultContext = {
-  state: {
-    screen: 'body',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-    height: 175,
-    weight: 74.2,
-    bodyComposition: [],
-  },
-  t: (ru, _en) => ru,
-  logWeight: vi.fn(),
-  addWeight: vi.fn(),
-  openMetric: vi.fn(),
-  go: vi.fn(),
-  loadBodyComposition: vi.fn(),
-  saveBodyComposition: vi.fn(),
-};
-
-function renderBody() {
-  useApp.mockReturnValue(defaultContext);
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Body />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
 describe('Body', () => {
-  it('renders body profile screen', () => {
-    renderBody();
-    expect(screen.getByText('Профиль тела')).toBeInTheDocument();
-  });
-});
+  it('loads and saves body composition', async () => {
+    const loadBodyComposition = vi.fn()
+    const saveBodyComposition = vi.fn().mockResolvedValue({})
+    const go = vi.fn()
+    useApp.mockReturnValue({
+      state: { height: 175, weight: 75, bodyComposition: [{ recorded_at: '2026-01-01T00:00:00Z', weight_kg: 75, bmi: 24.5 }] },
+      t: (ru, en) => ru,
+      go,
+      loadBodyComposition,
+      saveBodyComposition,
+    })
+
+    render(<Body />)
+    expect(loadBodyComposition).toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('Жир, %'), { target: { value: '18' } })
+    fireEvent.change(screen.getByLabelText('Мышцы, %'), { target: { value: '35' } })
+    fireEvent.change(screen.getByLabelText('Вода, %'), { target: { value: '50' } })
+    fireEvent.click(screen.getByText('Сохранить'))
+    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled())
+    fireEvent.click(screen.getByText('На главную'))
+    expect(go).toHaveBeenCalledWith('home')
+  })
+})

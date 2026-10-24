@@ -449,4 +449,143 @@ describe('useHealth', () => {
       weightHistory: [['Сегодня', '74.0 кг']],
     });
   });
+
+  it('loadBodyComposition ignores payload without records', async () => {
+    setup();
+    api.loadBodyComposition.mockResolvedValue({});
+    await act(async () => {
+      await result.current.loadBodyComposition();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('saveBodyComposition handles undefined bodyComposition', async () => {
+    setup({ bodyComposition: undefined });
+    api.saveBodyComposition.mockResolvedValue({ record: { id: 2 } });
+    let ok;
+    await act(async () => {
+      ok = await result.current.saveBodyComposition({ weight_kg: 74 });
+    });
+    expect(update).toHaveBeenCalledWith({ bodyComposition: [{ id: 2 }] });
+    expect(ok).toBe(true);
+  });
+
+  it('loadConditions ignores payload without conditions', async () => {
+    setup();
+    api.loadConditions.mockResolvedValue({});
+    await act(async () => {
+      await result.current.loadConditions();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('createCondition handles payload without condition', async () => {
+    setup();
+    api.createCondition.mockResolvedValue({});
+    let ok;
+    await act(async () => {
+      ok = await result.current.createCondition({ title: 'Астма' });
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith('Состояние добавлено');
+    expect(ok).toBe(true);
+  });
+
+  it('createCondition handles undefined conditions', async () => {
+    setup({ conditions: undefined });
+    api.createCondition.mockResolvedValue({ condition: { id: 2 } });
+    let ok;
+    await act(async () => {
+      ok = await result.current.createCondition({ title: 'Астма' });
+    });
+    expect(update).toHaveBeenCalledWith({ conditions: [{ id: 2 }] });
+    expect(ok).toBe(true);
+  });
+
+  it('deleteCondition handles undefined conditions', async () => {
+    setup({ conditions: undefined });
+    api.deleteCondition.mockResolvedValue({});
+    await act(async () => {
+      await result.current.deleteCondition(1);
+    });
+    expect(update).toHaveBeenCalledWith({ conditions: [] });
+  });
+
+  it('createMenstrualCycle handles payload without cycle', async () => {
+    setup();
+    api.createMenstrualCycle.mockResolvedValue({});
+    let ok;
+    await act(async () => {
+      ok = await result.current.createMenstrualCycle({
+        start_date: '2026-01-01',
+      });
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(ok).toBe(true);
+  });
+
+  it('createMenstrualCycle handles undefined cycles', async () => {
+    setup({ menstrualCycles: undefined });
+    api.createMenstrualCycle.mockResolvedValue({ cycle: { id: 2 } });
+    let ok;
+    await act(async () => {
+      ok = await result.current.createMenstrualCycle({
+        start_date: '2026-01-01',
+      });
+    });
+    expect(update).toHaveBeenCalledWith({ menstrualCycles: [{ id: 2 }] });
+    expect(ok).toBe(true);
+  });
+
+  it('updateMenstrualCycle handles payload without cycle', async () => {
+    setup();
+    api.updateMenstrualCycle.mockResolvedValue({});
+    let ok;
+    await act(async () => {
+      ok = await result.current.updateMenstrualCycle(1, {});
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(ok).toBe(true);
+  });
+
+  it('updateMenstrualCycle handles undefined cycles', async () => {
+    setup({ menstrualCycles: undefined });
+    api.updateMenstrualCycle.mockResolvedValue({ cycle: { id: 1 } });
+    let ok;
+    await act(async () => {
+      ok = await result.current.updateMenstrualCycle(1, {});
+    });
+    expect(update).toHaveBeenCalledWith({ menstrualCycles: [] });
+    expect(ok).toBe(true);
+  });
+
+  it('updateMenstrualCycle with unknown id keeps cycles', async () => {
+    setup({ menstrualCycles: [{ id: 1 }] });
+    api.updateMenstrualCycle.mockResolvedValue({ cycle: { id: 2 } });
+    let ok;
+    await act(async () => {
+      ok = await result.current.updateMenstrualCycle(99, {});
+    });
+    expect(update).toHaveBeenCalledWith({ menstrualCycles: [{ id: 1 }] });
+    expect(ok).toBe(true);
+  });
+
+  it('deleteMenstrualCycle handles undefined cycles', async () => {
+    setup({ menstrualCycles: undefined });
+    api.deleteMenstrualCycle.mockResolvedValue({});
+    await act(async () => {
+      await result.current.deleteMenstrualCycle(1);
+    });
+    expect(update).toHaveBeenCalledWith({ menstrualCycles: [] });
+  });
+
+  it('logWeight uses default weight when both undefined', async () => {
+    setup({ weight: undefined, weightHistory: [] });
+    await act(async () => {
+      await result.current.logWeight(null, null);
+    });
+    expect(update).toHaveBeenCalledWith({
+      weightHistory: [['Сегодня', '70 кг']],
+    });
+  });
 });

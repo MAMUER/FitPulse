@@ -35,7 +35,7 @@ func (c *WithingsClient) postForm(ctx context.Context, u string, form url.Values
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-        return nil, fmt.Errorf("%s request failed: %w", action, err)
+		return nil, fmt.Errorf("%s request failed: %w", action, err)
 	}
 	return resp, nil
 }
@@ -72,6 +72,32 @@ func (c *WithingsClient) BuildAuthorizeURL(state string) (string, error) {
 	return u.String(), nil
 }
 
+func (c *WithingsClient) exchangeToken(ctx context.Context, form url.Values, action, decodeErrMsg string) (*TokenResponse, error) {
+	resp, err := c.postForm(ctx, tokenURL, form, action)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var tokenResp TokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, fmt.Errorf("%s: %w", decodeErrMsg, err)
+	}
+
+	if tokenResp.Status != 0 {
+		if action == "refresh" {
+			return nil, fmt.Errorf("withings refresh error status=%d", tokenResp.Status)
+		}
+		return nil, fmt.Errorf("withings token error status=%d", tokenResp.Status)
+	}
+
+	if action != "refresh" && tokenResp.Body.AccessToken == "" {
+		return nil, errors.New("withings access_token is empty")
+	}
+
+	return &tokenResp, nil
+}
+
 func (c *WithingsClient) ExchangeCode(ctx context.Context, code string) (*TokenResponse, error) {
 	form := url.Values{}
 	form.Set("action", "requesttoken")
@@ -84,26 +110,7 @@ func (c *WithingsClient) ExchangeCode(ctx context.Context, code string) (*TokenR
 		form.Set("scope", strings.Join(c.config.Scopes, ","))
 	}
 
-	resp, err := c.postForm(ctx, tokenURL, form, "token")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return nil, fmt.Errorf("decode token response: %w", err)
-	}
-
-	if tokenResp.Status != 0 {
-		return nil, fmt.Errorf("withings token error status=%d", tokenResp.Status)
-	}
-
-	if tokenResp.Body.AccessToken == "" {
-		return nil, errors.New("withings access_token is empty")
-	}
-
-	return &tokenResp, nil
+	return c.exchangeToken(ctx, form, "token", "decode token response")
 }
 
 type WithingsMeasure struct {
@@ -174,20 +181,5 @@ func (c *WithingsClient) RefreshAccessToken(ctx context.Context, refreshToken st
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", refreshToken)
 
-	resp, err := c.postForm(ctx, tokenURL, form, "refresh")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return nil, fmt.Errorf("decode refresh response: %w", err)
-	}
-
-	if tokenResp.Status != 0 {
-		return nil, fmt.Errorf("withings refresh error status=%d", tokenResp.Status)
-	}
-
-	return &tokenResp, nil
+	return c.exchangeToken(ctx, form, "refresh", "decode refresh response")
 }

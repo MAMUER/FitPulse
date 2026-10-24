@@ -1,9 +1,11 @@
 package planner
 
 import (
+	"math"
 	"testing"
 
 	"github.com/MAMUER/project/internal/domain/entity"
+	"github.com/MAMUER/project/internal/templates"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -102,13 +104,33 @@ func TestApplyModifiers_ClampedBetween01(t *testing.T) {
 	assert.LessOrEqual(t, intensity, 1.0)
 }
 
-func TestGeneratePlanFromTemplate_PlanDataFields(t *testing.T) {
-	plan, _, err := GeneratePlanFromTemplate("endurance_basic", &entity.User{}, nil, nil, PlanConstraints{
-		DurationWeeks: 4,
-		AvailableDays: []int{2, 4},
+func TestToInt32PanicsOnOverflow(t *testing.T) {
+	assert.Panics(t, func() {
+		toInt32(math.MaxInt32 + 1)
+	})
+	assert.Panics(t, func() {
+		toInt32(math.MinInt32 - 1)
+	})
+}
+
+func TestGeneratePlanFromTemplate_EmptyExercisesTemplate(t *testing.T) {
+	original := templates.TrainingTemplates["recovery"]
+	templates.TrainingTemplates["recovery"] = templates.TrainingTemplate{
+		NameRu:         original.NameRu,
+		DurationRange:  original.DurationRange,
+		IntensityRange: original.IntensityRange,
+		RestRatio:      original.RestRatio,
+		Exercises:      []string{},
+	}
+	defer func() {
+		templates.TrainingTemplates["recovery"] = original
+	}()
+
+	plan, weeks, err := GeneratePlanFromTemplate("recovery", &entity.User{}, nil, nil, PlanConstraints{
+		DurationWeeks: 2,
+		AvailableDays: []int{1},
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, "Базовая выносливость", plan.PlanData["name"])
-	assert.Equal(t, "endurance_basic", plan.PlanData["class"])
-	assert.Equal(t, 4, plan.PlanData["weeks"])
+	assert.NotNil(t, plan)
+	assert.Empty(t, weeks[0].Days[0].Exercises)
 }

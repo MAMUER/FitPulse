@@ -553,6 +553,56 @@ func TestBackfillEncryptedPII_HandlesExecError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestBackfillEncryptedPII_RowsAffectedError(t *testing.T) {
+	resetTestEnv(t)
+	db.SetTestEncryptionKey([]byte(testEncryptionKeyHex))
+	db.SetPgsodiumKeyID(11)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
+
+	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewErrorResult(errors.New("rows affected error")))
+	mock.ExpectExec(evBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 0))
+
+	log := newTestLogger(t)
+	assert.NotPanics(t, func() {
+		backfillEncryptedPII(ctx, mockDB, log)
+	})
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBackfillEncryptedPII_EmailVerificationsError(t *testing.T) {
+	resetTestEnv(t)
+	db.SetTestEncryptionKey([]byte(testEncryptionKeyHex))
+	db.SetPgsodiumKeyID(11)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() {
+		if cerr := mockDB.Close(); cerr != nil {
+			t.Logf("mockDB.Close error: %v", cerr)
+		}
+	}()
+
+	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(evBackfillPattern).WillReturnError(errors.New("ev failed"))
+
+	log := newTestLogger(t)
+	assert.NotPanics(t, func() {
+		backfillEncryptedPII(ctx, mockDB, log)
+	})
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 // ---------------------------------------------------------------------------
 // reencryptPIIFromPgcrypto tests
 // ---------------------------------------------------------------------------
@@ -590,4 +640,25 @@ func TestReencryptPIIFromPgcrypto_SkipsWhenKeyIDZero(t *testing.T) {
 
 	log := newTestLogger(t)
 	reencryptPIIFromPgcrypto(ctx, mockDB, log)
+}
+
+func TestReencryptPIIFromPgcrypto_Executes(t *testing.T) {
+	resetTestEnv(t)
+	db.SetTestEncryptionKey([]byte(testEncryptionKeyHex))
+	db.SetPgsodiumKeyID(3)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+
+	// Use sqlmock - reencryptPIIFromPgcrypto uses QueryContext/ExecContext
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	// Will query users table - expect query
+	mock.ExpectQuery("SELECT").WillReturnError(errors.New("skip"))
+
+	reencryptPIIFromPgcrypto(ctx, mockDB, log)
+	_ = mock
 }

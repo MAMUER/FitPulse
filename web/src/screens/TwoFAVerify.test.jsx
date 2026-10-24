@@ -1,55 +1,30 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import TwoFAVerify from './TwoFAVerify';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import TwoFAVerify from './TwoFAVerify'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
-
-const defaultContext = {
-  state: {
-    screen: 'twofa-verify',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-  },
-  t: (ru, _en) => ru,
-  verify2FA: vi.fn(),
-};
-
-function renderTwoFAVerify() {
-  useApp.mockReturnValue(defaultContext);
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <TwoFAVerify />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
 describe('TwoFAVerify', () => {
-  it('renders 2FA verify screen', () => {
-    renderTwoFAVerify();
-    expect(
-      screen.getByText('Двухфакторная аутентификация')
-    ).toBeInTheDocument();
-  });
+  beforeEach(() => {
+    delete window.location
+    window.location = { search: '?temp_token=abc123' }
+  })
 
-  it('renders code input and checkbox', () => {
-    renderTwoFAVerify();
-    expect(screen.getByText('Код')).toBeInTheDocument();
-    expect(screen.getByText('Это резервный код')).toBeInTheDocument();
-  });
+  it('submits verification', async () => {
+    const verify2FA = vi.fn().mockResolvedValue({})
+    useApp.mockReturnValue({
+      verify2FA,
+      t: (ru, en) => ru,
+    })
 
-  it('renders verify button', () => {
-    renderTwoFAVerify();
-    expect(screen.getByText('Подтвердить')).toBeInTheDocument();
-  });
-});
+    render(<TwoFAVerify />)
+    fireEvent.change(screen.getByLabelText('Код'), { target: { value: '654321' } })
+    fireEvent.click(screen.getByText('Это резервный код'))
+    fireEvent.submit(screen.getByRole('button', { name: 'Подтвердить' }).closest('form'))
+    await waitFor(() => expect(verify2FA).toHaveBeenCalled())
+    expect(verify2FA).toHaveBeenCalledWith('abc123', '654321', true)
+  })
+})

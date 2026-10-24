@@ -13,7 +13,6 @@ import (
 
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/logger"
-	"github.com/MAMUER/project/internal/middleware"
 )
 
 func setupSurveyGateway() *gateway {
@@ -24,10 +23,6 @@ func setupSurveyGateway() *gateway {
 		tokenProvider: jwt.NewJWTAdapter(privateKeyPEM, publicKeyPEM),
 		userClient:    &mockUserServiceClient{},
 	}
-}
-
-func withUserID(ctx context.Context, userID string) context.Context {
-	return context.WithValue(ctx, middleware.UserIDKey, userID)
 }
 
 func TestSaveSurveyHandler_Success(t *testing.T) {

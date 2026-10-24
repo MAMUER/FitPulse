@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"time"
 )
 
 type mockDBForSurvey struct {
@@ -144,4 +145,101 @@ func TestSurveyRepositoryPGX_LoadSurvey_QueryError(t *testing.T) {
 	assert.Nil(t, survey)
 	assert.False(t, completed)
 	assert.Nil(t, completedAt)
+}
+
+type mockRowForSurveyData struct {
+	jsonData []byte
+	completed bool
+	completedAt *time.Time
+	scanErr error
+}
+
+func (m *mockRowForSurveyData) Scan(dest ...interface{}) error {
+	if m.scanErr != nil {
+		return m.scanErr
+	}
+	if len(dest) >= 3 {
+		*dest[0].(*[]byte) = m.jsonData
+		*dest[1].(*bool) = m.completed
+		if m.completedAt != nil {
+			*dest[2].(**time.Time) = m.completedAt
+		}
+	}
+	return nil
+}
+
+func TestSurveyRepositoryPGX_LoadSurvey_NoRows(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForSurvey{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForSurvey{scanErr: pgx.ErrNoRows}
+		},
+	}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	survey, completed, completedAt, err := repo.LoadSurvey(ctx, "user-1")
+	require.NoError(t, err)
+	assert.NotNil(t, survey)
+	assert.False(t, completed)
+	assert.Nil(t, completedAt)
+}
+
+func TestSurveyRepositoryPGX_LoadSurvey_EmptyJSON(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForSurvey{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForSurveyData{jsonData: []byte{}}
+		},
+	}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	survey, completed, completedAt, err := repo.LoadSurvey(ctx, "user-1")
+	require.NoError(t, err)
+	assert.NotNil(t, survey)
+	assert.False(t, completed)
+	assert.Nil(t, completedAt)
+}
+
+func TestSurveyRepositoryPGX_LoadSurvey_UnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForSurvey{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForSurveyData{jsonData: []byte("not-json")}
+		},
+	}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	survey, completed, completedAt, err := repo.LoadSurvey(ctx, "user-1")
+	require.Error(t, err)
+	assert.Nil(t, survey)
+	assert.False(t, completed)
+	assert.Nil(t, completedAt)
+}
+
+func TestSurveyRepositoryPGX_LoadSurvey_Success(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	mockDB := &mockDBForSurvey{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForSurveyData{jsonData: []byte(`{"q1":"a"}`), completed: true, completedAt: &now}
+		},
+	}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	survey, completed, completedAt, err := repo.LoadSurvey(ctx, "user-1")
+	require.NoError(t, err)
+	assert.NotNil(t, survey)
+	assert.True(t, completed)
+	assert.NotNil(t, completedAt)
+}
+
+func TestSurveyRepositoryPGX_SaveSurvey_MarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForSurvey{}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	// channels cannot be marshaled to JSON
+	err := repo.SaveSurvey(ctx, "user-1", map[string]interface{}{"bad": make(chan int)}, false, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to marshal survey")
 }

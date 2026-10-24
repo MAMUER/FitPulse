@@ -147,6 +147,43 @@ describe('useTraining', () => {
     );
   });
 
+  it('startWorkout handles undefined completedWorkouts', async () => {
+    setup({ completedWorkouts: undefined });
+    api.completeWorkout.mockResolvedValue({});
+    await act(async () => {
+      await result.current.startWorkout('Бег');
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ completedWorkouts: ['Бег'] })
+    );
+  });
+
+  it('startWorkout handles undefined trainingData goal', async () => {
+    setup({ trainingData: { day: { completed: 0, minutes: 0, calories: 0 } } });
+    api.completeWorkout.mockResolvedValue({});
+    await act(async () => {
+      await result.current.startWorkout('Бег');
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainingData: {
+          day: { completed: 1, minutes: 42, calories: 420 },
+        },
+      })
+    );
+  });
+
+  it('startWorkout handles undefined points and xp', async () => {
+    setup({ points: undefined, xp: undefined });
+    api.completeWorkout.mockResolvedValue({});
+    await act(async () => {
+      await result.current.startWorkout('Бег');
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ points: 40, xp: 40 })
+    );
+  });
+
   it('startWorkout notifies on failure', async () => {
     setup();
     api.completeWorkout.mockRejectedValue(new Error('boom'));

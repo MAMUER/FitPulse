@@ -88,6 +88,29 @@ describe('useMedia', () => {
     expect(document.getElementById('customExerciseSets').value).toBe('');
   });
 
+  it('addCustomExercise handles undefined customExercises and missing sets input', () => {
+    setup({ customExercises: undefined });
+    const origGet = document.getElementById.bind(document);
+    let setsCalls = 0;
+    document.getElementById = (id) => {
+      if (id === 'customExerciseSets') {
+        setsCalls += 1;
+        return setsCalls === 1 ? { value: ' 4 ' } : null;
+      }
+      return origGet(id);
+    };
+    try {
+      setValue('customExerciseName', ' Подтягивания ');
+      result.current.addCustomExercise();
+      expect(update).toHaveBeenCalledWith({
+        customExercises: [{ name: 'Подтягивания', sets: '4' }],
+      });
+      expect(document.getElementById('customExerciseName').value).toBe('');
+    } finally {
+      document.getElementById = origGet;
+    }
+  });
+
   it('removeCustomExercise removes item when confirmed', () => {
     setup({ customExercises: [{ name: 'Бег' }, { name: 'Йога' }] });
     window.confirm = vi.fn().mockReturnValue(true);
@@ -102,6 +125,13 @@ describe('useMedia', () => {
     window.confirm = vi.fn().mockReturnValue(false);
     result.current.removeCustomExercise(0);
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('removeCustomExercise handles undefined customExercises', () => {
+    setup({ customExercises: undefined });
+    window.confirm = vi.fn().mockReturnValue(true);
+    result.current.removeCustomExercise(0);
+    expect(update).toHaveBeenCalledWith({ customExercises: [] });
   });
 
   it('openVideoModal selects video', () => {

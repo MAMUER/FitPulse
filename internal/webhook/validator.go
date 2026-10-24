@@ -8,9 +8,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 )
+
+// newMac is a package-level hook so tests can force mac.Write to fail.
+var newMac = func(secret []byte) hash.Hash {
+	return hmac.New(sha256.New, secret)
+}
 
 // ValidateSignature validates HMAC-SHA256 signature from Open Wearables
 // Signature is expected in X-Open-Wearables-Signature header
@@ -29,7 +35,7 @@ func ValidateSignature(secret []byte, r *http.Request) error {
 		return errors.New("empty request body")
 	}
 
-	mac := hmac.New(sha256.New, secret)
+	mac := newMac(secret)
 	if _, err := mac.Write(body); err != nil {
 		return fmt.Errorf("failed to hash request body: %w", err)
 	}

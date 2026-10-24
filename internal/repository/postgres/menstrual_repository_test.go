@@ -130,6 +130,34 @@ func TestUserMenstrualRepository_ListCycles_ScanError(t *testing.T) {
 
 }
 
+func TestUserMenstrualRepository_ListCycles_IterationError(t *testing.T) {
+
+	repo, mock := setupMenstrualRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"id", "user_id", "cycle_start_date", "cycle_end_date", "flow_intensity", "notes", "created_at", "updated_at"}).
+		AddRow("cycle-1", "user-1", time.Now(), nil, "medium", nil, time.Now(), time.Now()).
+		RowError(0, assert.AnError)
+
+	mock.ExpectQuery("SELECT id").
+		WithArgs("user-1").
+		WillReturnRows(rows)
+
+	result, err := repo.ListCycles(ctx, "user-1")
+
+	require.Error(t, err)
+
+	assert.Nil(t, result)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	assert.Contains(t, err.Error(), errFailedToIterateMenstrualCycles)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
 func TestUserMenstrualRepository_CreateCycle_Success(t *testing.T) {
 
 	repo, mock := setupMenstrualRepo(t)
@@ -403,6 +431,34 @@ func TestUserMenstrualRepository_ListSymptoms_Error(t *testing.T) {
 	assert.Nil(t, result)
 
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+func TestUserMenstrualRepository_ListSymptoms_IterationError(t *testing.T) {
+
+	repo, mock := setupMenstrualRepo(t)
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"symptom"}).
+		AddRow("cramps").
+		RowError(0, assert.AnError)
+
+	mock.ExpectQuery("SELECT symptom").
+		WithArgs("cycle-1").
+		WillReturnRows(rows)
+
+	result, err := repo.ListSymptoms(ctx, "cycle-1")
+
+	require.Error(t, err)
+
+	assert.Nil(t, result)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	assert.Contains(t, err.Error(), errFailedToListMenstrualSymptoms)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 

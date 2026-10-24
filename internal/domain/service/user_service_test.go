@@ -823,7 +823,7 @@ func TestGetProfile(t *testing.T) {
 				return expected, nil
 			},
 		}
-		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles})
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
 
 		user, err := svc.GetProfile(context.Background(), "user1")
 
@@ -837,7 +837,7 @@ func TestGetProfile(t *testing.T) {
 				return nil, apperrors.NotFound("profile not found")
 			},
 		}
-		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles})
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
 
 		user, err := svc.GetProfile(context.Background(), "user1")
 
@@ -856,7 +856,7 @@ func TestUpdateProfile(t *testing.T) {
 				return nil
 			},
 		}
-		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles})
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
 
 		err := svc.UpdateProfile(context.Background(), "user1", "John", []string{"fitness"}, []string{"none"}, "balanced", 7.5)
 
@@ -870,7 +870,7 @@ func TestUpdateProfile(t *testing.T) {
 				return apperrors.Internal("db error", nil)
 			},
 		}
-		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles})
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
 
 		err := svc.UpdateProfile(context.Background(), "user1", "John", nil, nil, "", 0)
 
@@ -1102,10 +1102,87 @@ func TestListDevices(t *testing.T) {
 		}
 		svc := NewUserService(UserServiceConfig{Devices: mockDevices})
 
-		devices, err := svc.ListDevices(context.Background(), "user1")
+		_, err := svc.ListDevices(context.Background(), "user1")
 
 		require.Error(t, err)
-		assert.Nil(t, devices)
+		assert.Equal(t, "INTERNAL", apperrors.Code(err))
+	})
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
+
+func TestSaveLoadSurvey(t *testing.T) {
+	ctx := context.Background()
+	captured := map[string]interface{}{"fitness": true}
+
+	t.Run("SaveSurvey delegates to profile repository", func(t *testing.T) {
+		var gotSurvey map[string]interface{}
+		var gotCompleted bool
+		var gotCompletedAt *time.Time
+		mockProfiles := &mockProfileRepository{
+			saveSurveyFn: func(_ context.Context, _ string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
+				gotSurvey = survey
+				gotCompleted = completed
+				gotCompletedAt = completedAt
+				return nil
+			},
+		}
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
+
+		err := svc.SaveSurvey(ctx, "user1", map[string]interface{}{"fitness": true}, true, timePtr(time.Now()))
+
+		require.NoError(t, err)
+		assert.Equal(t, captured["fitness"], gotSurvey["fitness"])
+		assert.True(t, gotCompleted)
+		assert.NotNil(t, gotCompletedAt)
+	})
+
+	t.Run("SaveSurvey returns profile repository error", func(t *testing.T) {
+		mockProfiles := &mockProfileRepository{
+			saveSurveyFn: func(_ context.Context, _ string, _ map[string]interface{}, _ bool, _ *time.Time) error {
+				return apperrors.Internal("db down", nil)
+			},
+		}
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
+
+		err := svc.SaveSurvey(ctx, "user1", nil, false, nil)
+		require.Error(t, err)
+		assert.Equal(t, "INTERNAL", apperrors.Code(err))
+	})
+
+	t.Run("LoadSurvey delegates to profile repository", func(t *testing.T) {
+		expected := map[string]interface{}{"fitness": true}
+		mockProfiles := &mockProfileRepository{
+			loadSurveyFn: func(_ context.Context, _ string) (map[string]interface{}, bool, *time.Time, error) {
+				return expected, true, timePtr(time.Now()), nil
+			},
+		}
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
+
+		survey, completed, completedAt, err := svc.LoadSurvey(ctx, "user1")
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, survey)
+		assert.True(t, completed)
+		assert.NotNil(t, completedAt)
+	})
+
+	t.Run("LoadSurvey returns profile repository error", func(t *testing.T) {
+		mockProfiles := &mockProfileRepository{
+			loadSurveyFn: func(_ context.Context, _ string) (map[string]interface{}, bool, *time.Time, error) {
+				return nil, false, nil, apperrors.Internal("db down", nil)
+			},
+		}
+		svc := NewUserService(UserServiceConfig{Profiles: mockProfiles, Survey: mockProfiles})
+
+		survey, completed, completedAt, err := svc.LoadSurvey(ctx, "user1")
+		require.Error(t, err)
+		assert.Nil(t, survey)
+		assert.False(t, completed)
+		assert.Nil(t, completedAt)
+		assert.Equal(t, "INTERNAL", apperrors.Code(err))
 	})
 }
 

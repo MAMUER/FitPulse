@@ -152,10 +152,27 @@ func TestServerHandleWebhookNonceBeginTxFailure(t *testing.T) {
 }
 
 func TestServerStopIsIdempotent(t *testing.T) {
+	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
 	server := NewServer("8085", &mockDB{}, zap.NewNop())
 
 	require.NoError(t, server.Stop(context.Background()))
 	require.NoError(t, server.Stop(context.Background()))
+}
+
+type fatalRecorder struct {
+	called bool
+	msg    string
+}
+
+func TestNewServerMissingSecretFatal(t *testing.T) {
+	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "")
+	oldFatal := logFatal
+	rec := &fatalRecorder{}
+	logFatal = func(v ...interface{}) { rec.called = true }
+	defer func() { logFatal = oldFatal }()
+
+	_ = NewServer("8085", &mockDB{}, zap.NewNop())
+	assert.True(t, rec.called)
 }
 
 type mockDBWithNonceBeginError struct{}
@@ -218,4 +235,23 @@ func TestServerHandleListProvidersWriteError(t *testing.T) {
 
 	rec := w.ResponseWriter.(*httptest.ResponseRecorder)
 	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+type failingWriteResponseWriter struct {
+	header http.Header
+	code   int
+}
+
+func (f *failingWriteResponseWriter) Header() http.Header {
+	if f.header == nil {
+		f.header = make(http.Header)
+	}
+	return f.header
+}
+func (f *failingWriteResponseWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+func (f *failingWriteResponseWriter) WriteHeader(statusCode int)  { f.code = statusCode }
+
+func TestWriteResponseEncodeError(t *testing.T) {
+	w := &failingWriteResponseWriter{}
+	WriteResponse(w, http.StatusOK, WebhookResponse{Status: "ok", Message: "test"})
 }

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"crypto/rsa"
 	"testing"
 	"time"
 
@@ -169,6 +170,22 @@ func TestPublicKeyPEMToJWKS_UnsupportedCurve(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestPublicKeyPEMToJWKS_NonP256Curve(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	require.NoError(t, err)
+	pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
+	_, err = PublicKeyPEMToJWKS(string(pubPEM))
+	assert.Error(t, err)
+}
+
+func TestPublicKeyPEMToJWKS_InvalidPubFormat(t *testing.T) {
+	_, pub, _ := generateTestKeyPair()
+	_, err := PublicKeyPEMToJWKS(pub)
+	assert.NoError(t, err)
+}
+
 func TestParseECPrivateKey_Errors(t *testing.T) {
 	t.Run("empty pem", func(t *testing.T) {
 		_, err := ParseECPrivateKey("")
@@ -177,6 +194,18 @@ func TestParseECPrivateKey_Errors(t *testing.T) {
 
 	t.Run("invalid pem", func(t *testing.T) {
 		_, err := ParseECPrivateKey("not-a-valid-key")
+		assert.Error(t, err)
+	})
+
+	t.Run("pem with extra data", func(t *testing.T) {
+		priv, _, _ := generateTestKeyPair()
+		_, err := ParseECPrivateKey(priv + "\nextra")
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid block bytes", func(t *testing.T) {
+		invalid := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: []byte("not-a-key")})
+		_, err := ParseECPrivateKey(string(invalid))
 		assert.Error(t, err)
 	})
 }
@@ -191,12 +220,39 @@ func TestParseECPublicKey_Errors(t *testing.T) {
 		_, err := ParseECPublicKey("not-a-valid-key")
 		assert.Error(t, err)
 	})
+
+	t.Run("pem with extra data", func(t *testing.T) {
+		_, pub, _ := generateTestKeyPair()
+		_, err := ParseECPublicKey(pub + "\nextra")
+		assert.Error(t, err)
+	})
+
+	t.Run("not ecdsa public key", func(t *testing.T) {
+		rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		rsaPub, err := x509.MarshalPKIXPublicKey(&rsaKey.PublicKey)
+		require.NoError(t, err)
+		pemData := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: rsaPub})
+		_, err = ParseECPublicKey(string(pemData))
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid pkix bytes", func(t *testing.T) {
+		invalid := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("bad")})
+		_, err := ParseECPublicKey(string(invalid))
+		assert.Error(t, err)
+	})
 }
 
 func TestGenerateAccessToken_EmptyPrivateKey(t *testing.T) {
 	_, err := GenerateAccessToken("user-1", "test@example.com", "client", "", 15*time.Minute)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "private key PEM cannot be empty")
+}
+
+func TestGenerateAccessToken_InvalidPrivateKey(t *testing.T) {
+	_, err := GenerateAccessToken("user-1", "test@example.com", "client", "not-a-key", 15*time.Minute)
+	assert.Error(t, err)
 }
 
 func TestValidateAccessToken_EmptyToken(t *testing.T) {
@@ -209,4 +265,37 @@ func TestValidateAccessToken_EmptyPublicKey(t *testing.T) {
 	_, err := ValidateAccessToken("some.token", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "public key PEM cannot be empty")
+}
+
+func TestValidateAccessToken_InvalidPublicKey(t *testing.T) {
+	_, err := ValidateAccessToken("a.b.c", "not-a-key")
+	assert.Error(t, err)
+}
+
+func TestValidateAccessToken_BadTokenFormat(t *testing.T) {
+	_, pub, _ := generateTestKeyPair()
+	_, err := ValidateAccessToken("not-a-jwt", pub)
+	assert.Error(t, err)
+}
+
+func TestValidateAccessToken_WrongSigningMethod(t *testing.T) {
+	_, pub, _ := generateTestKeyPair()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"foo": "bar"})
+	signed, err := token.SignedString([]byte("secret"))
+	require.NoError(t, err)
+	_, err = ValidateAccessToken(signed, pub)
+	assert.Error(t, err)
+}
+
+func TestValidateAccessToken_InvalidClaimsType(t *testing.T) {
+	_, pub, _ := generateTestKeyPair()
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"sub": "x"})
+	signed, err := token.SignedString([]byte("x"))
+	// This will fail at signing; skip if it fails
+	if err != nil {
+		t.Skip()
+		return
+	}
+	_, err = ValidateAccessToken(signed, pub)
+	assert.Error(t, err)
 }

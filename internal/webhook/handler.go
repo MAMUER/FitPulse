@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +20,8 @@ import (
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/sanitize"
 )
+
+var logFatal = log.Fatal
 
 const msgMethodNotAllowed = "method not allowed"
 
@@ -43,7 +46,7 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 
 	if len(secret) == 0 {
 
-		log.Fatal("OPEN_WEARABLES_WEBHOOK_SECRET is required")
+		logFatal("OPEN_WEARABLES_WEBHOOK_SECRET is required")
 
 	}
 

@@ -1,75 +1,40 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Login from './Login';
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Login from './Login'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
-const defaultState = {
-  screen: 'login',
-  theme: 'dark',
-  highContrast: false,
-  language: 'ru',
-};
-
-const defaultContext = {
-  state: defaultState,
-  t: (ru, en) => (defaultState.language === 'en' ? en : ru),
-  doLogin: vi.fn(),
-  continueAsGuest: vi.fn(),
-  socialLogin: vi.fn(),
-  toggleHighContrast: vi.fn(),
-  toggleLanguage: vi.fn(),
-  forgotPassword: vi.fn(),
-  openLegal: vi.fn(),
-  go: vi.fn(),
-};
-
-function renderLogin(overrides = {}) {
-  useApp.mockReturnValue({
-    ...defaultContext,
-    state: { ...defaultState, ...overrides },
-  });
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Login />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../components/AuthLayout', () => ({
+  default: ({ children }) => <div>{children}</div>,
+}))
 
 describe('Login', () => {
-  it('renders login form', () => {
-    renderLogin();
-    expect(screen.getByText('FitPulse')).toBeInTheDocument();
-    expect(screen.getByText('Войти')).toBeInTheDocument();
-  });
-
-  it('renders guest and social buttons', () => {
-    renderLogin();
-    expect(screen.getByText('Продолжить как гость')).toBeInTheDocument();
-    expect(screen.getByText('Яндекс')).toBeInTheDocument();
-  });
-
-  it('switches language', () => {
-    renderLogin();
-    const langButton = screen.getByText('EN');
-    langButton.click();
-    expect(useApp().toggleLanguage).toHaveBeenCalled();
-  });
-
-  it('toggles high contrast', () => {
-    renderLogin();
-    const hcButton = screen.getByText('Режим высокой контрастности');
-    hcButton.click();
-    expect(useApp().toggleHighContrast).toHaveBeenCalled();
-  });
-});
+  it('handles actions', () => {
+    const doLogin = vi.fn()
+    const continueAsGuest = vi.fn()
+    const socialLogin = vi.fn()
+    const forgotPassword = vi.fn()
+    const go = vi.fn()
+    useApp.mockReturnValue({ t: (ru, en) => ru, doLogin, continueAsGuest, socialLogin, forgotPassword, go })
+    render(<Login />)
+    fireEvent.click(screen.getByText('Войти'))
+    expect(doLogin).toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Зарегистрироваться'))
+    expect(go).toHaveBeenCalledWith('register')
+    fireEvent.click(screen.getByText('Забыли пароль?'))
+    expect(forgotPassword).toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Продолжить как гость'))
+    expect(continueAsGuest).toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Пользовательское соглашение'))
+    expect(go).toHaveBeenCalledWith('legal', 'terms')
+    fireEvent.click(screen.getByText('соглашение об использовании персональных данных'))
+    expect(go).toHaveBeenCalledWith('legal', 'consent')
+    fireEvent.click(screen.getByText('Политику конфиденциальности'))
+    expect(go).toHaveBeenCalledWith('legal', 'privacy')
+    fireEvent.click(screen.getByText(/Яндекс/))
+    expect(socialLogin).toHaveBeenCalledWith('yandex')
+  })
+})

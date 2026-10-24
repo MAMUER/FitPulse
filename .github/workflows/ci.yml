@@ -1497,7 +1497,7 @@ jobs:
   deploy-vps:
     name: Deploy App Tier to VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps]
+    needs: [detect-changes, docker, provision-k8s-vps, binary_build, check, test]
     timeout-minutes: 60
     if: >-
       always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') &&
@@ -1598,7 +1598,7 @@ jobs:
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, test-staging]
+    needs: [detect-changes, docker, provision-k8s-vps, test-staging, binary_build, check, test]
     timeout-minutes: 90
     environment: production
     # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;

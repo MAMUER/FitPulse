@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -553,6 +554,51 @@ func TestBiometricRepository_Update_Error(t *testing.T) {
 	assert.Nil(t, result)
 
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+
+}
+
+// cancelOnFirstErrCheckContext reports nil until Err is first called, then
+// reports cancellation. It allows tests to simulate cancellation that happens
+// after a transaction has started but before the batch loop checks the context.
+type cancelOnFirstErrCheckContext struct {
+	context.Context
+
+	checks int32
+}
+
+func (c *cancelOnFirstErrCheckContext) Err() error {
+
+	if atomic.AddInt32(&c.checks, 1) == 1 {
+
+		return context.Canceled
+
+	}
+
+	return nil
+
+}
+
+func TestBiometricRepository_BatchCreate_ContextCanceledDuringBatch(t *testing.T) {
+
+	repo, mock := setupBiometricRepo(t)
+
+	ctx := &cancelOnFirstErrCheckContext{Context: context.Background()}
+
+	mock.ExpectBegin()
+
+	mock.ExpectRollback()
+
+	inserted, err := repo.BatchCreate(ctx, []*entity.BiometricRecord{{UserID: "user-1"}})
+
+	require.Error(t, err)
+
+	assert.Equal(t, 0, inserted)
+
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+
+	assert.Contains(t, err.Error(), "request canceled")
 
 	require.NoError(t, mock.ExpectationsWereMet())
 

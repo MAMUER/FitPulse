@@ -69,8 +69,14 @@ func (g *gateway) cspReportHandler(w http.ResponseWriter, r *http.Request) {
 	var report CSPReportBody
 	if err := json.Unmarshal(body, &report); err != nil {
 
+		// Браузер не должен повторять отправку из-за ошибки формата, поэтому
+		// отвечаем 200 и валидным JSON, как и для успешно разобранного отчёта.
 		g.log.Warn("CSP report parse error", zap.Error(err), zap.String("raw", sanitize.LogString(string(body))))
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+		if _, writeErr := io.WriteString(w, `{}`); writeErr != nil {
+			g.log.Warn("Failed to write CSP report response", zap.Error(writeErr))
+		}
 		return
 	}
 

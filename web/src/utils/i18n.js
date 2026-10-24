@@ -273,24 +273,23 @@ const EN_TEXT = {
 };
 
 export function t(ru, _en) {
-  const saved =
-    typeof localStorage !== 'undefined'
-      ? localStorage.getItem('fitpulse-merged-v9')
-      : null;
-  let lang = 'ru';
+  return getSavedLanguage() === 'en' ? _en : ru;
+}
+
+function getSavedLanguage() {
+  if (typeof localStorage === 'undefined') return 'ru';
+  const saved = localStorage.getItem('fitpulse-merged-v9');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (parsed.language) lang = parsed.language;
+      if (parsed.language) return parsed.language;
     } catch {
-      const fallback = localStorage.getItem('fitpulse_lang');
-      if (fallback) lang = fallback;
+      // fall through to fallback
     }
-  } else {
-    const fallback = localStorage.getItem('fitpulse_lang');
-    if (fallback) lang = fallback;
   }
-  return lang === 'en' ? _en : ru;
+  const fallback = localStorage.getItem('fitpulse_lang');
+  if (fallback) return fallback;
+  return 'ru';
 }
 
 export function getMonthName(index, language) {

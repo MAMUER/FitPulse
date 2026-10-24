@@ -137,17 +137,32 @@ func TestExternalSecretsRepository_List_ScanError(t *testing.T) {
 	repo, mock := setupExternalSecretsRepo(t)
 	ctx := context.Background()
 
-	rows := sqlmock.NewRows([]string{"id", "name", "value", "created_at", "updated_at"})
+	rows := sqlmock.NewRows([]string{"id", "name", "value", "created_at", "updated_at"}).
+		AddRow("sec-1", "secret-a", nil, time.Now(), time.Now())
 
 	mock.ExpectQuery("SELECT id").WillReturnRows(rows)
 
-	// Make Scan fail by returning a row that will fail to scan
-	// We need to make rows.Next() return true but Scan fail
-	// sqlmock doesn't easily support this, so we test rows.Err() path instead
+	result, err := repo.List(ctx)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExternalSecretsRepository_List_RowsErr(t *testing.T) {
+	repo, mock := setupExternalSecretsRepo(t)
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"id", "name", "value", "created_at", "updated_at"}).
+		AddRow("sec-1", "secret-a", "value-a", time.Now(), time.Now()).
+		RowError(0, assert.AnError)
+
+	mock.ExpectQuery("SELECT id").WillReturnRows(rows)
 
 	result, err := repo.List(ctx)
-	require.NoError(t, err)
-	require.Empty(t, result)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

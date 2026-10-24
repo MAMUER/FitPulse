@@ -61,8 +61,8 @@ export function useAI({ state, update }) {
     const input = document.getElementById('aiInput');
     const text = input?.value.trim();
     if (!text) return;
-    if (input) input.value = '';
 
+    input.value = '';
     await askAIRequest(text, api.sendAIMessage, {
       id: `${Date.now()}-u`,
       type: 'user',

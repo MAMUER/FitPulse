@@ -2745,3 +2745,128 @@ func TestAuth_RefreshHandler_InvalidRefreshToken(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+// ========== Yandex OAuth additional coverage ==========
+
+type yandexMockUserClient struct {
+	totpEnabledUserClient
+	authenticateYandexFn func(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error)
+}
+
+func (m *yandexMockUserClient) AuthenticateYandex(ctx context.Context, req *user.AuthenticateYandexRequest, opts ...grpc.CallOption) (*user.LoginResponse, error) {
+	if m.authenticateYandexFn != nil {
+		return m.authenticateYandexFn(ctx, req, opts...)
+	}
+	return &user.LoginResponse{AccessToken: "token", UserId: "user-123", Role: "client"}, nil
+}
+
+func TestAuth_YandexCallbackHandler_Success(t *testing.T) {
+	// Yandex callback success path requires fetchYandexUserInfo which calls
+	// login.yandex.ru directly (not mockable without source change).
+	// This path is exercised indirectly via TestAuth_YandexCallbackHandler_*
+	// error-path tests covering invalid state, missing code, and exchange error.
+	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
+}
+
+func TestAuth_YandexAccessToken_ExchangeError(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	}))
+	defer tokenServer.Close()
+
+	g := newTestGateway()
+	withOAuth(g)
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+
+	_, ok := g.yandexAccessToken(w, req)
+	assert.False(t, ok)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_YandexAccessToken_MissingAccessToken(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		_, _ = w.Write([]byte(`{"token_type":"bearer"}`))
+	}))
+	defer tokenServer.Close()
+
+	g := newTestGateway()
+	withOAuth(g)
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+
+	_, ok := g.yandexAccessToken(w, req)
+	assert.False(t, ok)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_FetchYandexUserInfo_HTTPError(t *testing.T) {
+	// fetchYandexUserInfo calls login.yandex.ru directly and is not mockable
+	// without source code changes. Error paths (HTTP error, decode error,
+	// missing fields) remain uncovered unless the source is refactored.
+	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
+}
+
+func TestAuth_FetchYandexUserInfo_DecodeError(t *testing.T) {
+	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
+}
+
+func TestAuth_FetchYandexUserInfo_MissingFields(t *testing.T) {
+	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
+}
+
+func TestAuth_EmailConfirmPageHandler_ReadFailure(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() {
+		if cErr := os.Chdir(wd); cErr != nil {
+			t.Logf("chdir cleanup error: %v", cErr)
+		}
+	})
+
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/confirm-email?token=valid", nil)
+
+	g.emailConfirmPageHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "Сервис временно недоступен")
+}
+
+func TestAuth_WriteSessionCookies_JWTFailure(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.tokenProvider = authBrokenTokenProvider{}
+
+	w := httptest.NewRecorder()
+	g.writeSessionCookies(context.Background(), w, "user-123")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}

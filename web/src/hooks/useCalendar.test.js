@@ -328,6 +328,33 @@ describe('useCalendar', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('addEvent appends to existing day events', async () => {
+    setup({
+      selectedCalendarDay: 4,
+      calendarEvents: {
+        '4 Октябрь': [{ id: 1, title: 'Старое', type: 'training', info: '', time: '18:00', date: '4 Октябрь', color: '#6fae20' }],
+      },
+      calendarEventsList: [{ id: 1, title: 'Старое', dateLabel: '4 Октябрь' }],
+    });
+    api.createEvent.mockResolvedValue({
+      event: { id: 42, title: 'План', type: 'training' },
+    });
+    await act(async () => {
+      await result.current.addEvent({
+        title: 'План',
+        type: 'training',
+        time: '18:00',
+        description: 'Ноги',
+      });
+    });
+    const payload = update.mock.calls[0][0];
+    expect(payload.calendarEvents['4 Октябрь']).toHaveLength(2);
+    expect(payload.calendarEventsList).toHaveLength(2);
+    expect(payload.calendarEventsList[1]).toEqual(
+      expect.objectContaining({ id: 42, dateLabel: '4 Октябрь' })
+    );
+  });
+
   it('addEvent notifies on failure', async () => {
     setup({ selectedCalendarDay: 1 });
     api.createEvent.mockRejectedValue(new Error('boom'));

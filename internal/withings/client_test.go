@@ -178,6 +178,20 @@ func TestBuildAuthorizeURL(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "", parsed.Query().Get("scope"))
 	})
+
+	t.Run("parse authorize url error", func(t *testing.T) {
+		orig := authorizeURL
+		authorizeURL = "http://[::1"
+		t.Cleanup(func() { authorizeURL = orig })
+
+		cfg := newTestConfig("https://api.withings.example")
+		client := newTestClient(cfg, nil)
+
+		got, err := client.BuildAuthorizeURL("state")
+		require.Error(t, err)
+		assert.Empty(t, got)
+		assert.Contains(t, err.Error(), "parse authorize url")
+	})
 }
 
 func TestExchangeCode(t *testing.T) {

@@ -170,6 +170,27 @@ describe('useNutrition', () => {
     expect(notify).toHaveBeenCalledWith('Блюдо добавлено в меню и календарь');
   });
 
+  it('saveCustomMeal appends to existing day events', () => {
+    setup({
+      calendarEvents: {
+        [todayKey()]: [{ type: 'food', title: 'Завтрак', time: '08:00' }],
+      },
+    });
+    setValue('customName', 'Омлет');
+    setValue('customKcal', '320');
+    setValue('customMacros', 'Б 20 · Ж 15 · У 3');
+    setValue('customSlot', 'breakfast');
+    result.current.saveCustomMeal();
+    const payload = update.mock.calls[0][0];
+    expect(payload.calendarEvents[todayKey()]).toHaveLength(2);
+    expect(payload.calendarEvents[todayKey()][0]).toEqual(
+      expect.objectContaining({ title: 'Завтрак' })
+    );
+    expect(payload.calendarEvents[todayKey()][1]).toEqual(
+      expect.objectContaining({ title: 'Омлет' })
+    );
+  });
+
   it('saveCustomMeal uses defaults for blank fields', () => {
     setup();
     result.current.saveCustomMeal();

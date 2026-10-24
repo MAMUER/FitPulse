@@ -1,52 +1,35 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Integrations from './Integrations';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Integrations from './Integrations'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
-
-const defaultContext = {
-  state: {
-    screen: 'integrations',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-  },
-  t: (ru, _en) => ru,
-  notify: vi.fn(),
-  loadIntegrationProviders: vi.fn().mockResolvedValue([]),
-  disconnectIntegration: vi.fn(),
-};
-
-function renderIntegrations(overrides = {}) {
-  useApp.mockReturnValue({
-    ...defaultContext,
-    state: { ...defaultContext.state, ...overrides },
-  });
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Integrations />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
 describe('Integrations', () => {
-  it('renders integrations screen', () => {
-    renderIntegrations();
-    expect(screen.getByText('Интеграции')).toBeInTheDocument();
-  });
+  it('loads, disconnects and handles errors', async () => {
+    const loadIntegrationProviders = vi.fn()
+      .mockResolvedValue([{ source: 'withings', source_name: 'Withings', connected: true, connected_at: '2026-01-01T00:00:00Z' }])
+    const disconnectIntegration = vi.fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('fail'))
+    const notify = vi.fn()
+    useApp.mockReturnValue({ notify, t: (ru, en) => ru, loadIntegrationProviders, disconnectIntegration })
 
-  it('shows loading state initially', () => {
-    renderIntegrations();
-    expect(screen.getByText('Загрузка...')).toBeInTheDocument();
-  });
-});
+    render(<Integrations />)
+    await screen.findByText('Отключить')
+    fireEvent.click(screen.getByText('Отключить'))
+    await waitFor(() => expect(disconnectIntegration).toHaveBeenCalledWith('withings'))
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Интеграция отключена'))
+  })
+
+  it('shows empty when no providers', async () => {
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([])
+    const disconnectIntegration = vi.fn()
+    useApp.mockReturnValue({ notify: vi.fn(), t: (ru, en) => ru, loadIntegrationProviders, disconnectIntegration })
+    render(<Integrations />)
+    await screen.findByText('Нет доступных интеграций')
+    expect(screen.queryByText('Отключить')).not.toBeInTheDocument()
+  })
+})

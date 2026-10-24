@@ -517,7 +517,7 @@ func TestFromContext(t *testing.T) {
 			fieldMap[f.Key] = f
 		}
 
-		assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
+			assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
 		assert.Equal(t, "user-456", fieldMap["userId"].String)
 	})
 
@@ -532,6 +532,30 @@ func TestFromContext(t *testing.T) {
 		require.Len(t, logs, 1)
 		assert.Equal(t, "empty context", logs[0].Message)
 	})
+}
+
+func TestWithTraceID(t *testing.T) {
+	ctx := context.Background()
+	traceID := "trace-123"
+	ctx = WithTraceID(ctx, traceID)
+	assert.Equal(t, traceID, ctx.Value(CorrelationIDKey))
+}
+
+func TestWithTraceID_AndFromContext(t *testing.T) {
+	core, recorded := observer.New(zap.InfoLevel)
+	baseLogger := &Logger{Logger: zap.New(core), service: "test-svc"}
+
+	ctx := WithTraceID(context.Background(), "trace-abc")
+	logger := FromContext(ctx, baseLogger)
+	logger.Info("trace test")
+
+	logs := recorded.All()
+	require.Len(t, logs, 1)
+	fieldMap := make(map[string]zap.Field)
+	for _, f := range logs[0].Context {
+		fieldMap[f.Key] = f
+	}
+	assert.Equal(t, "trace-abc", fieldMap["correlationId"].String)
 }
 
 func TestFromContext_PreservesService(t *testing.T) {

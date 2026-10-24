@@ -295,6 +295,19 @@ describe('useAuth', () => {
     );
   });
 
+  it('submitNewPassword uses empty strings when fields are missing', async () => {
+    for (const id of ['newPassword', 'newPasswordConfirm']) {
+      document.getElementById(id)?.remove();
+    }
+    await act(async () => {
+      await result.current.submitNewPassword();
+    });
+    expect(api.submitNewPassword).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      'Пароль должен содержать минимум 6 символов'
+    );
+  });
+
   it('submitNewPassword validates confirmation', async () => {
     setValue('newPassword', 'secret123');
     setValue('newPasswordConfirm', 'other123');
@@ -433,12 +446,23 @@ describe('useAuth', () => {
     expect(notify).toHaveBeenCalledWith('Не удалось настроить 2FA');
   });
 
-  it('setup2FA ignores empty payload', async () => {
-    api.setup2FA.mockResolvedValue(null);
+  it('setup2FA ignores missing 2fa fields', async () => {
+    api.setup2FA.mockResolvedValue({
+      qr_code_url: null,
+      qr_code_base64: undefined,
+    });
     await act(async () => {
       await result.current.setup2FA();
     });
-    expect(update).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({
+      twoFactorSetup: {
+        qrCodeUrl: '',
+        qrCodeBase64: '',
+        secret: '',
+        backupCodes: [],
+      },
+      screen: 'twofa-setup',
+    });
   });
 
   it('confirm2FA notifies on success', async () => {

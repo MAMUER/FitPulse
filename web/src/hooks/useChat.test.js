@@ -94,11 +94,12 @@ describe('useChat', () => {
   });
 
   it('sendChat appends user message and consent', () => {
-    setup();
+    setup({ chatMessages: [{ from: 'Анна', text: 'hi' }] });
     setValue('chatInput', '  Привет!  ');
     result.current.sendChat();
     expect(update).toHaveBeenCalledWith({
       chatMessages: [
+        { from: 'Анна', text: 'hi' },
         expect.objectContaining({ from: 'Я', text: 'Привет!', sent: true }),
       ],
       chatConsent: true,
@@ -108,7 +109,7 @@ describe('useChat', () => {
 
   it('sendChat schedules reply from selected chat', () => {
     vi.useFakeTimers();
-    setup();
+    setup({ chatMessages: [{ from: 'Я', text: 'test' }] });
     setValue('chatInput', 'Привет!');
     act(() => {
       result.current.sendChat();
@@ -120,6 +121,7 @@ describe('useChat', () => {
     expect(update).toHaveBeenCalledTimes(2);
     expect(update).toHaveBeenLastCalledWith({
       chatMessages: [
+        { from: 'Я', text: 'test' },
         expect.objectContaining({
           from: 'Анна',
           text: 'Отлично! Продолжай в том же духе 💪',
@@ -142,6 +144,23 @@ describe('useChat', () => {
     expect(update).toHaveBeenLastCalledWith({
       chatMessages: [expect.objectContaining({ from: 'Анна', sent: false })],
     });
+  });
+
+  it('sendChat works when chatMessages undefined', () => {
+    vi.useFakeTimers();
+    setup({ chatMessages: undefined });
+    setValue('chatInput', 'Привет');
+    act(() => {
+      result.current.sendChat();
+    });
+    expect(update).toHaveBeenCalledWith({
+      chatMessages: [expect.objectContaining({ from: 'Я', text: 'Привет' })],
+      chatConsent: true,
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(update).toHaveBeenCalledTimes(2);
   });
 
   it('saveChatSettings stores checkboxes', () => {

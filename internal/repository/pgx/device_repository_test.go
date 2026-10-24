@@ -637,16 +637,37 @@ func TestDeviceRepositoryPGX_DeleteInactive_Success(t *testing.T) {
 	assert.Equal(t, int64(5), count)
 }
 
-func TestDeviceRepositoryPGX_DeleteInactive_Error(t *testing.T) {
+func TestDeviceRepositoryPGX_List_ScanError(t *testing.T) {
 	repo, mock := setupDeviceRepo(t)
 	ctx := context.Background()
+	now := time.Now()
 
-	mock.execFunc = func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
-		return pgconn.CommandTag{}, assert.AnError
+	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
+		return newMockRows([][]interface{}{
+			{"dev-1", "user-1", "watch", "Apple Watch", true, now},
+		}, func(dest ...interface{}) error {
+			return assert.AnError
+		}), nil
 	}
 
-	count, err := repo.DeleteInactive(ctx, time.Now())
+	result, err := repo.List(ctx, "user-1")
 	require.Error(t, err)
-	assert.Equal(t, int64(0), count)
+	assert.Nil(t, result)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+}
+
+func TestDeviceRepositoryPGX_List_IterationError(t *testing.T) {
+	repo, mock := setupDeviceRepo(t)
+
+	rows := newMockRows(nil, nil)
+	rows.err = assert.AnError
+
+	mock.queryFunc = func(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
+		return rows, nil
+	}
+
+	result, err := repo.List(context.Background(), "user-1")
+	require.Error(t, err)
+	assert.Nil(t, result)
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
 }

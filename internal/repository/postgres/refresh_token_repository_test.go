@@ -189,9 +189,23 @@ func TestRefreshTokenRepository_MarkRevoked_Error(t *testing.T) {
 }
 
 func TestRefreshTokenRepository_Create_NonceError(t *testing.T) {
-	// Tests that apperrors.Internal produces an INTERNAL error code
-	// This covers the error wrapping path used when GenerateNonce fails
-	err := apperrors.Internal("failed to generate nonce", errors.New("nonce generation failed"))
-	assert.Error(t, err)
+	repo, mock := setupRefreshTokenRepo(t)
+	ctx := context.Background()
+
+	rt := &port.RefreshToken{
+		UserID:    "user-1",
+		Token:     "token-1",
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	oldGenerate := db.GenerateNonce
+	db.GenerateNonce = func() ([]byte, error) {
+		return nil, errors.New("nonce generation failed")
+	}
+	defer func() { db.GenerateNonce = oldGenerate }()
+
+	err := repo.Create(ctx, rt)
+	require.Error(t, err)
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
 }

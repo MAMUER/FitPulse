@@ -1,59 +1,35 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Register from './Register';
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Register from './Register'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
-const defaultContext = {
-  state: {
-    screen: 'register',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-  },
-  t: (ru, _en) => ru,
-  doRegister: vi.fn(),
-  socialLogin: vi.fn(),
-  toggleHighContrast: vi.fn(),
-  toggleLanguage: vi.fn(),
-  openLegal: vi.fn(),
-  go: vi.fn(),
-};
-
-function renderRegister() {
-  useApp.mockReturnValue(defaultContext);
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Register />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../components/AuthLayout', () => ({
+  default: ({ children }) => <div>{children}</div>,
+}))
 
 describe('Register', () => {
-  it('renders registration form', () => {
-    renderRegister();
-    expect(screen.getByText('FitPulse')).toBeInTheDocument();
-    expect(screen.getByText('Зарегистрироваться')).toBeInTheDocument();
-  });
+  it('navigates to legal and logs in', () => {
+    const doRegister = vi.fn()
+    const socialLogin = vi.fn()
+    const go = vi.fn()
+    useApp.mockReturnValue({ t: (ru, en) => ru, doRegister, socialLogin, go })
 
-  it('renders social login buttons', () => {
-    renderRegister();
-    expect(screen.getByText('Яндекс')).toBeInTheDocument();
-  });
-
-  it('navigates to login', () => {
-    renderRegister();
-    screen.getByText('Войти').click();
-    expect(defaultContext.go).toHaveBeenCalledWith('login');
-  });
-});
+    render(<Register />)
+    fireEvent.click(screen.getByText('Соглашение'))
+    expect(go).toHaveBeenCalledWith('legal', 'terms')
+    fireEvent.click(screen.getByText('Персональные данные'))
+    expect(go).toHaveBeenCalledWith('legal', 'consent')
+    fireEvent.click(screen.getByText('Политика'))
+    expect(go).toHaveBeenCalledWith('legal', 'privacy')
+    fireEvent.click(screen.getByText('Зарегистрироваться'))
+    expect(doRegister).toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Войти'))
+    expect(go).toHaveBeenCalledWith('login')
+    fireEvent.click(screen.getByText(/Яндекс/))
+    expect(socialLogin).toHaveBeenCalledWith('yandex')
+  })
+})

@@ -244,7 +244,7 @@ func (r *TrainingRepository) GetAchievements(ctx context.Context, userID string)
 
 	query := shared.QueryGetAchievements
 
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID) //nolint:rowserrcheck // ScanAchievements checks rows.Err internally
 
 	if err != nil {
 
@@ -259,12 +259,6 @@ func (r *TrainingRepository) GetAchievements(ctx context.Context, userID string)
 	if err != nil {
 
 		return nil, err
-
-	}
-
-	if err := rows.Err(); err != nil {
-
-		return nil, apperrors.Internal("failed to iterate achievements", err)
 
 	}
 

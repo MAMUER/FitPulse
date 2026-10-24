@@ -73,6 +73,15 @@ describe('useSurvey', () => {
     });
   });
 
+  it('surveySelect initializes a missing multi value list', () => {
+    setup({ survey: { ...makeState().survey, allergies: undefined } });
+    result.current.surveySelect('allergies', 'лактоза', true);
+    expect(update).toHaveBeenCalledWith({
+      survey: expect.objectContaining({ allergies: ['лактоза'] }),
+      surveyDeferred: false,
+    });
+  });
+
   it('surveySelect removes existing multi value', () => {
     setup({
       survey: { ...makeState().survey, allergies: ['глютен', 'лактоза'] },

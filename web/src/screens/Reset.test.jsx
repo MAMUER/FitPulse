@@ -1,48 +1,43 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Reset from './Reset';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Reset from './Reset'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
-
-const defaultContext = {
-  state: {
-    screen: 'reset',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-    resetStep: 0,
-    resetEmail: '',
-  },
-  t: (ru, _en) => ru,
-  submitResetEmail: vi.fn(),
-  submitResetCode: vi.fn(),
-  submitNewPassword: vi.fn(),
-  forgotPassword: vi.fn(),
-  go: vi.fn(),
-};
-
-function renderReset() {
-  useApp.mockReturnValue(defaultContext);
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Reset />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
 describe('Reset', () => {
-  it('renders reset form step 1', () => {
-    renderReset();
-    expect(screen.getByText('Восстановление')).toBeInTheDocument();
-  });
-});
+  it('handles step 0', async () => {
+    const submitResetEmail = vi.fn().mockResolvedValue({})
+    const go = vi.fn()
+    useApp.mockReturnValue({ state: { resetStep: 0 }, t: (ru, en) => ru, submitResetEmail, submitResetCode: vi.fn(), submitNewPassword: vi.fn(), go })
+    render(<Reset />)
+    fireEvent.click(screen.getByText('Получить код'))
+    await waitFor(() => expect(submitResetEmail).toHaveBeenCalled())
+    fireEvent.click(screen.getByText('Другие варианты входа'))
+    expect(go).toHaveBeenCalledWith('login')
+  })
+
+  it('handles step 1', () => {
+    const submitResetCode = vi.fn()
+    const go = vi.fn()
+    useApp.mockReturnValue({ state: { resetStep: 1, resetEmail: 'a@b.com' }, t: (ru, en) => ru, submitResetEmail: vi.fn(), submitResetCode, submitNewPassword: vi.fn(), go })
+    render(<Reset />)
+    fireEvent.change(screen.getByLabelText('Код'), { target: { value: '123456' } })
+    fireEvent.click(screen.getByText('Продолжить'))
+    expect(submitResetCode).toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Назад'))
+    expect(go).toHaveBeenCalledWith('login')
+  })
+
+  it('handles step 2', () => {
+    const submitNewPassword = vi.fn()
+    useApp.mockReturnValue({ state: { resetStep: 2 }, t: (ru, en) => ru, submitResetEmail: vi.fn(), submitResetCode: vi.fn(), submitNewPassword, go: vi.fn() })
+    render(<Reset />)
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'pass' } })
+    fireEvent.change(screen.getByLabelText('Подтверждение пароля'), { target: { value: 'pass' } })
+    fireEvent.click(screen.getByText('Сохранить'))
+    expect(submitNewPassword).toHaveBeenCalled()
+  })
+})

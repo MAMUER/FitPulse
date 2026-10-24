@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-const (
+var (
 	authorizeURL = "https://account.withings.com/oauth2_user/authorize2"
 	tokenURL     = "https://wbsapi.withings.net/v2/oauth2" //nolint:gosec // G101: public OAuth endpoint URL, not a credential
 )

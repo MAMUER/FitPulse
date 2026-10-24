@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -292,6 +293,31 @@ func TestValidateSignature(t *testing.T) {
 
 	})
 
+	t.Run("hash write error", func(t *testing.T) {
+		orig := newMac
+		defer func() { newMac = orig }()
+
+		newMac = func([]byte) hash.Hash {
+			return failingHash{err: errors.New("write failed")}
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`{"a":1}`)))
+		r.Header.Set("X-Open-Wearables-Signature", "sig")
+
+		err := ValidateSignature(secret, r)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to hash request body")
+	})
+
+}
+
+type failingHash struct {
+	hash.Hash
+	err error
+}
+
+func (f failingHash) Write(p []byte) (int, error) {
+	return 0, f.err
 }
 
 func signTestBody(t *testing.T, secret []byte, body []byte) string {

@@ -1357,6 +1357,82 @@ func serveFakeTLSSMTPForEmailTest(listener net.Listener, failOn string) {
 
 }
 
+func TestDeliverSMTPSessionWriteBodyError(t *testing.T) {
+
+	clientConn, serverConn := net.Pipe()
+
+	serverDone := make(chan error, 1)
+
+	go func() { serverDone <- serveSMTPForWriteBodyError(serverConn) }()
+
+	t.Cleanup(func() { _ = clientConn.Close() })
+
+	client, err := smtp.NewClient(clientConn, "127.0.0.1")
+
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = client.Close() })
+
+	cfg := Config{Host: "127.0.0.1", From: "test@test.com"}
+
+	err = deliverSMTPSession(client, cfg, "user@example.com", strings.Repeat("x", 8192))
+
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "write message body failed")
+
+	require.NoError(t, <-serverDone)
+
+}
+
+// serveSMTPForWriteBodyError answers SMTP commands until DATA, then returns so
+// the connection closes while the client is still writing the message body.
+func serveSMTPForWriteBodyError(conn net.Conn) error {
+
+	defer func() { _ = conn.Close() }()
+
+	reader := bufio.NewReader(conn)
+
+	if _, err := conn.Write([]byte("220 test ESMTP ready\r\n")); err != nil {
+
+		return err
+
+	}
+
+	for {
+
+		line, err := reader.ReadString('\n')
+
+		if err != nil {
+
+			return err
+
+		}
+
+		command := strings.ToUpper(strings.TrimSpace(line))
+
+		if strings.HasPrefix(command, "DATA") {
+
+			if _, err := conn.Write([]byte("354 End data\r\n")); err != nil {
+
+				return err
+
+			}
+
+			return nil
+
+		}
+
+		if _, err := conn.Write([]byte("250 OK\r\n")); err != nil {
+
+			return err
+
+		}
+
+	}
+
+}
+
 func TestDeliverSMTPSession(t *testing.T) {
 
 	tests := []struct {

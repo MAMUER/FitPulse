@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -732,4 +733,35 @@ func TestConcurrentGetOrSetDecodedFetchesOnce(t *testing.T) {
 
 	var outErr map[string]int
 	require.Error(t, client.GetOrSetDecoded(ctx, "other_fetch", time.Minute, fetchFn, &outErr))
+}
+
+// flakyMarshaler marshals successfully the first time and fails afterwards.
+// GetOrSetDecoded marshals the fetched value twice: once in SetDecoded and once
+// in mustMarshal, so this lets us exercise the panic branch deterministically.
+type flakyMarshaler struct {
+	calls int32
+}
+
+func (f *flakyMarshaler) MarshalJSON() ([]byte, error) {
+	if atomic.AddInt32(&f.calls, 1) == 1 {
+		return []byte(`"first marshal"`), nil
+	}
+	return nil, errors.New("marshal failed on second call")
+}
+
+func TestMustMarshalPanicsOnSecondMarshal(t *testing.T) {
+	client, mr := setupTestValkey(t)
+	defer mr.Close()
+
+	value := &flakyMarshaler{}
+	var out string
+
+	assert.Panics(t, func() {
+		err := client.GetOrSetDecoded(context.Background(), "flaky_marshal", time.Minute, func() (interface{}, error) {
+			return value, nil
+		}, &out)
+		t.Fatalf("expected panic from mustMarshal, got error: %v", err)
+	})
+
+	assert.Equal(t, int32(2), atomic.LoadInt32(&value.calls), "value must be marshaled twice")
 }

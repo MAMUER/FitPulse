@@ -51,6 +51,18 @@ describe('t', () => {
     localStorage.setItem('fitpulse-merged-v9', '{not-json');
     expect(t('Привет', 'Hello')).toBe('Привет');
   });
+
+  it('uses ru when localStorage is unavailable', () => {
+    const orig = globalThis.localStorage;
+    // eslint-disable-next-line no-unused-expressions
+    delete globalThis.localStorage;
+    try {
+      expect(t('Привет', 'Hello')).toBe('Привет');
+      expect(t('Питание', 'Nutrition')).toBe('Питание');
+    } finally {
+      globalThis.localStorage = orig;
+    }
+  });
 });
 
 describe('getMonthName', () => {

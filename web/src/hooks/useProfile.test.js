@@ -323,7 +323,7 @@ describe('useProfile', () => {
   });
 
   it('loadProfile merges backend data', async () => {
-    setup();
+    setup({ profile: { name: 'А', email: 'a@b.com', gender: 'other', phone: '1', bio: 'x', status: 'y', devices: ['d'] } });
     api.loadProfile.mockResolvedValue({
       profile: {
         full_name: 'Михаил Б',
@@ -345,7 +345,7 @@ describe('useProfile', () => {
         status: 'Активен',
         bio: 'Бегун',
         phone: '999',
-        devices: [],
+        devices: ['d'],
       },
       profileLoaded: true,
     });
@@ -439,6 +439,23 @@ describe('useProfile', () => {
         { name: 'Иван', id: '2', added: true },
       ],
       profile: { ...state.profile, friends: 2 },
+    });
+  });
+
+  it('toggleFriendAdded toggles by id when value is string id', () => {
+    setup({
+      friends: [
+        { name: 'Анна', id: '1', added: false },
+        { name: 'Иван', id: '2', added: true },
+      ],
+    });
+    result.current.toggleFriendAdded('2');
+    expect(update).toHaveBeenCalledWith({
+      friends: [
+        { name: 'Анна', id: '1', added: false },
+        { name: 'Иван', id: '2', added: false },
+      ],
+      profile: { ...state.profile, friends: 0 },
     });
   });
 

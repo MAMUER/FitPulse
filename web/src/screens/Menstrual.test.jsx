@@ -136,6 +136,61 @@ describe('Menstrual', () => {
     expect(await screen.findByText('Нет записей')).toBeInTheDocument();
   });
 
+  it('handles cycle with null start_date and forecast fallback', async () => {
+    const context = createContext({
+      state: {
+        screen: 'menstrual',
+        theme: 'dark',
+        highContrast: false,
+        language: 'ru',
+        menstrualCycles: [
+          { id: 5, start_date: null, flow_intensity: null, symptoms: [], moods: [], notes: '' },
+          { id: 6, start_date: '2026-01-01', end_date: null, flow_intensity: null },
+        ],
+      },
+    });
+    renderMenstrual(context);
+    expect(await screen.findByText('—')).toBeInTheDocument();
+    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+  });
+
+  it('forecast returns null when only one valid cycle', async () => {
+    const context = createContext({
+      state: {
+        screen: 'menstrual',
+        theme: 'dark',
+        highContrast: false,
+        language: 'ru',
+        menstrualCycles: [
+          { id: 1, start_date: '2026-01-01', end_date: null, flow_intensity: 'moderate' },
+        ],
+      },
+    });
+    renderMenstrual(context);
+    await waitFor(() => expect(context.loadMenstrualCycles).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument());
+    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+  });
+
+  it('forecast handles negative diff', async () => {
+    const context = createContext({
+      state: {
+        screen: 'menstrual',
+        theme: 'dark',
+        highContrast: false,
+        language: 'ru',
+        menstrualCycles: [
+          { id: 1, start_date: '2026-01-01', end_date: null, flow_intensity: 'moderate' },
+          { id: 2, start_date: '2026-01-01', end_date: null, flow_intensity: 'light' },
+        ],
+      },
+    });
+    renderMenstrual(context);
+    await waitFor(() => expect(context.loadMenstrualCycles).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument());
+    expect(screen.queryByText('Следующий период примерно')).not.toBeInTheDocument();
+  });
+
   it('notifies when start date is missing', async () => {
     const user = userEvent.setup();
     const context = createContext();
@@ -255,11 +310,14 @@ describe('Menstrual', () => {
     fireEvent.change(document.getElementById('flow_intensity'), {
       target: { value: 'light' },
     });
+    fireEvent.change(document.getElementById('end_date'), {
+      target: { value: '2026-01-10' },
+    });
     await user.click(screen.getByRole('button', { name: 'Сохранить' }));
     await waitFor(() =>
       expect(context.updateMenstrualCycle).toHaveBeenCalledWith(1, {
         start_date: '2026-01-05',
-        end_date: '2026-01-09',
+        end_date: '2026-01-10',
         flow_intensity: 'light',
         symptoms: ['головная боль'],
         moods: ['раздражительность'],

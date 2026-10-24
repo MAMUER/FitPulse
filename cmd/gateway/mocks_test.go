@@ -36,12 +36,6 @@ type mockBiometricClient struct {
 	getSourcesErr error
 }
 
-func newMockBiometricClient() *mockBiometricClient {
-	return &mockBiometricClient{
-		records: make(map[string]*biometricpb.BiometricRecord),
-	}
-}
-
 func (m *mockBiometricClient) AddRecord(ctx context.Context, req *biometricpb.AddRecordRequest, opts ...grpc.CallOption) (*biometricpb.AddRecordResponse, error) {
 	if m.addErr != nil {
 		return nil, m.addErr
@@ -213,7 +207,7 @@ func withRealSessionStore(g *gateway) {
 }
 
 func withBiometricClient(g *gateway) {
-	g.biometricClient = newMockBiometricClient()
+	g.biometricClient = &mockBiometricClient{}
 }
 
 func withTrainingClient(g *gateway) {

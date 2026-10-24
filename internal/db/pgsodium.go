@@ -94,7 +94,7 @@ func NicknameHash(nickname string) string {
 }
 
 // GenerateNonce генерирует случайный 12-байтовый nonce для aegis256 AEAD.
-func GenerateNonce() ([]byte, error) {
+var GenerateNonce = func() ([]byte, error) {
 	nonce := make([]byte, 12)
 	_, err := rand.Read(nonce)
 	return nonce, err

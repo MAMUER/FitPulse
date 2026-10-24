@@ -17,6 +17,21 @@ func (dbErrorsFailingResult) RowsAffected() (int64, error) {
 	return 0, errors.New("rows affected failed")
 }
 
+func TestCloseRowsError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	rows := sqlmock.NewRows([]string{"n"}).AddRow(1).CloseError(errors.New("close failed"))
+	mock.ExpectQuery("SELECT 1").WillReturnRows(rows)
+
+	result, queryErr := db.Query("SELECT 1")
+	require.NoError(t, queryErr)
+
+	CloseRows(result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 type dbErrorsResult struct{ n int64 }
 
 func (r dbErrorsResult) LastInsertId() (int64, error) { return 0, nil }

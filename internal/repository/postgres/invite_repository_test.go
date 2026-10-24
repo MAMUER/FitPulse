@@ -51,6 +51,37 @@ func TestInviteCodeRepository_List_QueryError(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestInviteCodeRepository_List_ScanError(t *testing.T) {
+	repo, mock := setupInviteCodeRepo(t)
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"code", "role", "specialty", "max_uses", "used_count", "is_active", "created_by", "created_at", "total_count"}).
+		AddRow("INVITE1", "user", "doctor", "not-an-int", 2, true, "admin", time.Now(), 1)
+
+	mock.ExpectQuery("SELECT code").WillReturnRows(rows)
+
+	_, _, err := repo.List(ctx, 0, 10)
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInviteCodeRepository_List_IterError(t *testing.T) {
+	repo, mock := setupInviteCodeRepo(t)
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"code", "role", "specialty", "max_uses", "used_count", "is_active", "created_by", "created_at", "total_count"}).
+		AddRow("INVITE1", "user", "doctor", 5, 2, true, "admin", time.Now(), 1)
+	rows.RowError(0, assert.AnError)
+
+	mock.ExpectQuery("SELECT code").WillReturnRows(rows)
+
+	_, _, err := repo.List(ctx, 0, 10)
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestInviteCodeRepository_Create_Success(t *testing.T) {
 	repo, mock := setupInviteCodeRepo(t)
 	ctx := context.Background()

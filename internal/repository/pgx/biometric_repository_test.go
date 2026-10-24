@@ -138,6 +138,289 @@ func TestBiometricRepositoryPGX_BatchCreate_CommitError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to commit transaction")
 }
 
+func TestBiometricRepositoryPGX_BatchCreate_BeginError(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForBiometric{
+		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+			return nil, assert.AnError
+		},
+	}
+	repo := NewBiometricRepositoryPGX(mockDB)
+
+	now := time.Now()
+	records := []*entity.BiometricRecord{{ID: "r1", UserID: "u1", MetricType: "hr", Value: 1, Timestamp: now}}
+	_, err := repo.BatchCreate(ctx, records)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to begin transaction")
+}
+
+func TestBiometricRepositoryPGX_BatchCreate_ExecError(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForBiometric{
+		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+			return &mockTxExecErr{}, nil
+		},
+	}
+	repo := NewBiometricRepositoryPGX(mockDB)
+
+	now := time.Now()
+	records := []*entity.BiometricRecord{{ID: "r1", UserID: "u1", MetricType: "hr", Value: 1, Timestamp: now}}
+	_, err := repo.BatchCreate(ctx, records)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to insert biometric record")
+}
+
+type mockTxExecErr struct{}
+
+func (m *mockTxExecErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, assert.AnError
+}
+func (m *mockTxExecErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+func (m *mockTxExecErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+func (m *mockTxExecErr) Begin(ctx context.Context) (pgx.Tx, error)        { return m, nil }
+func (m *mockTxExecErr) Commit(ctx context.Context) error                  { return nil }
+func (m *mockTxExecErr) Rollback(ctx context.Context) error                { return nil }
+func (m *mockTxExecErr) Conn() *pgx.Conn                                    { return nil }
+func (m *mockTxExecErr) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+func (m *mockTxExecErr) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults { return nil }
+func (m *mockTxExecErr) LargeObjects() pgx.LargeObjects                             { var lo pgx.LargeObjects; return lo }
+func (m *mockTxExecErr) PgConn() *pgconn.PgConn                                     { return nil }
+func (m *mockTxExecErr) Close() error                                               { return nil }
+func (m *mockTxExecErr) Ping(ctx context.Context) error                             { return nil }
+func (m *mockTxExecErr) TypeMap() *pgtype.Map                                       { return nil }
+func (m *mockTxExecErr) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	return nil, nil
+}
+
+func TestBiometricRepositoryPGX_BatchCreate_ContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	mockDB := &mockDBForBiometric{
+		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+			return &mockTxForBiometric{}, nil
+		},
+	}
+	repo := NewBiometricRepositoryPGX(mockDB)
+
+	now := time.Now()
+	records := []*entity.BiometricRecord{{ID: "r1", UserID: "u1", MetricType: "hr", Value: 1, Timestamp: now}}
+	_, err := repo.BatchCreate(ctx, records)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "request canceled")
+}
+
+func TestBiometricRepositoryPGX_Create_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: assert.AnError}}
+	now := time.Now()
+	_, err := repo.Create(ctx, &entity.BiometricRecord{ID: "1", UserID: "u1", MetricType: "hr", Value: 1, Timestamp: now})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to insert biometric record")
+}
+
+type mockDBQueryRowErr struct {
+	err error
+}
+
+func (m *mockDBQueryRowErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+func (m *mockDBQueryRowErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{scanErr: m.err}
+}
+func (m *mockDBQueryRowErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (m *mockDBQueryRowErr) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &mockTxForBiometric{}, nil
+}
+
+func TestBiometricRepositoryPGX_GetByUserID_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryErr{}}
+	_, err := repo.GetByUserID(ctx, "u1", "", 10, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get biometric records")
+}
+
+type mockDBQueryErr struct{}
+
+func (m *mockDBQueryErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, assert.AnError
+}
+func (m *mockDBQueryErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+func (m *mockDBQueryErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (m *mockDBQueryErr) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &mockTxForBiometric{}, nil
+}
+
+func TestBiometricRepositoryPGX_GetLatest_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: pgx.ErrNoRows}}
+	_, err := repo.GetLatest(ctx, "u1", "hr")
+	require.Error(t, err)
+}
+
+func TestBiometricRepositoryPGX_GetLatest_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: assert.AnError}}
+	_, err := repo.GetLatest(ctx, "u1", "hr")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get latest biometric record")
+}
+
+func TestBiometricRepositoryPGX_Update_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: pgx.ErrNoRows}}
+	now := time.Now()
+	_, err := repo.Update(ctx, &entity.BiometricRecord{ID: "1", Value: 1, Timestamp: now})
+	require.Error(t, err)
+}
+
+func TestBiometricRepositoryPGX_Update_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: assert.AnError}}
+	now := time.Now()
+	_, err := repo.Update(ctx, &entity.BiometricRecord{ID: "1", Value: 1, Timestamp: now})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update biometric record")
+}
+
+func TestBiometricRepositoryPGX_Delete_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBExecErr{}}
+	err := repo.Delete(ctx, "1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete biometric record")
+}
+
+type mockDBExecErr struct{}
+
+func (m *mockDBExecErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+func (m *mockDBExecErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+func (m *mockDBExecErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, assert.AnError
+}
+func (m *mockDBExecErr) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &mockTxForBiometric{}, nil
+}
+
+func TestBiometricRepositoryPGX_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: pgx.ErrNoRows}}
+	_, err := repo.GetByID(ctx, "1")
+	require.Error(t, err)
+}
+
+func TestBiometricRepositoryPGX_GetByID_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: assert.AnError}}
+	_, err := repo.GetByID(ctx, "1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get biometric record")
+}
+
+func TestBiometricRepositoryPGX_CountByUser_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowErr{err: assert.AnError}}
+	_, err := repo.CountByUser(ctx, "u1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to count biometric records")
+}
+
+func TestBiometricRepositoryPGX_DeleteByUser_Error(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBExecErr{}}
+	_, err := repo.DeleteByUser(ctx, "u1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete biometric records")
+}
+
+func TestBiometricRepositoryPGX_GetMetricsSummary_QueryError(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryErr{}}
+	_, err := repo.GetMetricsSummary(ctx, "u1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get metrics summary")
+}
+
+func TestBiometricRepositoryPGX_GetMetricsSummary_ScanError(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowsScanErr{}}
+	_, err := repo.GetMetricsSummary(ctx, "u1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to scan metrics summary")
+}
+
+func TestBiometricRepositoryPGX_GetMetricsSummary_RowsErr(t *testing.T) {
+	ctx := context.Background()
+	repo := &BiometricRepositoryPGX{db: &mockDBQueryRowsErr{}}
+	_, err := repo.GetMetricsSummary(ctx, "u1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to iterate metrics summary")
+}
+
+type mockRowsSimple struct {
+	next bool
+	scan func(dest ...any) error
+	err  error
+}
+
+func (m *mockRowsSimple) Close()                                       {}
+func (m *mockRowsSimple) Err() error                                   { return m.err }
+func (m *mockRowsSimple) CommandTag() pgconn.CommandTag                 { return pgconn.CommandTag{} }
+func (m *mockRowsSimple) FieldDescriptions() []pgconn.FieldDescription { return nil }
+func (m *mockRowsSimple) Next() bool                                    { if m.next { m.next = false; return true }; return false }
+func (m *mockRowsSimple) Scan(dest ...any) error                        { if m.scan != nil { return m.scan(dest...) }; return nil }
+func (m *mockRowsSimple) Values() ([]interface{}, error)               { return nil, nil }
+func (m *mockRowsSimple) RawValues() [][]byte                           { return nil }
+func (m *mockRowsSimple) Conn() *pgx.Conn                               { return nil }
+func (m *mockRowsSimple) TypeMap() *pgtype.Map                          { return nil }
+
+type mockDBQueryRowsScanErr struct{}
+
+func (m *mockDBQueryRowsScanErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return &mockRowsSimple{next: true, scan: func(dest ...any) error { return assert.AnError }}, nil
+}
+func (m *mockDBQueryRowsScanErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+func (m *mockDBQueryRowsScanErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (m *mockDBQueryRowsScanErr) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &mockTxForBiometric{}, nil
+}
+
+type mockDBQueryRowsErr struct{}
+
+func (m *mockDBQueryRowsErr) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	return &mockRowsSimple{next: false, err: assert.AnError}, nil
+}
+func (m *mockDBQueryRowsErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return &mockRowForBiometric{}
+}
+func (m *mockDBQueryRowsErr) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (m *mockDBQueryRowsErr) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &mockTxForBiometric{}, nil
+}
+
 type mockTxForBiometricWithCommitError struct{}
 
 func (m *mockTxForBiometricWithCommitError) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {

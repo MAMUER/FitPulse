@@ -1,56 +1,53 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
-import Videos from './Videos';
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import Videos from './Videos'
+import { useApp } from '../contexts/AppContext'
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
-
-const defaultContext = {
-  state: {
-    screen: 'videos',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-    videos: [
-      { id: 'v1', title: 'Кардио', minutes: 20, kcal: 180 },
-      { id: 'v2', title: 'Силовая', minutes: 30, kcal: 240 },
-    ],
-    trainingVideos: [],
-  },
-  t: (ru, _en) => ru,
-  go: vi.fn(),
-  loadVideos: vi.fn(() => Promise.resolve()),
-};
-
-function renderVideos() {
-  useApp.mockReturnValue(defaultContext);
-  return render(
-    <BrowserRouter>
-      <AppProvider>
-        <Videos />
-      </AppProvider>
-    </BrowserRouter>
-  );
-}
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}))
 
 describe('Videos', () => {
-  it('renders video list', () => {
-    renderVideos();
-    expect(screen.getByText('Видео-тренировки')).toBeInTheDocument();
-    expect(screen.getByText('Кардио')).toBeInTheDocument();
-  });
+  it('renders empty state', () => {
+    const loadVideos = vi.fn()
+    useApp.mockReturnValue({
+      state: { videos: [], trainingVideos: [] },
+      t: (ru, en) => ru,
+      go: vi.fn(),
+      loadVideos,
+    })
 
-  it('navigates to training on start', () => {
-    renderVideos();
-    const startButtons = screen.getAllByText('Старт');
-    startButtons[0].click();
-    expect(defaultContext.go).toHaveBeenCalledWith('training');
-  });
-});
+    render(<Videos />)
+    expect(loadVideos).toHaveBeenCalled()
+    expect(screen.getByText('Нет видео')).toBeInTheDocument()
+  })
+
+  it('renders videos from trainingVideos fallback', () => {
+    const loadVideos = vi.fn()
+    const go = vi.fn()
+    useApp.mockReturnValue({
+      state: { videos: [], trainingVideos: [{ id: 1, title: 'Test', minutes: 10, kcal: 100 }] },
+      t: (ru, en) => ru,
+      go,
+      loadVideos,
+    })
+
+    render(<Videos />)
+    expect(screen.getByText('Test')).toBeInTheDocument()
+    expect(screen.getByText(/10/)).toBeInTheDocument()
+  })
+
+  it('uses state.videos when available', () => {
+    const loadVideos = vi.fn()
+    const go = vi.fn()
+    useApp.mockReturnValue({
+      state: { videos: [{ id: 2, title: 'V2', duration: 15, calories: 200 }], trainingVideos: [] },
+      t: (ru, en) => en,
+      go,
+      loadVideos,
+    })
+
+    render(<Videos />)
+    expect(screen.getByText('V2')).toBeInTheDocument()
+  })
+})
