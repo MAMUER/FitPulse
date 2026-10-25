@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
-import Calendar from './Calendar';
 import { format, startOfMonth, startOfWeek } from '../utils/helpers';
+import Calendar from './Calendar';
 
 vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),

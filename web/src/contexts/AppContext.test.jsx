@@ -1,10 +1,10 @@
-import { render, screen, act } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
-import { loadState } from '../services/storage';
-import { useProfile } from '../hooks/useProfile';
 import { useHealth } from '../hooks/useHealth';
+import { useProfile } from '../hooks/useProfile';
 import { useTraining } from '../hooks/useTraining';
+import { loadState } from '../services/storage';
 
 vi.mock('../services/storage', () => ({
   loadState: vi.fn(() => null),
@@ -13,14 +13,17 @@ vi.mock('../services/storage', () => ({
 vi.mock('../hooks/useAuth', () => ({ useAuth: vi.fn(() => ({})) }));
 vi.mock('../hooks/useNavigation', () => ({
   useNavigation: vi.fn(({ state, update }) => {
-    if (update && state?.theme !== 'light') update((prev) => ({ ...prev, theme: 'light' }));
+    if (update && state?.theme !== 'light')
+      update((prev) => ({ ...prev, theme: 'light' }));
     return {};
   }),
 }));
 vi.mock('../hooks/useUI', () => ({ useUI: vi.fn(() => ({})) }));
 vi.mock('../hooks/useCalendar', () => ({ useCalendar: vi.fn(() => ({})) }));
 vi.mock('../hooks/useNutrition', () => ({ useNutrition: vi.fn(() => ({})) }));
-vi.mock('../hooks/useTraining', () => ({ useTraining: vi.fn(() => ({ loadTrainingPlans: vi.fn() })) }));
+vi.mock('../hooks/useTraining', () => ({
+  useTraining: vi.fn(() => ({ loadTrainingPlans: vi.fn() })),
+}));
 vi.mock('../hooks/useHealth', () => ({
   useHealth: vi.fn(() => ({
     loadBiometrics: vi.fn(),
@@ -44,13 +47,20 @@ const TestComponent = () => {
   const { state, notify } = useApp();
   return (
     <div>
-      <span data-testid="theme">{state.theme}</span>
-      <button onClick={() => notify('test message')}>notify</button>
+      <span data-testid='theme'>{state.theme}</span>
+      <button type='button' onClick={() => notify('test message')}>
+        notify
+      </button>
     </div>
   );
 };
 
-const renderWithProvider = () => render(<AppProvider><TestComponent /></AppProvider>);
+const renderWithProvider = () =>
+  render(
+    <AppProvider>
+      <TestComponent />
+    </AppProvider>
+  );
 
 describe('AppContext', () => {
   beforeEach(() => {
@@ -90,7 +100,10 @@ describe('AppContext', () => {
     const loadConditions = vi.fn();
     const loadMenstrualCycles = vi.fn();
     const loadBodyComposition = vi.fn();
-    vi.mocked(loadState).mockReturnValue({ registered: true, profileLoaded: false });
+    vi.mocked(loadState).mockReturnValue({
+      registered: true,
+      profileLoaded: false,
+    });
     vi.mocked(useProfile).mockReturnValue({ loadProfile });
     vi.mocked(useHealth).mockReturnValue({
       loadBiometrics,

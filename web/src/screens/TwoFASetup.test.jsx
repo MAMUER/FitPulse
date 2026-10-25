@@ -29,7 +29,9 @@ describe('TwoFASetup', () => {
     const confirm2FA = vi.fn();
     useApp.mockReturnValue({ confirm2FA, t: (ru, _en) => ru });
     render(<TwoFASetup />);
-    fireEvent.change(screen.getByLabelText('Секрет'), { target: { value: 'ABC' } });
+    fireEvent.change(screen.getByLabelText('Секрет'), {
+      target: { value: 'ABC' },
+    });
     expect(screen.getByLabelText('Секрет')).toBeInTheDocument();
   });
 });

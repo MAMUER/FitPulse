@@ -41,7 +41,9 @@ describe('CookieConsent', () => {
   it('returns true when localStorage throws on init', () => {
     useApp.mockReturnValue({ t: (ru, _en) => ru });
     const orig = localStorage.getItem;
-    localStorage.getItem = () => { throw new Error('boom'); };
+    localStorage.getItem = () => {
+      throw new Error('boom');
+    };
     const { container } = render(<CookieConsent />);
     localStorage.getItem = orig;
     expect(container.firstChild).toBeNull();

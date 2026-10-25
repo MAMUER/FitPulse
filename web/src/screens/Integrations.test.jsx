@@ -55,7 +55,9 @@ describe('Integrations', () => {
   });
 
   it('handles load error', async () => {
-    const loadIntegrationProviders = vi.fn().mockRejectedValue(new Error('fail'));
+    const loadIntegrationProviders = vi
+      .fn()
+      .mockRejectedValue(new Error('fail'));
     const disconnectIntegration = vi.fn();
     useApp.mockReturnValue({
       notify: vi.fn(),
@@ -70,7 +72,12 @@ describe('Integrations', () => {
 
   it('notifies on toggle failure', async () => {
     const loadIntegrationProviders = vi.fn().mockResolvedValue([
-      { source: 'withings', source_name: 'Withings', connected: true, connected_at: null },
+      {
+        source: 'withings',
+        source_name: 'Withings',
+        connected: true,
+        connected_at: null,
+      },
     ]);
     const disconnectIntegration = vi.fn().mockRejectedValue(new Error('fail'));
     const notify = vi.fn();

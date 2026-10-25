@@ -86,7 +86,7 @@ func TestDefaultONNXWeightsPath_Cmd(t *testing.T) {
 	old, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(cmdDir))
-	defer os.Chdir(old)
+	defer func() { _ = os.Chdir(old) }()
 	p := DefaultONNXWeightsPath()
 	assert.Contains(t, p, "classifier_weights.json")
 }
@@ -95,7 +95,7 @@ func TestDefaultONNXWeightsPath_Default(t *testing.T) {
 	old, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(old)
+	defer func() { _ = os.Chdir(old) }()
 	p := DefaultONNXWeightsPath()
 	assert.Contains(t, p, "classifier_weights.json")
 }
