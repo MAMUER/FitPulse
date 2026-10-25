@@ -80,6 +80,8 @@ spec:
               name: amqps
             - containerPort: 15672
               name: management
+            - containerPort: 15692
+              name: prometheus
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -96,6 +98,8 @@ spec:
               value: "/etc/secrets/RABBITMQ_PASS"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
+            - name: RABBITMQ_ENABLED_PLUGINS
+              value: "rabbitmq_prometheus"
             - name: RABBITMQ_SSL_CERT_FILE
               value: "/etc/rabbitmq-tls/tls.crt"
             - name: RABBITMQ_SSL_KEY_FILE

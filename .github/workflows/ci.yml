@@ -1513,7 +1513,7 @@ jobs:
     needs: [detect-changes, docker, provision-k8s-vps, binary_build, go-check, test]
     timeout-minutes: 60
     if: >-
-      always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') &&
+      always() && needs.provision-k8s-vps.result == 'success' &&
       needs.docker.result != 'failure' &&
       ((github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
        github.event_name == 'schedule' ||
@@ -1853,7 +1853,7 @@ jobs:
           for key in $(echo "$JOBS" | python3 -c "import json,sys; print(' '.join(json.load(sys.stdin).keys()))"); do
             result=$(echo "$JOBS" | python3 -c "import json,sys; print(json.load(sys.stdin)['$key']['result'])")
             if [ "$result" = "failure" ]; then
-              failed="$failed\n  - $key"
+              failed+=$'\n  - '$key
             fi
           done
           if [ -n "$failed" ]; then
