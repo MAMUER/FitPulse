@@ -2,16 +2,39 @@
 set -euo pipefail
 
 configure_swap() {
-	# Проверка, что VPS доступен по SSH
-	if ! timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
-		echo "❌ VPS is not reachable via SSH — aborting"
+	echo "🔄 Проверка доступности VPS по SSH (попыток: 3)..."
+	
+	local max_attempts=3
+	local attempt=1
+	local connected=false
+
+	while [ $attempt -le $max_attempts ]; do
+		echo "➡️ Попытка $attempt из $max_attempts..."
+		# Увеличили ConnectTimeout до 15 и добавили -v для отладки, если понадобится
+		if timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
+			connected=true
+			echo "✅ VPS успешно доступен по SSH!"
+			break
+		else
+			echo "⚠️ Попытка $attempt не удалась. Ждем 15 секунд перед следующей попыткой (возможно, обновляется DuckDNS)..."
+			sleep 15
+			((attempt++))
+		fi
+	done
+
+	if [ "$connected" = false ]; then
+		echo "❌ VPS не доступен по SSH после $max_attempts попыток — прерывание"
+		echo "💡 Проверьте: 1) Работает ли ПК, 2) Обновился ли IP в DuckDNS, 3) Проброшен ли порт 22."
 		return 1
 	fi
+
 	# Если swap уже настроен — пропускаем
 	if timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then
-		echo "✅ Swap already configured, skipping"
+		echo "✅ Swap уже настроен, пропускаем"
 		return 0
 	fi
+
+	echo "-> Настройка swap на VPS..."
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${VPS_USER}@${VPS_HOST}:/tmp/configure-swap.sh"
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh && touch /tmp/.swap-configured"
 }

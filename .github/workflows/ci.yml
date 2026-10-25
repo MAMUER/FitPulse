@@ -729,6 +729,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -1163,6 +1169,17 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+      - name: Debug SSH Connection
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          echo "🔍 Пытаемся разрешить DNS для $VPS_HOST..."
+          ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
+          
+          echo "🔍 Пытаемся подключиться по SSH с подробным логом..."
+          ssh -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
+
       - name: Configure swap on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
