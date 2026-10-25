@@ -3,7 +3,7 @@ set -euo pipefail
 
 configure_swap() {
 	echo "🔄 Проверка доступности VPS по SSH (попыток: 3)..."
-	
+
 	local max_attempts=3
 	local attempt=1
 	local connected=false
