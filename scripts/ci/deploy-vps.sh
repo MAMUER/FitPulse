@@ -192,8 +192,8 @@ verify() {
 	kubectl -n "$NAMESPACE" get pods -o wide
 	local ip
 	ip=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "hostname -I | awk '{print \$1}'" | tr -d '\r')
-	log "gateway health: http://${ip}:${NODE_PORT}/health" # NOSONAR S5332 local loopback health check
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" || # NOSONAR S5332 local loopback health check
+	log "gateway health: ${ip}:${NODE_PORT}/health"
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" || # NOSONAR S5332
 		log "::warning::gateway health check failed"
 }
 

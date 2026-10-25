@@ -241,7 +241,6 @@ main() {
 		message+="  • k3s: ${k3s_result%%:*}\n"
 		message+="  • Systemd: ${systemd_result%%:*}\n"
 		message+="  • Swap: ${swap_result%%:*}\n"
-		message+="  • VPN: ${vpn_result%%:*}\n"
 		send_telegram "$message"
 	fi
 	if [[ "$status" == "CRITICAL" ]]; then
