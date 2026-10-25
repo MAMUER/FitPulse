@@ -1175,11 +1175,6 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh check_disk_space
-      - name: Install AmneziaWG systemd service
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh configure_cpu_governor
       - name: Configure Docker and System log rotation
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

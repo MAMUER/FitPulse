@@ -4,8 +4,8 @@ set -euo pipefail
 configure_swap() {
 	# Проверка, что VPS доступен по SSH
 	if ! timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
-		echo "⚠️ VPS is not reachable via SSH — skipping swap configuration"
-		return 0
+		echo "❌ VPS is not reachable via SSH — aborting"
+		return 1
 	fi
 	# Если swap уже настроен — пропускаем
 	if timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then

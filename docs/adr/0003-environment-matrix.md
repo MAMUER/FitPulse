@@ -31,7 +31,7 @@ Staging используется для ручного/автоматизиро�
 - Стек мониторинга (docker-compose: Prometheus+Grafana; K8s: ELK+Prometheus+Alertmanager+OnCall)
 - Стратегия бэкапов (Dev: нет; Staging/Prod: daily full backup + WAL archive в S3/MinIO)
 - SSL/TLS (Dev: HTTP; Staging: Let's Encrypt staging; Production: Let's Encrypt production)
-- Контроль доступа (Dev: локальный; Staging/Prod: Ingress + basic auth; VPN/2FA/hardware token не настроены)
+- Контроль доступа (Dev: локальный; Staging/Prod: Ingress + basic auth; 2FA/hardware token не настроены)
 
 ## Последствия
 

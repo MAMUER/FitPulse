@@ -10,7 +10,6 @@ set -euo pipefail
 
 NAMESPACE="fitness-platform-production"
 OVERLAY="configs/k8s/overlays/vps-minimal"
-VPN_CONTAINER_NAME="${VPN_CONTAINER_NAME:-amnezia-awg2}"
 SECRETS_DIR="/etc/fitpulse/secrets"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
 CLASSIFIER_TAG="${CLASSIFIER_TAG:-0.0.0-dev}"
@@ -31,23 +30,6 @@ require_env() {
 		[ -n "${!var:-}" ] || missing+=("$var")
 	done
 	[ ${#missing[@]} -eq 0 ] || die "missing required env: ${missing[*]}"
-}
-
-vpn_guard() {
-	log "VPN guard: checking '${VPN_CONTAINER_NAME}' on ${VPS_HOST} (read-only)"
-	local state
-	state=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
-		"docker inspect -f '{{.State.Status}}' ${VPN_CONTAINER_NAME} 2>/dev/null || echo not-found" | tr -d '\r')
-	[ "$state" = "running" ] || die "VPN container is '${state}' — aborting deploy"
-	log "VPN container running"
-}
-
-vpn_check() {
-	local state
-	state=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
-		"docker inspect -f '{{.State.Status}}' ${VPN_CONTAINER_NAME} 2>/dev/null || echo not-found" | tr -d '\r')
-	[ "$state" = "running" ] || die "VPN container changed state during deploy ('${state}')"
-	log "VPN container still running after deploy"
 }
 
 ensure_remote_secrets() {
