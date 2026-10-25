@@ -1546,10 +1546,6 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh configure_kubectl
       - name: Wait for k3s API to be fully ready
         run: bash scripts/ci/ci-helpers.sh wait_for_k3s_api
-      - name: VPN container guard (abort unless running)
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
       - name: Ensure long-lived secrets (JWT/TOTP/TLS) on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1591,15 +1587,11 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-vps.sh apply_overlay
-      - name: Verify deployment and VPN container
+      - name: Verify deployment
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-vps.sh verify
-      - name: Post-deploy VPN container check
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
   # ============================================================================
   # DEPLOY PRODUCTION
   # ============================================================================
