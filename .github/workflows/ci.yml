@@ -1798,7 +1798,6 @@ jobs:
         security-scan,
         sonarcloud,
         go-check,
-        frontend,
         test,
         contract,
         binary_build,
@@ -1824,20 +1823,85 @@ jobs:
         id: msg
         env:
           JOBS: ${{ toJson(needs) }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          failed=""
-          for key in $(echo "$JOBS" | python3 -c "import json,sys; print(' '.join(json.load(sys.stdin).keys()))"); do
-            result=$(echo "$JOBS" | python3 -c "import json,sys; print(json.load(sys.stdin)['$key']['result'])")
-            if [ "$result" = "failure" ]; then
-              failed+=$'\n  - '$key
-            fi
-          done
-          if [ -n "$failed" ]; then
-            echo "status=❌ CI/CD ОШИБКА" >> "$GITHUB_OUTPUT"
-          else
-            echo "status=✅ CI/CD УСПЕШНО" >> "$GITHUB_OUTPUT"
-          fi
-          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          python3 << 'PYEOF'
+          import json, os
+
+          needs = json.loads(os.environ['JOBS'])
+          repo = os.environ['REPO']
+          ref = os.environ['REF']
+          sha = os.environ['SHA']
+          run_id = os.environ['RUN_ID']
+
+          def emoji(r):
+              return {'success':'✅','failure':'❌'}.get(r, '⏭️')
+
+          def section(title, items):
+              lines = [f'<b>{title}</b>']
+              for key, name in items:
+                  r = needs.get(key, {}).get('result', 'skipped')
+                  lines.append(f'{emoji(r)} {name}')
+              return '\n'.join(lines)
+
+          checks = [
+              ('validate-workflow','Validate Workflow'),
+              ('dockerfile-lint','Dockerfile Lint'),
+              ('super-linter','Super Linter'),
+              ('frontend','Frontend'),
+              ('go-check','Make Check'),
+              ('conventional-commits','Conventional Commits'),
+          ]
+          security = [
+              ('codeql','CodeQL'),
+              ('kubescape','Kubescape'),
+              ('security-scan','Security Scan'),
+              ('sonarcloud','SonarCloud'),
+              ('kube-bench','Kube-Bench'),
+              ('kube-hunter','Kube-Hunter'),
+              ('checkov','Checkov'),
+              ('cosign-verify','Cosign Verify'),
+          ]
+          deploy = [
+              ('binary_build','Build Binaries'),
+              ('docker','Docker Build & Push'),
+              ('provision-k8s-vps','Provision K8s on VPS'),
+              ('deploy-staging','Deploy Staging'),
+              ('test-staging','Test Staging'),
+              ('deploy-production','Deploy Production'),
+              ('test-production','Test Production'),
+              ('smoke-test','Smoke Test'),
+              ('health-check','Health Check'),
+              ('csp-headers-check','CSP Headers Check'),
+          ]
+
+          any_fail = any(
+              needs.get(k, {}).get('result') == 'failure'
+              for items in [checks, security, deploy]
+              for k, _ in items
+          )
+          status = '❌ CI/CD ОШИБКА' if any_fail else '✅ CI/CD УСПЕШНО'
+
+          msg = (
+              f'<b>{status}</b>\n'
+              f'<code>{repo}</code> @ <code>{ref}</code>\n'
+              f'Commit: <a href="https://github.com/{repo}/commit/{sha}">{sha}</a>\n'
+              f'<a href="https://github.com/{repo}/actions/runs/{run_id}">Открыть запуск</a>\n\n'
+              f'{section("Проверки:", checks)}\n\n'
+              f'{section("Безопасность:", security)}\n\n'
+              f'{section("Деплой:", deploy)}\n\n'
+              '🌐 Сайт: https://fittpulse.duckdns.org\n'
+          )
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'status={status}\n')
+              f.write('message<<EOF\n')
+              f.write(msg)
+              f.write('EOF\n')
+          PYEOF
       - name: Send to Telegram
         if: always()
         uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1
@@ -1846,12 +1910,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: html
           disable_web_page_preview: true
-          message: |
-            <b>${{ steps.msg.outputs.status }}</b>
-            <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
-            Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
-            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
-            ${{ steps.msg.outputs.failed }}
+          message: ${{ steps.msg.outputs.message }}
 
   # ============================================================================
   # DEPENDABOT AUTO-MERGE
