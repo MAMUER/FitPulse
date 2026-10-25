@@ -2,8 +2,8 @@
 package resilience
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"errors"
+	"github.com/MAMUER/project/internal/sanitize"
 	"sync"
 	"time"
 

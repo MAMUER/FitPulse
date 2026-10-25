@@ -20,51 +20,69 @@ import (
 
 type mockUserClientHealth struct {
 	userpb.UserServiceClient
-	listHC    func(context.Context, *userpb.ListHealthConditionsRequest, ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error)
-	upsertHC  func(context.Context, *userpb.UpsertHealthConditionRequest, ...grpc.CallOption) (*userpb.HealthCondition, error)
-	delHC     func(context.Context, *userpb.DeleteHealthConditionRequest, ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error)
-	createBC  func(context.Context, *userpb.CreateBodyCompositionRequest, ...grpc.CallOption) (*userpb.BodyCompositionRecord, error)
-	listBC    func(context.Context, *userpb.ListBodyCompositionRequest, ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error)
-	listMC    func(context.Context, *userpb.ListMenstrualCyclesRequest, ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error)
-	createMC  func(context.Context, *userpb.CreateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error)
-	updateMC  func(context.Context, *userpb.UpdateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error)
-	delMC     func(context.Context, *userpb.DeleteMenstrualCycleRequest, ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error)
+	listHC   func(context.Context, *userpb.ListHealthConditionsRequest, ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error)
+	upsertHC func(context.Context, *userpb.UpsertHealthConditionRequest, ...grpc.CallOption) (*userpb.HealthCondition, error)
+	delHC    func(context.Context, *userpb.DeleteHealthConditionRequest, ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error)
+	createBC func(context.Context, *userpb.CreateBodyCompositionRequest, ...grpc.CallOption) (*userpb.BodyCompositionRecord, error)
+	listBC   func(context.Context, *userpb.ListBodyCompositionRequest, ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error)
+	listMC   func(context.Context, *userpb.ListMenstrualCyclesRequest, ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error)
+	createMC func(context.Context, *userpb.CreateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error)
+	updateMC func(context.Context, *userpb.UpdateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error)
+	delMC    func(context.Context, *userpb.DeleteMenstrualCycleRequest, ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error)
 }
 
 func (m *mockUserClientHealth) ListHealthConditions(ctx context.Context, in *userpb.ListHealthConditionsRequest, opts ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error) {
-	if m.listHC != nil { return m.listHC(ctx, in, opts...) }
+	if m.listHC != nil {
+		return m.listHC(ctx, in, opts...)
+	}
 	return &userpb.ListHealthConditionsResponse{Conditions: []*userpb.HealthCondition{{Id: "1"}}, Total: 1}, nil
 }
 func (m *mockUserClientHealth) UpsertHealthCondition(ctx context.Context, in *userpb.UpsertHealthConditionRequest, opts ...grpc.CallOption) (*userpb.HealthCondition, error) {
-	if m.upsertHC != nil { return m.upsertHC(ctx, in, opts...) }
+	if m.upsertHC != nil {
+		return m.upsertHC(ctx, in, opts...)
+	}
 	return &userpb.HealthCondition{Id: "1"}, nil
 }
 func (m *mockUserClientHealth) DeleteHealthCondition(ctx context.Context, in *userpb.DeleteHealthConditionRequest, opts ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error) {
-	if m.delHC != nil { return m.delHC(ctx, in, opts...) }
+	if m.delHC != nil {
+		return m.delHC(ctx, in, opts...)
+	}
 	return &userpb.DeleteHealthConditionResponse{}, nil
 }
 func (m *mockUserClientHealth) CreateBodyComposition(ctx context.Context, in *userpb.CreateBodyCompositionRequest, opts ...grpc.CallOption) (*userpb.BodyCompositionRecord, error) {
-	if m.createBC != nil { return m.createBC(ctx, in, opts...) }
+	if m.createBC != nil {
+		return m.createBC(ctx, in, opts...)
+	}
 	return &userpb.BodyCompositionRecord{Id: "1"}, nil
 }
 func (m *mockUserClientHealth) ListBodyComposition(ctx context.Context, in *userpb.ListBodyCompositionRequest, opts ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error) {
-	if m.listBC != nil { return m.listBC(ctx, in, opts...) }
+	if m.listBC != nil {
+		return m.listBC(ctx, in, opts...)
+	}
 	return &userpb.ListBodyCompositionResponse{Records: []*userpb.BodyCompositionRecord{{Id: "1"}}, Total: 1}, nil
 }
 func (m *mockUserClientHealth) ListMenstrualCycles(ctx context.Context, in *userpb.ListMenstrualCyclesRequest, opts ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error) {
-	if m.listMC != nil { return m.listMC(ctx, in, opts...) }
+	if m.listMC != nil {
+		return m.listMC(ctx, in, opts...)
+	}
 	return &userpb.ListMenstrualCyclesResponse{Cycles: []*userpb.MenstrualCycle{{Id: "1"}}, Total: 1}, nil
 }
 func (m *mockUserClientHealth) CreateMenstrualCycle(ctx context.Context, in *userpb.CreateMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
-	if m.createMC != nil { return m.createMC(ctx, in, opts...) }
+	if m.createMC != nil {
+		return m.createMC(ctx, in, opts...)
+	}
 	return &userpb.MenstrualCycle{Id: "1"}, nil
 }
 func (m *mockUserClientHealth) UpdateMenstrualCycle(ctx context.Context, in *userpb.UpdateMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
-	if m.updateMC != nil { return m.updateMC(ctx, in, opts...) }
+	if m.updateMC != nil {
+		return m.updateMC(ctx, in, opts...)
+	}
 	return &userpb.MenstrualCycle{Id: "1"}, nil
 }
 func (m *mockUserClientHealth) DeleteMenstrualCycle(ctx context.Context, in *userpb.DeleteMenstrualCycleRequest, opts ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error) {
-	if m.delMC != nil { return m.delMC(ctx, in, opts...) }
+	if m.delMC != nil {
+		return m.delMC(ctx, in, opts...)
+	}
 	return &userpb.DeleteMenstrualCycleResponse{}, nil
 }
 
@@ -81,7 +99,9 @@ func TestHealthHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.listHealthConditionsHandler(w, req)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
-	g.userClient = &mockUserClientHealth{listHC: func(context.Context, *userpb.ListHealthConditionsRequest, ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error) { return nil, assert.AnError }}
+	g.userClient = &mockUserClientHealth{listHC: func(context.Context, *userpb.ListHealthConditionsRequest, ...grpc.CallOption) (*userpb.ListHealthConditionsResponse, error) {
+		return nil, assert.AnError
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodGet, "/api/v1/health/conditions", nil)
 	w = httptest.NewRecorder()
 	g.listHealthConditionsHandler(w, req)
@@ -101,7 +121,9 @@ func TestHealthHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.upsertHealthConditionHandler(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
-	g.userClient = &mockUserClientHealth{upsertHC: func(context.Context, *userpb.UpsertHealthConditionRequest, ...grpc.CallOption) (*userpb.HealthCondition, error) { return nil, status.Error(codes.Internal, "e") }}
+	g.userClient = &mockUserClientHealth{upsertHC: func(context.Context, *userpb.UpsertHealthConditionRequest, ...grpc.CallOption) (*userpb.HealthCondition, error) {
+		return nil, status.Error(codes.Internal, "e")
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodPost, "/api/v1/health/conditions", bytes.NewBufferString(`{}`))
 	w = httptest.NewRecorder()
 	g.upsertHealthConditionHandler(w, req)
@@ -162,7 +184,9 @@ func TestHealthBodyAndMenstrual(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.createBodyCompositionHandler(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
-	g.userClient = &mockUserClientHealth{createBC: func(context.Context, *userpb.CreateBodyCompositionRequest, ...grpc.CallOption) (*userpb.BodyCompositionRecord, error) { return nil, status.Error(codes.Internal, "e") }}
+	g.userClient = &mockUserClientHealth{createBC: func(context.Context, *userpb.CreateBodyCompositionRequest, ...grpc.CallOption) (*userpb.BodyCompositionRecord, error) {
+		return nil, status.Error(codes.Internal, "e")
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodPost, "/api/v1/health/body-composition", bytes.NewBufferString(`{}`))
 	w = httptest.NewRecorder()
 	g.createBodyCompositionHandler(w, req)
@@ -178,7 +202,9 @@ func TestHealthBodyAndMenstrual(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.listBodyCompositionHandler(w, req)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
-	g.userClient = &mockUserClientHealth{listBC: func(context.Context, *userpb.ListBodyCompositionRequest, ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error) { return nil, assert.AnError }}
+	g.userClient = &mockUserClientHealth{listBC: func(context.Context, *userpb.ListBodyCompositionRequest, ...grpc.CallOption) (*userpb.ListBodyCompositionResponse, error) {
+		return nil, assert.AnError
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodGet, "/api/v1/health/body-composition", nil)
 	w = httptest.NewRecorder()
 	g.listBodyCompositionHandler(w, req)
@@ -198,7 +224,9 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.listMenstrualCyclesHandler(w, req)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
-	g.userClient = &mockUserClientHealth{listMC: func(context.Context, *userpb.ListMenstrualCyclesRequest, ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error) { return nil, assert.AnError }}
+	g.userClient = &mockUserClientHealth{listMC: func(context.Context, *userpb.ListMenstrualCyclesRequest, ...grpc.CallOption) (*userpb.ListMenstrualCyclesResponse, error) {
+		return nil, assert.AnError
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodGet, "/api/v1/health/menstrual-cycles", nil)
 	w = httptest.NewRecorder()
 	g.listMenstrualCyclesHandler(w, req)
@@ -218,7 +246,9 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.createMenstrualCycleHandler(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
-	g.userClient = &mockUserClientHealth{createMC: func(context.Context, *userpb.CreateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error) { return nil, status.Error(codes.Internal, "e") }}
+	g.userClient = &mockUserClientHealth{createMC: func(context.Context, *userpb.CreateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
+		return nil, status.Error(codes.Internal, "e")
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodPost, "/api/v1/health/menstrual-cycles", bytes.NewBufferString(`{}`))
 	w = httptest.NewRecorder()
 	g.createMenstrualCycleHandler(w, req)
@@ -253,7 +283,9 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.updateMenstrualCycleHandler(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
-	g.userClient = &mockUserClientHealth{updateMC: func(context.Context, *userpb.UpdateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error) { return nil, status.Error(codes.Internal, "e") }}
+	g.userClient = &mockUserClientHealth{updateMC: func(context.Context, *userpb.UpdateMenstrualCycleRequest, ...grpc.CallOption) (*userpb.MenstrualCycle, error) {
+		return nil, status.Error(codes.Internal, "e")
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodPut, "/api/v1/health/menstrual-cycles/1", bytes.NewBufferString(`{}`))
 	rctx = chi.NewRouteContext()
 	rctx.URLParams.Add("cycle_id", "1")
@@ -271,7 +303,9 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.deleteHealthConditionHandler(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
-	g.userClient = &mockUserClientHealth{delHC: func(context.Context, *userpb.DeleteHealthConditionRequest, ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error) { return nil, assert.AnError }}
+	g.userClient = &mockUserClientHealth{delHC: func(context.Context, *userpb.DeleteHealthConditionRequest, ...grpc.CallOption) (*userpb.DeleteHealthConditionResponse, error) {
+		return nil, assert.AnError
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodDelete, "/api/v1/health/conditions/1", nil)
 	rctx = chi.NewRouteContext()
 	rctx.URLParams.Add("condition_id", "1")
@@ -289,7 +323,9 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.deleteMenstrualCycleHandler(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
-	g.userClient = &mockUserClientHealth{delMC: func(context.Context, *userpb.DeleteMenstrualCycleRequest, ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error) { return nil, assert.AnError }}
+	g.userClient = &mockUserClientHealth{delMC: func(context.Context, *userpb.DeleteMenstrualCycleRequest, ...grpc.CallOption) (*userpb.DeleteMenstrualCycleResponse, error) {
+		return nil, assert.AnError
+	}}
 	req = httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodDelete, "/api/v1/health/menstrual-cycles/1", nil)
 	rctx = chi.NewRouteContext()
 	rctx.URLParams.Add("cycle_id", "1")

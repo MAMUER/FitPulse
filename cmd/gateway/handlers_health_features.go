@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 	"strconv"
 

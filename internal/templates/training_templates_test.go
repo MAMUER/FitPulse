@@ -39,14 +39,14 @@ func TestTrainingTemplates_AllPresent(t *testing.T) {
 
 func TestTrainingTemplates_Values(t *testing.T) {
 	tests := []struct {
-		key            string
-		nameRu         string
-		minDuration    int
-		maxDuration    int
-		minIntensity   float64
-		maxIntensity   float64
-		restRatio      float64
-		exerciseCount  int
+		key           string
+		nameRu        string
+		minDuration   int
+		maxDuration   int
+		minIntensity  float64
+		maxIntensity  float64
+		restRatio     float64
+		exerciseCount int
 	}{
 		{"recovery", "Восстановление", 20, 40, 0.3, 0.5, 0.7, 4},
 		{"endurance_basic", "Базовая выносливость", 45, 90, 0.5, 0.7, 0.4, 4},

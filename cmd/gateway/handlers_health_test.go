@@ -92,7 +92,8 @@ func TestHealth_CheckTCPServiceCloseError(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	addr := lis.Addr().String()
-	lis.Close()
+	closeErr := lis.Close()
+	_ = closeErr
 
 	// Make conn.Close fail by closing the listener first
 	got := checkTCPService(zap.NewNop(), addr)

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"io"
 	"net/http"
 

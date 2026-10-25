@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 
 	"go.uber.org/zap"

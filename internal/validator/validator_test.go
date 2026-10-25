@@ -599,9 +599,9 @@ func TestValidateGeneratePlanRequest(t *testing.T) {
 		{
 			name: "valid plan request",
 			req: &trainingpb.GeneratePlanRequest{
-				UserId:              "user-123",
-				DurationWeeks:       4,
-				AvailableDays:       []int32{1, 3, 5},
+				UserId:         "user-123",
+				DurationWeeks:  4,
+				AvailableDays:  []int32{1, 3, 5},
 				Classification: "endurance",
 			},
 			wantCode: codes.OK,

@@ -27,8 +27,8 @@ func DefaultScopes() []string {
 }
 
 type TokenResponse struct {
-	Status  int    `json:"status"`
-	Body    struct {
+	Status int `json:"status"`
+	Body   struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		ExpiresIn    int    `json:"expires_in"`

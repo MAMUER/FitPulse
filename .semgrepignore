@@ -20,3 +20,7 @@ configs/k8s/base/local-path-provisioner.yaml
 ## Integration test file triggering a bind-all warning that is expected in test scaffolding
 
 cmd/classifier/classifier_integration_test.go
+
+## Test files — use insecure connections and hardcoded secrets by design
+
+**/*_test.go

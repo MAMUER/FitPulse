@@ -117,10 +117,10 @@ func (s *ganService) callPythonGAN(req generatePlanRequest) ([]generatedPlan, er
 
 	stdout, err := cmd.Output()
 	if err != nil {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		return nil, fmt.Errorf("python GAN failed: %s", string(exitErr.Stderr))
-	}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("python GAN failed: %s", string(exitErr.Stderr))
+		}
 		return nil, fmt.Errorf("python GAN error: %w", err)
 	}
 

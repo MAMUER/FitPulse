@@ -11,43 +11,43 @@ import (
 )
 
 type userService struct {
-	users          port.UserRepository
-	profiles       port.ProfileRepository
-	invites        port.InviteRepository
-	inviteCodes    port.InviteCodeRepository
-	health         port.HealthConditionRepository
-	userHealth     port.UserHealthConditionRepository
-	bodyComp       port.BodyCompositionRepository
-	userBodyComp   port.UserBodyCompositionRepository
-	menstrual      port.MenstrualCycleRepository
-	userMenstrual  port.UserMenstrualRepository
-	achievements   port.AchievementRepository
-	achievementsEx port.AchievementRepositoryEx
-	devices        port.DeviceRepository
-	emailVerifs    port.EmailVerificationRepository
-	refreshTokens  port.RefreshTokenRepository
+	users           port.UserRepository
+	profiles        port.ProfileRepository
+	invites         port.InviteRepository
+	inviteCodes     port.InviteCodeRepository
+	health          port.HealthConditionRepository
+	userHealth      port.UserHealthConditionRepository
+	bodyComp        port.BodyCompositionRepository
+	userBodyComp    port.UserBodyCompositionRepository
+	menstrual       port.MenstrualCycleRepository
+	userMenstrual   port.UserMenstrualRepository
+	achievements    port.AchievementRepository
+	achievementsEx  port.AchievementRepositoryEx
+	devices         port.DeviceRepository
+	emailVerifs     port.EmailVerificationRepository
+	refreshTokens   port.RefreshTokenRepository
 	externalSecrets port.ExternalSecretRepository
-	survey         port.SurveyRepository
+	survey          port.SurveyRepository
 }
 
 type UserServiceConfig struct {
-	Users          port.UserRepository
-	Profiles       port.ProfileRepository
-	Invites        port.InviteRepository
-	InviteCodes    port.InviteCodeRepository
-	Health         port.HealthConditionRepository
-	UserHealth     port.UserHealthConditionRepository
-	BodyComp       port.BodyCompositionRepository
-	UserBodyComp   port.UserBodyCompositionRepository
-	Menstrual      port.MenstrualCycleRepository
-	UserMenstrual  port.UserMenstrualRepository
-	Achievements   port.AchievementRepository
-	AchievementsEx port.AchievementRepositoryEx
-	Devices        port.DeviceRepository
-	EmailVerifs    port.EmailVerificationRepository
-	RefreshTokens  port.RefreshTokenRepository
+	Users           port.UserRepository
+	Profiles        port.ProfileRepository
+	Invites         port.InviteRepository
+	InviteCodes     port.InviteCodeRepository
+	Health          port.HealthConditionRepository
+	UserHealth      port.UserHealthConditionRepository
+	BodyComp        port.BodyCompositionRepository
+	UserBodyComp    port.UserBodyCompositionRepository
+	Menstrual       port.MenstrualCycleRepository
+	UserMenstrual   port.UserMenstrualRepository
+	Achievements    port.AchievementRepository
+	AchievementsEx  port.AchievementRepositoryEx
+	Devices         port.DeviceRepository
+	EmailVerifs     port.EmailVerificationRepository
+	RefreshTokens   port.RefreshTokenRepository
 	ExternalSecrets port.ExternalSecretRepository
-	Survey         port.SurveyRepository
+	Survey          port.SurveyRepository
 }
 
 func (s *userService) SaveSurvey(ctx context.Context, userID string, survey map[string]interface{}, completed bool, completedAt *time.Time) error {
@@ -60,23 +60,23 @@ func (s *userService) LoadSurvey(ctx context.Context, userID string) (map[string
 
 func NewUserService(cfg UserServiceConfig) UserService {
 	return &userService{
-		users:          cfg.Users,
-		profiles:       cfg.Profiles,
-		invites:        cfg.Invites,
-		inviteCodes:    cfg.InviteCodes,
-		health:         cfg.Health,
-		userHealth:     cfg.UserHealth,
-		bodyComp:       cfg.BodyComp,
-		userBodyComp:   cfg.UserBodyComp,
-		menstrual:      cfg.Menstrual,
-		userMenstrual:  cfg.UserMenstrual,
-		achievements:   cfg.Achievements,
-		achievementsEx: cfg.AchievementsEx,
-		devices:        cfg.Devices,
-		emailVerifs:    cfg.EmailVerifs,
-		refreshTokens:  cfg.RefreshTokens,
+		users:           cfg.Users,
+		profiles:        cfg.Profiles,
+		invites:         cfg.Invites,
+		inviteCodes:     cfg.InviteCodes,
+		health:          cfg.Health,
+		userHealth:      cfg.UserHealth,
+		bodyComp:        cfg.BodyComp,
+		userBodyComp:    cfg.UserBodyComp,
+		menstrual:       cfg.Menstrual,
+		userMenstrual:   cfg.UserMenstrual,
+		achievements:    cfg.Achievements,
+		achievementsEx:  cfg.AchievementsEx,
+		devices:         cfg.Devices,
+		emailVerifs:     cfg.EmailVerifs,
+		refreshTokens:   cfg.RefreshTokens,
 		externalSecrets: cfg.ExternalSecrets,
-		survey:         cfg.Survey,
+		survey:          cfg.Survey,
 	}
 }
 

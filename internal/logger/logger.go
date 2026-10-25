@@ -2,8 +2,8 @@
 package logger
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
+	"github.com/MAMUER/project/internal/sanitize"
 	"log"
 	"os"
 	"time"

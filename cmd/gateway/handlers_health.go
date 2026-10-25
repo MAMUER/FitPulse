@@ -110,10 +110,10 @@ func (g *gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":       status,
-		"service":      "gateway",
-		"timestamp":    time.Now().UTC().Format(time.RFC3339),
-		"services":     services,
-		"classifier":   g.classifierURL,
+		"status":     status,
+		"service":    "gateway",
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		"services":   services,
+		"classifier": g.classifierURL,
 	})
 }

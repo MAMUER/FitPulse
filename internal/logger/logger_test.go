@@ -517,7 +517,7 @@ func TestFromContext(t *testing.T) {
 			fieldMap[f.Key] = f
 		}
 
-			assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
+		assert.Equal(t, "corr-123", fieldMap["correlationId"].String)
 		assert.Equal(t, "user-456", fieldMap["userId"].String)
 	})
 

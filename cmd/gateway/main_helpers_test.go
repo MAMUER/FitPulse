@@ -13,12 +13,12 @@ import (
 
 func TestExtractPublicHost(t *testing.T) {
 	cases := map[string]string{
-		"https://fitpulse.example.com":   "fitpulse.example.com",
-		"http://localhost:8080":          "localhost:8080",
-		"https://a.b.c/x?y=1":            "a.b.c",
-		"":                               "",
-		"not-a-url":                      "",
-		"https://fitpulse.example.com/":  "fitpulse.example.com",
+		"https://fitpulse.example.com":  "fitpulse.example.com",
+		"http://localhost:8080":         "localhost:8080",
+		"https://a.b.c/x?y=1":           "a.b.c",
+		"":                              "",
+		"not-a-url":                     "",
+		"https://fitpulse.example.com/": "fitpulse.example.com",
 	}
 	for in, want := range cases {
 		assert.Equal(t, want, extractPublicHost(in), "вход: %q", in)

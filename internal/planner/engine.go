@@ -16,13 +16,13 @@ type PlanConstraints struct {
 }
 
 type Biometrics struct {
-	HRV          float64
-	HeartRate    float64
-	Spo2         float64
-	SleepHours   float64
-	Temperature  float64
-	SystolicBP   float64
-	DiastolicBP  float64
+	HRV         float64
+	HeartRate   float64
+	Spo2        float64
+	SleepHours  float64
+	Temperature float64
+	SystolicBP  float64
+	DiastolicBP float64
 }
 
 func toInt32(v int) int32 {
@@ -66,31 +66,31 @@ func GeneratePlanFromTemplate(
 				exerciseCount = 1
 			}
 			exercises := make([]*entity.PlanExercise, 0, exerciseCount)
-		for exIdx, exName := range tpl.Exercises {
-			exercises = append(exercises, &entity.PlanExercise{
-				ExerciseName:    exName,
-				DurationMinutes: toInt32(duration / len(availableDays) / exerciseCount),
-				Intensity:       intensity,
-				Sets:            3,
-				Reps:            12,
-			RestSeconds: toInt32(int(float64(duration/len(availableDays)) * tpl.RestRatio)),
-				SortOrder:       toInt32(exIdx),
+			for exIdx, exName := range tpl.Exercises {
+				exercises = append(exercises, &entity.PlanExercise{
+					ExerciseName:    exName,
+					DurationMinutes: toInt32(duration / len(availableDays) / exerciseCount),
+					Intensity:       intensity,
+					Sets:            3,
+					Reps:            12,
+					RestSeconds:     toInt32(int(float64(duration/len(availableDays)) * tpl.RestRatio)),
+					SortOrder:       toInt32(exIdx),
+				})
+			}
+			days = append(days, &entity.PlanDay{
+				DayOfWeek:            toInt32(dayOfWeek),
+				IsRestDay:            false,
+				TotalDurationMinutes: toInt32(duration / len(availableDays)),
+				Notes:                "",
+				Exercises:            exercises,
 			})
 		}
-		days = append(days, &entity.PlanDay{
-			DayOfWeek:            toInt32(dayOfWeek),
-			IsRestDay:            false,
-			TotalDurationMinutes: toInt32(duration / len(availableDays)),
-			Notes:                "",
-			Exercises:            exercises,
+		weeks = append(weeks, &entity.PlanWeek{
+			WeekNumber:           toInt32(week),
+			TotalTrainingDays:    toInt32(len(availableDays)),
+			TotalDurationMinutes: toInt32(duration / constraints.DurationWeeks),
+			Days:                 days,
 		})
-		}
-	weeks = append(weeks, &entity.PlanWeek{
-		WeekNumber:        toInt32(week),
-		TotalTrainingDays: toInt32(len(availableDays)),
-		TotalDurationMinutes: toInt32(duration / constraints.DurationWeeks),
-		Days:              days,
-	})
 	}
 
 	plan := &entity.TrainingPlan{
@@ -98,9 +98,9 @@ func GeneratePlanFromTemplate(
 		DurationWeeks:  constraints.DurationWeeks,
 		AvailableDays:  availableDays,
 		PlanData: map[string]interface{}{
-			"name":    tpl.NameRu,
-			"class":   classification,
-			"weeks":   len(weeks),
+			"name":      tpl.NameRu,
+			"class":     classification,
+			"weeks":     len(weeks),
 			"intensity": intensity,
 		},
 	}

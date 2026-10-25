@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
+	"github.com/MAMUER/project/internal/sanitize"
 	"strings"
 
 	"go.uber.org/zap"

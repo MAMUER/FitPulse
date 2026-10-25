@@ -344,7 +344,7 @@ func TestClassifyWithDelta_PersonalClassifier(t *testing.T) {
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
 	s := &classifierServer{
-		log:            nil,
+		log:                nil,
 		personalClassifier: pc,
 	}
 

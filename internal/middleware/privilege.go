@@ -2,9 +2,9 @@
 package middleware
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 
 	"go.uber.org/zap"

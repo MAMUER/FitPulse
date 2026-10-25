@@ -1,11 +1,11 @@
 package queue
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"io"
 	"sync"
 	"time"

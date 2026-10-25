@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"encoding/json"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 	"time"
 
@@ -26,8 +26,8 @@ import (
 // @Router       /api/v1/survey [post]
 func (g *gateway) saveSurveyHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Survey           map[string]interface{} `json:"survey"`
-		SurveyCompleted  bool                   `json:"survey_completed"`
+		Survey          map[string]interface{} `json:"survey"`
+		SurveyCompleted bool                   `json:"survey_completed"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -49,8 +49,8 @@ func (g *gateway) saveSurveyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := g.userClient.SaveSurvey(ctx, &userpb.SaveSurveyRequest{
-		UserId:           userID,
-		Survey:           mustStruct(req.Survey),
+		UserId:            userID,
+		Survey:            mustStruct(req.Survey),
 		SurveyCompleted:   req.SurveyCompleted,
 		SurveyCompletedAt: mustTimestamp(completedAt),
 	})
@@ -95,9 +95,9 @@ func (g *gateway) loadSurveyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":           resp.Status,
-		"survey":           survey,
-		"survey_completed": resp.SurveyCompleted,
+		"status":              resp.Status,
+		"survey":              survey,
+		"survey_completed":    resp.SurveyCompleted,
 		"survey_completed_at": resp.SurveyCompletedAt.AsTime().Format(time.RFC3339),
 	})
 }

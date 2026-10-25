@@ -115,7 +115,7 @@ type userServer struct {
 
 	baseURL string
 
-	yandexClientID     string
+	yandexClientID string
 
 	yandexClientSecret string
 
@@ -370,11 +370,8 @@ func (s *userServer) createRegisteredUser(ctx context.Context, req *pb.RegisterR
 	if s.auditLogger != nil {
 
 		s.auditLogger.Log(audit.NewEvent(serviceName, audit.EventTypePIIAccess, "register", "user").
-
 			WithUser(userID).
-
 			WithFields("email", "full_name", "role").
-
 			WithMetadata("email_hash", db.EmailHash(email)))
 
 	}
@@ -662,7 +659,6 @@ func (s *userServer) AuthenticateYandex(ctx context.Context, req *pb.Authenticat
 		UserId: userID,
 
 		Role: role,
-
 	}, nil
 
 }
@@ -865,9 +861,9 @@ func (s *userServer) LoadSurvey(ctx context.Context, req *pb.LoadSurveyRequest) 
 	}
 
 	resp := &pb.LoadSurveyResponse{
-		Status:           "ok",
-		Survey:           surveyStruct,
-		SurveyCompleted:  completed,
+		Status:          "ok",
+		Survey:          surveyStruct,
+		SurveyCompleted: completed,
 	}
 
 	if completedAt != nil {
@@ -1340,22 +1336,22 @@ func (s *userServer) RemoveProfilePhoto(ctx context.Context, req *pb.RemoveProfi
 // userToProfile converts an entity.User to a pb.UserProfile.
 func userToProfile(user *entity.User) *pb.UserProfile {
 	return &pb.UserProfile{
-		UserId:           user.ID,
-		Email:            user.Email,
-		FullName:         user.FullName,
-		Nickname:         user.Nickname,
-		ProfilePhotoUrl:  user.ProfilePhotoURL,
-		Role:             user.Role,
-		Age:              user.Age,
-		Gender:           user.Gender,
-		HeightCm:         user.HeightCm,
-		WeightKg:         user.WeightKg,
-		FitnessLevel:     user.FitnessLevel,
-		Goals:            user.Goals,
-		Nutrition:        user.Nutrition,
-		SleepHours:       user.SleepHours,
-		CreatedAt:        user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        user.UpdatedAt.Format(time.RFC3339),
+		UserId:          user.ID,
+		Email:           user.Email,
+		FullName:        user.FullName,
+		Nickname:        user.Nickname,
+		ProfilePhotoUrl: user.ProfilePhotoURL,
+		Role:            user.Role,
+		Age:             user.Age,
+		Gender:          user.Gender,
+		HeightCm:        user.HeightCm,
+		WeightKg:        user.WeightKg,
+		FitnessLevel:    user.FitnessLevel,
+		Goals:           user.Goals,
+		Nutrition:       user.Nutrition,
+		SleepHours:      user.SleepHours,
+		CreatedAt:       user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       user.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -3373,7 +3369,7 @@ type userServerConfig struct {
 
 	baseURL string
 
-	yandexClientID     string
+	yandexClientID string
 
 	yandexClientSecret string
 
@@ -3444,7 +3440,7 @@ func buildUserServer(cfg userServerConfig) *userServer {
 
 		baseURL: cfg.baseURL,
 
-		yandexClientID:     cfg.yandexClientID,
+		yandexClientID: cfg.yandexClientID,
 
 		yandexClientSecret: cfg.yandexClientSecret,
 
@@ -3633,7 +3629,7 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 		baseURL: secrets.baseURL,
 
-		yandexClientID:     secrets.yandexClientID,
+		yandexClientID: secrets.yandexClientID,
 
 		yandexClientSecret: secrets.yandexClientSecret,
 

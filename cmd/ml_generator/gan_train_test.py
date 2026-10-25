@@ -119,8 +119,8 @@ for _name, _value in [
     (
         "save",
         lambda obj, path: (
-            Path(path).parent.mkdir(parents=True, exist_ok=True),  # type: ignore[func-returns-value]
-            Path(path).touch(),  # type: ignore[func-returns-value]
+            Path(path).parent.mkdir(parents=True, exist_ok=True),
+            Path(path).touch(),
         )[1],
     ),
     (

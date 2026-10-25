@@ -4,28 +4,28 @@ package entity
 import "time"
 
 type User struct {
-	ID              string
-	Email           string
-	PasswordHash    string
-	FullName        string
-	Role            string
-	EmailVerified   bool
-	Nickname        string
-	ProfilePhotoURL string
-	Age             int32
-	Gender          string
-	HeightCm        int32
-	WeightKg        float64
-	FitnessLevel    string
-	Goals           []string
-	Nutrition       string
-	SleepHours      float32
-	SurveyData      map[string]interface{}
-	SurveyCompleted bool
-	SurveyCompletedAt *time.Time
+	ID                 string
+	Email              string
+	PasswordHash       string
+	FullName           string
+	Role               string
+	EmailVerified      bool
+	Nickname           string
+	ProfilePhotoURL    string
+	Age                int32
+	Gender             string
+	HeightCm           int32
+	WeightKg           float64
+	FitnessLevel       string
+	Goals              []string
+	Nutrition          string
+	SleepHours         float32
+	SurveyData         map[string]interface{}
+	SurveyCompleted    bool
+	SurveyCompletedAt  *time.Time
 	AIAssistantEnabled bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type BiometricRecord struct {
@@ -40,15 +40,15 @@ type BiometricRecord struct {
 }
 
 type TrainingPlan struct {
-	ID             string
-	UserID         string
-	Classification string
-	DurationWeeks  int
-	AvailableDays  []int
+	ID              string
+	UserID          string
+	Classification  string
+	DurationWeeks   int
+	AvailableDays   []int
 	TemplateVersion string
-	PlanData       map[string]interface{}
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	PlanData        map[string]interface{}
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type HealthCondition struct {

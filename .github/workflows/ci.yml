@@ -1806,9 +1806,63 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: always()
+    needs:
+      [
+        detect-changes,
+        issue-automation,
+        frontend,
+        validate-workflow,
+        dockerfile-lint,
+        super-linter,
+        codeql,
+        dependency-review,
+        kubescape,
+        semgrep,
+        osv-scanner,
+        fuzz-tests,
+        security-scan,
+        sonarcloud,
+        check,
+        test,
+        contract,
+        binary_build,
+        docker,
+        slsa-provenance,
+        provision-k8s-vps,
+        deploy-staging,
+        test-staging,
+        playwright-e2e,
+        health-check,
+        csp-headers-check,
+        smoke-test,
+        deploy-vps,
+        deploy-production,
+        test-production,
+        conventional-commits,
+      ]
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Build Telegram message
+        id: msg
+        env:
+          JOBS: ${{ toJson(needs) }}
+        run: |
+          failed=""
+          for key in $(echo "$JOBS" | python3 -c "import json,sys; print(' '.join(json.load(sys.stdin).keys()))"); do
+            result=$(echo "$JOBS" | python3 -c "import json,sys; print(json.load(sys.stdin)['$key']['result'])")
+            if [ "$result" = "failure" ]; then
+              failed="$failed\n  - $key"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "status=❌ CI/CD ОШИБКА" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=✅ CI/CD УСПЕШНО" >> "$GITHUB_OUTPUT"
+          fi
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
       - name: Send to Telegram
         if: always()
         uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1
@@ -1818,10 +1872,11 @@ jobs:
           format: html
           disable_web_page_preview: true
           message: |
-            <b>CI/CD</b>
+            <b>${{ steps.msg.outputs.status }}</b>
             <code>${{ github.repository }}</code> @ <code>${{ github.ref_name }}</code>
             Commit: <a href="https://github.com/${{ github.repository }}/commit/${{ github.sha }}">{{ github.sha }}</a>
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Открыть запуск</a>
+            ${{ steps.msg.outputs.failed }}
 
   # ============================================================================
   # DEPENDABOT AUTO-MERGE

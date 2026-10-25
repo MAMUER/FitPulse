@@ -20,9 +20,9 @@ type mlFeedbackRequest struct {
 
 // mlFeedbackResponse represents the response body for ml feedback
 type mlFeedbackResponse struct {
-	Status      string    `json:"status"`
-	FeedbackID  string    `json:"feedback_id"`
-	Timestamp   time.Time `json:"timestamp"`
+	Status     string    `json:"status"`
+	FeedbackID string    `json:"feedback_id"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 // handleMLFeedback handles POST /api/v1/ml/feedback
@@ -59,9 +59,9 @@ func (g *gateway) handleMLFeedback(w http.ResponseWriter, r *http.Request) {
 	)
 
 	resp := mlFeedbackResponse{
-		Status:      "success",
-		FeedbackID:  feedbackID,
-		Timestamp:   timestamp,
+		Status:     "success",
+		FeedbackID: feedbackID,
+		Timestamp:  timestamp,
 	}
 
 	g.writeJSON(w, http.StatusOK, resp)

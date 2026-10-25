@@ -148,10 +148,10 @@ func TestSurveyRepositoryPGX_LoadSurvey_QueryError(t *testing.T) {
 }
 
 type mockRowForSurveyData struct {
-	jsonData []byte
-	completed bool
+	jsonData    []byte
+	completed   bool
 	completedAt *time.Time
-	scanErr error
+	scanErr     error
 }
 
 func (m *mockRowForSurveyData) Scan(dest ...interface{}) error {

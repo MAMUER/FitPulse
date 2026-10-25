@@ -2,10 +2,10 @@
 package middleware
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net"
 	"net/http"
 	"runtime/debug"

@@ -24,9 +24,9 @@ const (
 	defaultUserServiceAddr = "localhost:50051"
 	defaultTimeout         = 10 * time.Second
 
-	requesterIDFlag             = "requester-id"
-	requesterIDDescription      = "ID администратора (опционально, если задан ADMIN_CLI_JWT)"
-	requesterAndUserIDRequired  = "Ошибка: --requester-id и --id обязательны"
+	requesterIDFlag            = "requester-id"
+	requesterIDDescription     = "ID администратора (опционально, если задан ADMIN_CLI_JWT)"
+	requesterAndUserIDRequired = "Ошибка: --requester-id и --id обязательны"
 )
 
 func toInt32(v int) int32 {

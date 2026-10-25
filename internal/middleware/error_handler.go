@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net/http"
 	"time"
 

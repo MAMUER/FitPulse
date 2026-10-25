@@ -2,8 +2,8 @@
 package telemetry
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
+	"github.com/MAMUER/project/internal/sanitize"
 
 	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/trace"

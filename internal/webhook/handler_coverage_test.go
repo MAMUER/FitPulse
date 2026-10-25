@@ -247,8 +247,8 @@ func (f *failingWriteResponseWriter) Header() http.Header {
 	}
 	return f.header
 }
-func (f *failingWriteResponseWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
-func (f *failingWriteResponseWriter) WriteHeader(statusCode int)  { f.code = statusCode }
+func (f *failingWriteResponseWriter) Write([]byte) (int, error)  { return 0, errors.New("write failed") }
+func (f *failingWriteResponseWriter) WriteHeader(statusCode int) { f.code = statusCode }
 
 func TestWriteResponseEncodeError(t *testing.T) {
 	w := &failingWriteResponseWriter{}

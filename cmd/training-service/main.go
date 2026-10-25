@@ -56,13 +56,13 @@ func toInt32(v int64) int32 {
 }
 
 var trainingGoalByClass = map[string]string{
-	"recovery":             "recovery",
-	"endurance_basic":      "endurance_e1e2",
-	"endurance_threshold":  "threshold_e3",
-	"power_hiit":           "strength_hiit",
-	"overtraining":         "recovery",
-	"illness":              "recovery",
-	"unknown":              "general_fitness",
+	"recovery":            "recovery",
+	"endurance_basic":     "endurance_e1e2",
+	"endurance_threshold": "threshold_e3",
+	"power_hiit":          "strength_hiit",
+	"overtraining":        "recovery",
+	"illness":             "recovery",
+	"unknown":             "general_fitness",
 }
 
 func mapClassToTrainingGoal(classificationClass string) string {
@@ -247,13 +247,13 @@ func (s *trainingServer) loadBiometricsForUser(ctx context.Context, userID strin
 		}
 	}
 	return &planner.Biometrics{
-		HRV:          metrics["hrv"],
-		HeartRate:    metrics["heart_rate"],
-		Spo2:         metrics["spo2"],
-		SleepHours:   metrics["sleep_hours"],
-		Temperature:  metrics["temperature"],
-		SystolicBP:   metrics["systolic_pressure"],
-		DiastolicBP:  metrics["diastolic_pressure"],
+		HRV:         metrics["hrv"],
+		HeartRate:   metrics["heart_rate"],
+		Spo2:        metrics["spo2"],
+		SleepHours:  metrics["sleep_hours"],
+		Temperature: metrics["temperature"],
+		SystolicBP:  metrics["systolic_pressure"],
+		DiastolicBP: metrics["diastolic_pressure"],
 	}
 }
 

@@ -473,7 +473,7 @@ func (c *closeFailingBodyTransport) RoundTrip(req *http.Request) (*http.Response
 type closeFailingReader struct{}
 
 func (c *closeFailingReader) Read(p []byte) (int, error) { return 0, io.EOF }
-func (c *closeFailingReader) Close() error                { return errors.New("close failed") }
+func (c *closeFailingReader) Close() error               { return errors.New("close failed") }
 
 type closeFailingBody struct{ io.ReadCloser }
 

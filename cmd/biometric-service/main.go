@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/MAMUER/project/internal/sanitize"
 	"net"
 	"net/http"
 	"os/signal"
@@ -43,9 +43,9 @@ import (
 )
 
 const (
-	errRecordNotFound       = "record not found"
+	errRecordNotFound        = "record not found"
 	errMsgDeleteRecordFailed = "failed to delete record"
-	serviceName             = "biometric-service"
+	serviceName              = "biometric-service"
 )
 
 type biometricServer struct {

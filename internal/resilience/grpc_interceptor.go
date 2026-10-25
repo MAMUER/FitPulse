@@ -2,9 +2,9 @@
 package resilience
 
 import (
-	"github.com/MAMUER/project/internal/sanitize"
 	"context"
 	"errors"
+	"github.com/MAMUER/project/internal/sanitize"
 	"strings"
 	"sync"
 

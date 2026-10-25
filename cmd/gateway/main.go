@@ -33,6 +33,7 @@ import (
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
+	"github.com/MAMUER/project/internal/db"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
@@ -40,7 +41,6 @@ import (
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/withings"
-	"github.com/MAMUER/project/internal/db"
 )
 
 type gateway struct {
@@ -264,17 +264,17 @@ func connectGatewayDatabase(log *logger.Logger, cfg gatewayConfig) *sql.DB {
 
 	database, err := db.NewConnection(db.Config{
 
-		Host:     cfg.dbHost,
+		Host: cfg.dbHost,
 
-		Port:     cfg.dbPort,
+		Port: cfg.dbPort,
 
-		User:     cfg.dbUser,
+		User: cfg.dbUser,
 
 		Password: cfg.dbPassword,
 
-		DBName:   cfg.dbName,
+		DBName: cfg.dbName,
 
-		SSLMode:  cfg.dbSSLMode,
+		SSLMode: cfg.dbSSLMode,
 	})
 
 	if err != nil {
@@ -344,23 +344,23 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		withingsClientSecret: config.GetEnv("WITHINGS_CLIENT_SECRET"),
 
-	withingsRedirectURL: "",
+		withingsRedirectURL: "",
 
-	withingsAPIBaseURL: config.GetEnv("WITHINGS_API_BASE_URL", "https://wbsapi.withings.net"),
+		withingsAPIBaseURL: config.GetEnv("WITHINGS_API_BASE_URL", "https://wbsapi.withings.net"),
 
-	corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
+		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
 
-	dbHost:     config.GetEnv("DB_HOST", "postgres-service.fitness-platform-production.svc.cluster.local"),
+		dbHost: config.GetEnv("DB_HOST", "postgres-service.fitness-platform-production.svc.cluster.local"),
 
-	dbPort:     config.GetEnv("DB_PORT", "5432"),
+		dbPort: config.GetEnv("DB_PORT", "5432"),
 
-	dbUser:     config.GetEnv("POSTGRES_USER", "fitpulse_app"),
+		dbUser: config.GetEnv("POSTGRES_USER", "fitpulse_app"),
 
-	dbPassword: config.GetEnv("POSTGRES_PASSWORD", ""),
+		dbPassword: config.GetEnv("POSTGRES_PASSWORD", ""),
 
-	dbName:     config.GetEnv("POSTGRES_DB", "fitness_platform"),
+		dbName: config.GetEnv("POSTGRES_DB", "fitness_platform"),
 
-	dbSSLMode:  config.GetEnv("DB_SSLMODE", "require"),
+		dbSSLMode: config.GetEnv("DB_SSLMODE", "require"),
 	}
 
 	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
@@ -427,7 +427,7 @@ func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 
 		Endpoint: oauth2.Endpoint{ //nolint:gosec // G101: public OAuth endpoint URLs, not credentials
 
-			AuthURL:  "https://oauth.yandex.ru/authorize",
+			AuthURL: "https://oauth.yandex.ru/authorize",
 
 			TokenURL: "https://oauth.yandex.ru/token",
 		},
@@ -465,15 +465,15 @@ func buildWithingsClient(log *logger.Logger, cfg gatewayConfig) *withings.Within
 
 	return withings.NewClient(&withings.Config{
 
-		ClientID:     cfg.withingsClientID,
+		ClientID: cfg.withingsClientID,
 
 		ClientSecret: cfg.withingsClientSecret,
 
-		RedirectURL:  redirectURL,
+		RedirectURL: redirectURL,
 
-		APIBaseURL:   apiBaseURL,
+		APIBaseURL: apiBaseURL,
 
-		Scopes:       withings.DefaultScopes(),
+		Scopes: withings.DefaultScopes(),
 	}, log.Logger)
 
 }

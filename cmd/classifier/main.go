@@ -21,18 +21,18 @@ import (
 )
 
 type classifierServer struct {
-	log               *logger.Logger
-	onnxClassifier    *ONNXClassifier
+	log                *logger.Logger
+	onnxClassifier     *ONNXClassifier
 	personalClassifier *PersonalDeltaClassifier
 }
 
 const (
-	trainingClassCount = 7
-	contentTypeJSON    = "application/json"
-	headerContentType  = "Content-Type"
-	mlSwitchThreshold  = 0.85
-	modelRuleBased     = "rule-based"
-	modelML            = "ml"
+	trainingClassCount    = 7
+	contentTypeJSON       = "application/json"
+	headerContentType     = "Content-Type"
+	mlSwitchThreshold     = 0.85
+	modelRuleBased        = "rule-based"
+	modelML               = "ml"
 	errMethodNotSupported = "Метод не поддерживается"
 )
 

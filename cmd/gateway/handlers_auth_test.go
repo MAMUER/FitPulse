@@ -430,7 +430,6 @@ func TestAuth_EmailConfirmPageHandler_Success(t *testing.T) {
 		}
 	})
 
-
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
@@ -2710,7 +2709,6 @@ func TestAuth_EmailConfirmPageHandler_WriteFailure(t *testing.T) {
 			t.Logf("chdir cleanup error: %v", cErr)
 		}
 	})
-
 
 	g := newTestGateway()
 

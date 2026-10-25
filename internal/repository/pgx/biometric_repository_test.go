@@ -29,12 +29,12 @@ func (m *mockDBForBiometric) Query(ctx context.Context, query string, args ...an
 }
 
 type mockRowsForBiometric struct {
-	scanErr  error
-	rowsErr  error
+	scanErr   error
+	rowsErr   error
 	nextCount int
 }
 
-func (m *mockRowsForBiometric) Close()                       {}
+func (m *mockRowsForBiometric) Close() {}
 func (m *mockRowsForBiometric) Next() bool {
 	if m.nextCount > 0 {
 		m.nextCount--
@@ -42,19 +42,19 @@ func (m *mockRowsForBiometric) Next() bool {
 	}
 	return false
 }
-func (m *mockRowsForBiometric) Err() error                   { return m.rowsErr }
-func (m *mockRowsForBiometric) Scan(...any) error            { return m.scanErr }
+func (m *mockRowsForBiometric) Err() error        { return m.rowsErr }
+func (m *mockRowsForBiometric) Scan(...any) error { return m.scanErr }
 func (m *mockRowsForBiometric) CommandTag() pgconn.CommandTag {
 	return pgconn.CommandTag{}
 }
-func (m *mockRowsForBiometric) Columns() []string             { return nil }
-func (m *mockRowsForBiometric) RawValues() [][]byte           { return nil }
-func (m *mockRowsForBiometric) Conn() *pgx.Conn                   { return nil }
+func (m *mockRowsForBiometric) Columns() []string   { return nil }
+func (m *mockRowsForBiometric) RawValues() [][]byte { return nil }
+func (m *mockRowsForBiometric) Conn() *pgx.Conn     { return nil }
 func (m *mockRowsForBiometric) FieldDescriptions() []pgconn.FieldDescription {
 	return nil
 }
-func (m *mockRowsForBiometric) TypeMap() *pgtype.Map            { return nil }
-func (m *mockRowsForBiometric) Values() ([]any, error)          { return nil, nil }
+func (m *mockRowsForBiometric) TypeMap() *pgtype.Map   { return nil }
+func (m *mockRowsForBiometric) Values() ([]any, error) { return nil, nil }
 
 func (m *mockDBForBiometric) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	if m.queryRowFunc != nil {
@@ -223,19 +223,19 @@ func (m *mockTxExecErr) Query(ctx context.Context, query string, args ...any) (p
 func (m *mockTxExecErr) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	return &mockRowForBiometric{}
 }
-func (m *mockTxExecErr) Begin(ctx context.Context) (pgx.Tx, error)        { return m, nil }
-func (m *mockTxExecErr) Commit(ctx context.Context) error                  { return nil }
-func (m *mockTxExecErr) Rollback(ctx context.Context) error                { return nil }
-func (m *mockTxExecErr) Conn() *pgx.Conn                                    { return nil }
+func (m *mockTxExecErr) Begin(ctx context.Context) (pgx.Tx, error) { return m, nil }
+func (m *mockTxExecErr) Commit(ctx context.Context) error          { return nil }
+func (m *mockTxExecErr) Rollback(ctx context.Context) error        { return nil }
+func (m *mockTxExecErr) Conn() *pgx.Conn                           { return nil }
 func (m *mockTxExecErr) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
 	return 0, nil
 }
 func (m *mockTxExecErr) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults { return nil }
-func (m *mockTxExecErr) LargeObjects() pgx.LargeObjects                             { var lo pgx.LargeObjects; return lo }
-func (m *mockTxExecErr) PgConn() *pgconn.PgConn                                     { return nil }
-func (m *mockTxExecErr) Close() error                                               { return nil }
-func (m *mockTxExecErr) Ping(ctx context.Context) error                             { return nil }
-func (m *mockTxExecErr) TypeMap() *pgtype.Map                                       { return nil }
+func (m *mockTxExecErr) LargeObjects() pgx.LargeObjects                               { var lo pgx.LargeObjects; return lo }
+func (m *mockTxExecErr) PgConn() *pgconn.PgConn                                       { return nil }
+func (m *mockTxExecErr) Close() error                                                 { return nil }
+func (m *mockTxExecErr) Ping(ctx context.Context) error                               { return nil }
+func (m *mockTxExecErr) TypeMap() *pgtype.Map                                         { return nil }
 func (m *mockTxExecErr) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
 	return nil, nil
 }
@@ -424,14 +424,25 @@ type mockRowsSimple struct {
 
 func (m *mockRowsSimple) Close()                                       {}
 func (m *mockRowsSimple) Err() error                                   { return m.err }
-func (m *mockRowsSimple) CommandTag() pgconn.CommandTag                 { return pgconn.CommandTag{} }
+func (m *mockRowsSimple) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (m *mockRowsSimple) FieldDescriptions() []pgconn.FieldDescription { return nil }
-func (m *mockRowsSimple) Next() bool                                    { if m.next { m.next = false; return true }; return false }
-func (m *mockRowsSimple) Scan(dest ...any) error                        { if m.scan != nil { return m.scan(dest...) }; return nil }
-func (m *mockRowsSimple) Values() ([]interface{}, error)               { return nil, nil }
-func (m *mockRowsSimple) RawValues() [][]byte                           { return nil }
-func (m *mockRowsSimple) Conn() *pgx.Conn                               { return nil }
-func (m *mockRowsSimple) TypeMap() *pgtype.Map                          { return nil }
+func (m *mockRowsSimple) Next() bool {
+	if m.next {
+		m.next = false
+		return true
+	}
+	return false
+}
+func (m *mockRowsSimple) Scan(dest ...any) error {
+	if m.scan != nil {
+		return m.scan(dest...)
+	}
+	return nil
+}
+func (m *mockRowsSimple) Values() ([]interface{}, error) { return nil, nil }
+func (m *mockRowsSimple) RawValues() [][]byte            { return nil }
+func (m *mockRowsSimple) Conn() *pgx.Conn                { return nil }
+func (m *mockRowsSimple) TypeMap() *pgtype.Map           { return nil }
 
 type mockDBQueryRowsScanErr struct{}
 
@@ -557,7 +568,7 @@ func TestBiometricRepositoryPGX_BatchCreate_ReturnsInsertedCount(t *testing.T) {
 		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
 			return &mockTxForBiometric{}, nil
 		},
-execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+		execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
 			return pgconn.NewCommandTag("INSERT 2"), nil
 		},
 	})
@@ -613,11 +624,11 @@ func TestBiometricRepositoryPGX_Update_ReturnsRecord(t *testing.T) {
 	ctx := context.Background()
 
 	record := &entity.BiometricRecord{
-		ID:        "r1",
-		UserID:    "user-1",
+		ID:         "r1",
+		UserID:     "user-1",
 		MetricType: "heart_rate",
-		Value:     75.0,
-		Timestamp: time.Now(),
+		Value:      75.0,
+		Timestamp:  time.Now(),
 	}
 
 	result, err := repo.Update(ctx, record)
