@@ -1176,7 +1176,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, security-scan]
+    needs: [detect-changes]
     timeout-minutes: 120
     if: >-
       needs.detect-changes.outputs.ci == 'true' &&

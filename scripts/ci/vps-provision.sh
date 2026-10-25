@@ -203,21 +203,26 @@ fi
 
 start_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo \"-> Starting k3s...\"
-systemctl daemon-reload
-systemctl enable --now k3s
-echo \"-> Waiting for readiness...\"
+set -euo pipefail
+echo '-> Starting k3s...'
+sudo systemctl daemon-reload
+sudo systemctl enable --now k3s
+echo '-> Waiting for readiness...'
 for i in \$(seq 1 120); do
-	if k3s kubectl cluster-info &> /dev/null; then
+	if sudo k3s kubectl cluster-info &> /dev/null; then
 		echo \"k3s ready after \${i}s\"
 		break
 	fi
-	[ \$i -eq 120 ] && { echo \"Timeout\"; journalctl -u k3s -n 20 --no-pager; exit 1; }
+	if [ \"\$i\" -eq 120 ]; then
+		echo '? Timeout waiting for k3s'
+		sudo journalctl -u k3s -n 30 --no-pager
+		exit 1
+	fi
 	sleep 2
 done
-echo \"=== Cluster status ===\"
-k3s kubectl get nodes -o wide
-k3s kubectl get pods -A
+echo '=== Cluster status ==='
+sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl get pods -A
 "
 }
 
@@ -233,14 +238,14 @@ download_k3s() {
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-echo \"-> Moving k3s binary to /usr/local/bin...\"
-sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s || mv /tmp/k3s-install/k3s /usr/local/bin/k3s
-sudo chmod +x /usr/local/bin/k3s || chmod +x /usr/local/bin/k3s
-echo \"-> Running k3s install script with Docker runtime...\"
+echo '-> Moving k3s binary to /usr/local/bin...'
+sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s
+sudo chmod +x /usr/local/bin/k3s
+echo '-> Running k3s install script (using built-in containerd)...'
 export INSTALL_K3S_SKIP_DOWNLOAD=true
 chmod +x /tmp/k3s-install/install.sh
-sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker || /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644 --docker
-echo \"k3s installed successfully\"
+sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644
+echo 'k3s installed successfully'
 rm -rf /tmp/k3s-install
 "
 }
