@@ -662,3 +662,133 @@ func TestReencryptPIIFromPgcrypto_Executes(t *testing.T) {
 	reencryptPIIFromPgcrypto(ctx, mockDB, log)
 	_ = mock
 }
+
+// ---------------------------------------------------------------------------
+// migrateTablePII tests
+// ---------------------------------------------------------------------------
+
+func TestMigrateTablePII_InvalidTable(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "nonexistent_table", idCol: "id", pairs: []pair{{enc: "col_encrypted", plain: "col"}}}
+	migrateTablePII(ctx, mockDB, log, tbl, "key", 1)
+	// Should return early without querying due to invalid table
+}
+
+func TestMigrateTablePII_QueryError(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+	mock.ExpectQuery("SELECT").WillReturnError(assert.AnError)
+
+	migrateTablePII(ctx, mockDB, log, tbl, "key", 1)
+	// Should log error and return early
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigrateTablePII_Success(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	mock.ExpectQuery("SELECT").
+		WithArgs().
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email_encrypted"}).
+			AddRow("1", "encrypted1").
+			AddRow("2", "encrypted2"))
+
+	mock.ExpectQuery("SELECT pgp_sym_decrypt").
+		WillReturnRows(sqlmock.NewRows([]string{"pgp_sym_decrypt"}).
+			AddRow("decrypted1").
+			AddRow("decrypted2"))
+
+	mock.ExpectExec("UPDATE users SET").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	migrateTablePII(ctx, mockDB, log, tbl, "key", 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigratePIIRow_Success(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	migCtx := piiMigrationContext{
+		database: mockDB,
+		log:      log,
+		t:        tbl,
+		key:      "test-key",
+		id:       1,
+	}
+
+	// convert_from returns no rows -> probe stays "", continue to pgp_sym_decrypt
+	mock.ExpectQuery("SELECT convert_from").
+		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}))
+
+	mock.ExpectQuery("SELECT pgp_sym_decrypt").
+		WillReturnRows(sqlmock.NewRows([]string{"pgp_sym_decrypt"}).AddRow("decrypted-value"))
+
+	mock.ExpectExec("UPDATE users SET").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted-value"})
+	assert.True(t, result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigratePIIRow_False(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	migCtx := piiMigrationContext{
+		database: mockDB,
+		log:      log,
+		t:        tbl,
+		key:      "key",
+		id:       1,
+	}
+
+	mock.ExpectQuery("SELECT convert_from").
+		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}))
+
+	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted"})
+	assert.False(t, result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

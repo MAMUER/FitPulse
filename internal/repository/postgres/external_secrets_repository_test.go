@@ -178,6 +178,17 @@ func TestExternalSecretsRepository_Upsert_Error(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestExternalSecretsRepository_Delete_Success(t *testing.T) {
+	repo, mock := setupExternalSecretsRepo(t)
+	ctx := context.Background()
+
+	mock.ExpectExec("DELETE FROM external_secrets").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := repo.Delete(ctx, "test")
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestExternalSecretsRepository_Delete_Error(t *testing.T) {
 	repo, mock := setupExternalSecretsRepo(t)
 	ctx := context.Background()

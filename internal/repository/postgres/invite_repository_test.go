@@ -93,6 +93,18 @@ func TestInviteCodeRepository_Create_Success(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestInviteCodeRepository_Create_WithSpecialty(t *testing.T) {
+	repo, mock := setupInviteCodeRepo(t)
+	ctx := context.Background()
+
+	mock.ExpectExec("INSERT INTO invite_codes").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	specialty := "doctor"
+	err := repo.Create(ctx, &port.InviteCode{Code: "INVITE2", Role: "coach", Specialty: &specialty, MaxUses: 3, CreatedBy: "admin"})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestInviteCodeRepository_Create_Error(t *testing.T) {
 	repo, mock := setupInviteCodeRepo(t)
 	ctx := context.Background()

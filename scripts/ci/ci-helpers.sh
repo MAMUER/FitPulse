@@ -66,10 +66,18 @@ run_coverage() {
 	NPM_TEST_EXIT=$?
 	cd ..
 
+	echo "-> Running Python tests with coverage..."
+	cd cmd/ml_generator
+	.venv/Scripts/python.exe -m coverage run --source=. -m unittest gan_train_test 2>&1
+	PY_TEST_EXIT=$?
+	.venv/Scripts/python.exe -m coverage xml -o coverage.xml 2>&1
+	cp coverage.xml ../../bin/coverage.xml
+	cd ../..
 	set -e
 
 	echo "Go tests exit code: $GO_TEST_EXIT"
 	echo "npm test exit code: $NPM_TEST_EXIT"
+	echo "Python tests exit code: $PY_TEST_EXIT"
 
 	pwd
 	ls -la bin || true

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
 	"google.golang.org/grpc"
@@ -49,6 +48,7 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/repository/postgres"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/server"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/totp"
 	"github.com/MAMUER/project/internal/validator"
@@ -813,24 +813,7 @@ func (s *userServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) 
 
 	}
 
-	profile := &pb.UserProfile{
-		UserId:           user.ID,
-		Email:            user.Email,
-		FullName:         user.FullName,
-		Nickname:         user.Nickname,
-		ProfilePhotoUrl:  user.ProfilePhotoURL,
-		Role:             user.Role,
-		Age:              user.Age,
-		Gender:           user.Gender,
-		HeightCm:         user.HeightCm,
-		WeightKg:         user.WeightKg,
-		FitnessLevel:     user.FitnessLevel,
-		Goals:            user.Goals,
-		Nutrition:        user.Nutrition,
-		SleepHours:       user.SleepHours,
-		CreatedAt:        user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        user.UpdatedAt.Format(time.RFC3339),
-	}
+	profile := userToProfile(user)
 
 	if s.auditLogger != nil {
 
@@ -3470,23 +3453,6 @@ func buildUserServer(cfg userServerConfig) *userServer {
 
 }
 
-func createMetricsServer(metricsPort string) *http.Server {
-
-	metricsMux := http.NewServeMux()
-
-	metricsMux.Handle("/metrics", promhttp.Handler())
-
-	return &http.Server{
-
-		Addr: ":" + metricsPort,
-
-		Handler: metricsMux,
-
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-}
-
 func connectDatabase(dbCfg db.Config, log *logger.Logger) *sql.DB {
 
 	database, err := db.NewConnection(dbCfg)
@@ -3831,7 +3797,7 @@ func main() {
 
 	metricsPort := config.GetEnv("USER_SERVICE_METRICS_PORT", "9096")
 
-	metricsSrv := createMetricsServer(metricsPort)
+	metricsSrv := server.CreateMetricsServer(metricsPort)
 
 	database := connectDatabase(buildDBConfig(), log)
 

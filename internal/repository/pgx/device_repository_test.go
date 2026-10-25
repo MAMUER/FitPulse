@@ -637,6 +637,20 @@ func TestDeviceRepositoryPGX_DeleteInactive_Success(t *testing.T) {
 	assert.Equal(t, int64(5), count)
 }
 
+func TestDeviceRepositoryPGX_DeleteInactive_Error(t *testing.T) {
+	repo, mock := setupDeviceRepo(t)
+	ctx := context.Background()
+
+	mock.execFunc = func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+		return pgconn.CommandTag{}, assert.AnError
+	}
+
+	count, err := repo.DeleteInactive(ctx, time.Now())
+	require.Error(t, err)
+	assert.Equal(t, int64(0), count)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+}
+
 func TestDeviceRepositoryPGX_List_ScanError(t *testing.T) {
 	repo, mock := setupDeviceRepo(t)
 	ctx := context.Background()

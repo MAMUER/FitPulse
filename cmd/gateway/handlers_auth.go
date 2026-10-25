@@ -68,7 +68,7 @@ type totpRateLimiter struct {
 	expiresAt time.Time
 }
 
-func generateOAuthState() (string, error) {
+var generateOAuthState = func() (string, error) {
 
 	b := make([]byte, 32)
 
@@ -1653,35 +1653,16 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		BackupCodes: req.BackupCodes,
 	})
 
-	if err != nil {
-
-		httpCode, errMsg := grpcToHTTPStatus(err)
-
-		g.log.Error("Failed to confirm TOTP", zap.Error(err))
-
-		http.Error(w, errMsg, httpCode)
-
+	if g.handleGRPCError(w, err, "Failed to confirm TOTP") {
 		return
-
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
+	if g.writeJSONMap(w, map[string]interface{}{
 		"success": resp.Success,
-
 		"message": resp.Message,
-	}); err != nil {
-
-		g.log.Error("Failed to encode TOTP confirm response", zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
+	}, "Failed to encode TOTP confirm response") {
 		return
-
 	}
-
 }
 
 // @Summary      Verify TOTP code
@@ -1964,35 +1945,16 @@ func (g *gateway) disableTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		Passcode: req.Passcode,
 	})
 
-	if err != nil {
-
-		httpCode, errMsg := grpcToHTTPStatus(err)
-
-		g.log.Error("Failed to disable TOTP", zap.Error(err))
-
-		http.Error(w, errMsg, httpCode)
-
+	if g.handleGRPCError(w, err, "Failed to disable TOTP") {
 		return
-
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-
+	if g.writeJSONMap(w, map[string]interface{}{
 		"success": resp.Success,
-
 		"message": resp.Message,
-	}); err != nil {
-
-		g.log.Error("Failed to encode TOTP disable response", zap.Error(err))
-
-		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
-
+	}, "Failed to encode TOTP disable response") {
 		return
-
 	}
-
 }
 
 // @Summary      Get TOTP status
@@ -2263,4 +2225,26 @@ func (g *gateway) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "Пароль изменён",
 	})
 
+}
+
+// handleGRPCError handles gRPC errors and returns true if an error was handled (response already written).
+func (g *gateway) handleGRPCError(w http.ResponseWriter, err error, msg string) bool {
+	if err == nil {
+		return false
+	}
+	httpCode, errMsg := grpcToHTTPStatus(err)
+	g.log.Error(msg, zap.Error(err))
+	http.Error(w, errMsg, httpCode)
+	return true
+}
+
+// writeJSONMap writes a map as JSON response and returns true if an error occurred (response already written).
+func (g *gateway) writeJSONMap(w http.ResponseWriter, data map[string]interface{}, errorMsg string) bool {
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		g.log.Error(errorMsg, zap.Error(err))
+		http.Error(w, "encodeResponseError", http.StatusInternalServerError)
+		return true
+	}
+	return false
 }

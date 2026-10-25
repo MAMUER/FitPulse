@@ -63,4 +63,18 @@ describe('Confirm', () => {
     await waitFor(() => expect(confirmEmail).toHaveBeenCalledWith('bad'));
     expect(await screen.findByText('bad token')).toBeInTheDocument();
   });
+
+  it('shows generic error when response has no message', async () => {
+    const confirmEmail = vi.fn().mockResolvedValue({ status: 'bad' });
+    useApp.mockReturnValue({ t: (_ru, en) => en, confirmEmail });
+    render(
+      <MemoryRouter initialEntries={['/confirm?token=bad']}>
+        <Confirm />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      const texts = screen.getAllByText('Confirmation error');
+      expect(texts.length).toBeGreaterThan(0);
+    });
+  });
 });

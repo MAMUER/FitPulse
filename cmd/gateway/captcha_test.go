@@ -460,6 +460,34 @@ func TestCaptchaMiddleware_MissingToken(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "captcha_required")
 }
 
+type closeFailingBodyTransport struct{}
+
+func (c *closeFailingBodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       closeFailingBody{ReadCloser: &closeFailingReader{}},
+		Header:     http.Header{},
+	}, nil
+}
+
+type closeFailingReader struct{}
+
+func (c *closeFailingReader) Read(p []byte) (int, error) { return 0, io.EOF }
+func (c *closeFailingReader) Close() error                { return errors.New("close failed") }
+
+type closeFailingBody struct{ io.ReadCloser }
+
+func (c closeFailingBody) Close() error { return errors.New("close failed") }
+
+func TestPostCaptcha_BodyCloseError(t *testing.T) {
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = &closeFailingBodyTransport{}
+	t.Cleanup(func() { http.DefaultTransport = origTransport })
+
+	_, err := postCaptcha("test", "http://example.com/verify", "secret", "token", "1.2.3.4")
+	require.NoError(t, err)
+}
+
 func TestGetClientIP(t *testing.T) {
 	tests := []struct {
 		name       string

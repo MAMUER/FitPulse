@@ -1715,6 +1715,65 @@ func TestPgsodiumUserRepo_CreateYandexUser_Duplicate(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestPgsodiumUserRepo_CreateYandexUser_NonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+
+	originalGenerateNonce := db.GenerateNonce
+	db.GenerateNonce = func() ([]byte, error) {
+		return nil, assert.AnError
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	_, _, _, err := repo.CreateYandexUser(ctx, "yandex-1", "email_hash", "test@example.com", "Test User", "nick", "nick_hash")
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPgsodiumUserRepo_UpdateNicknameWithPgsodium_NonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+
+	originalGenerateNonce := db.GenerateNonce
+	callCount := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		callCount++
+		if callCount == 2 {
+			return nil, assert.AnError
+		}
+		return make([]byte, 12), nil
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	err := repo.UpdateNicknameWithPgsodium(ctx, "user-1", "new_nick", []byte("nonce"), "nick_hash")
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPgsodiumUserRepo_UpdateProfilePhoto_NonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+
+	originalGenerateNonce := db.GenerateNonce
+	db.GenerateNonce = func() ([]byte, error) {
+		return nil, assert.AnError
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	err := repo.UpdateProfilePhoto(ctx, "user-1", "https://example.com/photo.jpg")
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestPgsodiumUserRepo_GetPasswordHash_Success(t *testing.T) {
 	repo, mock := setupPgsodiumUserRepo(t)
 
@@ -2722,5 +2781,79 @@ func TestPgsodiumUserRepo_ListItems_UnsupportedTable(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, apperrors.Code(err) == "INVALID_ARGUMENT")
 
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPgsodiumUserRepository_Create_EmailNonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+	user := &entity.User{
+		ID:            "user-1",
+		Email:         "test@example.com",
+		PasswordHash:  "hash",
+		FullName:      "Test User",
+		Role:          "user",
+		EmailVerified: false,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	originalGenerateNonce := db.GenerateNonce
+	db.GenerateNonce = func() ([]byte, error) {
+		return nil, assert.AnError
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	err := repo.Create(ctx, user)
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPgsodiumUserRepository_CreateYandexUser_EmailNonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+
+	originalGenerateNonce := db.GenerateNonce
+	callCount := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		callCount++
+		if callCount == 1 {
+			return nil, assert.AnError
+		}
+		return make([]byte, 12), nil
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	_, _, _, err := repo.CreateYandexUser(ctx, "yandex-1", "email_hash", "test@example.com", "Test User", "nick", "nick_hash")
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPgsodiumUserRepository_CreateYandexUser_NicknameNonceError(t *testing.T) {
+	repo, mock := setupPgsodiumUserRepo(t)
+
+	ctx := context.Background()
+
+	originalGenerateNonce := db.GenerateNonce
+	callCount := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		callCount++
+		if callCount == 2 {
+			return nil, assert.AnError
+		}
+		return make([]byte, 12), nil
+	}
+	defer func() { db.GenerateNonce = originalGenerateNonce }()
+
+	_, _, _, err := repo.CreateYandexUser(ctx, "yandex-1", "email_hash", "test@example.com", "Test User", "nick", "nick_hash")
+
+	require.Error(t, err)
+	assert.True(t, apperrors.Code(err) == "INTERNAL")
 	require.NoError(t, mock.ExpectationsWereMet())
 }

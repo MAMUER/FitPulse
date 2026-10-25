@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,6 +36,7 @@ import (
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/pgx"
 	_ "github.com/MAMUER/project/internal/repository/postgres" // registers PostgreSQL driver
+	"github.com/MAMUER/project/internal/server"
 	"github.com/MAMUER/project/internal/telemetry"
 	"github.com/MAMUER/project/internal/validator"
 	"github.com/MAMUER/project/internal/webhook"
@@ -630,16 +630,6 @@ func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
 	return grpctls.NewServer(serverOpts...)
 }
 
-func createMetricsServer(metricsPort string) *http.Server {
-	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", promhttp.Handler())
-	return &http.Server{
-		Addr:              ":" + metricsPort,
-		Handler:           metricsMux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-}
-
 func startMetricsServer(srv *http.Server, log *logger.Logger) {
 	go func() {
 		log.Info("Metrics HTTP server starting", zap.String("port", sanitize.LogString(srv.Addr)))
@@ -801,7 +791,7 @@ func createBiometricGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc
 }
 
 func buildMetricsServer(metricsPort string, log *logger.Logger) *http.Server {
-	metricsSrv := createMetricsServer(metricsPort)
+	metricsSrv := server.CreateMetricsServer(metricsPort)
 	startMetricsServer(metricsSrv, log)
 	return metricsSrv
 }

@@ -83,6 +83,22 @@ func TestHealth_CheckGRPCServiceError(t *testing.T) {
 	assert.Equal(t, "down", got)
 }
 
+func TestHealth_CheckTCPDialError(t *testing.T) {
+	got := checkTCPService(zap.NewNop(), "127.0.0.1:1")
+	assert.Equal(t, "down", got)
+}
+
+func TestHealth_CheckTCPServiceCloseError(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	addr := lis.Addr().String()
+	lis.Close()
+
+	// Make conn.Close fail by closing the listener first
+	got := checkTCPService(zap.NewNop(), addr)
+	assert.Equal(t, "down", got)
+}
+
 type mockHealthServer struct {
 	grpc_health_v1.UnimplementedHealthServer
 	serving grpc_health_v1.HealthCheckResponse_ServingStatus

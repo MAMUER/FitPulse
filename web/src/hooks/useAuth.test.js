@@ -465,6 +465,15 @@ describe('useAuth', () => {
     });
   });
 
+  it('setup2FA handles null result from api', async () => {
+    api.setup2FA.mockResolvedValue(null);
+    await act(async () => {
+      await result.current.setup2FA();
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+  });
+
   it('confirm2FA notifies on success', async () => {
     api.confirm2FA.mockResolvedValue({ success: true });
     await act(async () => {

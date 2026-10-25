@@ -25,6 +25,7 @@ venv/
 env/
 .mypy_cache/
 .pytest_cache/
+.coverage
 
 # Logs and temp files
 *.log

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -130,6 +131,23 @@ func TestWithingsLoginHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusNotImplemented, w.Code)
 		assert.Contains(t, w.Body.String(), errWithingsNotConfigured)
+	})
+
+	t.Run("generate state error", func(t *testing.T) {
+		orig := generateOAuthState
+		generateOAuthState = func() (string, error) {
+			return "", errors.New("rand failed")
+		}
+		defer func() { generateOAuthState = orig }()
+
+		g := newWithingsGateway(t, "http://127.0.0.1:1", nil)
+
+		w := httptest.NewRecorder()
+
+		g.withingsLoginHandler(w, withingsRequest("GET", "/api/v1/integrations/withings/auth"))
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "failed to generate oauth state")
 	})
 
 	t.Run("missing client id", func(t *testing.T) {

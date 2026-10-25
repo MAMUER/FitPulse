@@ -625,3 +625,14 @@ func TestPostV2UsesAPIBaseURL(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, "/api/v2/measure", recorder.path)
 }
+
+func TestPostForm_BuildRequestError(t *testing.T) {
+	client := newTestClient(newTestConfig("https://example.com"), nil)
+
+	resp, err := client.postForm(context.Background(), "ht!tp://invalid url", url.Values{}, "test-action")
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}

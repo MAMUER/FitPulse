@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/logger"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Config holds server configuration.
@@ -52,6 +53,17 @@ func DefaultConfig(port, metricsPort string) Config {
 		ShutdownTimeout: 10 * time.Second,
 	}
 
+}
+
+// CreateMetricsServer creates an HTTP server serving Prometheus metrics on the given port.
+func CreateMetricsServer(metricsPort string) *http.Server {
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	return &http.Server{
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 }
 
 // Serve starts the main and metrics servers and handles graceful shutdown.

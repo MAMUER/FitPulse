@@ -690,6 +690,7 @@ jobs:
             -Dsonar.test.inclusions=**/*_test.go,**/*.test.jsx,**/*.test.js
             -Dsonar.exclusions=api/gen/**,web/dist/**,web/node_modules/**,mocks/**,**/*_test.go,**/*.test.jsx,**/*.test.js,**/swagger.yaml,**/openapi.yaml,**/*.proto,**/*.pb.go
             -Dsonar.go.coverage.reportPaths=bin/coverage.out
+            -Dsonar.python.coverage.reportPaths=bin/coverage.xml
             -Dsonar.javascript.lcov.reportPaths=bin/lcov.info
             -Dsonar.qualitygate.wait=true
 

@@ -3,6 +3,7 @@
 FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 ENV GOPROXY=https://proxy.golang.org,direct
+ENV GOTOOLCHAIN=auto
 
 # git and ca-certificates are build-time only and not shipped in the runtime stage
 # hadolint ignore=DL3018

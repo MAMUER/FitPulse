@@ -18,11 +18,43 @@ type mockDBForBiometric struct {
 	queryRowFunc func(context.Context, string, ...interface{}) pgx.Row
 	execFunc     func(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
 	beginFunc    func(context.Context, pgx.TxOptions) (pgx.Tx, error)
+	queryFunc    func(context.Context, string, ...any) (pgx.Rows, error)
 }
 
 func (m *mockDBForBiometric) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
-	return nil, nil
+	if m.queryFunc != nil {
+		return m.queryFunc(ctx, query, args...)
+	}
+	return &mockRowsForBiometric{}, nil
 }
+
+type mockRowsForBiometric struct {
+	scanErr  error
+	rowsErr  error
+	nextCount int
+}
+
+func (m *mockRowsForBiometric) Close()                       {}
+func (m *mockRowsForBiometric) Next() bool {
+	if m.nextCount > 0 {
+		m.nextCount--
+		return true
+	}
+	return false
+}
+func (m *mockRowsForBiometric) Err() error                   { return m.rowsErr }
+func (m *mockRowsForBiometric) Scan(...any) error            { return m.scanErr }
+func (m *mockRowsForBiometric) CommandTag() pgconn.CommandTag {
+	return pgconn.CommandTag{}
+}
+func (m *mockRowsForBiometric) Columns() []string             { return nil }
+func (m *mockRowsForBiometric) RawValues() [][]byte           { return nil }
+func (m *mockRowsForBiometric) Conn() *pgx.Conn                   { return nil }
+func (m *mockRowsForBiometric) FieldDescriptions() []pgconn.FieldDescription {
+	return nil
+}
+func (m *mockRowsForBiometric) TypeMap() *pgtype.Map            { return nil }
+func (m *mockRowsForBiometric) Values() ([]any, error)          { return nil, nil }
 
 func (m *mockDBForBiometric) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	if m.queryRowFunc != nil {
@@ -53,13 +85,23 @@ func (m *mockRowForBiometric) Scan(dest ...any) error {
 	if m.scanErr != nil {
 		return m.scanErr
 	}
+	for i := range dest {
+		switch v := dest[i].(type) {
+		case *string:
+			*v = "test-value"
+		case *float64:
+			*v = 75.0
+		case *time.Time:
+			*v = time.Now()
+		}
+	}
 	return nil
 }
 
 type mockTxForBiometric struct{}
 
 func (m *mockTxForBiometric) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
+	return pgconn.NewCommandTag("INSERT 2"), nil
 }
 
 func (m *mockTxForBiometric) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
@@ -482,4 +524,167 @@ func (m *mockTxForBiometricWithCommitError) TypeMap() *pgtype.Map {
 
 func (m *mockTxForBiometricWithCommitError) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
 	return nil, nil
+}
+
+// ---------------------------------------------------------------------------
+// Additional tests for uncovered lines in biometric_repository.go
+// ---------------------------------------------------------------------------
+
+func TestBiometricRepositoryPGX_Insert_ReturnsRecord(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{scanErr: nil}
+		},
+	})
+	ctx := context.Background()
+
+	record := &entity.BiometricRecord{
+		UserID:     "user-1",
+		MetricType: "heart_rate",
+		Value:      72.0,
+		DeviceType: "watch",
+		Timestamp:  time.Now(),
+	}
+
+	result, err := repo.Create(ctx, record)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "user-1", result.UserID)
+}
+
+func TestBiometricRepositoryPGX_BatchCreate_ReturnsInsertedCount(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		beginFunc: func(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+			return &mockTxForBiometric{}, nil
+		},
+execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+			return pgconn.NewCommandTag("INSERT 2"), nil
+		},
+	})
+	ctx := context.Background()
+
+	records, err := repo.BatchCreate(ctx, []*entity.BiometricRecord{
+		{UserID: "user-1", MetricType: "heart_rate", Value: 72.5},
+		{UserID: "user-1", MetricType: "heart_rate", Value: 73.0},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 2, records)
+}
+
+func TestBiometricRepositoryPGX_GetByUserID_ReturnsRecords(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+		execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+			return pgconn.CommandTag{}, nil
+		},
+		queryFunc: func(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+			return &mockRowsForBiometric{nextCount: 1}, nil
+		},
+	})
+	ctx := context.Background()
+
+	records, err := repo.GetByUserID(ctx, "user-1", "heart_rate", 10, 0)
+	assert.NoError(t, err)
+	assert.NotNil(t, records)
+	assert.IsType(t, []*entity.BiometricRecord{}, records)
+}
+
+func TestBiometricRepositoryPGX_GetLatest_ReturnsRecord(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+	})
+	ctx := context.Background()
+
+	record, err := repo.GetLatest(ctx, "user-1", "heart_rate")
+	assert.NoError(t, err)
+	assert.NotNil(t, record)
+}
+
+func TestBiometricRepositoryPGX_Update_ReturnsRecord(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+	})
+	ctx := context.Background()
+
+	record := &entity.BiometricRecord{
+		ID:        "r1",
+		UserID:    "user-1",
+		MetricType: "heart_rate",
+		Value:     75.0,
+		Timestamp: time.Now(),
+	}
+
+	result, err := repo.Update(ctx, record)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+func TestBiometricRepositoryPGX_Delete_ReturnsNil(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+			return pgconn.CommandTag{}, nil
+		},
+	})
+	ctx := context.Background()
+
+	err := repo.Delete(ctx, "r1")
+	assert.NoError(t, err)
+}
+
+func TestBiometricRepositoryPGX_GetByID_ReturnsRecord(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+	})
+	ctx := context.Background()
+
+	record, err := repo.GetByID(ctx, "r1")
+	assert.NoError(t, err)
+	assert.NotNil(t, record)
+}
+
+func TestBiometricRepositoryPGX_CountByUser_ReturnsCount(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+	})
+	ctx := context.Background()
+
+	count, err := repo.CountByUser(ctx, "user-1")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestBiometricRepositoryPGX_DeleteByUser_ReturnsCount(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		execFunc: func(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+			return pgconn.NewCommandTag("DELETE 3"), nil
+		},
+	})
+	ctx := context.Background()
+
+	count, err := repo.DeleteByUser(ctx, "user-1")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(3), count)
+}
+
+func TestBiometricRepositoryPGX_GetMetricsSummary_ReturnsSummary(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) pgx.Row {
+			return &mockRowForBiometric{}
+		},
+	})
+	ctx := context.Background()
+
+	summary, err := repo.GetMetricsSummary(ctx, "user-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, summary)
 }
