@@ -1160,6 +1160,12 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
