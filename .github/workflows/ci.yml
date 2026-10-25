@@ -88,6 +88,9 @@ jobs:
     if: github.event_name != 'release' && github.event_name != 'issues'
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      go: ${{ steps.filter.outputs.go }}
+      ci: ${{ steps.filter.outputs.ci }}
+      ml: ${{ steps.filter.outputs.ml }}
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -101,6 +104,24 @@ jobs:
               - 'web/**'
               - '!web/node_modules/**'
               - '!web/dist/**'
+            go:
+              - 'cmd/**'
+              - 'internal/**'
+              - 'api/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+            ci:
+              - '.github/workflows/**'
+              - '.github/dependabot.yml'
+              - 'scripts/**'
+              - 'configs/**'
+            ml:
+              - 'cmd/ml_generator/**'
+              - 'cmd/classifier/**'
+              - 'models/**'
+              - 'datasets/**'
+              - '*.py'
 
   # ============================================================================
   # ISSUE AUTOMATION
@@ -265,7 +286,7 @@ jobs:
     permissions:
       contents: read
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -899,8 +920,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [validate-workflow, dockerfile-lint]
+    needs: [validate-workflow, dockerfile-lint, detect-changes]
     timeout-minutes: 20
+    if: needs.detect-changes.outputs.go == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -932,8 +954,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [go-check]
+    needs: [go-check, detect-changes]
     timeout-minutes: 30
+    if: needs.detect-changes.outputs.go == 'true' || github.event_name == 'workflow_dispatch'
     services:
       postgres:
         image: postgres:18-alpine
@@ -980,8 +1003,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [test]
+    needs: [test, detect-changes]
     timeout-minutes: 10
+    if: needs.detect-changes.outputs.go == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1026,6 +1050,7 @@ jobs:
       contents: read
     needs: [detect-changes, go-check, test, conventional-commits]
     timeout-minutes: 30
+    if: needs.detect-changes.outputs.go == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1050,8 +1075,9 @@ jobs:
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [binary_build, security-scan]
+    needs: [binary_build, security-scan, detect-changes]
     timeout-minutes: 60
+    if: needs.detect-changes.outputs.go == 'true' || needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     permissions:
       packages: write
       security-events: write
@@ -1150,9 +1176,10 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, docker, go-check, frontend]
+    needs: [detect-changes]
     timeout-minutes: 120
     if: >-
+      needs.detect-changes.outputs.ci == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'schedule' ||
        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -1438,6 +1465,12 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}

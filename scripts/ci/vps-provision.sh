@@ -150,11 +150,17 @@ prepare_k3s_config() {
 		}
 		echo "✅ Config YAML is valid"
 	fi
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-mkdir -p /etc/rancher/k3s
-echo 'Directory /etc/rancher/k3s created'
-"
-	./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${VPS_USER}@${VPS_HOST}:/etc/rancher/k3s/config.yaml"
+	
+	# 1. Создаем директорию с правами root
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo mkdir -p /etc/rancher/k3s"
+	
+	# 2. Копируем файл во временную папку пользователя (где есть права на запись)
+	./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${VPS_USER}@${VPS_HOST}:/tmp/k3s-config-remote.yaml"
+	
+	# 3. Перемещаем файл в системную директорию с правами root и ставим правильные права доступа
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo cp /tmp/k3s-config-remote.yaml /etc/rancher/k3s/config.yaml && sudo chmod 600 /etc/rancher/k3s/config.yaml"
+	
+	# 4. Проверяем, что файл записался
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
 cat /etc/rancher/k3s/config.yaml
