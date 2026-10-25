@@ -838,7 +838,7 @@ jobs:
         dockerfile-lint,
         super-linter,
         go-check,
-        frontend-check,
+        frontend,
         test,
         contract,
         security-scan,
@@ -918,32 +918,8 @@ jobs:
       - name: Run golangci-lint
         run: make lint
 
-  # ============================================================================
-  # FRONTEND CHECK
-  # ============================================================================
-  frontend-check:
-    name: Frontend Check (Lint + Build)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: [validate-workflow, dockerfile-lint]
-    timeout-minutes: 20
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: Install system dependencies for canvas
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
-      - name: Install frontend dependencies
-        run: make frontend-install
-      - name: Lint frontend
-        run: make frontend-lint
-      - name: Build frontend
-        run: make frontend-build
-
-  # ============================================================================
-  # UNIT + INTEGRATION TESTS
+# ============================================================================
+# UNIT + INTEGRATION TESTS
   # ============================================================================
   test:
     name: Tests (Unit + Integration)
@@ -1168,7 +1144,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, docker, go-check, frontend-check]
+    needs: [detect-changes, binary_build, docker, go-check, frontend]
     timeout-minutes: 120
     if: >-
       (github.event_name == 'workflow_dispatch' ||
@@ -1335,9 +1311,9 @@ jobs:
         docker,
         provision-k8s-vps,
         go-check,
-        frontend-check,
+        frontend,
       ]
-    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend-check.result != 'failure'
+    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend.result != 'failure'
     timeout-minutes: 60
     environment: staging
     steps:
@@ -1822,7 +1798,7 @@ jobs:
         security-scan,
         sonarcloud,
         go-check,
-        frontend-check,
+        frontend,
         test,
         contract,
         binary_build,
