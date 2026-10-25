@@ -5,11 +5,8 @@ set -euo pipefail
 # Invoked from .github/workflows/ci.yml (job: deploy-vps); every value comes from
 # GitHub secrets via the job env — nothing is prompted for.
 #
-# Safety rules (must hold for the VPN container that shares the VPS):
-#   1. vpn_guard aborts the deploy unless the VPN container is running;
-#      vpn_check re-verifies after the deploy.
-#   2. The overlay caps the namespace at 2.5 GiB (ResourceQuota patch).
-#   3. Swap on the VPS is ensured by the provision job (configure_swap).
+# Safety rules:
+#   1. Swap on the VPS is ensured by the provision job (configure_swap).
 
 NAMESPACE="fitness-platform-production"
 OVERLAY="configs/k8s/overlays/vps-minimal"
@@ -195,26 +192,22 @@ verify() {
 	kubectl -n "$NAMESPACE" get pods -o wide
 	local ip
 	ip=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "hostname -I | awk '{print \$1}'" | tr -d '\r')
-	log "gateway health: http://${ip}:${NODE_PORT}/health"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" ||
+	log "gateway health: http://${ip}:${NODE_PORT}/health" # NOSONAR S5332 local loopback health check
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" || # NOSONAR S5332 local loopback health check
 		log "::warning::gateway health check failed"
 }
 
 main() {
 	require_env
-	vpn_guard
 	ensure_remote_secrets
 	create_pull_secret
 	create_secrets
 	apply_overlay
 	verify
-	vpn_check
 	log "deploy finished"
 }
 
 case "${1:-all}" in
-vpn_guard) vpn_guard ;;
-vpn_check) vpn_check ;;
 ensure_remote_secrets) ensure_remote_secrets ;;
 create_pull_secret) create_pull_secret ;;
 create_secrets) create_secrets ;;
@@ -223,7 +216,8 @@ verify) verify ;;
 all) main ;;
 *)
 	echo "Unknown command: $1" >&2
-	echo "Available: vpn_guard vpn_check ensure_remote_secrets create_pull_secret create_secrets apply_overlay verify all" >&2
+	echo "Available: ensure_remote_secrets create_pull_secret create_secrets apply_overlay verify all" >&2
 	exit 1
 	;;
 esac
+

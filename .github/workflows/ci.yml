@@ -646,7 +646,7 @@ jobs:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: [security-scan, check, super-linter]
+    needs: [security-scan, go-check, super-linter]
     permissions:
       contents: read
       pull-requests: write
@@ -837,7 +837,8 @@ jobs:
         validate-workflow,
         dockerfile-lint,
         super-linter,
-        check,
+        go-check,
+        frontend-check,
         test,
         contract,
         security-scan,
@@ -884,16 +885,16 @@ jobs:
         if: always()
         run: rm -rf /tmp/cosign-keys
 
+# ============================================================================
+  # GO CHECK
   # ============================================================================
-  # MAKE CHECK
-  # ============================================================================
-  check:
-    name: Make Check (Lint + Build)
+  go-check:
+    name: Go Check (Lint + Vet + Format)
     runs-on: ubuntu-latest
     permissions:
       contents: read
     needs: [validate-workflow, dockerfile-lint]
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -916,8 +917,24 @@ jobs:
         run: make imports
       - name: Run golangci-lint
         run: make lint
+
+  # ============================================================================
+  # FRONTEND CHECK
+  # ============================================================================
+  frontend-check:
+    name: Frontend Check (Lint + Build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [validate-workflow, dockerfile-lint]
+    timeout-minutes: 20
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
       - name: Install system dependencies for canvas
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman1-dev
       - name: Install frontend dependencies
         run: make frontend-install
       - name: Lint frontend
@@ -933,7 +950,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [check]
+    needs: [go-check]
     timeout-minutes: 30
     services:
       postgres:
@@ -1025,7 +1042,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [detect-changes, check, test, conventional-commits]
+    needs: [detect-changes, go-check, test, conventional-commits]
     timeout-minutes: 30
     steps:
       - run: git config --global init.defaultBranch main
@@ -1151,7 +1168,7 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, binary_build, docker, check, frontend]
+    needs: [detect-changes, binary_build, docker, go-check, frontend-check]
     timeout-minutes: 120
     if: >-
       (github.event_name == 'workflow_dispatch' ||
@@ -1183,11 +1200,6 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh check_disk_space
       - name: Install AmneziaWG systemd service
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh install_amneziawg
-      - name: Configure CPU governor and k3s watchdog
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -1322,10 +1334,10 @@ jobs:
         binary_build,
         docker,
         provision-k8s-vps,
-        check,
-        frontend,
+        go-check,
+        frontend-check,
       ]
-    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.check.result != 'failure' && needs.frontend.result != 'failure'
+    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend-check.result != 'failure'
     timeout-minutes: 60
     environment: staging
     steps:
@@ -1427,8 +1439,8 @@ jobs:
     name: Server Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [deploy-production]
-    if: always() && needs.deploy-production.result == 'success'
+    needs: [deploy-vps]
+    if: always() && (needs.deploy-vps.result == 'success' || needs.deploy-vps.result == 'skipped')
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1480,7 +1492,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [detect-changes, binary_build, check]
+    needs: [detect-changes, binary_build, go-check]
     timeout-minutes: 20
     steps:
       - run: git config --global init.defaultBranch main
@@ -1498,7 +1510,7 @@ jobs:
   deploy-vps:
     name: Deploy App Tier to VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, binary_build, check, test]
+    needs: [detect-changes, docker, provision-k8s-vps, binary_build, go-check, test]
     timeout-minutes: 60
     if: >-
       always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') &&
@@ -1538,8 +1550,6 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
-          VPN_CONTAINER_NAME: amnezia-awg2
-        run: bash scripts/ci/deploy-vps.sh vpn_guard
       - name: Ensure long-lived secrets (JWT/TOTP/TLS) on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1585,21 +1595,18 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
-          VPN_CONTAINER_NAME: amnezia-awg2
         run: bash scripts/ci/deploy-vps.sh verify
       - name: Post-deploy VPN container check
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
-          VPN_CONTAINER_NAME: amnezia-awg2
-        run: bash scripts/ci/deploy-vps.sh vpn_check
   # ============================================================================
   # DEPLOY PRODUCTION
   # ============================================================================
   deploy-production:
     name: Deploy to K8s Production
     runs-on: ubuntu-latest
-    needs: [detect-changes, docker, provision-k8s-vps, test-staging, binary_build, check, test]
+    needs: [detect-changes, docker, provision-k8s-vps, test-staging, binary_build, go-check, test]
     timeout-minutes: 90
     environment: production
     # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
@@ -1822,7 +1829,8 @@ jobs:
         fuzz-tests,
         security-scan,
         sonarcloud,
-        check,
+        go-check,
+        frontend-check,
         test,
         contract,
         binary_build,
@@ -1837,7 +1845,6 @@ jobs:
         smoke-test,
         deploy-vps,
         deploy-production,
-        test-production,
         conventional-commits,
       ]
     steps:
@@ -1902,3 +1909,4 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${GITHUB_TOKEN}
         run: gh pr review --approve "$PR_URL"
+

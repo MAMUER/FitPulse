@@ -21,6 +21,12 @@ MODEL_PT = "model.pt"
 DATA_CSV = "data.csv"
 
 
+def _touch_path(path):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).touch()
+    return None
+
+
 class _Tensor:
     """Minimal torch.Tensor-like wrapper around numpy arrays."""
 
@@ -118,10 +124,7 @@ for _name, _value in [
     ("no_grad", contextlib.nullcontext),
     (
         "save",
-        lambda obj, path: (
-            Path(path).parent.mkdir(parents=True, exist_ok=True),
-            Path(path).touch(),
-        )[1],
+        lambda obj, path: _touch_path(path),
     ),
     (
         "load",

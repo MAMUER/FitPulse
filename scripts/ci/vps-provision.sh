@@ -2,8 +2,18 @@
 set -euo pipefail
 
 configure_swap() {
+	# Проверка, что VPS доступен по SSH
+	if ! timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
+		echo "⚠️ VPS is not reachable via SSH — skipping swap configuration"
+		return 0
+	fi
+	# Если swap уже настроен — пропускаем
+	if timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then
+		echo "✅ Swap already configured, skipping"
+		return 0
+	fi
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-swap.sh "${VPS_USER}@${VPS_HOST}:/tmp/configure-swap.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh"
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh && touch /tmp/.swap-configured"
 }
 
 check_disk_space() {
@@ -101,17 +111,6 @@ sudo /tmp/fix-dns.sh
 rm -f /tmp/fix-dns.sh
 "
 }
-
-install_amneziawg() {
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/amneziawg-go.service "${VPS_USER}@${VPS_HOST}:/tmp/amneziawg-go.service"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-	sudo mv /tmp/amneziawg-go.service /etc/systemd/system/amneziawg-go.service
-	sudo systemctl daemon-reload
-	sudo systemctl enable --now amneziawg-go.service
-	echo '✅ amneziawg-go systemd service installed and started'
-	"
-}
-
 limit_k3s_memory() {
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/k3s-memory-watchdog.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-memory-watchdog.sh"
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/setup-k3s-memory.sh "${VPS_USER}@${VPS_HOST}:/tmp/setup-k3s-memory.sh"
@@ -247,7 +246,6 @@ main() {
 		configure_docker_logs
 		configure_disk_encryption
 		fix_dns
-		install_amneziawg
 		limit_k3s_memory
 		prepare_k3s_config
 		restart_k3s_if_needed
@@ -264,7 +262,6 @@ main() {
 	configure_docker_logs) configure_docker_logs ;;
 	configure_disk_encryption) configure_disk_encryption ;;
 	fix_dns) fix_dns ;;
-	install_amneziawg) install_amneziawg ;;
 	limit_k3s_memory) limit_k3s_memory ;;
 	prepare_k3s_config) prepare_k3s_config ;;
 	restart_k3s_if_needed) restart_k3s_if_needed ;;

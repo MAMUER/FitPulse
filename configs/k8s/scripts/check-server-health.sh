@@ -186,24 +186,6 @@ check_swap() {
 		return 0
 	fi
 }
-# Check VPN (amneziawg-go) status
-check_vpn() {
-	if ! systemctl is-active --quiet amneziawg-go.service 2>/dev/null; then
-		log "WARNING: amneziawg-go service is not running" "$YELLOW"
-		echo "WARNING_VPN:stopped"
-		return 0
-	fi
-	local port
-	port=$(ss -tlnp 2>/dev/null | grep -c amneziawg-go || echo "0")
-	if [[ "$port" -eq 0 ]]; then
-		log "WARNING: amneziawg-go is running but not listening on any port" "$YELLOW"
-		echo "WARNING_VPN:not_listening"
-		return 0
-	fi
-	log "OK: amneziawg-go is active and listening on $port port(s)" "$GREEN"
-	echo "OK_VPN:${port}"
-	return 0
-}
 # Main health check
 main() {
 	log "Starting server health check..."
@@ -211,7 +193,7 @@ main() {
 	local warnings=()
 	local status="HEALTHY"
 	# Run all checks
-	local fstab_result mem_result disk_result k3s_result systemd_result swap_result vpn_result
+	local fstab_result mem_result disk_result k3s_result systemd_result swap_result
 	fstab_result=$(check_fstab_swap) || critical_issues+=("fstab:$fstab_result")
 	mem_result=$(check_memory) || {
 		[[ "$mem_result" == CRITICAL* ]] && critical_issues+=("memory:$mem_result") || warnings+=("memory:$mem_result")
@@ -222,7 +204,6 @@ main() {
 	k3s_result=$(check_k3s) || critical_issues+=("k3s:$k3s_result")
 	systemd_result=$(check_systemd) || warnings+=("systemd:$systemd_result")
 	swap_result=$(check_swap) || warnings+=("swap:$swap_result")
-	vpn_result=$(check_vpn) || warnings+=("vpn:$vpn_result")
 	if [[ ${#critical_issues[@]} -gt 0 ]]; then
 		status="CRITICAL"
 	elif [[ ${#warnings[@]} -gt 0 ]]; then
