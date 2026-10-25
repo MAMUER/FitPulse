@@ -15,10 +15,11 @@ from unittest.mock import patch
 
 import numpy as np
 
-_rng = np.random.default_rng()
+_rng = np.random.default_rng(seed=42)
 
 MODEL_PT = "model.pt"
 DATA_CSV = "data.csv"
+GENERATOR_FILENAME = "gan_generator.pt"
 
 
 def _touch_path(path):
@@ -39,7 +40,7 @@ class _Tensor:
     def __array__(self):
         return self._data
 
-    def to(self, *a, **k):
+    def to(self, *_a, **_k):
         return self
 
     def detach(self):
@@ -88,6 +89,7 @@ class _Tensor:
         return self.__add__(other)
 
     def backward(self):
+        """No-op: fake tensor has no gradient computation."""
         pass
 
     def __getattr__(self, name):
@@ -165,13 +167,14 @@ class _Module:
     def train(self):
         return self
 
-    def to(self, *a, **k):
+    def to(self, *_a, **_k):
         return self
 
     def state_dict(self):
         return {}
 
     def load_state_dict(self, state_dict):
+        """No-op: fake module has no state to load."""
         pass
 
 
@@ -223,19 +226,23 @@ sys.modules["torch.nn"] = _fake_nn
 
 
 class _Adam:
-    def __init__(self, params, *a, **k):
+    def __init__(self, params, *_a, **_k):
+        """No-op: fake optimizer does not track parameters."""
         pass
 
     def zero_grad(self):
+        """No-op: fake optimizer has no gradients to zero."""
         pass
 
     def step(self):
+        """No-op: fake optimizer performs no optimization step."""
         pass
 
     def state_dict(self):
         return {}
 
     def load_state_dict(self, state_dict):
+        """No-op: fake optimizer has no state to load."""
         pass
 
 
@@ -308,7 +315,7 @@ class TestSafePath(unittest.TestCase):
             shutil.rmtree(self.models_dir)
 
     def test_valid_path_inside_models(self):
-        p = self.models_dir / "gan_generator.pt"
+        p = self.models_dir / GENERATOR_FILENAME
         result = _safe_path(p)
         self.assertEqual(result, p.resolve())
 
@@ -547,7 +554,7 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(args.batch_size, 32)
         self.assertEqual(args.lr, 2e-4)
         self.assertFalse(args.cpu)
-        self.assertEqual(args.output, Path("models/gan_generator.pt"))
+        self.assertEqual(args.output, Path("models") / GENERATOR_FILENAME)
 
     def test_train_subcommand_all_args(self):
         args = self._parse(
@@ -667,11 +674,11 @@ class TestTrainAndGenerate(unittest.TestCase):
                 "--batch-size",
                 "2",
                 "--output",
-                str(self.models_dir / "gan_generator.pt"),
+                str(self.models_dir / GENERATOR_FILENAME),
             ]
         )
         train(args)
-        self.assertTrue((self.models_dir / "gan_generator.pt").exists())
+        self.assertTrue((self.models_dir / GENERATOR_FILENAME).exists())
         self.assertTrue((self.models_dir / "gan_norm_params.json").exists())
         self.assertTrue((self.models_dir / "gan_history.json").exists())
 
@@ -687,7 +694,7 @@ class TestTrainAndGenerate(unittest.TestCase):
                 "--batch-size",
                 "2",
                 "--output",
-                str(self.models_dir / "gan_generator.pt"),
+                str(self.models_dir / GENERATOR_FILENAME),
             ]
         )
         train(args_train)
@@ -697,7 +704,7 @@ class TestTrainAndGenerate(unittest.TestCase):
             [
                 "generate",
                 "--model",
-                str(self.models_dir / "gan_generator.pt"),
+                str(self.models_dir / GENERATOR_FILENAME),
                 "--class-index",
                 "1",
                 "--age",
