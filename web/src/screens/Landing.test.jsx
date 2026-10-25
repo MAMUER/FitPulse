@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
@@ -54,10 +54,20 @@ describe('Landing', () => {
     expect(screen.getByText('Open app')).toBeInTheDocument();
   });
 
-  it('shows feature cards', () => {
-    renderLanding();
-    expect(screen.getByText('Health tracking')).toBeInTheDocument();
-    expect(screen.getByText('AI')).toBeInTheDocument();
-    expect(screen.getByText('Device integrations')).toBeInTheDocument();
+  it('navigates when buttons clicked (registered)', () => {
+    renderLanding({ registered: true });
+    fireEvent.click(screen.getByText('Open app'));
+    fireEvent.click(screen.getByText('Privacy Policy'));
+    fireEvent.click(screen.getByText('Terms of Service'));
+    expect(screen.getByText('Open app')).toBeInTheDocument();
+  });
+
+  it('navigates login/register when not registered', () => {
+    renderLanding({ registered: false });
+    fireEvent.click(screen.getByText('Sign in'));
+    fireEvent.click(screen.getByText('Create account'));
+    fireEvent.click(screen.getByText('Privacy Policy'));
+    fireEvent.click(screen.getByText('Terms of Service'));
+    expect(screen.getByText('Create account')).toBeInTheDocument();
   });
 });

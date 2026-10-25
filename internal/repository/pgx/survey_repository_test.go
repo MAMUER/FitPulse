@@ -243,3 +243,11 @@ func TestSurveyRepositoryPGX_SaveSurvey_MarshalError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to marshal survey")
 }
+func TestSurveyRepositoryPGX_SaveSurvey_Success(t *testing.T) {
+	ctx := context.Background()
+	mockDB := &mockDBForSurvey{}
+	repo := NewSurveyRepositoryPGX(mockDB)
+
+	err := repo.SaveSurvey(ctx, "user-1", map[string]interface{}{"key": "value"}, true, nil)
+	require.NoError(t, err)
+}

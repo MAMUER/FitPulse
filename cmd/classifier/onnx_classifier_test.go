@@ -74,3 +74,28 @@ func TestDefaultONNXWeightsPath(t *testing.T) {
 	p := DefaultONNXWeightsPath()
 	assert.True(t, strings.Contains(p, "classifier_weights.json"))
 }
+func TestONNXClassifier_findBestClass(t *testing.T) {
+	c := &ONNXClassifier{}
+	assert.Equal(t, 2, c.findBestClass([]float64{1.0, 2.0, 5.0, 0.5}))
+}
+
+func TestDefaultONNXWeightsPath_Cmd(t *testing.T) {
+	dir := t.TempDir()
+	cmdDir := filepath.Join(dir, "cmd")
+	require.NoError(t, os.Mkdir(cmdDir, 0o755))
+	old, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(cmdDir))
+	defer os.Chdir(old)
+	p := DefaultONNXWeightsPath()
+	assert.Contains(t, p, "classifier_weights.json")
+}
+func TestDefaultONNXWeightsPath_Default(t *testing.T) {
+	dir := t.TempDir()
+	old, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer os.Chdir(old)
+	p := DefaultONNXWeightsPath()
+	assert.Contains(t, p, "classifier_weights.json")
+}

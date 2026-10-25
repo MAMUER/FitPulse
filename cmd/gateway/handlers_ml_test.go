@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -179,4 +181,56 @@ func TestML_IsValidServiceURL(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+func TestML_CallClassifier_Success(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"predicted_class":"recovery","confidence":0.9,"recommendations":["rest"]}`))
+	}))
+	defer ts.Close()
+
+	g := newTestGateway()
+	g.classifierURL = ts.URL
+
+	ctx := context.Background()
+	result, err := g.callClassifier(ctx, []byte(`{}`))
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "recovery", result["predicted_class"])
+}
+
+func TestML_CallClassifier_HTTPError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	g := newTestGateway()
+	g.classifierURL = ts.URL
+
+	ctx := context.Background()
+	result, err := g.callClassifier(ctx, []byte(`{}`))
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestML_CallClassifier_BadJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`not-json`))
+	}))
+	defer ts.Close()
+
+	g := newTestGateway()
+	g.classifierURL = ts.URL
+
+	ctx := context.Background()
+	result, err := g.callClassifier(ctx, []byte(`{}`))
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
 }

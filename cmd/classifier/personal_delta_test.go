@@ -385,3 +385,60 @@ func TestClassifyWithDelta_NoClassifier(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "no classifier available", err.Error())
 }
+func TestPersonalDeltaClassifier_PredictWithDelta_WrongDeltaLen(t *testing.T) {
+	classifier := newTestONNXClassifier()
+	store := newMockDeltaStore(1)
+	pc := NewPersonalDeltaClassifier(classifier, store)
+
+	features := map[string]float64{
+		"heart_rate":  140.0,
+		"hrv":         50.0,
+		"spo2":        98.0,
+		"temperature": 37.0,
+	}
+	_, _, err := pc.PredictWithDelta(features, "user-1")
+	assert.NoError(t, err)
+}
+
+func TestPersonalDeltaClassifier_UpdateDelta_WrongDeltaLen(t *testing.T) {
+	classifier := newTestONNXClassifier()
+	store := newMockDeltaStore(1)
+	pc := NewPersonalDeltaClassifier(classifier, store)
+
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0, 2.0, 3.0, 4.0}, 0.01)
+	assert.NoError(t, err)
+	assert.Len(t, delta, 8)
+}
+
+func TestPersonalDeltaClassifier_UpdateDelta_ClippingPos(t *testing.T) {
+	weights := make([]float64, 8)
+	for i := range weights {
+		weights[i] = -0.5
+	}
+	classifier := &ONNXClassifier{
+		Labels:      []int{0, 1},
+		Weights:     weights,
+		MultiClass:  1,
+		featureKeys: []string{"heart_rate", "hrv", "spo2", "temperature"},
+	}
+	store := newMockDeltaStore(8)
+	pc := NewPersonalDeltaClassifier(classifier, store)
+
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{100.0, 100.0, 100.0, 100.0}, 100.0)
+	assert.NoError(t, err)
+	for j := 0; j < 4; j++ {
+		assert.Equal(t, 5.0, delta[j])
+	}
+}
+
+func TestPersonalDeltaClassifier_UpdateDelta_ClippingNeg(t *testing.T) {
+	classifier := newTestONNXClassifier()
+	store := newMockDeltaStore(8)
+	pc := NewPersonalDeltaClassifier(classifier, store)
+
+	delta, err := pc.UpdateDelta("user-1", 0, 0.0, []float64{100.0, 100.0, 100.0, 100.0}, 100.0)
+	assert.NoError(t, err)
+	for j := 0; j < 4; j++ {
+		assert.Equal(t, -5.0, delta[j])
+	}
+}

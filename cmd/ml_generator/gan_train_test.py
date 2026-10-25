@@ -729,5 +729,100 @@ class TestTrainAndGenerate(unittest.TestCase):
         self.assertEqual(len(result[0]["plan"]), PLAN_DIM)
 
 
+class TestMainBlocks(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.models_dir = Path("models").resolve()
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        plans_row = [float(i) for i in range(PLAN_DIM)]
+        self.csv_path = os.path.join(self.tmpdir, "plans.csv")
+        header = (
+            "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,"
+            "klass,age,gender,weight,height,goal\n"
+        )
+        with open(self.csv_path, "w") as f:
+            f.write(header)
+            for i in range(4):
+                row = plans_row + [i % 2, 30.0 + i, 1.0, 75.0, 180.0, 1.0]
+                f.write(",".join(str(v) for v in row) + "\n")
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        if self.models_dir.exists():
+            shutil.rmtree(self.models_dir, ignore_errors=True)
+
+    def _gan_model_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "gan_model.py")
+
+    def _gan_train_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "gan_train.py")
+
+    def test_gan_model_main(self):
+        import runpy
+
+        with patch.object(sys, "argv", ["gan_model.py"]):
+            runpy.run_path(self._gan_model_path(), run_name="__main__")
+
+    def test_gan_train_main_help(self):
+        import runpy
+
+        with patch.object(sys, "argv", ["gan_train.py"]):
+            runpy.run_path(self._gan_train_path(), run_name="__main__")
+
+    def test_gan_train_main_train(self):
+        import runpy
+
+        out_model = str(self.models_dir / GENERATOR_FILENAME)
+        argv = [
+            "gan_train.py",
+            "train",
+            "--dataset",
+            self.csv_path,
+            "--epochs",
+            "1",
+            "--batch-size",
+            "2",
+            "--output",
+            out_model,
+        ]
+        with patch.object(sys, "argv", argv):
+            runpy.run_path(self._gan_train_path(), run_name="__main__")
+
+    def test_gan_train_main_generate(self):
+        import runpy
+
+        out_model = str(self.models_dir / GENERATOR_FILENAME)
+        argv_train = [
+            "gan_train.py",
+            "train",
+            "--dataset",
+            self.csv_path,
+            "--epochs",
+            "1",
+            "--batch-size",
+            "2",
+            "--output",
+            out_model,
+        ]
+        with patch.object(sys, "argv", argv_train):
+            runpy.run_path(self._gan_train_path(), run_name="__main__")
+
+        out_plan = str(self.models_dir / "generated_plan.json")
+        argv_gen = [
+            "gan_train.py",
+            "generate",
+            "--model",
+            out_model,
+            "--class-index",
+            "1",
+            "--output",
+            out_plan,
+        ]
+        with patch.object(sys, "argv", argv_gen):
+            runpy.run_path(self._gan_train_path(), run_name="__main__")
+
+
 if __name__ == "__main__":
     unittest.main()

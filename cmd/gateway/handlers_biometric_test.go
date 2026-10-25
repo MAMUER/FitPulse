@@ -168,3 +168,14 @@ func TestBiometric_GetBiometricRecordsHandler_GRPCError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
+func TestBiometric_GetBiometricRecordsHandler_WithFilters(t *testing.T) {
+	g := newTestGateway()
+	withBiometricClient(g)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/biometric/records?from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&limit=50", nil)
+
+	g.getBiometricRecordsHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

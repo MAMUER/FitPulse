@@ -28,6 +28,12 @@ describe('Body', () => {
 
     render(<Body />);
     expect(loadBodyComposition).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Рост, см'), {
+      target: { value: '180' },
+    });
+    fireEvent.change(screen.getByLabelText('Вес, кг'), {
+      target: { value: '80' },
+    });
     fireEvent.change(screen.getByLabelText('Жир, %'), {
       target: { value: '18' },
     });

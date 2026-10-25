@@ -25,15 +25,11 @@ describe('TwoFASetup', () => {
     expect(confirm2FA).toHaveBeenCalledWith('123456', '', []);
   });
 
-  it('shows QR code when base64 provided', () => {
+  it('covers secret input change', () => {
     const confirm2FA = vi.fn();
-    useApp.mockReturnValue({
-      confirm2FA,
-      t: (ru, _en) => ru,
-    });
-
-    const { container } = render(<TwoFASetup />);
-    // We can't easily set state, but the code path exists
-    expect(container).toBeTruthy();
+    useApp.mockReturnValue({ confirm2FA, t: (ru, _en) => ru });
+    render(<TwoFASetup />);
+    fireEvent.change(screen.getByLabelText('Секрет'), { target: { value: 'ABC' } });
+    expect(screen.getByLabelText('Секрет')).toBeInTheDocument();
   });
 });

@@ -68,9 +68,9 @@ run_coverage() {
 
 	echo "-> Running Python tests with coverage..."
 	cd cmd/ml_generator
-	.venv/Scripts/python.exe -m coverage run --source=. -m unittest gan_train_test 2>&1
+	python -m coverage run --source=. -m unittest gan_train_test 2>&1
 	PY_TEST_EXIT=$?
-	.venv/Scripts/python.exe -m coverage xml -o coverage.xml 2>&1
+	python -m coverage xml -o coverage.xml 2>&1
 	cp coverage.xml ../../bin/coverage.xml
 	cd ../..
 	set -e

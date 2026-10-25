@@ -214,3 +214,21 @@ func TestHealth_HandlerResponseFormat(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "services")
 	assert.Contains(t, w.Body.String(), "classifier")
 }
+func TestHealth_HandlerWithBiometricAndTrainingClients(t *testing.T) {
+	log := &logger.Logger{Logger: zap.NewNop()}
+	g := &gateway{
+		log:             log,
+		userClient:      &mockUserServiceClient{},
+		biometricClient: &mockBiometricClient{},
+		trainingClient:  &mockTrainingClient{},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/health", nil)
+
+	g.healthHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "biometric")
+	assert.Contains(t, w.Body.String(), "training")
+}

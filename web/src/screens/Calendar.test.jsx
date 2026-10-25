@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Calendar from './Calendar';
+import { format, startOfMonth, startOfWeek } from '../utils/helpers';
 
 vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),
@@ -42,7 +43,6 @@ describe('Calendar', () => {
     });
 
     render(<Calendar />);
-    // Click first day
     const days = screen.getAllByRole('button');
     fireEvent.click(
       days.find(
@@ -71,13 +71,15 @@ describe('Calendar', () => {
     const loadCalendarEvents = vi.fn();
     const addEvent = vi.fn();
     const deleteCalendarEvent = vi.fn().mockResolvedValue({});
+    const firstDay = startOfWeek(startOfMonth(new Date()));
+    const dateStr = format(firstDay, 'yyyy-MM-dd');
     useApp.mockReturnValue({
       state: {
         language: 'ru',
         calendarEventsList: [
           {
             id: 123,
-            date: '2099-01-01',
+            date: dateStr,
             title: 'Тренировка',
             type: 'training',
             time: '09:00',
@@ -92,20 +94,16 @@ describe('Calendar', () => {
     });
 
     render(<Calendar />);
-    // Click first day button
     const buttons = screen.getAllByRole('button');
     const dayBtn = buttons.find(
       (b) =>
         b.className.includes('cal-cell') && !b.className.includes('cal-head')
     );
     if (dayBtn) fireEvent.click(dayBtn);
-    // Look for delete
     const delButtons = screen.queryAllByText('Удалить');
     if (delButtons.length > 0) {
       fireEvent.click(delButtons[0]);
       await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
-    } else {
-      expect(delButtons).toHaveLength(0);
     }
   });
 });

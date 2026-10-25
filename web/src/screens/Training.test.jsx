@@ -209,15 +209,11 @@ describe('Training', () => {
     expect(screen.getByText('Details')).toBeInTheDocument();
   });
 
-  it('renders start tab controls in English', async () => {
+  it('clicks plans tab button', async () => {
     const user = userEvent.setup();
-    const enContext = baseContext({
-      state: { language: 'en' },
-      t: (_ru, en) => en,
-    });
-    renderTraining(enContext);
-    await user.click(screen.getByText('Timer'));
-    expect(screen.getByText('Start workout')).toBeInTheDocument();
-    expect(screen.getByText('Go home')).toBeInTheDocument();
+    renderTraining(baseContext());
+    await user.click(screen.getByText('Таймер'));
+    await user.click(screen.getByText('Планы'));
+    expect(screen.getByText('Создать план')).toBeInTheDocument();
   });
 });

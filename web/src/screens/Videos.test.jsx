@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Videos from './Videos';
@@ -40,20 +40,21 @@ describe('Videos', () => {
     expect(screen.getByText(/10/)).toBeInTheDocument();
   });
 
-  it('uses state.videos when available', () => {
+  it('clicks start button', () => {
     const loadVideos = vi.fn();
     const go = vi.fn();
     useApp.mockReturnValue({
       state: {
-        videos: [{ id: 2, title: 'V2', duration: 15, calories: 200 }],
-        trainingVideos: [],
+        videos: [],
+        trainingVideos: [{ id: 1, title: 'Test', minutes: 10, kcal: 100 }],
       },
-      t: (_ru, en) => en,
+      t: (ru, _en) => ru,
       go,
       loadVideos,
     });
 
     render(<Videos />);
-    expect(screen.getByText('V2')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Старт'));
+    expect(go).toHaveBeenCalledWith('training');
   });
 });

@@ -53,4 +53,39 @@ describe('Integrations', () => {
     await screen.findByText('Нет доступных интеграций');
     expect(screen.queryByText('Отключить')).not.toBeInTheDocument();
   });
+
+  it('handles load error', async () => {
+    const loadIntegrationProviders = vi.fn().mockRejectedValue(new Error('fail'));
+    const disconnectIntegration = vi.fn();
+    useApp.mockReturnValue({
+      notify: vi.fn(),
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
+    render(<Integrations />);
+    await screen.findByText('Нет доступных интеграций');
+    expect(loadIntegrationProviders).toHaveBeenCalled();
+  });
+
+  it('notifies on toggle failure', async () => {
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([
+      { source: 'withings', source_name: 'Withings', connected: true, connected_at: null },
+    ]);
+    const disconnectIntegration = vi.fn().mockRejectedValue(new Error('fail'));
+    const notify = vi.fn();
+    useApp.mockReturnValue({
+      notify,
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
+
+    render(<Integrations />);
+    await screen.findByText('Отключить');
+    fireEvent.click(screen.getByText('Отключить'));
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Не удалось изменить интеграцию')
+    );
+  });
 });

@@ -37,4 +37,13 @@ describe('CookieConsent', () => {
     const { container } = render(<CookieConsent />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('returns true when localStorage throws on init', () => {
+    useApp.mockReturnValue({ t: (ru, _en) => ru });
+    const orig = localStorage.getItem;
+    localStorage.getItem = () => { throw new Error('boom'); };
+    const { container } = render(<CookieConsent />);
+    localStorage.getItem = orig;
+    expect(container.firstChild).toBeNull();
+  });
 });

@@ -699,3 +699,15 @@ func TestBiometricRepositoryPGX_GetMetricsSummary_ReturnsSummary(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, summary)
 }
+func TestBiometricRepositoryPGX_GetMetricsSummary_WithRows(t *testing.T) {
+	repo := NewBiometricRepositoryPGX(&mockDBForBiometric{
+		queryFunc: func(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+			return &mockRowsForBiometric{nextCount: 1}, nil
+		},
+	})
+	ctx := context.Background()
+
+	summary, err := repo.GetMetricsSummary(ctx, "user-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, summary)
+}

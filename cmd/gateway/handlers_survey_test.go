@@ -13,6 +13,10 @@ import (
 
 	"github.com/MAMUER/project/internal/auth/jwt"
 	"github.com/MAMUER/project/internal/logger"
+
+	userpb "github.com/MAMUER/project/api/gen/user"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func setupSurveyGateway() *gateway {
@@ -102,4 +106,76 @@ func TestMustTimestamp(t *testing.T) {
 func TestMustTimestamp_Zero(t *testing.T) {
 	ts := mustTimestamp(time.Time{})
 	assert.Nil(t, ts)
+}
+func TestSaveSurveyHandler_NotCompleted(t *testing.T) {
+	g := setupSurveyGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(withUserID(context.Background(), "user-1"), "POST", "/api/v1/survey", bytes.NewReader([]byte(`{"survey":{"goal":"weight_loss"},"survey_completed":false}`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.saveSurveyHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestSaveSurveyHandler_Error(t *testing.T) {
+	log := &logger.Logger{Logger: zap.NewNop()}
+	g := &gateway{
+		log:        log,
+		userClient: &errorUserServiceClient{err: assert.AnError},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(withUserID(context.Background(), "user-1"), "POST", "/api/v1/survey", bytes.NewReader([]byte(`{"survey":{"goal":"weight_loss"},"survey_completed":true}`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.saveSurveyHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestLoadSurveyHandler_Error(t *testing.T) {
+	log := &logger.Logger{Logger: zap.NewNop()}
+	g := &gateway{
+		log:        log,
+		userClient: &errorUserServiceClient{err: assert.AnError},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(withUserID(context.Background(), "user-1"), "GET", "/api/v1/survey", nil)
+
+	g.loadSurveyHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+type surveyWithClient struct {
+	mockUserServiceClient
+}
+
+func (m *surveyWithClient) LoadSurvey(ctx context.Context, req *userpb.LoadSurveyRequest, opts ...grpc.CallOption) (*userpb.LoadSurveyResponse, error) {
+	st, _ := structpb.NewStruct(map[string]interface{}{"goal": "weight_loss"})
+	return &userpb.LoadSurveyResponse{Status: "ok", Survey: st, SurveyCompleted: true}, nil
+}
+
+func TestLoadSurveyHandler_WithSurvey(t *testing.T) {
+	log := &logger.Logger{Logger: zap.NewNop()}
+	g := &gateway{
+		log:        log,
+		userClient: &surveyWithClient{},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(withUserID(context.Background(), "user-1"), "GET", "/api/v1/survey", nil)
+
+	g.loadSurveyHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "weight_loss")
+}
+func TestMustStruct_Error(t *testing.T) {
+	s := mustStruct(map[string]interface{}{"bad": make(chan int)})
+	assert.NotNil(t, s)
+	assert.Empty(t, s.Fields)
 }
