@@ -1207,6 +1207,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
+          echo "🔍 Длина значения VPS_HOST: ${#VPS_HOST} символов"
           echo "🔍 Пытаемся разрешить DNS для $VPS_HOST..."
           ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
           
