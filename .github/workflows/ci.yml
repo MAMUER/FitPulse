@@ -292,7 +292,7 @@ jobs:
     permissions:
       contents: read
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.frontend == 'true'
+    if: ${{ always() && needs.detect-changes.outputs.frontend == 'true' }}
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -425,6 +425,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Initialize CodeQL
+        if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
         uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
         with:
           languages: ${{ matrix.language }}
@@ -432,6 +433,7 @@ jobs:
           config-file: ./.github/codeql-config.yml
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
+        if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
         uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
         with:
           category: "/language:${{matrix.language}}"
@@ -601,6 +603,7 @@ jobs:
       - name: Install security tools
         run: bash scripts/ci/security.sh install_tools
       - name: Run gosec SAST scanner
+        if: needs.detect-changes.outputs.go == 'true'
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
@@ -610,6 +613,7 @@ jobs:
           category: gosec
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run govulncheck
+        if: needs.detect-changes.outputs.go == 'true'
         run: bash scripts/ci/security.sh run_govulncheck
       - name: Install system dependencies for canvas
         run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
