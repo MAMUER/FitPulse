@@ -238,14 +238,25 @@ download_k3s() {
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-echo '-> Moving k3s binary to /usr/local/bin...'
+echo '-> Installing k3s from local files...'
+
+# 1. Проверяем, что файл действительно существует перед перемещением
+if [ ! -f /tmp/k3s-install/k3s ]; then
+	echo '❌ ERROR: /tmp/k3s-install/k3s not found! Download step may have failed.'
+	exit 1
+fi
+
+# 2. Перемещаем бинарный файл
+sudo mkdir -p /usr/local/bin
 sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s
 sudo chmod +x /usr/local/bin/k3s
-echo '-> Running k3s install script (using built-in containerd)...'
-export INSTALL_K3S_SKIP_DOWNLOAD=true
-chmod +x /tmp/k3s-install/install.sh
-sudo /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644
-echo 'k3s installed successfully'
+
+# 3. Запускаем установочный скрипт, ЯВНО передавая переменную окружения через sudo env
+sudo chmod +x /tmp/k3s-install/install.sh
+sudo env INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_BIN_DIR=/usr/local/bin /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644
+
+echo '✅ k3s installed successfully'
+# Очищаем временные файлы только в случае успеха
 rm -rf /tmp/k3s-install
 "
 }

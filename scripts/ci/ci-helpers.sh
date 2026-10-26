@@ -239,14 +239,14 @@ run_immediate_health_check() {
 	# 1. Создаем директорию с правами root
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 		"sudo mkdir -p /etc/fitpulse && sudo chmod 700 /etc/fitpulse"
-	
+
 	# 2. Записываем токены через sudo tee (это надежнее, чем перенаправление > с sudo)
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 		"printf '%s\n' '${TELEGRAM_BOT_TOKEN}' | sudo tee /etc/fitpulse/telegram-bot-token > /dev/null && sudo chmod 600 /etc/fitpulse/telegram-bot-token"
-		
+
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 		"printf '%s\n' '${TELEGRAM_CHAT_ID}' | sudo tee /etc/fitpulse/telegram-chat-id > /dev/null && sudo chmod 600 /etc/fitpulse/telegram-chat-id"
-		
+
 	# 3. Запускаем скрипт проверки здоровья с правами root
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 	export TELEGRAM_BOT_TOKEN=\$(sudo cat /etc/fitpulse/telegram-bot-token)

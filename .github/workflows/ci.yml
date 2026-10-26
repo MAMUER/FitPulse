@@ -443,6 +443,7 @@ jobs:
         if: always()
         run: bash scripts/ci/ci-helpers.sh show_codeql_diagnostics
       - name: Upload SARIF
+        if: always() && hashFiles('sarif-results/**') != ''
         uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
         with:
           sarif_file: sarif-results
@@ -607,7 +608,7 @@ jobs:
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
-        if: always()
+        if: always() && hashFiles('sarif-results/gosec.sarif') != ''
         with:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
