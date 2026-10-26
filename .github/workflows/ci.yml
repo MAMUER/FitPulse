@@ -756,6 +756,17 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
+      # 🔍 Debug: Check Tailscale IP
+      - name: 🔍 Debug_check Tailscale IP
+        run: |
+          echo "Tailscale status:"
+          tailscale status || echo "Tailscale status failed"
+          echo ""
+          echo "Tailscale IP:"
+          tailscale ip -4 || echo "Failed to get IP"
+          echo ""
+          echo "Network interfaces:"
+          ip addr show || echo "ip command failed"
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -1193,6 +1204,17 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
+      # 🔍 Debug: Check Tailscale IP
+      - name: 🔍 Debug_check Tailscale IP
+        run: |
+          echo "Tailscale status:"
+          tailscale status || echo "Tailscale status failed"
+          echo ""
+          echo "Tailscale IP:"
+          tailscale ip -4 || echo "Failed to get IP"
+          echo ""
+          echo "Network interfaces:"
+          ip addr show || echo "ip command failed"
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -1472,6 +1494,17 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
+      # 🔍 Debug: Check Tailscale IP
+      - name: 🔍 Debug_check Tailscale IP
+        run: |
+          echo "Tailscale status:"
+          tailscale status || echo "Tailscale status failed"
+          echo ""
+          echo "Tailscale IP:"
+          tailscale ip -4 || echo "Failed to get IP"
+          echo ""
+          echo "Network interfaces:"
+          ip addr show || echo "ip command failed"
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
