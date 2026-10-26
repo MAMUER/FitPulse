@@ -30,6 +30,10 @@ elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
 	COMMON_OPTS+=("-o" "ProxyJump=${SSH_JUMP_HOST}")
 fi
 
+if [[ -n "${VPS_PORT:-}" ]]; then
+	COMMON_OPTS+=("-p" "${VPS_PORT}")
+fi
+
 if [[ -n "${SSH_OPTS:-}" ]]; then
 	read -r -a EXTRA_SSH_OPTS <<<"$SSH_OPTS"
 	COMMON_OPTS+=("${EXTRA_SSH_OPTS[@]}")

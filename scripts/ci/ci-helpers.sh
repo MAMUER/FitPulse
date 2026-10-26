@@ -208,7 +208,13 @@ check_connectivity() {
 
 add_vps_to_known_hosts() {
 	mkdir -p ~/.ssh
-	ssh-keyscan -H "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
+	if [ -n "${VPS_PORT:-}" ]; then
+		# Если порт задан, используем его для ssh-keyscan
+		ssh-keyscan -H -p "${VPS_PORT}" "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
+	else
+		# Иначе используем стандартный порт 22
+		ssh-keyscan -H "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
+	fi
 }
 
 resolve_vps_hostname() {

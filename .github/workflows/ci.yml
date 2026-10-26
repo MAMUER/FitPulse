@@ -773,14 +773,16 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Run kube-bench on k3s node via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
             set -euo pipefail
             if ! command -v kube-bench >/dev/null 2>&1; then
               curl --proto =https --retry 3 --retry-delay 5 -fsSL https://github.com/aquasecurity/kube-bench/releases/download/v0.13.0/kube-bench_0.13.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
@@ -792,7 +794,7 @@ jobs:
             sudo kube-bench run --benchmark cis-1.18 --json > ~/security-results/kube-bench-results.json
           EOF
           mkdir -p security-results
-          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-bench-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
+          scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:security-results/kube-bench-results.json" security-results/ 2>/dev/null || scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
   # ============================================================================
   # KUBE-HUNTER — PENETRATION TESTING
   # ============================================================================
@@ -816,14 +818,16 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Run kube-hunter (passive scan)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
             set -euo pipefail
             mkdir -p ~/security-results
             if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
@@ -836,7 +840,7 @@ jobs:
             fi
           EOF
           mkdir -p security-results
-          scp "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/
+          scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/
   # ============================================================================
   # CHECKOV — IaC SECURITY SCANNER
   # ============================================================================
@@ -1221,12 +1225,14 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
       - name: Debug SSH Connection
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           echo "🔍 Длина значения VPS_HOST: ${#VPS_HOST} символов"
@@ -1234,11 +1240,12 @@ jobs:
           ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
           
           echo "🔍 Пытаемся подключиться по SSH с подробным логом..."
-          ssh -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
+          ssh -p "${VPS_PORT:-22}" -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
 
       - name: Configure swap on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh configure_swap
       - name: Check disk space on VPS
@@ -1246,32 +1253,38 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh check_disk_space
       - name: Configure Docker and System log rotation
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh configure_docker_logs
       - name: Clean up old k3s
         if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'recreate-cluster'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh cleanup_old_k3s
       - name: Fix DNS resolv.conf permanently
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh fix_dns
       - name: Prepare k3s config on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh prepare_k3s_config
       - name: Restart k3s if config changed
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh restart_k3s_if_needed
       - name: Download k3s binary and install script
@@ -1279,6 +1292,7 @@ jobs:
       - name: Upload k3s files to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh upload_k3s_files
       - name: Install k3s on VPS
@@ -1287,41 +1301,49 @@ jobs:
           SSH_RETRY_MAX_ATTEMPTS: 5
           SSH_RETRY_DELAY_SECONDS: 15
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh install_k3s
       - name: Configure host-level disk encryption for k3s storage (fscrypt/dm-crypt)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh configure_disk_encryption
       - name: Cleanup disk space on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
       - name: Pre-pull system images via Docker
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh pre_pull_system_images
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh start_k3s
       - name: Limit k3s memory usage
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh limit_k3s_memory
       - name: Fix local-path-provisioner RBAC and ensure WaitForFirstConsumer binding mode
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/k8s-setup.sh fix_local_path_rbac
       - name: Ensure k3s certificates include domain and external IP
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh ensure_k3s_certs
       - name: Install cert-manager and configure Let's Encrypt
@@ -1329,17 +1351,20 @@ jobs:
       - name: Setup ML infrastructure directories
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh setup_ml_dirs
       - name: Deploy MLflow service
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh deploy_mlflow
       - name: Setup Postgres automated backups
         env:
           BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh setup_postgres_backups
       - name: Deploy health check script
@@ -1347,16 +1372,19 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh deploy_health_script
       - name: Generate kubeconfig with external domain
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh generate_kubeconfig
       - name: Download kubeconfig artifact
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh download_kubeconfig
       - name: Upload kubeconfig artifact
@@ -1397,6 +1425,7 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -1406,6 +1435,7 @@ jobs:
       - name: Resolve VPS hostname and add to /etc/hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Configure kubectl
         run: bash scripts/ci/ci-helpers.sh configure_kubectl
@@ -1511,10 +1541,12 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Deploy health check script
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh deploy_health_script
       - name: Run immediate health check
@@ -1522,11 +1554,13 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh run_immediate_health_check
       - name: Setup daily health check cron
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh setup_health_cron
   # ============================================================================
@@ -1593,6 +1627,7 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -1602,6 +1637,7 @@ jobs:
       - name: Resolve VPS hostname and add to /etc/hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Configure kubectl
         run: bash scripts/ci/ci-helpers.sh configure_kubectl
@@ -1610,6 +1646,7 @@ jobs:
       - name: Ensure long-lived secrets (JWT/TOTP/TLS) on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
           JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
           JWT_PUBLIC_KEY_PEM: ${{ secrets.JWT_PUBLIC_KEY_PEM }}
@@ -1641,16 +1678,19 @@ jobs:
           POSTGRES_USER: ${{ vars.POSTGRES_USER }}
           POSTGRES_DB: ${{ vars.POSTGRES_DB }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-vps.sh create_secrets
       - name: Apply application tier overlay
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-vps.sh apply_overlay
       - name: Verify deployment
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-vps.sh verify
   # ============================================================================
@@ -1680,6 +1720,7 @@ jobs:
       - name: Add VPS to known_hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -1689,6 +1730,7 @@ jobs:
       - name: Resolve VPS hostname and add to /etc/hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Configure kubectl
         run: bash scripts/ci/ci-helpers.sh configure_kubectl
@@ -1698,6 +1740,7 @@ jobs:
         id: connectivity
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh check_connectivity
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
@@ -1750,6 +1793,7 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
       - name: Pre-pull application images on VPS
@@ -1758,6 +1802,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh pre_pull_images
       - name: Ensure local-path-provisioner is running and StorageClass is ready
@@ -1773,6 +1818,7 @@ jobs:
         if: steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh apply_manifests
       - name: Wait for RabbitMQ to be ready
@@ -1806,18 +1852,21 @@ jobs:
         if: always() && steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh debug_pod_status
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh verify_deployment
       - name: Deploy Open Wearables
         if: steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/deploy-production.sh deploy_open_wearables
   # ============================================================================
   # TEST PRODUCTION

@@ -11,7 +11,7 @@ configure_swap() {
 	while [ $attempt -le $max_attempts ]; do
 		echo "➡️ Попытка $attempt из $max_attempts..."
 		# Увеличили ConnectTimeout до 15 и добавили -v для отладки, если понадобится
-		if timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
+		if timeout 30 ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
 			connected=true
 			echo "✅ VPS успешно доступен по SSH!"
 			break
@@ -29,7 +29,7 @@ configure_swap() {
 	fi
 
 	# Если swap уже настроен — пропускаем
-	if timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then
+	if timeout 10 ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then
 		echo "✅ Swap уже настроен, пропускаем"
 		return 0
 	fi
