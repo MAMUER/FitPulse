@@ -117,6 +117,7 @@ configure_kubectl() {
 }
 
 download_kubeconfig() {
+	# shellcheck disable=SC2153
 	./scripts/ssh-retry.sh scp \
 		"${VPS_USER}@${VPS_HOST}:~/k3s-config.yaml" \
 		./k3s-config.yaml

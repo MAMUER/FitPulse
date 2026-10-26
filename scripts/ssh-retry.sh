@@ -31,7 +31,11 @@ elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
 fi
 
 if [[ -n "${VPS_PORT:-}" ]]; then
-	COMMON_OPTS+=("-p" "${VPS_PORT}")
+	if [[ "$MODE" == "scp" ]]; then
+		COMMON_OPTS+=("-P" "${VPS_PORT}")
+	else
+		COMMON_OPTS+=("-p" "${VPS_PORT}")
+	fi
 fi
 
 if [[ -n "${SSH_OPTS:-}" ]]; then

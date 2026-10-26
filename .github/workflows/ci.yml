@@ -1191,10 +1191,11 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes]
+    needs: [detect-changes, ci-gate]
     timeout-minutes: 120
     if: >-
       needs.detect-changes.outputs.ci == 'true' &&
+      needs.ci-gate.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'schedule' ||
        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
