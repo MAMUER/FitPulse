@@ -306,12 +306,16 @@ show_codeql_diagnostics() {
 }
 
 deploy_health_script() {
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${VPS_USER}@${VPS_HOST}:/usr/local/bin/check-server-health.sh"
+	echo "-> Uploading health check script to VPS..."
+
+	# 1. Copy to temp directory (writable)
+	./scripts/ssh-retry.sh scp configs/k8s/scripts/check-server-health.sh "${VPS_USER}@${VPS_HOST}:/tmp/check-server-health.sh"
+
+	# 2. Move to system directory with root privileges and make executable
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+sudo mv /tmp/check-server-health.sh /usr/local/bin/check-server-health.sh
 sudo chmod +x /usr/local/bin/check-server-health.sh
-(sudo crontab -l 2>/dev/null | grep -v check-server-health) | sudo crontab -
-(sudo crontab -l 2>/dev/null; echo '0 9 * * * TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN} TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID} /usr/local/bin/check-server-health.sh --silent >> /var/log/server-health.log 2>&1') | sudo crontab -
-echo '✅ Health check script deployed and cron configured'
+echo '? Health check script deployed successfully'
 "
 }
 

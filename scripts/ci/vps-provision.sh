@@ -171,32 +171,32 @@ restart_k3s_if_needed() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 if [ ! -f /etc/systemd/system/k3s.service ] && [ ! -f /usr/local/bin/k3s ]; then
-	echo '✅ k3s is not installed yet, skipping restart (will be installed in next steps)'
+	echo '? k3s is not installed yet, skipping restart (will be installed in next steps)'
 	exit 0
 fi
 LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{print \$1}' || echo 'none')
 SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
 if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
-	echo '-> Config changed (or first run), restarting k3s to apply kubelet-arg...'
+	echo '-> Config changed (or first run), restarting k3s...'
 	sudo systemctl restart k3s
 	for i in \$(seq 1 90); do
-		if k3s kubectl cluster-info &>/dev/null; then
-			echo \"✅ k3s ready after \${i}s\"
+		if sudo k3s kubectl cluster-info &>/dev/null; then
+			echo \"? k3s ready after \${i}s\"
 			break
 		fi
 		if [ \"\$i\" -eq 90 ]; then
-			echo '❌ Timeout waiting for k3s restart'
-			journalctl -u k3s -n 30 --no-pager
+			echo '? Timeout waiting for k3s restart. Last 30 lines of journal:'
+			sudo journalctl -u k3s -n 30 --no-pager
 			exit 1
 		fi
 		sleep 2
 	done
 	echo '-> Saving config hash for future comparisons...'
 	echo \"\$LOCAL_HASH\" | sudo tee /etc/rancher/k3s/.config-hash > /dev/null
-	echo '✅ k3s restarted with new config'
-	k3s kubectl get nodes -o wide
+	echo '? k3s restarted with new config'
+	sudo k3s kubectl get nodes -o wide
 else
-	echo '✅ Config unchanged, skipping k3s restart'
+	echo '? Config unchanged, skipping k3s restart'
 fi
 "
 }
