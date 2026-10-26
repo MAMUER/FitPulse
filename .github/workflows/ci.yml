@@ -1358,7 +1358,7 @@ jobs:
         go-check,
         frontend,
       ]
-    if: always() && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend.result != 'failure'
+    if: needs.provision-k8s-vps.result == 'success' && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend.result != 'failure'
     timeout-minutes: 60
     environment: staging
     steps:
@@ -1630,7 +1630,7 @@ jobs:
     environment: production
     # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
     # the automatic deploy path is deploy-vps (application tier).
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && (needs.provision-k8s-vps.result == 'success' || needs.provision-k8s-vps.result == 'skipped') && needs.docker.result != 'failure' && needs.test-staging.result != 'failure' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && needs.provision-k8s-vps.result == 'success' && needs.docker.result != 'failure' && needs.test-staging.result != 'failure' }}
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
