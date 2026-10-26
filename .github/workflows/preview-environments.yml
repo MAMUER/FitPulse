@@ -54,6 +54,7 @@ jobs:
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
+          mkdir -p ~/.kube
           printf '%s' "$KUBECONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
@@ -125,6 +126,7 @@ jobs:
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
+          mkdir -p ~/.kube
           printf '%s' "$KUBECONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
