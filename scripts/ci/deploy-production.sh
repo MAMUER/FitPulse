@@ -147,32 +147,10 @@ cleanup_disk() {
 echo '=== Disk usage before cleanup ==='
 df -h /
 echo ''
-echo '=== Docker disk usage ==='
-docker system df || true
 echo ''
-echo '-> Removing dangling Docker images...'
-docker image prune -f
-echo '-> Removing unused Docker volumes...'
-docker volume prune -f || true
-echo '-> Removing unused Docker networks...'
-docker network prune -f || true
-echo '-> Removing stopped containers...'
-docker container prune -f || true
-echo '-> Cleaning Docker build cache...'
-docker builder prune -f --filter 'until=24h' || true
 echo ''
 echo '-> Cleaning containerd cache (k3s internal)...'
 k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
-echo ''
-echo '-> Removing old application images (keep only last 3 versions)...'
-for svc in user-service biometric-service training-service gateway device-aggregator classifier; do
-	echo \"Cleaning \$svc...\"
-	docker images \"ghcr.io/mamuer/project/\$svc\" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' | \
-		sort -k2 -r | \
-		tail -n +4 | \
-		awk '{print \$1}' | \
-		xargs -r docker rmi || true
-done
 echo ''
 echo '-> Cleaning system logs older than 7 days...'
 sudo journalctl --vacuum-time=7d || true
@@ -183,29 +161,12 @@ echo ''
 echo '=== Disk usage after cleanup ==='
 df -h /
 echo ''
-echo '=== Docker disk usage after cleanup ==='
-docker system df || true
+echo '=== Disk usage after cleanup ==='
 echo ''
 echo '✅ Disk cleanup completed'
 "
 }
 
-pre_pull_images() {
-	SHA=$(git rev-parse --short HEAD)
-	echo "-> Pre-pulling application images with tag $SHA on VPS..."
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo 'Logging in to GHCR on VPS...'
-echo '${GHCR_TOKEN}' | docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin || true
-for svc in user-service biometric-service training-service gateway device-aggregator classifier; do
-	echo \"Pulling ghcr.io/mamuer/project/\$svc:$SHA...\"
-	docker pull ghcr.io/mamuer/project/\$svc:$SHA || echo \"Failed to pull \$svc, continuing...\"
-done
-echo 'Docker images after pre-pull:'
-docker images | grep mamuer || true
-echo '-> Waiting 60s to let node recover from disk I/O...'
-sleep 60
-"
-}
 
 apply_manifests() {
 	echo "Waiting for k8s API internal availability..."
@@ -547,7 +508,6 @@ main() {
 		ensure_service_account
 		update_image_tags
 		cleanup_disk
-		pre_pull_images
 		apply_manifests
 		wait_for_rabbitmq
 		verify_postgres
@@ -561,7 +521,6 @@ main() {
 	ensure_service_account) ensure_service_account ;;
 	update_image_tags) update_image_tags ;;
 	cleanup_disk) cleanup_disk ;;
-	pre_pull_images) pre_pull_images ;;
 	apply_manifests) apply_manifests ;;
 	wait_for_rabbitmq) wait_for_rabbitmq ;;
 	verify_postgres) verify_postgres ;;

@@ -1330,12 +1330,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
-      - name: Pre-pull system images via Docker
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh pre_pull_system_images
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
