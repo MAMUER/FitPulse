@@ -23,9 +23,9 @@ echo ""
 cat >"$REPORT_FILE" <<EOF
 # Chaos Test Report
 
-**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)  
-**Namespace:** $NAMESPACE  
-**Tester:** automated  
+**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Namespace:** $NAMESPACE
+**Tester:** automated
 
 ## Summary
 
@@ -77,8 +77,8 @@ cat >>"$REPORT_FILE" <<EOF
 
 ### PostgreSQL Failure
 
-**Status:** $PG_STATUS  
-**Recovery Time:** ${PG_TIME}s  
+**Status:** $PG_STATUS
+**Recovery Time:** ${PG_TIME}s
 
 **Details:**
 - Simulated deletion of PostgreSQL primary pod
@@ -88,8 +88,8 @@ cat >>"$REPORT_FILE" <<EOF
 
 ### Valkey Failure
 
-**Status:** $VALKEY_STATUS  
-**Recovery Time:** ${VALKEY_TIME}s  
+**Status:** $VALKEY_STATUS
+**Recovery Time:** ${VALKEY_TIME}s
 
 **Details:**
 - Simulated deletion of Valkey master pod
@@ -99,8 +99,8 @@ cat >>"$REPORT_FILE" <<EOF
 
 ### Vault Failure
 
-**Status:** $VAULT_STATUS  
-**Recovery Time:** ${VAULT_TIME}s  
+**Status:** $VAULT_STATUS
+**Recovery Time:** ${VAULT_TIME}s
 
 **Details:**
 - Simulated deletion of Vault pod

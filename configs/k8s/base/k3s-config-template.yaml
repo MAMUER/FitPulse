@@ -7,7 +7,7 @@ tls-san:
 disable:
   - local-storage
   - traefik
-flannel-backend: wireguard-native
+flannel-backend: vxlan
 write-kubeconfig-mode: "644"
 kubelet-arg:
   - "max-pods=110"

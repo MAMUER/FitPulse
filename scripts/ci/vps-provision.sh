@@ -92,18 +92,6 @@ echo "✅ k3s watchdog and CPU quota configured"
 EOF
 }
 
-configure_docker_logs() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
-echo "-> Setting up Docker log rotation..."
-sudo mkdir -p /etc/docker
-cat <<EOT | sudo tee /etc/docker/daemon.json
-{
-	"log-driver": "json-file",
-	"log-opts": {
-		"max-size": "10m",
-		"max-file": "3"
-	}
-}
 EOT
 echo "-> Setting up journald size limit..."
 sudo mkdir -p /etc/systemd/journald.conf.d
@@ -133,11 +121,6 @@ sudo chmod +x /tmp/fix-dns.sh
 sudo /tmp/fix-dns.sh
 rm -f /tmp/fix-dns.sh
 "
-}
-limit_k3s_memory() {
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/k3s-memory-watchdog.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-memory-watchdog.sh"
-	./scripts/ssh-retry.sh scp configs/k8s/scripts/setup-k3s-memory.sh "${VPS_USER}@${VPS_HOST}:/tmp/setup-k3s-memory.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/setup-k3s-memory.sh && sudo /tmp/setup-k3s-memory.sh"
 }
 
 prepare_k3s_config() {
@@ -178,6 +161,8 @@ LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{pr
 SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
 if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
 	echo '-> Config changed (or first run), restarting k3s...'
+	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+	sudo sysctl -p
 	sudo systemctl restart k3s
 	for i in \$(seq 1 90); do
 		if sudo k3s kubectl cluster-info &>/dev/null; then
@@ -205,6 +190,10 @@ start_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> Starting k3s...'
+# Применяем глобальный фикс MTU для containerd
+sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+sudo sysctl -p
+echo '-> Restarting k3s to apply network fixes to containerd...'
 sudo systemctl daemon-reload
 sudo systemctl enable --now k3s
 echo '-> Waiting for readiness...'
@@ -267,18 +256,6 @@ upload_k3s_files() {
 	./scripts/ssh-retry.sh scp /tmp/install.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/install.sh"
 }
 
-pre_pull_system_images() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo \"-> Pre-pulling system images via Docker...\"
-docker pull rancher/mirrored-pause:3.6 || echo \"pause image pull failed, continuing\"
-docker pull rancher/mirrored-coredns-coredns:1.10.1 || echo \"coredns pull failed\"
-docker pull registry.k8s.io/ingress-nginx/controller:v1.11.3 || echo \"ingress-nginx pull failed\"
-docker pull rancher/local-path-provisioner:v0.0.26 || echo \"local-path pull failed\"
-docker pull busybox:latest || echo \"busybox pull failed\"
-echo \"Docker images:\"
-docker images | head -10
-"
-}
 
 main() {
 	local cmd="${1:-all}"
@@ -288,33 +265,27 @@ main() {
 		check_disk_space
 		cleanup_old_k3s
 		configure_cpu_governor
-		configure_docker_logs
 		configure_disk_encryption
 		fix_dns
-		limit_k3s_memory
 		prepare_k3s_config
 		restart_k3s_if_needed
 		start_k3s
 		download_k3s
 		install_k3s
 		upload_k3s_files
-		pre_pull_system_images
 		;;
 	configure_swap) configure_swap ;;
 	check_disk_space) check_disk_space ;;
 	cleanup_old_k3s) cleanup_old_k3s ;;
 	configure_cpu_governor) configure_cpu_governor ;;
-	configure_docker_logs) configure_docker_logs ;;
 	configure_disk_encryption) configure_disk_encryption ;;
 	fix_dns) fix_dns ;;
-	limit_k3s_memory) limit_k3s_memory ;;
 	prepare_k3s_config) prepare_k3s_config ;;
 	restart_k3s_if_needed) restart_k3s_if_needed ;;
 	start_k3s) start_k3s ;;
 	download_k3s) download_k3s ;;
 	install_k3s) install_k3s ;;
 	upload_k3s_files) upload_k3s_files ;;
-	pre_pull_system_images) pre_pull_system_images ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1

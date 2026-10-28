@@ -168,7 +168,7 @@ protect_resolv_conf() {
 	if chattr +i "$RESOLV_CONF" 2>/dev/null; then
 		log_ok "File protected with immutable flag"
 	else
-		log_warn "Failed to set immutable flag (filesystem may not support it)"
+		log_info "Failed to set immutable flag (filesystem may not support it)"
 	fi
 }
 
@@ -210,7 +210,7 @@ EOF
 # ----------------------------------------------------------------------------
 verify_dns() {
 	log_step "Verifying DNS resolution"
-	
+
 	# Даем WSL 2 секунды на применение нового resolv.conf перед проверкой
 	sleep 2
 
@@ -258,7 +258,7 @@ print_final_status() {
 	if lsattr "$RESOLV_CONF" 2>/dev/null | grep -q -- '----i'; then
 		log_ok "File is PROTECTED (immutable flag set)"
 	else
-		log_warn "File is NOT protected"
+		log_info "File is NOT protected"
 	fi
 
 	echo ""
