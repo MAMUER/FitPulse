@@ -147,7 +147,7 @@ if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
 	echo '-> Config changed (or first run), restarting k3s...'
 	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 	sudo touch /etc/sysctl.conf 2>/dev/null
-	grep -q "net.ipv4.ip_no_pmtu_disc=1" /etc/sysctl.conf || echo "net.ipv4.ip_no_pmtu_disc=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+	grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 	sudo sysctl -p 2>/dev/null
 	sudo systemctl restart k3s
 	for i in \$(seq 1 90); do
@@ -179,7 +179,7 @@ echo '-> Starting k3s...'
 # Применяем глобальный фикс MTU для containerd
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
-grep -q "net.ipv4.ip_no_pmtu_disc=1" /etc/sysctl.conf || echo "net.ipv4.ip_no_pmtu_disc=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p 2>/dev/null
 echo '-> Restarting k3s to apply network fixes to containerd...'
 sudo systemctl daemon-reload
@@ -240,8 +240,11 @@ rm -rf /tmp/k3s-install
 
 upload_k3s_files() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/k3s-install"
-	./scripts/ssh-retry.sh scp /tmp/k3s "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/k3s"
-	./scripts/ssh-retry.sh scp /tmp/install.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/install.sh"
+	echo "-> Uploading k3s binary via base64 stream (bypasses MTU issues)..."
+	base64 /tmp/k3s | ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "base64 -d > /tmp/k3s-install/k3s"
+	echo "-> Uploading install.sh via base64 stream..."
+	base64 /tmp/install.sh | ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "base64 -d > /tmp/k3s-install/install.sh"
+	ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "chmod +x /tmp/k3s-install/k3s /tmp/k3s-install/install.sh"
 }
 main() {
 	local cmd="${1:-all}"
