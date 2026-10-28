@@ -91,20 +91,6 @@ sudo systemctl daemon-reload
 echo "✅ k3s watchdog and CPU quota configured"
 EOF
 }
-
-EOT
-echo "-> Setting up journald size limit..."
-sudo mkdir -p /etc/systemd/journald.conf.d
-cat <<EOT | sudo tee /etc/systemd/journald.conf.d/99-size-limit.conf
-[Journal]
-SystemMaxUse=500M
-SystemMaxFileSize=50M
-MaxRetentionSec=1week
-EOT
-sudo systemctl daemon-reload
-sudo systemctl restart systemd-journald
-echo "-> Logs rotation configured"
-EOF
 configure_disk_encryption() {
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-storage-encryption.sh "${VPS_USER}@${VPS_HOST}:/tmp/configure-storage-encryption.sh"
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo /tmp/configure-storage-encryption.sh || true"
@@ -253,8 +239,6 @@ upload_k3s_files() {
 	./scripts/ssh-retry.sh scp /tmp/k3s "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/k3s"
 	./scripts/ssh-retry.sh scp /tmp/install.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/install.sh"
 }
-
-
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
