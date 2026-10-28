@@ -2,8 +2,8 @@
 set -euo pipefail
 
 install_gosec() {
-	echo "-> Installing gosec (pre-compiled)..."
-	curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.28.0
+	echo "-> Installing gosec..."
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
 }
 
 install_govulncheck() {

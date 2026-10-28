@@ -1322,12 +1322,27 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
-      - name: Preload k3s airgap images bundle on VPS (bypasses broken containerd pulls)
+      - name: Pre-pull pause image to bypass VPS network issues
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh preload_airgap_images
+        run: |
+          echo "-> Pulling pause:3.10.2 image on GitHub Runner (stable network)..."
+          docker pull rancher/mirrored-pause:3.10.2
+          docker save rancher/mirrored-pause:3.10.2 -o /tmp/pause-3.10.2.tar
+          
+          echo "-> Uploading pause image to VPS via scp..."
+          ./scripts/ssh-retry.sh scp /tmp/pause-3.10.2.tar "${VPS_USER}@${VPS_HOST}:/tmp/pause-3.10.2.tar"
+          
+          echo "-> Importing pause image into k3s containerd..."
+          ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+            sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+            sudo k3s ctr images import /tmp/pause-3.10.2.tar
+            sudo rm -f /tmp/pause-3.10.2.tar
+            echo '✅ Pause image imported successfully'
+            sudo k3s crictl images | grep pause || true
+          "
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
