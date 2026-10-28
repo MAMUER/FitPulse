@@ -1310,6 +1310,12 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh install_k3s
+      - name: Preload k3s airgap images (bypasses all containerd network pulls)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/vps-provision.sh preload_airgap_images
       - name: Configure host-level disk encryption for k3s storage (fscrypt/dm-crypt)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1322,12 +1328,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
-      - name: Preload k3s airgap images (bypasses all containerd network pulls)
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh preload_airgap_images
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

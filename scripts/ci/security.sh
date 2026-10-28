@@ -21,7 +21,6 @@ install_cosign() {
 	go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5
 }
 
-
 install_syft() {
 	curl --proto =https --retry 3 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
 	bash /tmp/install.sh -b /usr/local/bin
