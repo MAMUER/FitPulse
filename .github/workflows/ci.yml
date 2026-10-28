@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+﻿name: CI/CD Pipeline
 on:
   push:
     branches: [main]
@@ -1276,12 +1276,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh check_disk_space
-      - name: Configure Docker and System log rotation
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh configure_docker_logs
       - name: Clean up old k3s
         if: github.event_name == 'workflow_dispatch' && inputs.run_mode == 'recreate-cluster'
         env:
