@@ -2,11 +2,23 @@
 set -euo pipefail
 
 install_gosec() {
-	go install github.com/securego/gosec/v2/cmd/gosec@9e75c0576c9878035d4221392108d458abe10fc3 # NOSONAR
+	for i in 1 2 3; do
+		if go install github.com/securego/gosec/v2/cmd/gosec@9e75c0576c9878035d4221392108d458abe10fc3; then
+			break
+		fi
+		echo "gosec install attempt $i failed (likely sum.golang.org transient error); retrying in 5s..."
+		sleep 5
+	done
 }
 
 install_govulncheck() {
-	go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f # NOSONAR
+	for i in 1 2 3; do
+		if go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f; then
+			break
+		fi
+		echo "govulncheck install attempt $i failed (likely sum.golang.org transient error); retrying in 5s..."
+		sleep 5
+	done
 }
 
 install_golangci_lint() {

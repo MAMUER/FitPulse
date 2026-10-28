@@ -42,6 +42,17 @@ fi
 
 echo "-> Found available device: ${AVAILABLE_DEVICE}"
 
+# Ensure cryptsetup is installed
+if ! command -v cryptsetup &>/dev/null; then
+	echo "-> Installing cryptsetup..."
+	apt-get update -qq && apt-get install -y -qq cryptsetup >/dev/null 2>&1 || true
+fi
+if ! command -v cryptsetup &>/dev/null; then
+	echo "⚠️  cryptsetup still not available, skipping encryption"
+	mkdir -p "${K3S_STORAGE}"
+	chmod 755 "${K3S_STORAGE}"
+	exit 0
+fi
 # If already set up, skip
 if cryptsetup status crypt-k3s &>/dev/null; then
 	echo "✅ Encrypted volume crypt-k3s already exists, skipping setup"
@@ -52,13 +63,13 @@ echo "-> WARNING: This will format ${AVAILABLE_DEVICE} with LUKS encryption."
 echo "   All data on ${AVAILABLE_DEVICE} will be destroyed!"
 # В CI-режиме подтверждаем автоматически, иначе спрашиваем пользователя
 if [[ "${CI:-}" == "true" ]] || [[ "${1:-}" == "--yes" ]]; then
-    echo "-> Auto-confirming format (CI mode / --yes flag)"
+	echo "-> Auto-confirming format (CI mode / --yes flag)"
 else
-    read -r -p "   Continue? (yes/no): " CONFIRM
-    if [[ "${CONFIRM}" != "yes" ]]; then
-        echo "-> Aborted by user"
-        exit 1
-    fi
+	read -r -p "   Continue? (yes/no): " CONFIRM
+	if [[ "${CONFIRM}" != "yes" ]]; then
+		echo "-> Aborted by user"
+		exit 1
+	fi
 fi
 
 # Setup LUKS encryption
