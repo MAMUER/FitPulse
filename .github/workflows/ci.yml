@@ -1258,7 +1258,7 @@ jobs:
           echo "🔍 Длина значения VPS_HOST: ${#VPS_HOST} символов"
           echo "🔍 Пытаемся разрешить DNS для $VPS_HOST..."
           ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
-          
+
           echo "🔍 Пытаемся подключиться по SSH с подробным логом..."
           ssh -p "${VPS_PORT:-22}" -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
 

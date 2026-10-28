@@ -246,6 +246,14 @@ upload_k3s_files() {
 	base64 /tmp/install.sh | ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "base64 -d > /tmp/k3s-install/install.sh"
 	ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "chmod +x /tmp/k3s-install/k3s /tmp/k3s-install/install.sh"
 }
+limit_k3s_memory() {
+	echo "-> Cleaning up stuck pods from previous runs..."
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+		sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
+		echo 'Stuck pods cleared'
+	"
+}
+
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -275,6 +283,7 @@ main() {
 	download_k3s) download_k3s ;;
 	install_k3s) install_k3s ;;
 	upload_k3s_files) upload_k3s_files ;;
+	limit_k3s_memory) limit_k3s_memory ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1
