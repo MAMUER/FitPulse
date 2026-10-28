@@ -176,7 +176,10 @@ start_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> Starting k3s...'
-# Применяем глобальный фикс MTU для containerd
+		echo '-> Cleaning stuck pods from previous runs BEFORE restart...'
+		sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
+		sudo k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
+		# Применяем глобальный фикс MTU для containerd
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
@@ -203,12 +206,13 @@ sudo k3s kubectl get pods -A
 "
 }
 
-
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
-sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+		echo '-> Forcing TLS 1.2 for root curl (fixes curl:35 resets)...'
+		printf 'tls-max = 1.2\ntlsv1.2\n' | sudo tee /root/.curlrc > /dev/null
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p 2>/dev/null
@@ -220,7 +224,6 @@ echo 'k3s installed successfully'
 "
 }
 
-
 limit_k3s_memory() {
 	echo "-> Cleaning up stuck pods from previous runs..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
@@ -229,6 +232,33 @@ limit_k3s_memory() {
 		echo 'Stuck pods cleared in kube-system and local-path-storage'
 	"
 }
+preload_airgap_images() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+		set -euo pipefail
+		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+		K3S_VER=\$(k3s --version 2>/dev/null | awk '{print \$3}')
+		echo \"-> Detected k3s version: \${K3S_VER}\"
+		IMG_DIR=/var/lib/rancher/k3s/agent/images
+		sudo mkdir -p \${IMG_DIR}
+		if sudo test -f \${IMG_DIR}/k3s-airgap-images-amd64.tar.gz; then
+			echo 'Airgap bundle already present, skipping download'
+		else
+			echo '-> Downloading k3s airgap images bundle with wget (reliable in WSL)...'
+			wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3s-io/k3s/releases/download/\${K3S_VER}/k3s-airgap-images-amd64.tar.gz\"
+			sudo mv /tmp/k3s-airgap.tar.gz \${IMG_DIR}/k3s-airgap-images-amd64.tar.gz
+			echo 'Airgap bundle downloaded'
+		fi
+		echo '-> Restarting k3s to trigger airgap image import...'
+		sudo systemctl restart k3s
+		for i in \$(seq 1 90); do
+			if sudo k3s kubectl cluster-info &>/dev/null; then echo \"k3s ready after \${i}s\"; break; fi
+			sleep 2
+		done
+		echo '-> System images now local:'
+		sudo k3s crictl images | grep -Ei 'pause|coredns|metrics|local-path|busybox' || true
+	"
+}
+
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -243,6 +273,8 @@ main() {
 		restart_k3s_if_needed
 		start_k3s
 		install_k3s
+		limit_k3s_memory
+		preload_airgap_images
 		;;
 	configure_swap) configure_swap ;;
 	check_disk_space) check_disk_space ;;
@@ -255,6 +287,7 @@ main() {
 	start_k3s) start_k3s ;;
 	install_k3s) install_k3s ;;
 	limit_k3s_memory) limit_k3s_memory ;;
+	preload_airgap_images) preload_airgap_images ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1
