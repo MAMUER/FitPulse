@@ -255,9 +255,11 @@ limit_k3s_memory() {
 	echo "-> Cleaning up stuck pods from previous runs..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 		sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
-		echo 'Stuck pods cleared'
+		sudo k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
+		echo 'Stuck pods cleared in kube-system and local-path-storage'
 	"
 }
+
 
 main() {
 	local cmd="${1:-all}"
