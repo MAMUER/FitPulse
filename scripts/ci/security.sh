@@ -13,14 +13,19 @@ install_govulncheck() {
 
 install_golangci_lint() {
 	echo "-> Installing golangci-lint (pre-compiled)..."
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.14.0
+	for i in 1 2 3; do
+		if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.14.0; then
+			break
+		fi
+		echo "golangci-lint install attempt $i failed; retrying in 5s..."
+		sleep 5
+	done
 }
 
 install_cosign() {
 	echo "-> Installing cosign (pre-compiled)..."
 	curl -sSfL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.6.5
 }
-
 
 install_syft() {
 	curl --proto =https --retry 3 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
