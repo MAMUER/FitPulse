@@ -239,12 +239,17 @@ rm -rf /tmp/k3s-install
 }
 
 upload_k3s_files() {
+	echo "-> Создаем директорию для файлов k3s..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/k3s-install"
-	echo "-> Uploading k3s binary via base64 stream (bypasses MTU issues)..."
-	base64 /tmp/k3s | ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "base64 -d > /tmp/k3s-install/k3s"
-	echo "-> Uploading install.sh via base64 stream..."
-	base64 /tmp/install.sh | ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "base64 -d > /tmp/k3s-install/install.sh"
-	ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "chmod +x /tmp/k3s-install/k3s /tmp/k3s-install/install.sh"
+
+	echo "-> Uploading k3s binary via scp (with retries)..."
+	./scripts/ssh-retry.sh scp /tmp/k3s "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/k3s"
+
+	echo "-> Uploading install.sh via scp (with retries)..."
+	./scripts/ssh-retry.sh scp /tmp/install.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/install.sh"
+
+	echo "-> Setting executable permissions..."
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "chmod +x /tmp/k3s-install/k3s /tmp/k3s-install/install.sh"
 }
 limit_k3s_memory() {
 	echo "-> Cleaning up stuck pods from previous runs..."
