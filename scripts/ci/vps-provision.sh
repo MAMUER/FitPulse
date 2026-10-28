@@ -93,7 +93,7 @@ EOF
 }
 configure_disk_encryption() {
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-storage-encryption.sh "${VPS_USER}@${VPS_HOST}:/tmp/configure-storage-encryption.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo /tmp/configure-storage-encryption.sh || true"
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo CI=true /tmp/configure-storage-encryption.sh"
 }
 
 fix_dns() {
@@ -236,14 +236,19 @@ preload_airgap_images() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 		set -euo pipefail
 		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-		K3S_VER=\$(k3s --version 2>/dev/null | awk '{print \$3}')
+		K3S_VER=\$(k3s --version 2>/dev/null | head -1 | awk '{print \$3}')
+		if [ -z \"\${K3S_VER}\" ]; then
+			echo 'ERROR: Could not detect k3s version'
+			k3s --version || true
+			exit 1
+		fi
 		echo \"-> Detected k3s version: \${K3S_VER}\"
 		IMG_DIR=/var/lib/rancher/k3s/agent/images
 		sudo mkdir -p \${IMG_DIR}
 		if sudo test -f \${IMG_DIR}/k3s-airgap-images-amd64.tar.gz; then
 			echo 'Airgap bundle already present, skipping download'
 		else
-			echo '-> Downloading k3s airgap images bundle with wget (reliable in WSL)...'
+			echo '-> Downloading k3s airgap images bundle with wget...'
 			wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3s-io/k3s/releases/download/\${K3S_VER}/k3s-airgap-images-amd64.tar.gz\"
 			sudo mv /tmp/k3s-airgap.tar.gz \${IMG_DIR}/k3s-airgap-images-amd64.tar.gz
 			echo 'Airgap bundle downloaded'

@@ -50,10 +50,15 @@ fi
 
 echo "-> WARNING: This will format ${AVAILABLE_DEVICE} with LUKS encryption."
 echo "   All data on ${AVAILABLE_DEVICE} will be destroyed!"
-read -r -p "   Continue? (yes/no): " CONFIRM
-if [[ "${CONFIRM}" != "yes" ]]; then
-	echo "-> Aborted by user"
-	exit 1
+# В CI-режиме подтверждаем автоматически, иначе спрашиваем пользователя
+if [[ "${CI:-}" == "true" ]] || [[ "${1:-}" == "--yes" ]]; then
+    echo "-> Auto-confirming format (CI mode / --yes flag)"
+else
+    read -r -p "   Continue? (yes/no): " CONFIRM
+    if [[ "${CONFIRM}" != "yes" ]]; then
+        echo "-> Aborted by user"
+        exit 1
+    fi
 fi
 
 # Setup LUKS encryption
