@@ -1336,6 +1336,27 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh start_k3s
+      - name: Pre-pull pause image to bypass VPS network issues
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          echo "-> Pulling pause image on GitHub Runner (stable network)..."
+          docker pull rancher/mirrored-pause:3.6
+          docker save rancher/mirrored-pause:3.6 -o /tmp/pause.tar
+
+          echo "-> Uploading pause image to VPS..."
+          ./scripts/ssh-retry.sh scp /tmp/pause.tar "${VPS_USER}@${VPS_HOST}:/tmp/pause.tar"
+
+          echo "-> Importing pause image into k3s containerd..."
+          ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+            sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+            sudo k3s ctr images import /tmp/pause.tar
+            sudo rm -f /tmp/pause.tar
+            echo 'Pause image imported successfully'
+            sudo k3s crictl images | grep pause || true
+          "
       - name: Limit k3s memory usage
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
