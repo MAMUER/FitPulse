@@ -203,54 +203,24 @@ sudo k3s kubectl get pods -A
 "
 }
 
-download_k3s() {
-	echo "-> Downloading k3s binary and install script..."
-	curl --proto =https -sfL -o /tmp/k3s https://github.com/k3s-io/k3s/releases/download/v1.36.2%2Bk3s1/k3s
-	chmod +x /tmp/k3s
-	curl --proto =https -sfL -o /tmp/install.sh https://get.k3s.io
-	chmod +x /tmp/install.sh
-	echo "Download complete."
-}
 
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-echo '-> Installing k3s from local files...'
+echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
+sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+sudo touch /etc/sysctl.conf 2>/dev/null
+grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
+sudo sysctl -p 2>/dev/null
 
-# 1. Проверяем, что файл действительно существует перед перемещением
-if [ ! -f /tmp/k3s-install/k3s ]; then
-	echo '❌ ERROR: /tmp/k3s-install/k3s not found! Download step may have failed.'
-	exit 1
-fi
+echo '-> Downloading and installing k3s directly on VPS (much faster and more reliable than scp)...'
+curl -sfL https://get.k3s.io | sudo INSTALL_K3S_BIN_DIR=/usr/local/bin sh -s - server --write-kubeconfig-mode 644
 
-# 2. Перемещаем бинарный файл
-sudo mkdir -p /usr/local/bin
-sudo mv /tmp/k3s-install/k3s /usr/local/bin/k3s
-sudo chmod +x /usr/local/bin/k3s
-
-# 3. Запускаем установочный скрипт, ЯВНО передавая переменную окружения через sudo env
-sudo chmod +x /tmp/k3s-install/install.sh
-sudo env INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_BIN_DIR=/usr/local/bin /tmp/k3s-install/install.sh server --write-kubeconfig-mode 644
-
-echo '✅ k3s installed successfully'
-# Очищаем временные файлы только в случае успеха
-rm -rf /tmp/k3s-install
+echo 'k3s installed successfully'
 "
 }
 
-upload_k3s_files() {
-	echo "-> Создаем директорию для файлов k3s..."
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/k3s-install"
 
-	echo "-> Uploading k3s binary via scp (with retries)..."
-	./scripts/ssh-retry.sh scp /tmp/k3s "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/k3s"
-
-	echo "-> Uploading install.sh via scp (with retries)..."
-	./scripts/ssh-retry.sh scp /tmp/install.sh "${VPS_USER}@${VPS_HOST}:/tmp/k3s-install/install.sh"
-
-	echo "-> Setting executable permissions..."
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "chmod +x /tmp/k3s-install/k3s /tmp/k3s-install/install.sh"
-}
 limit_k3s_memory() {
 	echo "-> Cleaning up stuck pods from previous runs..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
@@ -259,8 +229,6 @@ limit_k3s_memory() {
 		echo 'Stuck pods cleared in kube-system and local-path-storage'
 	"
 }
-
-
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -274,9 +242,7 @@ main() {
 		prepare_k3s_config
 		restart_k3s_if_needed
 		start_k3s
-		download_k3s
 		install_k3s
-		upload_k3s_files
 		;;
 	configure_swap) configure_swap ;;
 	check_disk_space) check_disk_space ;;
@@ -287,9 +253,7 @@ main() {
 	prepare_k3s_config) prepare_k3s_config ;;
 	restart_k3s_if_needed) restart_k3s_if_needed ;;
 	start_k3s) start_k3s ;;
-	download_k3s) download_k3s ;;
 	install_k3s) install_k3s ;;
-	upload_k3s_files) upload_k3s_files ;;
 	limit_k3s_memory) limit_k3s_memory ;;
 	*)
 		echo "Unknown function: $cmd"
