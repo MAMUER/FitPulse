@@ -146,7 +146,9 @@ SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
 if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
 	echo '-> Config changed (or first run), restarting k3s...'
 	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-	sudo sysctl -p
+	sudo touch /etc/sysctl.conf 2>/dev/null
+	grep -q "net.ipv4.ip_no_pmtu_disc=1" /etc/sysctl.conf || echo "net.ipv4.ip_no_pmtu_disc=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+	sudo sysctl -p 2>/dev/null
 	sudo systemctl restart k3s
 	for i in \$(seq 1 90); do
 		if sudo k3s kubectl cluster-info &>/dev/null; then
@@ -176,7 +178,9 @@ set -euo pipefail
 echo '-> Starting k3s...'
 # Применяем глобальный фикс MTU для containerd
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-sudo sysctl -p
+sudo touch /etc/sysctl.conf 2>/dev/null
+grep -q "net.ipv4.ip_no_pmtu_disc=1" /etc/sysctl.conf || echo "net.ipv4.ip_no_pmtu_disc=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+sudo sysctl -p 2>/dev/null
 echo '-> Restarting k3s to apply network fixes to containerd...'
 sudo systemctl daemon-reload
 sudo systemctl enable --now k3s

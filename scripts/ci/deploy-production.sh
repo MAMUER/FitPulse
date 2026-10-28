@@ -166,8 +166,6 @@ echo ''
 echo '✅ Disk cleanup completed'
 "
 }
-
-
 apply_manifests() {
 	echo "Waiting for k8s API internal availability..."
 	for i in {1..30}; do
