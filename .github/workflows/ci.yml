@@ -623,6 +623,8 @@ jobs:
         working-directory: web
       - name: Install Python dependencies for Trivy
         run: bash scripts/ci/ci-helpers.sh install_python_deps
+      - name: Create SARIF results directory
+        run: mkdir -p sarif-results
       - name: Run Trivy filesystem scan (vulnerabilities + secrets + misconfig)
         id: trivy-fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
