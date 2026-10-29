@@ -27,7 +27,7 @@ build_go_services() {
 			-t "$REGISTRY/mamuer/project/$svc:$SHA" \
 			-t "$REGISTRY/mamuer/project/$svc:latest" \
 			-f "$dockerfile" . \
-			"${build_args[@]]}" \
+			"${build_args[@]}" \
 			--push
 	done
 }
@@ -88,19 +88,19 @@ build_go_binaries() {
 	done < <(find cmd -mindepth 2 -maxdepth 2 -name main.go -printf '%h\n' | sed 's|^cmd/||' | sort)
 	pids=()
 	names=()
-	for svc in "${services[@]]}"; do
+	for svc in "${services[@]}"; do
 		echo "  Building $svc..."
 		go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
 		pids+=($!)
 		names+=("$svc")
 	done
-	for i in "${!pids[@]]}"; do
-		wait "${pids[$i]]}" || {
-			echo "❌ Build failed for ${names[$i]]}"
+	for i in "${!pids[@]}"; do
+		wait "${pids[$i]}" || {
+			echo "❌ Build failed for ${names[$i]}"
 			exit 1
 		}
 	done
-	echo "✅ All binaries built successfully (${#services[@]]} services)"
+	echo "✅ All binaries built successfully (${#services[@]} services)"
 	ls -lh bin/
 }
 

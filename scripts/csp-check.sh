@@ -28,15 +28,15 @@ echo "✅ Site is accessible (HTTP 200)"
 HEADERS=$(curl -s -I "$DOMAIN")
 MISSING=()
 
-for header in "${EXPECTED_HEADERS[@]]}"; do
+for header in "${EXPECTED_HEADERS[@]}"; do
 	if ! echo "$HEADERS" | grep -qi "^$header:"; then
 		MISSING+=("$header")
 	fi
 done
 
-if [[ ${#MISSING[@]]} -gt 0 ]]; then
+if [[ ${#MISSING[@]} -gt 0 ]]; then
 	echo "❌ FAIL: Missing headers:"
-	for h in "${MISSING[@]]}"; do
+	for h in "${MISSING[@]}"; do
 		echo "  - $h"
 	done
 	exit 1
@@ -59,15 +59,15 @@ REQUIRED_DIRECTIVES=(
 )
 
 MISSING_DIRECTIVES=()
-for directive in "${REQUIRED_DIRECTIVES[@]]}"; do
+for directive in "${REQUIRED_DIRECTIVES[@]}"; do
 	if ! echo "$CSP_VALUE" | grep -qi "$directive"; then
 		MISSING_DIRECTIVES+=("$directive")
 	fi
 done
 
-if [[ ${#MISSING_DIRECTIVES[@]]} -gt 0 ]]; then
+if [[ ${#MISSING_DIRECTIVES[@]} -gt 0 ]]; then
 	echo "⚠️  WARNING: Missing CSP directives:"
-	for d in "${MISSING_DIRECTIVES[@]]}"; do
+	for d in "${MISSING_DIRECTIVES[@]}"; do
 		echo "  - $d"
 	done
 else

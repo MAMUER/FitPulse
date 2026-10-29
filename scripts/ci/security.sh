@@ -117,7 +117,7 @@ run_kubescape() {
 		mv "$tmpfile" sarif-results/kubescape-results.sarif
 	else
 		rm -f "$tmpfile"
-		jq -n '{ "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "version": "2.1.0", "runs": [[ { "tool": { "driver": { "name": "kubescape" } }, "results": []] } ]] }' >sarif-results/kubescape-results.sarif
+		jq -n '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"kubescape"}},"results":[]}]}' >sarif-results/kubescape-results.sarif
 	fi
 	if command -v jq &>/dev/null; then
 		jq '.runs |= map(

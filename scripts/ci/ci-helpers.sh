@@ -391,7 +391,7 @@ check_commits() {
 generate_provenance() {
 	set -euo pipefail
 	files=(bin/*)
-	echo "hashes=$(sha256sum "${files[@]]}" | base64 -w0)" >>"${GITHUB_OUTPUT}"
+	echo "hashes=$(sha256sum "${files[@]}" | base64 -w0)" >>"${GITHUB_OUTPUT}"
 }
 
 collect_statuses() {

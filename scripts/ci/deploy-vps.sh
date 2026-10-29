@@ -29,7 +29,7 @@ require_env() {
 	for var in POSTGRES_PASSWORD RABBITMQ_PASS GHCR_TOKEN VPS_HOST VPS_USER; do
 		[[ -n "${!var:-}" ]] || missing+=("$var")
 	done
-	[[ ${#missing[@]]} -eq 0 ]] || die "missing required env: ${missing[*]]}"
+	[[ ${#missing[@]} -eq 0 ]] || die "missing required env: ${missing[*]}"
 }
 
 ensure_remote_secrets() {
