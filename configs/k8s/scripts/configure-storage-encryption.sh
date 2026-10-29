@@ -55,7 +55,68 @@ if ! command -v cryptsetup &>/dev/null; then
 fi
 # If already set up, skip
 if cryptsetup status crypt-k3s &>/dev/null; then
-	echo "✅ Encrypted volume crypt-k3s already exists, skipping setup"
+	echo "Encrypted volume crypt-k3s already exists, skipping setup"
+	exit 0
+fi
+
+# If device already has a filesystem (not LUKS), skip destructive format
+if cryptsetup isLuks "${AVAILABLE_DEVICE}" 2>/dev/null; then
+	: # LUKS device, proceed
+elif blkid -o value -s TYPE "${AVAILABLE_DEVICE}" 2>/dev/null | grep -q .; then
+	echo "Device ${AVAILABLE_DEVICE} already contains a filesystem, skipping LUKS format"
+	mkdir -p "${K3S_STORAGE}"
+	chmod 755 "${K3S_STORAGE}"
+	exit 0
+fi
+echo "-> WARNING: This will format ${AVAILABLE_DEVICE} with LUKS encryption."
+echo "   All data on ${AVAILABLE_DEVICE} will be destroyed!"
+# В CI-режиме подтверждаем автоматически, иначе спрашиваем пользователя
+if [[ "${CI:-}" == "true" ]] || [[ "${1:-}" == "--yes" ]]; then
+	echo "-> Auto-confirming format (CI mode / --yes flag)"
+else
+	read -r -p "   Continue? (yes/no): " CONFIRM
+	if [[ "${CONFIRM}" != "yes" ]]; then
+		echo "-> Aborted by user"
+		exit 1
+	fi
+fi
+
+# Setup LUKS encryption
+echo "-> Setting up LUKS encryption on ${AVAILABLE_DEVICE}..."
+cryptsetup luksFormat "${AVAILABLE_DEVICE}"
+cryptsetup open "${AVAILABLE_DEVICE}" crypt-k3s
+
+# Create filesystem
+echo "-> Creating ext4 filesystem..."
+mkfs.ext4 -F "${ENCRYPTED_VOLUME}"
+
+# Move existing k3s data if present
+if [[ -d "${MOUNT_POINT}" ]] && [[ "$(ls -A "${MOUNT_POINT}")" ]]; then
+	echo "-> Backing up existing k3s data..."
+	mv "${MOUNT_POINT}" "${MOUNT_POINT}.bak"
+fi
+
+# Mount encrypted volume
+mkdir -p "${MOUNT_POINT}"
+mount "${ENCRYPTED_VOLUME}" "${MOUNT_POINT}"
+
+# Restore data if backed up
+if [[ -d "${MOUNT_POINT}.bak" ]]; then
+	echo "-> Restoring k3s data..."
+	mv "${MOUNT_POINT}.bak"/* "${MOUNT_POINT}/" 2>/dev/null || true
+	rmdir "${MOUNT_POINT}.bak" 2>/dev/null || true
+fi
+
+# Add to fstab for persistence
+echo "${ENCRYPTED_VOLUME} ${MOUNT_POINT} ext4 defaults 0 2" >>/etc/fstab
+
+echo "✅ Encrypted storage configured at ${MOUNT_POINT}"
+echo "   To unlock on boot, add to /etc/crypttab:"
+echo "   crypt-k3s ${AVAILABLE_DEVICE} none luks"
+; then
+	echo "Device ${AVAILABLE_DEVICE} already contains a filesystem, skipping LUKS format"
+	mkdir -p "${K3S_STORAGE}"
+	chmod 755 "${K3S_STORAGE}"
 	exit 0
 fi
 

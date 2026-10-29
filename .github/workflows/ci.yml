@@ -1334,12 +1334,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh start_k3s
-      - name: Limit k3s memory usage
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh limit_k3s_memory
       - name: Fix local-path-provisioner RBAC and ensure WaitForFirstConsumer binding mode
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

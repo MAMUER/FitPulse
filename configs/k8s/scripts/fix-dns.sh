@@ -43,7 +43,7 @@ log_ok "resolv.conf written with working nameservers"
 if chattr +i "$RESOLV_CONF" 2>/dev/null; then
 	log_ok "File protected with immutable flag"
 else
-	log_warn "Failed to set immutable flag (filesystem may not support it, continuing anyway)"
+    log_info "Failed to set immutable flag (filesystem may not support it, continuing anyway)"
 fi
 
 # 5. Проверка DNS (НЕ прерывает скрипт при ошибках)
