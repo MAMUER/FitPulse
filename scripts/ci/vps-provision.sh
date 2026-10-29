@@ -8,7 +8,7 @@ configure_swap() {
 	local attempt=1
 	local connected=false
 
-	while [ $attempt -le $max_attempts ]; do
+	while [[ $attempt -le $max_attempts ]]; do
 		echo "➡️ Попытка $attempt из $max_attempts..."
 		# Увеличили ConnectTimeout до 15 и добавили -v для отладки, если понадобится
 		if timeout 30 ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
@@ -22,7 +22,7 @@ configure_swap() {
 		fi
 	done
 
-	if [ "$connected" = false ]; then
+	if [[ "$connected" = false ]]; then
 		echo "❌ VPS не доступен по SSH после $max_attempts попыток — прерывание"
 		echo "💡 Проверьте: 1) Работает ли ПК, 2) Обновился ли IP в DuckDNS, 3) Проброшен ли порт 22."
 		return 1
@@ -43,7 +43,7 @@ check_disk_space() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
 echo "Current disk usage: ${DISK_USAGE}%"
-if [ "$DISK_USAGE" -gt 90 ]; then
+if [[ "$DISK_USAGE" -gt 90 ]]; then
 	echo "⚠️ WARNING: Disk usage is over 90%!"
 	curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
 		-H "Content-Type: application/json" \
@@ -70,9 +70,9 @@ configure_cpu_governor() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail
 echo "-> Configuring CPU governor..."
-if [ -d /sys/devices/system/cpu/cpufreq ]; then
+if [[ -d /sys/devices/system/cpu/cpufreq ]]; then
 	for gov in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do
-		[ -f "$gov" ] && echo "performance" | sudo tee "$gov" >/dev/null || true
+		[[ -f "$gov" ]] && echo "performance" | sudo tee "$gov" >/dev/null || true
 	done
 	echo "✅ CPU governor set to performance"
 else
@@ -81,7 +81,7 @@ fi
 echo "-> Configuring k3s systemd watchdog..."
 sudo mkdir -p /etc/systemd/system/k3s.service.d
 cat <<EOT | sudo tee /etc/systemd/system/k3s.service.d/99-performance.conf
-[Service]
+[Service]]
 CPUQuota=180%
 WatchdogSec=30s
 Restart=always
@@ -137,13 +137,13 @@ sudo cat /etc/rancher/k3s/config.yaml
 restart_k3s_if_needed() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-if [ ! -f /etc/systemd/system/k3s.service ] && [ ! -f /usr/local/bin/k3s ]; then
+if [[ ! -f /etc/systemd/system/k3s.service ]] && [[ ! -f /usr/local/bin/k3s ]]; then
 	echo '? k3s is not installed yet, skipping restart (will be installed in next steps)'
 	exit 0
 fi
 LOCAL_HASH=\$(sudo sha256sum /etc/rancher/k3s/config.yaml 2>/dev/null | awk '{print \$1}' || echo 'none')
 SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
-if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
+if [[ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]]; then
 	echo '-> Config changed (or first run), restarting k3s...'
 	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 	sudo touch /etc/sysctl.conf 2>/dev/null
@@ -155,7 +155,7 @@ if [ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]; then
 			echo \"? k3s ready after \${i}s\"
 			break
 		fi
-		if [ \"\$i\" -eq 90 ]; then
+		if [[ \"\$i\" -eq 90 ]]; then
 			echo '? Timeout waiting for k3s restart. Last 30 lines of journal:'
 			sudo journalctl -u k3s -n 30 --no-pager
 			exit 1
@@ -193,7 +193,7 @@ for i in \$(seq 1 120); do
 		echo \"k3s ready after \${i}s\"
 		break
 	fi
-	if [ \"\$i\" -eq 120 ]; then
+	if [[ \"\$i\" -eq 120 ]]; then
 		echo '? Timeout waiting for k3s'
 		sudo journalctl -u k3s -n 30 --no-pager
 		exit 1
@@ -209,7 +209,7 @@ sudo k3s kubectl get pods -A
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
+echo '-> [CRITICAL]] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
 		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 		echo '-> Forcing TLS 1.2 for root curl (fixes curl:35 resets)...'
 		printf 'tls-max = 1.2\ntlsv1.2\n' | sudo tee /root/.curlrc > /dev/null
@@ -237,7 +237,7 @@ preload_airgap_images() {
 		set -euo pipefail
 		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 		K3S_VER=\$(k3s --version 2>/dev/null | head -1 | awk '{print \$3}')
-		if [ -z \"\${K3S_VER}\" ]; then
+		if [[ -z \"\${K3S_VER}\" ]]; then
 			echo 'ERROR: Could not detect k3s version'
 			k3s --version || true
 			exit 1

@@ -18,7 +18,7 @@ POSTGRES_USER="${POSTGRES_USER:-fitness_admin}"
 POSTGRES_DB="${POSTGRES_DB:-fitness}"
 NODE_PORT="${NODE_PORT:-30081}"
 
-log() { echo "[deploy-vps] $*"; }
+log() { echo "[deploy-vps]] $*"; }
 die() {
 	echo "::error::deploy-vps: $*" >&2
 	exit 1
@@ -27,9 +27,9 @@ die() {
 require_env() {
 	local missing=()
 	for var in POSTGRES_PASSWORD RABBITMQ_PASS GHCR_TOKEN VPS_HOST VPS_USER; do
-		[ -n "${!var:-}" ] || missing+=("$var")
+		[[ -n "${!var:-}" ]] || missing+=("$var")
 	done
-	[ ${#missing[@]} -eq 0 ] || die "missing required env: ${missing[*]}"
+	[[ ${#missing[@]]} -eq 0 ]] || die "missing required env: ${missing[*]]}"
 }
 
 ensure_remote_secrets() {
@@ -46,8 +46,8 @@ ensure_remote_secrets() {
 	need_tls=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 		"sudo test -s ${SECRETS_DIR}/tls.crt && echo yes || echo no" | tr -d '\r')
 
-	if [ "$need_jwt" = "no" ]; then
-		if [ -n "${JWT_PRIVATE_KEY_PEM:-}" ] && [ -n "${JWT_PUBLIC_KEY_PEM:-}" ]; then
+	if [[ "$need_jwt" = "no" ]]; then
+		if [[ -n "${JWT_PRIVATE_KEY_PEM:-}" ]] && [[ -n "${JWT_PUBLIC_KEY_PEM:-}" ]]; then
 			printf '%s\n' "$JWT_PRIVATE_KEY_PEM" | ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo tee ${SECRETS_DIR}/JWT_PRIVATE_KEY_PEM >/dev/null"
 			printf '%s\n' "$JWT_PUBLIC_KEY_PEM" | ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo tee ${SECRETS_DIR}/JWT_PUBLIC_KEY_PEM >/dev/null"
 			log "JWT keys taken from GitHub secrets"
@@ -57,8 +57,8 @@ ensure_remote_secrets() {
 			log "JWT keys generated on VPS"
 		fi
 	fi
-	if [ "$need_totp" = "no" ]; then
-		if [ -n "${TOTP_ENCRYPTION_KEY:-}" ]; then
+	if [[ "$need_totp" = "no" ]]; then
+		if [[ -n "${TOTP_ENCRYPTION_KEY:-}" ]]; then
 			printf '%s\n' "$TOTP_ENCRYPTION_KEY" | ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo tee ${SECRETS_DIR}/TOTP_ENCRYPTION_KEY >/dev/null"
 		else
 			./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
@@ -66,7 +66,7 @@ ensure_remote_secrets() {
 		fi
 		log "TOTP encryption key stored"
 	fi
-	if [ "$need_tls" = "no" ]; then
+	if [[ "$need_tls" = "no" ]]; then
 		./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 			"sudo openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout ${SECRETS_DIR}/tls.key -out ${SECRETS_DIR}/tls.crt -subj '/CN=fitpulse.internal/O=FitPulse' -addext 'subjectAltName=DNS:localhost,DNS:*.fitness-platform-production.svc.cluster.local' && sudo cp ${SECRETS_DIR}/tls.crt ${SECRETS_DIR}/ca.crt"
 		log "self-signed TLS material generated on VPS"

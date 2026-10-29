@@ -27,13 +27,13 @@ build_go_services() {
 			-t "$REGISTRY/mamuer/project/$svc:$SHA" \
 			-t "$REGISTRY/mamuer/project/$svc:latest" \
 			-f "$dockerfile" . \
-			"${build_args[@]}" \
+			"${build_args[@]]}" \
 			--push
 	done
 }
 
 build_ml_images() {
-	if [ -f "models/scaler.pkl" ] && { [ -f "models/classifier.keras" ] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
+	if [[ -f "models/scaler.pkl" ]] && { [[ -f "models/classifier.keras" ]] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
 		SHA=$(git rev-parse --short HEAD)
 		docker build -t "$REGISTRY/mamuer/project/classifier:$SHA" \
 			-t "$REGISTRY/mamuer/project/classifier:latest" \
@@ -84,23 +84,23 @@ build_go_binaries() {
 	# automatically (e.g. admin-cli, classifier, data-processor).
 	services=()
 	while IFS= read -r svc; do
-		[ -n "$svc" ] && services+=("$svc")
+		[[ -n "$svc" ]] && services+=("$svc")
 	done < <(find cmd -mindepth 2 -maxdepth 2 -name main.go -printf '%h\n' | sed 's|^cmd/||' | sort)
 	pids=()
 	names=()
-	for svc in "${services[@]}"; do
+	for svc in "${services[@]]}"; do
 		echo "  Building $svc..."
 		go build -ldflags="-s -w" -o "bin/$svc" ./cmd/"$svc" &
 		pids+=($!)
 		names+=("$svc")
 	done
-	for i in "${!pids[@]}"; do
-		wait "${pids[$i]}" || {
-			echo "❌ Build failed for ${names[$i]}"
+	for i in "${!pids[@]]}"; do
+		wait "${pids[$i]]}" || {
+			echo "❌ Build failed for ${names[$i]]}"
 			exit 1
 		}
 	done
-	echo "✅ All binaries built successfully (${#services[@]} services)"
+	echo "✅ All binaries built successfully (${#services[@]]} services)"
 	ls -lh bin/
 }
 

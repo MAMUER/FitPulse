@@ -4,7 +4,7 @@ set -euo pipefail
 # Chaos Test: Valkey master failure
 # This script simulates a Valkey master failure and tests failover/recovery
 #
-# Usage: chaos-test-valkey.sh [namespace]
+# Usage: chaos-test-valkey.sh [namespace]]
 #   namespace - Kubernetes namespace (default: fitness-platform-production)
 
 NAMESPACE="${1:-fitness-platform-production}"
@@ -44,11 +44,11 @@ echo ""
 echo "Step 2: Waiting for pod to be recreated..."
 for i in $(seq 1 "$RECOVERY_TIMEOUT"); do
 	PODS=$(kubectl get pods -n "$NAMESPACE" -l app=valkey --no-headers 2>/dev/null | grep -c Running)
-	if [ "$PODS" -ge 1 ]; then
+	if [[ "$PODS" -ge 1 ]]; then
 		echo "Valkey pod is running again after ${i}s"
 		break
 	fi
-	if [ "$i" -eq "$RECOVERY_TIMEOUT" ]; then
+	if [[ "$i" -eq "$RECOVERY_TIMEOUT" ]]; then
 		echo "ERROR: Valkey pod did not recover within ${RECOVERY_TIMEOUT}s"
 		exit 1
 	fi
@@ -68,7 +68,7 @@ for i in $(seq 1 10); do
 		echo "Service connectivity verified after ${i}s"
 		break
 	fi
-	if [ "$i" -eq 10 ]; then
+	if [[ "$i" -eq 10 ]]; then
 		echo "WARNING: Service connectivity not verified within 10s"
 	fi
 	sleep 1
@@ -85,7 +85,7 @@ echo "=== Chaos Test Results ==="
 echo "Recovery time: ${RECOVERY_TIME}s"
 echo "Test duration: ${TEST_DURATION}s"
 
-if [ "$RECOVERY_TIME" -lt "$RECOVERY_TIMEOUT" ]; then
+if [[ "$RECOVERY_TIME" -lt "$RECOVERY_TIMEOUT" ]]; then
 	echo "✅ PASS: Valkey recovered within ${RECOVERY_TIMEOUT}s"
 	exit 0
 else

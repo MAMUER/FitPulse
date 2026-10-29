@@ -27,7 +27,7 @@ run_hadolint() {
 		-not -path './bin/*' \
 		-print0 | sort -z)
 
-	if [ "$failed" -ne 0 ]; then
+	if [[ "$failed" -ne 0 ]]; then
 		echo "Hadolint reported failures"
 		exit 1
 	fi
@@ -81,7 +81,7 @@ run_coverage() {
 
 	pwd
 	ls -la bin || true
-	if [ -f web/coverage/lcov.info ]; then
+	if [[ -f web/coverage/lcov.info ]]; then
 		echo "--- original lcov head ---"
 		head -20 web/coverage/lcov.info || true
 		sed -e 's|\\|/|g' -e 's|^SF:src/|SF:web/src/|' -e 's|^SF:/|SF:|' web/coverage/lcov.info >bin/lcov.info
@@ -90,7 +90,7 @@ run_coverage() {
 	else
 		echo "lcov.info not found in web/coverage"
 	fi
-	if [ -f bin/coverage.out ]; then
+	if [[ -f bin/coverage.out ]]; then
 		# Unified coverage accounting (scripts/ci/coverage-check.sh), computed
 		# BEFORE the path rewrites below (go tool cover needs the module paths).
 		# Threshold 0 = report-only: SonarCloud is the authority on coverage.
@@ -104,7 +104,7 @@ run_coverage() {
 		echo "WARNING: bin/coverage.out not found, skipping coverage check"
 	fi
 
-	if [ "$GO_TEST_EXIT" -ne 0 ] || [ "$NPM_TEST_EXIT" -ne 0 ]; then
+	if [[ "$GO_TEST_EXIT" -ne 0 ]] || [[ "$NPM_TEST_EXIT" -ne 0 ]]; then
 		echo "Some tests failed (go=$GO_TEST_EXIT, npm=$NPM_TEST_EXIT), but coverage reports were generated"
 		return 0
 	fi
@@ -146,7 +146,7 @@ if ! k3s kubectl get --raw /livez &>/dev/null; then
 fi
 CERT_FILE="/var/lib/rancher/k3s/server/tls/dynamic-cert.json"
 NEED_RESTART=false
-if [ -f "$CERT_FILE" ]; then
+if [[ -f "$CERT_FILE" ]]; then
 	CURRENT_SAN=$(kubectl get --raw /apis | jq -r '.')
 	if ! grep -q "$FITPULSE_DOMAIN" /etc/rancher/k3s/config.yaml; then
 		echo "⚠️ Конфиг не содержит домен, обновляем..."
@@ -157,7 +157,7 @@ if [ -f "$CERT_FILE" ]; then
 else
 	echo "Сертификат ещё не сгенерирован, перезапуск не требуется."
 fi
-if [ "$NEED_RESTART" = true ]; then
+if [[ "$NEED_RESTART" = true ]]; then
 	echo "Перезапуск k3s для применения новых SAN..."
 	sudo systemctl stop k3s
 	sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
@@ -180,7 +180,7 @@ wait_for_k3s_api() {
 			echo "✅ k3s API server is ready after ${i}0 seconds"
 			break
 		fi
-		if [ "$i" -eq 30 ]; then
+		if [[ "$i" -eq 30 ]]; then
 			echo "❌ k3s API server not ready after 5 minutes"
 			kubectl cluster-info dump || true
 			exit 1
@@ -209,7 +209,7 @@ check_connectivity() {
 
 add_vps_to_known_hosts() {
 	mkdir -p ~/.ssh
-	if [ -n "${VPS_PORT:-}" ]; then
+	if [[ -n "${VPS_PORT:-}" ]]; then
 		# Если порт задан, используем его для ssh-keyscan
 		ssh-keyscan -H -p "${VPS_PORT}" "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
 	else
@@ -220,10 +220,10 @@ add_vps_to_known_hosts() {
 
 resolve_vps_hostname() {
 	VPS_IP=$(dig +short "${VPS_HOST}" | head -1)
-	if [ -z "$VPS_IP" ]; then
+	if [[ -z "$VPS_IP" ]]; then
 		VPS_IP=$(nslookup "${VPS_HOST}" | grep -A1 "Name:" | tail -1 | awk '{print $2}')
 	fi
-	if [ -z "$VPS_IP" ]; then
+	if [[ -z "$VPS_IP" ]]; then
 		VPS_IP="${VPS_HOST}"
 	fi
 	echo "Resolved VPS_IP: $VPS_IP"
@@ -256,7 +256,7 @@ run_immediate_health_check() {
 }
 
 setup_postgres_backups() {
-	if [ -n "${BACKUP_KEY}" ]; then
+	if [[ -n "${BACKUP_KEY}" ]]; then
 		echo -n "${BACKUP_KEY}" >/tmp/backup.key
 		chmod 600 /tmp/backup.key
 		./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo mkdir -p /etc/fitpulse"
@@ -285,7 +285,7 @@ FILENAME=\"\$BACKUP_DIR/fitness_\$DATE.dump\"
 ENCRYPTED=\"\$FILENAME.enc\"
 /usr/local/bin/k3s kubectl exec -n fitness-platform-production postgres-0 -- \
 	pg_dump -U postgres -d fitness -F c > \"\$FILENAME\"
-if [ -f \"\$KEY_FILE\" ] && [ -s \"\$KEY_FILE\" ]; then
+if [[ -f \"\$KEY_FILE\" ]] && [[ -s \"\$KEY_FILE\" ]]; then
 	openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:\"\$KEY_FILE\" -in \"\$FILENAME\" -out \"\$ENCRYPTED\"
 	rm -f \"\$FILENAME\"
 	echo \"Encrypted backup created: \$ENCRYPTED\"
@@ -304,13 +304,13 @@ show_codeql_diagnostics() {
 	echo "-> CodeQL SARIF files:"
 	ls -la sarif-results || true
 	for f in sarif-results/*.sarif; do
-		if [ -f "$f" ]; then
+		if [[ -f "$f" ]]; then
 			echo "=== $f ==="
 			jq -r '
 				.runs[] |
 				.tool.driver.name,
-				"results: \(([.results // [] | length]) // 0)",
-				(.results // [])[] |
+				"results: \(([.results // [] | length]]) // 0)",
+				(.results // []])[] |
 				[.ruleId, .message.text, (.locations[0].physicalLocation.artifactLocation.uri // ""), (.locations[0].physicalLocation.region.startLine // 0)] | @tsv
 			' "$f" 2>/dev/null || true
 			echo ""
@@ -391,7 +391,7 @@ check_commits() {
 generate_provenance() {
 	set -euo pipefail
 	files=(bin/*)
-	echo "hashes=$(sha256sum "${files[@]}" | base64 -w0)" >>"${GITHUB_OUTPUT}"
+	echo "hashes=$(sha256sum "${files[@]]}" | base64 -w0)" >>"${GITHUB_OUTPUT}"
 }
 
 collect_statuses() {

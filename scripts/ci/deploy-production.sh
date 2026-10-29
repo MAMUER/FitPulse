@@ -10,12 +10,12 @@ create_secrets() {
 	echo "✅ gRPC mTLS certificates managed by cert-manager"
 
 	echo "Creating argocd-secret..."
-	if [ -n "${ARGOCD_ADMIN_PASSWORD:-}" ]; then
+	if [[ -n "${ARGOCD_ADMIN_PASSWORD:-}" ]]; then
 		ARGOCD_BCRYPT=$(python3 -c "import bcrypt; print(bcrypt.hashpw('${ARGOCD_ADMIN_PASSWORD}'.encode(), bcrypt.gensalt(rounds=12)).decode())" 2>/dev/null || echo "")
-		if [ -z "$ARGOCD_BCRYPT" ]; then
+		if [[ -z "$ARGOCD_BCRYPT" ]]; then
 			ARGOCD_BCRYPT=$(node -e "console.log(require('bcrypt').hashSync('${ARGOCD_ADMIN_PASSWORD}', 12))" 2>/dev/null || echo "")
 		fi
-		if [ -n "$ARGOCD_BCRYPT" ]; then
+		if [[ -n "$ARGOCD_BCRYPT" ]]; then
 			kubectl create secret generic argocd-secret \
 				-n argocd \
 				--from-literal=admin.password="$ARGOCD_BCRYPT" \
@@ -30,7 +30,7 @@ create_secrets() {
 	fi
 
 	echo "Creating external-secrets-db-credentials secret..."
-	if [ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]; then
+	if [[ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]]; then
 		echo "❌ EXTERNAL_SECRETS_DB_PASSWORD is empty!"
 		exit 1
 	fi
@@ -61,7 +61,7 @@ create_secrets() {
 	echo "✅ minio-credentials created"
 
 	echo "Creating grafana-credentials secret..."
-	if [ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]; then
+	if [[ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
 		echo "❌ GRAFANA_ADMIN_PASSWORD is empty!"
 		exit 1
 	fi
@@ -72,7 +72,7 @@ create_secrets() {
 	echo "✅ grafana-credentials created"
 
 	echo "Creating oncall-bot-credentials secret..."
-	if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+	if [[ -z "${TELEGRAM_BOT_TOKEN:-}" ]] || [[ -z "${TELEGRAM_CHAT_ID:-}" ]]; then
 		echo "❌ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty!"
 		exit 1
 	fi
@@ -84,7 +84,7 @@ create_secrets() {
 	echo "✅ oncall-bot-credentials created"
 
 	echo "Creating elk-credentials secret..."
-	if [ -z "${ELASTICSEARCH_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ] || [ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]; then
+	if [[ -z "${ELASTICSEARCH_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]]; then
 		echo "❌ ELASTICSEARCH_PASSWORD, ELASTICSEARCH_PLATFORM_PASSWORD or ELASTICSEARCH_AUDITOR_PASSWORD is empty!"
 		exit 1
 	fi
@@ -102,7 +102,7 @@ create_secrets() {
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
 	echo "✅ monitoring-secrets created"
 
-	if [ -n "${CLOUDFLARE_TURNSTILE_SECRET_KEY:-}" ]; then
+	if [[ -n "${CLOUDFLARE_TURNSTILE_SECRET_KEY:-}" ]]; then
 		echo "Creating captcha-secrets..."
 		kubectl create secret generic captcha-secrets \
 			--namespace=fitness-platform-production \
@@ -200,7 +200,7 @@ apply_manifests() {
 			break
 		else
 			echo "Attempt $i/$MAX_RETRIES failed."
-			if [ "$i" -lt "$MAX_RETRIES" ]; then
+			if [[ "$i" -lt "$MAX_RETRIES" ]]; then
 				echo "Waiting 20s before retry..."
 				sleep 20
 				if ! kubectl get nodes >/dev/null 2>&1; then
@@ -231,14 +231,14 @@ wait_for_rabbitmq() {
 	echo "Waiting for RabbitMQ pod to be scheduled..."
 	for i in {1..60}; do
 		POD_NAME=$(kubectl get pods -l app=rabbitmq -n fitness-platform-production -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-		if [ -n "$POD_NAME" ]; then
+		if [[ -n "$POD_NAME" ]]; then
 			echo "✅ RabbitMQ pod found: $POD_NAME"
 			break
 		fi
 		echo "Attempt $i/60: waiting for RabbitMQ pod..."
 		sleep 2
 	done
-	if [ -z "$POD_NAME" ]; then
+	if [[ -z "$POD_NAME" ]]; then
 		echo "❌ RabbitMQ pod not scheduled. Checking events..."
 		kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | grep -i rabbitmq || true
 		kubectl describe statefulset rabbitmq -n fitness-platform-production || true
@@ -287,7 +287,7 @@ debug_pod_status() {
 		if kubectl get --raw=/healthz &>/dev/null; then
 			break
 		fi
-		if [ "$i" -eq 30 ]; then
+		if [[ "$i" -eq 30 ]]; then
 			echo "API not available, restarting k3s..."
 			./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s"
 			sleep 30
@@ -326,11 +326,11 @@ run_seed_admin() {
 	echo "=== Running seed-admin job ==="
 	echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 	echo "-> Checking required secrets..."
-	if [ -z "${SEED_ADMIN_EMAIL}" ]; then
+	if [[ -z "${SEED_ADMIN_EMAIL}" ]]; then
 		echo "❌ SEED_ADMIN_EMAIL is empty!"
 		exit 1
 	fi
-	if [ -z "${SEED_ADMIN_PASSWORD}" ]; then
+	if [[ -z "${SEED_ADMIN_PASSWORD}" ]]; then
 		echo "❌ SEED_ADMIN_PASSWORD is empty!"
 		exit 1
 	fi
@@ -344,7 +344,7 @@ run_seed_admin() {
 	POD_NAME=""
 	for i in {1..30}; do
 		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-		if [ -n "$POD_NAME" ]; then
+		if [[ -n "$POD_NAME" ]]; then
 			echo "✅ Pod found: $POD_NAME"
 			echo "-> Pod status: $(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo 'unknown')"
 			break
@@ -352,7 +352,7 @@ run_seed_admin() {
 		echo "  Attempt $i/30: waiting for pod... (5s)"
 		sleep 5
 	done
-	if [ -z "$POD_NAME" ]; then
+	if [[ -z "$POD_NAME" ]]; then
 		echo "❌ Failed to find seed-admin pod after 150s"
 		echo "-> Checking all pods in namespace:"
 		kubectl get pods -n fitness-platform-production -o wide 2>&1 || true
@@ -382,13 +382,13 @@ run_seed_admin() {
 			break
 		fi
 		ELAPSED=$(($(date +%s) - MONITOR_START))
-		if [ "$ELAPSED" -ge 300 ]; then
+		if [[ "$ELAPSED" -ge 300 ]]; then
 			echo "⏱️  Monitoring timeout reached (300s)"
 			break
 		fi
 		sleep 10
 	done
-	if [ -n "$LOG_STREAM_PID" ]; then
+	if [[ -n "$LOG_STREAM_PID" ]]; then
 		kill $LOG_STREAM_PID 2>/dev/null || true
 		wait $LOG_STREAM_PID 2>/dev/null || true
 	fi
@@ -401,7 +401,7 @@ run_seed_admin() {
 		echo "⚠️ Job did not complete successfully, detailed diagnostics..."
 		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
 		echo "Current pod name: $POD_NAME"
-		if [ "$POD_NAME" != "unknown" ] && [ -n "$POD_NAME" ]; then
+		if [[ "$POD_NAME" != "unknown" ]] && [[ -n "$POD_NAME" ]]; then
 			echo "→ Pod describe:"
 			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
 			echo "→ Pod logs (last 300 lines):"
@@ -421,7 +421,7 @@ run_seed_admin() {
 		DB_CHECK=$(kubectl exec -n fitness-platform-production postgres-0 -- \
 			psql -U postgres -d fitness -tAc \
 			"SELECT COUNT(*) FROM users WHERE email='${SEED_ADMIN_EMAIL}'" 2>/dev/null || echo "0")
-		if [ "$DB_CHECK" = "1" ]; then
+		if [[ "$DB_CHECK" = "1" ]]; then
 			echo "✅ Admin user already exists in database (idempotent check passed)"
 		else
 			echo "❌ seed-admin job failed AND admin user not found in database"
@@ -460,7 +460,7 @@ check_logs() {
 			ERROR_FOUND=1
 		fi
 	done
-	if [ $ERROR_FOUND -eq 1 ]; then
+	if [[ $ERROR_FOUND -eq 1 ]]; then
 		echo "❌ Critical errors detected, failing the deployment"
 		exit 1
 	else
@@ -473,7 +473,7 @@ verify_deployment() {
 		if kubectl get --raw=/healthz &>/dev/null; then
 			break
 		fi
-		if [ "$i" -eq 30 ]; then
+		if [[ "$i" -eq 30 ]]; then
 			echo "API not available, restarting k3s..."
 			./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s"
 			sleep 30

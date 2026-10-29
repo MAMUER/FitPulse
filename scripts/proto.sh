@@ -7,17 +7,17 @@ if command -v protoc >/dev/null 2>&1; then
 	PROTOC_CMD="protoc"
 elif command -v where >/dev/null 2>&1; then
 	PROTOC_PATH=$(where protoc 2>/dev/null | head -n1)
-	if [ -n "$PROTOC_PATH" ]; then
+	if [[ -n "$PROTOC_PATH" ]]; then
 		PROTOC_CMD="$PROTOC_PATH"
 	fi
 elif command -v which >/dev/null 2>&1; then
 	PROTOC_PATH=$(which protoc 2>/dev/null)
-	if [ -n "$PROTOC_PATH" ]; then
+	if [[ -n "$PROTOC_PATH" ]]; then
 		PROTOC_CMD="$PROTOC_PATH"
 	fi
 fi
 
-if [ -z "$PROTOC_CMD" ]; then
+if [[ -z "$PROTOC_CMD" ]]; then
 	echo "Error: protoc not found in PATH. Install protoc and ensure it's in PATH for bash."
 	echo "On Windows: ensure protoc is in system PATH and run 'make' from Git Bash terminal."
 	exit 1

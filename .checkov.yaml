@@ -8,6 +8,11 @@ skip-check:
   # is covered by the Trivy image scan step of the same CI job.
   - CKV_K8S_43
 
+  # local-path-provisioner uses imagePullPolicy: IfNotPresent because the CI preloads
+  # the k3s airgap image bundle locally; pulling from docker.io would fail on the VPS
+  # due to broken outbound HTTPS. Checkov's "should be Always" rule does not apply here.
+  - CKV_K8S_15
+
   # --- Platform-wide design decisions -----------------------------------------
 
   # Third-party/vendored manifests (ArgoCD, ingress-nginx, local-path-provisioner)

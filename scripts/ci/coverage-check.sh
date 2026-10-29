@@ -5,7 +5,7 @@ set -euo pipefail
 # ci-helpers.sh:run_coverage (SonarCloud job, report-only) and the Tests job
 # (threshold enforcement), plus `make coverage-check`.
 #
-# Usage: coverage-check.sh [coverage_file] [min_coverage]
+# Usage: coverage-check.sh [coverage_file]] [min_coverage]]
 #   min_coverage=0 or empty  -> report only, always exits 0
 #   default                  -> COVERAGE_THRESHOLD or 80
 
@@ -17,7 +17,7 @@ min_coverage="${2:-${COVERAGE_THRESHOLD:-80}}"
 # else. Business logic is NOT excluded, so newly added tests always move the number.
 EXCLUDE='(^|/)api/gen/'
 
-if [ ! -f "$coverage_file" ]; then
+if [[ ! -f "$coverage_file" ]]; then
 	echo "ERROR: $coverage_file not found. Run 'go test -coverprofile=$coverage_file ./...' first."
 	exit 1
 fi
@@ -34,7 +34,7 @@ read -r total covered < <(awk -v exclude="$EXCLUDE" '
 	END { print total + 0, covered + 0 }
 ' "$coverage_file")
 
-if [ "$total" -eq 0 ]; then
+if [[ "$total" -eq 0 ]]; then
 	echo "ERROR: no statements found in $coverage_file"
 	exit 1
 fi
@@ -42,7 +42,7 @@ fi
 coverage=$(awk -v c="$covered" -v t="$total" 'BEGIN { printf "%.2f", (c / t) * 100 }')
 echo "Coverage: ${coverage}% of statements ($covered/$total, excluding generated api/gen)"
 
-if [ "$min_coverage" = "0" ] || [ -z "$min_coverage" ]; then
+if [[ "$min_coverage" = "0" ]] || [[ -z "$min_coverage" ]]; then
 	echo "Coverage threshold check skipped (report-only mode)"
 	exit 0
 fi

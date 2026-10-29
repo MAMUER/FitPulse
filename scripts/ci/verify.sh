@@ -18,14 +18,14 @@ health_check() {
 	echo "🔍 Checking production health via HTTPS..."
 	for _ in {1..42}; do
 		RESPONSE=$(curl -skf --max-time 5 "https://$FITPULSE_DOMAIN/health" 2>/dev/null || echo "")
-		if [ -n "$RESPONSE" ]; then
+		if [[ -n "$RESPONSE" ]]; then
 			echo "Health response: $RESPONSE"
 			break
 		fi
 		echo "Attempt $i/42: waiting..."
 		sleep 10
 	done
-	if [ -z "$RESPONSE" ]; then
+	if [[ -z "$RESPONSE" ]]; then
 		echo "❌ Health endpoint unreachable"
 		kubectl --kubeconfig="$HOME/.kube/config" get pods -n fitness-platform-production -o wide || true
 		kubectl --kubeconfig="$HOME/.kube/config" get svc -n fitness-platform-production || true
@@ -52,11 +52,11 @@ wait_for_postgres() {
 	echo "Waiting for Postgres pod to be scheduled and running..."
 	for i in {1..120}; do
 		STATUS=$(kubectl get pod postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-		if [ "$STATUS" = "Running" ]; then
+		if [[ "$STATUS" = "Running" ]]; then
 			echo "✅ Postgres pod is Running after ${i}x5 seconds"
 			break
 		fi
-		if [ "$i" -eq 120 ]; then
+		if [[ "$i" -eq 120 ]]; then
 			echo "❌ Timeout waiting for Postgres pod"
 			echo "-> PVC Status:"
 			kubectl get pvc -n fitness-platform-production || true
@@ -75,7 +75,7 @@ wait_for_postgres() {
 			echo "✅ Postgres is ready to accept connections"
 			break
 		fi
-		if [ "$i" -eq 30 ]; then
+		if [[ "$i" -eq 30 ]]; then
 			echo "❌ Postgres not accepting connections"
 			kubectl logs postgres-0 -n fitness-platform-production --tail=50 || true
 			exit 1
@@ -98,11 +98,11 @@ wait_for_pvc() {
 	echo "Waiting for PVC to be bound..."
 	for i in {1..30}; do
 		PHASE=$(kubectl get pvc postgres-storage-postgres-0 -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-		if [ "$PHASE" = "Bound" ]; then
+		if [[ "$PHASE" = "Bound" ]]; then
 			echo "✅ PVC is bound"
 			break
 		fi
-		if [ "$i" -eq 30 ]; then
+		if [[ "$i" -eq 30 ]]; then
 			echo "❌ Timeout waiting for Postgres PVC to bind"
 			kubectl get nodes -o wide || true
 			kubectl get pvc -n fitness-platform-production || true

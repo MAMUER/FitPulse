@@ -11,12 +11,12 @@ for i in $(seq 1 60); do
 		break
 	fi
 
-	if [ $((i % 10)) -eq 0 ]; then
+	if [[ $((i % 10)) -eq 0 ]]; then
 		echo "Still waiting... ($((i * 2))s)"
 		k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner || true
 	fi
 
-	if [ "$i" -eq 60 ]; then
+	if [[ "$i" -eq 60 ]]; then
 		echo "local-path provisioner not ready after 120s. Debugging info:"
 		k3s kubectl get pods -n local-path-storage -o wide || true
 		echo "--- Describe ---"
@@ -37,7 +37,7 @@ for i in $(seq 1 10); do
 		exit 1
 	fi
 	mode=$(k3s kubectl get storageclass "$sc_name" -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo "")
-	if [ "$mode" != "WaitForFirstConsumer" ]; then
+	if [[ "$mode" != "WaitForFirstConsumer" ]]; then
 		echo "StorageClass $sc_name found but wrong volumeBindingMode: ${mode:-<empty>}"
 		k3s kubectl get storageclass "$sc_name" -o yaml || k3s kubectl get storageclass -o wide || true
 		exit 1

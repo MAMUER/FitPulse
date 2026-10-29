@@ -64,8 +64,8 @@ run_gosec() {
 	mkdir -p sarif-results
 	# gosec может падать при пакетах с type errors — не рвём пайплайн, но сохраняем SARIF если есть
 	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
-	if [ ! -s sarif-results/gosec.sarif ]; then
-		echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]}]}" >sarif-results/gosec.sarif
+	if [[ ! -s sarif-results/gosec.sarif ]]; then
+		echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]]}]]}" >sarif-results/gosec.sarif
 	fi
 }
 
@@ -117,7 +117,7 @@ run_kubescape() {
 		mv "$tmpfile" sarif-results/kubescape-results.sarif
 	else
 		rm -f "$tmpfile"
-		jq -n '{ "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "version": "2.1.0", "runs": [ { "tool": { "driver": { "name": "kubescape" } }, "results": [] } ] }' >sarif-results/kubescape-results.sarif
+		jq -n '{ "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "version": "2.1.0", "runs": [[ { "tool": { "driver": { "name": "kubescape" } }, "results": []] } ]] }' >sarif-results/kubescape-results.sarif
 	fi
 	if command -v jq &>/dev/null; then
 		jq '.runs |= map(
@@ -164,12 +164,12 @@ run_checkov() {
 	mv -f sarif-results/results_sarif.sarif sarif-results/checkov-results.sarif 2>/dev/null
 
 	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
-	if [ "$status" -ge 2 ]; then
+	if [[ "$status" -ge 2 ]]; then
 		echo "::error::Checkov failed to run (exit $status) - IaC scan did not complete, results are NOT green"
 		exit "$status"
 	fi
 
-	if [ "$status" -eq 1 ]; then
+	if [[ "$status" -eq 1 ]]; then
 		echo "::error::Checkov found IaC policy violations - failing the job. Fix the findings below or add a justified skip in .checkov.yaml"
 		python3 - <<-'PY'
 			import collections
@@ -184,13 +184,13 @@ run_checkov() {
 			    raise SystemExit(0)
 
 			definitions = {}
-			for rule in data["runs"][0]["tool"]["driver"].get("rules", []):
+			for rule in data["runs"][0]["tool"]["driver"].get("rules", []]):
 			    definitions[rule.get("id")] = rule.get("shortDescription", {}).get("text", "")
 
 			counter = collections.Counter(
 			    result["ruleId"]
-			    for run in data.get("runs", [])
-			    for result in run.get("results", [])
+			    for run in data.get("runs", []])
+			    for result in run.get("results", []])
 			)
 			total = sum(counter.values())
 			if not total:
@@ -213,14 +213,14 @@ run_checkov() {
 			    "",
 			    "| Check | Count | Description |",
 			    "| --- | --- | --- |",
-			]
+			]]
 			for rule, count in counter.most_common():
 			    title = definitions.get(rule, "").replace("|", "\\|")
 			    rows.append(f"| `{rule}` | {count} | {title} |")
 			rows += [
 			    "",
 			    "Fix the findings above, or add a justified skip to `.checkov.yaml`.",
-			]
+			]]
 
 			with open(summary_path, "a", encoding="utf-8") as fh:
 			    fh.write("\n".join(rows) + "\n")
@@ -245,7 +245,7 @@ run_kube_bench() {
 		exit 0
 	fi
 
-	if [ ! -d /var/lib/kubelet ] && [ ! -d /etc/kubernetes ] && [ ! -f /etc/systemd/system/kubelet.service ] && [ ! -f "$HOME/.kube/config" ] && [ -z "${KUBECONFIG:-}" ]; then
+	if [[ ! -d /var/lib/kubelet ]] && [[ ! -d /etc/kubernetes ]] && [[ ! -f /etc/systemd/system/kubelet.service ]] && [[ ! -f "$HOME/.kube/config" ]] && [[ -z "${KUBECONFIG:-}" ]]; then
 		echo "Нет кластера/kubelet-конфигов на этом раннере — пропускаем kube-bench"
 		exit 0
 	fi
@@ -258,7 +258,7 @@ run_kube_hunter() {
 	echo "-> Running kube-hunter (passive scan)..."
 	mkdir -p security-results
 
-	if [ ! -f "$HOME/.kube/config" ] && [ -z "${KUBECONFIG:-}" ]; then
+	if [[ ! -f "$HOME/.kube/config" ]] && [[ -z "${KUBECONFIG:-}" ]]; then
 		echo "Нет kubeconfig/кластера на этом раннере — пропускаем kube-hunter"
 		exit 0
 	fi
@@ -281,7 +281,7 @@ run_kube_hunter() {
 }
 
 verify_cosign() {
-	if [ ! -f /tmp/cosign-keys/cosign.pub ]; then
+	if [[ ! -f /tmp/cosign-keys/cosign.pub ]]; then
 		echo "⚠️ No public key available, skipping verification"
 		exit 0
 	fi
@@ -298,7 +298,7 @@ verify_cosign() {
 }
 
 download_cosign_public_key() {
-	if [ -z "$COSIGN_PUBLIC_KEY" ]; then
+	if [[ -z "$COSIGN_PUBLIC_KEY" ]]; then
 		echo "⚠️ COSIGN_PUBLIC_KEY not set, skipping verification"
 		exit 0
 	fi
@@ -309,7 +309,7 @@ download_cosign_public_key() {
 sign_images() {
 	services="user-service biometric-service training-service gateway device-aggregator"
 
-	if [ -z "$COSIGN_PRIVATE_KEY" ]; then
+	if [[ -z "$COSIGN_PRIVATE_KEY" ]]; then
 		echo "❌ COSIGN_PRIVATE_KEY is empty" >&2
 		exit 1
 	fi
@@ -350,7 +350,7 @@ sign_images() {
 			sleep $((attempt * 3))
 		done
 
-		if [ "$sign_ok" = false ]; then
+		if [[ "$sign_ok" = false ]]; then
 			echo "❌ Failed to sign $svc:$IMAGE_TAG after retries" >&2
 			SIGN_FAILURES=$((SIGN_FAILURES + 1))
 		fi
@@ -358,7 +358,7 @@ sign_images() {
 
 	rm -f /tmp/cosign.key
 
-	if [ "$SIGN_FAILURES" -gt 0 ]; then
+	if [[ "$SIGN_FAILURES" -gt 0 ]]; then
 		echo "❌ $SIGN_FAILURES image(s) failed to sign" >&2
 		exit 1
 	fi
@@ -371,12 +371,12 @@ security_gate() {
 	FAIL=0
 
 	# gosec: only HIGH/CRITICAL findings (SARIF level=error) block the build.
-	if [ -f sarif-results/gosec.sarif ]; then
+	if [[ -f sarif-results/gosec.sarif ]]; then
 		GOSEC_CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/gosec.sarif 2>/dev/null | head -1 || echo 0)
 		GOSEC_CRITICAL=$(printf '%s' "$GOSEC_CRITICAL")
-		if [ -z "$GOSEC_CRITICAL" ]; then GOSEC_CRITICAL=0; fi
+		if [[ -z "$GOSEC_CRITICAL" ]]; then GOSEC_CRITICAL=0; fi
 		echo "gosec: $GOSEC_CRITICAL high/critical findings"
-		if [ "$GOSEC_CRITICAL" -gt 0 ]; then
+		if [[ "$GOSEC_CRITICAL" -gt 0 ]]; then
 			echo "❌ FAIL: gosec found $GOSEC_CRITICAL high/critical findings"
 			gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
 			FAIL=1
@@ -390,7 +390,7 @@ security_gate() {
 	# Their reports are still uploaded to Code Scanning.
 
 	# govulncheck is informational only (Trivy covers CVE scanning).
-	if [ -f sarif-results/govulncheck.txt ]; then
+	if [[ -f sarif-results/govulncheck.txt ]]; then
 		# grep -c exits 1 when there are no matches; under `set -e` that would
 		# abort the gate even though zero findings is a success.
 		GOVULNCHECK=$(grep -cE "^\(#[0-9]+\)" sarif-results/govulncheck.txt 2>/dev/null || true)
@@ -399,7 +399,7 @@ security_gate() {
 	fi
 
 	echo "============================================"
-	if [ "$FAIL" -eq 1 ]; then
+	if [[ "$FAIL" -eq 1 ]]; then
 		echo "❌ Security Gate FAILED — pipeline blocked"
 		echo "   Fix the issues above before merging."
 		exit 1

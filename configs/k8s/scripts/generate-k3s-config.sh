@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ $# -lt 1 ]; then
+if [[ $# -lt 1 ]]; then
 	echo "Usage: $0 <VPS_HOST> [OUTPUT_FILE]" >&2
 	exit 1
 fi
@@ -9,10 +9,10 @@ fi
 VPS_HOST="$1"
 OUTPUT_FILE="${2:-/dev/stdout}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]]}")" && pwd)"
 TEMPLATE="${SCRIPT_DIR}/../base/k3s-config-template.yaml"
 
-if [ ! -f "$TEMPLATE" ]; then
+if [[ ! -f "$TEMPLATE" ]]; then
 	echo "❌ Template not found: $TEMPLATE" >&2
 	exit 1
 fi
