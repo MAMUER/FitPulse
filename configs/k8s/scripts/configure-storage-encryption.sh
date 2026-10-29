@@ -113,7 +113,11 @@ echo "${ENCRYPTED_VOLUME} ${MOUNT_POINT} ext4 defaults 0 2" >>/etc/fstab
 echo "✅ Encrypted storage configured at ${MOUNT_POINT}"
 echo "   To unlock on boot, add to /etc/crypttab:"
 echo "   crypt-k3s ${AVAILABLE_DEVICE} none luks"
-; then
+
+# If device already has a filesystem (not LUKS), skip destructive format
+if cryptsetup isLuks "${AVAILABLE_DEVICE}" 2>/dev/null; then
+	: # LUKS device, proceed
+elif blkid -o value -s TYPE "${AVAILABLE_DEVICE}" 2>/dev/null | grep -q .; then
 	echo "Device ${AVAILABLE_DEVICE} already contains a filesystem, skipping LUKS format"
 	mkdir -p "${K3S_STORAGE}"
 	chmod 755 "${K3S_STORAGE}"

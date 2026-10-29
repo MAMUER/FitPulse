@@ -4,16 +4,23 @@ set -euo pipefail
 echo '-> Deploying local-path-provisioner from local manifest...'
 k3s kubectl apply -f /tmp/local-path-provisioner.yaml
 
+echo '-> Verifying local-path-provisioner image is present in containerd...'
+k3s crictl images | grep local-path || echo "WARNING: local-path image NOT found in crictl!"
+
 echo '-> Waiting for local-path-provisioner pod to be ready...'
 for i in $(seq 1 60); do
-	if k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner --no-headers 2>/dev/null | grep -q Running; then
+	STATUS=$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+
+	if [[ "$STATUS" == "Running" ]]; then
 		echo "local-path provisioner is Running after $((i * 2))s"
 		break
 	fi
 
 	if [[ $((i % 10)) -eq 0 ]]; then
-		echo "Still waiting... ($((i * 2))s)"
-		k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner || true
+		echo "Still waiting... ($((i * 2))s) - Status: $STATUS"
+		k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o wide || true
+		echo "--- Recent Events ---"
+		k3s kubectl get events -n local-path-storage --sort-by='.lastTimestamp' | tail -5 || true
 	fi
 
 	if [[ "$i" -eq 60 ]]; then
@@ -23,6 +30,8 @@ for i in $(seq 1 60); do
 		k3s kubectl describe pods -n local-path-storage -l app=local-path-provisioner || true
 		echo "--- Logs ---"
 		k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=50 || true
+		echo "--- Crictl images check ---"
+		k3s crictl images | grep local-path || echo "Image NOT found in crictl. Airgap preload may have failed."
 		exit 1
 	fi
 	sleep 2
@@ -46,6 +55,5 @@ for i in $(seq 1 10); do
 	break
 	sleep 3
 done
-
 echo '-> Final StorageClasses:'
 k3s kubectl get storageclass
