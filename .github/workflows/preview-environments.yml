@@ -47,8 +47,7 @@ jobs:
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e
-        with:
-          version: "v1.36.0"
+        # Removed hardcoded version to let the action use the latest compatible version automatically
 
       - name: Configure kubeconfig
         env:
@@ -107,7 +106,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           PREVIEW_URL="https://pr-${PR_NUMBER}-fittpulse.duckdns.org"
-          gh pr comment "$PR_NUMBER_REF" --repo "$REPO" --body "рџљЂ Preview environment deployed: ${PREVIEW_URL}"
+          gh pr comment "$PR_NUMBER_REF" --repo "$REPO" --body "🚀 Preview environment deployed: ${PREVIEW_URL}"
 
   cleanup:
     name: Cleanup Preview Environment
@@ -119,8 +118,6 @@ jobs:
     steps:
       - name: Set up kubectl
         uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e
-        with:
-          version: "v1.36.0"
 
       - name: Configure kubeconfig
         env:

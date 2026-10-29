@@ -1,8 +1,16 @@
 {
-  "extends": ["config:base"],
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "enabledManagers": [
+    "regex"
+  ],
   "regex": [
     {
-      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "fileMatch": [
+        "\\.github/workflows/ci\\.yml$"
+      ],
       "matchStrings": [
         "GO_VERSION:\\s*(?P<quote>[\"']?)(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\\g<quote>"
       ],
@@ -12,7 +20,9 @@
       "depType": "toolchain"
     },
     {
-      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "fileMatch": [
+        "\\.github/workflows/ci\\.yml$"
+      ],
       "matchStrings": [
         "PYTHON_BLACK_VERSION:\\s*\"(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
       ],
@@ -21,16 +31,20 @@
       "versioning": "semver"
     },
     {
-      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "fileMatch": [
+        "\\.github/workflows/ci\\.yml$"
+      ],
       "matchStrings": [
         "node-version:\\s*[\"'](?P<currentValue>[0-9]+)[\"']"
       ],
       "depName": "node",
-      "datasource": "docker",
-      "versioning": "semver"
+      "datasource": "node",
+      "versioning": "node"
     },
     {
-      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "fileMatch": [
+        "\\.github/workflows/ci\\.yml$"
+      ],
       "matchStrings": [
         "version:\\s*v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
@@ -39,7 +53,9 @@
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^Makefile$"],
+      "fileMatch": [
+        "^Makefile$"
+      ],
       "matchStrings": [
         "^GO_VERSION\\s*:=\\s*(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)$"
       ],
@@ -49,25 +65,31 @@
       "depType": "toolchain"
     },
     {
-      "fileMatch": ["^Makefile$"],
+      "fileMatch": [
+        "^Makefile$"
+      ],
       "matchStrings": [
         "gci@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
-      "depName": "gci",
+      "depName": "daixiang0/gci",
       "datasource": "github-releases",
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^Makefile$"],
+      "fileMatch": [
+        "^Makefile$"
+      ],
       "matchStrings": [
         "golangci-lint@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
-      "depName": "golangci-lint",
+      "depName": "golangci/golangci-lint",
       "datasource": "github-releases",
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^go\\.mod$"],
+      "fileMatch": [
+        "^go\\.mod$"
+      ],
       "matchStrings": [
         "^go\\s+(?P<currentValue>[0-9]+\\.[0-9]+(\\.[0-9]+)?)$"
       ],
@@ -77,7 +99,9 @@
       "depType": "toolchain"
     },
     {
-      "fileMatch": ["\\.github/workflows/ci\\.yml$"],
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
       "matchStrings": [
         "semgrep==(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
@@ -86,16 +110,20 @@
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^scripts/ci/(ci-helpers|lint|security)\\.sh$"],
+      "fileMatch": [
+        "^scripts/ci/(ci-helpers|lint|security)\\.sh$"
+      ],
       "matchStrings": [
         "golangci-lint@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
-      "depName": "golangci-lint",
+      "depName": "golangci/golangci-lint",
       "datasource": "github-releases",
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^scripts/ci/security\\.sh$"],
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
       "matchStrings": [
         "cosign/v2/cmd/cosign@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
@@ -104,7 +132,9 @@
       "versioning": "semver"
     },
     {
-      "fileMatch": ["^scripts/ci/ci-helpers\\.sh$"],
+      "fileMatch": [
+        "^scripts/ci/ci-helpers\\.sh$"
+      ],
       "matchStrings": [
         "hadolint/hadolint:v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
@@ -115,31 +145,44 @@
   ],
   "packageRules": [
     {
-      "matchPackageNames": ["golang"],
+      "matchPackageNames": [
+        "golang"
+      ],
       "groupName": "Go toolchain",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     },
     {
-      "matchPackageNames": ["trivy"],
+      "matchPackageNames": [
+        "trivy"
+      ],
       "groupName": "Trivy",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     },
     {
-      "matchPackageNames": ["gci", "golangci-lint"],
+      "matchPackageNames": [
+        "daixiang0/gci",
+        "golangci/golangci-lint"
+      ],
       "groupName": "Go tools",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     },
     {
-      "matchPackageNames": ["black", "semgrep"],
+      "matchPackageNames": [
+        "black",
+        "semgrep"
+      ],
       "groupName": "Python tools",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     },
     {
-      "matchPackageNames": ["sigstore/cosign", "hadolint/hadolint"],
+      "matchPackageNames": [
+        "sigstore/cosign",
+        "hadolint/hadolint"
+      ],
       "groupName": "Security tools",
       "automerge": false,
       "minimumReleaseAge": "7 days"

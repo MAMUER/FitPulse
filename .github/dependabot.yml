@@ -92,12 +92,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/gateway"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -111,12 +109,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/user-service"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -130,12 +126,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/biometric-service"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -150,12 +144,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/training-service"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -170,12 +162,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/device-aggregator"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -188,12 +178,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/classifier"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -207,12 +195,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/cmd/data-processor"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -221,18 +207,16 @@ updates:
     assignees: ["MAMUER"]
     registries: ["ghcr"]
 
-   # ═══════════════════════════════════════════════════════════════
-   # 6. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
-   # ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
+    # 4. KUBERNETES MANIFESTS — базовые deployment'ы + base + overlays
+    # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
@@ -261,12 +245,10 @@ updates:
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/jobs"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -276,17 +258,15 @@ updates:
     registries: ["ghcr"]
 
   # ═══════════════════════════════════════════════════════════════
-  # 7. KUBERNETES MANIFESTS — ingress-nginx
+  # 5. KUBERNETES MANIFESTS — ingress-nginx
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/base/ingress-nginx"
     schedule:
-      {
-        interval: "monthly",
-        day: "monday",
-        time: "09:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -298,17 +278,15 @@ updates:
       - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
-  # 8. KUBERNETES MANIFESTS — overlays/production
+  # 6. KUBERNETES MANIFESTS — overlays/production
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "docker"
     directory: "/configs/k8s/overlays/production"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
@@ -320,17 +298,15 @@ updates:
       - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
-  # 8. NPM — Frontend (React + Vite)
+  # 7. NPM — Frontend (React + Vite)
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
-      {
-        interval: "weekly",
-        day: "monday",
-        time: "08:00",
-        timezone: "Europe/Moscow",
-      }
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
