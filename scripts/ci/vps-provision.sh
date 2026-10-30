@@ -54,15 +54,51 @@ EOF
 
 cleanup_old_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-set -x
-echo \"-> Stopping k3s...\"
-systemctl stop k3s 2>/dev/null || true
-pkill -9 -f \"k3s server\" 2>/dev/null || true
-echo \"-> Removing k3s files...\"
-rm -rf /var/lib/rancher/k3s /etc/rancher/k3s
-rm -f /usr/local/bin/k3s /etc/systemd/system/k3s.service /etc/systemd/system/k3s*.timer
+set -euo pipefail
+echo '-> Performing full k3s cleanup...'
+
+# 1. Останавливаем и принудительно убиваем все процессы k3s
+echo '-> Stopping and killing k3s processes...'
+systemctl stop k3s k3s-agent 2>/dev/null || true
+pkill -9 -f 'k3s' 2>/dev/null || true
+
+# 2. Запускаем официальный скрипт очистки сетей (удаляет cni0, flannel.1 и т.д.)
+if [ -f /usr/local/bin/k3s-killall.sh ]; then
+    echo '-> Running k3s-killall.sh to clean network interfaces...'
+    /usr/local/bin/k3s-killall.sh || true
+fi
+
+# 3. Полностью удаляем все директории состояния k3s, CNI и kubelet
+echo '-> Removing k3s, CNI, and kubelet state directories...'
+rm -rf /var/lib/rancher/k3s
+rm -rf /etc/rancher/k3s
+rm -rf /var/lib/cni
+rm -rf /var/lib/kubelet
+rm -rf /run/k3s
+rm -rf /run/flannel
+
+# 4. Удаляем бинарные файлы и systemd-юниты
+echo '-> Removing k3s binaries and systemd units...'
+rm -f /usr/local/bin/k3s
+rm -f /usr/local/bin/kubectl
+rm -f /usr/local/bin/crictl
+rm -f /usr/local/bin/ctr
+rm -f /etc/systemd/system/k3s.service
+rm -f /etc/systemd/system/k3s.service.env
+rm -f /etc/systemd/system/k3s-agent.service
+rm -f /etc/systemd/system/multi-user.target.wants/k3s.service
+rm -f /etc/systemd/system/multi-user.target.wants/k3s-agent.service
+
+# 5. Перезагружаем демон systemd и сбрасываем ошибки
+echo '-> Reloading systemd daemon and resetting failed states...'
 systemctl daemon-reload
-echo \"Cleanup done\"
+systemctl reset-failed
+
+# 6. Очищаем директорию local-path-provisioner (гарантирует чистые PVC при новой установке)
+echo '-> Cleaning up local-path-provisioner directory...'
+rm -rf /opt/local-path-provisioner
+
+echo '✅ Full k3s cleanup completed successfully'
 "
 }
 
@@ -81,7 +117,7 @@ fi
 echo "-> Configuring k3s systemd watchdog..."
 sudo mkdir -p /etc/systemd/system/k3s.service.d
 cat <<EOT | sudo tee /etc/systemd/system/k3s.service.d/99-performance.conf
-[Service]]
+[Service]
 CPUQuota=180%
 WatchdogSec=30s
 Restart=always
