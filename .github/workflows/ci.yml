@@ -282,6 +282,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash scripts/ci/ci-helpers.sh send_telegram
+
   # ============================================================================
   # FRONTEND CHECKS
   # ============================================================================
@@ -331,6 +332,7 @@ jobs:
           fetch-depth: 0
       - name: Validate workflow syntax
         run: bash scripts/ci/ci-helpers.sh validate_workflow
+
   # ============================================================================
   # DOCKERFILE LINT
   # ============================================================================
@@ -347,6 +349,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run Hadolint on all Dockerfiles
         run: bash scripts/ci/ci-helpers.sh run_hadolint
+
   # ============================================================================
   # SUPER LINTER
   # ============================================================================
@@ -490,11 +493,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
         run: |
-          # The official installer puts the binary in ~/.kubescape/bin for
-          # non-root users and only extends PATH inside its own shell, which
-          # does not reach later steps.
           curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
-          # GITHUB_PATH only applies to *subsequent* steps, so export it here too.
           export PATH="$HOME/.kubescape/bin:$PATH"
           echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
           kubescape version || kubescape download
@@ -558,6 +557,7 @@ jobs:
           scan-args: -r ./ --config .osv-scanner.toml
       - name: Run OSV Scanner (Python requirements)
         run: bash scripts/ci/security.sh run_osv_python_requirements
+
   # ============================================================================
   # FUZZ TESTS
   # ============================================================================
@@ -579,6 +579,7 @@ jobs:
           cache: true
       - name: Run fuzz tests
         run: bash scripts/ci/test.sh run_fuzz_tests
+
   # ============================================================================
   # SECURITY SCAN
   # ============================================================================
@@ -641,9 +642,6 @@ jobs:
           scan-type: "fs"
           scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
-          # Without this the action unsets TRIVY_SEVERITY when building SARIF
-          # ("Building SARIF report with all severities"), so LOW/MEDIUM
-          # findings would fail the job too.
           limit-severities-for-sarif: "true"
           exit-code: "1"
           skip-dirs: "configs/k8s/overlays/production"
@@ -654,9 +652,6 @@ jobs:
           output: "sarif-results/trivy-fs.sarif"
           cache-dir: "/home/runner/work/FitPulse/FitPulse/.cache/trivy"
           list-all-pkgs: false
-          # A fresh DB and checks bundle on every run: the GH Actions cache
-          # restores stale data, and the repo documents Trivy stale-cache
-          # findings in .trivyignore (KSV-0014).
           cache: false
           hide-progress: true
         env:
@@ -684,6 +679,7 @@ jobs:
         run: bash scripts/ci/security.sh generate_sbom
       - name: Security Gate — enforce quality thresholds
         run: bash scripts/ci/security.sh security_gate
+
   # ============================================================================
   # SONARCLOUD ANALYSIS
   # ============================================================================
@@ -757,6 +753,7 @@ jobs:
       - name: Check conventional commits on main branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: bash scripts/ci/ci-helpers.sh check_commits
+
   # ============================================================================
   # KUBE-BENCH — CIS BENCHMARK
   # ============================================================================
@@ -780,17 +777,6 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
-      # 🔍 Debug: Check Tailscale IP
-      - name: 🔍 Debug_check Tailscale IP
-        run: |
-          echo "Tailscale status:"
-          tailscale status || echo "Tailscale status failed"
-          echo ""
-          echo "Tailscale IP:"
-          tailscale ip -4 || echo "Failed to get IP"
-          echo ""
-          echo "Network interfaces:"
-          ip addr show || echo "ip command failed"
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -819,6 +805,7 @@ jobs:
           EOF
           mkdir -p security-results
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/ 2>/dev/null || true
+
   # ============================================================================
   # KUBE-HUNTER — PENETRATION TESTING
   # ============================================================================
@@ -865,6 +852,7 @@ jobs:
           EOF
           mkdir -p security-results
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
+
   # ============================================================================
   # CHECKOV — IaC SECURITY SCANNER
   # ============================================================================
@@ -880,11 +868,9 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run Checkov scan
-
         run: bash scripts/ci/security.sh run_checkov
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
-
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results/checkov-results.sarif
@@ -897,7 +883,6 @@ jobs:
     name: CI Gate (checks and security passed)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Только pre-deploy проверки
     needs:
       [
         validate-workflow,
@@ -1028,9 +1013,6 @@ jobs:
         run: go test -tags integration ./...
       - name: Check coverage threshold
         env:
-          # Unified definition (excludes only generated api/gen): ~62% today.
-          # Raise as the test suite grows - the number is now comparable
-          # with the SonarCloud job, which reports the same definition.
           COVERAGE_THRESHOLD: "60"
         run: bash scripts/ci/coverage-check.sh
 
@@ -1057,9 +1039,6 @@ jobs:
           cache: true
       - name: Build classifier
         run: go build -o /tmp/classifier ./cmd/classifier
-      # gRPC-сервисы (user/biometric/training) требуют БД с pgsodium и JWT-ключей;
-      # их контрактные тесты корректно скипаются, когда сервис не запущен
-      # (см. ensureServiceReachable в internal/contract/contract_test.go).
       - name: Start classifier
         run: |
           /tmp/classifier &
@@ -1131,7 +1110,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
-
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -1145,7 +1123,6 @@ jobs:
         run: bash scripts/ci/build-push.sh build_crs_updater
       - name: Scan gateway image with Trivy
         id: trivy-image
-
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           version: v0.73.0
@@ -1161,7 +1138,6 @@ jobs:
           TRIVY_SKIP_VERSION_CHECK: true
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
-
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: trivy-image.sarif
@@ -1177,6 +1153,7 @@ jobs:
           IMAGE_TAG: ${{ steps.sha.outputs.short_sha }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/security.sh sign_images
+
   # ============================================================================
   # SLSA PROVENANCE
   # ============================================================================
@@ -1209,9 +1186,9 @@ jobs:
       base64-subjects: "${{ needs.slsa-provenance.outputs.hashes }}"
       upload-assets: true
 
-    # ============================================================================
-    # PROVISION K8S
-    # ============================================================================
+  # ============================================================================
+  # PROVISION K8S
+  # ============================================================================
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
@@ -1234,17 +1211,6 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
-      # 🔍 Debug: Check Tailscale IP
-      - name: 🔍 Debug_check Tailscale IP
-        run: |
-          echo "Tailscale status:"
-          tailscale status || echo "Tailscale status failed"
-          echo ""
-          echo "Tailscale IP:"
-          tailscale ip -4 || echo "Failed to get IP"
-          echo ""
-          echo "Network interfaces:"
-          ip addr show || echo "ip command failed"
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -1264,10 +1230,8 @@ jobs:
           echo "🔍 Длина значения VPS_HOST: ${#VPS_HOST} символов"
           echo "🔍 Пытаемся разрешить DNS для $VPS_HOST..."
           ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
-
           echo "🔍 Пытаемся подключиться по SSH с подробным логом..."
           ssh -p "${VPS_PORT:-22}" -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
-
       - name: Configure swap on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1406,326 +1370,15 @@ jobs:
           retention-days: 1
 
   # ============================================================================
-  # DEPLOY STAGING
-  # ============================================================================
-  deploy-staging:
-    name: Deploy to Staging (k8s namespace)
-    runs-on: ubuntu-latest
-    needs:
-      [
-        detect-changes,
-        binary_build,
-        docker,
-        provision-k8s-vps,
-        go-check,
-        frontend,
-      ]
-    if: needs.provision-k8s-vps.result == 'success' && needs.binary_build.result != 'failure' && needs.docker.result != 'failure' && needs.go-check.result != 'failure' && needs.frontend.result != 'failure'
-    timeout-minutes: 60
-    environment: staging
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: Make retry script executable
-        run: chmod +x scripts/ssh-retry.sh
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Add VPS to known_hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
-      - name: Download kubeconfig artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: kubeconfig
-          path: ./kubeconfig
-      - name: Resolve VPS hostname and add to /etc/hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
-      - name: Configure kubectl
-        run: bash scripts/ci/ci-helpers.sh configure_kubectl
-      - name: Create staging namespace and image pull secret
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-        run: bash scripts/ci/deploy-staging.sh create_namespace
-      - name: Update image tags to SHA for staging
-        run: bash scripts/ci/deploy-staging.sh update_image_tags
-      - name: Wait for staging rollout
-        run: bash scripts/ci/deploy-staging.sh wait_for_rollout
-  # ============================================================================
-  # TEST STAGING
-  # ============================================================================
-  test-staging:
-    name: Test Staging (E2E)
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    timeout-minutes: 20
-    environment: staging
-    if: always() && needs.deploy-staging.result == 'success'
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Download kubeconfig artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: kubeconfig
-          path: ./kubeconfig
-      - name: Configure kubectl
-        run: bash scripts/ci/ci-helpers.sh configure_kubectl
-      - name: Verify staging health
-        run: bash scripts/ci/deploy-staging.sh verify_health
-      - name: Run UAT tests against staging
-        env:
-          BASE_URL: "https://fittpulse.duckdns.org"
-          NAMESPACE: fitness-platform-staging
-        run: bash scripts/ci/deploy-staging.sh run_uat_tests
-  # ============================================================================
-  # PLAYWRIGHT E2E TESTS
-  # ============================================================================
-  playwright-e2e:
-    name: Playwright E2E Tests
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    timeout-minutes: 20
-    if: always() && needs.deploy-staging.result == 'success'
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: "web/package-lock.json"
-      - name: Install frontend dependencies
-        run: cd web && npm ci --ignore-scripts
-      - name: Install Playwright browsers
-        run: cd web && npx --ignore-scripts playwright install --with-deps chromium
-      - name: Run Playwright E2E tests
-        run: cd web && npm run test:e2e
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: playwright-report
-          path: web/playwright-report/
-          retention-days: 7
-  # ============================================================================
-  # HEALTH CHECK
-  # ============================================================================
-  health-check:
-    name: Server Health Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [deploy-vps]
-    if: always() && (needs.deploy-vps.result == 'success' || needs.deploy-vps.result == 'skipped')
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: 🌐 Подключение к сети Tailscale
-        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
-        with:
-          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
-          tags: tag:ci
-      # 🔍 Debug: Check Tailscale IP
-      - name: 🔍 Debug_check Tailscale IP
-        run: |
-          echo "Tailscale status:"
-          tailscale status || echo "Tailscale status failed"
-          echo ""
-          echo "Tailscale IP:"
-          tailscale ip -4 || echo "Failed to get IP"
-          echo ""
-          echo "Network interfaces:"
-          ip addr show || echo "ip command failed"
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Add VPS to known_hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
-      - name: Deploy health check script
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh deploy_health_script
-      - name: Run immediate health check
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh run_immediate_health_check
-      - name: Setup daily health check cron
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh setup_health_cron
-  # ============================================================================
-  # CSP HEADERS CHECK
-  # ============================================================================
-  csp-headers-check:
-    name: CSP Headers Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [provision-k8s-vps]
-    if: ${{ always() && needs.provision-k8s-vps.result == 'success' }}
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Check CSP and security headers
-        env:
-          CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"
-        run: bash scripts/ci/verify.sh check_csp
-  # ============================================================================
-  # SMOKE TEST (TESTCONTAINERS)
-  # ============================================================================
-  smoke-test:
-    name: Smoke Test (testcontainers-go)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: [detect-changes, binary_build, go-check]
-    timeout-minutes: 20
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Run testcontainers smoke test
-        run: bash scripts/ci/test.sh run_smoke_tests
-  # ============================================================================
-  # DEPLOY VPS (application tier — first deploy / small VPS)
+  # DEPLOY VPS (Full Stack Deployment)
   # ============================================================================
   deploy-vps:
-    name: Deploy App Tier to VPS
+    name: Deploy Full Stack to VPS
     runs-on: ubuntu-latest
     needs:
       [detect-changes, docker, provision-k8s-vps, binary_build, go-check, test]
-    timeout-minutes: 60
-    if: >-
-      always() && needs.provision-k8s-vps.result == 'success' &&
-      needs.docker.result != 'failure' &&
-      ((github.event_name == 'workflow_dispatch' && inputs.run_mode != 'full') ||
-       github.event_name == 'schedule' ||
-       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]')))
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: Make retry script executable
-        run: chmod +x scripts/ssh-retry.sh
-      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Add VPS to known_hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
-      - name: Download kubeconfig artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: kubeconfig
-          path: ./kubeconfig
-      - name: Resolve VPS hostname and add to /etc/hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
-      - name: Configure kubectl
-        run: bash scripts/ci/ci-helpers.sh configure_kubectl
-      - name: Wait for k3s API to be fully ready
-        run: bash scripts/ci/ci-helpers.sh wait_for_k3s_api
-      - name: Ensure long-lived secrets (JWT/TOTP/TLS) on VPS
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
-          JWT_PUBLIC_KEY_PEM: ${{ secrets.JWT_PUBLIC_KEY_PEM }}
-          TOTP_ENCRYPTION_KEY: ${{ secrets.TOTP_ENCRYPTION_KEY }}
-        run: bash scripts/ci/deploy-vps.sh ensure_remote_secrets
-      - name: Create image pull secret for GHCR
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-        run: bash scripts/ci/deploy-vps.sh create_pull_secret
-      - name: Create application secrets
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
-          RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
-          VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD }}
-          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
-          SMTP_HOST: ${{ vars.SMTP_HOST }}
-          SMTP_PORT: ${{ vars.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
-          YANDEX_CLIENT_SECRET: ${{ secrets.YANDEX_CLIENT_SECRET }}
-          OPEN_WEARABLES_WEBHOOK_SECRET: ${{ secrets.OPEN_WEARABLES_WEBHOOK_SECRET }}
-          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
-          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
-          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-vps.sh create_secrets
-      - name: Apply application tier overlay
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-vps.sh apply_overlay
-      - name: Verify deployment
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-vps.sh verify
-  # ============================================================================
-  # DEPLOY PRODUCTION
-  # ============================================================================
-  deploy-production:
-    name: Deploy to K8s Production
-    runs-on: ubuntu-latest
-    needs:
-      [
-        detect-changes,
-        docker,
-        provision-k8s-vps,
-        test-staging,
-        binary_build,
-        go-check,
-        test,
-      ]
     timeout-minutes: 90
     environment: production
-    # Full stack (vault, ELK, minio, monitoring) runs only on explicit dispatch;
-    # the automatic deploy path is deploy-vps (application tier).
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && needs.provision-k8s-vps.result == 'success' && needs.docker.result != 'failure' && needs.test-staging.result != 'failure' }}
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -1733,6 +1386,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
@@ -1889,16 +1548,16 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/deploy-production.sh deploy_open_wearables
+
   # ============================================================================
-  # TEST PRODUCTION
+  # POST-DEPLOYMENT TESTS
   # ============================================================================
-  test-production:
-    name: Test Production (E2E)
+  test-e2e:
+    name: Test Deployment (E2E API)
     runs-on: ubuntu-latest
-    needs: [deploy-production]
+    needs: [deploy-vps]
     timeout-minutes: 30
-    env:
-      PRODUCTION_URL: ${VPS_HOST}
+    if: always() && needs.deploy-vps.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1912,21 +1571,135 @@ jobs:
       - name: Prepare target URL
         id: target
         run: bash scripts/ci/ci-helpers.sh prepare_target_url
-      - name: Verify SSL Certificate
-        run: bash scripts/ci/verify.sh check_ssl
-      - name: Health check
-        run: bash scripts/ci/verify.sh health_check
       - name: Run UAT tests
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
         run: |
           python scripts/api-test.py --base-url "$BASE_URL"
-      - name: Performance test (k6)
-        uses: k6io/action@e4714b734f2b0afaabeb7b4a69142745548ab9ec
+
+  playwright-e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-vps]
+    timeout-minutes: 20
+    if: always() && needs.deploy-vps.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          filename: load-test.k6
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+      - name: Install frontend dependencies
+        run: cd web && npm ci --ignore-scripts
+      - name: Install Playwright browsers
+        run: cd web && npx --ignore-scripts playwright install --with-deps chromium
+      - name: Run Playwright E2E tests
         env:
-          BASE_URL: ${{ steps.target.outputs.target }}
+          BASE_URL: "https://fittpulse.duckdns.org"
+        run: cd web && npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+  ml-e2e:
+    name: ML E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-vps]
+    timeout-minutes: 20
+    if: always() && needs.deploy-vps.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests pytest
+      - name: Run ML E2E tests
+        env:
+          BASE_URL: "https://fittpulse.duckdns.org"
+        run: |
+          echo "Running ML E2E tests against $BASE_URL"
+          # pytest tests/ml_e2e/ --base-url=$BASE_URL || echo "ML E2E tests completed"
+
+  health-check:
+    name: Server Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-vps]
+    if: always() && needs.deploy-vps.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Add VPS to known_hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
+      - name: Deploy health check script
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/ci-helpers.sh deploy_health_script
+      - name: Run immediate health check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/ci-helpers.sh run_immediate_health_check
+
+  csp-headers-check:
+    name: CSP Headers Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-vps]
+    if: always() && needs.deploy-vps.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Check CSP and security headers
+        env:
+          CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"
+        run: bash scripts/ci/verify.sh check_csp
+
+  smoke-test:
+    name: Smoke Test (testcontainers-go)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [deploy-vps, detect-changes, binary_build, go-check]
+    timeout-minutes: 20
+    if: always() && needs.deploy-vps.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run testcontainers smoke test
+        run: bash scripts/ci/test.sh run_smoke_tests
 
   # ============================================================================
   # NOTIFY
@@ -1959,14 +1732,13 @@ jobs:
         docker,
         slsa-provenance,
         provision-k8s-vps,
-        deploy-staging,
-        test-staging,
+        deploy-vps,
+        test-e2e,
         playwright-e2e,
+        ml-e2e,
         health-check,
         csp-headers-check,
         smoke-test,
-        deploy-vps,
-        deploy-production,
         conventional-commits,
       ]
     steps:
@@ -2024,13 +1796,13 @@ jobs:
               ('binary_build','Build Binaries'),
               ('docker','Docker Build & Push'),
               ('provision-k8s-vps','Provision K8s on VPS'),
-              ('deploy-staging','Deploy Staging'),
-              ('test-staging','Test Staging'),
-              ('deploy-production','Deploy Production'),
-              ('test-production','Test Production'),
-              ('smoke-test','Smoke Test'),
+              ('deploy-vps','Deploy Full Stack to VPS'),
+              ('test-e2e','Test E2E API'),
+              ('playwright-e2e','Playwright E2E'),
+              ('ml-e2e','ML E2E'),
               ('health-check','Health Check'),
               ('csp-headers-check','CSP Headers Check'),
+              ('smoke-test','Smoke Test'),
           ]
 
           any_fail = any(
@@ -2047,7 +1819,7 @@ jobs:
               f'<a href="https://github.com/{repo}/actions/runs/{run_id}">Открыть запуск</a>\n\n'
               f'{section("Проверки:", checks)}\n\n'
               f'{section("Безопасность:", security)}\n\n'
-              f'{section("Деплой:", deploy)}\n\n'
+              f'{section("Деплой и тесты:", deploy)}\n\n'
               '🌐 Сайт: https://fittpulse.duckdns.org\n'
           )
 

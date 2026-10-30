@@ -9,7 +9,7 @@ set -euo pipefail
 #   1. Swap on the VPS is ensured by the provision job (configure_swap).
 
 NAMESPACE="fitness-platform-production"
-OVERLAY="configs/k8s/overlays/vps-minimal"
+OVERLAY="configs/k8s/overlays/production"
 SECRETS_DIR="/etc/fitpulse/secrets"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
 CLASSIFIER_TAG="${CLASSIFIER_TAG:-0.0.0-dev}"
@@ -142,7 +142,7 @@ apply_overlay() {
 	log "applying overlay ${OVERLAY} (IMAGE_TAG=${IMAGE_TAG})"
 	(
 		cd "$OVERLAY"
-		for svc in user-service biometric-service training-service gateway device-aggregator; do
+		for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator; do
 			kustomize edit set image "ghcr.io/mamuer/project/${svc}=ghcr.io/mamuer/project/${svc}:${IMAGE_TAG}"
 		done
 		kustomize edit set image "ghcr.io/mamuer/project/classifier=ghcr.io/mamuer/project/classifier:${CLASSIFIER_TAG:-0.0.0-dev}"
