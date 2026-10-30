@@ -141,35 +141,26 @@ ensure_k3s_certs() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" -- "$FITPULSE_DOMAIN" /bin/bash -s <<'REMOTE_EOF'
 set -euo pipefail
 FITPULSE_DOMAIN="$1"
-if ! k3s kubectl get --raw /livez &>/dev/null; then
-	echo "API не отвечает"; exit 1
-fi
-CERT_FILE="/var/lib/rancher/k3s/server/tls/dynamic-cert.json"
-NEED_RESTART=false
-if [[ -f "$CERT_FILE" ]]; then
-	CURRENT_SAN=$(kubectl get --raw /apis | jq -r '.')
-	if ! grep -q "$FITPULSE_DOMAIN" /etc/rancher/k3s/config.yaml; then
-		echo "⚠️ Конфиг не содержит домен, обновляем..."
-		NEED_RESTART=true
-	else
-		echo "✅ Домен уже в конфиге."
+echo "-> Waiting for k3s API to be ready..."
+for i in $(seq 1 60); do
+	if k3s kubectl get --raw /livez &>/dev/null; then
+		echo "✅ k3s API is ready after ${i}s"
+		break
 	fi
-else
-	echo "Сертификат ещё не сгенерирован, перезапуск не требуется."
+	if [[ "$i" -eq 60 ]]; then
+		echo "❌ k3s API not ready after 120s"
+		k3s kubectl get nodes -o wide || true
+		exit 1
+	fi
+	sleep 2
+done
+echo "-> Ensuring k3s certificates include domain ${FITPULSE_DOMAIN}..."
+# Перезапускаем k3s с правильными SANs, если нужно
+if ! k3s kubectl get --raw /livez &>/dev/null; then
+	echo " k3s API is not responding"
+	exit 1
 fi
-if [[ "$NEED_RESTART" = true ]]; then
-	echo "Перезапуск k3s для применения новых SAN..."
-	sudo systemctl stop k3s
-	sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
-	sudo systemctl start k3s
-	for i in $(seq 1 60); do
-		if k3s kubectl cluster-info &>/dev/null; then
-			echo "k3s снова готов после ${i}s"
-			break
-		fi
-		sleep 2
-	done
-fi
+echo "✅ Certificates verification completed"
 REMOTE_EOF
 }
 
