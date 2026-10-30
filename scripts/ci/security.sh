@@ -111,8 +111,8 @@ run_kubescape() {
 	kubescape scan configs/k8s/base/ \
 		--format sarif \
 		--verbose \
-		>"$tmpfile" 2>&1 ||
-		true
+		>"$tmpfile" 2>&1 \
+		|| true
 	if jq -e '.runs' "$tmpfile" >/dev/null 2>&1; then
 		mv "$tmpfile" sarif-results/kubescape-results.sarif
 	else
@@ -270,8 +270,8 @@ run_kube_hunter() {
 		exit 0
 	fi
 
-	if timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',6443)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1 ||
-		timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',8080)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1; then
+	if timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',6443)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1 \
+		|| timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',8080)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1; then
 		kube-hunter --remote 127.0.0.1 --json >security-results/kube-hunter-results.json 2>&1 || true
 	else
 		echo "Локальный кластер не обнаружен — пропускаем kube-hunter"

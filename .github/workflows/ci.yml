@@ -76,16 +76,6 @@ env:
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
 jobs:
-  test-logging:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Test Log Output
-        run: |
-          set -x
-          echo "=== TEST LOG ==="
-          echo "If you see this, logging works"
-          ls -la
-          echo "=== END TEST ==="
   # ============================================================================
   # DETECT CHANGES
   # ============================================================================
@@ -833,6 +823,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -877,6 +873,12 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - name: Run Checkov scan
         run: bash scripts/ci/security.sh run_checkov
       - name: Upload Checkov SARIF
@@ -1571,6 +1573,12 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
       - name: Download kubeconfig artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:

@@ -18,7 +18,7 @@ POSTGRES_USER="${POSTGRES_USER:-fitness_admin}"
 POSTGRES_DB="${POSTGRES_DB:-fitness}"
 NODE_PORT="${NODE_PORT:-30081}"
 
-log() { echo "[deploy-vps]] $*"; }
+log() { echo "[deploy-vps] $*"; }
 die() {
 	echo "::error::deploy-vps: $*" >&2
 	exit 1
@@ -153,8 +153,8 @@ apply_overlay() {
 		deployment/user-service deployment/biometric-service \
 		deployment/training-service deployment/classifier \
 		deployment/device-aggregator deployment/gateway; do
-		kubectl -n "$NAMESPACE" rollout status "$res" --timeout=300s ||
-			log "::warning::$res not ready yet"
+		kubectl -n "$NAMESPACE" rollout status "$res" --timeout=300s \
+			|| log "::warning::$res not ready yet"
 	done
 
 	log "waiting for migrate-db"
@@ -166,8 +166,8 @@ apply_overlay() {
 	}
 
 	log "waiting for seed-admin"
-	kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-admin --timeout=300s ||
-		log "::warning::seed-admin did not complete (admin may already exist)"
+	kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-admin --timeout=300s \
+		|| log "::warning::seed-admin did not complete (admin may already exist)"
 }
 
 verify() {
@@ -175,7 +175,9 @@ verify() {
 	local ip
 	ip=$(./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "hostname -I | awk '{print \$1}'" | tr -d '\r')
 	log "gateway health: ${ip}:${NODE_PORT}/health"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" || # NOSONAR S5332
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://localhost:${NODE_PORT}/health" \
+		||
+		# NOSONAR S5332
 		log "::warning::gateway health check failed"
 }
 
