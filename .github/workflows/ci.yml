@@ -76,6 +76,16 @@ env:
   FITPULSE_DOMAIN: "fittpulse.duckdns.org"
 
 jobs:
+  test-logging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Log Output
+        run: |
+          set -x
+          echo "=== TEST LOG ==="
+          echo "If you see this, logging works"
+          ls -la
+          echo "=== END TEST ==="
   # ============================================================================
   # DETECT CHANGES
   # ============================================================================
