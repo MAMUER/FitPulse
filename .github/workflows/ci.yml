@@ -2062,18 +2062,19 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     permissions:
       pull-requests: write
+      contents: write
     steps:
       - name: Enable auto-merge for Dependabot PRs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${GITHUB_TOKEN}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr merge --auto --squash "$PR_URL"
       - name: Auto-approve minor/patch updates
         if: contains(github.event.pull_request.title, 'minor') || contains(github.event.pull_request.title, 'patch')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${GITHUB_TOKEN}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr review --approve "$PR_URL"
 
