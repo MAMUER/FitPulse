@@ -3,7 +3,7 @@ set -euo pipefail
 
 setup_local_path_provisioner() {
 	./scripts/ssh-retry.sh scp configs/k8s/base/local-path-provisioner.yaml "${VPS_USER}@${VPS_HOST}:/tmp/local-path-provisioner.yaml"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" << 'EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 		set -euo pipefail
 		echo 'Applying local-path-provisioner manifest...'
 		sudo k3s kubectl apply -f /tmp/local-path-provisioner.yaml
@@ -44,14 +44,14 @@ install_cert_manager() {
 		configs/k8s/base/cert-manager/rabbitmq-cert.yaml \
 		"${VPS_USER}@${VPS_HOST}:/tmp/cert-manager/"
 
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" << 'EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 		set -euo pipefail
 		echo '-> Installing cert-manager CRDs and controller...'
 		curl -fsSL https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml | sudo k3s kubectl apply -f -
-		
+
 		echo '-> Waiting for cert-manager pods to be ready...'
 		sudo k3s kubectl wait --namespace cert-manager --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=120s
-		
+
 		echo '✅ cert-manager installed successfully'
 
 		echo '-> Creating Let'\''s Encrypt ClusterIssuers...'
@@ -68,7 +68,7 @@ install_ingress_nginx() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/ingress-nginx"
 	./scripts/ssh-retry.sh scp -r configs/k8s/base/ingress-nginx/* "${VPS_USER}@${VPS_HOST}:/tmp/ingress-nginx/"
 
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" << 'EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 		set -euo pipefail
 		echo '-> Installing ingress-nginx controller...'
 		sudo k3s kubectl apply -f /tmp/ingress-nginx/
@@ -89,7 +89,7 @@ EOF
 }
 
 cleanup_traefik() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" << 'EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 		set -euo pipefail
 		echo '-> Cleaning up Traefik from kube-system...'
 		sudo k3s kubectl -n kube-system delete deployment traefik --ignore-not-found=true || true

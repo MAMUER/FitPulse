@@ -43,16 +43,20 @@ if [[ -n "${SSH_OPTS:-}" ]]; then
 	COMMON_OPTS+=("${EXTRA_SSH_OPTS[@]}")
 fi
 
+# Extract target before loop (so retries work)
+if [[ "$MODE" == "ssh" ]]; then
+	TARGET="${1:-}"
+	shift || true
+	COMMAND="${*:-}"
+fi
+
 attempt=1
 while true; do
 	echo "--------------------------------------------------"
 	echo "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS - Mode: $MODE"
 
 	if [[ "$MODE" == "ssh" ]]; then
-		TARGET="${1:-}"
-		shift || true
-		if [[ $# -gt 0 ]]; then
-			COMMAND="$*"
+		if [[ -n "${COMMAND:-}" ]]; then
 			echo "-> Target : $TARGET"
 			echo "-> Command: ${COMMAND:0:200}..."
 			if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
@@ -69,7 +73,7 @@ while true; do
 		fi
 	else
 		# Для scp последний аргумент — это назначение, все предыдущие — источники
-		DEST="${@:$#:1}"
+		DEST="${!#}"
 		NUM_ARGS=$#
 		SOURCES=("${@:1:$((NUM_ARGS - 1))}")
 
