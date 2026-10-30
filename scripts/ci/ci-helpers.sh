@@ -117,16 +117,33 @@ configure_kubectl() {
 }
 
 generate_kubeconfig() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s" <<EOF
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"${FITPULSE_DOMAIN}\"" <<'REMOTE_EOF'
 set -euo pipefail
-DOMAIN="${FITPULSE_DOMAIN}"
+DOMAIN="$1"
+
+if [[ -z "$DOMAIN" ]]; then
+    echo "❌ ERROR: DOMAIN is empty!"
+    exit 1
+fi
+
+echo "🔍 Using DOMAIN: $DOMAIN"
+
+if [[ ! -f /etc/rancher/k3s/k3s.yaml ]]; then
+    echo "❌ ERROR: /etc/rancher/k3s/k3s.yaml not found!"
+    ls -la /etc/rancher/k3s/ || true
+    exit 1
+fi
+
+echo "-> Copying and modifying kubeconfig..."
 sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-config.yaml
-sudo sed -i "s|0.0.0.0|\${DOMAIN}|g" /tmp/k3s-config.yaml
-sudo sed -i "s|127.0.0.1|\${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i "s|0.0.0.0|${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i "s|127.0.0.1|${DOMAIN}|g" /tmp/k3s-config.yaml
 sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-config.yaml
 sudo chmod 644 /tmp/k3s-config.yaml
-echo "✅ Kubeconfig saved to /tmp/k3s-config.yaml"
-EOF
+
+echo "✅ Kubeconfig successfully saved to /tmp/k3s-config.yaml"
+cat /tmp/k3s-config.yaml
+REMOTE_EOF
 }
 
 download_kubeconfig() {
