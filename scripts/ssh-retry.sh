@@ -7,7 +7,7 @@ shift || true
 if [[ -z "$MODE" || ("$MODE" != "ssh" && "$MODE" != "scp") ]]; then
 	echo "Usage: $0 {ssh|scp} [args...]"
 	echo "  ssh:  $0 ssh user@host [command]  (if command omitted, reads from stdin)"
-	echo "  scp:  $0 scp /local/path user@host:/remote/path"
+	echo "  scp:  $0 scp [source...] user@host:/remote/path"
 	exit 1
 fi
 
@@ -43,36 +43,24 @@ if [[ -n "${SSH_OPTS:-}" ]]; then
 	COMMON_OPTS+=("${EXTRA_SSH_OPTS[@]}")
 fi
 
-TARGET=""
-COMMAND=""
-SRC=""
-DEST=""
-if [[ "$MODE" == "ssh" ]]; then
-	TARGET="${1:-}"
-	shift || true
-	# Если остались аргументы — это команда, иначе команда будет прочитана из stdin
-	if [[ $# -gt 0 ]]; then
-		COMMAND="$*"
-	fi
-else
-	SRC="${1:-}"
-	DEST="${2:-}"
-fi
-
 attempt=1
 while true; do
 	echo "--------------------------------------------------"
 	echo "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS - Mode: $MODE"
 
 	if [[ "$MODE" == "ssh" ]]; then
-		echo "-> Target : $TARGET"
-		if [[ -n "$COMMAND" ]]; then
+		TARGET="${1:-}"
+		shift || true
+		if [[ $# -gt 0 ]]; then
+			COMMAND="$*"
+			echo "-> Target : $TARGET"
 			echo "-> Command: ${COMMAND:0:200}..."
 			if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
 				echo "Success on attempt $attempt"
 				exit 0
 			fi
 		else
+			echo "-> Target : $TARGET"
 			echo "-> Reading command from stdin..."
 			if timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
 				echo "Success on attempt $attempt"
@@ -80,9 +68,15 @@ while true; do
 			fi
 		fi
 	else
-		echo "-> Source : $SRC"
+		# Для scp последний аргумент — это назначение, все предыдущие — источники
+		DEST="${@: -1}"
+		NUM_ARGS=$#
+		SOURCES=("${@:1:$((NUM_ARGS-1))}")
+		
+		echo "-> Source : ${SOURCES[*]}"
 		echo "-> Dest   : $DEST"
-		if timeout "$TIMEOUT" scp "${COMMON_OPTS[@]}" "$SRC" "$DEST"; then
+		
+		if timeout "$TIMEOUT" scp "${COMMON_OPTS[@]}" "${SOURCES[@]}" "$DEST"; then
 			echo "Success on attempt $attempt"
 			exit 0
 		fi
