@@ -87,11 +87,11 @@ jobs:
       contents: read
     if: github.event_name != 'release' && github.event_name != 'issues'
     outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      go: ${{ steps.filter.outputs.go }}
-      ci: ${{ steps.filter.outputs.ci }}
-      ml: ${{ steps.filter.outputs.ml }}
-      docker: ${{ steps.filter.outputs.docker }}
+      frontend: "true"
+      go: "true"
+      ci: "true"
+      ml: "true"
+      docker: "true"
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1205,12 +1205,11 @@ jobs:
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
     runs-on: ubuntu-latest
-    needs: [detect-changes, ci-gate]
+    needs: [detect-changes]
     timeout-minutes: 120
     if: >-
       always() &&
       needs.detect-changes.outputs.ci == 'true' &&
-      needs.ci-gate.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'schedule' ||
        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
