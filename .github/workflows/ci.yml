@@ -1367,6 +1367,9 @@ jobs:
       - name: Install cert-manager and configure Let's Encrypt
         env:
           KUBECONFIG: ./k3s-config.yaml
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/k8s-setup.sh install_cert_manager
       - name: Setup ML infrastructure directories
         env:
