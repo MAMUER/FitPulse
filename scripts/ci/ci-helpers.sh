@@ -217,15 +217,19 @@ add_vps_to_known_hosts() {
 }
 
 resolve_vps_hostname() {
-	VPS_IP=$(dig +short "${VPS_HOST}" | head -1)
+	VPS_IP=$(dig +short "${VPS_HOST}" +timeout=5 +tries=2 | head -1 || true)
 	if [[ -z "$VPS_IP" ]]; then
-		VPS_IP=$(nslookup "${VPS_HOST}" | grep -A1 "Name:" | tail -1 | awk '{print $2}')
+		VPS_IP=$(nslookup "${VPS_HOST}" 2>/dev/null | grep -A1 "Name:" | tail -1 | awk '{print $2}' || true)
 	fi
 	if [[ -z "$VPS_IP" ]]; then
+		echo "⚠️ Could not resolve ${VPS_HOST}, using hostname as-is"
 		VPS_IP="${VPS_HOST}"
 	fi
 	echo "Resolved VPS_IP: $VPS_IP"
-	echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
+
+	if [[ "$VPS_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
+	fi
 }
 
 prepare_target_url() {

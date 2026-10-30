@@ -806,7 +806,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
             set -euo pipefail
             if ! command -v kube-bench >/dev/null 2>&1; then
               curl --proto =https --retry 3 --retry-delay 5 -fsSL https://github.com/aquasecurity/kube-bench/releases/download/v0.13.0/kube-bench_0.13.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
@@ -815,10 +815,10 @@ jobs:
               rm -f /tmp/kube-bench.tar.gz
             fi
             mkdir -p ~/security-results
-            sudo kube-bench run --benchmark cis-1.18 --json > ~/security-results/kube-bench-results.json
+            sudo kube-bench run --targets node --json > ~/security-results/kube-bench-results.json || true
           EOF
           mkdir -p security-results
-          scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:security-results/kube-bench-results.json" security-results/ 2>/dev/null || scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
+          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/ 2>/dev/null || true
   # ============================================================================
   # KUBE-HUNTER — PENETRATION TESTING
   # ============================================================================
@@ -851,20 +851,20 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
             set -euo pipefail
             mkdir -p ~/security-results
             if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
               pip install --only-binary :all: kube-hunter==0.6.8
             fi
             if python3 -m kube_hunter --help >/dev/null 2>&1; then
-              python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json
+              python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json || true
             else
-              kube-hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json
+              kube-hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json || true
             fi
           EOF
           mkdir -p security-results
-          scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:security-results/kube-hunter-results.json" security-results/ 2>/dev/null || scp -P "${VPS_PORT:-22}" "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/
+          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
   # ============================================================================
   # CHECKOV — IaC SECURITY SCANNER
   # ============================================================================

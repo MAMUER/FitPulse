@@ -18,14 +18,14 @@ echo "  CSP Headers Check"
 echo "  Domain: $DOMAIN"
 echo "============================================"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DOMAIN")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 3 --retry-delay 5 "$DOMAIN")
 if [[ "$HTTP_CODE" -ne 200 ]]; then
 	echo "❌ FAIL: Site returned HTTP $HTTP_CODE"
 	exit 1
 fi
 echo "✅ Site is accessible (HTTP 200)"
 
-HEADERS=$(curl -s -I "$DOMAIN")
+HEADERS=$(curl -s -I --max-time 30 --retry 3 --retry-delay 5 "$DOMAIN")
 MISSING=()
 
 for header in "${EXPECTED_HEADERS[@]}"; do
