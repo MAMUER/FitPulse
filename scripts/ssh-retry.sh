@@ -69,13 +69,13 @@ while true; do
 		fi
 	else
 		# Для scp последний аргумент — это назначение, все предыдущие — источники
-		DEST="${@: -1}"
+		DEST="${@:$#:1}"
 		NUM_ARGS=$#
-		SOURCES=("${@:1:$((NUM_ARGS-1))}")
-		
+		SOURCES=("${@:1:$((NUM_ARGS - 1))}")
+
 		echo "-> Source : ${SOURCES[*]}"
 		echo "-> Dest   : $DEST"
-		
+
 		if timeout "$TIMEOUT" scp "${COMMON_OPTS[@]}" "${SOURCES[@]}" "$DEST"; then
 			echo "Success on attempt $attempt"
 			exit 0
