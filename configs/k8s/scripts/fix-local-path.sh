@@ -9,22 +9,23 @@ k3s crictl images | grep local-path || echo "WARNING: local-path image NOT found
 
 echo '-> Waiting for local-path-provisioner pod to be ready...'
 for i in $(seq 1 60); do
-	STATUS=$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+	# Проверяем, есть ли ХОТЯ БЫ ОДИН под в статусе Running
+	READY_COUNT=$(k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l || echo "0")
 
-	if [[ "$STATUS" == "Running" ]]; then
-		echo "local-path provisioner is Running after $((i * 2))s"
+	if [[ "$READY_COUNT" -ge 1 ]]; then
+		echo "✅ local-path provisioner is Running after $((i * 2))s"
 		break
 	fi
 
 	if [[ $((i % 10)) -eq 0 ]]; then
-		echo "Still waiting... ($((i * 2))s) - Status: $STATUS"
+		echo "Still waiting... ($((i * 2))s)"
 		k3s kubectl get pods -n local-path-storage -l app=local-path-provisioner -o wide || true
 		echo "--- Recent Events ---"
 		k3s kubectl get events -n local-path-storage --sort-by='.lastTimestamp' | tail -5 || true
 	fi
 
 	if [[ "$i" -eq 60 ]]; then
-		echo "local-path provisioner not ready after 120s. Debugging info:"
+		echo "❌ local-path provisioner not ready after 120s. Debugging info:"
 		k3s kubectl get pods -n local-path-storage -o wide || true
 		echo "--- Describe ---"
 		k3s kubectl describe pods -n local-path-storage -l app=local-path-provisioner || true
@@ -41,17 +42,17 @@ echo '-> Verifying StorageClass local-path exists and has WaitForFirstConsumer m
 for i in $(seq 1 10); do
 	sc_name="local-path"
 	if ! k3s kubectl get storageclass "$sc_name" >/dev/null 2>&1; then
-		echo "StorageClass $sc_name not found"
+		echo "❌ StorageClass $sc_name not found"
 		k3s kubectl get storageclass -o wide || true
 		exit 1
 	fi
 	mode=$(k3s kubectl get storageclass "$sc_name" -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo "")
 	if [[ "$mode" != "WaitForFirstConsumer" ]]; then
-		echo "StorageClass $sc_name found but wrong volumeBindingMode: ${mode:-<empty>}"
+		echo "❌ StorageClass $sc_name found but wrong volumeBindingMode: ${mode:-<empty>}"
 		k3s kubectl get storageclass "$sc_name" -o yaml || k3s kubectl get storageclass -o wide || true
 		exit 1
 	fi
-	echo "local-path StorageClass is WaitForFirstConsumer"
+	echo "✅ local-path StorageClass is WaitForFirstConsumer"
 	break
 	sleep 3
 done
