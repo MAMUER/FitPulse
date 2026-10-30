@@ -848,7 +848,8 @@ jobs:
             set -euo pipefail
             mkdir -p ~/security-results
             if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
-              pip install --only-binary :all: kube-hunter==0.6.8
+              sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip
+              python3 -m pip install --break-system-packages --only-binary :all: kube-hunter==0.6.8
             fi
             if python3 -m kube_hunter --help >/dev/null 2>&1; then
               python3 -m kube_hunter --remote 127.0.0.1 --json > ~/security-results/kube-hunter-results.json || true
@@ -1636,7 +1637,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
           python-version: "3.11"
       - name: Install dependencies
