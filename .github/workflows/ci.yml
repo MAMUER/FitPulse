@@ -1,4 +1,4 @@
-﻿name: CI/CD Pipeline
+name: CI/CD Pipeline
 on:
   push:
     branches: [main]
@@ -426,7 +426,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Initialize CodeQL
         if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -434,7 +434,7 @@ jobs:
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
         if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
@@ -444,7 +444,7 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh show_codeql_diagnostics
       - name: Upload SARIF
         if: always() && hashFiles('sarif-results/**') != ''
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
@@ -501,7 +501,7 @@ jobs:
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         if: always() && hashFiles('sarif-results/kubescape-results.sarif') != ''
         with:
           sarif_file: sarif-results/kubescape-results.sarif
@@ -526,7 +526,7 @@ jobs:
       - name: Run Semgrep scan
         run: bash scripts/ci/security.sh run_semgrep
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -607,7 +607,7 @@ jobs:
         if: needs.detect-changes.outputs.go == 'true'
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         if: always() && hashFiles('sarif-results/gosec.sarif') != ''
         with:
           sarif_file: sarif-results/gosec.sarif
@@ -664,7 +664,7 @@ jobs:
           TRIVY_SKIP_DB_UPDATE: false
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -673,7 +673,7 @@ jobs:
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -775,7 +775,7 @@ jobs:
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
       - name: 🌐 Подключение к сети Tailscale
-        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
@@ -885,7 +885,7 @@ jobs:
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: sarif-results/checkov-results.sarif
           category: checkov
@@ -1126,7 +1126,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -1162,7 +1162,7 @@ jobs:
       - name: Upload Trivy image results
         if: always() && hashFiles('trivy-image.sarif') != ''
 
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: trivy-image.sarif
           category: trivy-docker
@@ -1229,7 +1229,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: 🌐 Подключение к сети Tailscale
-        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
@@ -1525,7 +1525,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: 🌐 Подключение к сети Tailscale
-        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
