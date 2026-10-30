@@ -124,7 +124,7 @@ download_kubeconfig() {
 }
 
 generate_kubeconfig() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" -- "$FITPULSE_DOMAIN" /bin/bash -s <<'REMOTE_EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"$FITPULSE_DOMAIN\"" <<'REMOTE_EOF'
 set -euo pipefail
 DOMAIN="$1"
 sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
@@ -138,7 +138,7 @@ REMOTE_EOF
 }
 
 ensure_k3s_certs() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" -- "$FITPULSE_DOMAIN" /bin/bash -s <<'REMOTE_EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"$FITPULSE_DOMAIN\"" <<'REMOTE_EOF'
 set -euo pipefail
 FITPULSE_DOMAIN="$1"
 echo "-> Waiting for k3s API to be ready..."
@@ -300,8 +300,8 @@ show_codeql_diagnostics() {
 			jq -r '
 				.runs[] |
 				.tool.driver.name,
-				"results: \(([.results // [] | length]]) // 0)",
-				(.results // []])[] |
+				"results: \(([.results // [] | length]) // 0)",
+				(.results // [])[] |
 				[.ruleId, .message.text, (.locations[0].physicalLocation.artifactLocation.uri // ""), (.locations[0].physicalLocation.region.startLine // 0)] | @tsv
 			' "$f" 2>/dev/null || true
 			echo ""
