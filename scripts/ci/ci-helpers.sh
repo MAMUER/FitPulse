@@ -118,51 +118,51 @@ configure_kubectl() {
 
 # shellcheck disable=SC2153
 generate_kubeconfig() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<EOF
 set -euo pipefail
-DOMAIN='${FITPULSE_DOMAIN}'
+DOMAIN="${FITPULSE_DOMAIN}"
 sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-config.yaml
-sudo sed -i \"s|0.0.0.0|\${DOMAIN}|g\" /tmp/k3s-config.yaml
-sudo sed -i \"s|127.0.0.1|\${DOMAIN}|g\" /tmp/k3s-config.yaml
+sudo sed -i "s|0.0.0.0|\${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i "s|127.0.0.1|\${DOMAIN}|g" /tmp/k3s-config.yaml
 sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-config.yaml
 sudo chmod 644 /tmp/k3s-config.yaml
-echo '✅ Kubeconfig saved to /tmp/k3s-config.yaml'
-"
+echo "✅ Kubeconfig saved to /tmp/k3s-config.yaml"
+EOF
 }
 
 ensure_k3s_certs() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<EOF
 set -euo pipefail
-DOMAIN='${FITPULSE_DOMAIN}'
+DOMAIN="${FITPULSE_DOMAIN}"
 if ! k3s kubectl get --raw /livez &>/dev/null; then
-	echo 'API не отвечает'; exit 1
+	echo "API не отвечает"; exit 1
 fi
-CERT_FILE='/var/lib/rancher/k3s/server/tls/dynamic-cert.json'
+CERT_FILE="/var/lib/rancher/k3s/server/tls/dynamic-cert.json"
 NEED_RESTART=false
-if [[ -f \"\$CERT_FILE\" ]]; then
-	if ! grep -q \"\$DOMAIN\" /etc/rancher/k3s/config.yaml; then
-		echo '⚠️ Конфиг не содержит домен, обновляем...'
+if [[ -f "\$CERT_FILE" ]]; then
+	if ! grep -q "\$DOMAIN" /etc/rancher/k3s/config.yaml; then
+		echo "⚠️ Конфиг не содержит домен, обновляем..."
 		NEED_RESTART=true
 	else
-		echo '✅ Домен уже в конфиге.'
+		echo "✅ Домен уже в конфиге."
 	fi
 else
-	echo 'Сертификат ещё не сгенерирован, перезапуск не требуется.'
+	echo "Сертификат ещё не сгенерирован, перезапуск не требуется."
 fi
-if [[ \"\$NEED_RESTART\" = true ]]; then
-	echo 'Перезапуск k3s для применения новых SAN...'
+if [[ "\$NEED_RESTART" = true ]]; then
+	echo "Перезапуск k3s для применения новых SAN..."
 	sudo systemctl stop k3s
 	sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
 	sudo systemctl start k3s
 	for i in \$(seq 1 60); do
 		if k3s kubectl cluster-info &>/dev/null; then
-			echo \"k3s снова готов после \${i}s\"
+			echo "k3s снова готов после \${i}s"
 			break
 		fi
 		sleep 2
 	done
 fi
-"
+EOF
 }
 
 download_kubeconfig() {
