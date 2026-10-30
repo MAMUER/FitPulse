@@ -118,66 +118,57 @@ configure_kubectl() {
 
 # shellcheck disable=SC2153
 generate_kubeconfig() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"${FITPULSE_DOMAIN}\"" <<'REMOTE_EOF'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-DOMAIN="$1"
-
-if [[ -z "$DOMAIN" ]]; then
-    echo "❌ ERROR: DOMAIN is empty!"
-    exit 1
-fi
-
-echo "🔍 Using DOMAIN: $DOMAIN"
-
-if [[ ! -f /etc/rancher/k3s/k3s.yaml ]]; then
-    echo "❌ ERROR: /etc/rancher/k3s/k3s.yaml not found!"
-    ls -la /etc/rancher/k3s/ || true
-    exit 1
-fi
-
-echo "-> Copying and modifying kubeconfig..."
+DOMAIN='${FITPULSE_DOMAIN}'
 sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-config.yaml
-sudo sed -i "s|0.0.0.0|${DOMAIN}|g" /tmp/k3s-config.yaml
-sudo sed -i "s|127.0.0.1|${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i \"s|0.0.0.0|\${DOMAIN}|g\" /tmp/k3s-config.yaml
+sudo sed -i \"s|127.0.0.1|\${DOMAIN}|g\" /tmp/k3s-config.yaml
 sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-config.yaml
 sudo chmod 644 /tmp/k3s-config.yaml
+echo '✅ Kubeconfig saved to /tmp/k3s-config.yaml'
+"
+}
 
-echo "✅ Kubeconfig successfully saved to /tmp/k3s-config.yaml"
-cat /tmp/k3s-config.yaml
-REMOTE_EOF
+ensure_k3s_certs() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+set -euo pipefail
+DOMAIN='${FITPULSE_DOMAIN}'
+if ! k3s kubectl get --raw /livez &>/dev/null; then
+	echo 'API не отвечает'; exit 1
+fi
+CERT_FILE='/var/lib/rancher/k3s/server/tls/dynamic-cert.json'
+NEED_RESTART=false
+if [[ -f \"\$CERT_FILE\" ]]; then
+	if ! grep -q \"\$DOMAIN\" /etc/rancher/k3s/config.yaml; then
+		echo '⚠️ Конфиг не содержит домен, обновляем...'
+		NEED_RESTART=true
+	else
+		echo '✅ Домен уже в конфиге.'
+	fi
+else
+	echo 'Сертификат ещё не сгенерирован, перезапуск не требуется.'
+fi
+if [[ \"\$NEED_RESTART\" = true ]]; then
+	echo 'Перезапуск k3s для применения новых SAN...'
+	sudo systemctl stop k3s
+	sudo rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json
+	sudo systemctl start k3s
+	for i in \$(seq 1 60); do
+		if k3s kubectl cluster-info &>/dev/null; then
+			echo \"k3s снова готов после \${i}s\"
+			break
+		fi
+		sleep 2
+	done
+fi
+"
 }
 
 download_kubeconfig() {
 	./scripts/ssh-retry.sh scp \
 		"${VPS_USER}@${VPS_HOST}:/tmp/k3s-config.yaml" \
 		./k3s-config.yaml
-}
-
-ensure_k3s_certs() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"$FITPULSE_DOMAIN\"" <<'REMOTE_EOF'
-set -euo pipefail
-FITPULSE_DOMAIN="$1"
-echo "-> Waiting for k3s API to be ready..."
-for i in $(seq 1 60); do
-	if k3s kubectl get --raw /livez &>/dev/null; then
-		echo "✅ k3s API is ready after ${i}s"
-		break
-	fi
-	if [[ "$i" -eq 60 ]]; then
-		echo "❌ k3s API not ready after 120s"
-		k3s kubectl get nodes -o wide || true
-		exit 1
-	fi
-	sleep 2
-done
-echo "-> Ensuring k3s certificates include domain ${FITPULSE_DOMAIN}..."
-# Перезапускаем k3s с правильными SANs, если нужно
-if ! k3s kubectl get --raw /livez &>/dev/null; then
-	echo " k3s API is not responding"
-	exit 1
-fi
-echo "✅ Certificates verification completed"
-REMOTE_EOF
 }
 
 wait_for_k3s_api() {

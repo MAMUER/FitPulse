@@ -16,19 +16,13 @@ echo "============================================"
 echo "  VPS DNS Fix Script"
 echo "============================================"
 
-# 1. Снимаем флаг неизменяемости (если он был)
-if [[ -f "$RESOLV_CONF" ]]; then
-	chattr -i "$RESOLV_CONF" 2>/dev/null || true
-	log_info "Removed immutable flag (if any)"
-fi
-
-# 2. Делаем резервную копию
+# 1. Делаем резервную копию
 if [[ -f "$RESOLV_CONF" ]]; then
 	cp "$RESOLV_CONF" "$BACKUP_FILE"
 	log_ok "Backup created: ${BACKUP_FILE}"
 fi
 
-# 3. Перезаписываем на надежные DNS-серверы
+# 2. Перезаписываем на надежные DNS-серверы
 cat >"$RESOLV_CONF" <<EOF
 # Fixed DNS - managed by CI/CD
 nameserver 8.8.8.8
@@ -39,14 +33,7 @@ EOF
 chmod 644 "$RESOLV_CONF"
 log_ok "resolv.conf written with working nameservers"
 
-# 4. Пытаемся защитить файл (best effort, не прерывает скрипт при ошибке)
-if chattr +i "$RESOLV_CONF" 2>/dev/null; then
-	log_ok "File protected with immutable flag"
-else
-	log_info "Failed to set immutable flag (filesystem may not support it, continuing anyway)"
-fi
-
-# 5. Проверка DNS (НЕ прерывает скрипт при ошибках)
+# 3. Проверка DNS (НЕ прерывает скрипт при ошибках)
 log_info "Verifying DNS resolution..."
 sleep 2
 failed=0
