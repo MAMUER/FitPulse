@@ -1352,7 +1352,21 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh ensure_k3s_certs
+      - name: Generate kubeconfig with external domain
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/ci-helpers.sh generate_kubeconfig
+      - name: Download kubeconfig artifact
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/ci-helpers.sh download_kubeconfig
       - name: Install cert-manager and configure Let's Encrypt
+        env:
+          KUBECONFIG: ./k3s-config.yaml
         run: bash scripts/ci/k8s-setup.sh install_cert_manager
       - name: Setup ML infrastructure directories
         env:
@@ -1381,18 +1395,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/ci-helpers.sh deploy_health_script
-      - name: Generate kubeconfig with external domain
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh generate_kubeconfig
-      - name: Download kubeconfig artifact
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/ci-helpers.sh download_kubeconfig
       - name: Upload kubeconfig artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
