@@ -116,6 +116,7 @@ configure_kubectl() {
 	chmod 600 "$HOME/.kube/config"
 }
 
+# shellcheck disable=SC2153
 generate_kubeconfig() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"${FITPULSE_DOMAIN}\"" <<'REMOTE_EOF'
 set -euo pipefail
@@ -510,8 +511,8 @@ main() {
 		install_python_deps
 		run_coverage
 		configure_kubectl
-		download_kubeconfig
 		generate_kubeconfig
+		download_kubeconfig
 		ensure_k3s_certs
 		wait_for_k3s_api
 		check_connectivity
@@ -531,8 +532,8 @@ main() {
 	install_python_deps) install_python_deps ;;
 	run_coverage) run_coverage ;;
 	configure_kubectl) configure_kubectl ;;
-	download_kubeconfig) download_kubeconfig ;;
 	generate_kubeconfig) generate_kubeconfig ;;
+	download_kubeconfig) download_kubeconfig ;;
 	ensure_k3s_certs) ensure_k3s_certs ;;
 	wait_for_k3s_api) wait_for_k3s_api ;;
 	check_connectivity) check_connectivity ;;
