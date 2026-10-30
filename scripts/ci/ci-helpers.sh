@@ -116,25 +116,23 @@ configure_kubectl() {
 	chmod 600 "$HOME/.kube/config"
 }
 
-download_kubeconfig() {
-	# shellcheck disable=SC2153
-	./scripts/ssh-retry.sh scp \
-		"${VPS_USER}@${VPS_HOST}:~/k3s-config.yaml" \
-		./k3s-config.yaml
+generate_kubeconfig() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s" <<EOF
+set -euo pipefail
+DOMAIN="${FITPULSE_DOMAIN}"
+sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-config.yaml
+sudo sed -i "s|0.0.0.0|\${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i "s|127.0.0.1|\${DOMAIN}|g" /tmp/k3s-config.yaml
+sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-config.yaml
+sudo chmod 644 /tmp/k3s-config.yaml
+echo "✅ Kubeconfig saved to /tmp/k3s-config.yaml"
+EOF
 }
 
-generate_kubeconfig() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s -- \"$FITPULSE_DOMAIN\"" <<'REMOTE_EOF'
-set -euo pipefail
-DOMAIN="$1"
-sudo cp /etc/rancher/k3s/k3s.yaml /tmp/k3s-domain.yaml
-sudo sed -i "s|0.0.0.0|${DOMAIN}|g" /tmp/k3s-domain.yaml
-sudo sed -i "s|127.0.0.1|${DOMAIN}|g" /tmp/k3s-domain.yaml
-sudo sed -i '/insecure-skip-tls-verify/d' /tmp/k3s-domain.yaml
-sudo chmod 644 /tmp/k3s-domain.yaml
-cp /tmp/k3s-domain.yaml ~/k3s-config.yaml
-echo "✅ Kubeconfig saved to ~/k3s-config.yaml"
-REMOTE_EOF
+download_kubeconfig() {
+	./scripts/ssh-retry.sh scp \
+		"${VPS_USER}@${VPS_HOST}:/tmp/k3s-config.yaml" \
+		./k3s-config.yaml
 }
 
 ensure_k3s_certs() {
