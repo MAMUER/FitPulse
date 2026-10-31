@@ -429,10 +429,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
         run: |
-          curl --proto =https -fsSL https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
-          export PATH="$HOME/.kubescape/bin:$PATH"
-          echo "$HOME/.kubescape/bin" >> "$GITHUB_PATH"
-          kubescape version || kubescape download
+          curl --proto =https -fsSL https://github.com/kubescape/kubescape/releases/download/v4.0.17/kubescape_4.0.17_linux_amd64 -o /tmp/kubescape
+          chmod +x /tmp/kubescape
+          sudo mv /tmp/kubescape /usr/local/bin/kubescape
+          kubescape version
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results

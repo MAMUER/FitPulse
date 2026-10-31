@@ -151,6 +151,7 @@ spec:
 
       # КРИТИЧНО: provisioner должен иметь доступ к Kubernetes API.
       # Без token он не может watch PVC и создавать PV/helper-pod.
+      # checkov:skip=CKV_K8S_38: System component; needs service account token to watch PVCs and create PVs
       automountServiceAccountToken: true
 
       # Pod runs as root because the provisioner needs to create directories

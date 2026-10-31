@@ -233,31 +233,84 @@ echo 'k3s installed successfully'
 }
 
 preload_airgap_images() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-		set -euo pipefail
-		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-		K3S_VER=\$(k3s --version 2>/dev/null | head -1 | awk '{print \$3}')
-		if [[ -z \"\${K3S_VER}\" ]]; then
-			echo 'ERROR: Could not detect k3s version'
-			exit 1
-		fi
-		echo \"-> Detected k3s version: \${K3S_VER}\"
-		IMG_DIR=/var/lib/rancher/k3s/agent/images
-		sudo mkdir -p \${IMG_DIR}
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+echo '-> Preloading airgap images with strict timeout and quiet mode...'
 
-		echo '-> Downloading k3s airgap images bundle (contains local-path-provisioner & pause)...'
-		wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3s-io/k3s/releases/download/\${K3S_VER}/k3s-airgap-images-amd64.tar.gz\"
+# Применяем MTU фикс перед началом
+sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1 >/dev/null 2>&1 || true
 
-		echo '-> Importing airgap images into containerd...'
-		sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
-		sudo rm -f /tmp/k3s-airgap.tar.gz
+K3S_VER=$(k3s --version 2>/dev/null | head -1 | awk '{print $3}')
+if [[ -z "${K3S_VER}" ]]; then
+    echo 'ERROR: Could not detect k3s version'
+    exit 1
+fi
+echo "-> Detected k3s version: ${K3S_VER}"
 
-		echo '-> Restarting k3s to apply imported images...'
-		sudo systemctl restart k3s
+IMG_DIR=/var/lib/rancher/k3s/agent/images
+sudo mkdir -p ${IMG_DIR}
 
-		echo '-> Verifying images are loaded:'
-		sudo k3s crictl images | grep -E 'local-path-provisioner|pause' || true
-	"
+ARCHIVE_NAME="k3s-airgap-images-amd64.tar.gz"
+REMOTE_PATH="/tmp/${ARCHIVE_NAME}"
+
+echo "-> Downloading airgap bundle directly to node..."
+# Скачиваем wget с таймаутом соединения и чтения
+wget -q --tries=3 --timeout=60 --read-timeout=120 -O "${REMOTE_PATH}" \
+    "https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/${ARCHIVE_NAME}"
+
+FILE_SIZE=$(du -h "${REMOTE_PATH}" | cut -f1)
+echo "-> Bundle downloaded (${FILE_SIZE}). Starting import..."
+
+# ИМПОРТ С ТАЙМАУТОМ И БЕЗ ВЫВОДА ПРОГРЕССА
+# 1. timeout 300s убьет процесс, если он висит дольше 5 минут.
+# 2. > /dev/null 2>&1 скрывает шумные progress bars от SSH.
+# 3. || true позволяет продолжить, даже если импорт частично упал (проверим ниже).
+echo "-> Running ctr import (quiet mode, 5min timeout)..."
+if ! timeout 300 sudo k3s ctr -n k8s.io images import "${REMOTE_PATH}" > /dev/null 2>&1; then
+    echo "⚠️ ctr import timed out or failed silently. Checking if images are present anyway..."
+fi
+
+# Удаляем архив сразу после попытки импорта, чтобы освободить диск
+rm -f "${REMOTE_PATH}"
+
+echo "-> Verifying critical images are loaded..."
+MISSING_IMAGES=false
+
+for IMG in "local-path-provisioner" "pause" "coredns"; do
+    if ! sudo k3s crictl images | grep -q "$IMG"; then
+        echo "❌ Image missing: $IMG"
+        MISSING_IMAGES=true
+    else
+        echo "✅ Found: $IMG"
+    fi
+done
+
+if [[ "$MISSING_IMAGES" == true ]]; then
+    echo "❌ Airgap preload incomplete. Some system pods may fail to start."
+    # Не выходим с ошибкой немедленно, дадим k3s шанс скачать из сети, 
+    # но предупреждаем CI.
+    echo "::warning::Airgap images incomplete. Relying on network pull fallback."
+else
+    echo "✅ All critical airgap images verified."
+fi
+
+echo "-> Restarting k3s to apply imported images..."
+sudo systemctl restart k3s
+
+echo "-> Waiting for k3s API readiness after restart..."
+for i in $(seq 1 60); do
+    if sudo k3s kubectl cluster-info &>/dev/null; then
+        echo "✅ k3s ready after ${i}s"
+        break
+    fi
+    if [[ "$i" -eq 60 ]]; then
+        echo "❌ Timeout waiting for k3s restart"
+        sudo journalctl -u k3s -n 30 --no-pager
+        exit 1
+    fi
+    sleep 2
+done
+EOF
 }
 
 wait_for_critical_pods() {
