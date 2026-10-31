@@ -740,6 +740,8 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install secret scanning tools
+        run: bash scripts/ci/security.sh install_tools   # ← ДОБАВЛЕНО
       - name: Run Gitleaks secret scan
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
@@ -762,6 +764,8 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install SBOM tools
+        run: bash scripts/ci/security.sh install_tools   # ← ДОБАВЛЕНО
       - name: Generate SBOM with syft
         run: bash scripts/ci/security.sh generate_sbom
       - name: Upload SBOM artifact
