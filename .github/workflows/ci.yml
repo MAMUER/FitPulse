@@ -1640,7 +1640,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install requests pytest
+        run: "pip install --only-binary :all: requests==2.32.3 pytest==8.3.4"
       - name: Run ML E2E tests
         env:
           BASE_URL: "https://fittpulse.duckdns.org"
