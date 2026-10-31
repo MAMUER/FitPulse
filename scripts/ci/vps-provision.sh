@@ -10,7 +10,6 @@ configure_swap() {
 
 	while [[ $attempt -le $max_attempts ]]; do
 		echo "➡️ Попытка $attempt из $max_attempts..."
-		# Увеличили ConnectTimeout до 15 и добавили -v для отладки, если понадобится
 		if timeout 30 ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo ok" >/dev/null 2>&1; then
 			connected=true
 			echo "✅ VPS успешно доступен по SSH!"
@@ -28,7 +27,6 @@ configure_swap() {
 		return 1
 	fi
 
-	# Если swap уже настроен — пропускаем
 	if timeout 10 ssh -p "${VPS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10 "${VPS_USER}@${VPS_HOST}" "test -f /tmp/.swap-configured" >/dev/null 2>&1; then
 		echo "✅ Swap уже настроен, пропускаем"
 		return 0
@@ -56,29 +54,18 @@ cleanup_old_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> Performing full k3s cleanup...'
-
-# 1. Останавливаем и принудительно убиваем все процессы k3s
-echo '-> Stopping and killing k3s processes...'
 systemctl stop k3s k3s-agent 2>/dev/null || true
 pkill -9 -f 'k3s' 2>/dev/null || true
-
-# 2. Запускаем официальный скрипт очистки сетей (удаляет cni0, flannel.1 и т.д.)
 if [ -f /usr/local/bin/k3s-killall.sh ]; then
     echo '-> Running k3s-killall.sh to clean network interfaces...'
     /usr/local/bin/k3s-killall.sh || true
 fi
-
-# 3. Полностью удаляем все директории состояния k3s, CNI и kubelet
-echo '-> Removing k3s, CNI, and kubelet state directories...'
 rm -rf /var/lib/rancher/k3s
 rm -rf /etc/rancher/k3s
 rm -rf /var/lib/cni
 rm -rf /var/lib/kubelet
 rm -rf /run/k3s
 rm -rf /run/flannel
-
-# 4. Удаляем бинарные файлы и systemd-юниты
-echo '-> Removing k3s binaries and systemd units...'
 rm -f /usr/local/bin/k3s
 rm -f /usr/local/bin/kubectl
 rm -f /usr/local/bin/crictl
@@ -88,16 +75,9 @@ rm -f /etc/systemd/system/k3s.service.env
 rm -f /etc/systemd/system/k3s-agent.service
 rm -f /etc/systemd/system/multi-user.target.wants/k3s.service
 rm -f /etc/systemd/system/multi-user.target.wants/k3s-agent.service
-
-# 5. Перезагружаем демон systemd и сбрасываем ошибки
-echo '-> Reloading systemd daemon and resetting failed states...'
 systemctl daemon-reload
 systemctl reset-failed
-
-# 6. Очищаем директорию local-path-provisioner (гарантирует чистые PVC при новой установке)
-echo '-> Cleaning up local-path-provisioner directory...'
 rm -rf /opt/local-path-provisioner
-
 echo '✅ Full k3s cleanup completed successfully'
 "
 }
@@ -154,16 +134,9 @@ prepare_k3s_config() {
 		echo "✅ Config YAML is valid"
 	fi
 
-	# 1. Создаем директорию с правами root
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo mkdir -p /etc/rancher/k3s"
-
-	# 2. Копируем файл во временную папку пользователя (где есть права на запись)
 	./scripts/ssh-retry.sh scp /tmp/k3s-config-remote.yaml "${VPS_USER}@${VPS_HOST}:/tmp/k3s-config-remote.yaml"
-
-	# 3. Перемещаем файл в системную директорию с правами root и ставим правильные права доступа
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo cp /tmp/k3s-config-remote.yaml /etc/rancher/k3s/config.yaml && sudo chmod 600 /etc/rancher/k3s/config.yaml"
-
-	# 4. Проверяем, что файл записался
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 echo '=== Config written to /etc/rancher/k3s/config.yaml ==='
 sudo cat /etc/rancher/k3s/config.yaml
@@ -215,7 +188,6 @@ echo '-> Starting k3s...'
 		echo '-> Cleaning stuck pods from previous runs BEFORE restart...'
 		sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
 		sudo k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
-		# Применяем глобальный фикс MTU для containerd
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
@@ -236,7 +208,7 @@ for i in \$(seq 1 120); do
 	fi
 	sleep 2
 done
-echo '=== Cluster status ==='
+echo '=== Cluster status (snapshot; readiness is gated by wait_for_critical_pods) ==='
 sudo k3s kubectl get nodes -o wide
 sudo k3s kubectl get pods -A
 "
@@ -288,6 +260,67 @@ preload_airgap_images() {
 	"
 }
 
+# Строгий gate готовности критических системных подов.
+# Вызывать ПОСЛЕ fix_local_path_rbac (provisioner деплоится там).
+# Валит job, если хоть один под не стал Ready — ложно-зелёных прогонов больше не будет.
+wait_for_critical_pods() {
+	echo '-> Waiting for critical system pods to become Ready...'
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+
+# Формат: namespace:selector:имя
+CRITICAL=(
+	"kube-system:k8s-app=kube-dns:coredns"
+	"local-path-storage:app=local-path-provisioner:local-path-provisioner"
+	"kube-system:k8s-app=metrics-server:metrics-server"
+)
+
+overall_fail=0
+for entry in "${CRITICAL[@]}"; do
+	ns="${entry%%:*}"
+	rest="${entry#*:}"
+	sel="${rest%%:*}"
+	name="${rest#*:}"
+	echo "  • checking $name (ns=$ns, selector=$sel)"
+
+	# 1. Ждём появления подов по селектору (до 120s)
+	appeared=false
+	for i in $(seq 1 60); do
+		if sudo k3s kubectl get pods -n "$ns" -l "$sel" --no-headers 2>/dev/null | grep -q .; then
+			appeared=true
+			break
+		fi
+		sleep 2
+	done
+	if [[ "$appeared" != true ]]; then
+		echo "  ❌ $name: no pods found by selector '$sel' in $ns within 120s"
+		overall_fail=1
+		continue
+	fi
+
+	# 2. Ждём Ready всех подов по селектору (до 300s) — СТРОГО, без || true
+	if ! sudo k3s kubectl wait --for=condition=Ready pod -l "$sel" -n "$ns" --timeout=300s; then
+		echo "  ❌ $name: not Ready within 300s. Diagnostics:"
+		sudo k3s kubectl get pods -n "$ns" -l "$sel" -o wide || true
+		sudo k3s kubectl describe pods -n "$ns" -l "$sel" | tail -50 || true
+		sudo k3s kubectl logs -n "$ns" -l "$sel" --tail=30 || true
+		overall_fail=1
+	else
+		echo "  ✅ $name is Ready"
+	fi
+done
+
+echo '=== Final pod snapshot ==='
+sudo k3s kubectl get pods -A
+
+if [[ "$overall_fail" -ne 0 ]]; then
+	echo '❌ CRITICAL PODS NOT READY — failing provision job'
+	exit 1
+fi
+echo '✅ All critical system pods are Ready'
+EOF
+}
+
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -315,6 +348,7 @@ main() {
 	start_k3s) start_k3s ;;
 	install_k3s) install_k3s ;;
 	preload_airgap_images) preload_airgap_images ;;
+	wait_for_critical_pods) wait_for_critical_pods ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1

@@ -174,20 +174,28 @@ download_kubeconfig() {
 
 wait_for_k3s_api() {
 	echo "Waiting for k3s API server to be fully initialized..."
-	for i in {1..60}; do # <-- ИЗМЕНЕНО с 30 на 60
-		if kubectl get --raw=/healthz &>/dev/null; then
+	local ready=false
+	for i in {1..30}; do
+		if kubectl get --raw=/healthz --request-timeout=10s &>/dev/null; then
 			echo "✅ k3s API server is ready after $((i * 10)) seconds"
+			ready=true
 			break
 		fi
-		if [[ "$i" -eq 60 ]]; then # <-- ИЗМЕНЕНО с 30 на 60
-			echo "❌ k3s API server not ready after 10 minutes"
-			kubectl cluster-info dump || true
-			exit 1
-		fi
-		echo "Attempt $i/60: API not ready, waiting 10s..."
+		echo "Attempt $i/30: API not ready, waiting 10s..."
 		sleep 10
 	done
-	# ... остальной код без изменений ...
+	if [[ "$ready" != true ]]; then
+		echo "❌ k3s API server not ready after 5 minutes"
+		echo "--- Diagnostics ---"
+		grep "${FITPULSE_DOMAIN}" /etc/hosts || echo "no /etc/hosts entry for ${FITPULSE_DOMAIN}"
+		command -v tailscale >/dev/null && tailscale status || true
+		timeout 10 bash -c "</dev/tcp/${VPS_HOST}/6443" 2>/dev/null \
+			&& echo "TCP ${VPS_HOST}:6443 OPEN" \
+			|| echo "TCP ${VPS_HOST}:6443 CLOSED/FILTERED — проверь portproxy 6443 и firewall"
+		kubectl version --request-timeout=10s || true
+		kubectl config view --minify || true
+		exit 1
+	fi
 }
 
 check_connectivity() {
@@ -364,29 +372,90 @@ echo '✅ Directories created: /opt/fitpulse/mlflow-data'
 }
 
 deploy_mlflow() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-mkdir -p ~/fitpulse/deployments
-docker rm -f fitpulse-mlflow 2>/dev/null || true
-docker run -d \
-	--name fitpulse-mlflow \
-	--restart unless-stopped \
-	-p 5000:5000 \
-	-v /opt/fitpulse/mlflow-data:/mlflow \
-	ghcr.io/mlflow/mlflow:v2.20.2 \
-	mlflow server \
-	--host 0.0.0.0 \
-	--port 5000 \
-	--backend-store-uri sqlite:////mlflow/mlflow.db \
-	--default-artifact-root /mlflow/artifacts
-for _ in {1..30}; do
-	if curl -sf http://localhost:5000/health &>/dev/null; then
-		echo '✅ MLflow is healthy'
-		break
-	fi
-	sleep 2
-done
-echo \"✅ MLflow deployed: http://${VPS_HOST}:5000\"
-"
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+echo '-> Deploying MLflow as a Kubernetes workload (docker-free, pod-tracked)...'
+sudo k3s kubectl create namespace mlflow --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+
+cat <<'MANIFEST' | sudo k3s kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-data
+  namespace: mlflow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fitpulse-mlflow
+  namespace: mlflow
+  labels:
+    app: fitpulse-mlflow
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: fitpulse-mlflow
+  template:
+    metadata:
+      labels:
+        app: fitpulse-mlflow
+    spec:
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v2.20.2
+          ports:
+            - containerPort: 5000
+          command:
+            - mlflow
+            - server
+            - --host
+            - 0.0.0.0
+            - --port
+            - "5000"
+            - --backend-store-uri
+            - sqlite:////mlflow/mlflow.db
+            - --default-artifact-root
+            - /mlflow/artifacts
+          volumeMounts:
+            - name: data
+              mountPath: /mlflow
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mlflow-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: mlflow
+spec:
+  selector:
+    app: fitpulse-mlflow
+  ports:
+    - port: 5000
+      targetPort: 5000
+MANIFEST
+
+echo '-> Waiting for MLflow pod to be Ready...'
+sudo k3s kubectl rollout status deployment/fitpulse-mlflow -n mlflow --timeout=300s
+sudo k3s kubectl wait --for=condition=Ready pod -l app=fitpulse-mlflow -n mlflow --timeout=120s
+echo '✅ MLflow deployed and Ready as a tracked k8s workload (svc: mlflow.mlflow.svc.cluster.local:5000)'
+EOF
 }
 
 check_commits() {

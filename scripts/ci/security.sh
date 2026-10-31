@@ -77,26 +77,26 @@ run_govulncheck() {
 }
 
 run_gitleaks() {
-    command -v gitleaks >/dev/null 2>&1 || install_gitleaks
-    mkdir -p sarif-results
-    gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif
+	command -v gitleaks >/dev/null 2>&1 || install_gitleaks
+	mkdir -p sarif-results
+	gitleaks detect --source=. --config=.gitleaks.toml --report-format=sarif --report-path=sarif-results/gitleaks.sarif
 }
 
 run_trufflehog() {
-    command -v trufflehog >/dev/null 2>&1 || install_trufflehog
-    mkdir -p sarif-results
-    trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl
+	command -v trufflehog >/dev/null 2>&1 || install_trufflehog
+	mkdir -p sarif-results
+	trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl
 }
 
 generate_sbom() {
-    command -v syft >/dev/null 2>&1 || install_syft
-    mkdir -p sbom
-    syft . \
-        --source-name fitpulse \
-        --source-version "$(git rev-parse --short HEAD)" \
-        -o spdx-json=sbom/sbom.spdx.json \
-        -o cyclonedx-json=sbom/sbom.cyclonedx.json
-    ls -la sbom/
+	command -v syft >/dev/null 2>&1 || install_syft
+	mkdir -p sbom
+	syft . \
+		--source-name fitpulse \
+		--source-version "$(git rev-parse --short HEAD)" \
+		-o spdx-json=sbom/sbom.spdx.json \
+		-o cyclonedx-json=sbom/sbom.cyclonedx.json
+	ls -la sbom/
 }
 
 run_kubescape() {

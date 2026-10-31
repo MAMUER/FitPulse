@@ -9,14 +9,18 @@ setup_local_path_provisioner() {
 		sudo k3s kubectl apply -f /tmp/local-path-provisioner.yaml
 		echo 'Restarting local-path-provisioner to clear any stuck state...'
 		sudo k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
-		sudo k3s kubectl rollout status deployment/local-path-provisioner -n local-path-storage --timeout=60s || true
-		echo 'Waiting for local-path-provisioner pod to be ready...'
-		sudo k3s kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || true
+		# СТРОГО: провал rollout валит job (раньше был || true — маскировал сбой)
+		sudo k3s kubectl rollout status deployment/local-path-provisioner -n local-path-storage --timeout=180s
+		sudo k3s kubectl wait --for=condition=Ready pod -l app=local-path-provisioner -n local-path-storage --timeout=120s
 		echo 'Verifying StorageClass local-path exists and is ready...'
 		for i in {1..30}; do
 			if sudo k3s kubectl get storageclass local-path &>/dev/null; then
 				echo '✅ StorageClass found'
 				break
+			fi
+			if [[ "$i" -eq 30 ]]; then
+				echo '❌ StorageClass local-path not found'
+				exit 1
 			fi
 			echo "Attempt $i/30: waiting for StorageClass..."
 			sleep 2

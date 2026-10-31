@@ -36,6 +36,10 @@ spec:
         app.kubernetes.io/instance: rabbitmq
         app.kubernetes.io/component: messaging
         app.kubernetes.io/part-of: fitness-platform
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15692"
+        prometheus.io/path: "/metrics"
         app.kubernetes.io/managed-by: kustomize
     spec:
       automountServiceAccountToken: false
@@ -70,6 +74,12 @@ spec:
         - name: secrets
           secret:
             secretName: app-secrets
+        - name: rabbitmq-conf
+          secret:
+             secretName: rabbitmq-secret
+             items:
+               - key: rabbitmq.conf
+                 path: rabbitmq.conf
       containers:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
@@ -122,6 +132,10 @@ spec:
               readOnly: true
             - name: secrets
               mountPath: /etc/secrets
+              readOnly: true
+            - name: rabbitmq-conf
+              mountPath: /etc/rabbitmq/rabbitmq.conf
+              subPath: rabbitmq.conf
               readOnly: true
           livenessProbe:
             tcpSocket:

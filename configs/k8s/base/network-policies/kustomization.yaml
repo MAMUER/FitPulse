@@ -13,3 +13,4 @@ resources:
   - allow-ml-generator-ingress.yaml
   - allow-ml-generator-egress.yaml
   - allow-frontend-egress.yaml
+  - allow-prometheus-to-rabbitmq.yaml
