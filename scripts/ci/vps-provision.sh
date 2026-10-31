@@ -260,15 +260,12 @@ preload_airgap_images() {
 	"
 }
 
-# Строгий gate готовности критических системных подов.
-# Вызывать ПОСЛЕ fix_local_path_rbac (provisioner деплоится там).
-# Валит job, если хоть один под не стал Ready — ложно-зелёных прогонов больше не будет.
 wait_for_critical_pods() {
 	echo '-> Waiting for critical system pods to become Ready...'
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail
 
-# Формат: namespace:selector:имя
+	# Format: namespace:selector:name
 CRITICAL=(
 	"kube-system:k8s-app=kube-dns:coredns"
 	"local-path-storage:app=local-path-provisioner:local-path-provisioner"
@@ -298,7 +295,7 @@ for entry in "${CRITICAL[@]}"; do
 		continue
 	fi
 
-	# 2. Ждём Ready всех подов по селектору (до 300s) — СТРОГО, без || true
+	# 2. Wait for Ready of all pods by selector (up to 300s) - strict, no || true
 	if ! sudo k3s kubectl wait --for=condition=Ready pod -l "$sel" -n "$ns" --timeout=300s; then
 		echo "  ❌ $name: not Ready within 300s. Diagnostics:"
 		sudo k3s kubectl get pods -n "$ns" -l "$sel" -o wide || true
