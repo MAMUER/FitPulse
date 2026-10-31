@@ -22,6 +22,8 @@ skip-check:
   # All workloads run with the upstream images' recommended UIDs (999/1000/1001).
   # Switching to UIDs >10000 breaks volume permissions and upstream nets.
   - CKV_K8S_40
+  # local-path-provisioner needs its service account token to manage PVCs.
+  - CKV_K8S_38
 
   # Pod-level securityContext is applied to all first-party workloads; the remaining
   # findings come from vendored third-party component manifests (ArgoCD & Co).
