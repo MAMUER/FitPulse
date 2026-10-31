@@ -43,8 +43,10 @@ install_kube_bench() {
 	command -v kube-bench >/dev/null 2>&1 && return 0
 	echo "-> Installing kube-bench..."
 	curl --proto =https --retry 3 --retry-delay 5 -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/v0.13.0/kube-bench_0.13.0_linux_amd64.tar.gz" -o /tmp/kube-bench.tar.gz
-	sudo tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin kube-bench
-	sudo chmod +x /usr/local/bin/kube-bench
+	sudo mkdir -p /usr/local/kube-bench
+	sudo tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/kube-bench
+	sudo ln -sf /usr/local/kube-bench/kube-bench /usr/local/bin/kube-bench
+	sudo chmod +x /usr/local/bin/kube-bench /usr/local/kube-bench/kube-bench
 	rm -f /tmp/kube-bench.tar.gz
 }
 
@@ -250,7 +252,7 @@ run_kube_bench() {
 		exit 0
 	fi
 
-	kube-bench run --benchmark cis-1.18 --json >security-results/kube-bench-results.json 2>&1 || true
+	kube-bench run --benchmark cis-1.18 --config-dir /usr/local/kube-bench/cfg --json >security-results/kube-bench-results.json 2>&1 || true
 	echo "✅ kube-bench scan completed (results in security-results/kube-bench-results.json)"
 }
 
@@ -272,7 +274,7 @@ run_kube_hunter() {
 
 	if timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',6443)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1 ||
 		timeout 5 python3 -c "import socket; s=socket.socket(); s.settimeout(2); r=s.connect_ex(('127.0.0.1',8080)); s.close(); exit(0 if r==0 else 1)" >/dev/null 2>&1; then
-		kube-hunter --remote 127.0.0.1 --json >security-results/kube-hunter-results.json 2>&1 || true
+		kube-hunter --remote 127.0.0.1 --report json >security-results/kube-hunter-results.json 2>&1 || true
 	else
 		echo "Локальный кластер не обнаружен — пропускаем kube-hunter"
 		exit 0

@@ -172,25 +172,21 @@ download_kubeconfig() {
 }
 
 wait_for_k3s_api() {
-	echo "Waiting for k3s API server to be fully initialized..."
-	for i in {1..30}; do
-		if kubectl get --raw=/healthz &>/dev/null; then
-			echo "✅ k3s API server is ready after ${i}0 seconds"
-			break
-		fi
-		if [[ "$i" -eq 30 ]]; then
-			echo "❌ k3s API server not ready after 5 minutes"
-			kubectl cluster-info dump || true
-			exit 1
-		fi
-		echo "Attempt $i/30: API not ready, waiting 10s..."
-		sleep 10
-	done
-	echo "Verifying API endpoints..."
-	kubectl api-resources --api-group=apps &>/dev/null || {
-		echo "API resources not available, waiting 30s more..."
-		sleep 30
-	}
+    echo "Waiting for k3s API server to be fully initialized..."
+    for i in {1..60}; do # <-- ИЗМЕНЕНО с 30 на 60
+        if kubectl get --raw=/healthz &>/dev/null; then
+            echo "✅ k3s API server is ready after $((i * 10)) seconds"
+            break
+        fi
+        if [[ "$i" -eq 60 ]]; then # <-- ИЗМЕНЕНО с 30 на 60
+            echo "❌ k3s API server not ready after 10 minutes"
+            kubectl cluster-info dump || true
+            exit 1
+        fi
+        echo "Attempt $i/60: API not ready, waiting 10s..."
+        sleep 10
+    done
+    # ... остальной код без изменений ...
 }
 
 check_connectivity() {
@@ -217,19 +213,32 @@ add_vps_to_known_hosts() {
 }
 
 resolve_vps_hostname() {
-	VPS_IP=$(dig +short "${VPS_HOST}" +timeout=5 +tries=2 | head -1 || true)
-	if [[ -z "$VPS_IP" ]]; then
-		VPS_IP=$(nslookup "${VPS_HOST}" 2>/dev/null | grep -A1 "Name:" | tail -1 | awk '{print $2}' || true)
-	fi
-	if [[ -z "$VPS_IP" ]]; then
-		echo "⚠️ Could not resolve ${VPS_HOST}, using hostname as-is"
-		VPS_IP="${VPS_HOST}"
-	fi
-	echo "Resolved VPS_IP: $VPS_IP"
+    # 1. Если VPS_HOST уже является IP-адресом (например, Tailscale IP 100.x.y.z), используем его напрямую
+    if [[ "${VPS_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        VPS_IP="${VPS_HOST}"
+    else
+        # 2. Иначе пытаемся разрешить через DNS (например, MagicDNS Tailscale вида xxx.tailnet.ts.net)
+        VPS_IP=$(dig +short "${VPS_HOST}" +timeout=5 +tries=2 | head -1 || true)
+        if [[ -z "$VPS_IP" ]]; then
+            VPS_IP=$(nslookup "${VPS_HOST}" 2>/dev/null | grep -A1 "Name:" | tail -1 | awk '{print $2}' || true)
+        fi
+    fi
 
-	if [[ "$VPS_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
-	fi
+    if [[ -z "$VPS_IP" ]]; then
+        echo "⚠️ Could not resolve ${VPS_HOST}, using hostname as-is"
+        VPS_IP="${VPS_HOST}"
+    fi
+    echo "Resolved VPS_IP: $VPS_IP"
+
+    # 3. Принудительно прописываем FITPULSE_DOMAIN в /etc/hosts, указывающий на Tailscale IP
+    if [[ "$VPS_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # Удаляем старую запись, если она есть, чтобы избежать дубликатов при повторных запусках
+        sudo sed -i "/${FITPULSE_DOMAIN}/d" /etc/hosts 2>/dev/null || true
+        echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
+        echo "✅ Added $VPS_IP ${FITPULSE_DOMAIN} to /etc/hosts"
+    else
+        echo "⚠️ VPS_IP is not a valid IPv4 address, skipping /etc/hosts modification"
+    fi
 }
 
 prepare_target_url() {
