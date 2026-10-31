@@ -3,33 +3,16 @@ set -euo pipefail
 
 setup_local_path_provisioner() {
 	./scripts/ssh-retry.sh scp configs/k8s/base/local-path-provisioner.yaml "${VPS_USER}@${VPS_HOST}:/tmp/local-path-provisioner.yaml"
+	./scripts/ssh-retry.sh scp configs/k8s/scripts/fix-local-path.sh "${VPS_USER}@${VPS_HOST}:/tmp/fix-local-path.sh"
+
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
-		set -euo pipefail
-		echo 'Applying local-path-provisioner manifest...'
-		sudo k3s kubectl apply -f /tmp/local-path-provisioner.yaml
-		echo 'Restarting local-path-provisioner to clear any stuck state...'
-		sudo k3s kubectl rollout restart deployment/local-path-provisioner -n local-path-storage || true
-		# СТРОГО: провал rollout валит job (раньше был || true — маскировал сбой)
-		sudo k3s kubectl rollout status deployment/local-path-provisioner -n local-path-storage --timeout=180s
-		sudo k3s kubectl wait --for=condition=Ready pod -l app=local-path-provisioner -n local-path-storage --timeout=120s
-		echo 'Verifying StorageClass local-path exists and is ready...'
-		for i in {1..30}; do
-			if sudo k3s kubectl get storageclass local-path &>/dev/null; then
-				echo '✅ StorageClass found'
-				break
-			fi
-			if [[ "$i" -eq 30 ]]; then
-				echo '❌ StorageClass local-path not found'
-				exit 1
-			fi
-			echo "Attempt $i/30: waiting for StorageClass..."
-			sleep 2
-		done
-		if ! sudo k3s kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' | grep -q true; then
-			echo '⚠️ StorageClass local-path is not default, patching...'
-			sudo k3s kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-		fi
-		echo '✅ local-path-provisioner and StorageClass are ready'
+set -euo pipefail
+
+echo 'Applying local-path-provisioner manifest and running strict smoke test...'
+sudo chmod +x /tmp/fix-local-path.sh
+sudo /tmp/fix-local-path.sh
+
+echo '✅ local-path-provisioner is ready and PVC provisioning works'
 EOF
 }
 

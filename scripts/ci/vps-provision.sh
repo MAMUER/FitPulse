@@ -261,26 +261,34 @@ preload_airgap_images() {
 }
 
 wait_for_critical_pods() {
-	echo '-> Waiting for critical system pods to become Ready...'
+	echo '-> Waiting for critical system pods, node, StorageClass and PVC provisioning readiness...'
+
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail
 
-	# Format: namespace:selector:name
+overall_fail=0
+
+echo '• checking node Ready'
+if ! sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s; then
+	echo '  ❌ node is not Ready'
+	sudo k3s kubectl get nodes -o wide || true
+	overall_fail=1
+fi
+
 CRITICAL=(
 	"kube-system:k8s-app=kube-dns:coredns"
 	"local-path-storage:app=local-path-provisioner:local-path-provisioner"
 	"kube-system:k8s-app=metrics-server:metrics-server"
 )
 
-overall_fail=0
 for entry in "${CRITICAL[@]}"; do
 	ns="${entry%%:*}"
 	rest="${entry#*:}"
 	sel="${rest%%:*}"
 	name="${rest#*:}"
+
 	echo "  • checking $name (ns=$ns, selector=$sel)"
 
-	# 1. Ждём появления подов по селектору (до 120s)
 	appeared=false
 	for i in $(seq 1 60); do
 		if sudo k3s kubectl get pods -n "$ns" -l "$sel" --no-headers 2>/dev/null | grep -q .; then
@@ -289,32 +297,137 @@ for entry in "${CRITICAL[@]}"; do
 		fi
 		sleep 2
 	done
+
 	if [[ "$appeared" != true ]]; then
 		echo "  ❌ $name: no pods found by selector '$sel' in $ns within 120s"
 		overall_fail=1
 		continue
 	fi
 
-	# 2. Wait for Ready of all pods by selector (up to 300s) - strict, no || true
 	if ! sudo k3s kubectl wait --for=condition=Ready pod -l "$sel" -n "$ns" --timeout=300s; then
 		echo "  ❌ $name: not Ready within 300s. Diagnostics:"
 		sudo k3s kubectl get pods -n "$ns" -l "$sel" -o wide || true
-		sudo k3s kubectl describe pods -n "$ns" -l "$sel" | tail -50 || true
-		sudo k3s kubectl logs -n "$ns" -l "$sel" --tail=30 || true
+		sudo k3s kubectl describe pods -n "$ns" -l "$sel" | tail -80 || true
+		sudo k3s kubectl logs -n "$ns" -l "$sel" --tail=50 || true
 		overall_fail=1
 	else
 		echo "  ✅ $name is Ready"
 	fi
 done
 
+echo '• checking StorageClass local-path'
+if ! sudo k3s kubectl get storageclass local-path >/dev/null 2>&1; then
+	echo '  ❌ StorageClass local-path missing'
+	overall_fail=1
+else
+	default_class=$(sudo k3s kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' 2>/dev/null || echo '')
+	if [[ "$default_class" != "true" ]]; then
+		echo '  ⚠️ StorageClass local-path is not default, patching...'
+		if ! sudo k3s kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'; then
+			echo '  ❌ failed to patch StorageClass local-path'
+			overall_fail=1
+		fi
+	fi
+
+	mode=$(sudo k3s kubectl get storageclass local-path -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo '')
+	if [[ "$mode" != "WaitForFirstConsumer" ]]; then
+		echo "  ❌ StorageClass local-path has wrong volumeBindingMode: ${mode:-<empty>}"
+		overall_fail=1
+	fi
+fi
+
+echo '• smoke-testing PVC provisioning'
+SMOKE_NAME="ci-lp-smoke-$(date +%s)"
+
+cat <<MANIFEST | sudo k3s kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${SMOKE_NAME}
+  namespace: local-path-storage
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${SMOKE_NAME}-consumer
+  namespace: local-path-storage
+spec:
+  restartPolicy: Never
+  containers:
+    - name: consumer
+      image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+      imagePullPolicy: IfNotPresent
+      command: ["sleep", "3600"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: ${SMOKE_NAME}
+MANIFEST
+
+cleanup_smoke() {
+	sudo k3s kubectl delete pod "${SMOKE_NAME}-consumer" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+	sudo k3s kubectl delete pvc "${SMOKE_NAME}" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+}
+trap cleanup_smoke EXIT
+
+if ! sudo k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
+	echo '  ❌ Smoke PVC did not become Bound; local-path provisioner is not functional'
+	sudo k3s kubectl get pvc,pods -n local-path-storage -o wide || true
+	sudo k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true
+	sudo k3s kubectl get events -n local-path-storage --sort-by=.lastTimestamp | tail -80 || true
+	sudo k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
+	overall_fail=1
+else
+	echo '  ✅ Smoke PVC bound; local-path provisioning works'
+fi
+
+cleanup_smoke
+trap - EXIT
+
+for ns in kube-system local-path-storage; do
+	bad=$(
+		sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
+			awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" {print $1 " " $2 " " $3}' || true
+	)
+
+	if [[ -n "$bad" ]]; then
+		echo "  ❌ non-ready pods in $ns:"
+		echo "$bad"
+		overall_fail=1
+	fi
+done
+
 echo '=== Final pod snapshot ==='
-sudo k3s kubectl get pods -A
+sudo k3s kubectl get pods -A || true
 
 if [[ "$overall_fail" -ne 0 ]]; then
-	echo '❌ CRITICAL PODS NOT READY — failing provision job'
+	echo '❌ CRITICAL PODS/NODE/STORAGE/PVC NOT READY — failing provision job'
 	exit 1
 fi
-echo '✅ All critical system pods are Ready'
+
+echo '✅ All critical system components and PVC provisioning are Ready'
+EOF
+}
+
+ensure_local_path_dir() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+echo '-> Ensuring /opt/local-path-provisioner exists with correct permissions...'
+if [[ ! -d /opt/local-path-provisioner ]]; then
+	sudo mkdir -p /opt/local-path-provisioner
+	echo 'Directory created: /opt/local-path-provisioner'
+fi
+sudo chmod 0777 /opt/local-path-provisioner
+echo 'Permissions set to 0777'
+ls -ld /opt/local-path-provisioner
 EOF
 }
 
@@ -330,6 +443,7 @@ main() {
 		fix_dns
 		prepare_k3s_config
 		restart_k3s_if_needed
+		ensure_local_path_dir
 		start_k3s
 		install_k3s
 		preload_airgap_images
@@ -346,6 +460,7 @@ main() {
 	install_k3s) install_k3s ;;
 	preload_airgap_images) preload_airgap_images ;;
 	wait_for_critical_pods) wait_for_critical_pods ;;
+	ensure_local_path_dir) ensure_local_path_dir ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1

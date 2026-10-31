@@ -189,9 +189,9 @@ wait_for_k3s_api() {
 		echo "--- Diagnostics ---"
 		grep "${FITPULSE_DOMAIN}" /etc/hosts || echo "no /etc/hosts entry for ${FITPULSE_DOMAIN}"
 		command -v tailscale >/dev/null && tailscale status || true
-		timeout 10 bash -c "</dev/tcp/${VPS_HOST}/6443" 2>/dev/null \
-			&& echo "TCP ${VPS_HOST}:6443 OPEN" \
-			|| echo "TCP ${VPS_HOST}:6443 CLOSED/FILTERED — проверь portproxy 6443 и firewall"
+		timeout 10 bash -c "</dev/tcp/${VPS_HOST}/6443" 2>/dev/null &&
+			echo "TCP ${VPS_HOST}:6443 OPEN" ||
+			echo "TCP ${VPS_HOST}:6443 CLOSED/FILTERED — проверь portproxy 6443 и firewall"
 		kubectl version --request-timeout=10s || true
 		kubectl config view --minify || true
 		exit 1
