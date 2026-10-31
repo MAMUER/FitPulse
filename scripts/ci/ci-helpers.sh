@@ -1,4 +1,5 @@
 #!/bin/bash
+readonly FAILURE="failure"
 set -euo pipefail
 
 validate_workflow() {
@@ -172,21 +173,21 @@ download_kubeconfig() {
 }
 
 wait_for_k3s_api() {
-    echo "Waiting for k3s API server to be fully initialized..."
-    for i in {1..60}; do # <-- ИЗМЕНЕНО с 30 на 60
-        if kubectl get --raw=/healthz &>/dev/null; then
-            echo "✅ k3s API server is ready after $((i * 10)) seconds"
-            break
-        fi
-        if [[ "$i" -eq 60 ]]; then # <-- ИЗМЕНЕНО с 30 на 60
-            echo "❌ k3s API server not ready after 10 minutes"
-            kubectl cluster-info dump || true
-            exit 1
-        fi
-        echo "Attempt $i/60: API not ready, waiting 10s..."
-        sleep 10
-    done
-    # ... остальной код без изменений ...
+	echo "Waiting for k3s API server to be fully initialized..."
+	for i in {1..60}; do # <-- ИЗМЕНЕНО с 30 на 60
+		if kubectl get --raw=/healthz &>/dev/null; then
+			echo "✅ k3s API server is ready after $((i * 10)) seconds"
+			break
+		fi
+		if [[ "$i" -eq 60 ]]; then # <-- ИЗМЕНЕНО с 30 на 60
+			echo "❌ k3s API server not ready after 10 minutes"
+			kubectl cluster-info dump || true
+			exit 1
+		fi
+		echo "Attempt $i/60: API not ready, waiting 10s..."
+		sleep 10
+	done
+	# ... остальной код без изменений ...
 }
 
 check_connectivity() {
@@ -213,32 +214,32 @@ add_vps_to_known_hosts() {
 }
 
 resolve_vps_hostname() {
-    # 1. Если VPS_HOST уже является IP-адресом (например, Tailscale IP 100.x.y.z), используем его напрямую
-    if [[ "${VPS_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        VPS_IP="${VPS_HOST}"
-    else
-        # 2. Иначе пытаемся разрешить через DNS (например, MagicDNS Tailscale вида xxx.tailnet.ts.net)
-        VPS_IP=$(dig +short "${VPS_HOST}" +timeout=5 +tries=2 | head -1 || true)
-        if [[ -z "$VPS_IP" ]]; then
-            VPS_IP=$(nslookup "${VPS_HOST}" 2>/dev/null | grep -A1 "Name:" | tail -1 | awk '{print $2}' || true)
-        fi
-    fi
+	# 1. Если VPS_HOST уже является IP-адресом (например, Tailscale IP 100.x.y.z), используем его напрямую
+	if [[ "${VPS_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		VPS_IP="${VPS_HOST}"
+	else
+		# 2. Иначе пытаемся разрешить через DNS (например, MagicDNS Tailscale вида xxx.tailnet.ts.net)
+		VPS_IP=$(dig +short "${VPS_HOST}" +timeout=5 +tries=2 | head -1 || true)
+		if [[ -z "$VPS_IP" ]]; then
+			VPS_IP=$(nslookup "${VPS_HOST}" 2>/dev/null | grep -A1 "Name:" | tail -1 | awk '{print $2}' || true)
+		fi
+	fi
 
-    if [[ -z "$VPS_IP" ]]; then
-        echo "⚠️ Could not resolve ${VPS_HOST}, using hostname as-is"
-        VPS_IP="${VPS_HOST}"
-    fi
-    echo "Resolved VPS_IP: $VPS_IP"
+	if [[ -z "$VPS_IP" ]]; then
+		echo "⚠️ Could not resolve ${VPS_HOST}, using hostname as-is"
+		VPS_IP="${VPS_HOST}"
+	fi
+	echo "Resolved VPS_IP: $VPS_IP"
 
-    # 3. Принудительно прописываем FITPULSE_DOMAIN в /etc/hosts, указывающий на Tailscale IP
-    if [[ "$VPS_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        # Удаляем старую запись, если она есть, чтобы избежать дубликатов при повторных запусках
-        sudo sed -i "/${FITPULSE_DOMAIN}/d" /etc/hosts 2>/dev/null || true
-        echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
-        echo "✅ Added $VPS_IP ${FITPULSE_DOMAIN} to /etc/hosts"
-    else
-        echo "⚠️ VPS_IP is not a valid IPv4 address, skipping /etc/hosts modification"
-    fi
+	# 3. Принудительно прописываем FITPULSE_DOMAIN в /etc/hosts, указывающий на Tailscale IP
+	if [[ "$VPS_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		# Удаляем старую запись, если она есть, чтобы избежать дубликатов при повторных запусках
+		sudo sed -i "/${FITPULSE_DOMAIN}/d" /etc/hosts 2>/dev/null || true
+		echo "$VPS_IP ${FITPULSE_DOMAIN}" | sudo tee -a /etc/hosts
+		echo "✅ Added $VPS_IP ${FITPULSE_DOMAIN} to /etc/hosts"
+	else
+		echo "⚠️ VPS_IP is not a valid IPv4 address, skipping /etc/hosts modification"
+	fi
 }
 
 prepare_target_url() {
@@ -432,38 +433,38 @@ collect_statuses() {
 	HEALTH_CHECK="$(get_emoji "${JOB_STATUS_HEALTH_CHECK:-success}")"
 	CSP_CHECK="$(get_emoji "${JOB_STATUS_CSP_HEADERS_CHECK:-success}")"
 	FAILED_JOBS=""
-	if [[ "${JOB_STATUS_VALIDATE_WORKFLOW:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Validate "; fi
-	if [[ "${JOB_STATUS_DOCKERFILE_LINT:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}DockerfileLint "; fi
-	if [[ "${JOB_STATUS_SUPER_LINTER:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Lint "; fi
-	if [[ "${JOB_STATUS_FRONTEND:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Frontend "; fi
-	if [[ "${JOB_STATUS_CHECK:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Check "; fi
-	if [[ "${JOB_STATUS_BINARY_BUILD:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
-	if [[ "${JOB_STATUS_DOCKER:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
-	if [[ "${JOB_STATUS_CODEQL:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CodeQL "; fi
-	if [[ "${JOB_STATUS_KUBESCAPE:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Kubescape "; fi
-	if [[ "${JOB_STATUS_SECURITY_SCAN:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}SecurityScan "; fi
-	if [[ "${JOB_STATUS_SONARCLOUD:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}SonarCloud "; fi
-	if [[ "${JOB_STATUS_CONVENTIONAL_COMMITS:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}ConventionalCommits "; fi
-	if [[ "${JOB_STATUS_KUBE_BENCH:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeBench "; fi
-	if [[ "${JOB_STATUS_KUBE_HUNTER:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeHunter "; fi
-	if [[ "${JOB_STATUS_CHECKOV:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Checkov "; fi
-	if [[ "${JOB_STATUS_COSIGN_VERIFY:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CosignVerify "; fi
-	if [[ "${JOB_STATUS_PROVISION_K8S_VPS:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}ProvisionK8s "; fi
-	if [[ "${JOB_STATUS_DEPLOY_STAGING:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}DeployStaging "; fi
-	if [[ "${JOB_STATUS_TEST_STAGING:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}TestStaging "; fi
-	if [[ "${JOB_STATUS_SEMGREP:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Semgrep "; fi
-	if [[ "${JOB_STATUS_OSV_SCANNER:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVScanner "; fi
-	if [[ "${JOB_STATUS_FUZZ_TESTS:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}FuzzTests "; fi
-	if [[ "${JOB_STATUS_OSV_AUDIT:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVAudit "; fi
-	if [[ "${JOB_STATUS_DEPENDENCY_REVIEW:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}DependencyReview "; fi
-	if [[ "${JOB_STATUS_DEPLOY_PRODUCTION:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
-	if [[ "${JOB_STATUS_TEST_PRODUCTION:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
-	if [[ "${JOB_STATUS_SMOKE_TEST:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}Smoke "; fi
-	if [[ "${JOB_STATUS_HEALTH_CHECK:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}HealthCheck "; fi
-	if [[ "${JOB_STATUS_CSP_HEADERS_CHECK:-success}" == "failure" ]]; then FAILED_JOBS="${FAILED_JOBS}CSPCheck "; fi
+	if [[ "${JOB_STATUS_VALIDATE_WORKFLOW:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Validate "; fi
+	if [[ "${JOB_STATUS_DOCKERFILE_LINT:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}DockerfileLint "; fi
+	if [[ "${JOB_STATUS_SUPER_LINTER:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Lint "; fi
+	if [[ "${JOB_STATUS_FRONTEND:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Frontend "; fi
+	if [[ "${JOB_STATUS_CHECK:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Check "; fi
+	if [[ "${JOB_STATUS_BINARY_BUILD:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Build "; fi
+	if [[ "${JOB_STATUS_DOCKER:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Docker "; fi
+	if [[ "${JOB_STATUS_CODEQL:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}CodeQL "; fi
+	if [[ "${JOB_STATUS_KUBESCAPE:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Kubescape "; fi
+	if [[ "${JOB_STATUS_SECURITY_SCAN:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}SecurityScan "; fi
+	if [[ "${JOB_STATUS_SONARCLOUD:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}SonarCloud "; fi
+	if [[ "${JOB_STATUS_CONVENTIONAL_COMMITS:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}ConventionalCommits "; fi
+	if [[ "${JOB_STATUS_KUBE_BENCH:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeBench "; fi
+	if [[ "${JOB_STATUS_KUBE_HUNTER:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}KubeHunter "; fi
+	if [[ "${JOB_STATUS_CHECKOV:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Checkov "; fi
+	if [[ "${JOB_STATUS_COSIGN_VERIFY:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}CosignVerify "; fi
+	if [[ "${JOB_STATUS_PROVISION_K8S_VPS:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}ProvisionK8s "; fi
+	if [[ "${JOB_STATUS_DEPLOY_STAGING:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}DeployStaging "; fi
+	if [[ "${JOB_STATUS_TEST_STAGING:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}TestStaging "; fi
+	if [[ "${JOB_STATUS_SEMGREP:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Semgrep "; fi
+	if [[ "${JOB_STATUS_OSV_SCANNER:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVScanner "; fi
+	if [[ "${JOB_STATUS_FUZZ_TESTS:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}FuzzTests "; fi
+	if [[ "${JOB_STATUS_OSV_AUDIT:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}OSVAudit "; fi
+	if [[ "${JOB_STATUS_DEPENDENCY_REVIEW:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}DependencyReview "; fi
+	if [[ "${JOB_STATUS_DEPLOY_PRODUCTION:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Deploy "; fi
+	if [[ "${JOB_STATUS_TEST_PRODUCTION:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Test "; fi
+	if [[ "${JOB_STATUS_SMOKE_TEST:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}Smoke "; fi
+	if [[ "${JOB_STATUS_HEALTH_CHECK:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}HealthCheck "; fi
+	if [[ "${JOB_STATUS_CSP_HEADERS_CHECK:-success}" == "${FAILURE}" ]]; then FAILED_JOBS="${FAILED_JOBS}CSPCheck "; fi
 	if [[ -n "$FAILED_JOBS" ]]; then
 		OVERALL="ОШИБКА"
-		STATUS="failure"
+		STATUS="${FAILURE}"
 	else
 		OVERALL="УСПЕШНО"
 		STATUS="success"

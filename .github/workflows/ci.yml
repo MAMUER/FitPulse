@@ -521,7 +521,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Semgrep
-        run: "pip install --prefer-binary --only-binary :all: 'semgrep==1.185.0'"
+        run: "pip install --prefer-binary --only-binary :all: 'semgrep==1.183.0'"
       - name: Run Semgrep scan
         run: bash scripts/ci/security.sh run_semgrep
       - name: Upload Semgrep SARIF
