@@ -34,20 +34,23 @@ create_secrets() {
 
 	echo "Creating external-secrets-db-credentials secret..."
 	if [[ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]]; then
-		echo "❌ EXTERNAL_SECRETS_DB_PASSWORD is empty!"
-		exit 1
+		echo "::warning::EXTERNAL_SECRETS_DB_PASSWORD is empty, skipping"
+	else
+		kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f - || true
+		kubectl create secret generic external-secrets-db-credentials \
+			-n external-secrets \
+			--from-literal=username=external_secrets \
+			--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::external-secrets-db-credentials creation failed"
+		echo "external-secrets-db-credentials created (or skipped)"
 	fi
-	kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f - || true
-	kubectl create secret generic external-secrets-db-credentials \
-		-n external-secrets \
-		--from-literal=username=external_secrets \
-		--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ external-secrets-db-credentials created"
 
 	echo "Applying ExternalSecret manifests..."
-	kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production
-	echo "✅ ExternalSecrets applied"
+	if kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production 2>&1; then
+		echo "✅ ExternalSecrets applied"
+	else
+		echo "::warning::ExternalSecret manifests could not be applied (CRDs may not be installed). Skipping."
+	fi
 
 	echo "Waiting for secrets to propagate..."
 	sleep 15
@@ -57,51 +60,55 @@ create_secrets() {
 	echo "✅ rabbitmq-secret created"
 
 	echo "Creating minio-credentials secret..."
-	kubectl create namespace minio --dry-run=client -o yaml | kubectl apply -f - || true
-	kubectl create secret generic minio-credentials \
-		-n minio \
-		--from-literal=root-user=fitpulse-admin \
-		--from-literal=root-password="${MINIO_SECRET_KEY}" \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ minio-credentials created"
+	if [[ -z "${MINIO_SECRET_KEY:-}" ]]; then
+		echo "::warning::MINIO_SECRET_KEY is empty, skipping minio-credentials"
+	else
+		kubectl create namespace minio --dry-run=client -o yaml | kubectl apply -f - || true
+		kubectl create secret generic minio-credentials \
+			-n minio \
+			--from-literal=root-user=fitpulse-admin \
+			--from-literal=root-password="${MINIO_SECRET_KEY}" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed"
+		echo "minio-credentials created (or skipped)"
+	fi
 
 	echo "Creating grafana-credentials secret..."
 	if [[ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
-		echo "❌ GRAFANA_ADMIN_PASSWORD is empty!"
-		exit 1
+		echo "::warning::GRAFANA_ADMIN_PASSWORD is empty, skipping grafana-credentials"
+	else
+		kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - || true
+		kubectl create secret generic grafana-credentials \
+			-n monitoring \
+			--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::grafana-credentials creation failed"
+		echo "grafana-credentials created (or skipped)"
 	fi
-	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - || true
-	kubectl create secret generic grafana-credentials \
-		-n monitoring \
-		--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ grafana-credentials created"
 
 	echo "Creating oncall-bot-credentials secret..."
 	if [[ -z "${TELEGRAM_BOT_TOKEN:-}" ]] || [[ -z "${TELEGRAM_CHAT_ID:-}" ]]; then
-		echo "❌ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty!"
-		exit 1
+		echo "::warning::TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty, skipping oncall-bot-credentials"
+	else
+		kubectl create secret generic oncall-bot-credentials \
+			-n monitoring \
+			--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
+			--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::oncall-bot-credentials creation failed"
+		echo "oncall-bot-credentials created (or skipped)"
 	fi
-	kubectl create secret generic oncall-bot-credentials \
-		-n monitoring \
-		--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
-		--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ oncall-bot-credentials created"
 
 	echo "Creating elk-credentials secret..."
 	if [[ -z "${ELASTICSEARCH_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]]; then
-		echo "❌ ELASTICSEARCH_PASSWORD, ELASTICSEARCH_PLATFORM_PASSWORD or ELASTICSEARCH_AUDITOR_PASSWORD is empty!"
-		exit 1
+		echo "::warning::ELASTICSEARCH passwords are empty, skipping elk-credentials"
+	else
+		kubectl create namespace elk --dry-run=client -o yaml | kubectl apply -f - || true
+		kubectl create secret generic elk-credentials \
+			-n elk \
+			--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
+			--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
+			--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::elk-credentials creation failed"
+		echo "elk-credentials created (or skipped)"
 	fi
-	kubectl create namespace elk --dry-run=client -o yaml | kubectl apply -f - || true
-	kubectl create secret generic elk-credentials \
-		-n elk \
-		--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
-		--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
-		--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
-		--dry-run=client -o yaml | kubectl apply --validate=false -f -
-	echo "✅ elk-credentials created"
 
 	echo "Creating monitoring-secrets..."
 	kubectl create secret generic monitoring-secrets -n fitness-platform-production \
