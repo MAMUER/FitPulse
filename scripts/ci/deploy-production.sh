@@ -205,7 +205,7 @@ apply_manifests() {
 	kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true || true
 	kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv || true
 	cd configs/k8s/overlays/production
-	kustomize build . >/tmp/manifests.yaml
+	kustomize build --load-restrictor=LoadRestrictionsNone . >/tmp/manifests.yaml
 	kubectl delete pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true || true
 	kubectl delete pod -l app=user-service -n fitness-platform-production --ignore-not-found=true || true
 	kubectl delete pod -l app=training-service -n fitness-platform-production --ignore-not-found=true || true
@@ -277,7 +277,7 @@ verify_postgres() {
 	if ! kubectl get statefulset postgres -n fitness-platform-production >/dev/null 2>&1; then
 		echo "❌ StatefulSet 'postgres' not found. Re-applying manifests..."
 		cd configs/k8s/overlays/production
-		kustomize build . | kubectl apply --validate=false -f -
+		kustomize build --load-restrictor=LoadRestrictionsNone . | kubectl apply --validate=false -f -
 		echo "Waiting 30s for StatefulSet to appear..."
 		sleep 30
 	fi

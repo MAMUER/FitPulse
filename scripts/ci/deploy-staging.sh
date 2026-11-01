@@ -18,7 +18,7 @@ update_image_tags() {
 	for svc in user-service biometric-service training-service gateway classifier; do
 		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA" || true
 	done
-	kustomize build . >/tmp/staging-manifests.yaml
+	kustomize build --load-restrictor=LoadRestrictionsNone . >/tmp/staging-manifests.yaml
 	kubectl apply --validate=false -f /tmp/staging-manifests.yaml -n fitness-platform-staging
 }
 
