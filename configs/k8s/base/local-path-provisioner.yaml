@@ -118,7 +118,6 @@ data:
       restartPolicy: Never
       containers:
         - name: helper-pod
-          # checkov:skip=CKV_K8S_43: Using tag instead of digest to avoid pull failures when airgap images are retagged from mirrors
           image: docker.io/library/busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
@@ -148,17 +147,7 @@ spec:
         app.kubernetes.io/part-of: k8s-system
     spec:
       serviceAccountName: local-path-provisioner-service-account
-
-      # КРИТИЧНО: provisioner должен иметь доступ к Kubernetes API.
-      # Без token он не может watch PVC и создавать PV/helper-pod.
-      # checkov:skip=CKV_K8S_38: System component; needs service account token to watch PVCs and create PVs
       automountServiceAccountToken: true
-
-      # Pod runs as root because the provisioner needs to create directories
-      # and set ownership on the host path.
-      # checkov:skip=CKV_K8S_40: System component; runs as root to manage host paths
-      # checkov:skip=CKV_K8S_23: System component; root required for host path management
-      # nosemgrep: yaml.kubernetes.security.run-as-non-root-unsafe-value.run-as-non-root-unsafe-value
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
@@ -168,9 +157,6 @@ spec:
           type: RuntimeDefault
       containers:
         - name: local-path-provisioner
-          # checkov:skip=CKV_K8S_43: System component; image resolved in deployment pipeline
-          # checkov:skip=CKV_K8S_8: Liveness probe intentionally omitted; v0.0.37 image does not contain /bin/sh or pgrep.
-          # checkov:skip=CKV_K8S_9: Readiness probe intentionally omitted; provisioning health is verified by CI PVC smoke test.
           image: rancher/local-path-provisioner:v0.0.37
           imagePullPolicy: IfNotPresent
           command:
@@ -180,8 +166,6 @@ spec:
             - /etc/local-path-config/config.json
             - --helper-pod-file
             - /etc/local-path-config/helperPod.yaml
-          # checkov:skip=CKV_K8S_38: Service account token required for provisioning operations
-          # checkov:skip=CKV_K8S_40: System component; runs as root to manage host paths
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -217,27 +201,3 @@ metadata:
 provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
----
-# NetworkPolicy for local-path-storage
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: local-path-provisioner-network-policy
-  namespace: local-path-storage
-  labels:
-    app.kubernetes.io/name: local-path-provisioner
-    app.kubernetes.io/part-of: k8s-system
-spec:
-  podSelector:
-    matchLabels:
-      app: local-path-provisioner
-  policyTypes:
-    - Egress
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector: {}
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
