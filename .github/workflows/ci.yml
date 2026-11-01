@@ -741,7 +741,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install secret scanning tools
-        run: bash scripts/ci/security.sh install_tools   # ← ДОБАВЛЕНО
+        run: bash scripts/ci/security.sh install_tools # ← ДОБАВЛЕНО
       - name: Run Gitleaks secret scan
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
@@ -765,7 +765,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install SBOM tools
-        run: bash scripts/ci/security.sh install_tools   # ← ДОБАВЛЕНО
+        run: bash scripts/ci/security.sh install_tools # ← ДОБАВЛЕНО
       - name: Generate SBOM with syft
         run: bash scripts/ci/security.sh generate_sbom
       - name: Upload SBOM artifact
@@ -1292,13 +1292,6 @@ jobs:
       - name: Update image tags to SHA
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh update_image_tags
-      - name: Cleanup disk space on VPS
-        if: steps.connectivity.outputs.reachable == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-production.sh cleanup_disk
       - name: Pre-pull application images on VPS
         if: steps.connectivity.outputs.reachable == 'true'
         env:

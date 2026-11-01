@@ -180,6 +180,29 @@ echo ''
 echo '✅ Disk cleanup completed'
 "
 }
+
+pre_pull_images() {
+	echo "-> Pre-pulling application images on VPS..."
+	SHA=$(git rev-parse --short HEAD)
+	
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+		for img in \
+			\"ghcr.io/mamuer/project/user-service:${SHA}\" \
+			\"ghcr.io/mamuer/project/biometric-service:${SHA}\" \
+			\"ghcr.io/mamuer/project/training-service:${SHA}\" \
+			\"ghcr.io/mamuer/project/gateway:${SHA}\" \
+			\"ghcr.io/mamuer/project/classifier:${SHA}\" \
+			\"ghcr.io/mamuer/project/device-aggregator:${SHA}\"; do
+			
+			echo \"Pulling \$img...\"
+			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
+			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
+			echo \"⚠️ Failed to pre-pull \$img (will be pulled by kubelet)\"
+		done
+	"
+	echo "✅ Pre-pull step completed"
+}
+
 apply_manifests() {
 	echo "Waiting for k8s API internal availability..."
 	for i in {1..30}; do
@@ -533,6 +556,7 @@ main() {
 	ensure_service_account) ensure_service_account ;;
 	update_image_tags) update_image_tags ;;
 	cleanup_disk) cleanup_disk ;;
+	pre_pull_images) pre_pull_images ;;
 	apply_manifests) apply_manifests ;;
 	wait_for_rabbitmq) wait_for_rabbitmq ;;
 	verify_postgres) verify_postgres ;;
