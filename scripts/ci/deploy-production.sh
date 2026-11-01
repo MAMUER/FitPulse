@@ -184,7 +184,7 @@ echo '✅ Disk cleanup completed'
 pre_pull_images() {
 	echo "-> Pre-pulling application images on VPS..."
 	SHA=$(git rev-parse --short HEAD)
-	
+
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 		for img in \
 			\"ghcr.io/mamuer/project/user-service:${SHA}\" \
@@ -193,7 +193,7 @@ pre_pull_images() {
 			\"ghcr.io/mamuer/project/gateway:${SHA}\" \
 			\"ghcr.io/mamuer/project/classifier:${SHA}\" \
 			\"ghcr.io/mamuer/project/device-aggregator:${SHA}\"; do
-			
+
 			echo \"Pulling \$img...\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
 			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \

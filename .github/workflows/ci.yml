@@ -1303,12 +1303,20 @@ jobs:
         run: bash scripts/ci/deploy-production.sh pre_pull_images
       - name: Ensure local-path-provisioner is running and StorageClass is ready
         if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/k8s-setup.sh setup_local_path_provisioner
       - name: Install/upgrade ingress-nginx (replaces Traefik)
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/k8s-setup.sh install_ingress_nginx
       - name: Cleanup Traefik from kube-system (optional)
         if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/k8s-setup.sh cleanup_traefik
       - name: Apply production overlay with Kustomize
         if: steps.connectivity.outputs.reachable == 'true'
