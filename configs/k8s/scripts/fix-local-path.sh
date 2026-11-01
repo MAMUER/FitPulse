@@ -86,7 +86,7 @@ for i in $(seq 1 60); do
 		echo "✅ Smoke PVC became Bound after $((i * 3))s"
 		break
 	fi
-	if (( i % 10 == 0 )); then
+	if ((i % 10 == 0)); then
 		echo "  Still waiting... attempt $i/60, phase=${phase:-NotFound}"
 		# Диагностика каждые 30 секунд
 		k3s kubectl get pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke -o wide || true

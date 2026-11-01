@@ -5,8 +5,8 @@ metadata:
   namespace: fitness-platform-production
 spec:
   secretName: grpc-server-tls
-  duration: 2160h # 90 days
-  renewBefore: 720h # 30 days before expiry
+  duration: 8760h # 1 год
+  renewBefore: 720h # 30 дней
   issuerRef:
     name: grpc-selfsigned-ca
     kind: ClusterIssuer
@@ -14,8 +14,10 @@ spec:
   dnsNames:
     - "*.fitness-platform-production.svc.cluster.local"
     - "fitness-platform-production.svc.cluster.local"
-  keySize: 2048
-  keyAlgorithm: rsa
-  usages:
-    - server auth
-    - client auth
+    - "localhost"
+    - "user-service"
+    - "biometric-service"
+    - "training-service"
+  privateKey:
+    algorithm: RSA
+    size: 2048
