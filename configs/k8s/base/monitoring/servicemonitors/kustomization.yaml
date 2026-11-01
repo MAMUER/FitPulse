@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - biometric-service-servicemonitor.yaml
+  - classifier-servicemonitor.yaml
+  - gateway-servicemonitor.yaml
+  - pg-exporter-servicemonitor.yaml
+  - training-service-servicemonitor.yaml
+  - user-service-servicemonitor.yaml
+  - valkey-exporter-servicemonitor.yaml
