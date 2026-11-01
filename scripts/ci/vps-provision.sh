@@ -238,16 +238,15 @@ install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
-		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-		echo '-> Forcing TLS 1.2 for root curl (fixes curl:35 resets)...'
-		printf 'tls-max = 1.2\ntlsv1.2\n' | tee "$HOME/.curlrc" >/dev/null
-		printf 'tls-max = 1.2\ntlsv1.2\n' | sudo tee /root/.curlrc > /dev/null
+sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p 2>/dev/null
 
 echo '-> Downloading and installing k3s directly on VPS (much faster and more reliable than scp)...'
-curl -sfL https://get.k3s.io | sudo INSTALL_K3S_BIN_DIR=/usr/local/bin sh -s - server --write-kubeconfig-mode 644
+		curl --tlsv1.2 -sfL https://get.k3s.io -o /tmp/k3s-install.sh
+		sed -i 's/curl -/curl --tlsv1.2 -/g' /tmp/k3s-install.sh
+		sudo INSTALL_K3S_BIN_DIR=/usr/local/bin sh /tmp/k3s-install.sh server --write-kubeconfig-mode 644
 
 echo 'k3s installed successfully'
 "
@@ -392,7 +391,6 @@ fi
 echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
 INNEREOF
 }
-
 
 cleanup_stale_smoke_resources() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'INNEREOF'
