@@ -238,7 +238,7 @@ install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
-sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p 2>/dev/null
