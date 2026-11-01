@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+LAST_TIMESTAMP_SORT=".lastTimestamp"
+
 create_secrets() {
 	echo "Creating gRPC mTLS certificates via cert-manager..."
 	kubectl apply -f configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml
@@ -16,6 +18,7 @@ create_secrets() {
 			ARGOCD_BCRYPT=$(node -e "console.log(require('bcrypt').hashSync('${ARGOCD_ADMIN_PASSWORD}', 12))" 2>/dev/null || echo "")
 		fi
 		if [[ -n "$ARGOCD_BCRYPT" ]]; then
+			kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - || true
 			kubectl create secret generic argocd-secret \
 				-n argocd \
 				--from-literal=admin.password="$ARGOCD_BCRYPT" \
@@ -34,6 +37,7 @@ create_secrets() {
 		echo "❌ EXTERNAL_SECRETS_DB_PASSWORD is empty!"
 		exit 1
 	fi
+	kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f - || true
 	kubectl create secret generic external-secrets-db-credentials \
 		-n external-secrets \
 		--from-literal=username=external_secrets \
@@ -53,6 +57,7 @@ create_secrets() {
 	echo "✅ rabbitmq-secret created"
 
 	echo "Creating minio-credentials secret..."
+	kubectl create namespace minio --dry-run=client -o yaml | kubectl apply -f - || true
 	kubectl create secret generic minio-credentials \
 		-n minio \
 		--from-literal=root-user=fitpulse-admin \
@@ -65,6 +70,7 @@ create_secrets() {
 		echo "❌ GRAFANA_ADMIN_PASSWORD is empty!"
 		exit 1
 	fi
+	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - || true
 	kubectl create secret generic grafana-credentials \
 		-n monitoring \
 		--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
@@ -88,6 +94,7 @@ create_secrets() {
 		echo "❌ ELASTICSEARCH_PASSWORD, ELASTICSEARCH_PLATFORM_PASSWORD or ELASTICSEARCH_AUDITOR_PASSWORD is empty!"
 		exit 1
 	fi
+	kubectl create namespace elk --dry-run=client -o yaml | kubectl apply -f - || true
 	kubectl create secret generic elk-credentials \
 		-n elk \
 		--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
@@ -240,7 +247,7 @@ wait_for_rabbitmq() {
 	done
 	if [[ -z "$POD_NAME" ]]; then
 		echo "❌ RabbitMQ pod not scheduled. Checking events..."
-		kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | grep -i rabbitmq || true
+		kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | grep -i rabbitmq || true
 		kubectl describe statefulset rabbitmq -n fitness-platform-production || true
 		exit 1
 	fi
@@ -307,7 +314,7 @@ debug_pod_status() {
 	kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 || echo "RabbitMQ not running"
 	echo ""
 	echo "=== Recent events ==="
-	kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' | tail -20 || true
+	kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | tail -20 || true
 }
 
 run_migrations() {
@@ -368,13 +375,13 @@ run_seed_admin() {
 		RESTART_COUNT=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
 		echo "  [$(date +%H:%M:%S)] Phase: $CURRENT_PHASE, Restarts: $RESTART_COUNT"
 		if [[ "$CURRENT_PHASE" == "Failed" || "$CURRENT_PHASE" == "CrashLoopBackOff" || "$RESTART_COUNT" -gt 2 ]]; then
-			echo "⚠️ Pod is in error state, fetching diagnostics..."
+			echo "⚠️ Pod is in error state, fetching diagnostics..." >&2
 			echo "→ Pod describe:"
 			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
 			echo "→ Last 200 log lines:"
 			kubectl logs "$POD_NAME" -n fitness-platform-production --tail=200 2>&1 || true
 			echo "→ Pod events:"
-			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by='.lastTimestamp' 2>&1 | tail -20 || true
+			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | tail -20 || true
 			break
 		fi
 		if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=10s 2>/dev/null; then
@@ -409,11 +416,11 @@ run_seed_admin() {
 			echo "→ Previous container logs (if any):"
 			kubectl logs "$POD_NAME" -n fitness-platform-production --previous --tail=100 2>&1 || true
 			echo "→ Pod events:"
-			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by='.lastTimestamp' 2>&1 | tail -30 || true
+			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | tail -30 || true
 		else
 			echo "→ No active seed-admin pod found"
 			echo "→ Checking recent events in namespace:"
-			kubectl get events -n fitness-platform-production --sort-by='.lastTimestamp' 2>&1 | grep -E "(seed-admin|Error|Failed|BackOff)" | tail -30 || true
+			kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | grep -E "(seed-admin|Error|Failed|BackOff)" | tail -30 || true
 		fi
 		echo "→ Job describe:"
 		kubectl describe job seed-admin -n fitness-platform-production 2>&1 || true
@@ -450,7 +457,7 @@ check_logs() {
 		fi
 		echo "$LOGS"
 		if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
-			echo "❌ Found critical error in $dep logs"
+			echo "❌ Found critical error in $dep logs" >&2
 			ERROR_FOUND=1
 		fi
 	done
