@@ -58,6 +58,7 @@ install_ingress_nginx() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 		set -euo pipefail
 		echo '-> Installing ingress-nginx controller...'
+		sudo k3s kubectl apply -f /tmp/ingress-nginx/namespace.yaml
 		sudo k3s kubectl apply -f /tmp/ingress-nginx/
 
 		echo '-> Waiting for ingress-nginx to be ready...'

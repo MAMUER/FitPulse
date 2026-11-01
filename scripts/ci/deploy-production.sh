@@ -177,7 +177,7 @@ pre_pull_images() {
 			echo \"Pulling \$img...\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
 			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
-			echo \"::notice::Failed to pre-pull \$img (will be pulled by kubelet)\"
+			true  # image will be pulled by kubelet if pre-pull fails
 		done
 	"
 	echo "✅ Pre-pull step completed"
