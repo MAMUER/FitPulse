@@ -7,6 +7,20 @@ k3s kubectl apply -f /tmp/local-path-provisioner.yaml
 echo '-> Verifying local-path-provisioner image is present in containerd...'
 k3s crictl images | grep local-path || echo "WARNING: local-path image NOT found in crictl!"
 
+echo '-> Cleaning stale local-path smoke resources...'
+k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+
+for pod in $(k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+
+for pvc in $(k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+
+sleep 5
+
 echo '-> Waiting for local-path-provisioner pod to be Ready...'
 if ! k3s kubectl -n local-path-storage wait --for=condition=Ready pod -l app=local-path-provisioner --timeout=180s; then
 	echo "❌ local-path provisioner is not Ready after 180s. Debugging info:"
@@ -24,6 +38,11 @@ fi
 
 echo "✅ local-path provisioner is Ready"
 
+echo '-> Cleaning stale smoke resources before check...'
+k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sleep 5
+
 echo '-> Smoke-testing PVC provisioning (WaitForFirstConsumer requires a consumer pod)...'
 SMOKE_NAME="lp-smoke-$(date +%s)"
 
@@ -33,6 +52,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: ${SMOKE_NAME}
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: lp-smoke
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
@@ -44,11 +65,13 @@ kind: Pod
 metadata:
   name: ${SMOKE_NAME}-consumer
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: lp-smoke
 spec:
   restartPolicy: Never
   containers:
     - name: consumer
-      image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+      image: docker.io/library/busybox:1.37.0
       imagePullPolicy: IfNotPresent
       command: ["sleep", "3600"]
       volumeMounts:
@@ -60,14 +83,26 @@ spec:
         claimName: ${SMOKE_NAME}
 EOF
 
-cleanup_smoke() {
+cleanup_current_smoke() {
 	k3s kubectl delete pod "${SMOKE_NAME}-consumer" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 	k3s kubectl delete pvc "${SMOKE_NAME}" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 }
-trap cleanup_smoke EXIT
+trap cleanup_current_smoke EXIT
 
-if ! k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
-	echo "⚠️ Smoke PVC did not become Bound within timeout."
+bound=false
+for i in $(seq 1 60); do
+	phase=$(k3s kubectl get pvc "${SMOKE_NAME}" -n local-path-storage -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+	if [[ "$phase" == "Bound" ]]; then
+		bound=true
+		echo "✅ Smoke PVC became Bound after $((i * 3))s"
+		break
+	fi
+	echo "Attempt $i/60: smoke PVC phase=${phase:-NotFound}"
+	sleep 3
+done
+
+if [[ "$bound" != true ]]; then
+	echo "❌ Smoke PVC did not become Bound. local-path provisioner is not functional."
 	k3s kubectl get pvc,pods -n local-path-storage -o wide || true
 	echo "- Describe PVC -"
 	k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true
@@ -75,11 +110,14 @@ if ! k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=
 	k3s kubectl get events -n local-path-storage --sort-by='.lastTimestamp' | tail -80 || true
 	echo "- Provisioner logs -"
 	k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
-	echo "⚠️ Continuing despite smoke test timeout (network may be restricted)."
-else
-	echo "✅ Smoke PVC bound; local-path provisioning works"
+	echo "- BusyBox image check -"
+	k3s crictl images | grep busybox || echo "BusyBox image NOT found locally"
+	exit 1
 fi
-cleanup_smoke
+
+echo "✅ Smoke PVC bound; local-path provisioning works"
+
+cleanup_current_smoke
 trap - EXIT
 
 echo '-> Verifying StorageClass local-path exists and has WaitForFirstConsumer mode...'

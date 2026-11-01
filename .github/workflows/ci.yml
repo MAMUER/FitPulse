@@ -1058,6 +1058,13 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh fix_dns
+      - name: Ensure local-path provisioner directory exists
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/vps-provision.sh ensure_local_path_dir
+
       - name: Prepare k3s config on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1085,6 +1092,12 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh preload_airgap_images
+      - name: Preload BusyBox helper image for local-path provisioner
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/vps-provision.sh preload_busybox_image
       - name: Configure host-level disk encryption for k3s storage (fscrypt/dm-crypt)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1097,12 +1110,13 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh cleanup_disk
-      - name: Ensure local-path provisioner directory exists
+      - name: Clean stale local-path smoke resources
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/vps-provision.sh ensure_local_path_dir
+        run: bash scripts/ci/vps-provision.sh cleanup_stale_smoke_resources
+
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

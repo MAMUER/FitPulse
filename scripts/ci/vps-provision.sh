@@ -38,14 +38,25 @@ configure_swap() {
 }
 
 check_disk_space() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+	local tg_bot="${TELEGRAM_BOT_TOKEN:-}"
+	local tg_chat="${TELEGRAM_CHAT_ID:-}"
+
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "TG_BOT='${tg_bot}' TG_CHAT='${tg_chat}' bash -s" <<'EOF'
+set -euo pipefail
+
 DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
 echo "Current disk usage: ${DISK_USAGE}%"
+
 if [[ "$DISK_USAGE" -gt 90 ]]; then
-	echo "⚠️ WARNING: Disk usage is over 90%!"
-	curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-		-H "Content-Type: application/json" \
-		-d "{\"chat_id\": \"${TELEGRAM_CHAT_ID}\", \"text\": \"⚠️ VPS Disk usage is ${DISK_USAGE}%!\"}" || true
+	echo "WARNING: Disk usage is over 90%!"
+
+	if [[ -n "${TG_BOT:-}" && -n "${TG_CHAT:-}" ]]; then
+		curl -s -X POST "https://api.telegram.org/bot${TG_BOT}/sendMessage" \
+			-H "Content-Type: application/json" \
+			-d "{\"chat_id\": \"${TG_CHAT}\", \"text\": \"VPS Disk usage is ${DISK_USAGE}%!\"}" || true
+	else
+		echo "Telegram credentials are not set, skipping notification"
+	fi
 fi
 EOF
 }
@@ -99,7 +110,6 @@ sudo mkdir -p /etc/systemd/system/k3s.service.d
 cat <<EOT | sudo tee /etc/systemd/system/k3s.service.d/99-performance.conf
 [Service]
 CPUQuota=180%
-WatchdogSec=30s
 Restart=always
 RestartSec=10s
 EOT
@@ -109,7 +119,20 @@ EOF
 }
 configure_disk_encryption() {
 	./scripts/ssh-retry.sh scp configs/k8s/scripts/configure-storage-encryption.sh "${VPS_USER}@${VPS_HOST}:/tmp/configure-storage-encryption.sh"
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo /tmp/configure-storage-encryption.sh --yes || true"
+
+	if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-storage-encryption.sh && sudo /tmp/configure-storage-encryption.sh --yes"; then
+		echo "Disk encryption configuration completed"
+	else
+		echo "::warning::Disk encryption configuration failed"
+
+		if [[ "${ALLOW_DISK_ENCRYPTION_FAILURE:-false}" != "true" ]]; then
+			echo "Failing provision because disk encryption is required."
+			echo "Set ALLOW_DISK_ENCRYPTION_FAILURE=true only if you intentionally want to bypass this."
+			exit 1
+		fi
+
+		echo "ALLOW_DISK_ENCRYPTION_FAILURE=true, continuing despite encryption failure"
+	fi
 }
 
 fix_dns() {
@@ -185,9 +208,6 @@ start_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 echo '-> Starting k3s...'
-		echo '-> Cleaning stuck pods from previous runs BEFORE restart...'
-		sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
-		sudo k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
@@ -220,6 +240,7 @@ set -euo pipefail
 echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
 		sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 		echo '-> Forcing TLS 1.2 for root curl (fixes curl:35 resets)...'
+		printf 'tls-max = 1.2\ntlsv1.2\n' | tee "$HOME/.curlrc" >/dev/null
 		printf 'tls-max = 1.2\ntlsv1.2\n' | sudo tee /root/.curlrc > /dev/null
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
@@ -286,10 +307,15 @@ for IMG in "local-path-provisioner" "pause" "coredns"; do
 done
 
 if [[ "$MISSING_IMAGES" == true ]]; then
-    echo "❌ Airgap preload incomplete. Some system pods may fail to start."
-    # Не выходим с ошибкой немедленно, дадим k3s шанс скачать из сети, 
-    # но предупреждаем CI.
-    echo "::warning::Airgap images incomplete. Relying on network pull fallback."
+    echo "❌ Airgap preload incomplete. Required images are missing."
+    sudo k3s crictl images || true
+
+    if [[ "${ALLOW_AIRGAP_FALLBACK:-false}" != "true" ]]; then
+        echo "❌ Failing provision because airgap images are incomplete and network fallback is not explicitly allowed."
+        exit 1
+    fi
+
+    echo "::warning::ALLOW_AIRGAP_FALLBACK=true, continuing despite incomplete airgap images."
 else
     echo "✅ All critical airgap images verified."
 fi
@@ -311,6 +337,78 @@ for i in $(seq 1 60); do
     sleep 2
 done
 EOF
+}
+
+preload_busybox_image() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'INNEREOF'
+set -euo pipefail
+
+BUSYBOX_TARGET="docker.io/library/busybox:1.37.0"
+BUSYBOX_ALIAS="busybox:1.37.0"
+
+ensure_alias() {
+	sudo k3s ctr -n k8s.io images rm "${BUSYBOX_ALIAS}" >/dev/null 2>&1 || true
+	sudo k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "${BUSYBOX_ALIAS}" || true
+}
+
+echo '-> Checking if canonical BusyBox image is already present locally...'
+if sudo k3s ctr -n k8s.io images ls -q 2>/dev/null | grep -Fxq "${BUSYBOX_TARGET}"; then
+	ensure_alias
+	echo "BusyBox already present as ${BUSYBOX_TARGET}"
+	exit 0
+fi
+
+pulled=false
+
+for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.m.daocloud.io/library/busybox:1.37.0" "${BUSYBOX_TARGET}"; do
+	echo "-> Trying to pull from ${src}..."
+
+	if timeout 120 sudo k3s crictl pull "${src}"; then
+		if [[ "${src}" != "${BUSYBOX_TARGET}" ]]; then
+			echo "-> Retagging ${src} to canonical name ${BUSYBOX_TARGET}"
+			sudo k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
+			sudo k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
+		fi
+
+		ensure_alias
+		pulled=true
+		break
+	fi
+
+	echo "Failed to pull from ${src}. Trying next source..."
+done
+
+if [[ "${pulled}" != true ]]; then
+	echo "Could not preload BusyBox helper image from any source"
+	echo "--- Diagnostics ---"
+	ip link show dev eth0 | grep mtu || true
+	cat /etc/resolv.conf || true
+	curl -I --max-time 10 https://registry-1.docker.io/v2/ || true
+	curl -I --max-time 10 "https://auth.docker.io/token?service=registry.docker.io" || true
+	sudo k3s crictl images | grep busybox || true
+	exit 1
+fi
+
+echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
+INNEREOF
+}
+
+
+cleanup_stale_smoke_resources() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'INNEREOF'
+set -euo pipefail
+echo '-> Cleaning stale local-path smoke resources...'
+sudo k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pod in $(sudo k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+for pvc in $(sudo k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+sleep 5
+echo 'Stale smoke resources cleaned'
+INNEREOF
 }
 
 wait_for_critical_pods() {
@@ -389,6 +487,20 @@ else
 	fi
 fi
 
+echo '-> Cleaning stale smoke resources before gate...'
+sudo k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+
+for pod in $(sudo k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+
+for pvc in $(sudo k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+
+sleep 5
+
 echo '• smoke-testing PVC provisioning'
 SMOKE_NAME="ci-lp-smoke-$(date +%s)"
 
@@ -398,6 +510,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: ${SMOKE_NAME}
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: lp-smoke
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
@@ -409,11 +523,13 @@ kind: Pod
 metadata:
   name: ${SMOKE_NAME}-consumer
   namespace: local-path-storage
+  labels:
+    app.kubernetes.io/name: lp-smoke
 spec:
   restartPolicy: Never
   containers:
     - name: consumer
-      image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+      image: docker.io/library/busybox:1.37.0
       imagePullPolicy: IfNotPresent
       command: ["sleep", "3600"]
       volumeMounts:
@@ -431,15 +547,28 @@ cleanup_smoke() {
 }
 trap cleanup_smoke EXIT
 
-if ! sudo k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
-	echo '  ❌ Smoke PVC did not become Bound; local-path provisioner is not functional'
+bound=false
+for i in $(seq 1 60); do
+	phase=$(sudo k3s kubectl get pvc "${SMOKE_NAME}" -n local-path-storage -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+	if [[ "$phase" == "Bound" ]]; then
+		bound=true
+		echo "  Smoke PVC became Bound after $((i * 3))s"
+		break
+	fi
+	echo "  Attempt $i/60: smoke PVC phase=${phase:-NotFound}"
+	sleep 3
+done
+
+if [[ "$bound" != true ]]; then
+	echo '  Smoke PVC did not become Bound; local-path provisioner is not functional'
 	sudo k3s kubectl get pvc,pods -n local-path-storage -o wide || true
 	sudo k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true
 	sudo k3s kubectl get events -n local-path-storage --sort-by=.lastTimestamp | tail -80 || true
 	sudo k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
+	sudo k3s crictl images | grep busybox || echo "BusyBox image NOT found locally"
 	overall_fail=1
 else
-	echo '  ✅ Smoke PVC bound; local-path provisioning works'
+	echo '  Smoke PVC bound; local-path provisioning works'
 fi
 
 cleanup_smoke
@@ -448,7 +577,7 @@ trap - EXIT
 for ns in kube-system local-path-storage; do
 	bad=$(
 		sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
-			awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" {print $1 " " $2 " " $3}' || true
+			awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" && $1 !~ /^(lp-smoke-|ci-lp-smoke-)/ {print $1 " " $2 " " $3}' || true
 	)
 
 	if [[ -n "$bad" ]]; then
@@ -494,12 +623,14 @@ main() {
 		configure_cpu_governor
 		configure_disk_encryption
 		fix_dns
+		ensure_local_path_dir
 		prepare_k3s_config
 		restart_k3s_if_needed
-		ensure_local_path_dir
-		start_k3s
 		install_k3s
 		preload_airgap_images
+		preload_busybox_image
+		cleanup_stale_smoke_resources
+		start_k3s
 		;;
 	configure_swap) configure_swap ;;
 	check_disk_space) check_disk_space ;;
@@ -512,6 +643,8 @@ main() {
 	start_k3s) start_k3s ;;
 	install_k3s) install_k3s ;;
 	preload_airgap_images) preload_airgap_images ;;
+	preload_busybox_image) preload_busybox_image ;;
+	cleanup_stale_smoke_resources) cleanup_stale_smoke_resources ;;
 	wait_for_critical_pods) wait_for_critical_pods ;;
 	ensure_local_path_dir) ensure_local_path_dir ;;
 	*)
