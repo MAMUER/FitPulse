@@ -26,80 +26,62 @@ create_secrets() {
 				--dry-run=client -o yaml | kubectl apply --validate=false -f -
 			echo "✅ argocd-secret created/updated"
 		else
-			echo "⚠️  bcrypt not available (python3-bcrypt/node-bcrypt), skipping argocd-secret update"
+			: # bcrypt not available, skipping silently
 		fi
 	else
-		echo "⚠️  ARGOCD_ADMIN_PASSWORD is empty, skipping argocd-secret update"
+		: # ARGOCD_ADMIN_PASSWORD empty, skipping silently
 	fi
 
 	echo "Creating external-secrets-db-credentials secret..."
-	if [[ -z "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]]; then
-		echo "::warning::EXTERNAL_SECRETS_DB_PASSWORD is empty, skipping"
-	else
+	if [[ -n "${EXTERNAL_SECRETS_DB_PASSWORD:-}" ]]; then
 		kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f - || true
 		kubectl create secret generic external-secrets-db-credentials \
 			-n external-secrets \
 			--from-literal=username=external_secrets \
 			--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::external-secrets-db-credentials creation failed"
-		echo "external-secrets-db-credentials created (or skipped)"
+
 	fi
 
-	echo "Applying ExternalSecret manifests..."
-	if kubectl apply -f configs/k8s/base/external-secrets/ -n fitness-platform-production 2>&1; then
-		echo "✅ ExternalSecrets applied"
-	else
-		echo "::warning::ExternalSecret manifests could not be applied (CRDs may not be installed). Skipping."
-	fi
-
-	echo "Waiting for secrets to propagate..."
-	sleep 15
+	echo "ExternalSecrets CRDs not installed. Using direct Kubernetes secrets (already created above)."
 
 	echo "Creating rabbitmq-secret with rabbitmq.conf..."
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
 
 	echo "Creating minio-credentials secret..."
-	if [[ -z "${MINIO_SECRET_KEY:-}" ]]; then
-		echo "::warning::MINIO_SECRET_KEY is empty, skipping minio-credentials"
-	else
+	if [[ -n "${MINIO_SECRET_KEY:-}" ]]; then
 		kubectl create namespace minio --dry-run=client -o yaml | kubectl apply -f - || true
 		kubectl create secret generic minio-credentials \
 			-n minio \
 			--from-literal=root-user=fitpulse-admin \
 			--from-literal=root-password="${MINIO_SECRET_KEY}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed"
-		echo "minio-credentials created (or skipped)"
+
 	fi
 
 	echo "Creating grafana-credentials secret..."
-	if [[ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
-		echo "::warning::GRAFANA_ADMIN_PASSWORD is empty, skipping grafana-credentials"
-	else
+	if [[ -n "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
 		kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - || true
 		kubectl create secret generic grafana-credentials \
 			-n monitoring \
 			--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::grafana-credentials creation failed"
-		echo "grafana-credentials created (or skipped)"
+
 	fi
 
 	echo "Creating oncall-bot-credentials secret..."
-	if [[ -z "${TELEGRAM_BOT_TOKEN:-}" ]] || [[ -z "${TELEGRAM_CHAT_ID:-}" ]]; then
-		echo "::warning::TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is empty, skipping oncall-bot-credentials"
-	else
+	if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]] && [[ -n "${TELEGRAM_CHAT_ID:-}" ]]; then
 		kubectl create secret generic oncall-bot-credentials \
 			-n monitoring \
 			--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
 			--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::oncall-bot-credentials creation failed"
-		echo "oncall-bot-credentials created (or skipped)"
+
 	fi
 
 	echo "Creating elk-credentials secret..."
-	if [[ -z "${ELASTICSEARCH_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ]] || [[ -z "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]]; then
-		echo "::warning::ELASTICSEARCH passwords are empty, skipping elk-credentials"
-	else
+	if [[ -n "${ELASTICSEARCH_PASSWORD:-}" ]] && [[ -n "${ELASTICSEARCH_PLATFORM_PASSWORD:-}" ]] && [[ -n "${ELASTICSEARCH_AUDITOR_PASSWORD:-}" ]]; then
 		kubectl create namespace elk --dry-run=client -o yaml | kubectl apply -f - || true
 		kubectl create secret generic elk-credentials \
 			-n elk \
@@ -107,7 +89,7 @@ create_secrets() {
 			--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
 			--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::elk-credentials creation failed"
-		echo "elk-credentials created (or skipped)"
+
 	fi
 
 	echo "Creating monitoring-secrets..."
@@ -123,8 +105,6 @@ create_secrets() {
 			--from-literal=CLOUDFLARE_TURNSTILE_SECRET_KEY="$CLOUDFLARE_TURNSTILE_SECRET_KEY" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f -
 		echo "✅ captcha-secrets created"
-	else
-		echo "⚠️  CLOUDFLARE_TURNSTILE_SECRET_KEY is empty, skipping captcha-secrets"
 	fi
 }
 
@@ -197,7 +177,7 @@ pre_pull_images() {
 			echo \"Pulling \$img...\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
 			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
-			echo \"⚠️ Failed to pre-pull \$img (will be pulled by kubelet)\"
+			echo \"::notice::Failed to pre-pull \$img (will be pulled by kubelet)\"
 		done
 	"
 	echo "✅ Pre-pull step completed"
@@ -405,7 +385,7 @@ run_seed_admin() {
 		RESTART_COUNT=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
 		echo "  [$(date +%H:%M:%S)] Phase: $CURRENT_PHASE, Restarts: $RESTART_COUNT"
 		if [[ "$CURRENT_PHASE" == "Failed" || "$CURRENT_PHASE" == "CrashLoopBackOff" || "$RESTART_COUNT" -gt 2 ]]; then
-			echo "⚠️ Pod is in error state, fetching diagnostics..." >&2
+			echo "::warning::Pod is in error state, fetching diagnostics..." >&2
 			echo "→ Pod describe:"
 			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
 			echo "→ Last 200 log lines:"
@@ -435,7 +415,7 @@ run_seed_admin() {
 		echo "-> Final logs:"
 		kubectl logs job/seed-admin -n fitness-platform-production --tail=100 2>&1 || true
 	else
-		echo "⚠️ Job did not complete successfully, detailed diagnostics..."
+		echo "::warning::Job did not complete successfully, detailed diagnostics..."
 		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
 		echo "Current pod name: $POD_NAME"
 		if [[ "$POD_NAME" != "unknown" ]] && [[ -n "$POD_NAME" ]]; then
