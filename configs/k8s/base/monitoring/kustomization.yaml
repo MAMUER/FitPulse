@@ -16,4 +16,3 @@ resources:
   - opentelemetry-configmap.yaml
   - opentelemetry-service.yaml
   - prometheus-configmap.yaml
-  - servicemonitors

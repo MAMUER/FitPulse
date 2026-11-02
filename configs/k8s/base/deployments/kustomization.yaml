@@ -29,4 +29,3 @@ resources:
   - user-service.yaml
   - valkey-config.yaml
   - valkey.yaml
-  - vpa

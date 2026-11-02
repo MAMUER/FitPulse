@@ -9,6 +9,7 @@ spec:
   ports:
     - port: 8001
       targetPort: 8001
+      name: grpc
     - port: 9091
       targetPort: 9091
       name: metrics

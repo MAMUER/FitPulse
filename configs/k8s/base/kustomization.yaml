@@ -5,7 +5,6 @@ resources:
   - configmap.yaml
   - deployments
   - elk
-  - external-secrets
   - ingress-nginx
   - jobs
   - limit-range.yaml

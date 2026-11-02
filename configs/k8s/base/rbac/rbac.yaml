@@ -149,7 +149,7 @@ metadata:
   roleRef:
     kind: Role
     name: device-aggregator-role
-  apiGroup: rbac.authorization.k8s.io
+    apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

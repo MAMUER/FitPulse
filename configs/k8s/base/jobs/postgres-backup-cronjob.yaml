@@ -85,14 +85,15 @@ spec:
                   cpu: "200m"
                   memory: "256Mi"
           restartPolicy: Never
-      volumes:
-        - name: backup-storage
-          persistentVolumeClaim:
-            claimName: postgres-backup-pvc
-        - name: wal-archive-storage
-          persistentVolumeClaim:
-            claimName: postgres-wal-archive
-        - name: backup-scripts
-          configMap:
-            name: backup-scripts
-            defaultMode: 0755
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc
+            - name: wal-archive-storage
+              persistentVolumeClaim:
+                claimName: postgres-wal-archive
+            - name: backup-scripts
+              configMap:
+                name: backup-scripts
+                defaultMode: 0755
+    

@@ -13,12 +13,7 @@ metadata:
     app.kubernetes.io/part-of: fitness-platform
     app.kubernetes.io/managed-by: kustomize
   annotations:
-    checkov:skip=CKV_K8S_43: "Cert-managed image; digest pinned for reproducibility"
-    checkov:skip=CKV_K8S_15: "imagePullPolicy Always is set on container spec"
-    checkov:skip=CKV_K8S_11: "CPU limits are set on container resources"
-    checkov:skip=CKV_K8S_13: "Memory limits are set on container resources"
-    checkov:skip=CKV_K8S_10: "CPU requests are set on container resources"
-    checkov:skip=CKV_K8S_12: "Memory requests are set on container resources"
+    checkov.io/skip: "CKV_K8S_43,CKV_K8S_15,CKV_K8S_11,CKV_K8S_13,CKV_K8S_10,CKV_K8S_12: Cert-managed image; digest pinned for reproducibility"
 spec:
   revisionHistoryLimit: 3
   serviceName: rabbitmq

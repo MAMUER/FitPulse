@@ -12,6 +12,7 @@ spec:
       backoffLimit: 2
       template:
         spec:
+          restartPolicy: OnFailure
           serviceAccountName: ingress-nginx
           automountServiceAccountToken: false
           securityContext:

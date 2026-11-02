@@ -130,7 +130,7 @@ update_image_tags() {
 	SHA=$(git rev-parse --short HEAD)
 	echo "Updating image tags to :$SHA"
 	cd configs/k8s/overlays/production
-	for svc in user-service biometric-service training-service gateway classifier; do
+	for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator data-processor; do
 		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
 	done
 }
@@ -172,7 +172,11 @@ pre_pull_images() {
 			\"ghcr.io/mamuer/project/training-service:${SHA}\" \
 			\"ghcr.io/mamuer/project/gateway:${SHA}\" \
 			\"ghcr.io/mamuer/project/classifier:${SHA}\" \
-			\"ghcr.io/mamuer/project/device-aggregator:${SHA}\"; do
+			\"ghcr.io/mamuer/project/device-aggregator:${SHA}\" \\
+			\"ghcr.io/mamuer/project/ml-generator:${SHA}\" \\
+			\"ghcr.io/mamuer/project/open-wearables-backend:${SHA}\" \\
+			\"ghcr.io/mamuer/project/open-wearables-frontend:${SHA}\" \\
+			\"ghcr.io/mamuer/project/data-processor:${SHA}\"; do
 
 			echo \"Pulling \$img...\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
