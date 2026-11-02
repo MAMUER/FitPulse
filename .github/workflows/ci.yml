@@ -242,7 +242,7 @@ jobs:
             if (!issue) return;
             const labels = issue.labels.map(l => l.name.toLowerCase());
             const isSecurity = labels.includes('security') || labels.includes('vulnerability') ||
-                              issue.title.toLowerCase().includes('security') || issue.title.toLowerCase().includes('vulnerability');
+                                issue.title.toLowerCase().includes('security') || issue.title.toLowerCase().includes('vulnerability');
             if (isSecurity) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -998,9 +998,9 @@ jobs:
       always() &&
       (needs.detect-changes.outputs.ci == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       (github.event_name == 'workflow_dispatch' ||
-       github.event_name == 'schedule' ||
-       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]')))
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]')))
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1064,7 +1064,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh ensure_local_path_dir
-
       - name: Prepare k3s config on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1116,7 +1115,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh cleanup_stale_smoke_resources
-
       - name: Start and verify k3s
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1452,7 +1450,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -1574,9 +1572,9 @@ jobs:
         run: |
           set -euo pipefail
           ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
-            set -euo pipefail
-            mkdir -p ~/security-results
-            sudo docker run --rm -v /var/lib/etcd:/var/lib/etcd:ro --pid=host aquasec/kube-bench:latest run --targets node --json > ~/security-results/kube-bench-results.json || true
+          set -euo pipefail
+          mkdir -p ~/security-results
+          sudo docker run --rm -v /var/lib/etcd:/var/lib/etcd:ro --pid=host aquasec/kube-bench:latest run --targets node --json > ~/security-results/kube-bench-results.json || true
           EOF
           mkdir -p security-results
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/ 2>/dev/null || true
@@ -1617,17 +1615,17 @@ jobs:
         run: |
           set -euo pipefail
           ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
-            set -euo pipefail
-            mkdir -p ~/security-results
-            if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
-              sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip
-              python3 -m pip install --break-system-packages --only-binary :all: kube-hunter==0.6.8
-            fi
-            if python3 -m kube_hunter --help >/dev/null 2>&1; then
-              python3 -m kube_hunter --remote 127.0.0.1 --report json > ~/security-results/kube-hunter-results.json || true
-            else
-              kube-hunter --remote 127.0.0.1 --report json > ~/security-results/kube-hunter-results.json || true
-            fi
+          set -euo pipefail
+          mkdir -p ~/security-results
+          if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip
+            python3 -m pip install --break-system-packages --only-binary :all: kube-hunter==0.6.8
+          fi
+          if python3 -m kube_hunter --help >/dev/null 2>&1; then
+            python3 -m kube_hunter --remote 127.0.0.1 --report json > ~/security-results/kube-hunter-results.json || true
+          else
+            kube-hunter --remote 127.0.0.1 --report json > ~/security-results/kube-hunter-results.json || true
+          fi
           EOF
           mkdir -p security-results
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
@@ -1752,23 +1750,19 @@ jobs:
         run: |
           python3 << 'PYEOF'
           import json, os
-
           needs = json.loads(os.environ['JOBS'])
           repo = os.environ['REPO']
           ref = os.environ['REF']
           sha = os.environ['SHA']
           run_id = os.environ['RUN_ID']
-
           def emoji(r):
               return {'success':'✅','failure':'❌'}.get(r, '⏭️')
-
           def section(title, items):
               lines = [f'<b>{title}</b>']
               for key, name in items:
                   r = needs.get(key, {}).get('result', 'skipped')
                   lines.append(f'{emoji(r)} {name}')
               return '\n'.join(lines)
-
           checks = [
               ('validate-workflow','Validate Workflow'),
               ('dockerfile-lint','Dockerfile Lint'),
@@ -1802,25 +1796,22 @@ jobs:
               ('csp-headers-check','CSP Headers Check'),
               ('smoke-test','Smoke Test'),
           ]
-
           any_fail = any(
               needs.get(k, {}).get('result') == 'failure'
               for items in [checks, security, deploy]
               for k, _ in items
           )
           status = '❌ CI/CD ОШИБКА' if any_fail else '✅ CI/CD УСПЕШНО'
-
           msg = (
               f'<b>{status}</b>\n'
               f'<code>{repo}</code> @ <code>{ref}</code>\n'
               f'Commit: <a href="https://github.com/{repo}/commit/{sha}">{sha}</a>\n'
-              f'<a href="https://github.com/{repo}/actions/runs/{run_id}">Открыть запуск</a>\n\n'
-              f'{section("Проверки:", checks)}\n\n'
-              f'{section("Безопасность:", security)}\n\n'
-              f'{section("Деплой и тесты:", deploy)}\n\n'
+              f'<a href="https://github.com/{repo}/actions/runs/{run_id}">Открыть запуск</a>\n'
+              f'{section("Проверки:", checks)}\n'
+              f'{section("Безопасность:", security)}\n'
+              f'{section("Деплой и тесты:", deploy)}\n'
               '🌐 Сайт: https://fittpulse.duckdns.org\n'
           )
-
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'status={status}\n')
               f.write('message<<EOF\n')
