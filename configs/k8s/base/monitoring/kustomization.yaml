@@ -4,16 +4,16 @@ kind: Kustomization
 namespace: monitoring
 
 resources:
-  - prometheus-configmap.yaml
   - alertmanager-config.yaml
-  - opentelemetry-configmap.yaml
-  - opentelemetry-collector.yaml
-  - opentelemetry-service.yaml
+  - grafana-dashboards.yaml
+  - grafana-datasources.yaml
   - grafana-deployment.yaml
   - grafana-service.yaml
-  - grafana-datasources.yaml
-  - grafana-dashboards.yaml
-  - oncall-schedule.yaml
   - oncall-bot-deployment.yaml
   - oncall-bot-service.yaml
+  - oncall-schedule.yaml
+  - opentelemetry-collector.yaml
+  - opentelemetry-configmap.yaml
+  - opentelemetry-service.yaml
+  - prometheus-configmap.yaml
   - servicemonitors

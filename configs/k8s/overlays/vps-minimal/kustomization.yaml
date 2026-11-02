@@ -13,34 +13,34 @@ kind: Kustomization
 namespace: fitness-platform-production
 
 resources:
-  - ../../base/namespace.yaml
-  - ../../base/resource-quota.yaml
-  - ../../base/limit-range.yaml
   - ../../base/configmap.yaml
-  - ../../base/serviceaccount.yaml
-  - ../../base/rbac
-  - ../../base/network-policies
-  - ../../base/secrets/rabbitmq-secret.yaml
-  - ../../base/deployments/postgres.yaml
-  - ../../base/deployments/rabbitmq-statefulset.yaml
-  - ../../base/deployments/valkey.yaml
-  - ../../base/deployments/user-service.yaml
   - ../../base/deployments/biometric-service.yaml
-  - ../../base/deployments/training-service.yaml
   - ../../base/deployments/classifier.yaml
   - ../../base/deployments/device-aggregator.yaml
   - ../../base/deployments/gateway.yaml
-  - ../../base/services/postgres-service.yaml
-  - ../../base/services/valkey-service.yaml
-  - ../../base/services/rabbitmq-service.yaml
-  - ../../base/services/user-service.yaml
+  - ../../base/deployments/postgres.yaml
+  - ../../base/deployments/rabbitmq-statefulset.yaml
+  - ../../base/deployments/training-service.yaml
+  - ../../base/deployments/user-service.yaml
+  - ../../base/deployments/valkey.yaml
+  - ../../base/jobs/seed-admin.yaml
+  - ../../base/limit-range.yaml
+  - ../../base/namespace.yaml
+  - ../../base/network-policies
+  - ../../base/rbac
+  - ../../base/resource-quota.yaml
+  - ../../base/secrets/rabbitmq-secret.yaml
+  - ../../base/serviceaccount.yaml
   - ../../base/services/biometric-service.yaml
-  - ../../base/services/training-service.yaml
   - ../../base/services/classifier-service.yaml
   - ../../base/services/device-aggregator-service.yaml
   - ../../base/services/gateway-service.yaml
+  - ../../base/services/postgres-service.yaml
+  - ../../base/services/rabbitmq-service.yaml
+  - ../../base/services/training-service.yaml
+  - ../../base/services/user-service.yaml
+  - ../../base/services/valkey-service.yaml
   - migrate-db.yaml
-  - ../../base/jobs/seed-admin.yaml
 
 configMapGenerator:
   - name: db-migrations

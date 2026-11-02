@@ -1,32 +1,32 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - postgres.yaml
-  - postgres-pdb.yaml
-  - postgres-config.yaml
   - app-service-account-role.yaml
-  - grpc-server-cert.yaml
-  - valkey.yaml
-  - valkey-config.yaml
-  - rabbitmq-statefulset.yaml
-  - rabbitmq-pdb.yaml
-  - user-service.yaml
-  - user-service-pdb.yaml
-  - biometric-service.yaml
   - biometric-service-pdb.yaml
-  - training-service.yaml
-  - training-service-pdb.yaml
-  - gateway.yaml
-  - gateway-pdb.yaml
-  - classifier.yaml
+  - biometric-service.yaml
   - classifier-pdb.yaml
-  - ml-generator.yaml
-  - ml-generator-pdb.yaml
-  - open-wearables.yaml
-  - open-wearables-pdb.yaml
-  - open-wearables-frontend.yaml
-  - device-aggregator.yaml
-  - device-aggregator-pdb.yaml
-  - data-processor.yaml
+  - classifier.yaml
   - data-processor-pdb.yaml
+  - data-processor.yaml
+  - device-aggregator-pdb.yaml
+  - device-aggregator.yaml
+  - gateway-pdb.yaml
+  - gateway.yaml
+  - grpc-server-cert.yaml
+  - ml-generator-pdb.yaml
+  - ml-generator.yaml
+  - open-wearables-frontend.yaml
+  - open-wearables-pdb.yaml
+  - open-wearables.yaml
+  - postgres-config.yaml
+  - postgres-pdb.yaml
+  - postgres.yaml
+  - rabbitmq-pdb.yaml
+  - rabbitmq-statefulset.yaml
+  - training-service-pdb.yaml
+  - training-service.yaml
+  - user-service-pdb.yaml
+  - user-service.yaml
+  - valkey-config.yaml
+  - valkey.yaml
   - vpa

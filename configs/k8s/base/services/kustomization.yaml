@@ -2,16 +2,16 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - postgres-service.yaml
-  - valkey-service.yaml
-  - rabbitmq-service.yaml
-  - user-service.yaml
   - biometric-service.yaml
-  - training-service.yaml
-  - gateway-service.yaml
   - classifier-service.yaml
-  - ml-generator-service.yaml
-  - open-wearables-service.yaml
-  - open-wearables-frontend-service.yaml
-  - device-aggregator-service.yaml
   - data-processor-service.yaml
+  - device-aggregator-service.yaml
+  - gateway-service.yaml
+  - ml-generator-service.yaml
+  - open-wearables-frontend-service.yaml
+  - open-wearables-service.yaml
+  - postgres-service.yaml
+  - rabbitmq-service.yaml
+  - training-service.yaml
+  - user-service.yaml
+  - valkey-service.yaml

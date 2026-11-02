@@ -2,13 +2,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: ingress-nginx
 resources:
-  - namespace.yaml
-  - serviceaccount.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - configmap.yaml
-  - resource-quota.yaml
+  - deployment.yaml
   - limit-range.yaml
   - modsecurity/crs-configmap.yaml
-  - deployment.yaml
+  - namespace.yaml
+  - resource-quota.yaml
   - service.yaml
+  - serviceaccount.yaml
