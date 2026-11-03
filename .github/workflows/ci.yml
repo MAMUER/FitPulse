@@ -1020,17 +1020,6 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
       - name: Make retry script executable
         run: chmod +x scripts/ssh-retry.sh
-      - name: Debug SSH Connection
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          echo "🔍 Длина значения VPS_HOST: ${#VPS_HOST} символов"
-          echo "🔍 Пытаемся разрешить DNS для $VPS_HOST..."
-          ping -c 2 "$VPS_HOST" || echo "⚠️ Ping не прошел, но пробуем SSH..."
-          echo "🔍 Пытаемся подключиться по SSH с подробным логом..."
-          ssh -p "${VPS_PORT:-22}" -v -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" "echo '✅ SSH ПОДКЛЮЧЕНИЕ УСПЕШНО'"
       - name: Configure swap on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
