@@ -431,6 +431,71 @@ echo '✅ All critical system components and PVC provisioning are Ready'
 EOF
 }
 
+preload_busybox_image() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+BUSYBOX_TARGET="docker.io/library/busybox:1.37.0"
+echo '-> Ensuring BusyBox helper image is available locally...'
+if sudo k3s crictl images 2>/dev/null | grep -E 'busybox[[:space:]]+1\.37\.0' >/dev/null; then
+	echo "BusyBox already present as ${BUSYBOX_TARGET}"
+	exit 0
+fi
+pulled=false
+for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.37.0"; do
+	echo "-> Trying to pull ${src}"
+	if timeout 180 sudo k3s crictl pull "${src}"; then
+		if [[ "${src}" != "${BUSYBOX_TARGET}" ]]; then
+			echo "-> Retagging ${src} to ${BUSYBOX_TARGET}"
+			sudo k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
+			sudo k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
+		fi
+		pulled=true
+		break
+	fi
+	echo "Failed to pull ${src}, trying next source..."
+done
+if [[ "${pulled}" != true ]]; then
+	echo "Could not preload BusyBox helper image from any source"
+	sudo k3s crictl images | grep busybox || true
+	exit 1
+fi
+sudo k3s ctr -n k8s.io images rm "busybox:1.37.0" >/dev/null 2>&1 || true
+sudo k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "busybox:1.37.0" || true
+echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
+EOF
+}
+
+cleanup_stale_smoke_resources() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+echo '-> Cleaning stale local-path smoke resources...'
+sudo k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pod in $(sudo k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+for pvc in $(sudo k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+done
+sleep 5
+echo 'Stale smoke resources cleaned'
+EOF
+}
+
+ensure_local_path_dir() {
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
+set -euo pipefail
+echo '-> Ensuring /opt/local-path-provisioner exists with correct permissions...'
+if [[ ! -d /opt/local-path-provisioner ]]; then
+	sudo mkdir -p /opt/local-path-provisioner
+	echo 'Directory created: /opt/local-path-provisioner'
+fi
+sudo chmod 0777 /opt/local-path-provisioner
+echo 'Permissions set to 0777'
+ls -ld /opt/local-path-provisioner
+EOF
+}
+
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -441,11 +506,14 @@ main() {
 		configure_cpu_governor
 		configure_disk_encryption
 		fix_dns
+		ensure_local_path_dir
 		prepare_k3s_config
 		restart_k3s_if_needed
-		start_k3s
 		install_k3s
 		preload_airgap_images
+		preload_busybox_image
+		cleanup_stale_smoke_resources
+		start_k3s
 		;;
 	configure_swap) configure_swap ;;
 	check_disk_space) check_disk_space ;;
@@ -458,6 +526,9 @@ main() {
 	start_k3s) start_k3s ;;
 	install_k3s) install_k3s ;;
 	preload_airgap_images) preload_airgap_images ;;
+	preload_busybox_image) preload_busybox_image ;;
+	ensure_local_path_dir) ensure_local_path_dir ;;
+	cleanup_stale_smoke_resources) cleanup_stale_smoke_resources ;;
 	wait_for_critical_pods) wait_for_critical_pods ;;
 	*)
 		echo "Unknown function: $cmd"
