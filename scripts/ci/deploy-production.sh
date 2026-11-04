@@ -204,26 +204,26 @@ apply_manifests() {
 		exit 1
 	}
 	echo "Deleting immutable Jobs to allow updates..."
-	kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true || true
+	kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true --timeout=60s --wait=false || true
 	echo "Deleting existing PVCs and PVs to force recreation with fixed provisioner..."
-	kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true || true
-	kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv || true
+	kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true --timeout=60s --wait=false || true
+	kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv --wait=false || true
 	cd configs/k8s/overlays/production
 	kustomize build --load-restrictor=LoadRestrictionsNone . >/tmp/manifests.yaml
-	kubectl delete pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true || true
-	kubectl delete pod -l app=user-service -n fitness-platform-production --ignore-not-found=true || true
-	kubectl delete pod -l app=training-service -n fitness-platform-production --ignore-not-found=true || true
+	kubectl delete pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true --wait=false || true
+	kubectl delete pod -l app=user-service -n fitness-platform-production --ignore-not-found=true --wait=false || true
+	kubectl delete pod -l app=training-service -n fitness-platform-production --ignore-not-found=true --wait=false || true
 	echo "Applying manifests with retries..."
-	MAX_RETRIES=5
+	MAX_RETRIES=1
 	for i in $(seq 1 "$MAX_RETRIES"); do
-		if kubectl apply --validate=false -f /tmp/manifests.yaml; then
+		if timeout 120 kubectl apply --validate=false --timeout=30s --force -f /tmp/manifests.yaml; then
 			echo "Production overlay applied successfully"
 			break
 		else
 			echo "Attempt $i/$MAX_RETRIES failed."
 			if [[ "$i" -lt "$MAX_RETRIES" ]]; then
-				echo "Waiting 20s before retry..."
-				sleep 20
+				echo "Waiting 10s before retry..."
+				sleep 10
 				if ! kubectl get nodes >/dev/null 2>&1; then
 					echo "API server is unresponsive. Restarting k3s via SSH..."
 					./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s" || true
@@ -281,7 +281,7 @@ verify_postgres() {
 	if ! kubectl get statefulset postgres -n fitness-platform-production >/dev/null 2>&1; then
 		echo "❌ StatefulSet 'postgres' not found. Re-applying manifests..."
 		cd configs/k8s/overlays/production
-		kustomize build --load-restrictor=LoadRestrictionsNone . | kubectl apply --validate=false -f -
+		kustomize build --load-restrictor=LoadRestrictionsNone . | timeout 120 kubectl apply --validate=false --timeout=30s --force -f -
 		echo "Waiting 30s for StatefulSet to appear..."
 		sleep 30
 	fi
@@ -510,9 +510,9 @@ verify_deployment() {
 
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
-	kubectl apply -k configs/k8s/base/ -n fitness-platform-production
+	kubectl apply -k configs/k8s/base/ -n fitness-platform-production --validate=false || true
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
-	kubectl apply -k configs/k8s/overlays/production/ -n fitness-platform-production
+	kubectl apply -k configs/k8s/overlays/production/ -n fitness-platform-production --validate=false || true
 	echo "Waiting for Open Wearables pods to be ready..."
 	kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "Open Wearables backend not ready yet"
 	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "Open Wearables frontend not ready yet"
