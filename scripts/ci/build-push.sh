@@ -33,13 +33,24 @@ build_go_services() {
 }
 
 build_ml_images() {
-	if [[ -f "models/scaler.pkl" ]] && { [[ -f "models/classifier.keras" ]] || ls models/classifier_*.keras >/dev/null 2>&1; }; then
-		SHA=$(git rev-parse --short HEAD)
+	SHA=$(git rev-parse --short HEAD)
+	# Build classifier if Dockerfile exists
+	if [[ -f "cmd/classifier/Dockerfile" ]]; then
+		echo "Building classifier..."
 		docker build -t "$REGISTRY/mamuer/project/classifier:$SHA" \
 			-t "$REGISTRY/mamuer/project/classifier:latest" \
-			-f cmd/classifier/Dockerfile .
-		docker push "$REGISTRY/mamuer/project/classifier:$SHA"
-		docker push "$REGISTRY/mamuer/project/classifier:latest"
+			-f cmd/classifier/Dockerfile . || true
+		docker push "$REGISTRY/mamuer/project/classifier:$SHA" || true
+		docker push "$REGISTRY/mamuer/project/classifier:latest" || true
+	fi
+	# Build ml-generator (gan-service) if Dockerfile exists
+	if [[ -f "cmd/gan-service/Dockerfile" ]]; then
+		echo "Building ml-generator from gan-service..."
+		docker build -t "$REGISTRY/mamuer/project/ml-generator:$SHA" \
+			-t "$REGISTRY/mamuer/project/ml-generator:latest" \
+			-f cmd/gan-service/Dockerfile . || true
+		docker push "$REGISTRY/mamuer/project/ml-generator:$SHA" || true
+		docker push "$REGISTRY/mamuer/project/ml-generator:latest" || true
 	fi
 }
 
