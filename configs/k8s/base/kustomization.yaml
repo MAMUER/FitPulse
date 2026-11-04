@@ -12,7 +12,6 @@ resources:
   - local-path-provisioner/resource-quota.yaml
   - minio
   - monitoring
-  - monitoring/servicemonitors
   - namespace-database.yaml
   - namespace-ml-system.yaml
   - namespace.yaml
