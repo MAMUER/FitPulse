@@ -71,10 +71,10 @@ spec:
             secretName: app-secrets
         - name: rabbitmq-conf
           secret:
-             secretName: rabbitmq-secret
-             items:
-               - key: rabbitmq.conf
-                 path: rabbitmq.conf
+            secretName: rabbitmq-secret
+            items:
+              - key: rabbitmq.conf
+                path: rabbitmq.conf
       containers:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
@@ -90,7 +90,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 100011
+            runAsUser: 10001
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]

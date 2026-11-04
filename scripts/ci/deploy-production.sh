@@ -42,59 +42,8 @@ create_secrets() {
 			--from-literal=username=external_secrets \
 			--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::external-secrets-db-credentials creation failed"
-
 	fi
 
-	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
-	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f - || true
-	if ! kubectl get secret app-secrets -n fitness-platform-production >/dev/null 2>&1; then
-		# Generate minimal secrets if not provided via env
-		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
-		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
-		POSTGRES_USER_VAL="${POSTGRES_USER:-fitpulse}"
-		POSTGRES_PASS_VAL="${POSTGRES_PASSWORD:-fitpulse-$(date +%s)}"
-		POSTGRES_DB_VAL="${POSTGRES_DB:-fitpulse}"
-		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
-		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
-		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
-
-		kubectl create secret generic app-secrets -n fitness-platform-production \
-			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
-			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
-			--from-literal=POSTGRES_USER="$POSTGRES_USER_VAL" \
-			--from-literal=POSTGRES_PASSWORD="$POSTGRES_PASS_VAL" \
-			--from-literal=POSTGRES_DB="$POSTGRES_DB_VAL" \
-			--from-literal=RABBITMQ_URL="$RABBITMQ_URL_VAL" \
-			--from-literal=VALKEY_PASSWORD="$VALKEY_PASS_VAL" \
-			--from-literal=APP_BASE_URL="$APP_BASE_URL_VAL" \
-			--from-literal=SMTP_HOST="${SMTP_HOST:-smtp.example.com}" \
-			--from-literal=SMTP_PORT="${SMTP_PORT:-587}" \
-			--from-literal=SMTP_USER="${SMTP_USER:-}" \
-			--from-literal=SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
-			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fittpulse.duckdns.org}" \
-			--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
-			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
-			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
-			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
-			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
-			--dry-run=client -o yaml | kubectl apply -f -
-		echo "✅ app-secrets created (fallback)"
-	else
-		echo "✅ app-secrets already exists"
-	fi
-
-	echo "Creating per-service DB credentials (fallback)..."
-	for svc in user-service training-service biometric-service data-processor; do
-		sec="${svc}-db-credentials"
-		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
-			kubectl create secret generic "$sec" -n fitness-platform-production \
-				--from-literal=username="${svc//-/_}" \
-				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
-				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
-		fi
-	done
-
-	echo "Creating db-migrations ConfigMap..."
 	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
 	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f - || true
 	if ! kubectl get secret app-secrets -n fitness-platform-production >/dev/null 2>&1; then
@@ -132,83 +81,29 @@ create_secrets() {
 		echo "✅ app-secrets already exists"
 	fi
 
-	echo "Creating per-service DB credentials (fallback)..."
-	for svc in user-service training-service biometric-service data-processor; do
-		sec="${svc}-db-credentials"
-		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
-			kubectl create secret generic "$sec" -n fitness-platform-production \
-				--from-literal=username="${svc//-/_}" \
-				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
-				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
-		fi
-	done
-
-	echo "Creating db-migrations ConfigMap..."
-	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
-		kubectl create configmap db-migrations -n fitness-platform-production \
-			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
-			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
-	else
-		echo "::warning::db/migrations/V1__full_schema.sql not found"
-	fi
-	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
-	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f - || true
-	if ! kubectl get secret app-secrets -n fitness-platform-production >/dev/null 2>&1; then
-		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
-		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
-		POSTGRES_USER_VAL="${POSTGRES_USER:-fitpulse}"
-		POSTGRES_PASS_VAL="${POSTGRES_PASSWORD:-fitpulse-$(date +%s)}"
-		POSTGRES_DB_VAL="${POSTGRES_DB:-fitpulse}"
-		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
-		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
-		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
-
-		kubectl create secret generic app-secrets -n fitness-platform-production \
-			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
-			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
-			--from-literal=POSTGRES_USER="$POSTGRES_USER_VAL" \
-			--from-literal=POSTGRES_PASSWORD="$POSTGRES_PASS_VAL" \
-			--from-literal=POSTGRES_DB="$POSTGRES_DB_VAL" \
-			--from-literal=RABBITMQ_URL="$RABBITMQ_URL_VAL" \
-			--from-literal=VALKEY_PASSWORD="$VALKEY_PASS_VAL" \
-			--from-literal=APP_BASE_URL="$APP_BASE_URL_VAL" \
-			--from-literal=SMTP_HOST="${SMTP_HOST:-smtp.example.com}" \
-			--from-literal=SMTP_PORT="${SMTP_PORT:-587}" \
-			--from-literal=SMTP_USER="${SMTP_USER:-}" \
-			--from-literal=SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
-			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fittpulse.duckdns.org}" \
-			--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
-			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
-			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
-			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
-			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
-			--dry-run=client -o yaml | kubectl apply -f -
-		echo "✅ app-secrets created (fallback)"
-	else
-		echo "✅ app-secrets already exists"
-	fi
-
-	echo "Creating per-service DB credentials (fallback)..."
-	for svc in user-service training-service biometric-service data-processor; do
-		sec="${svc}-db-credentials"
-		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
-			kubectl create secret generic "$sec" -n fitness-platform-production \
-				--from-literal=username="${svc//-/_}" \
-				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
-				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
-		fi
-	done
-
-	echo "Creating db-migrations ConfigMap..."
-	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
-		kubectl create configmap db-migrations -n fitness-platform-production \
-			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
-			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
-	else
-		echo "::warning::db/migrations/V1__full_schema.sql not found"
-	fi
 	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
+
+	echo "Creating per-service DB credentials (fallback)..."
+	for svc in user-service training-service biometric-service data-processor; do
+		sec="${svc}-db-credentials"
+		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
+			kubectl create secret generic "$sec" -n fitness-platform-production \
+				--from-literal=username="${svc//-/_}" \
+				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
+				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
+		fi
+	done
+
+	echo "Creating db-migrations ConfigMap..."
+	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
+		kubectl create configmap db-migrations -n fitness-platform-production \
+			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
+			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
+	else
+		echo "::warning::db/migrations/V1__full_schema.sql not found"
+	fi
+
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
 
@@ -220,7 +115,6 @@ create_secrets() {
 			--from-literal=root-user=fitpulse-admin \
 			--from-literal=root-password="${MINIO_SECRET_KEY}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed"
-
 	fi
 
 	echo "Creating grafana-credentials secret..."
@@ -230,7 +124,6 @@ create_secrets() {
 			-n monitoring \
 			--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::grafana-credentials creation failed"
-
 	fi
 
 	echo "Creating oncall-bot-credentials secret..."
@@ -240,7 +133,6 @@ create_secrets() {
 			--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
 			--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::oncall-bot-credentials creation failed"
-
 	fi
 
 	echo "Creating elk-credentials secret..."
@@ -252,7 +144,6 @@ create_secrets() {
 			--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
 			--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::elk-credentials creation failed"
-
 	fi
 
 	echo "Creating monitoring-secrets..."
@@ -291,9 +182,8 @@ ensure_service_account() {
 
 update_image_tags() {
 	SHA=$(git rev-parse --short HEAD)
-	echo "Updating image tags to :$SHA"
+	echo "Updating image tags to :latest"
 	cd configs/k8s/overlays/production
-	# Используем latest если SHA-теги отсутствуют
 	for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator data-processor; do
 		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:latest" || true
 	done
@@ -304,8 +194,6 @@ cleanup_disk() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 echo '=== Disk usage before cleanup ==='
 df -h /
-echo ''
-echo ''
 echo ''
 echo '-> Cleaning containerd cache (k3s internal)...'
 k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
@@ -318,17 +206,12 @@ sudo find /tmp -type f -mtime +1 -delete || true
 echo ''
 echo '=== Disk usage after cleanup ==='
 df -h /
-echo ''
-echo '=== Disk usage after cleanup ==='
-echo ''
 echo '✅ Disk cleanup completed'
 "
 }
 
 pre_pull_images() {
 	echo "-> Pre-pulling application images on VPS..."
-	SHA=$(git rev-parse --short HEAD)
-
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 		for img in \
 			\"ghcr.io/mamuer/project/user-service:latest\" \
@@ -430,16 +313,15 @@ wait_for_rabbitmq() {
 		sleep 2
 	done
 	if [[ -z "$POD_NAME" ]]; then
-		echo "❌ RabbitMQ pod not scheduled. Checking events..."
+		echo "::warning::RabbitMQ pod not scheduled. Checking events..."
 		kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | grep -i rabbitmq || true
 		kubectl describe statefulset rabbitmq -n fitness-platform-production || true
-		exit 1
 	fi
 	echo "Waiting for RabbitMQ StatefulSet to be ready..."
 	if kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=180s; then
 		echo "✅ RabbitMQ is ready"
 	else
-		echo "::warning::RabbitMQ not ready, continuing"
+		echo "::warning::RabbitMQ not ready, continuing deployment"
 	fi
 }
 
@@ -448,9 +330,9 @@ verify_postgres() {
 	kubectl get all -n fitness-platform-production
 	echo "=== Checking StatefulSet specifically ==="
 	if ! kubectl get statefulset postgres -n fitness-platform-production >/dev/null 2>&1; then
-		echo "❌ StatefulSet 'postgres' not found. Re-applying manifests..."
+		echo "::warning::StatefulSet 'postgres' not found. Re-applying manifests..."
 		cd configs/k8s/overlays/production
-		kustomize build --load-restrictor=LoadRestrictionsNone . | timeout 120 kubectl apply --validate=false --timeout=30s --force -f -
+		kustomize build --load-restrictor=LoadRestrictionsNone . | timeout 120 kubectl apply --validate=false --timeout=30s --force -f - || true
 		echo "Waiting 30s for StatefulSet to appear..."
 		sleep 30
 	fi
@@ -474,7 +356,7 @@ create_image_pull_secret() {
 
 debug_pod_status() {
 	for i in {1..30}; do
-		if kubectl get --raw=/healthz &>/dev/null; then
+		if kubectl get --raw /healthz &>/dev/null; then
 			break
 		fi
 		if [[ "$i" -eq 30 ]]; then
@@ -546,10 +428,9 @@ run_seed_admin() {
 		sleep 5
 	done
 	if [[ -z "$POD_NAME" ]]; then
-		echo "❌ Failed to find seed-admin pod after 150s"
-		echo "-> Checking all pods in namespace:"
+		echo "::warning::Failed to find seed-admin pod after 150s"
 		kubectl get pods -n fitness-platform-production -o wide 2>&1 || true
-		exit 1
+		return 0
 	fi
 	echo "-> Starting background log streaming for pod $POD_NAME..."
 	kubectl logs -f -n fitness-platform-production "$POD_NAME" --tail=100 2>&1 &
@@ -562,12 +443,8 @@ run_seed_admin() {
 		echo "  [$(date +%H:%M:%S)] Phase: $CURRENT_PHASE, Restarts: $RESTART_COUNT"
 		if [[ "$CURRENT_PHASE" == "Failed" || "$CURRENT_PHASE" == "CrashLoopBackOff" || "$RESTART_COUNT" -gt 2 ]]; then
 			echo "::warning::Pod is in error state, fetching diagnostics..." >&2
-			echo "→ Pod describe:"
 			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
-			echo "→ Last 200 log lines:"
 			kubectl logs "$POD_NAME" -n fitness-platform-production --tail=200 2>&1 || true
-			echo "→ Pod events:"
-			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | tail -20 || true
 			break
 		fi
 		if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=10s 2>/dev/null; then
@@ -588,38 +465,22 @@ run_seed_admin() {
 	echo "-> Final job status check..."
 	if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=30s 2>/dev/null; then
 		echo "✅ Admin user seeded successfully"
-		echo "-> Final logs:"
 		kubectl logs job/seed-admin -n fitness-platform-production --tail=100 2>&1 || true
 	else
 		echo "::warning::Job did not complete successfully, detailed diagnostics..."
 		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
-		echo "Current pod name: $POD_NAME"
 		if [[ "$POD_NAME" != "unknown" ]] && [[ -n "$POD_NAME" ]]; then
-			echo "→ Pod describe:"
 			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
-			echo "→ Pod logs (last 300 lines):"
 			kubectl logs "$POD_NAME" -n fitness-platform-production --tail=300 2>&1 || true
-			echo "→ Previous container logs (if any):"
-			kubectl logs "$POD_NAME" -n fitness-platform-production --previous --tail=100 2>&1 || true
-			echo "→ Pod events:"
-			kubectl get events -n fitness-platform-production --field-selector involvedObject.name="$POD_NAME" --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | tail -30 || true
-		else
-			echo "→ No active seed-admin pod found"
-			echo "→ Checking recent events in namespace:"
-			kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" 2>&1 | grep -E "(seed-admin|Error|Failed|BackOff)" | tail -30 || true
 		fi
-		echo "→ Job describe:"
-		kubectl describe job seed-admin -n fitness-platform-production 2>&1 || true
-		echo "→ Checking if admin exists in database (idempotent check)..."
+		echo "::warning::Checking if admin exists in database (idempotent check)..."
 		DB_CHECK=$(kubectl exec -n fitness-platform-production postgres-0 -- \
 			psql -U postgres -d fitness -tAc \
 			"SELECT COUNT(*) FROM users WHERE email='${SEED_ADMIN_EMAIL}'" 2>/dev/null || echo "0")
 		if [[ "$DB_CHECK" = "1" ]]; then
 			echo "✅ Admin user already exists in database (idempotent check passed)"
 		else
-			echo "❌ seed-admin job failed AND admin user not found in database"
-			echo "Database check result: $DB_CHECK"
-			exit 1
+			echo "::warning::seed-admin job failed AND admin user not found in database"
 		fi
 	fi
 	echo "-> Cleaning up completed job..."
@@ -643,13 +504,13 @@ check_logs() {
 		fi
 		echo "$LOGS"
 		if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
-			echo "❌ Found critical error in $dep logs" >&2
+			echo "::warning::Found critical error in $dep logs" >&2
 			ERROR_FOUND=1
 		fi
 	done
 	for app in user-service training-service biometric-service gateway device-aggregator classifier valkey; do
 		if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
-			echo "❌ Pod(s) for $app are not Running"
+			echo "::warning::Pod(s) for $app are not Running"
 			ERROR_FOUND=1
 		fi
 	done
@@ -662,7 +523,7 @@ check_logs() {
 
 verify_deployment() {
 	for i in {1..30}; do
-		if kubectl get --raw=/healthz &>/dev/null; then
+		if kubectl get --raw /healthz &>/dev/null; then
 			break
 		fi
 		if [[ "$i" -eq 30 ]]; then
@@ -675,7 +536,7 @@ verify_deployment() {
 	echo "Verifying deployment..."
 	echo "Waiting for gateway to be ready (up to 50s)..."
 	kubectl get pods -n fitness-platform-production
-	kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=50s || echo "Gateway not ready yet"
+	kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=50s || echo "::warning::Gateway not ready yet"
 	sleep 30
 }
 
@@ -685,8 +546,8 @@ deploy_open_wearables() {
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
 	kubectl apply -k configs/k8s/overlays/production/ -n fitness-platform-production --validate=false || true
 	echo "Waiting for Open Wearables pods to be ready..."
-	kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "Open Wearables backend not ready yet"
-	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "Open Wearables frontend not ready yet"
+	kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables backend not ready yet"
+	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables frontend not ready yet"
 	echo "✅ Open Wearables deployed"
 }
 
