@@ -78,7 +78,7 @@ spec:
       containers:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
-          image: rabbitmq:4.3-management-alpine@sha256:44bf7eb50fe1765885659e49ccfdc775f8e531964d979321aee380a071f49f94
+          image: rabbitmq:4-management-alpine
           imagePullPolicy: Always
           ports:
             - containerPort: 5671
