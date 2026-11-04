@@ -408,6 +408,16 @@ fi
 cleanup_smoke
 trap - EXIT
 
+echo '-> Cleaning up stale non-ready pods in system namespaces...'
+for ns in kube-system local-path-storage; do
+	sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
+		awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" && $1 !~ /^(lp-smoke-|ci-lp-smoke-|helper-pod-|create-pvc-|delete-pvc-)/ {print $1}' |
+		while read -r pod; do
+			sudo k3s kubectl delete pod "$pod" -n "$ns" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+		done
+done
+sleep 15
+
 for ns in kube-system local-path-storage; do
 	bad=$(
 		sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |

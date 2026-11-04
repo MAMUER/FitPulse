@@ -15,8 +15,9 @@ spec:
     - "rabbitmq"
     - "rabbitmq.fitness-platform-production.svc.cluster.local"
     - "localhost"
-  keySize: 2048
-  keyAlgorithm: rsa
+  privateKey:
+    algorithm: RSA
+    size: 2048
   usages:
     - server auth
     - client auth

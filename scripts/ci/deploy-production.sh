@@ -57,7 +57,7 @@ create_secrets() {
 		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
 		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
 		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
-		
+
 		kubectl create secret generic app-secrets -n fitness-platform-production \
 			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
 			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
@@ -106,7 +106,7 @@ create_secrets() {
 		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
 		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
 		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
-		
+
 		kubectl create secret generic app-secrets -n fitness-platform-production \
 			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
 			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
@@ -162,7 +162,7 @@ create_secrets() {
 		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
 		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
 		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
-		
+
 		kubectl create secret generic app-secrets -n fitness-platform-production \
 			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
 			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
