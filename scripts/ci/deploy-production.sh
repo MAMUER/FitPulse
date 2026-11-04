@@ -147,6 +147,61 @@ create_secrets() {
 	else
 		echo "::warning::db/migrations/V1__full_schema.sql not found"
 	fi
+	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
+	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f - || true
+	if ! kubectl get secret app-secrets -n fitness-platform-production >/dev/null 2>&1; then
+		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
+		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
+		POSTGRES_USER_VAL="${POSTGRES_USER:-fitpulse}"
+		POSTGRES_PASS_VAL="${POSTGRES_PASSWORD:-fitpulse-$(date +%s)}"
+		POSTGRES_DB_VAL="${POSTGRES_DB:-fitpulse}"
+		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
+		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
+		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
+		
+		kubectl create secret generic app-secrets -n fitness-platform-production \
+			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
+			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
+			--from-literal=POSTGRES_USER="$POSTGRES_USER_VAL" \
+			--from-literal=POSTGRES_PASSWORD="$POSTGRES_PASS_VAL" \
+			--from-literal=POSTGRES_DB="$POSTGRES_DB_VAL" \
+			--from-literal=RABBITMQ_URL="$RABBITMQ_URL_VAL" \
+			--from-literal=VALKEY_PASSWORD="$VALKEY_PASS_VAL" \
+			--from-literal=APP_BASE_URL="$APP_BASE_URL_VAL" \
+			--from-literal=SMTP_HOST="${SMTP_HOST:-smtp.example.com}" \
+			--from-literal=SMTP_PORT="${SMTP_PORT:-587}" \
+			--from-literal=SMTP_USER="${SMTP_USER:-}" \
+			--from-literal=SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
+			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fittpulse.duckdns.org}" \
+			--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
+			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
+			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
+			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
+			--dry-run=client -o yaml | kubectl apply -f -
+		echo "✅ app-secrets created (fallback)"
+	else
+		echo "✅ app-secrets already exists"
+	fi
+
+	echo "Creating per-service DB credentials (fallback)..."
+	for svc in user-service training-service biometric-service data-processor; do
+		sec="${svc}-db-credentials"
+		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
+			kubectl create secret generic "$sec" -n fitness-platform-production \
+				--from-literal=username="${svc//-/_}" \
+				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
+				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
+		fi
+	done
+
+	echo "Creating db-migrations ConfigMap..."
+	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
+		kubectl create configmap db-migrations -n fitness-platform-production \
+			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
+			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
+	else
+		echo "::warning::db/migrations/V1__full_schema.sql not found"
+	fi
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
 
@@ -307,6 +362,12 @@ apply_manifests() {
 	}
 	echo "Deleting immutable Jobs to allow updates..."
 	kubectl delete job migrate-db seed-admin -n fitness-platform-production --ignore-not-found=true --timeout=60s --wait=false || true
+	echo "Cleaning up stuck/broken workloads in target namespaces..."
+	for ns in fitness-platform-production monitoring elk vault minio ingress-nginx argocd external-secrets; do
+		kubectl delete deployment,statefulset,daemonset,replicaset,job,cronjob -n "$ns" --all --ignore-not-found=true --wait=false 2>/dev/null || true
+		kubectl delete pod -n "$ns" --all --ignore-not-found=true --force --grace-period=0 --wait=false 2>/dev/null || true
+	done
+	sleep 20
 	echo "Deleting existing PVCs and PVs to force recreation with fixed provisioner..."
 	kubectl delete pvc -n fitness-platform-production --all --ignore-not-found=true --timeout=60s --wait=false || true
 	kubectl get pv -o json | jq -r '.items[] | select(.spec.claimRef.namespace == "fitness-platform-production") | .metadata.name' | xargs -r kubectl delete pv --wait=false || true
