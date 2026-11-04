@@ -54,7 +54,7 @@ spec:
       containers:
         - name: migrate
           # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
-          image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          image: ghcr.io/mamuer/project/postgres-pgsodium:pg18
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

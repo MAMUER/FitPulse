@@ -207,6 +207,8 @@ create_secrets() {
 	else
 		echo "::warning::db/migrations/V1__full_schema.sql not found"
 	fi
+	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
 	kubectl apply -f configs/k8s/base/secrets/rabbitmq-secret.yaml
 	echo "✅ rabbitmq-secret created"
 
