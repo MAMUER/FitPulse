@@ -85,14 +85,11 @@ func (s *InMemoryDeltaStore) DeltaSize() int {
 	return s.size
 }
 
-// PersonalDeltaClassifier обёртка над ONNXClassifier с поддержкой персональной дельты.
-// Инференс: score = (W + Δ)·X
 type PersonalDeltaClassifier struct {
 	classifier *ONNXClassifier
 	store      DeltaStore
 }
 
-// NewPersonalDeltaClassifier создаёт новый классификатор с поддержкой дельт.
 func NewPersonalDeltaClassifier(classifier *ONNXClassifier, store DeltaStore) *PersonalDeltaClassifier {
 	return &PersonalDeltaClassifier{
 		classifier: classifier,
@@ -100,7 +97,6 @@ func NewPersonalDeltaClassifier(classifier *ONNXClassifier, store DeltaStore) *P
 	}
 }
 
-// PredictWithDelta выполняет инференс с учётом персональной дельты пользователя.
 func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, userID string) (int, float64, error) {
 	if p.classifier == nil {
 		return 0, 0, errors.New("classifier not initialized")
@@ -137,7 +133,6 @@ func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, 
 	return p.classifier.Labels[best], confidence, nil
 }
 
-// UpdateDelta обновляет персональную дельту: Δ += lr * (target - prediction) * X
 func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, targetValue float64, features []float64, learningRate float64) ([]float64, error) {
 	if p.classifier == nil {
 		return nil, errors.New("classifier not initialized")
@@ -188,7 +183,6 @@ func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, tar
 	return delta, nil
 }
 
-// DeltaNorm возвращает норму текущей дельты пользователя.
 func (p *PersonalDeltaClassifier) DeltaNorm(userID string) float64 {
 	delta, _ := p.store.GetDelta(userID)
 	var norm float64
@@ -198,17 +192,14 @@ func (p *PersonalDeltaClassifier) DeltaNorm(userID string) float64 {
 	return math.Sqrt(norm)
 }
 
-// ResetUserDelta сбрасывает дельту пользователя.
 func (p *PersonalDeltaClassifier) ResetUserDelta(userID string) {
 	p.store.ResetDelta(userID)
 }
 
-// DeltaStoreSize возвращает размер вектора дельты.
 func (p *PersonalDeltaClassifier) DeltaStoreSize() int {
 	return p.store.DeltaSize()
 }
 
-// classifyWithDelta используется в classifyHandler для инференса с дельтой.
 func (s *classifierServer) classifyWithDelta(features map[string]float64, userID string) (int, float64, error) {
 	if s.personalClassifier != nil {
 		return s.personalClassifier.PredictWithDelta(features, userID)

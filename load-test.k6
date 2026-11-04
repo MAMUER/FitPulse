@@ -2,7 +2,6 @@ import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Trend, Counter, Rate } from 'k6/metrics';
 
-// Пользовательские метрики
 const loginDuration = new Trend('login_duration');
 const mlChatDuration = new Trend('ml_chat_duration');
 const healthCheckDuration = new Trend('health_check_duration');
