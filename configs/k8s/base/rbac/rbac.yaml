@@ -143,13 +143,13 @@ kind: RoleBinding
 metadata:
   name: device-aggregator-rolebinding
   namespace: fitness-platform-production
-  subjects:
-    - kind: ServiceAccount
-      name: device-aggregator-sa
-  roleRef:
-    kind: Role
-    name: device-aggregator-role
-    apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: device-aggregator-sa
+roleRef:
+  kind: Role
+  name: device-aggregator-role
+  apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
