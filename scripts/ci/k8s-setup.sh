@@ -63,7 +63,6 @@ EOF
 	echo 'ingress-nginx step completed (non-fatal)'
 }
 
-
 cleanup_traefik() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail

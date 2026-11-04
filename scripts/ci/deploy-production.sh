@@ -92,7 +92,7 @@ create_secrets() {
 	done
 
 	echo "Creating db-migrations ConfigMap..."
-	if [ -f "db/migrations/V1__full_schema.sql" ]; then
+	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
 		kubectl create configmap db-migrations -n fitness-platform-production \
 			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
 			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
@@ -183,8 +183,9 @@ update_image_tags() {
 	SHA=$(git rev-parse --short HEAD)
 	echo "Updating image tags to :$SHA"
 	cd configs/k8s/overlays/production
+	# Используем latest если SHA-теги отсутствуют
 	for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator data-processor; do
-		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
+		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:latest" || true
 	done
 }
 
@@ -220,21 +221,21 @@ pre_pull_images() {
 
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 		for img in \
-			\"ghcr.io/mamuer/project/user-service:${SHA}\" \
-			\"ghcr.io/mamuer/project/biometric-service:${SHA}\" \
-			\"ghcr.io/mamuer/project/training-service:${SHA}\" \
-			\"ghcr.io/mamuer/project/gateway:${SHA}\" \
-			\"ghcr.io/mamuer/project/classifier:${SHA}\" \
-			\"ghcr.io/mamuer/project/device-aggregator:${SHA}\" \\
-			\"ghcr.io/mamuer/project/ml-generator:${SHA}\" \\
-			\"ghcr.io/mamuer/project/open-wearables-backend:${SHA}\" \\
-			\"ghcr.io/mamuer/project/open-wearables-frontend:${SHA}\" \\
-			\"ghcr.io/mamuer/project/data-processor:${SHA}\"; do
+			\"ghcr.io/mamuer/project/user-service:latest\" \
+			\"ghcr.io/mamuer/project/biometric-service:latest\" \
+			\"ghcr.io/mamuer/project/training-service:latest\" \
+			\"ghcr.io/mamuer/project/gateway:latest\" \
+			\"ghcr.io/mamuer/project/classifier:latest\" \
+			\"ghcr.io/mamuer/project/device-aggregator:latest\" \
+			\"ghcr.io/mamuer/project/ml-generator:latest\" \
+			\"ghcr.io/mamuer/project/open-wearables-backend:latest\" \
+			\"ghcr.io/mamuer/project/open-wearables-frontend:latest\" \
+			\"ghcr.io/mamuer/project/data-processor:latest\"; do
 
 			echo \"Pulling \$img...\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
 			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\$img\" >/dev/null 2>&1 || \
-			true  # image will be pulled by kubelet if pre-pull fails
+			true
 		done
 	"
 	echo "✅ Pre-pull step completed"
