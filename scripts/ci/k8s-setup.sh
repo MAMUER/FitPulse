@@ -35,6 +35,7 @@ echo '-> Creating Let'\''s Encrypt ClusterIssuers...'
 sudo k3s kubectl apply -f /tmp/cert-manager/cluster-issuer-staging.yaml
 sudo k3s kubectl apply -f /tmp/cert-manager/cluster-issuer.yaml
 sudo k3s kubectl apply -f /tmp/cert-manager/grpc-selfsigned-ca.yaml
+sudo k3s kubectl apply -f /tmp/cert-manager/rabbitmq-cert.yaml
 echo '✅ ClusterIssuers created'
 echo '✅ Certificate configuration complete'
 EOF

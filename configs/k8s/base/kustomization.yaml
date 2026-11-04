@@ -21,4 +21,3 @@ resources:
   - serviceaccount-open-wearables.yaml
   - serviceaccount.yaml
   - services
-  - vault

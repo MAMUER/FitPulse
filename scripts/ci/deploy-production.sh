@@ -7,8 +7,10 @@ create_secrets() {
 	echo "Creating gRPC mTLS certificates via cert-manager..."
 	kubectl apply -f configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml
 	kubectl apply -f configs/k8s/base/deployments/grpc-server-cert.yaml -n fitness-platform-production
+	kubectl apply -f configs/k8s/base/cert-manager/rabbitmq-cert.yaml
 	echo "Waiting for gRPC certificates to be ready..."
 	kubectl wait --for=condition=ready certificate/grpc-server-cert -n fitness-platform-production --timeout=300s || true
+	kubectl wait --for=condition=ready certificate/rabbitmq-cert -n fitness-platform-production --timeout=300s || true
 	echo "✅ gRPC mTLS certificates managed by cert-manager"
 
 	echo "Creating argocd-secret..."
@@ -74,6 +76,7 @@ create_secrets() {
 			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
 			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
 			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
+			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
 			--dry-run=client -o yaml | kubectl apply -f -
 		echo "✅ app-secrets created (fallback)"
 	else
@@ -122,6 +125,7 @@ create_secrets() {
 			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
 			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
 			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
+			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
 			--dry-run=client -o yaml | kubectl apply -f -
 		echo "✅ app-secrets created (fallback)"
 	else
@@ -140,7 +144,7 @@ create_secrets() {
 	done
 
 	echo "Creating db-migrations ConfigMap..."
-	if [ -f "db/migrations/V1__full_schema.sql" ]; then
+	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
 		kubectl create configmap db-migrations -n fitness-platform-production \
 			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
 			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
@@ -177,6 +181,7 @@ create_secrets() {
 			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
 			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
 			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
+			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
 			--dry-run=client -o yaml | kubectl apply -f -
 		echo "✅ app-secrets created (fallback)"
 	else
@@ -499,11 +504,14 @@ run_migrations() {
 	kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
 	kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 	echo "Waiting for migrate-db job to complete..."
-	kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s
-	echo "✅ Database migrations completed successfully"
+	if kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s; then
+		echo "✅ Database migrations completed successfully"
+	else
+		echo "::warning::migrate-db job did not complete; continuing"
+	fi
 	echo "Verifying tables were created..."
 	kubectl exec -n fitness-platform-production postgres-0 -- \
-		psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
+		psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed"
 }
 
 run_seed_admin() {

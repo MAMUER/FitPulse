@@ -134,6 +134,7 @@ spec:
                 secretKeyRef:
                   name: captcha-secrets
                   key: CLOUDFLARE_TURNSTILE_SECRET_KEY
+                  optional: true
             - name: HCAPTCHA_SITE_KEY
               valueFrom:
                 configMapKeyRef:
@@ -144,6 +145,7 @@ spec:
                 secretKeyRef:
                   name: captcha-secrets
                   key: HCAPTCHA_SECRET_KEY
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

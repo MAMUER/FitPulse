@@ -4,14 +4,9 @@ kind: Kustomization
 resources:
   - configmap.yaml
   - deployment.yaml
-  - externalsecret-biometric-service.yaml
-  - externalsecret-data-processor.yaml
-  - externalsecret-training-service.yaml
-  - externalsecret-user-service.yaml
   - init-job.yaml
   - namespace.yaml
   - policies.yaml
-  - secretstore.yaml
   - service.yaml
   - serviceaccount-biometric-service.yaml
   - serviceaccount-data-processor.yaml
