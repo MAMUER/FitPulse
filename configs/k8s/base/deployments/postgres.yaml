@@ -121,7 +121,7 @@ spec:
               ephemeral-storage: "256Mi"
             limits:
               cpu: "2000m"
-              memory: "4Gi"
+              memory: "2Gi"
               ephemeral-storage: "1Gi"
           livenessProbe:
             exec:

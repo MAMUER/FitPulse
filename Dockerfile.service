@@ -36,6 +36,7 @@ FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943
 ARG APP_UID=1001
 ARG APP_GID=1001
 ARG SERVICE
+ENV SERVICE=${SERVICE}
 ARG PORTS
 
 # hadolint ignore=DL3018
@@ -54,4 +55,4 @@ EXPOSE ${PORTS}
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["sh", "-c", "ps | grep -E '${SERVICE}' | grep -v grep || exit 1"]
 
-ENTRYPOINT ["./${SERVICE}"]
+ENTRYPOINT ["sh", "-c", "./$SERVICE"]

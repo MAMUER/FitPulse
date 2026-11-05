@@ -181,7 +181,6 @@ ensure_service_account() {
 }
 
 update_image_tags() {
-	SHA=$(git rev-parse --short HEAD)
 	echo "Updating image tags to :latest"
 	cd configs/k8s/overlays/production
 	for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator data-processor; do
