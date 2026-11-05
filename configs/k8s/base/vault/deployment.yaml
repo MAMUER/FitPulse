@@ -54,7 +54,7 @@ spec:
       containers:
         - name: vault
           image: hashicorp/vault:1.15.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true
             runAsUser: 100

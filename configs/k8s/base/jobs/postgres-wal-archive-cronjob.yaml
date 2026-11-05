@@ -29,7 +29,7 @@ spec:
           containers:
             - name: wal-archive
               image: postgres:18-alpine
-              imagePullPolicy: Always
+              imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
                 - -c

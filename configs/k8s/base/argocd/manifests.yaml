@@ -98,7 +98,7 @@ spec:
       containers:
         - name: argocd-application-controller
           image: argoproj/argocd:v2.11.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command:
             - /argocd-application-controller
           env:
@@ -153,7 +153,7 @@ spec:
       containers:
         - name: argocd-repo-server
           image: argoproj/argocd:v2.11.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command:
             - /argocd-repo-server
             - --redis
@@ -207,7 +207,7 @@ spec:
       containers:
         - name: argocd-server
           image: argoproj/argocd:v2.11.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command:
             - /argocd-server
             - --staticassets
@@ -284,7 +284,7 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379
           securityContext:

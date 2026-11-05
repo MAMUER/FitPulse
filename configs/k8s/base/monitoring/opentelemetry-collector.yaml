@@ -28,7 +28,7 @@ spec:
       containers:
         - name: otel-collector
           image: otel/opentelemetry-collector:0.91.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4317
               name: otlp-grpc

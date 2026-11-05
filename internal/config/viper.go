@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -24,10 +25,12 @@ func LoadViper(appName string) (*viper.Viper, error) {
 	if err := v.ReadInConfig(); err != nil {
 		var notFoundErr viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFoundErr) {
-			// If a config file is found but has parse errors (e.g., control
-			// characters), log a warning and continue with defaults instead of
-			// crashing. This prevents startup failures from stale/malformed
-			// config files left on the filesystem.
+			// Tolerate control-character parse errors (e.g., from stale/malformed
+			// config files left on the filesystem) by logging a warning and
+			// continuing with defaults instead of crashing.
+			if !strings.Contains(err.Error(), "control characters") {
+				return nil, fmt.Errorf("read config: %w", err)
+			}
 			fmt.Fprintf(os.Stderr, "warning: config file parse error: %v (continuing with defaults)\n", err)
 		}
 	}

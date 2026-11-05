@@ -51,6 +51,7 @@ install_golangci_lint() {
 
 install_python_deps() {
 	python -m pip install --only-binary :all: --upgrade pip==25.0
+	python -m pip install --only-binary :all: coverage numpy torch
 }
 
 run_coverage() {

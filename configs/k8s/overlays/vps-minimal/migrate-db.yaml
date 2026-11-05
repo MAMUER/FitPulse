@@ -55,7 +55,7 @@ spec:
         - name: migrate
           # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
           image: flyway/flyway:11
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

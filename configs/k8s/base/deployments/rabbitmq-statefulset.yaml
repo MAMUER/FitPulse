@@ -79,7 +79,7 @@ spec:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
           image: rabbitmq:4-management-alpine
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5671
               name: amqps
