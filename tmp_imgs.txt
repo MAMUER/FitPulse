@@ -1,7 +1,0 @@
-134: kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$SHA"
-170: \"ghcr.io/mamuer/project/user-service:${SHA}\" \
-171: \"ghcr.io/mamuer/project/biometric-service:${SHA}\" \
-172: \"ghcr.io/mamuer/project/training-service:${SHA}\" \
-173: \"ghcr.io/mamuer/project/gateway:${SHA}\" \
-174: \"ghcr.io/mamuer/project/classifier:${SHA}\" \
-175: \"ghcr.io/mamuer/project/device-aggregator:${SHA}\"; do
