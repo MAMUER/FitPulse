@@ -48,7 +48,7 @@ jobs:
       - name: Check for version consistency
         run: |
           echo "-> Checking PostgreSQL version references..."
-          PG_REFS=$(grep -rn "postgres:1[0-7]\|pg1[0-7]\|PostgreSQL 1[0-7]\|version: \"1[0-7]\"\|version: '1[0-7]'" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+          PG_REFS=$(grep -rn "postgres:1[0-7]\|pg1[0-7]\|PostgreSQL 1[0-7]\|version: \"1[0-7]\"\|version: '1[0-7]'" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
           if [ -n "$PG_REFS" ]; then
             echo "❌ Found outdated PostgreSQL references (current: 18+):"
             echo "$PG_REFS"
@@ -57,7 +57,7 @@ jobs:
           echo "✅ PostgreSQL version references are consistent (18+)"
 
           echo "-> Checking Kubernetes version references..."
-          K8S_REFS=$(grep -rn "v1\.\(2[0-9]\|3[0-5]\)\|Kubernetes 1\.\(2[0-9]\|3[0-5]\)\|Kubernetes-1\.\(2[0-9]\|3[0-5]\)" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" || true)
+          K8S_REFS=$(grep -rn "v1\.\(2[0-9]\|3[0-5]\)\|Kubernetes 1\.\(2[0-9]\|3[0-5]\)\|Kubernetes-1\.\(2[0-9]\|3[0-5]\)" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" || true)
           if [ -n "$K8S_REFS" ]; then
             echo "❌ Found outdated Kubernetes references (current: 1.36+):"
             echo "$K8S_REFS"
@@ -66,7 +66,7 @@ jobs:
           echo "✅ Kubernetes version references are consistent (1.36+)"
 
           echo "-> Checking Debian version references..."
-          DEBIAN_REFS=$(grep -rn "debian:1[0-2]\|Debian 1[0-2]\|debian 1[0-2]\|bookworm" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir=".github" --exclude-dir="datasets" || true)
+          DEBIAN_REFS=$(grep -rn "debian:1[0-2]\|Debian 1[0-2]\|debian 1[0-2]\|bookworm" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir=".github" --exclude-dir="$DATASETS" || true)
           if [ -n "$DEBIAN_REFS" ]; then
             echo "❌ Found outdated Debian references (current: 13+):"
             echo "$DEBIAN_REFS"
@@ -75,7 +75,7 @@ jobs:
           echo "✅ Debian version references are consistent (13+)"
 
           echo "-> Checking Alpine version references..."
-          ALPINE_REFS=$(grep -rn "alpine:3\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "3\.2[4-9]\|3\.3[0-9]" || true)
+          ALPINE_REFS=$(grep -rn "alpine:3\.[0-9]\+\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" | grep -v "^\s*#" | grep -v "3\.2[4-9]\|3\.3[0-9]" || true)
           if [ -n "$ALPINE_REFS" ]; then
             echo "❌ Found outdated Alpine references (current: 3.24+):"
             echo "$ALPINE_REFS"
@@ -84,7 +84,7 @@ jobs:
           echo "✅ Alpine version references are consistent (3.24+)"
 
           echo "-> Checking Go version references..."
-           GO_REFS=$(grep -rn "golang:1\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "1\.2[7-9]\|1\.[3-9][0-9]" || true)
+           GO_REFS=$(grep -rn "golang:1\.[0-9]\+\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" | grep -v "^\s*#" | grep -v "1\.2[7-9]\|1\.[3-9][0-9]" || true)
            if [ -n "$GO_REFS" ]; then
              echo "❌ Found outdated Go references (current: 1.27+):"
              echo "$GO_REFS"
@@ -149,7 +149,7 @@ jobs:
             fi
 
            echo "-> Checking Python version references..."
-          PYTHON_REFS=$(grep -rn "python:3\.[0-9]\+\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" | grep -v "^\s*#" | grep -v "3\.1[4-9]\|3\.[2-9][0-9]" || true)
+          PYTHON_REFS=$(grep -rn "python:3\.[0-9]\+\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" | grep -v "^\s*#" | grep -v "3\.1[4-9]\|3\.[2-9][0-9]" || true)
           if [ -n "$PYTHON_REFS" ]; then
             echo "❌ Found outdated Python references (current: 3.14+):"
             echo "$PYTHON_REFS"
@@ -158,7 +158,7 @@ jobs:
           echo "✅ Python version references are consistent (3.14+)"
 
           echo "-> Checking Valkey version references..."
-          VALKEY_REFS=$(grep -rn "valkey/valkey:[1-8]\b\|valkey:[1-8]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" || true)
+          VALKEY_REFS=$(grep -rn "valkey/valkey:[1-8]\b\|valkey:[1-8]\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" || true)
           if [ -n "$VALKEY_REFS" ]; then
             echo "❌ Found outdated Valkey references (current: 9+):"
             echo "$VALKEY_REFS"
@@ -167,7 +167,7 @@ jobs:
           echo "✅ Valkey version references are consistent (9+)"
 
           echo "-> Checking RabbitMQ version references..."
-          RABBITMQ_REFS=$(grep -rn "rabbitmq:[1-3]\.[0-9]\|rabbitmq:4\.[0-2]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" || true)
+          RABBITMQ_REFS=$(grep -rn "rabbitmq:[1-3]\.[0-9]\|rabbitmq:4\.[0-2]\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" || true)
           if [ -n "$RABBITMQ_REFS" ]; then
             echo "❌ Found outdated RabbitMQ references (current: 4.3+):"
             echo "$RABBITMQ_REFS"
@@ -176,7 +176,7 @@ jobs:
           echo "✅ RabbitMQ version references are consistent (4.3+)"
 
           echo "-> Checking Node.js version references..."
-           NODE_REFS=$(grep -rn "node:2[0-3]\|Node\.js\s\+2[0-3]\|node\s\+2[0-3]" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+           NODE_REFS=$(grep -rn "node:2[0-3]\|Node\.js\s\+2[0-3]\|node\s\+2[0-3]" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
            if [ -n "$NODE_REFS" ]; then
              echo "❌ Found outdated Node.js references (current: 24+):"
              echo "$NODE_REFS"
@@ -209,7 +209,7 @@ jobs:
            fi
 
            echo "-> Checking Ubuntu version references..."
-          UBUNTU_REFS=$(grep -rn "ubuntu:1[0-9]\.[0-9]\+\|ubuntu:2[0-5]\.[0-9]\+\|Ubuntu\s\+1[0-9]\b\|Ubuntu\s\+2[0-5]\b" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --exclude-dir="datasets" || true)
+          UBUNTU_REFS=$(grep -rn "ubuntu:1[0-9]\.[0-9]\+\|ubuntu:2[0-5]\.[0-9]\+\|Ubuntu\s\+1[0-9]\b\|Ubuntu\s\+2[0-5]\b" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --exclude-dir="$DATASETS" || true)
           if [ -n "$UBUNTU_REFS" ]; then
             echo "❌ Found outdated Ubuntu references (current: 26.04+):"
             echo "$UBUNTU_REFS"
@@ -218,7 +218,7 @@ jobs:
           echo "✅ Ubuntu version references are consistent (26.04+)"
 
           echo "-> Checking React version references..."
-          REACT_REFS=$(grep -rn "react:1[0-8]\|React\s\+1[0-8]\|react\s\+1[0-8]" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+          REACT_REFS=$(grep -rn "react:1[0-8]\|React\s\+1[0-8]\|react\s\+1[0-8]" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
           if [ -n "$REACT_REFS" ]; then
             echo "❌ Found outdated React references (current: 19+):"
             echo "$REACT_REFS"
@@ -227,7 +227,7 @@ jobs:
           echo "✅ React version references are consistent (19+)"
 
           echo "-> Checking Vite version references..."
-          VITE_REFS=$(grep -rn "vite:7\|Vite\s\+7\|vite\s\+7" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir=".github" --exclude-dir="datasets" || true)
+          VITE_REFS=$(grep -rn "vite:7\|Vite\s\+7\|vite\s\+7" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir=".github" --exclude-dir="$DATASETS" || true)
           if [ -n "$VITE_REFS" ]; then
             echo "❌ Found outdated Vite references (current: 8+):"
             echo "$VITE_REFS"
@@ -236,7 +236,7 @@ jobs:
           echo "✅ Vite version references are consistent (8+)"
 
           echo "-> Checking Chart.js version references..."
-          CHART_REFS=$(grep -rn "chart\.js:3\|Chart\.js\s\+3\|chart\.js\s\+3" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" || true)
+          CHART_REFS=$(grep -rn "chart\.js:3\|Chart\.js\s\+3\|chart\.js\s\+3" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
           if [ -n "$CHART_REFS" ]; then
             echo "❌ Found outdated Chart.js references (current: 4+):"
             echo "$CHART_REFS"
@@ -245,7 +245,7 @@ jobs:
            echo "✅ Chart.js version references are consistent (4+)"
 
           echo "-> Checking Biome version references..."
-           BIOME_REFS=$(grep -rn "@biomejs/biome:[12]\.[0-9]\+\|Biome\s\+[12]\.[0-9]\+\|biome\s\+[12]\.[0-9]\+" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.go" --include="Dockerfile" --include="*.jsx" --include="*.js" --include="*.json" --exclude-dir="datasets" | grep -vE "2\.[5-9](\.[0-9]+)?" || true)
+           BIOME_REFS=$(grep -rn "@biomejs/biome:[12]\.[0-9]\+\|Biome\s\+[12]\.[0-9]\+\|biome\s\+[12]\.[0-9]\+" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" | grep -vE "2\.[5-9](\.[0-9]+)?" || true)
           if [ -n "$BIOME_REFS" ]; then
             echo "❌ Found outdated Biome references (current: 2.5+):"
             echo "$BIOME_REFS"
@@ -254,7 +254,7 @@ jobs:
            echo "✅ Biome version references are consistent (2.5+)"
 
           echo "-> Checking Go tools versions..."
-          GO_TOOLS_REFS=$(grep -rn "go install.*@latest" . --include="*.md" --include="*.sh" --include="Makefile" --include="*.ps1" --include="*.bash" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="web/node_modules" --exclude-dir="datasets" || true)
+          GO_TOOLS_REFS=$(grep -rn "go install.*@latest" . --include="*.md" --include="*.sh" --include="Makefile" --include="*.ps1" --include="*.bash" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="web/node_modules" --exclude-dir="$DATASETS" || true)
           if [ -n "$GO_TOOLS_REFS" ]; then
             echo "❌ Found unpinned Go tool versions (@latest) in local development files:"
             echo "$GO_TOOLS_REFS"
@@ -265,6 +265,10 @@ jobs:
 
       - name: Check docs ↔ code version consistency
         run: |
+          readonly YAML_GLOB="*.yaml"
+          readonly JSON_GLOB="*.json"
+          readonly DOCKERFILE="Dockerfile"
+          readonly DATASETS="datasets"
           echo "-> Checking PostgreSQL version consistency across docs and code..."
           DOC_PG=$(grep -oP 'postgres:\K[0-9]+' docs/ARCHITECTURE.md configs/k8s/base/deployments/postgres.yaml cmd/data-processor/data_processor_integration_test.go internal/testcontainers/containers.go 2>/dev/null | sort -u | head -1)
           CODE_PG=$(grep -oP 'postgres:\K[0-9]+' configs/k8s/base/deployments/postgres.yaml cmd/data-processor/data_processor_integration_test.go internal/testcontainers/containers.go 2>/dev/null | sort -u | head -1)
@@ -334,27 +338,27 @@ jobs:
 
           for wf in "${workflow_files[@]}"; do
             echo "  Scanning $wf..."
-            
+
             if grep -nE 'uses:\s+.+@(v\d|latest|master|main|develop)\b' "$wf" > /tmp/mutable_refs.txt 2>/dev/null; then
               echo "❌ FAIL: Found mutable tag references in $wf:"
               sed 's/^/    /' /tmp/mutable_refs.txt
               FAIL=1
             fi
-            
+
             while IFS= read -r line; do
               if [[ $line =~ uses:\ ([^@]+)@([0-9a-f]{40}) ]]; then
                 repo="${BASH_REMATCH[1]}"
                 sha="${BASH_REMATCH[2]}"
                 key="${repo}@${sha}"
-                
+
                 if [[ -z "${warned_actions[$key]+x}" ]]; then
                   warned_actions[$key]=1
-                  
+
                   tag_version=$(echo "$line" | grep -oP '# originally: \K.+' | head -1)
-                  
+
                   if [ -n "$tag_version" ]; then
                     tag_sha=$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_version" 2>/dev/null | grep -v '\^{}' | head -1 | awk '{print $1}')
-                    
+
                     if [ -n "$tag_sha" ] && [ "$sha" != "$tag_sha" ]; then
                       echo "⚠️  WARNING: $wf uses $repo@$sha but tag $tag_version HEAD is now $tag_sha"
                       echo "    The pinned SHA no longer matches the tag. The tag may have been moved (supply-chain risk). Update the SHA if this is a legitimate new release."

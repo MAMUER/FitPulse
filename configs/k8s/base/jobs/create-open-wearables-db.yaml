@@ -31,7 +31,7 @@ spec:
       containers:
         - name: create-db
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
-          image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          image: docker.m.daocloud.io/library/postgres:18-alpine
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

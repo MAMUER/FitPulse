@@ -27,28 +27,28 @@ spec:
             - -c
             - |
               set -euo pipefail
-              
+
               ES_URL="http://elasticsearch:9200"
               ELASTIC_PASSWORD="$${ELASTIC_PASSWORD}"
-              
+
               echo "Waiting for Elasticsearch to be ready..."
               until curl -s -u "elastic:$${ELASTIC_PASSWORD}" "$${ES_URL}/_cluster/health" | grep -E '"status":"(green|yellow)"' >/dev/null 2>&1; do
                 echo "Waiting for Elasticsearch..."
                 sleep 5
               done
-              
+
               echo "Applying ILM policy..."
               curl -X PUT "$${ES_URL}/_ilm/policy/fitpulse-logs-policy" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d @/tmp/ilm-policy.json
-              
+
               echo "Applying index template..."
               curl -X PUT "$${ES_URL}/_index_template/fitpulse-logs-template" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d @/tmp/index-template.json
-              
+
               echo "Creating roles..."
               curl -X POST "$${ES_URL}/_security/role/platform-team" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
@@ -61,7 +61,7 @@ spec:
                     }
                   ]
                 }'
-              
+
               curl -X POST "$${ES_URL}/_security/role/auditor" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
@@ -73,7 +73,7 @@ spec:
                     }
                   ]
                 }'
-              
+
               echo "Creating users..."
               curl -X POST "$${ES_URL}/_security/user/platform-team" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
@@ -83,7 +83,7 @@ spec:
                   "roles": ["platform-team"],
                   "full_name": "Platform Team"
                 }'
-              
+
               curl -X POST "$${ES_URL}/_security/user/auditor" \
                 -u "elastic:$${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
@@ -92,7 +92,7 @@ spec:
                   "roles": ["auditor"],
                   "full_name": "Auditor"
                 }'
-              
+
               echo "Elasticsearch initialization completed successfully"
           env:
             - name: ELASTIC_PASSWORD

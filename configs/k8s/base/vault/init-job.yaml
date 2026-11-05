@@ -26,14 +26,14 @@ spec:
       serviceAccountName: vault
       containers:
         - name: vault-init
-          image: hashicorp/vault:1.15.0
+          image: docker.m.daocloud.io/hashicorp/vault:1.15.0
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -ec
             - |
               set -e
-              
+
               echo "Waiting for Vault to be ready..."
               for i in $(seq 1 60); do
                 if vault status > /dev/null 2>&1; then
@@ -46,7 +46,7 @@ spec:
                 fi
                 sleep 2
               done
-              
+
               if [ -f /vault/keys/unseal.key ]; then
                 echo "Vault already initialized, unsealing..."
                 VAULT_TOKEN=$(cat /vault/keys/root.token)
@@ -55,36 +55,36 @@ spec:
               else
                 echo "Initializing Vault..."
                 vault operator init -key-shares=1 -key-threshold=1 -format=json > /vault/keys/init.json
-                
+
                 UNSEAL_KEY=$(cat /vault/keys/init.json | grep -o '"unseal_keys_b64":\["[^"]*"' | cut -d'"' -f4)
                 ROOT_TOKEN=$(cat /vault/keys/init.json | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
-                
+
                 echo "$UNSEAL_KEY" > /vault/keys/unseal.key
                 echo "$ROOT_TOKEN" > /vault/keys/root.token
-                
+
                 export VAULT_TOKEN="$ROOT_TOKEN"
-                
+
                 echo "Unsealing Vault..."
                 vault unseal "$UNSEAL_KEY"
-                
+
                 echo "Enabling Kubernetes auth..."
                 vault auth enable kubernetes
-                
+
                 echo "Configuring Kubernetes auth..."
                 vault write auth/kubernetes/config \
                   kubernetes_host="https://kubernetes.default.svc.cluster.local:443" \
                   token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
                   kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-                
+
                 echo "Enabling PostgreSQL secrets engine..."
                 vault secrets enable database
-                
+
                 echo "Configuring PostgreSQL connection..."
                 vault write database/config/postgres \
                   plugin_name=postgresql-database-plugin \
                   connection_url="postgresql://{{username}}:{{password}}@postgres-service:5432/postgres?sslmode=disable" \
                   allowed_roles="user-service-role,training-service-role,biometric-service-role,data-processor-role"
-                
+
                 echo "Creating PostgreSQL roles..."
                 for role in user-service training-service biometric-service data-processor; do
                   vault write database/roles/${role}-role \
@@ -93,10 +93,10 @@ spec:
                     default_ttl="1h" \
                     max_ttl="24h"
                 done
-                
+
                 echo "Creating Vault policies..."
                 vault policy write app-db-access - /vault/policies/user-service.hcl
-                
+
                 echo "Creating Kubernetes service account roles..."
                 for role in user-service training-service biometric-service data-processor; do
                   vault write auth/kubernetes/role/${role}-vault-role \
@@ -105,7 +105,7 @@ spec:
                     policies=app-db-access \
                     ttl=24h
                 done
-                
+
                 echo "Vault initialization complete"
               fi
           volumeMounts:

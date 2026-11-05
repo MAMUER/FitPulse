@@ -6,8 +6,9 @@
   "enabledManagers": [
     "regex"
   ],
-  "regex": [
+  "customManagers": [
     {
+      "customType": "regex",
       "fileMatch": [
         "\\.github/workflows/ci\\.yml$"
       ],

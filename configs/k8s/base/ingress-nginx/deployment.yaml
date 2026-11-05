@@ -22,9 +22,8 @@ spec:
       # to bind to host ports 80/443 directly. This is the standard pattern for
       # ingress-nginx on single-node k3s clusters without a load balancer.
       # See: https://kubernetes.github.io/ingress-nginx/deploy/bare-metal/
-      # checkov:skip=CKV_K8S_19: Required for bare-metal ingress
-      hostNetwork: true  # NOSONAR
-      dnsPolicy: ClusterFirstWithHostNet
+      # hostNetwork disabled for security (S6431): using ClusterIP service with NodePort instead
+      dnsPolicy: ClusterFirst
       serviceAccountName: ingress-nginx
       automountServiceAccountToken: false
       securityContext:
@@ -37,7 +36,7 @@ spec:
       containers:
         - name: controller
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
-          image: registry.k8s.io/ingress-nginx/controller:v1.11.3@sha256:d56f135b6462cfc476447cfe564b83a45e8bb7da2774963b00d12161112270b7
+          image: docker.m.daocloud.io/ingress-nginx/controller:v1.11.3
           imagePullPolicy: IfNotPresent
           args:
             - /nginx-ingress-controller

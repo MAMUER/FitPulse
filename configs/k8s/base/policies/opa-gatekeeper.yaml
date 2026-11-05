@@ -10,7 +10,7 @@ metadata:
     component: policies
 data:
   ## Constraint Templates
-  
+
   k8srequiredlabels.yaml: |
     apiVersion: templates.gatekeeper.sh/v1
     kind: ConstraintTemplate
@@ -25,7 +25,7 @@ data:
         - target: admission.k8s.gatekeeper.sh
           rego: |
             package k8srequiredlabels
-            
+
             violation[{"msg": msg}] {
               provided := {label | input.review.object.metadata.labels[label]}
               required := {label | label := input.parameters.labels[_]}
@@ -33,7 +33,7 @@ data:
               count(missing) > 0
               msg := sprintf("Missing required labels: %v", [missing])
             }
-  
+
   k8srequiredresources.yaml: |
     apiVersion: templates.gatekeeper.sh/v1
     kind: ConstraintTemplate
@@ -48,19 +48,19 @@ data:
         - target: admission.k8s.gatekeeper.sh
           rego: |
             package k8srequiredresources
-            
+
             violation[{"msg": msg}] {
               container := input.review.object.spec.containers[_]
               not container.resources.limits
               msg := sprintf("Container %v has no resource limits", [container.name])
             }
-            
+
             violation[{"msg": msg}] {
               container := input.review.object.spec.containers[_]
               not container.resources.requests
               msg := sprintf("Container %v has no resource requests", [container.name])
             }
-  
+
   k8sblockprivileged.yaml: |
     apiVersion: templates.gatekeeper.sh/v1
     kind: ConstraintTemplate
@@ -75,13 +75,13 @@ data:
         - target: admission.k8s.gatekeeper.sh
           rego: |
             package k8sblockprivileged
-            
+
             violation[{"msg": msg}] {
               container := input.review.object.spec.containers[_]
               container.securityContext.privileged == true
               msg := sprintf("Container %v is privileged", [container.name])
             }
-  
+
   k8srequirenonroot.yaml: |
     apiVersion: templates.gatekeeper.sh/v1
     kind: ConstraintTemplate
@@ -96,13 +96,13 @@ data:
         - target: admission.k8s.gatekeeper.sh
           rego: |
             package k8srequirenonroot
-            
+
             violation[{"msg": msg}] {
               container := input.review.object.spec.containers[_]
               not container.securityContext.runAsNonRoot
               msg := sprintf("Container %v must set runAsNonRoot", [container.name])
             }
-  
+
   k8srequiredreadonlyroot.yaml: |
     apiVersion: templates.gatekeeper.sh/v1
     kind: ConstraintTemplate
@@ -117,15 +117,15 @@ data:
         - target: admission.k8s.gatekeeper.sh
           rego: |
             package k8srequiredreadonlyroot
-            
+
             violation[{"msg": msg}] {
               container := input.review.object.spec.containers[_]
               not container.securityContext.readOnlyRootFilesystem
               msg := sprintf("Container %v must set readOnlyRootFilesystem", [container.name])
             }
-  
+
   ## Constraints
-  
+
   require-app-labels.yaml: |
     apiVersion: constraints.gatekeeper.sh/v1beta1
     kind: K8sRequiredLabels
@@ -139,7 +139,7 @@ data:
         namespaces: ["fitness-platform-production", "ingress-nginx", "monitoring"]
       parameters:
         labels: ["app", "app.kubernetes.io/name", "app.kubernetes.io/managed-by"]
-  
+
   require-resource-limits.yaml: |
     apiVersion: constraints.gatekeeper.sh/v1beta1
     kind: K8sRequiredResources
@@ -151,7 +151,7 @@ data:
           - apiGroups: [""]
             kinds: ["Pod"]
         namespaces: ["fitness-platform-production", "ingress-nginx", "monitoring"]
-  
+
   block-privileged-containers.yaml: |
     apiVersion: constraints.gatekeeper.sh/v1beta1
     kind: K8sBlockPrivileged
@@ -163,7 +163,7 @@ data:
           - apiGroups: [""]
             kinds: ["Pod"]
         namespaces: ["fitness-platform-production", "ingress-nginx", "monitoring"]
-  
+
   require-non-root.yaml: |
     apiVersion: constraints.gatekeeper.sh/v1beta1
     kind: K8sRequireNonRoot
@@ -175,7 +175,7 @@ data:
           - apiGroups: [""]
             kinds: ["Pod"]
         namespaces: ["fitness-platform-production", "ingress-nginx", "monitoring"]
-  
+
   require-readonly-rootfs.yaml: |
     apiVersion: constraints.gatekeeper.sh/v1beta1
     kind: K8sRequiredReadOnlyRoot
@@ -187,9 +187,9 @@ data:
           - apiGroups: [""]
             kinds: ["Pod"]
         namespaces: ["fitness-platform-production", "ingress-nginx", "monitoring"]
-  
+
   ## Sync
-  
+
   sync.yaml: |
     apiVersion: config.gatekeeper.sh/v1alpha1
     kind: Config

@@ -78,7 +78,7 @@ spec:
       containers:
         - name: rabbitmq
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
-          image: rabbitmq:4-management-alpine
+          image: docker.m.daocloud.io/library/rabbitmq:4-management-alpine
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5671

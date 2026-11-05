@@ -1,5 +1,4 @@
-# yaml-language-server: disable
-# file_format: kubernetes
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0-standalone/deployment-apps-v1.json
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +26,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: otel-collector
-          image: otel/opentelemetry-collector:0.91.0
+          image: docker.m.daocloud.io/otel/opentelemetry-collector:0.91.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4317
