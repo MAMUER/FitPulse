@@ -47,10 +47,8 @@ jobs:
 
       - name: Check for version consistency
         run: |
-          readonly YAML_GLOB="*.yaml"
-          readonly JSON_GLOB="*.json"
-          readonly DOCKERFILE="Dockerfile"
-          readonly DATASETS="datasets"
+          # shellcheck disable=SC2034
+          readonly YAML_GLOB="*.yaml" JSON_GLOB="*.json" DOCKERFILE="Dockerfile" DATASETS="datasets"
           echo "-> Checking PostgreSQL version references..."
           PG_REFS=$(grep -rn "postgres:1[0-7]\|pg1[0-7]\|PostgreSQL 1[0-7]\|version: \"1[0-7]\"\|version: '1[0-7]'" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
           if [ -n "$PG_REFS" ]; then
@@ -269,10 +267,8 @@ jobs:
 
       - name: Check docs ↔ code version consistency
         run: |
-          readonly YAML_GLOB="*.yaml"
-          readonly JSON_GLOB="*.json"
-          readonly DOCKERFILE="Dockerfile"
-          readonly DATASETS="datasets"
+          # shellcheck disable=SC2034
+          readonly YAML_GLOB="*.yaml" JSON_GLOB="*.json" DOCKERFILE="Dockerfile" DATASETS="datasets"
           echo "-> Checking PostgreSQL version consistency across docs and code..."
           DOC_PG=$(grep -oP 'postgres:\K[0-9]+' docs/ARCHITECTURE.md configs/k8s/base/deployments/postgres.yaml cmd/data-processor/data_processor_integration_test.go internal/testcontainers/containers.go 2>/dev/null | sort -u | head -1)
           CODE_PG=$(grep -oP 'postgres:\K[0-9]+' configs/k8s/base/deployments/postgres.yaml cmd/data-processor/data_processor_integration_test.go internal/testcontainers/containers.go 2>/dev/null | sort -u | head -1)
