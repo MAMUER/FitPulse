@@ -47,6 +47,10 @@ jobs:
 
       - name: Check for version consistency
         run: |
+          readonly YAML_GLOB="*.yaml"
+          readonly JSON_GLOB="*.json"
+          readonly DOCKERFILE="Dockerfile"
+          readonly DATASETS="datasets"
           echo "-> Checking PostgreSQL version references..."
           PG_REFS=$(grep -rn "postgres:1[0-7]\|pg1[0-7]\|PostgreSQL 1[0-7]\|version: \"1[0-7]\"\|version: '1[0-7]'" . --include="$YAML_GLOB" --include="$YAML_GLOB" --include="*.md" --include="*.go" --include="$DOCKERFILE" --include="*.jsx" --include="*.js" --include="$JSON_GLOB" --exclude-dir="$DATASETS" || true)
           if [ -n "$PG_REFS" ]; then
