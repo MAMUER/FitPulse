@@ -376,7 +376,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: consumer
-      image: busybox:1.37.0
+      image: docker.m.daocloud.io/library/busybox:1.37.0
       imagePullPolicy: IfNotPresent
       command: ["sleep", "3600"]
       volumeMounts:

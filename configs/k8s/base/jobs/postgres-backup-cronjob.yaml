@@ -25,6 +25,8 @@ spec:
             runAsUser: 10001
             runAsGroup: 10001
             fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: backup
               # checkov:skip=CKV_K8S_43: Public image tag resolved at runtime; digest not pinned for ephemeral job
