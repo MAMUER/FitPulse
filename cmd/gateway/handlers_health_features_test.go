@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -335,6 +335,7 @@ func TestMenstrualHandlers(t *testing.T) {
 	g.deleteMenstrualCycleHandler(w, req)
 	require.NotEqual(t, http.StatusOK, w.Code)
 }
+
 type failingHW struct {
 	http.ResponseWriter
 }
@@ -342,7 +343,7 @@ type failingHW struct {
 func (f *failingHW) Write([]byte) (int, error) { return 0, errors.New("write failed") }
 func (f *failingHW) WriteHeader(int)           {}
 
-func TestHealthFeaturesEncodeErrors(t *testing.T) {
+func TestHealthFeaturesEncodeErrors(_ *testing.T) {
 	g := newTestGateway()
 	g.userClient = &mockUserClientHealth{}
 

@@ -4,7 +4,7 @@ FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOTOOLCHAIN=auto
 
-RUN apk add --no-cache git ca-certificates
+RUN apk add --no-cache git=2.54.0-r0 ca-certificates=20261020-r0
 
 WORKDIR /app
 
@@ -35,7 +35,7 @@ ENV GAN_SERVICE_METRICS_PORT=9094
 
 EXPOSE 8004 9094
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
+USER 1001
 
 ENTRYPOINT ["./gan-service"]

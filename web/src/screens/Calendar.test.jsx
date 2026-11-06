@@ -121,7 +121,8 @@ describe('Calendar', () => {
     render(<Calendar />);
     const buttons = screen.getAllByRole('button');
     const dayBtn = buttons.find(
-      (b) => b.className.includes('cal-cell') && !b.className.includes('cal-head')
+      (b) =>
+        b.className.includes('cal-cell') && !b.className.includes('cal-head')
     );
     if (dayBtn) fireEvent.click(dayBtn);
     fireEvent.click(screen.getByText('Добавить событие'));

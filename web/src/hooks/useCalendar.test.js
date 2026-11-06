@@ -491,11 +491,17 @@ describe('useCalendar', () => {
       event: { id: 9, title: 'X', type: 'custom' },
     });
     await act(async () => {
-      await result.current.addEvent({ title: 'X', type: 'custom', description: '' });
+      await result.current.addEvent({
+        title: 'X',
+        type: 'custom',
+        description: '',
+      });
     });
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        calendarEventsList: [{ id: 9, title: 'X', type: 'custom', dateLabel: '2 Октябрь' }],
+        calendarEventsList: [
+          { id: 9, title: 'X', type: 'custom', dateLabel: '2 Октябрь' },
+        ],
       })
     );
   });
@@ -524,5 +530,4 @@ describe('useCalendar', () => {
       dateModalDate: null,
     });
   });
-
 });

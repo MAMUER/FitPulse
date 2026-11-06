@@ -188,7 +188,7 @@ func TestBiometric_AddBiometricRecordHandler_NoClient(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestBiometric_AddBiometricRecordHandler_EncodeError(t *testing.T) {
+func TestBiometric_AddBiometricRecordHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	withBiometricClient(g)
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
@@ -205,7 +205,7 @@ func TestBiometric_GetBiometricRecordsHandler_NoClient(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestBiometric_GetBiometricRecordsHandler_EncodeError(t *testing.T) {
+func TestBiometric_GetBiometricRecordsHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	withBiometricClient(g)
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}

@@ -181,7 +181,7 @@ func TestProfile_DecodeDeleteProfileRequest_Success(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "password123", result.Password)
 }
-func TestProfile_GetProfileHandler_EncodeError(t *testing.T) {
+func TestProfile_GetProfileHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodGet, "/api/v1/profile", nil)
@@ -197,7 +197,7 @@ func TestProfile_UpdateProfileHandler_GRPCErrorNon500(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestProfile_UpdateProfileHandler_EncodeError(t *testing.T) {
+func TestProfile_UpdateProfileHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodPut, "/api/v1/profile", bytes.NewBufferString(`{}`))
@@ -213,7 +213,7 @@ func TestProfile_DeleteProfileHandler_GRPCError(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestProfile_DeleteProfileHandler_EncodeError(t *testing.T) {
+func TestProfile_DeleteProfileHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodDelete, "/api/v1/profile", bytes.NewBufferString(`{"password":"p"}`))
@@ -237,7 +237,7 @@ func TestProfile_ExportUserDataHandler_GRPCError(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestProfile_ExportUserDataHandler_EncodeError(t *testing.T) {
+func TestProfile_ExportUserDataHandler_EncodeError(_ *testing.T) {
 	g := newTestGateway()
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), http.MethodGet, "/api/v1/profile/export", nil)

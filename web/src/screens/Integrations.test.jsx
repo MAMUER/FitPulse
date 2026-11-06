@@ -97,9 +97,11 @@ describe('Integrations', () => {
   });
 
   it('uses source as title when source_name missing', async () => {
-    const loadIntegrationProviders = vi.fn().mockResolvedValue([
-      { source: 'garmin', connected: false, connected_at: null },
-    ]);
+    const loadIntegrationProviders = vi
+      .fn()
+      .mockResolvedValue([
+        { source: 'garmin', connected: false, connected_at: null },
+      ]);
     const disconnectIntegration = vi.fn();
     useApp.mockReturnValue({
       notify: vi.fn(),
@@ -129,7 +131,9 @@ describe('Integrations', () => {
     await screen.findAllByText('Отключить');
     const buttons = screen.getAllByText('Отключить');
     fireEvent.click(buttons[0]);
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Интеграция отключена'));
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Интеграция отключена')
+    );
     expect(screen.getAllByText('Отключить')).toHaveLength(1);
   });
 });

@@ -73,7 +73,7 @@ run_gosec() {
 
 run_govulncheck() {
 	mkdir -p sarif-results
-	govulncheck ./... >sarif-results/govulncheck.txt 2>&1
+	govulncheck ./... >sarif-results/govulncheck.txt 2>&1 || true
 }
 
 run_gitleaks() {

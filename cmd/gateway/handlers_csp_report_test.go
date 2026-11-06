@@ -38,10 +38,11 @@ func TestCspReportHandler(t *testing.T) {
 	g.cspReportHandler(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 }
+
 type errorBody struct{}
 
 func (e *errorBody) Read([]byte) (int, error) { return 0, errors.New("read failed") }
-func (e *errorBody) Close() error              { return nil }
+func (e *errorBody) Close() error             { return nil }
 func TestCspReportHandlerReadError(t *testing.T) {
 	g := newTestGateway()
 	req := httptest.NewRequest(http.MethodPost, "/api/security/csp-report", &errorBody{})
@@ -50,14 +51,14 @@ func TestCspReportHandlerReadError(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCspReportHandlerParseWriteError(t *testing.T) {
+func TestCspReportHandlerParseWriteError(_ *testing.T) {
 	g := newTestGateway()
 	req := httptest.NewRequest(http.MethodPost, "/api/security/csp-report", bytes.NewBufferString("bad"))
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	g.cspReportHandler(w, req)
 }
 
-func TestCspReportHandlerSuccessWriteError(t *testing.T) {
+func TestCspReportHandlerSuccessWriteError(_ *testing.T) {
 	g := newTestGateway()
 	req := httptest.NewRequest(http.MethodPost, "/api/security/csp-report", bytes.NewBufferString(`{"csp-report":{"blocked-uri":"http://x"}}`))
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}

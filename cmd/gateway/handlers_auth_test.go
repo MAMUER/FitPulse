@@ -2857,6 +2857,7 @@ func TestAuth_WriteSessionCookies_JWTFailure(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
+
 // ========== Additional coverage for uncovered auth lines ==========
 
 type yandexTransportFunc func(*http.Request) (*http.Response, error)
@@ -2908,7 +2909,7 @@ func TestAuth_InvalidateAllUserSessions_SessionStoreError(t *testing.T) {
 	g.invalidateAllUserSessions(context.Background(), "user-123")
 }
 
-func TestAuth_InvalidateAllUserSessions_ScanError(t *testing.T) {
+func TestAuth_InvalidateAllUserSessions_ScanError(_ *testing.T) {
 	g := newTestGateway()
 	g.valkeyDB = redis.NewClient(&redis.Options{Addr: "localhost:99999"})
 	g.invalidateAllUserSessions(context.Background(), "user-123")

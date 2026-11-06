@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-export default function TwoFASetup({ initialQrCode = "" }) {
+export default function TwoFASetup({ initialQrCode = '' }) {
   const { confirm2FA, t } = useApp();
   const [passcode, setPasscode] = useState('');
   const [backupCodes] = useState([]);

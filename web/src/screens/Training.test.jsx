@@ -228,5 +228,4 @@ describe('Training', () => {
     renderTraining(baseContext({ state: { trainingPlans: plans } }));
     expect(screen.getByText('Без цели')).toBeInTheDocument();
   });
-
 });

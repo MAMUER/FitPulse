@@ -391,9 +391,9 @@ func (errCloseReader) Close() error { return errors.New("close failed") }
 type errReadReader struct{}
 
 func (errReadReader) Read([]byte) (int, error) { return 0, errors.New("read failed") }
-func (errReadReader) Close() error            { return nil }
+func (errReadReader) Close() error             { return nil }
 
-func TestTraining_WriteJSON_EncodeError(t *testing.T) {
+func TestTraining_WriteJSON_EncodeError(_ *testing.T) {
 	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
 	writeJSON(w, map[string]string{"a": "b"})
 }
@@ -422,6 +422,9 @@ func TestTraining_ParseGeneratePlanRequest_ReadError(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.NotNil(t, resp)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	_ = payload
 	_ = g
 }

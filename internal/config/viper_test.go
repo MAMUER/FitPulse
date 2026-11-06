@@ -283,7 +283,6 @@ func TestGetEnvRequiredViper(t *testing.T) {
 	})
 }
 
-
 func TestLoadViper_ControlChars(t *testing.T) {
 	dir := t.TempDir()
 	// yaml with a control character (NUL) that viper's yaml parser rejects

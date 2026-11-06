@@ -1,10 +1,10 @@
-﻿package postgres
+package postgres
 
 import (
 	"context"
-	"errors"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"testing"
 	"time"
 
@@ -2859,7 +2859,6 @@ func TestPgsodiumUserRepository_CreateYandexUser_NicknameNonceError(t *testing.T
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-
 func TestPgsodiumUserRepository_GenerateNonceFailures(t *testing.T) {
 	orig := db.GenerateNonce
 	defer func() { db.GenerateNonce = orig }()
@@ -2889,7 +2888,6 @@ func TestPgsodiumUserRepository_GenerateNonceFailures(t *testing.T) {
 		require.Error(t, err)
 	})
 }
-
 
 func TestPgsodiumUserRepo_Create_SecondNonceError(t *testing.T) {
 	orig := db.GenerateNonce

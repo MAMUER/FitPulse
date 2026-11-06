@@ -587,7 +587,16 @@ describe('useProfile', () => {
 
   it('loadProfile updates with partial data', async () => {
     api.loadProfile.mockResolvedValue({ profile: { full_name: 'NewName' } });
-    setup({ profile: { name: 'Old', email: 'e@e.com', gender: 'm', phone: '1', bio: 'b', status: 's' } });
+    setup({
+      profile: {
+        name: 'Old',
+        email: 'e@e.com',
+        gender: 'm',
+        phone: '1',
+        bio: 'b',
+        status: 's',
+      },
+    });
     await act(async () => {
       await result.current.loadProfile();
     });

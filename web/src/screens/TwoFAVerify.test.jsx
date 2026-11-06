@@ -38,6 +38,8 @@ describe('TwoFAVerify', () => {
     const verify2FA = vi.fn();
     useApp.mockReturnValue({ verify2FA, t: (ru, _en) => ru });
     render(<TwoFAVerify />);
-    expect(screen.getByText('Двухфакторная аутентификация')).toBeInTheDocument();
+    expect(
+      screen.getByText('Двухфакторная аутентификация')
+    ).toBeInTheDocument();
   });
 });

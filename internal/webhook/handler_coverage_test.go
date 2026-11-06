@@ -255,6 +255,7 @@ func TestWriteResponseEncodeError(t *testing.T) {
 	w := &failingWriteResponseWriter{}
 	WriteResponse(w, http.StatusOK, WebhookResponse{Status: "ok", Message: "test"})
 }
+
 type mockDBWithPurgeError struct {
 	mockDB
 }
@@ -278,7 +279,7 @@ func TestServerStartListenAndServeError(t *testing.T) {
 	server.Start()
 	time.Sleep(200 * time.Millisecond)
 	assert.True(t, rec.called)
-	server.Stop(context.Background())
+	_ = server.Stop(context.Background())
 }
 
 func TestServerPurgeExpiredNoncesError(t *testing.T) {
@@ -291,5 +292,5 @@ func TestServerPurgeExpiredNoncesError(t *testing.T) {
 	server := NewServer("8085", &mockDBWithPurgeError{}, zap.NewNop())
 	go server.purgeExpiredNonces()
 	time.Sleep(50 * time.Millisecond)
-	server.Stop(context.Background())
+	_ = server.Stop(context.Background())
 }
