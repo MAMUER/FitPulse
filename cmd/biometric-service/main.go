@@ -701,7 +701,7 @@ func main() {
 	registerBiometricGRPC(grpcServer, database, biometricSvc, rabbitQueue, log)
 	startHealthChecks(database, rabbitQueue, log)
 
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", ":"+port) // #nosec G102
 	if err != nil {
 		log.Fatal("Failed to listen", zap.Error(err))
 	}

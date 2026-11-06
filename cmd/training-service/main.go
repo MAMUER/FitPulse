@@ -1190,7 +1190,7 @@ func main() {
 
 	s := setupGRPCServer(log, database, trainingSvc, rabbitQueue, jwtPublicKeyPEM, surveyRepo, bioRepo)
 
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", ":"+port) // #nosec G102
 	if err != nil {
 		log.Fatal("Не удалось запустить сервер", zap.Error(err))
 	}

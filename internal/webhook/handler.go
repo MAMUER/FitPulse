@@ -28,16 +28,16 @@ const msgMethodNotAllowed = "method not allowed"
 // Server represents the Open Wearables webhook server
 
 type Server struct {
-	port               string
-	db                 DB
-	log                *zap.Logger
-	logFatal           func(v ...interface{})
+	port                string
+	db                  DB
+	log                 *zap.Logger
+	logFatal            func(v ...interface{})
 	purgeTickerInterval time.Duration
-	secret             []byte
-	server             *http.Server
-	shutdown           context.CancelFunc
-	stopOnce           sync.Once
-	done               chan struct{}
+	secret              []byte
+	server              *http.Server
+	shutdown            context.CancelFunc
+	stopOnce            sync.Once
+	done                chan struct{}
 }
 
 // NewServer creates a new webhook server

@@ -270,13 +270,21 @@ func TestServerStartListenAndServeError(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
-	rec := &fatalRecorder{}
+	fatalCalled := make(chan struct{}, 1)
 	server := NewServer(lis.Addr().String(), &mockDB{}, zap.NewNop())
-	server.logFatal = func(v ...interface{}) { rec.called = true }
+	server.logFatal = func(v ...interface{}) {
+		select {
+		case fatalCalled <- struct{}{}:
+		default:
+		}
+	}
 
 	server.Start()
-	time.Sleep(200 * time.Millisecond)
-	assert.True(t, rec.called)
+	select {
+	case <-fatalCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("logFatal was not called")
+	}
 	_ = server.Stop(context.Background())
 }
 

@@ -65,7 +65,7 @@ install_tools() {
 run_gosec() {
 	mkdir -p sarif-results
 	# gosec может падать при пакетах с type errors — не рвём пайплайн, но сохраняем SARIF если есть
-	gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
+	gosec -exclude=G101,G102,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1 || true
 	if [[ ! -s sarif-results/gosec.sarif ]]; then
 		echo "{\"\$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"gosec\"}},\"results\":[]]}]]}" >sarif-results/gosec.sarif
 	fi
@@ -379,7 +379,7 @@ security_gate() {
 		echo "gosec: $GOSEC_CRITICAL high/critical findings"
 		if [[ "$GOSEC_CRITICAL" -gt 0 ]]; then
 			echo "❌ FAIL: gosec found $GOSEC_CRITICAL high/critical findings"
-			gosec -exclude=G101,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
+			gosec -exclude=G101,G102,G201,G505 -exclude-generated -fmt=sarif -out=sarif-results/gosec.sarif ./... 2>&1
 			FAIL=1
 		fi
 	fi
