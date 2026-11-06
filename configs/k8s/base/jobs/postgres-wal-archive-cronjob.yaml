@@ -16,8 +16,6 @@ spec:
     spec:
       backoffLimit: 2
       template:
-        metadata:
-          annotations:
         spec:
           automountServiceAccountToken: false
           securityContext:
@@ -25,6 +23,8 @@ spec:
             runAsUser: 10001
             runAsGroup: 10001
             fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: wal-archive
               image: docker.m.daocloud.io/library/postgres:18-alpine
