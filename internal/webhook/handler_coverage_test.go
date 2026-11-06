@@ -270,12 +270,10 @@ func TestServerStartListenAndServeError(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = lis.Close() }()
 
-	oldFatal := logFatal
 	rec := &fatalRecorder{}
-	logFatal = func(v ...interface{}) { rec.called = true }
-	defer func() { logFatal = oldFatal }()
-
 	server := NewServer(lis.Addr().String(), &mockDB{}, zap.NewNop())
+	server.logFatal = func(v ...interface{}) { rec.called = true }
+
 	server.Start()
 	time.Sleep(200 * time.Millisecond)
 	assert.True(t, rec.called)
@@ -285,11 +283,9 @@ func TestServerStartListenAndServeError(t *testing.T) {
 func TestServerPurgeExpiredNoncesError(t *testing.T) {
 	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
 
-	origInterval := purgeTickerInterval
-	defer func() { purgeTickerInterval = origInterval }()
-	purgeTickerInterval = time.Millisecond
-
 	server := NewServer("8085", &mockDBWithPurgeError{}, zap.NewNop())
+	server.purgeTickerInterval = time.Millisecond
+
 	go server.purgeExpiredNonces()
 	time.Sleep(50 * time.Millisecond)
 	_ = server.Stop(context.Background())

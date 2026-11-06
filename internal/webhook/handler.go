@@ -28,14 +28,16 @@ const msgMethodNotAllowed = "method not allowed"
 // Server represents the Open Wearables webhook server
 
 type Server struct {
-	port     string
-	db       DB
-	log      *zap.Logger
-	secret   []byte
-	server   *http.Server
-	shutdown context.CancelFunc
-	stopOnce sync.Once
-	done     chan struct{}
+	port               string
+	db                 DB
+	log                *zap.Logger
+	logFatal           func(v ...interface{})
+	purgeTickerInterval time.Duration
+	secret             []byte
+	server             *http.Server
+	shutdown           context.CancelFunc
+	stopOnce           sync.Once
+	done               chan struct{}
 }
 
 // NewServer creates a new webhook server
@@ -58,6 +60,10 @@ func NewServer(port string, db DB, log *zap.Logger) *Server {
 		db: db,
 
 		log: log.Named("webhook"),
+
+		logFatal: func(v ...interface{}) { log.Sugar().Fatal(v...) },
+
+		purgeTickerInterval: 5 * time.Minute,
 
 		secret: secret,
 
@@ -131,7 +137,7 @@ func (s *Server) Start() {
 
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 
-			logFatal("webhook server failed:", err)
+			s.logFatal("webhook server failed:", err)
 
 		}
 
@@ -145,12 +151,13 @@ func (s *Server) Start() {
 
 }
 
-// purgeTickerInterval is overridable for testing.
-var purgeTickerInterval = 5 * time.Minute
-
 func (s *Server) purgeExpiredNonces() {
 
-	ticker := time.NewTicker(purgeTickerInterval)
+	interval := s.purgeTickerInterval
+	if interval <= 0 {
+		interval = 5 * time.Minute
+	}
+	ticker := time.NewTicker(interval)
 
 	defer ticker.Stop()
 

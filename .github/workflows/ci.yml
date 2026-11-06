@@ -1591,7 +1591,7 @@ jobs:
           mkdir -p ~/security-results
           sudo docker pull docker.m.daocloud.io/aquasec/kube-bench:latest 2>/dev/null || sudo docker pull dockerproxy.com/aquasec/kube-bench:latest 2>/dev/null || true
           sudo docker tag docker.m.daocloud.io/aquasec/kube-bench:latest aquasec/kube-bench:latest 2>/dev/null || sudo docker tag dockerproxy.com/aquasec/kube-bench:latest aquasec/kube-bench:latest 2>/dev/null || true
-          sudo docker run --rm -v /var/lib/etcd:/var/lib/etcd:ro --pid=host aquasec/kube-bench:latest run --targets node --json > ~/security-results/kube-bench-results.json || true
+          sudo docker run --rm -v /var/lib/etcd:/var/lib/etcd:ro --pid=host docker.m.daocloud.io/aquasec/kube-bench:latest run --targets node --json > ~/security-results/kube-bench-results.json || true
           EOF
           mkdir -p security-results
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/ 2>/dev/null || true
@@ -1814,7 +1814,10 @@ jobs:
               ('smoke-test','Smoke Test'),
           ]
           any_fail = any(
-              needs.get(k, {}).get('result') == 'failure'
+              v.get('result') == 'failure'
+              for v in needs.values()
+          ) or any(
+              needs.get(k, {}).get('result') == 'skipped'
               for items in [checks, security, deploy]
               for k, _ in items
           )
