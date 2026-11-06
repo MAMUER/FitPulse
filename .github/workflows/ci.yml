@@ -1591,15 +1591,18 @@ jobs:
            set -euo pipefail
            mkdir -p ~/security-results
            
-           # Устанавливаем kube-bench как бинарный файл, чтобы избежать проблем с Docker-зеркалами
-           if ! command -v kube-bench &> /dev/null; then
-             echo "Downloading kube-bench binary..."
-             curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
-             tar -xzf /tmp/kube-bench.tar.gz -C /tmp
-             sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
-             rm -f /tmp/kube-bench.tar.gz
-             echo "✅ kube-bench installed successfully"
-           fi
+            echo "Installing/updating kube-bench binary and config..."
+            curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
+            tar -xzf /tmp/kube-bench.tar.gz -C /tmp
+            sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
+
+            sudo rm -rf /etc/kubebench
+            sudo mkdir -p /etc/kubebench
+            sudo cp -r /tmp/cfg/* /etc/kubebench/
+
+            rm -f /tmp/kube-bench.tar.gz
+            echo "✅ kube-bench installed successfully"
+
 
            echo "Running kube-bench scan..."
            # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось

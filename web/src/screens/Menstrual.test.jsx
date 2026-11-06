@@ -459,4 +459,36 @@ describe('Menstrual', () => {
     renderMenstrual(context);
     expect(await screen.findByText('Нет записей')).toBeInTheDocument();
   });
+
+  it('edits cycle with missing start_date and flow_intensity', async () => {
+    const user = userEvent.setup();
+    const context = createContext({
+      state: {
+        screen: 'menstrual',
+        theme: 'dark',
+        highContrast: false,
+        language: 'ru',
+        menstrualCycles: [
+          {
+            id: 9,
+            start_date: null,
+            end_date: null,
+            flow_intensity: null,
+            symptoms: null,
+            moods: null,
+            notes: null,
+          },
+        ],
+      },
+      loadMenstrualCycles: vi.fn().mockResolvedValue({ cycles: [] }),
+    });
+    renderMenstrual(context);
+    expect(await screen.findByText('Изменить')).toBeInTheDocument();
+    await user.click(screen.getByText('Изменить'));
+    expect(document.getElementById('start_date').value).toBe('');
+    expect(document.getElementById('flow_intensity').value).toBe('moderate');
+    expect(document.getElementById('symptoms').value).toBe('');
+    expect(document.getElementById('moods').value).toBe('');
+    expect(document.getElementById('notes').value).toBe('');
+  });
 });

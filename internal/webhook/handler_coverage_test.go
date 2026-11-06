@@ -288,6 +288,17 @@ func TestServerStartListenAndServeError(t *testing.T) {
 	_ = server.Stop(context.Background())
 }
 
+func TestServerPurgeExpiredNoncesDefaultInterval(t *testing.T) {
+	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
+
+	server := NewServer("8086", &mockDBWithPurgeError{}, zap.NewNop())
+	server.purgeTickerInterval = 0
+
+	go server.purgeExpiredNonces()
+	time.Sleep(10 * time.Millisecond)
+	_ = server.Stop(context.Background())
+}
+
 func TestServerPurgeExpiredNoncesError(t *testing.T) {
 	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
 
