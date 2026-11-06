@@ -21,7 +21,8 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --only-binary :all: numpy==2.2.0 torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+COPY cmd/gan-service/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r /tmp/requirements.txt --index-url https://download.pytorch.org/whl/cpu
 
 COPY --from=go-builder /app/bin/gan-service /app/gan-service
 COPY cmd/ml_generator/ ./cmd/ml_generator/

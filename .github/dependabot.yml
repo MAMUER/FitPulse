@@ -298,7 +298,24 @@ updates:
       - dependency-type: "direct"
 
   # ═══════════════════════════════════════════════════════════════
-  # 7. NPM — Frontend (React + Vite)
+  # 7. PYTHON (pip) — ML runtime dependencies in Dockerfiles
+  # ═══════════════════════════════════════════════════════════════
+  - package-ecosystem: "pip"
+    directory: "/cmd/gan-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "deps(pip/gan-service)", include: "scope" }
+    labels: ["dependencies", "python", "ml"]
+    assignees: ["MAMUER"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # 8. NPM — Frontend (React + Vite)
   # ═══════════════════════════════════════════════════════════════
   - package-ecosystem: "npm"
     directory: "/web"

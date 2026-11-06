@@ -1184,7 +1184,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, docker, provision-k8s-vps, binary_build, test]
     timeout-minutes: 60
-    environment: production
+    environment:
+      name: production
     outputs:
       reachable: ${{ steps.connectivity.outputs.reachable }}
     steps:
@@ -1585,16 +1586,29 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
-          set -euo pipefail
-          mkdir -p ~/security-results
-          sudo docker pull docker.m.daocloud.io/aquasec/kube-bench:latest 2>/dev/null || sudo docker pull dockerproxy.com/aquasec/kube-bench:latest 2>/dev/null || true
-          sudo docker tag docker.m.daocloud.io/aquasec/kube-bench:latest aquasec/kube-bench:latest 2>/dev/null || sudo docker tag dockerproxy.com/aquasec/kube-bench:latest aquasec/kube-bench:latest 2>/dev/null || true
-          sudo docker run --rm -v /var/lib/etcd:/var/lib/etcd:ro --pid=host docker.m.daocloud.io/aquasec/kube-bench:latest run --targets node --json > ~/security-results/kube-bench-results.json || true
-          EOF
-          mkdir -p security-results
-          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/ 2>/dev/null || true
+           set -euo pipefail
+           ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+           set -euo pipefail
+           mkdir -p ~/security-results
+           
+           # Устанавливаем kube-bench как бинарный файл, чтобы избежать проблем с Docker-зеркалами
+           if ! command -v kube-bench &> /dev/null; then
+             echo "Downloading kube-bench binary..."
+             curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
+             tar -xzf /tmp/kube-bench.tar.gz -C /tmp
+             sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
+             rm -f /tmp/kube-bench.tar.gz
+             echo "✅ kube-bench installed successfully"
+           fi
+
+           echo "Running kube-bench scan..."
+           # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
+           sudo kube-bench run --targets node --json > ~/security-results/kube-bench-results.json
+           EOF
+           
+           mkdir -p security-results
+           # Скачиваем результат. Если файл пустой или команда выше упала, этот шаг тоже упадет (что правильно)
+           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
 
   kube-hunter:
     name: Kube-Hunter Penetration Test
