@@ -46,4 +46,35 @@ describe('AI', () => {
     fireEvent.click(screen.getByText('Назад'));
     expect(go).toHaveBeenCalledWith('home');
   });
+
+  it('renders without messages', () => {
+    const sendAI = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: { messages: undefined, aiClassification: null },
+      t: (ru, _en) => ru,
+      sendAI,
+      go,
+    });
+    render(<Ai />);
+    expect(screen.getByText('AI-советник')).toBeInTheDocument();
+  });
+
+  it('shows ai summary when classification present without messages', () => {
+    const sendAI = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        messages: [],
+        aiClassification: { x: 1 },
+        aiPlan: { y: 2 },
+        aiDiet: { z: 3 },
+      },
+      t: (ru, _en) => ru,
+      sendAI,
+      go,
+    });
+    render(<Ai />);
+    expect(screen.getByText('Классификация')).toBeInTheDocument();
+  });
 });

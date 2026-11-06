@@ -97,10 +97,6 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
-            - name: RABBITMQ_DEFAULT_USER_FILE
-              value: "/etc/secrets/RABBITMQ_USER"
-            - name: RABBITMQ_DEFAULT_PASS_FILE
-              value: "/etc/secrets/RABBITMQ_PASS"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
             - name: RABBITMQ_ENABLED_PLUGINS
@@ -111,10 +107,6 @@ spec:
               value: "/etc/rabbitmq-tls/tls.key"
             - name: RABBITMQ_SSL_CACERT_FILE
               value: "/etc/rabbitmq-tls/ca.crt"
-            - name: RABBITMQ_SSL_VERIFY
-              value: "verify_peer"
-            - name: RABBITMQ_SSL_FAIL_IF_NO_PEER_CERT
-              value: "false"
             - name: RABBITMQ_LISTENERS_SSL_DEFAULT
               value: "5671"
           volumeMounts:

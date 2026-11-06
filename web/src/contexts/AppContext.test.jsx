@@ -122,4 +122,17 @@ describe('AppContext', () => {
       render(<TestComponent />);
     }).toThrow('useApp must be used within AppProvider');
   });
+
+  it('applies high contrast and language to document', () => {
+    vi.mocked(loadState).mockReturnValue({
+      registered: false,
+      profileLoaded: true,
+      theme: 'dark',
+      highContrast: true,
+      language: 'en',
+    });
+    renderWithProvider();
+    expect(document.documentElement.dataset.highcontrast).toBe('on');
+    expect(document.documentElement.lang).toBe('en');
+  });
 });

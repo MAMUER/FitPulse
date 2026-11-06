@@ -1,7 +1,8 @@
-package postgres
+﻿package postgres
 
 import (
 	"context"
+	"errors"
 	"database/sql"
 	"database/sql/driver"
 	"testing"
@@ -2855,5 +2856,121 @@ func TestPgsodiumUserRepository_CreateYandexUser_NicknameNonceError(t *testing.T
 
 	require.Error(t, err)
 	assert.True(t, apperrors.Code(err) == "INTERNAL")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+
+func TestPgsodiumUserRepository_GenerateNonceFailures(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	db.GenerateNonce = func() ([]byte, error) { return nil, errors.New("boom") }
+
+	repo, _ := setupPgsodiumUserRepo(t)
+	ctx := context.Background()
+
+	t.Run("Create", func(t *testing.T) {
+		err := repo.Create(ctx, &entity.User{ID: "u", Email: "e@e.com", FullName: "n", PasswordHash: "h", Role: "client"})
+		require.Error(t, err)
+	})
+	t.Run("CreateWithInvite", func(t *testing.T) {
+		err := repo.CreateWithInvite(ctx, "u", "e@e.com", "hash", "h", "n", "client")
+		require.Error(t, err)
+	})
+	t.Run("Update", func(t *testing.T) {
+		err := repo.Update(ctx, &entity.User{ID: "u", FullName: "n"})
+		require.Error(t, err)
+	})
+	t.Run("UpdateUserDetails", func(t *testing.T) {
+		err := repo.UpdateUserDetails(ctx, "u", "n", "nick")
+		require.Error(t, err)
+	})
+	t.Run("CreateYandexUser", func(t *testing.T) {
+		_, _, _, err := repo.CreateYandexUser(ctx, "yid", "hash", "e@e.com", "n", "nick", "nh")
+		require.Error(t, err)
+	})
+}
+
+
+func TestPgsodiumUserRepo_Create_SecondNonceError(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	calls := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		calls++
+		if calls == 1 {
+			return make([]byte, 12), nil
+		}
+		return nil, errors.New("boom")
+	}
+
+	repo, _ := setupPgsodiumUserRepo(t)
+	ctx := context.Background()
+	err := repo.Create(ctx, &entity.User{ID: "u", Email: "e@e.com", FullName: "n", PasswordHash: "h", Role: "client"})
+	require.Error(t, err)
+}
+
+func TestPgsodiumUserRepo_CreateWithInvite_SecondNonceError(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	calls := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		calls++
+		if calls == 1 {
+			return make([]byte, 12), nil
+		}
+		return nil, errors.New("boom")
+	}
+
+	repo, _ := setupPgsodiumUserRepo(t)
+	ctx := context.Background()
+	err := repo.CreateWithInvite(ctx, "u", "e@e.com", "hash", "h", "n", "client")
+	require.Error(t, err)
+}
+
+func TestPgsodiumUserRepo_UpdateUserDetails_SecondNonceError(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	calls := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		calls++
+		if calls == 1 {
+			return make([]byte, 12), nil
+		}
+		return nil, errors.New("boom")
+	}
+
+	repo, _ := setupPgsodiumUserRepo(t)
+	ctx := context.Background()
+	err := repo.UpdateUserDetails(ctx, "u", "n", "nick")
+	require.Error(t, err)
+}
+
+func TestPgsodiumUserRepo_CreateYandexUser_ThirdNonceError(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	calls := 0
+	db.GenerateNonce = func() ([]byte, error) {
+		calls++
+		if calls <= 2 {
+			return make([]byte, 12), nil
+		}
+		return nil, errors.New("boom")
+	}
+
+	repo, _ := setupPgsodiumUserRepo(t)
+	ctx := context.Background()
+	_, _, _, err := repo.CreateYandexUser(ctx, "yid", "hash", "e@e.com", "n", "nick", "nh")
+	require.Error(t, err)
+}
+
+func TestPgsodiumUserRepo_UpdateProfilePhoto_EncryptedNonceError(t *testing.T) {
+	orig := db.GenerateNonce
+	defer func() { db.GenerateNonce = orig }()
+	db.GenerateNonce = func() ([]byte, error) { return nil, errors.New("boom") }
+
+	repo, mock := pgsodiumUserRepoEncrypted(t)
+	ctx := context.Background()
+	err := repo.UpdateProfilePhoto(ctx, "user-1", "photo.jpg")
+	require.Error(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

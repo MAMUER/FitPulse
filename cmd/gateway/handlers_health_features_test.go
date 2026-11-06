@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -333,4 +334,77 @@ func TestMenstrualHandlers(t *testing.T) {
 	w = httptest.NewRecorder()
 	g.deleteMenstrualCycleHandler(w, req)
 	require.NotEqual(t, http.StatusOK, w.Code)
+}
+type failingHW struct {
+	http.ResponseWriter
+}
+
+func (f *failingHW) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+func (f *failingHW) WriteHeader(int)           {}
+
+func TestHealthFeaturesEncodeErrors(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &mockUserClientHealth{}
+
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "u1")
+
+	// listHealthConditions
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/health/conditions", nil)
+		g.listHealthConditionsHandler(w, req)
+	}
+
+	// upsertHealthCondition
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/health/conditions", bytes.NewBufferString(`{"condition_type":"a"}`))
+		g.upsertHealthConditionHandler(w, req)
+	}
+
+	// createBodyComposition
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/health/body-composition", bytes.NewBufferString(`{}`))
+		g.createBodyCompositionHandler(w, req)
+	}
+
+	// listBodyComposition
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/health/body-composition", nil)
+		g.listBodyCompositionHandler(w, req)
+	}
+
+	// listMenstrualCycles
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/health/menstrual-cycles", nil)
+		g.listMenstrualCyclesHandler(w, req)
+	}
+
+	// createMenstrualCycle
+	{
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/health/menstrual-cycles", bytes.NewBufferString(`{"cycle_start_date":"2026-01-01"}`))
+		g.createMenstrualCycleHandler(w, req)
+	}
+
+	// updateMenstrualCycle
+	{
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("cycle_id", "1")
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(context.WithValue(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), chi.RouteCtxKey, rctx), http.MethodPut, "/api/v1/health/menstrual-cycles/1", bytes.NewBufferString(`{}`))
+		g.updateMenstrualCycleHandler(w, req)
+	}
+
+	// deleteHealthCondition via deleteEntityHandler
+	{
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("condition_id", "1")
+		w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+		req := httptest.NewRequestWithContext(context.WithValue(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), chi.RouteCtxKey, rctx), http.MethodDelete, "/api/v1/health/conditions/1", nil)
+		g.deleteHealthConditionHandler(w, req)
+	}
 }

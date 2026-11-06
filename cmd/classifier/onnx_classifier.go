@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"encoding/json"
@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-// ONNXClassifier загружает простую линейную модель, экспортированную из Python,
-// и выполняет инференс в чистом Go без внешних ONNX рантаймов.
 type ONNXClassifier struct {
 	Labels      []int
 	Weights     []float64
@@ -19,14 +17,12 @@ type ONNXClassifier struct {
 	featureKeys []string
 }
 
-// ONNXWeights отражает JSON-структуру, создаваемую train_classifier.py.
 type ONNXWeights struct {
 	Labels     []int     `json:"labels"`
 	Weights    []float64 `json:"weights"`
 	MultiClass int       `json:"multi_class"`
 }
 
-// NewONNXClassifier загружает веса модели из указанного JSON-пути.
 func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 	clean := filepath.Clean(weightsPath)
 	if strings.Contains(clean, "..") {
@@ -52,7 +48,6 @@ func NewONNXClassifier(weightsPath string) (*ONNXClassifier, error) {
 	}, nil
 }
 
-// Predict возвращает индекс предсказанного класса и уверенность для заданной карты признаков.
 func (c *ONNXClassifier) Predict(features map[string]float64) (int, float64, error) {
 	if len(features) == 0 {
 		return 0, 0, errors.New("empty features")
@@ -113,15 +108,15 @@ func (c *ONNXClassifier) sigmoidConfidence(maxScore float64) float64 {
 	return math.Max(0.0, math.Min(1.0, confidence))
 }
 
-// FeatureKeys возвращает ожидаемый порядок признаков.
 func (c *ONNXClassifier) FeatureKeys() []string {
 	return c.featureKeys
 }
 
-// DefaultONNXWeightsPath возвращает ожидаемый путь к экспортированным весам.
+var getwd = os.Getwd
+
 func DefaultONNXWeightsPath() string {
 	// Assuming binary runs from repo root or cmd/classifier
-	cwd, err := os.Getwd()
+	cwd, err := getwd()
 	if err != nil {
 		cwd = "."
 	}

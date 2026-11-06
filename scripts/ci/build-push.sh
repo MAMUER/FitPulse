@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 set -euo pipefail
 
 build_go_services() {
@@ -39,18 +39,18 @@ build_ml_images() {
 		echo "Building classifier..."
 		docker build -t "$REGISTRY/mamuer/project/classifier:$SHA" \
 			-t "$REGISTRY/mamuer/project/classifier:latest" \
-			-f cmd/classifier/Dockerfile . || true
-		docker push "$REGISTRY/mamuer/project/classifier:$SHA" || true
-		docker push "$REGISTRY/mamuer/project/classifier:latest" || true
+			-f cmd/classifier/Dockerfile .
+		docker push "$REGISTRY/mamuer/project/classifier:$SHA"
+		docker push "$REGISTRY/mamuer/project/classifier:latest"
 	fi
 	# Build ml-generator (gan-service) if Dockerfile exists
 	if [[ -f "cmd/gan-service/Dockerfile" ]]; then
 		echo "Building ml-generator from gan-service..."
 		docker build -t "$REGISTRY/mamuer/project/ml-generator:$SHA" \
 			-t "$REGISTRY/mamuer/project/ml-generator:latest" \
-			-f cmd/gan-service/Dockerfile . || true
-		docker push "$REGISTRY/mamuer/project/ml-generator:$SHA" || true
-		docker push "$REGISTRY/mamuer/project/ml-generator:latest" || true
+			-f cmd/gan-service/Dockerfile .
+		docker push "$REGISTRY/mamuer/project/ml-generator:$SHA"
+		docker push "$REGISTRY/mamuer/project/ml-generator:latest"
 	fi
 }
 
@@ -107,11 +107,11 @@ build_go_binaries() {
 	done
 	for i in "${!pids[@]}"; do
 		wait "${pids[$i]}" || {
-			echo "❌ Build failed for ${names[$i]}"
+			echo "Build failed for ${names[$i]}"
 			exit 1
 		}
 	done
-	echo "✅ All binaries built successfully (${#services[@]} services)"
+	echo "All binaries built successfully (${#services[@]} services)"
 	ls -lh bin/
 }
 

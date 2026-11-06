@@ -179,3 +179,36 @@ func TestBiometric_GetBiometricRecordsHandler_WithFilters(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+func TestBiometric_AddBiometricRecordHandler_NoClient(t *testing.T) {
+	g := newTestGateway()
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), "POST", "/api/v1/biometrics", bytes.NewReader([]byte(`{"metric_type":"hr","value":72}`)))
+	req.Header.Set("Content-Type", "application/json")
+	g.addBiometricRecordHandler(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestBiometric_AddBiometricRecordHandler_EncodeError(t *testing.T) {
+	g := newTestGateway()
+	withBiometricClient(g)
+	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), "POST", "/api/v1/biometrics", bytes.NewReader([]byte(`{"metric_type":"hr","value":72}`)))
+	req.Header.Set("Content-Type", "application/json")
+	g.addBiometricRecordHandler(w, req)
+}
+
+func TestBiometric_GetBiometricRecordsHandler_NoClient(t *testing.T) {
+	g := newTestGateway()
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), "GET", "/api/v1/biometrics", nil)
+	g.getBiometricRecordsHandler(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestBiometric_GetBiometricRecordsHandler_EncodeError(t *testing.T) {
+	g := newTestGateway()
+	withBiometricClient(g)
+	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "u1"), "GET", "/api/v1/biometrics", nil)
+	g.getBiometricRecordsHandler(w, req)
+}

@@ -131,7 +131,7 @@ func (s *Server) Start() {
 
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 
-			s.log.Fatal("webhook server failed", zap.Error(err))
+			logFatal("webhook server failed:", err)
 
 		}
 
@@ -145,9 +145,12 @@ func (s *Server) Start() {
 
 }
 
+// purgeTickerInterval is overridable for testing.
+var purgeTickerInterval = 5 * time.Minute
+
 func (s *Server) purgeExpiredNonces() {
 
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(purgeTickerInterval)
 
 	defer ticker.Stop()
 

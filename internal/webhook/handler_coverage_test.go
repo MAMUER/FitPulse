@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -253,4 +254,42 @@ func (f *failingWriteResponseWriter) WriteHeader(statusCode int) { f.code = stat
 func TestWriteResponseEncodeError(t *testing.T) {
 	w := &failingWriteResponseWriter{}
 	WriteResponse(w, http.StatusOK, WebhookResponse{Status: "ok", Message: "test"})
+}
+type mockDBWithPurgeError struct {
+	mockDB
+}
+
+func (m *mockDBWithPurgeError) ExecContext(ctx context.Context, query string, args ...interface{}) (Rower, error) {
+	return nil, errors.New("purge failed")
+}
+func TestServerStartListenAndServeError(t *testing.T) {
+	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = lis.Close() }()
+
+	oldFatal := logFatal
+	rec := &fatalRecorder{}
+	logFatal = func(v ...interface{}) { rec.called = true }
+	defer func() { logFatal = oldFatal }()
+
+	server := NewServer(lis.Addr().String(), &mockDB{}, zap.NewNop())
+	server.Start()
+	time.Sleep(200 * time.Millisecond)
+	assert.True(t, rec.called)
+	server.Stop(context.Background())
+}
+
+func TestServerPurgeExpiredNoncesError(t *testing.T) {
+	t.Setenv("OPEN_WEARABLES_WEBHOOK_SECRET", "secret")
+
+	origInterval := purgeTickerInterval
+	defer func() { purgeTickerInterval = origInterval }()
+	purgeTickerInterval = time.Millisecond
+
+	server := NewServer("8085", &mockDBWithPurgeError{}, zap.NewNop())
+	go server.purgeExpiredNonces()
+	time.Sleep(50 * time.Millisecond)
+	server.Stop(context.Background())
 }

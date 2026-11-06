@@ -57,4 +57,20 @@ describe('Videos', () => {
     fireEvent.click(screen.getByText('Старт'));
     expect(go).toHaveBeenCalledWith('training');
   });
+
+  it('renders videos from state.videos with fallback fields', () => {
+    const loadVideos = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        videos: [{ title: 'V1', duration: 20, calories: 150 }],
+        trainingVideos: [],
+      },
+      t: (ru, _en) => ru,
+      go,
+      loadVideos,
+    });
+    render(<Videos />);
+    expect(screen.getByText('V1')).toBeInTheDocument();
+  });
 });

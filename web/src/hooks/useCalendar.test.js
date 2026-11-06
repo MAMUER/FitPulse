@@ -484,4 +484,45 @@ describe('useCalendar', () => {
     expect(update).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith('Ошибка удаления события');
   });
+
+  it('addEvent uses fallback color for unknown type', async () => {
+    setup({ selectedCalendarDay: 2, calendarEventsList: null });
+    api.createEvent.mockResolvedValue({
+      event: { id: 9, title: 'X', type: 'custom' },
+    });
+    await act(async () => {
+      await result.current.addEvent({ title: 'X', type: 'custom', description: '' });
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarEventsList: [{ id: 9, title: 'X', type: 'custom', dateLabel: '2 Октябрь' }],
+      })
+    );
+  });
+
+  it('updateEvent handles null events list', async () => {
+    setup({ calendarEventsList: null });
+    api.updateEvent.mockResolvedValue({ event: { id: 1, title: 'Новое' } });
+    await act(async () => {
+      await result.current.updateEvent(1, 'Новое');
+    });
+    expect(update).toHaveBeenCalledWith({
+      calendarEventsList: [],
+    });
+  });
+
+  it('deleteCalendarEvent handles null events list', async () => {
+    setup({ calendarEvents: {}, calendarEventsList: null });
+    api.deleteCalendarEvent.mockResolvedValue({});
+    await act(async () => {
+      await result.current.deleteCalendarEvent(10);
+    });
+    expect(update).toHaveBeenCalledWith({
+      calendarEvents: {},
+      calendarEventsList: [],
+      showDateModal: false,
+      dateModalDate: null,
+    });
+  });
+
 });

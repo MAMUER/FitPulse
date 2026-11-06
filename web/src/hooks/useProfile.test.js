@@ -531,4 +531,86 @@ describe('useProfile', () => {
     result.current.showAchievementsList();
     expect(update).toHaveBeenCalledWith({ selectedAchievement: null });
   });
+
+  it('changePassword with empty inputs notifies nothing extra', () => {
+    setup();
+    for (const id of ['oldPass', 'newPass', 'newPass2']) {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    }
+    result.current.changePassword();
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('showDevices pops when empty name', () => {
+    window.prompt = vi.fn().mockReturnValue('   ');
+    setup({ profile: { name: 'M', devices: ['dev1'] } });
+    result.current.showDevices();
+    expect(update).toHaveBeenCalledWith({
+      profile: { name: 'M', devices: [] },
+    });
+  });
+
+  it('showDevices pushes when name provided', () => {
+    window.prompt = vi.fn().mockReturnValue('dev2');
+    setup({ profile: { name: 'M', devices: [] } });
+    result.current.showDevices();
+    expect(update).toHaveBeenCalledWith({
+      profile: { name: 'M', devices: ['dev2'] },
+    });
+  });
+
+  it('toggleFriendAdded ignores missing friend', () => {
+    setup({ friends: [] });
+    result.current.toggleFriendAdded('nobody');
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('openFriendProfile notifies when not found', () => {
+    setup({ friends: [] });
+    result.current.openFriendProfile('nobody');
+    expect(notify).toHaveBeenCalledWith('Пользователь не найден');
+  });
+
+  it('showAchievement does nothing when not found', () => {
+    setup({ achievements: [] });
+    result.current.showAchievement('nope');
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('searchFriends reports nothing found', () => {
+    window.prompt = vi.fn().mockReturnValue('zzz');
+    setup({ friends: [{ id: 1, name: 'Alice', added: false }] });
+    result.current.searchFriends();
+    expect(notify).toHaveBeenCalledWith('Ничего не найдено');
+  });
+
+  it('loadProfile updates with partial data', async () => {
+    api.loadProfile.mockResolvedValue({ profile: { full_name: 'NewName' } });
+    setup({ profile: { name: 'Old', email: 'e@e.com', gender: 'm', phone: '1', bio: 'b', status: 's' } });
+    await act(async () => {
+      await result.current.loadProfile();
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ profileLoaded: true })
+    );
+  });
+
+  it('loadProfile handles missing profile data', async () => {
+    api.loadProfile.mockResolvedValue({});
+    setup();
+    await act(async () => {
+      await result.current.loadProfile();
+    });
+    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+  });
+
+  it('loadProfile handles error', async () => {
+    api.loadProfile.mockRejectedValue(new Error('boom'));
+    setup();
+    await act(async () => {
+      await result.current.loadProfile();
+    });
+    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+  });
 });

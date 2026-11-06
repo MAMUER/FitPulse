@@ -7,10 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"errors"
+	"io"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	trainingpb "github.com/MAMUER/project/api/gen/training"
 	"github.com/MAMUER/project/internal/middleware"
@@ -374,4 +378,210 @@ func TestTraining_WriteGeneratePlanError_NonServiceUnavailable(t *testing.T) {
 	writeGeneratePlanError(g, w, err, "user-123", "endurance_basic")
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// --- additional coverage tests ---
+
+type errCloseReader struct {
+	io.Reader
+}
+
+func (errCloseReader) Close() error { return errors.New("close failed") }
+
+type errReadReader struct{}
+
+func (errReadReader) Read([]byte) (int, error) { return 0, errors.New("read failed") }
+func (errReadReader) Close() error            { return nil }
+
+func TestTraining_WriteJSON_EncodeError(t *testing.T) {
+	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+	writeJSON(w, map[string]string{"a": "b"})
+}
+
+func TestTraining_GeneratePlanHandler_BodyCloseError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/training/plans/generate", bytes.NewReader([]byte(`{}`)))
+	req.Body = errCloseReader{Reader: bytes.NewReader([]byte(`{}`))}
+	req.Header.Set("Content-Type", "application/json")
+
+	g.generatePlanHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_ParseGeneratePlanRequest_ReadError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/training/plans/generate", nil)
+	req.Body = errReadReader{}
+
+	payload, resp := parseGeneratePlanRequest(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.NotNil(t, resp)
+	_ = payload
+	_ = g
+}
+
+func TestTraining_WriteGeneratePlanResponse_MarshalError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	resp := &trainingpb.GeneratePlanResponse{
+		PlanId: "plan-1",
+		PlanData: &structpb.Struct{
+			Fields: map[string]*structpb.Value{"k": nil},
+		},
+	}
+	req := generatePlanPayload{DurationWeeks: 4, Class: "endurance_basic"}
+
+	writeGeneratePlanResponse(g, w, resp, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestTraining_ListPlansHandler_UnmarshalPlanDataError(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.listResp = &trainingpb.ListPlansResponse{
+		Plans: []*trainingpb.TrainingPlan{
+			{
+				Id:       "plan-1",
+				UserId:   "user-123",
+				Status:   "active",
+				PlanData: &structpb.Struct{Fields: map[string]*structpb.Value{"k": nil}},
+			},
+		},
+		Total: 1,
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/plans", nil)
+
+	g.listPlansHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestTraining_ListPlansHandler_PlanDataFields(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.listResp = &trainingpb.ListPlansResponse{
+		Plans: []*trainingpb.TrainingPlan{
+			{
+				Id:        "plan-1",
+				UserId:    "user-123",
+				Status:    "active",
+				StartDate: timestamppb.Now(),
+				EndDate:   timestamppb.Now(),
+				PlanData: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"duration_weeks": {Kind: &structpb.Value_NumberValue{NumberValue: 4}},
+					"training_goal":  {Kind: &structpb.Value_StringValue{StringValue: "goal"}},
+				}},
+			},
+		},
+		Total: 1,
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/plans", nil)
+
+	g.listPlansHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "plans")
+}
+
+func TestTraining_UnmarshalPlanData_MarshalError(t *testing.T) {
+	planData := &structpb.Struct{Fields: map[string]*structpb.Value{"k": nil}}
+
+	result, err := unmarshalPlanData(planData)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestTraining_CompleteWorkoutHandler_InvalidJSON(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/training/workouts/complete", bytes.NewReader([]byte(`{invalid`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	g.completeWorkoutHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestTraining_GetProgressHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.progressErr = grpcError(codes.Internal, "internal error")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/progress", nil)
+
+	g.getProgressHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestTraining_GetPlanHandler_GetTrainingClientError(t *testing.T) {
+	g := newTestGateway()
+
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("plan_id", "plan-1")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/api/v1/training/plans/plan-1", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	g.getPlanHandler(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestTraining_GetPlanHandler_WithDates(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.plans["plan-1"] = &trainingpb.TrainingPlan{
+		Id:        "plan-1",
+		UserId:    "user-123",
+		Status:    "active",
+		PlanData:  &structpb.Struct{Fields: map[string]*structpb.Value{}},
+		StartDate: timestamppb.Now(),
+		EndDate:   timestamppb.Now(),
+	}
+
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("plan_id", "plan-1")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/api/v1/training/plans/plan-1", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	g.getPlanHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "plan_id")
+}
+
+func TestTraining_GetAchievementsHandler_GRPCError(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "internal error")}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "GET", "/api/v1/training/achievements", nil)
+
+	g.getAchievementsHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

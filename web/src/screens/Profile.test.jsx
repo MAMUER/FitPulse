@@ -283,4 +283,31 @@ describe('Profile', () => {
     renderProfile(baseContext());
     expect(screen.getByText('mih@example.com')).toBeInTheDocument();
   });
+
+  it('saves profile with missing fields as empty strings', async () => {
+    const user = userEvent.setup();
+    const saveProfile = vi.fn().mockResolvedValue({});
+    renderProfile(
+      baseContext({
+        state: {
+          screen: 'profile',
+          theme: 'dark',
+          highContrast: false,
+          language: 'ru',
+          profile: { email: 'mih@example.com', twoFactor: false },
+        },
+        saveProfile,
+      })
+    );
+    await user.click(screen.getByText('Сохранить профиль'));
+    await waitFor(() => {
+      expect(saveProfile).toHaveBeenCalledWith({
+        full_name: '',
+        gender: '',
+        phone: '',
+        bio: '',
+        status: '',
+      });
+    });
+  });
 });

@@ -3,7 +3,7 @@ set -euo pipefail
 
 install_gosec() {
 	echo "-> Installing gosec..."
-	go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
 }
 
 install_govulncheck() {
@@ -158,7 +158,7 @@ run_checkov() {
 	# checkov 3.3.9 only has --output-file-path (a folder); the SARIF lands as
 	# results_sarif.sarif inside it and is renamed for the upload step.
 	checkov --directory configs/k8s --directory scripts --output sarif \
-		--output-file-path sarif-results --compact || status=$?
+		--output-file-path sarif-results --compact --quiet || status=$?
 
 	# checkov writes results_sarif.sarif inside the output folder; the upload
 	# step expects the fixed name.

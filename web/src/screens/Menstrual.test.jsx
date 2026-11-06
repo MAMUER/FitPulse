@@ -428,4 +428,35 @@ describe('Menstrual', () => {
       expect(context.notify).toHaveBeenCalledWith('Ошибка загрузки цикла')
     );
   });
+
+  it('edits cycle with missing optional fields', async () => {
+    const user = userEvent.setup();
+    const context = createContext();
+    renderMenstrual(context);
+    expect(
+      await screen.findByText('2026-01-05 \u2192 2026-01-09')
+    ).toBeInTheDocument();
+    await user.click(screen.getAllByText('Изменить')[1]);
+    expect(document.getElementById('start_date').value).toBe('2025-12-01');
+    expect(document.getElementById('end_date').value).toBe('');
+    expect(document.getElementById('flow_intensity').value).toBe('light');
+    expect(document.getElementById('symptoms').value).toBe('');
+    expect(document.getElementById('moods').value).toBe('');
+    expect(document.getElementById('notes').value).toBe('');
+  });
+
+  it('renders empty state when menstrualCycles is null', async () => {
+    const context = createContext({
+      state: {
+        screen: 'menstrual',
+        theme: 'dark',
+        highContrast: false,
+        language: 'ru',
+        menstrualCycles: null,
+      },
+      loadMenstrualCycles: vi.fn().mockResolvedValue({ cycles: [] }),
+    });
+    renderMenstrual(context);
+    expect(await screen.findByText('Нет записей')).toBeInTheDocument();
+  });
 });

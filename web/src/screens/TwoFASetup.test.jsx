@@ -34,4 +34,11 @@ describe('TwoFASetup', () => {
     });
     expect(screen.getByLabelText('Секрет')).toBeInTheDocument();
   });
+
+  it('renders QR code when provided', () => {
+    const confirm2FA = vi.fn();
+    useApp.mockReturnValue({ confirm2FA, t: (ru, _en) => ru });
+    render(<TwoFASetup initialQrCode='AAAA' />);
+    expect(screen.getByAltText('QR')).toBeInTheDocument();
+  });
 });

@@ -48,4 +48,23 @@ describe('Body', () => {
     fireEvent.click(screen.getByText('На главную'));
     expect(go).toHaveBeenCalledWith('home');
   });
+
+  it('renders history record without recorded_at or id', () => {
+    const loadBodyComposition = vi.fn();
+    const saveBodyComposition = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        height: 170,
+        weight: 70,
+        bodyComposition: [{ weight_kg: 70, bmi: 24.2 }],
+      },
+      t: (ru, _en) => ru,
+      go,
+      loadBodyComposition,
+      saveBodyComposition,
+    });
+    render(<Body />);
+    expect(screen.getByText('70 кг · ИМТ 24.2')).toBeInTheDocument();
+  });
 });

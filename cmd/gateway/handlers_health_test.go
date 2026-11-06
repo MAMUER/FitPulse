@@ -232,3 +232,15 @@ func TestHealth_HandlerWithBiometricAndTrainingClients(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "biometric")
 	assert.Contains(t, w.Body.String(), "training")
 }
+func TestHealth_CheckTCPServiceCloseErrorLogged(t *testing.T) {
+	orig := closeHealthConn
+	defer func() { closeHealthConn = orig }()
+	closeHealthConn = func(conn net.Conn) error { return assert.AnError }
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer func() { _ = lis.Close() }()
+
+	got := checkTCPService(zap.NewNop(), lis.Addr().String())
+	assert.Equal(t, "up", got)
+}

@@ -186,3 +186,9 @@ func TestServeShutsDownOnContextCancellation(t *testing.T) {
 		t.Fatal("serveWithContext did not return after context cancellation")
 	}
 }
+func TestCreateMetricsServer(t *testing.T) {
+	srv := CreateMetricsServer("9090")
+	assert.NotNil(t, srv)
+	assert.Equal(t, ":9090", srv.Addr)
+	assert.NotNil(t, srv.Handler)
+}

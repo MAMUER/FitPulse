@@ -31,4 +31,13 @@ describe('TwoFAVerify', () => {
     await waitFor(() => expect(verify2FA).toHaveBeenCalled());
     expect(verify2FA).toHaveBeenCalledWith('abc123', '654321', true);
   });
+
+  it('renders without temp_token in URL', () => {
+    delete window.location;
+    window.location = { search: '' };
+    const verify2FA = vi.fn();
+    useApp.mockReturnValue({ verify2FA, t: (ru, _en) => ru });
+    render(<TwoFAVerify />);
+    expect(screen.getByText('Двухфакторная аутентификация')).toBeInTheDocument();
+  });
 });

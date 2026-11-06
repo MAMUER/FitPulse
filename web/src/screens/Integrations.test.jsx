@@ -95,4 +95,41 @@ describe('Integrations', () => {
       expect(notify).toHaveBeenCalledWith('Не удалось изменить интеграцию')
     );
   });
+
+  it('uses source as title when source_name missing', async () => {
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([
+      { source: 'garmin', connected: false, connected_at: null },
+    ]);
+    const disconnectIntegration = vi.fn();
+    useApp.mockReturnValue({
+      notify: vi.fn(),
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
+    render(<Integrations />);
+    await screen.findByText('garmin');
+    expect(screen.getByText('garmin')).toBeInTheDocument();
+  });
+
+  it('leaves other providers unchanged when toggling one', async () => {
+    const loadIntegrationProviders = vi.fn().mockResolvedValue([
+      { source: 'a', source_name: 'A', connected: true, connected_at: null },
+      { source: 'b', source_name: 'B', connected: true, connected_at: null },
+    ]);
+    const disconnectIntegration = vi.fn().mockResolvedValue({});
+    const notify = vi.fn();
+    useApp.mockReturnValue({
+      notify,
+      t: (ru, _en) => ru,
+      loadIntegrationProviders,
+      disconnectIntegration,
+    });
+    render(<Integrations />);
+    await screen.findAllByText('Отключить');
+    const buttons = screen.getAllByText('Отключить');
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Интеграция отключена'));
+    expect(screen.getAllByText('Отключить')).toHaveLength(1);
+  });
 });

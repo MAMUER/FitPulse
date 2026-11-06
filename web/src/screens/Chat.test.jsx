@@ -39,4 +39,26 @@ describe('Chat', () => {
     fireEvent.click(screen.getByText('Отправить'));
     expect(sendChat).not.toHaveBeenCalled();
   });
+
+  it('renders without chatMessages', () => {
+    const sendChat = vi.fn();
+    useApp.mockReturnValue({
+      state: {},
+      t: (ru, _en) => ru,
+      sendChat,
+    });
+    render(<Chat />);
+    expect(screen.getByText('Чат с поддержкой')).toBeInTheDocument();
+  });
+
+  it('renders message without id', () => {
+    const sendChat = vi.fn();
+    useApp.mockReturnValue({
+      state: { chatMessages: [{ text: 'no-id', sent: true }] },
+      t: (ru, _en) => ru,
+      sendChat,
+    });
+    render(<Chat />);
+    expect(screen.getByText('no-id')).toBeInTheDocument();
+  });
 });

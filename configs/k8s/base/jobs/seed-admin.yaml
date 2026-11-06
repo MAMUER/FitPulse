@@ -49,7 +49,7 @@ spec:
       containers:
         - name: seed-admin
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
-          image: ghcr.io/mamuer/project/postgres-pgsodium:pg18
+          image: docker.m.daocloud.io/library/postgres:18-alpine
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

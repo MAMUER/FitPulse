@@ -164,4 +164,16 @@ describe('useSettings', () => {
     });
     expect(notify).toHaveBeenCalledWith('Не удалось изменить интеграцию');
   });
+
+  it('showRestrictions handles missing survey', () => {
+    setup({ survey: undefined });
+    result.current.showRestrictions();
+    expect(notify).toHaveBeenCalledWith('Аллергии: нет\nОграничения: нет');
+  });
+
+  it('nutritionSettings handles missing allergies', () => {
+    setup({ survey: { restrictions: [] } });
+    result.current.nutritionSettings();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('не указаны'));
+  });
 });

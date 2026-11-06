@@ -98,3 +98,16 @@ func TestValkeyAddressDefault(t *testing.T) {
 	// Порт фиксирован на 6379 (VALKEY_PORT не учитывается).
 	assert.Equal(t, "cache.internal:6379", valkeyAddress())
 }
+func TestCallClassifierInvalidURL(t *testing.T) {
+	g := newTestGateway()
+	g.classifierURL = "http://127.0.0.1:\x00"
+	_, err := g.callClassifier(context.Background(), []byte(`{}`))
+	assert.Error(t, err)
+}
+
+func TestCallClassifierConnectionError(t *testing.T) {
+	g := newTestGateway()
+	g.classifierURL = "http://127.0.0.1:1"
+	_, err := g.callClassifier(context.Background(), []byte(`{}`))
+	assert.Error(t, err)
+}

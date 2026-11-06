@@ -60,4 +60,37 @@ describe('Nutrition', () => {
     fireEvent.click(screen.getByText('Добавить блюдо'));
     await waitFor(() => expect(createMeal).toHaveBeenCalled());
   });
+
+  it('renders meals with missing fields and null list', () => {
+    const loadMeals = vi.fn();
+    const createMeal = vi.fn();
+    const removeMeal = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        mealsList: [{ name: 'Без данных' }],
+        calorieGoal: null,
+      },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      loadMeals,
+      createMeal,
+      removeMeal,
+    });
+    render(<Nutrition />);
+    expect(screen.getByText('Без данных')).toBeInTheDocument();
+  });
+
+  it('renders empty state when mealsList is null', () => {
+    const loadMeals = vi.fn();
+    useApp.mockReturnValue({
+      state: { mealsList: null },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      loadMeals,
+      createMeal: vi.fn(),
+      removeMeal: vi.fn(),
+    });
+    render(<Nutrition />);
+    expect(screen.getByText('Нет блюд')).toBeInTheDocument();
+  });
 });

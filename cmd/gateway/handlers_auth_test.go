@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2816,11 +2817,11 @@ func TestAuth_FetchYandexUserInfo_HTTPError(t *testing.T) {
 	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
 }
 
-func TestAuth_FetchYandexUserInfo_DecodeError(t *testing.T) {
+func TestAuth_FetchYandexUserInfo_DecodeError2(t *testing.T) {
 	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
 }
 
-func TestAuth_FetchYandexUserInfo_MissingFields(t *testing.T) {
+func TestAuth_FetchYandexUserInfo_MissingFields2(t *testing.T) {
 	t.Skip("fetchYandexUserInfo calls external Yandex API, not mockable")
 }
 
@@ -2855,4 +2856,265 @@ func TestAuth_WriteSessionCookies_JWTFailure(t *testing.T) {
 	g.writeSessionCookies(context.Background(), w, "user-123")
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+// ========== Additional coverage for uncovered auth lines ==========
+
+type yandexTransportFunc func(*http.Request) (*http.Response, error)
+
+func (f yandexTransportFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+type closeErrReadCloser struct {
+	*bytes.Reader
+}
+
+func (closeErrReadCloser) Close() error { return errors.New("close failed") }
+
+func TestAuth_CountOverLimit_TypeAssertionFalse(t *testing.T) {
+	g := newTestGateway()
+	g.totpRateLimiters.Store("bad-key", "not-a-limiter")
+	assert.False(t, countOverLimit(g, "bad-key"))
+}
+
+func TestAuth_CriticalSessionHandler_CreateError(t *testing.T) {
+	g := newTestGateway()
+	g.sessionStore = cache.NewSessionStoreFromRedis(redis.NewClient(&redis.Options{Addr: "localhost:99999"}))
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/", nil)
+	g.criticalSessionHandler(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_CriticalSessionHandler_EncodeFailure(t *testing.T) {
+	g := authGatewayWithSession(t)
+	w := &authFailingWriter{}
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/", nil)
+	g.criticalSessionHandler(w, req)
+}
+
+func TestAuth_LogoutHandler_SessionInvalidateError(t *testing.T) {
+	g := newTestGateway()
+	g.sessionStore = cache.NewSessionStoreFromRedis(redis.NewClient(&redis.Options{Addr: "localhost:99999"}))
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.WithValue(context.Background(), middleware.UserIDKey, "user-123"), "POST", "/api/v1/logout", nil)
+	g.logoutHandler(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAuth_InvalidateAllUserSessions_SessionStoreError(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.sessionStore = cache.NewSessionStoreFromRedis(redis.NewClient(&redis.Options{Addr: "localhost:99999"}))
+	g.invalidateAllUserSessions(context.Background(), "user-123")
+}
+
+func TestAuth_InvalidateAllUserSessions_ScanError(t *testing.T) {
+	g := newTestGateway()
+	g.valkeyDB = redis.NewClient(&redis.Options{Addr: "localhost:99999"})
+	g.invalidateAllUserSessions(context.Background(), "user-123")
+}
+
+func TestAuth_RotateRefreshToken_IssueJWTError(t *testing.T) {
+	g := authValkeyGateway(t)
+	ctx := context.Background()
+	token, err := g.issueRefreshToken(ctx, "user-123")
+	require.NoError(t, err)
+	g.tokenProvider = authBrokenTokenProvider{}
+	access, refresh, rerr := g.rotateRefreshToken(ctx, token)
+	assert.Empty(t, access)
+	assert.Empty(t, refresh)
+	require.Error(t, rerr)
+}
+
+func TestAuth_YandexLoginHandler_GenerateStateError(t *testing.T) {
+	orig := generateOAuthState
+	generateOAuthState = func() (string, error) { return "", errors.New("boom") }
+	t.Cleanup(func() { generateOAuthState = orig })
+	g := newTestGateway()
+	withOAuth(g)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex", nil)
+	g.yandexLoginHandler(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAuth_FetchYandexUserInfo_NetworkError(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, errors.New("network down")
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	_, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch user info")
+}
+
+func TestAuth_FetchYandexUserInfo_StatusError(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(bytes.NewReader(nil)), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	_, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user info returned status")
+}
+
+func TestAuth_FetchYandexUserInfo_DecodeErrorCover(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{invalid`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	_, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode user info")
+}
+
+func TestAuth_FetchYandexUserInfo_MissingFieldsCover(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"","default_email":""}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	_, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user info missing required fields")
+}
+
+func TestAuth_FetchYandexUserInfo_CloseError(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: closeErrReadCloser{Reader: bytes.NewReader([]byte(`{"id":"y1","default_email":"a@b.com"}`))}, Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	info, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.NoError(t, err)
+	assert.Equal(t, "y1", info.ID)
+}
+
+func TestAuth_FetchYandexUserInfo_Success(t *testing.T) {
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"y1","login":"l","default_email":"a@b.com"}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	g := newTestGateway()
+	info, err := g.fetchYandexUserInfo(context.Background(), "token")
+	require.NoError(t, err)
+	assert.Equal(t, "y1", info.ID)
+}
+
+func TestAuth_YandexCallbackHandler_SuccessPath(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		_, _ = w.Write([]byte(`{"access_token":"yandex-access","token_type":"bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	g := authValkeyGateway(t)
+	g.userClient = &mockUserServiceClient{}
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		if strings.Contains(req.URL.String(), tokenServer.URL) {
+			return orig.RoundTrip(req)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"y1","login":"l","default_email":"a@b.com"}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	g.yandexCallbackHandler(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "user_id")
+}
+
+func TestAuth_YandexCallbackHandler_TOTPEnabledPath(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		_, _ = w.Write([]byte(`{"access_token":"yandex-access","token_type":"bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	g := authValkeyGateway(t)
+	g.userClient = &totpEnabledUserClient{}
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		if strings.Contains(req.URL.String(), tokenServer.URL) {
+			return orig.RoundTrip(req)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"y1","login":"l","default_email":"a@b.com"}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	g.yandexCallbackHandler(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "requires_2fa")
+}
+
+func TestAuth_WriteSessionCookies_RefreshWarn(t *testing.T) {
+	g := authValkeyGateway(t)
+	g.valkeyDB = nil
+	w := httptest.NewRecorder()
+	g.writeSessionCookies(context.Background(), w, "user-123")
+}
+func TestAuth_YandexCallbackHandler_EncodeFailure(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		_, _ = w.Write([]byte(`{"access_token":"yandex-access","token_type":"bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	g := authValkeyGateway(t)
+	g.userClient = &mockUserServiceClient{}
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		if strings.Contains(req.URL.String(), tokenServer.URL) {
+			return orig.RoundTrip(req)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"y1","login":"l","default_email":"a@b.com"}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+
+	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	g.yandexCallbackHandler(w, req)
 }

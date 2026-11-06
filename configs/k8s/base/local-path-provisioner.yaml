@@ -91,7 +91,8 @@ data:
         ;;
       esac
     done
-    mkdir -m 0777 -p ${ABS_PATH}
+    mkdir -p ${ABS_PATH}
+    chmod 0777 ${ABS_PATH}
   teardown: |
     #!/bin/sh
     while getopts "m:s:p:" opt

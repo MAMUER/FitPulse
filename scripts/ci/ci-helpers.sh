@@ -69,6 +69,7 @@ run_coverage() {
 	cd ..
 
 	echo "-> Running Python tests with coverage..."
+	python -m pip install --only-binary :all: coverage 2>/dev/null || python -m pip install --only-binary :all: coverage
 	cd cmd/ml_generator
 	python -m coverage run --source=. -m unittest gan_train_test 2>&1
 	PY_TEST_EXIT=$?

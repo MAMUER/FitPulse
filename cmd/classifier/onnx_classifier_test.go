@@ -99,3 +99,10 @@ func TestDefaultONNXWeightsPath_Default(t *testing.T) {
 	p := DefaultONNXWeightsPath()
 	assert.Contains(t, p, "classifier_weights.json")
 }
+func TestDefaultONNXWeightsPath_GetwdError(t *testing.T) {
+	orig := getwd
+	defer func() { getwd = orig }()
+	getwd = func() (string, error) { return "", os.ErrNotExist }
+	p := DefaultONNXWeightsPath()
+	assert.Contains(t, p, "classifier_weights.json")
+}

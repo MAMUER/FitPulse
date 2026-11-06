@@ -40,6 +40,9 @@ func checkGRPCService(conn *grpc.ClientConn, serviceName string) string {
 // checkTCPService performs a simple TCP dial to check if the service port is open.
 // This is used as a fallback when gRPC health check is not available or for
 // services that use lazy client initialization (biometric, training).
+// closeHealthConn is overridable for testing.
+var closeHealthConn = func(conn net.Conn) error { return conn.Close() }
+
 func checkTCPService(log *zap.Logger, addr string) string {
 	if addr == "" {
 		return statusDown
@@ -54,7 +57,7 @@ func checkTCPService(log *zap.Logger, addr string) string {
 		return statusDown
 	}
 	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
+		if closeErr := closeHealthConn(conn); closeErr != nil {
 			log.Warn("Failed to close health probe connection", zap.Error(closeErr))
 		}
 	}()

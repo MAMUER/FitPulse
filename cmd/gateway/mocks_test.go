@@ -111,6 +111,7 @@ type mockTrainingClient struct {
 	listResp    *trainingpb.ListPlansResponse
 	progress    *trainingpb.GetProgressResponse
 	completeErr error
+	progressErr error
 	getErr      error
 	listErr     error
 	generateErr error
@@ -162,6 +163,9 @@ func (m *mockTrainingClient) CompleteWorkout(ctx context.Context, req *trainingp
 }
 
 func (m *mockTrainingClient) GetProgress(ctx context.Context, req *trainingpb.GetProgressRequest, opts ...grpc.CallOption) (*trainingpb.GetProgressResponse, error) {
+	if m.progressErr != nil {
+		return nil, m.progressErr
+	}
 	if m.progress != nil {
 		return m.progress, nil
 	}

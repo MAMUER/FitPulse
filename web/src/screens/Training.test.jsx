@@ -216,4 +216,17 @@ describe('Training', () => {
     await user.click(screen.getByText('Планы'));
     expect(screen.getByText('Создать план')).toBeInTheDocument();
   });
+
+  it('uses empty subtitle when no training goal present', () => {
+    const plans = [
+      makePlan({
+        plan_id: 'p1',
+        training_goal: null,
+        plan_data: { name: 'Без цели' },
+      }),
+    ];
+    renderTraining(baseContext({ state: { trainingPlans: plans } }));
+    expect(screen.getByText('Без цели')).toBeInTheDocument();
+  });
+
 });

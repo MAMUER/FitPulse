@@ -106,4 +106,78 @@ describe('Calendar', () => {
       await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
     }
   });
+
+  it('handles empty title in add event', async () => {
+    const loadCalendarEvents = vi.fn();
+    const addEvent = vi.fn().mockResolvedValue({});
+    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
+    useApp.mockReturnValue({
+      state: { language: 'ru', calendarEventsList: [] },
+      t: (ru, _en) => ru,
+      addEvent,
+      deleteCalendarEvent,
+      loadCalendarEvents,
+    });
+    render(<Calendar />);
+    const buttons = screen.getAllByRole('button');
+    const dayBtn = buttons.find(
+      (b) => b.className.includes('cal-cell') && !b.className.includes('cal-head')
+    );
+    if (dayBtn) fireEvent.click(dayBtn);
+    fireEvent.click(screen.getByText('Добавить событие'));
+    fireEvent.click(screen.getByText('Добавить'));
+    expect(addEvent).not.toHaveBeenCalled();
+  });
+
+  it('renders events with fallback fields and deletes', async () => {
+    const loadCalendarEvents = vi.fn();
+    const addEvent = vi.fn();
+    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
+    const today = new Date();
+    const dateStr = format(today, 'yyyy-MM-dd');
+    useApp.mockReturnValue({
+      state: {
+        language: 'ru',
+        calendarEventsList: [
+          {
+            date: dateStr,
+            title: 'Событие',
+            type: 'unknown',
+            description: '',
+          },
+        ],
+      },
+      t: (ru, _en) => ru,
+      addEvent,
+      deleteCalendarEvent,
+      loadCalendarEvents,
+    });
+    render(<Calendar />);
+    const buttons = screen.getAllByRole('button');
+    const dayBtn = buttons.find(
+      (b) =>
+        b.className.includes('cal-cell') && !b.className.includes('cal-head')
+    );
+    if (dayBtn) fireEvent.click(dayBtn);
+    const delButtons = screen.queryAllByText('Удалить');
+    if (delButtons.length > 0) {
+      fireEvent.click(delButtons[0]);
+      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
+    }
+  });
+
+  it('handles null calendarEventsList', () => {
+    const loadCalendarEvents = vi.fn();
+    const addEvent = vi.fn();
+    const deleteCalendarEvent = vi.fn();
+    useApp.mockReturnValue({
+      state: { language: 'ru' },
+      t: (ru, _en) => ru,
+      addEvent,
+      deleteCalendarEvent,
+      loadCalendarEvents,
+    });
+    render(<Calendar />);
+    expect(loadCalendarEvents).toHaveBeenCalled();
+  });
 });

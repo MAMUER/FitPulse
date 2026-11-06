@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-export default function Reset() {
+export default function Reset({ initialResetting = false }) {
   const { state, t, submitResetEmail, submitResetCode, submitNewPassword, go } =
     useApp();
   const step = state.resetStep || 0;
@@ -9,7 +9,7 @@ export default function Reset() {
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [sending, setSending] = useState(false);
-  const [resetting] = useState(false);
+  const [resetting] = useState(initialResetting);
 
   if (step === 0) {
     return (

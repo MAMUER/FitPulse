@@ -588,7 +588,7 @@ func newGatewayMetrics() gatewayMetrics {
 
 			prometheus.CounterOpts{
 
-				Name: "error_total",
+				Name: "gateway_http_error_total",
 
 				Help: "Total number of errors",
 			},

@@ -282,3 +282,22 @@ func TestGetEnvRequiredViper(t *testing.T) {
 		})
 	})
 }
+
+
+func TestLoadViper_ControlChars(t *testing.T) {
+	dir := t.TempDir()
+	// yaml with a control character (NUL) that viper's yaml parser rejects
+	bad := []byte("key: \"val\x00ue\"\n")
+	badFile := dir + string(os.PathSeparator) + "ctrl.yaml"
+	require.NoError(t, os.WriteFile(badFile, bad, 0644))
+
+	oldWd, errWd := os.Getwd()
+	require.NoError(t, errWd)
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { require.NoError(t, os.Chdir(oldWd)) })
+
+	v, err := LoadViper("ctrl")
+	t.Logf("err=%v", err)
+	require.NoError(t, err)
+	require.NotNil(t, v)
+}

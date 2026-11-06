@@ -81,6 +81,9 @@ create_secrets() {
 		echo "✅ app-secrets already exists"
 	fi
 
+	# Ensure POSTGRES_USER/PASSWORD/DB are present (fix empty/missing keys in pre-existing secrets)
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"POSTGRES_USER\":\"${POSTGRES_USER:-fitness_admin}\",\"POSTGRES_PASSWORD\":\"${POSTGRES_PASSWORD:-}\",\"POSTGRES_DB\":\"${POSTGRES_DB:-fitness}\"}}" >/dev/null 2>&1 || true
+
 	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
 

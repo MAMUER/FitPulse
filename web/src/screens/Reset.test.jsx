@@ -67,4 +67,30 @@ describe('Reset', () => {
     fireEvent.click(screen.getByText('Сохранить'));
     expect(submitNewPassword).toHaveBeenCalled();
   });
+
+  it('handles step 1 without resetEmail', () => {
+    useApp.mockReturnValue({
+      state: { resetStep: 1, resetEmail: null },
+      t: (ru, _en) => ru,
+      submitResetEmail: vi.fn(),
+      submitResetCode: vi.fn(),
+      submitNewPassword: vi.fn(),
+      go: vi.fn(),
+    });
+    render(<Reset />);
+    expect(screen.getByText('Код из письма')).toBeInTheDocument();
+  });
+
+  it('shows saving label when resetting', () => {
+    useApp.mockReturnValue({
+      state: { resetStep: 2 },
+      t: (ru, _en) => ru,
+      submitResetEmail: vi.fn(),
+      submitResetCode: vi.fn(),
+      submitNewPassword: vi.fn(),
+      go: vi.fn(),
+    });
+    render(<Reset initialResetting={true} />);
+    expect(screen.getByText('Сохранение...')).toBeInTheDocument();
+  });
 });
