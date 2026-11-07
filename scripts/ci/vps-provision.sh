@@ -260,39 +260,35 @@ echo 'k3s installed successfully'
 }
 
 preload_airgap_images() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-set -euo pipefail
-sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-K3S_VER=\$(k3s --version 2>/dev/null | head -1 | awk '{print \$3}')
-if [[ -z \"\${K3S_VER}\" ]]; then
-	echo 'ERROR: Could not detect k3s version'
-	exit 1
-fi
-echo \"-> Detected k3s version: \${K3S_VER}\"
-
-IMG_DIR=/var/lib/rancher/k3s/agent/images
-sudo mkdir -p \${IMG_DIR}
-
-echo '-> Downloading k3s airgap images bundle (contains local-path-provisioner & pause)...'
-wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3s-io/k3s/releases/download/\${K3S_VER}/k3s-airgap-images-amd64.tar.gz\"
-
-echo '-> Importing airgap images into containerd...'
-sudo /usr/local/bin/k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
-sudo rm -f /tmp/k3s-airgap.tar.gz
-
-done
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" '
-		for img in $(sudo /usr/local/bin/k3s ctr -n k8s.io images ls -q | grep "^docker.io/" || true); do
-			new_name="${img#docker.io/}"
-			sudo /usr/local/bin/k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
-		done
-	'
-echo '-> Restarting k3s to apply imported images...'
-sudo systemctl restart k3s
+	set -euo pipefail
 
-echo '-> Verifying images are loaded:'
-sudo /usr/local/bin/k3s crictl images | grep -E 'local-path-provisioner|pause' || true
-"
+	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
+
+	K3S_VER=$(k3s --version 2>/dev/null | head -1 | awk "{print $3}")
+	if [[ -z "${K3S_VER}" ]]; then
+		echo "ERROR: Could not detect k3s version. Is k3s installed?"
+		exit 1
+	fi
+
+	echo "-> Detected k3s version: ${K3S_VER}"
+
+	IMG_DIR=/var/lib/rancher/k3s/agent/images
+	sudo mkdir -p ${IMG_DIR}
+
+	echo "-> Downloading k3s airgap images bundle (contains local-path-provisioner & pause)..."
+	wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz "https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s-airgap-images-amd64.tar.gz"
+
+	echo "-> Importing airgap images into containerd..."
+	sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
+	sudo rm -f /tmp/k3s-airgap.tar.gz
+
+	echo "-> Restarting k3s to apply imported images..."
+	sudo systemctl restart k3s
+
+	echo "-> Verifying images are loaded:"
+	sudo k3s crictl images | grep -E "local-path-provisioner|pause" || true
+	'
 }
 
 wait_for_critical_pods() {
