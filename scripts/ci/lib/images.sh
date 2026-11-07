@@ -15,6 +15,7 @@ PROBLEM_IMAGES=(
 	"docker.elastic.co/kibana/kibana:8.12.0"
 	"docker.elastic.co/logstash/logstash:8.12.0"
 	"docker.io/otel/opentelemetry-collector:0.91.0"
+	"docker.io/rancher/mirrored-pause:3.10.2"
 )
 
 import_problem_images() {
