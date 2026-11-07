@@ -5,7 +5,7 @@ build_go_services() {
 	# gateway and device-aggregator keep their own Dockerfiles (web-builder stage
 	# and Debian base respectively); the rest share Dockerfile.service.
 	SHA=$(git rev-parse --short HEAD)
-	for svc in user-service biometric-service training-service gateway device-aggregator; do
+	for svc in user-service biometric-service training-service data-processor gateway device-aggregator; do
 		echo "Building $svc..."
 		dockerfile="Dockerfile.service"
 		build_args=()
@@ -13,6 +13,7 @@ build_go_services() {
 		user-service) build_args=(--build-arg SERVICE=user-service --build-arg PORTS=50051) ;;
 		biometric-service) build_args=(--build-arg SERVICE=biometric-service --build-arg PORTS=50052) ;;
 		training-service) build_args=(--build-arg SERVICE=training-service --build-arg PORTS=50053) ;;
+		data-processor) build_args=(--build-arg SERVICE=data-processor --build-arg PORTS=8084) ;;
 		gateway) dockerfile="cmd/gateway/Dockerfile" ;;
 		device-aggregator) dockerfile="cmd/device-aggregator/Dockerfile" ;;
 		*)

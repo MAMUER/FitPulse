@@ -109,6 +109,8 @@ spec:
               value: "false"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: JWT_PRIVATE_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
             - name: JWT_PUBLIC_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

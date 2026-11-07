@@ -80,6 +80,13 @@ create_secrets() {
 	else
 		echo "✅ app-secrets already exists"
 	fi
+	# Ensure JWT keys exist in app-secrets even if the secret was created earlier
+	# without them (prevents CrashLoopBackOff in gateway/user-service).
+	if ! kubectl get secret app-secrets -n fitness-platform-production -o jsonpath='{.data.JWT_PRIVATE_KEY_PEM}' 2>/dev/null | grep -q .; then
+		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
+		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
+		kubectl patch secret app-secrets -n fitness-platform-production --type merge -p "{\"data\":{\"JWT_PRIVATE_KEY_PEM\":\"$(printf '%s' "$JWT_PRIV" | base64 -w0)\",\"JWT_PUBLIC_KEY_PEM\":\"$(printf '%s' "$JWT_PUB" | base64 -w0)\"}}" >/dev/null 2>&1 || true
+	fi
 
 	# Ensure POSTGRES_USER/PASSWORD/DB are present (fix empty/missing keys in pre-existing secrets)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"POSTGRES_USER\":\"${POSTGRES_USER:-fitness_admin}\",\"POSTGRES_PASSWORD\":\"${POSTGRES_PASSWORD:-}\",\"POSTGRES_DB\":\"${POSTGRES_DB:-fitness}\"}}" >/dev/null 2>&1 || true
