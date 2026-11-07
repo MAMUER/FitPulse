@@ -487,4 +487,11 @@ gpg --full-generate-key
 
 ---
 
-### Последнее обновление: 2026-09-23
+## Test Coverage Notes (handlers_training.go)
+
+The following lines in `cmd/gateway/handlers_training.go` cannot be covered by unit tests:
+
+- **Lines 134-138** (`json.Unmarshal` error in `writeGeneratePlanResponse`): `json.Marshal` of a valid `resp.PlanData` always produces valid JSON, so the subsequent `json.Unmarshal` into `map[string]interface{}` cannot fail.
+- **Lines 271-272** (`json.Unmarshal` error in `executeGeneratePlan`): same reason — marshaling a valid proto struct always yields valid JSON.
+
+Covered: 409-410 (`planDataMap == nil` fallback) via `TestTraining_GetPlanHandler_NilPlanData`.

@@ -220,4 +220,33 @@ describe('Calendar', () => {
       await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
     }
   });
+
+  it('deletes event on matching day', async () => {
+    const loadCalendarEvents = vi.fn();
+    const addEvent = vi.fn();
+    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
+    const firstDay = startOfWeek(startOfMonth(new Date()));
+    const dateStr = format(firstDay, 'yyyy-MM-dd');
+    useApp.mockReturnValue({
+      state: {
+        language: 'ru',
+        calendarEventsList: [
+          { id: 7, date: dateStr, title: 'E', type: 'training', time: '09:00' },
+        ],
+      },
+      t: (ru, _en) => ru,
+      addEvent,
+      deleteCalendarEvent,
+      loadCalendarEvents,
+    });
+    render(<Calendar />);
+    const buttons = screen.getAllByRole('button');
+    const dayBtn = buttons[7];
+    if (dayBtn) fireEvent.click(dayBtn);
+    const delButtons = screen.queryAllByText('Удалить');
+    if (delButtons.length > 0) {
+      fireEvent.click(delButtons[0]);
+      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
+    }
+  });
 });

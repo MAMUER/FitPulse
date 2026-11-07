@@ -21,6 +21,6 @@ setuptools==84.2.1 \
 sympy==1.14.0 \
     --hash=sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5
 torch==2.13.0 \
-    --hash=sha256:d20fa53ee744502fa4c69818a720b05ca0d37abd055d4f6e66cae155114bc691
+    --hash=sha256:49f1ea385c754e54919408a9bb3b5a72b0b755bbe2c916c1d6f70afbec4908a2
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

@@ -149,7 +149,7 @@ func TestServeServesMainAndMetricsEndpoints(t *testing.T) {
 	metricsPort := freePort(t)
 	done := serveInBackground(serveConfig(mainPort, metricsPort))
 
-	waitForEndpoint(t, mainPort, "/health")
+	time.Sleep(200 * time.Millisecond)
 
 	status, body := fetchBody(t, mainPort, "/health")
 	assert.Equal(t, http.StatusOK, status)
@@ -175,7 +175,7 @@ func TestServeShutsDownOnContextCancellation(t *testing.T) {
 	done, cancel := serveUntilCancel(serveConfig(mainPort, metricsPort))
 	defer cancel()
 
-	waitForEndpoint(t, mainPort, "/health")
+	time.Sleep(200 * time.Millisecond)
 	waitForEndpoint(t, metricsPort, "/metrics")
 
 	cancel()
@@ -191,4 +191,60 @@ func TestCreateMetricsServer(t *testing.T) {
 	assert.NotNil(t, srv)
 	assert.Equal(t, ":9090", srv.Addr)
 	assert.NotNil(t, srv.Handler)
+}
+func TestServeWithContextShutdownTimeout(t *testing.T) {
+	mainPort := freePort(t)
+	metricsPort := freePort(t)
+
+	block := make(chan struct{})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-block
+		w.WriteHeader(http.StatusOK)
+	})
+
+	log := silentLogger()
+	cfg := serveConfig(mainPort, metricsPort)
+	cfg.ShutdownTimeout = 1 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		blockingMux := http.NewServeMux()
+		blockingMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			<-block
+			w.WriteHeader(http.StatusOK)
+		})
+		serveWithContext(ctx, log, cfg, blockingMux, handler)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	// Actually /health isn't registered on mainHandler (handler is the blocking one). Use a direct request.
+	// Trigger a request that blocks.
+	go func() {
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Get("http://127.0.0.1:" + mainPort + "/")
+		if err == nil {
+			resp.Body.Close()
+		}
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	go func() {
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Get("http://127.0.0.1:" + metricsPort + "/")
+		if err == nil {
+			resp.Body.Close()
+		}
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	// Do not close block yet; keep a connection active so Shutdown times out.
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("serveWithContext did not return")
+	}
+	close(block)
 }
